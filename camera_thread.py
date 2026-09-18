@@ -56,8 +56,11 @@ def _open_local_camera():
         if cam_id in tried:
             continue
         tried.append(cam_id)
-        cap = cv2.VideoCapture(cam_id)
+        # V4L2 backend explicitly: OpenCV's GStreamer default takes ~6 s to
+        # open a USB webcam on the Pi and spams warnings; V4L2 opens instantly
+        cap = cv2.VideoCapture(cam_id, cv2.CAP_V4L2)
         if cap.isOpened():
+            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
             cap.set(cv2.CAP_PROP_FRAME_WIDTH,  FRAME_WIDTH)
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
             cap.set(cv2.CAP_PROP_FPS,          FPS)

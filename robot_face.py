@@ -29,13 +29,22 @@ import math
 import random
 import time
 from shared_state import state
-from config import RENDER_FPS, FACE_STYLE
+from config import (RENDER_FPS, FACE_STYLE, SCREEN_WIDTH, SCREEN_HEIGHT,
+                    FULLSCREEN, HIDE_CURSOR)
 
-WIDTH  = 1400
-HEIGHT = 800
+# The face geometry below is in absolute pixels and was drawn for a 1400x800
+# window; it fits the 800x480 DSI panel as-is (~560x400 used), just larger
+# relative to the screen — which suits a desktop-robot face.
+WIDTH  = SCREEN_WIDTH
+HEIGHT = SCREEN_HEIGHT
 
 BG        = (0, 0, 0)
 PUPIL_COL = (0, 0, 0)
+
+# On the 800x480 panel the mouth would kiss the bottom edge: lift the face a
+# little and keep the conversation-window dot (below the mouth) on-screen.
+FACE_Y_OFFSET = -28 if HEIGHT < 600 else 0
+AWAKE_DOT_Y   = min(265, HEIGHT - (HEIGHT // 2 + FACE_Y_OFFSET) - 25)
 
 # ── Face styles ───────────────────────────────────────────────────────────────
 # Style 1 — "luna":  the classic soft purple face (rounded, organic mouth)
@@ -816,8 +825,11 @@ class RobotFace:
 
     def __init__(self):
         pygame.init()
-        self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
+        flags = pygame.FULLSCREEN if FULLSCREEN else 0
+        self.screen = pygame.display.set_mode((WIDTH, HEIGHT), flags)
         pygame.display.set_caption("Luna")
+        if HIDE_CURSOR:
+            pygame.mouse.set_visible(False)
         self.clock  = pygame.time.Clock()
 
         self.state        = "neutral"
@@ -825,7 +837,7 @@ class RobotFace:
         self.prev_state   = "neutral"
 
         self.face_cx   = float(WIDTH  // 2)
-        self.face_cy   = float(HEIGHT // 2)
+        self.face_cy   = float(HEIGHT // 2 + FACE_Y_OFFSET)
         self.face_ox   = 0.0
         self.face_oy   = 0.0
         self.target_ox = 0.0
@@ -988,6 +1000,8 @@ class RobotFace:
             tw, th = 230, 175
         elif emotion == "love":
             tw, th = 200, 150
+        elif emotion == "thinking":
+            tw, th = 168, 112
         else:
             tw, th = 175, 125
 
@@ -1070,6 +1084,17 @@ class RobotFace:
             self.pupil_ox  = lerp(self.pupil_ox, 0.0, 0.05)
             self.pupil_oy  = lerp(self.pupil_oy, 0.0, 0.05)
             self.target_tilt = 0.0
+
+        elif emotion == "thinking":
+            # pondering: pupils glance up and slowly wander side to side,
+            # head tips a touch — the classic "hmm" look
+            self.think_phase = getattr(self, "think_phase", 0.0) + 0.035
+            tx = 26 * math.sin(self.think_phase)
+            self.target_ox   = tx * 0.6
+            self.target_oy   = -12.0
+            self.pupil_ox    = lerp(self.pupil_ox, tx, 0.08)
+            self.pupil_oy    = lerp(self.pupil_oy, -22.0, 0.08)
+            self.target_tilt = -4.0
 
         elif look_dir is not None:
             FACE_SHIFT  = 60
@@ -1277,6 +1302,8 @@ class RobotFace:
                 # main.py's finally block handles the full clean shutdown
                 raise SystemExit
             if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    raise SystemExit
                 if event.key in (pygame.K_1, pygame.K_KP1):
                     apply_style(1)
                 elif event.key in (pygame.K_2, pygame.K_KP2):
@@ -1347,7 +1374,7 @@ class RobotFace:
                                (r * 2, r * 2), r * 2)          # halo
             pygame.draw.circle(dot, (*AWAKE_COL, a),
                                (r * 2, r * 2), r)              # core
-            base.blit(dot, (fcx - r * 2, fcy + 265 - r * 2))
+            base.blit(dot, (fcx - r * 2, fcy + AWAKE_DOT_Y - r * 2))
 
         # ── wake ripple ───────────────────────────────────────────────────
         if self.wake_anim == self._WAKE_ACTIVE:

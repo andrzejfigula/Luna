@@ -2,21 +2,13 @@
 """
 text_to_speech.py — Luna TTS system
 
-Voice output is produced by **Piper** (offline neural TTS) via piper_tts.py:
-Piper renders the text to a wav, then TTS_PLAYER (paplay) plays it. See the
-README "Piper voice (TTS)" section for install/config.
+Voice output is produced by OpenAI TTS via openai_tts.py (streamed PCM into
+a blocking player). The player subprocess blocks until playback actually
+completes, which keeps the mic-blocking + echo protection correct.
 
-Why Piper (and why pyttsx3 was removed):
-  - pyttsx3 returned from runAndWait() immediately on Debian 13 + PipeWire, so
-    Luna "finished" speaking before the audio played — the mic opened early and
-    echo protection failed ("[TTS] engine returned early (0.0s...)").
-  - Piper's player subprocess blocks until playback actually completes, which
-    keeps the mic-blocking + echo protection correct.
-
-Everything around the engine is unchanged:
+Everything around the engine:
   - speaking state lock          - talking mouth animation
-  - microphone blocking          - talking servo bob
-  - echo protection
+  - microphone blocking          - echo protection
 """
 
 import sys
@@ -25,10 +17,9 @@ import time
 import random
 import math
 import subprocess
-from piper_tts import tts
+from openai_tts import tts
 
 from shared_state import state
-from servo_module import servo
 from config import (
     TTS_RATE,
     MIC_BLOCK_AFTER_SPEAK,
@@ -39,28 +30,22 @@ from config import (
 # TTS ENGINE
 # ============================================================================
 #
-# pyttsx3 was intentionally removed (see module docstring).
-#
-# Now (streaming — see piper_tts.py):
-#
-#   piper --output_raw  ->  player (raw stdin)
+#   OpenAI pcm stream  ->  player (raw stdin)
 #        |
 #        v
-#   playback starts on the FIRST synthesised chunk (sub-second), and
-#   on_audio_start fires at that exact moment so lips + servo bob begin
-#   in sync with the sound — not seconds before it.
+#   playback starts on the FIRST streamed chunk, and on_audio_start fires
+#   at that exact moment so the mouth begins in sync with the sound.
 #
 # ============================================================================
 
 
 def _on_audio_start():
-    """Called by piper_tts the instant real audio begins playing."""
+    """Called by the TTS engine the instant real audio begins playing."""
     with state.lock:
         state.audio_playing = True
-    servo.talk_start()
 
 
-def _piper_speak(text):
+def _engine_speak(text):
 
     tts.speak(text, on_audio_start=_on_audio_start)
 
@@ -186,22 +171,18 @@ def speak(text, can_drop=False):
 
 
         # ------------------------------------------------------------
-        # ACTUAL SPEECH — Piper streams; playback starts on the first
-        # synthesised chunk. The talking servo bob and the mouth animation
-        # are both started from _on_audio_start() at the exact moment sound
-        # begins, so there's no silent lip-flap while Piper synthesises.
+        # ACTUAL SPEECH — streamed; playback starts on the first chunk.
+        # The mouth animation is started from _on_audio_start() at the
+        # exact moment sound begins, so there's no silent lip-flap.
         # ------------------------------------------------------------
 
         speech_start = time.time()
 
-        _piper_speak(text)
+        _engine_speak(text)
 
 
 
     finally:
-
-        # stop the talking bob first so the arms ease back to rest immediately
-        servo.talk_stop()
 
         elapsed = time.time() - speech_start
 
@@ -222,7 +203,7 @@ def speak(text, can_drop=False):
 
 
 
-            # Since Piper's player blocks until playback finishes,
+            # Since the player blocks until playback finishes,
             # only normal echo protection is needed.
             state.mic_unblock_time = (
                 time.time()

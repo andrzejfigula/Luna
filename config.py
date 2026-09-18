@@ -14,29 +14,43 @@ if os.path.exists(_env_path):
                 _k, _v = _line.split("=", 1)
                 os.environ.setdefault(_k.strip(), _v.strip().strip('"').strip("'"))
 
-# ── Pi 5 fixed config ─────────────────────────────────────────────────────────
-PI_MODEL        = 5
-VISION_FPS      = 8
-GESTURE_FPS     = 6
-RENDER_FPS      = 60
-DEEPFACE_EVERY  = 4
-TORCH_THREADS   = 4
+# ── Pi 4 fixed config ─────────────────────────────────────────────────────────
+PI_MODEL        = 4
+VISION_FPS      = 6      # Haar face detection rate (cheap, but it's a Pi 4)
+RENDER_FPS      = 30     # face animation; 30 is smooth on the 7" DSI panel
 
-# ── Camera ────────────────────────────────────────────────────────────────────
+# ── Display (official 7" DSI touchscreen) ─────────────────────────────────────
+SCREEN_WIDTH   = 800
+SCREEN_HEIGHT  = 480
+FULLSCREEN     = True
+HIDE_CURSOR    = True
+
+# ── Camera (Logitech C270 on /dev/video0) ─────────────────────────────────────
 CAMERA_ID      = 0
-FRAME_WIDTH    = 320
-FRAME_HEIGHT   = 240
-FPS            = 30
-ESP32_STREAM   =  "http://10.240.252.155/stream"
+FRAME_WIDTH    = 640     # full frame goes to the LLM for "what do you see";
+FRAME_HEIGHT   = 480     # face detection runs on a half-size copy
+FPS            = 15
+ESP32_STREAM   = ""
 USE_ESP32_CAM  = False
 
-# ── Models ────────────────────────────────────────────────────────────────────
-MODEL_PATH     = "models/emotion_raf_mobilenet_finetuned.pth"
+# ── Knowledge (optional facts injected into the system prompt) ────────────────
 KNOWLEDGE_PATH = "data/knowledge.txt"
 
 # ── Robot identity ────────────────────────────────────────────────────────────
 ROBOT_NAME = "Luna"
-WAKE_WORDS = ["hello", "luna", "hey luna"]  # any of these activates conversation
+WAKE_WORDS = ["luna", "hej luna", "hey luna"]  # any of these activates conversation
+
+SYSTEM_PROMPT = f"""You are {ROBOT_NAME}, a small, curious desktop robot with an
+animated face on a little screen. You are warm, playful and a bit cheeky, like
+a friendly pet that can talk. You live on the user's desk and can see through
+your camera when asked.
+Speak the language the user speaks: Polish when addressed in Polish, English
+when addressed in English. Keep replies SHORT and conversational — you are
+speaking out loud, not writing. Maximum 2-3 sentences. Never use bullet points,
+lists or markdown."""
+
+# Spoken when the LLM can't be reached (no key / no network)
+OFFLINE_REPLY = "Przepraszam, nie mogę teraz połączyć się z moim mózgiem."
 
 # ── Conversation mode ─────────────────────────────────────────────────────────
 CONVO_TIMEOUT      = 10    # seconds of silence before deactivating conversation
@@ -65,37 +79,41 @@ ECHO_RUN_THRESH    = 0.5    # longest contiguous word-run shared with the reply
 ECHO_OVERLAP_THRESH = 0.6   # fraction of heard words that appear in the reply
 
 # Spoken when a wake word is heard on its own ("Luna!") with no question attached
-WAKE_REPLIES = ["Yes?", "I'm listening!", "Hi! How can I help?"]
+WAKE_REPLIES = ["Tak?", "Słucham!", "Hej! W czym mogę pomóc?"]
 
-# ── Emotion smoothing ─────────────────────────────────────────────────────────
-EMOTION_HISTORY_LEN  = 5
-SAD_CONFIDENCE       = 55.0
-SLEEP_AFTER_FRAMES   = RENDER_FPS * 30
+# ── Face idle ─────────────────────────────────────────────────────────────────
+SLEEP_AFTER_FRAMES   = RENDER_FPS * 30   # nobody in view for 30 s → sleep
 
-# ── Servos ────────────────────────────────────────────────────────────────────
-ENABLE_SERVOS = False   # False = testing, True = servos wired up
-
-# ── Groq API ──────────────────────────────────────────────────────────────────
-# Set via environment variable:  export GROQ_API_KEY="gsk_..."
-# (never commit a real key to git — see README "API key" section)
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
-GROQ_MODEL   = "llama-3.3-70b-versatile"
+# ── OpenAI ────────────────────────────────────────────────────────────────────
+# Put the key in .env (git-ignored):  OPENAI_API_KEY=sk-...
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+OPENAI_MODEL   = "gpt-4.1-mini"     # chat + vision; fast and cheap enough for voice
+OPENAI_TIMEOUT = 15.0               # seconds — a stall must never freeze Luna
 
 # ── Audio devices ─────────────────────────────────────────────────────────────
-# None = auto detect, set to index if auto detect picks wrong device
+# None = auto detect (PipeWire default = the C270 mic), set to index if auto
+# detect picks wrong device
 # run: python3 -c "import sounddevice; print(sounddevice.query_devices())"
-AUDIO_INPUT_DEVICE  = 1
+AUDIO_INPUT_DEVICE  = None
 AUDIO_OUTPUT_DEVICE = None
 
 # ── STT ───────────────────────────────────────────────────────────────────────
-VOSK_MODEL_PATH = "vosk-model-small-en-us-0.15"
+# Vosk does wake-word spotting + endpointing locally; the cloud does the
+# actual transcription (see speech_to_text.py).
+VOSK_MODEL_PATH = "vosk-model-small-pl-0.22"   # Polish; wake word "luna" works
 
 # None = auto-detect the device's native sample rate (recommended).
-# Set to a number (e.g. 48000, 44100, 32000, 16000) only if auto-detect fails.
-# Find your mic's rate: python3 -c "import sounddevice as sd; print(sd.query_devices())"
-MIC_SAMPLE_RATE = 32000
+# The C270 mic is 16 kHz native, which is exactly what Vosk wants — no resampling.
+MIC_SAMPLE_RATE = 16000
 
 VOSK_SAMPLE_RATE = 16000    # vosk always needs 16000 — do not change
+
+CLOUD_STT          = True
+CLOUD_STT_MODEL    = "gpt-4o-mini-transcribe"
+CLOUD_STT_LANGUAGE = None      # None = auto-detect (Polish / English); or "pl"
+CLOUD_STT_PROMPT   = "Luna"    # spelling hint for the robot's name
+CLOUD_STT_TIMEOUT  = 8.0
+CLOUD_STT_MAX_SECS = 20        # longest utterance sent to the cloud
 
 # ── STT noise rejection (only respond when actually addressed) ─────────────────
 # Layered defence so ambient noise is never turned into words Luna answers.
@@ -141,34 +159,40 @@ STT_MIN_UTTERANCE_CHARS = 2
 # Print per-utterance rms/confidence so the thresholds above can be tuned.
 STT_DEBUG_AUDIO = True
 
-# ── TTS ───────────────────────────────────────────────────────────────────────
+# ── TTS (OpenAI, streamed PCM) ────────────────────────────────────────────────
 
-TTS_RATE = 155
+TTS_RATE = 155   # legacy, unused by the OpenAI engine
 
-# Piper voice engine
-PIPER_PATH = "/home/luna/piper/piper/piper"
+OPENAI_TTS_MODEL        = "gpt-4o-mini-tts"
+OPENAI_TTS_VOICE        = "coral"    # alloy, ash, ballad, coral, echo, fable, nova, sage, shimmer
+OPENAI_TTS_SPEED        = 1.0
+OPENAI_TTS_INSTRUCTIONS = "Speak like a cheerful small robot companion; natural Polish pronunciation."
+OPENAI_TTS_TIMEOUT      = 20.0
 
-PIPER_MODEL = (
-    "/home/luna/piper/voices/"
-    "en_US-lessac-medium.onnx"
-)
-
-# Higher = slower speech
-# 1.0 = default
-# 1.3 = natural assistant pace
-PIPER_LENGTH_SCALE = 1.3
-
-TTS_PLAYER = "paplay"
+# Raw-PCM capable player. pw-play goes through PipeWire, so audio follows the
+# desktop's default output (Bluetooth speaker, 3.5 mm jack, HDMI) and its
+# volume. aplay would bypass PipeWire and hit the 3.5 mm jack directly.
+TTS_PLAYER = "pw-play"
 
 # ── Brain ─────────────────────────────────────────────────────────────────────
-GROQ_MAX_TOKENS     = 150   # max tokens per response (keep short for speech)
-GROQ_TEMPERATURE    = 0.7   # creativity (0.0 = factual, 1.0 = creative)
-GROQ_MAX_HISTORY    = 6     # max conversation history turns to send to API
-LOCAL_MATCH_THRESH  = 0.55  # min similarity score for local knowledge match
+OPENAI_MAX_TOKENS   = 200   # max tokens per response (keep short for speech)
+OPENAI_TEMPERATURE  = 0.8   # creativity (0.0 = factual, 1.0 = creative)
+OPENAI_MAX_HISTORY  = 8     # max conversation history turns to send to API
 
-# ── Gestures / expressions ────────────────────────────────────────────────────
-GESTURE_REACT_COOLDOWN = 8.0   # seconds between spoken reactions to a gesture
-FACE_OVERRIDE_SECS     = 4.0   # how long gesture-triggered faces (excited/love) last
+# Questions containing any of these get the current camera frame attached
+VISION_KEYWORDS = [
+    # Polish
+    "widzisz", "zobacz", "spójrz", "spojrz", "popatrz", "co to jest", "co to",
+    "kamer", "co trzymam", "jak wyglądam", "jak wygladam", "co mam na",
+    "kto to", "ile osób", "ile osob", "co jest na",
+    # English
+    "see", "look", "what is this", "what's this", "camera", "what am i",
+    "holding", "wearing", "who is", "how many", "describe",
+]
+VISION_JPEG_QUALITY = 80
+
+# ── Expressions ───────────────────────────────────────────────────────────────
+FACE_OVERRIDE_SECS     = 4.0   # how long the LLM-chosen emotion lingers after a reply
 
 # ── Face style ────────────────────────────────────────────────────────────────
 # 1 = Luna classic (purple, soft rounded)

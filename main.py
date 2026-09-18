@@ -1,15 +1,13 @@
+import os
 import sys
 import time
 import signal
 import threading
 
-from config import TORCH_THREADS, PI_MODEL
-import torch
-torch.set_num_threads(TORCH_THREADS)
+from config import PI_MODEL
 
 if PI_MODEL:
     print(f"[Luna] Running on Raspberry Pi {PI_MODEL}")
-    print(f"[Luna] PyTorch threads: {TORCH_THREADS}")
 
 from camera_thread import start_camera
 start_camera()
@@ -19,14 +17,6 @@ from vision_module import start_vision
 start_vision()
 time.sleep(1.0)
 
-from gesture_module import start_gesture
-start_gesture()
-time.sleep(0.5)
-
-from behavior_engine import start_behavior
-start_behavior()
-time.sleep(0.2)
-
 import random
 import difflib
 
@@ -34,7 +24,6 @@ from speech_to_text import listen, WAKE_ACK
 from text_to_speech import speak
 from brain import process
 from shared_state import state
-from servo_module import servo
 from config import (WAKE_REPLIES, ECHO_GUARD_WINDOW,
                     ECHO_RUN_THRESH, ECHO_OVERLAP_THRESH)
 
@@ -82,7 +71,7 @@ def voice_loop():
                         print(f"[Luna] Ignoring self-echo: \"{text}\"")
                     else:
                         # speak() serializes internally — an answer is never
-                        # dropped, even if a gesture reaction is mid-sentence
+                        # dropped
                         process(text)
             finally:
                 # never leave the mode stuck on "processing" (e.g. empty input)
@@ -105,17 +94,15 @@ threading.Thread(target=voice_loop, daemon=True).start()
 
 
 def _shutdown(*_):
-    print("\n[Luna] Shutting down — centering servos, releasing GPIO")
-    try:
-        servo.cleanup()
-    except Exception:
-        pass
+    print("\n[Luna] Shutting down")
     try:
         import pygame
         pygame.quit()
     except Exception:
         pass
-    sys.exit(0)
+    # hard exit: the daemon camera/mic threads hold native handles (OpenCV,
+    # PortAudio) that don't like being torn down by interpreter shutdown
+    os._exit(0)
 
 
 signal.signal(signal.SIGINT,  _shutdown)

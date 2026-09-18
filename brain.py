@@ -1,144 +1,176 @@
 # brain.py
 """
-brain.py — Groq API primary, local knowledge.txt fallback when offline.
+brain.py — OpenAI chat (text + optional camera image), with the LLM choosing
+Luna's facial emotion for every reply.
+
+Flow per utterance:
+  process(text)
+    → (optional) grab the latest camera frame if the question is visual
+    → chat.completions with a JSON schema {reply, emotion}
+    → state.emotion = <emotion>      (frozen by text_to_speech for the whole
+                                       reply so the face holds the mood)
+    → speak(reply)
+    → state.face_override = <emotion> for FACE_OVERRIDE_SECS, then neutral
 All settings pulled from config.py.
 """
 
-import re
+import base64
+import json
 import time
-import numpy as np
-from sentence_transformers import SentenceTransformer
-from groq import Groq
+
+import cv2
+from openai import OpenAI
 
 from text_to_speech import speak
-from servo_module import servo
 from shared_state import state
 from config import (
     FACE_OVERRIDE_SECS,
     KNOWLEDGE_PATH,
-    GROQ_API_KEY,
-    GROQ_MODEL,
-    GROQ_MAX_TOKENS,
-    GROQ_TEMPERATURE,
-    GROQ_MAX_HISTORY,
-    LOCAL_MATCH_THRESH,
-    ROBOT_NAME,
+    OPENAI_API_KEY,
+    OPENAI_MODEL,
+    OPENAI_MAX_TOKENS,
+    OPENAI_TEMPERATURE,
+    OPENAI_MAX_HISTORY,
+    OPENAI_TIMEOUT,
+    SYSTEM_PROMPT as _PERSONA,
+    OFFLINE_REPLY,
+    VISION_KEYWORDS,
+    VISION_JPEG_QUALITY,
 )
 
-# ── Load knowledge.txt ────────────────────────────────────────────────────────
-print("[brain] Loading knowledge base...")
+# Face states robot_face.py knows how to draw. The model must pick one.
+EMOTIONS = ["neutral", "happy", "sad", "angry", "surprised", "excited", "love"]
 
-questions      = []
-answers        = []
+# ── Optional knowledge.txt (facts injected into the system prompt) ────────────
 knowledge_text = ""
-
 try:
-    with open(KNOWLEDGE_PATH, "r") as f:
-        raw            = f.read()
-        knowledge_text = raw.strip()
-        for line in raw.splitlines():
-            if ":" not in line:
-                continue
-            q, a = line.split(":", 1)
-            questions.append(q.strip().lower())
-            answers.append(a.strip())
-except OSError as e:
-    # degrade gracefully — Luna still answers via Groq, offline fallback
-    # just says "I don't know" instead of crashing the whole app
-    print(f"[brain] Could not read {KNOWLEDGE_PATH} ({e}) — "
-          f"offline knowledge base disabled")
+    with open(KNOWLEDGE_PATH, "r", encoding="utf-8") as f:
+        knowledge_text = f.read().strip()
+    if knowledge_text:
+        print(f"[brain] Loaded knowledge file {KNOWLEDGE_PATH}")
+except OSError:
+    pass   # optional — nothing to do
 
-# ── Local fallback — sentence transformer ─────────────────────────────────────
-if questions:
-    print("[brain] Loading sentence transformer for offline fallback...")
-    _st_model = SentenceTransformer("all-MiniLM-L6-v2")
+SYSTEM_PROMPT = _PERSONA.strip() + f"""
 
-    _raw   = _st_model.encode(questions, batch_size=32, show_progress_bar=False)
-    _norms = np.linalg.norm(_raw, axis=1, keepdims=True)
-    question_embeddings = _raw / np.maximum(_norms, 1e-9)
-
-    print(f"[brain] {len(questions)} knowledge entries loaded")
-else:
-    _st_model           = None
-    question_embeddings = None
-    print("[brain] Knowledge base empty — offline fallback disabled")
-
-# ── Groq client ───────────────────────────────────────────────────────────────
-if GROQ_API_KEY:
-    # timeout: a network stall must never freeze Luna in "processing" —
-    # after 10s we fall back to the offline knowledge base instead.
-    _groq = Groq(api_key=GROQ_API_KEY, timeout=10.0, max_retries=1)
-else:
-    _groq = None
-    print("[brain] No GROQ_API_KEY set — running fully offline "
-          "(local knowledge base only). See README to enable the LLM.")
-_history = []
-
-SYSTEM_PROMPT = f"""You are Luna, a friendly robot assistant deployed at a college.
-You were developed by the Computer Science Department.
-
-You have a knowledge base about the department. Use it to answer relevant questions accurately.
-For questions not in the knowledge base, answer helpfully and naturally as Luna would.
-Keep responses SHORT and conversational — you are speaking out loud, not writing.
-Maximum 2-3 sentences per response. Never use bullet points or markdown.
-
+Always answer as JSON with exactly two keys:
+  "reply"   — what you say out loud (plain text, no markdown, 1-3 short sentences)
+  "emotion" — one of {EMOTIONS}, the facial expression you show while saying it.
+Pick the emotion that fits the reply: "happy" for warmth and good news,
+"excited" for enthusiasm, "love" for affection/compliments, "surprised" for
+unexpected things, "sad" for bad news or sympathy, "angry" only for playful
+grumpiness, otherwise "neutral".
+"""
+if knowledge_text:
+    SYSTEM_PROMPT += f"""
 --- KNOWLEDGE BASE ---
 {knowledge_text}
 --- END KNOWLEDGE BASE ---
 """
 
+_RESPONSE_FORMAT = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "luna_reply",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "properties": {
+                "reply":   {"type": "string"},
+                "emotion": {"type": "string", "enum": EMOTIONS},
+            },
+            "required": ["reply", "emotion"],
+            "additionalProperties": False,
+        },
+    },
+}
 
-# ── Groq API call ─────────────────────────────────────────────────────────────
+# ── OpenAI client ─────────────────────────────────────────────────────────────
+if OPENAI_API_KEY:
+    # timeout: a network stall must never freeze Luna in "processing"
+    _client = OpenAI(api_key=OPENAI_API_KEY, timeout=OPENAI_TIMEOUT, max_retries=1)
+else:
+    _client = None
+    print("[brain] No OPENAI_API_KEY set — Luna can only say the offline reply. "
+          "Put the key in .env (see .env.example).")
+_history = []
 
-def _ask_groq(text):
-    if _groq is None:
+
+# ── Camera → image attachment ─────────────────────────────────────────────────
+
+def _wants_vision(lower):
+    return any(k in lower for k in VISION_KEYWORDS)
+
+
+def _camera_jpeg_b64():
+    """Latest camera frame as base64 JPEG, or None when no camera."""
+    with state.lock:
+        frame     = state.frame
+        camera_ok = state.camera_ok
+    if frame is None or not camera_ok:
+        return None
+    ok, buf = cv2.imencode(".jpg", frame,
+                           [int(cv2.IMWRITE_JPEG_QUALITY), VISION_JPEG_QUALITY])
+    if not ok:
+        return None
+    return base64.b64encode(buf.tobytes()).decode("ascii")
+
+
+# ── OpenAI call ───────────────────────────────────────────────────────────────
+
+def _ask_openai(text, image_b64=None):
+    """Returns (reply, emotion) or None on any failure."""
+    if _client is None:
         return None
     try:
-        _history.append({"role": "user", "content": text})
+        if image_b64:
+            content = [
+                {"type": "text", "text": text},
+                {"type": "image_url",
+                 "image_url": {"url": f"data:image/jpeg;base64,{image_b64}",
+                               "detail": "low"}},
+            ]
+            print("[brain] Attaching camera frame")
+        else:
+            content = text
 
-        while len(_history) > GROQ_MAX_HISTORY:
+        _history.append({"role": "user", "content": content})
+        while len(_history) > OPENAI_MAX_HISTORY:
             _history.pop(0)
 
-        response = _groq.chat.completions.create(
-            model=GROQ_MODEL,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                *_history
-            ],
-            max_tokens=GROQ_MAX_TOKENS,
-            temperature=GROQ_TEMPERATURE,
+        # the model has no clock — give it the real local time so "która
+        # godzina?" isn't answered with a confident guess
+        now = time.strftime("%A, %d %B %Y, %H:%M")
+        system = f"{SYSTEM_PROMPT}\nCurrent local date and time: {now}."
+
+        response = _client.chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=[{"role": "system", "content": system}, *_history],
+            max_tokens=OPENAI_MAX_TOKENS,
+            temperature=OPENAI_TEMPERATURE,
+            response_format=_RESPONSE_FORMAT,
         )
 
-        reply = response.choices[0].message.content.strip()
+        raw     = response.choices[0].message.content.strip()
+        data    = json.loads(raw)
+        reply   = str(data.get("reply", "")).strip()
+        emotion = str(data.get("emotion", "neutral")).lower()
+        if emotion not in EMOTIONS:
+            emotion = "neutral"
+
+        # keep history text-only: images are large and only matter for the
+        # turn they were asked in
+        _history[-1] = {"role": "user", "content": text}
         _history.append({"role": "assistant", "content": reply})
 
-        print(f"[brain] Groq: {reply}")
-        return reply
+        print(f"[brain] OpenAI ({emotion}): {reply}")
+        return reply, emotion
 
     except Exception as e:
-        print(f"[brain] Groq error: {e}")
+        print(f"[brain] OpenAI error: {e}")
         if _history and _history[-1]["role"] == "user":
             _history.pop()
         return None
-
-
-# ── Local fallback ────────────────────────────────────────────────────────────
-
-def _local_fallback(text):
-    if _st_model is None:
-        return "I am sorry, I cannot reach my brain right now. Please try again."
-    q_vec  = _st_model.encode([text], batch_size=1, show_progress_bar=False)[0]
-    q_norm = q_vec / max(float(np.linalg.norm(q_vec)), 1e-9)
-
-    scores     = question_embeddings @ q_norm
-    best_index = int(np.argmax(scores))
-    best_score = float(scores[best_index])
-
-    print(f"[brain] Local match score: {best_score:.2f}")
-
-    if best_score > LOCAL_MATCH_THRESH:
-        return answers[best_index]
-    return "I am sorry, I do not have an answer for that."
 
 
 # ── Main process ──────────────────────────────────────────────────────────────
@@ -151,30 +183,27 @@ def process(text):
     print(f"[brain] Processing: {text}")
 
     lower = text.lower()
-    words = set(re.findall(r"[a-z']+", lower))
 
-    # servo reactions — whole-word match (old substring check waved at "this")
-    # HEAD DISABLED FOR NOW — hands only. The hands still animate during the
-    # spoken reply via the talking bob, so non-greetings aren't motionless.
-    if words & {"hi", "hello", "hey", "bye", "goodbye"}:
-        servo.wave()
-    # else:
-    #     servo.nod()
+    image = _camera_jpeg_b64() if _wants_vision(lower) else None
+    result = _ask_openai(text, image)
 
-    # compliments → heart-eyes face for a few seconds
-    if ("love you" in lower or "good job" in lower or "well done" in lower
-            or words & {"cute", "awesome", "amazing", "beautiful"}):
-        with state.lock:
-            state.face_override       = "love"
-            state.face_override_until = time.time() + FACE_OVERRIDE_SECS
-
-    # try Groq first — fall back to local if anything fails
-    reply = _ask_groq(text)
-
-    if reply:
-        print("[brain] Using Groq response")
-        speak(reply)
+    if result:
+        reply, emotion = result
     else:
-        print("[brain] Groq failed — using local fallback")
-        reply = _local_fallback(text)
+        print("[brain] OpenAI failed — using offline reply")
+        reply, emotion = OFFLINE_REPLY, "sad"
+
+    # The LLM's emotion drives the face:
+    #  • during the reply: text_to_speech freezes state.emotion for the whole
+    #    utterance, so set it BEFORE speak()
+    #  • after the reply: hold it as a face_override for a few seconds, then
+    #    the renderer falls back to neutral
+    with state.lock:
+        state.emotion = emotion.capitalize()
+    try:
         speak(reply)
+    finally:
+        with state.lock:
+            state.emotion             = "Neutral"
+            state.face_override       = emotion if emotion != "neutral" else None
+            state.face_override_until = time.time() + FACE_OVERRIDE_SECS

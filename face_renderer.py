@@ -3,14 +3,16 @@ from shared_state import state
 from robot_face import RobotFace
 from config import SLEEP_AFTER_FRAMES
 
+# state.emotion (set by brain.py from the LLM's choice) → face state
 EMOTION_MAP = {
-    "Happy":    "happy",
-    "Surprise": "surprised",
-    "Angry":    "angry",
-    "Disgust":  "angry",
-    "Fear":     "surprised",
-    "Sad":      "sad",
-    "Neutral":  "neutral",
+    "Happy":     "happy",
+    "Surprised": "surprised",
+    "Surprise":  "surprised",
+    "Angry":     "angry",
+    "Sad":       "sad",
+    "Excited":   "excited",
+    "Love":      "love",
+    "Neutral":   "neutral",
 }
 
 
@@ -24,6 +26,7 @@ def renderer_loop():
             face_detected = state.face_detected
             speaking      = state.speaking
             listening     = state.listening
+            thinking      = state.luna_mode == "processing"
             override      = state.face_override
             override_end  = state.face_override_until
             # expire stale overrides
@@ -31,7 +34,7 @@ def renderer_loop():
                 state.face_override = None
                 override = None
 
-        # ── Gesture/compliment override (excited / love) wins ────────────
+        # ── LLM-chosen emotion lingering after a reply wins ──────────────
         if override:
             face.set_state(override)
 
@@ -42,6 +45,10 @@ def renderer_loop():
         # ── Speaking — emotion stays, mouth is driven by audio_energy ────
         elif speaking:
             pass
+
+        # ── Thinking — utterance heard, waiting for the cloud ────────────
+        elif thinking:
+            face.set_state("thinking")
 
         # ── Normal emotion from vision ────────────────────────────────────
         else:

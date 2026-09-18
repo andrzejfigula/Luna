@@ -11,12 +11,13 @@ env/
 
 # ── Secrets (never commit the real key) ──────────────────────────────────────
 .env
+luna.log
 
 # ── Large model weights — download separately, see README §4 ─────────────────
-vosk-model-small-en-us-0.15/
-models/emotion_raf_mobilenet_finetuned.pth
+vosk-model-*/
 
-# ── TTS scratch (Piper writes temp wavs) ─────────────────────────────────────
+
+# ── audio scratch ─────────────────────────────────────
 *.wav
 
 # ── macOS metadata / junk ────────────────────────────────────────────────────

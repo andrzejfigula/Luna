@@ -1,3 +1,9 @@
+> **Raspberry Pi 4 desktop-robot fork.** This branch runs on Pi OS Trixie /
+> Python 3.13 with OpenAI (chat + vision + STT + TTS) instead of Groq/Vosk-only/
+> Piper, no servos, no gestures, no local ML. **See [SETUP.md](SETUP.md)** —
+> the sections below about Python 3.11, Piper, MediaPipe, torch and servos
+> describe the original project and no longer apply.
+
 # Luna 🤖🌙
 
 Luna is a friendly desktop/college robot assistant that runs on a Raspberry Pi (or any Mac/Windows/Linux machine for development). She:

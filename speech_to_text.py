@@ -1,6 +1,14 @@
 # speech_to_text.py
 """
-speech_to_text.py — Vosk STT with strict mic blocking + robust device handling.
+speech_to_text.py — Vosk gating/endpointing + OpenAI cloud transcription.
+
+Vosk (small local model) runs on every audio block and does the cheap, always-on
+work: adaptive energy gate, wake-word spotting, utterance endpointing and
+confidence-based noise rejection. Once an utterance passes those gates, the
+buffered 16 kHz audio of that utterance is sent to OpenAI (CLOUD_STT_MODEL)
+and the cloud transcript replaces Vosk's text — far better accuracy, and
+Polish/English mixed speech is auto-detected. If the cloud call fails, Vosk's
+own text is used so Luna still answers offline-ish.
 
 Improvements over the old version:
   • Persistent input stream (opened once, not per-listen) — lower latency,
@@ -8,14 +16,17 @@ Improvements over the old version:
   • Auto-detects the mic's native sample rate and resamples to 16 kHz for
     Vosk with numpy interpolation — works with 16k/32k/44.1k/48k mics.
   • Graceful "microphone not found" handling: Luna keeps running (face,
-    vision, gestures) and retries the mic every 5 seconds instead of crashing.
+    vision) and retries the mic every 5 seconds instead of crashing.
   • Multiple wake words (WAKE_WORDS in config), matched on word boundaries.
   • Respects state.mic_unblock_time — never listens while Luna speaks.
 """
 
+import io
+import re
 import queue
 import json
 import time
+import wave
 import difflib
 import threading
 import numpy as np
@@ -42,6 +53,13 @@ from config import (
     WAKE_FUZZY_RATIO,
     REQUIRE_FACE_TO_TALK,
     FACE_RECENT_SECS,
+    CLOUD_STT,
+    CLOUD_STT_MODEL,
+    CLOUD_STT_LANGUAGE,
+    CLOUD_STT_PROMPT,
+    CLOUD_STT_TIMEOUT,
+    CLOUD_STT_MAX_SECS,
+    OPENAI_API_KEY,
 )
 
 _model = Model(VOSK_MODEL_PATH)
@@ -127,7 +145,7 @@ def _print_mic_help():
     _help_printed = True
     print("=" * 60)
     print("[STT] NO MICROPHONE FOUND — voice input disabled.")
-    print("[STT] Luna keeps running (face + vision + gestures).")
+    print("[STT] Luna keeps running (face + vision).")
     print("[STT] Will retry the microphone every 5 seconds.")
     print("[STT] To fix, see the Troubleshooting section in README.md:")
     print("[STT]   python3 -c \"import sounddevice as sd; print(sd.query_devices())\"")
@@ -286,6 +304,62 @@ def _wake_confidence(result, words, start, n):
     return sum(confs) / len(confs) if confs else 1.0
 
 
+# ── Cloud transcription (OpenAI) ──────────────────────────────────────────────
+_cloud = None
+if CLOUD_STT and OPENAI_API_KEY:
+    from openai import OpenAI
+    _cloud = OpenAI(api_key=OPENAI_API_KEY, timeout=CLOUD_STT_TIMEOUT, max_retries=0)
+    print(f"[STT] Cloud transcription: {CLOUD_STT_MODEL} "
+          f"({CLOUD_STT_LANGUAGE or 'auto language'})")
+elif CLOUD_STT:
+    print("[STT] CLOUD_STT enabled but no OPENAI_API_KEY — using Vosk text only")
+
+
+def _wav_bytes(pcm16k):
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(VOSK_SAMPLE_RATE)
+        w.writeframes(pcm16k)
+    buf.seek(0)
+    buf.name = "utterance.wav"   # the SDK needs a filename to pick the MIME type
+    return buf
+
+
+def _cloud_transcribe(pcm16k):
+    """Transcribe an utterance (16 kHz int16 mono bytes). Returns text or None."""
+    if _cloud is None or not pcm16k:
+        return None
+    try:
+        t0 = time.time()
+        kwargs = dict(model=CLOUD_STT_MODEL, file=_wav_bytes(pcm16k),
+                      response_format="text")
+        if CLOUD_STT_LANGUAGE:
+            kwargs["language"] = CLOUD_STT_LANGUAGE
+        if CLOUD_STT_PROMPT:
+            kwargs["prompt"] = CLOUD_STT_PROMPT
+        r = _cloud.audio.transcriptions.create(**kwargs)
+        text = (r if isinstance(r, str) else getattr(r, "text", "")).strip()
+        if STT_DEBUG_AUDIO:
+            print(f"[STT] cloud ({time.time() - t0:.1f}s): \"{text}\"")
+        return text or None
+    except Exception as e:
+        print(f"[STT] cloud transcription failed ({e}) — using Vosk text")
+        return None
+
+
+def _strip_wake_from_cloud(cloud_text):
+    """Remove the wake word from the cloud transcript (which has punctuation
+    and casing) using the same fuzzy matcher Vosk's text goes through."""
+    tokens = re.findall(r"[\w']+", cloud_text.lower())
+    hit = _find_wake_word(tokens)
+    if hit is None:
+        return cloud_text
+    start, n, _ = hit
+    return " ".join(tokens[:start] + tokens[start + n:]).strip()
+
+
 # ── Recognizer — created once, Reset() between turns (cheap on the Pi) ────────
 _rec = None
 
@@ -384,6 +458,9 @@ def listen():
         state.luna_mode = "listening" if active else "idle"
 
     utt_peak_rms = 0.0   # loudest block in the utterance being accumulated
+    utt_audio    = []    # raw (ungated) 16 kHz blocks of the current utterance
+    utt_bytes    = 0
+    utt_max      = int(CLOUD_STT_MAX_SECS * VOSK_SAMPLE_RATE * 2)
 
     while True:
         try:
@@ -422,6 +499,11 @@ def listen():
         rms = _block_rms(data)
         _update_noise_floor(rms)
         utt_peak_rms = max(utt_peak_rms, rms)
+        # keep the real audio for the cloud even when the gate silences it
+        # for Vosk (a quiet word at the edge of the gate is still a word)
+        if utt_bytes < utt_max:
+            utt_audio.append(data)
+            utt_bytes += len(data)
         if rms < _energy_gate():
             data = bytes(len(data))
 
@@ -430,6 +512,9 @@ def listen():
             text     = result.get("text", "").strip()
             peak_rms = utt_peak_rms
             utt_peak_rms = 0.0   # reset for the next utterance
+            utt_pcm   = b"".join(utt_audio)
+            utt_audio = []
+            utt_bytes = 0
 
             with state.lock:
                 state.listening  = False
@@ -502,6 +587,10 @@ def listen():
                 with state.lock:
                     state.conversation_active = True
                     state.last_activity_time  = time.time()
+                if cleaned:
+                    cloud = _cloud_transcribe(utt_pcm)
+                    if cloud:
+                        cleaned = _strip_wake_from_cloud(cloud) or cleaned
                 return cleaned if cleaned else WAKE_ACK
 
             if active:
@@ -517,7 +606,8 @@ def listen():
                     continue
                 with state.lock:
                     state.last_activity_time = time.time()
-                return text
+                cloud = _cloud_transcribe(utt_pcm)
+                return cloud or text
 
             with state.lock:
                 state.luna_mode = "idle"

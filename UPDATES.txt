@@ -4,6 +4,37 @@
   Format: date · area · what changed · why
 ══════════════════════════════════════════════════════════════════
 
+─── 2026-09-18 — Raspberry Pi 4 desktop-robot fork (OpenAI, no servos) ──
+
+[deps] Python 3.13 / Pi OS Trixie / arm64. Removed torch, tensorflow,
+  deepface, mediapipe, sentence-transformers, groq, opencv-contrib, Piper.
+  Left: pygame+numpy+opencv (apt), sounddevice, vosk, openai.
+[removed] gesture_module.py, behavior_engine.py, servo_module.py,
+  piper_tts.py, models/, test.py, SERVO_SETUP.md, pi_inst.txt.
+[brain] Groq → OpenAI gpt-4.1-mini. Reply is JSON {reply, emotion}; the
+  LLM's emotion is written to state.emotion (frozen for the utterance by
+  text_to_speech) and then lingers as face_override — robot_face untouched.
+  Camera frame attached (JPEG, detail=low) when the question matches
+  VISION_KEYWORDS (PL/EN). Real local date/time injected per request.
+[stt] Vosk (small Polish model) keeps wake word, energy gate, endpointing
+  and confidence gates; the buffered utterance goes to
+  gpt-4o-mini-transcribe for the final text (Vosk text as fallback).
+[tts] openai_tts.py: gpt-4o-mini-tts streamed as raw PCM into pw-play —
+  same pump / on_audio_start lip-sync contract piper_tts.py had. pw-play
+  (not aplay) because pipewire-alsa isn't on the stock image, so ALSA
+  default bypasses PipeWire and the Bluetooth speaker.
+[vision] Haar face tracking only (eye-follow + addressed-speech gate),
+  on a half-size copy of the 640x480 frame; cascade XML bundled in data/
+  because Debian's python3-opencv has no cv2.data.
+[face] 800x480 fullscreen on Wayland (SDL wayland driver, 30 fps), cursor
+  hidden, face lifted 28 px and awake-dot moved below the mouth on small
+  panels, new "thinking" state (luna_mode == "processing"), ESC quits.
+[camera] cv2.CAP_V4L2 + MJPG — opens in 1 s instead of ~6 s via GStreamer.
+[run] run.sh / stop.sh / install_autostart.sh (labwc autostart + lwrespawn
+  watchdog; graphical-session.target is inactive under labwc so a systemd
+  user unit would not fire). main.py exits with os._exit after pygame.quit
+  so OpenCV/PortAudio daemon threads don't abort at interpreter teardown.
+
 ─── 2026-07-15 — Fix: Luna hearing/replying to her own voice ─────
 
 [bug] Real feedback loop observed live: Luna would finish an answer,

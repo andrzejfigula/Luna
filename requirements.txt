@@ -1,13 +1,13 @@
-numpy==1.26.4
-opencv-python==4.8.0.76
-mediapipe==0.10.9
-torch==2.3.1
-pygame==2.5.2
-sounddevice
-vosk
-groq
-opencv-contrib-python==4.8.0.76
-sentence-transformers==2.6.1
-deepface
-tensorflow==2.15.0
-tf-keras
+# Runtime deps for Luna on Raspberry Pi OS (Debian 13, Python 3.13, arm64).
+#
+# System packages (apt) — NOT pip:
+#   python3-pygame python3-numpy python3-opencv libportaudio2
+# Create the venv with --system-site-packages so it sees them:
+#   python3 -m venv --system-site-packages venv
+#
+# Vosk model (wake word + endpointing, Polish):
+#   https://alphacephei.com/vosk/models/vosk-model-small-pl-0.22.zip
+#   unzip into the project root (VOSK_MODEL_PATH in config.py)
+openai>=3.0
+sounddevice>=0.5
+vosk>=0.3.45
