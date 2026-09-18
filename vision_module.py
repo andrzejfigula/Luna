@@ -81,7 +81,10 @@ def _vision_iteration_loop():
 
         if len(faces) > 0:
             x, y, w, h = faces[0]
-            face_cx = (x + w / 2) / small.shape[1]
+            # Mirror x: the webcam faces the person, so someone on THEIR left
+            # appears on the RIGHT of the image. Luna's eyes must move toward
+            # the person, i.e. toward the viewer's left on the screen.
+            face_cx = 1.0 - (x + w / 2) / small.shape[1]
             face_cy = (y + h / 2) / small.shape[0]
 
             with state.lock:
