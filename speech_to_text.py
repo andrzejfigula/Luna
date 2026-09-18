@@ -59,6 +59,8 @@ from config import (
     CLOUD_STT_PROMPT,
     CLOUD_STT_TIMEOUT,
     CLOUD_STT_MAX_SECS,
+    CLOUD_WAKE_CHECK,
+    CLOUD_WAKE_MIN_INTERVAL,
     OPENAI_API_KEY,
 )
 
@@ -373,6 +375,30 @@ def _strip_wake_from_cloud(cloud_text):
     return " ".join(tokens[:start] + tokens[start + n:]).strip()
 
 
+_last_cloud_wake_check = 0.0
+
+
+def _cloud_wake_check(pcm16k):
+    """Vosk heard speech but no wake word: ask the cloud whether the wake
+    word is actually in there. Returns (found, cleaned_text)."""
+    global _last_cloud_wake_check
+    if not CLOUD_WAKE_CHECK or _cloud is None:
+        return False, None
+    now = time.time()
+    if now - _last_cloud_wake_check < CLOUD_WAKE_MIN_INTERVAL:
+        return False, None
+    _last_cloud_wake_check = now
+    cloud = _cloud_transcribe(pcm16k)
+    if not cloud:
+        return False, None
+    tokens = re.findall(r"[\w']+", cloud.lower())
+    hit = _find_wake_word(tokens)
+    if hit is None:
+        return False, None
+    start, n, _ = hit
+    return True, " ".join(tokens[:start] + tokens[start + n:]).strip()
+
+
 # ── Recognizer — created once, Reset() between turns (cheap on the Pi) ────────
 _rec = None
 
@@ -577,6 +603,16 @@ def listen():
                           f"peak_rms={peak_rms:.0f} gate={_energy_gate():.0f}")
                 if (conf < STT_CONFIDENCE_THRESHOLD
                         or len(text) < STT_MIN_UTTERANCE_CHARS):
+                    # A garbled low-confidence result can still be "Luna!" —
+                    # if it was clearly loud speech, let the cloud check it.
+                    if not active and peak_rms >= 2.0 * _energy_gate():
+                        found, cleaned = _cloud_wake_check(utt_pcm)
+                        if found:
+                            print("[STT] Wake word (cloud) — conversation active")
+                            with state.lock:
+                                state.conversation_active = True
+                                state.last_activity_time  = time.time()
+                            return cleaned if cleaned else WAKE_ACK
                     print(f"[STT] Dropped (noise): \"{text}\" conf={conf:.2f}")
                     with state.lock:
                         state.luna_mode = "listening" if active else "idle"
@@ -621,6 +657,16 @@ def listen():
                     state.last_activity_time = time.time()
                 cloud = _cloud_transcribe(utt_pcm)
                 return cloud or text
+
+            # Passive mode and Vosk didn't spot the wake word — its small
+            # model mishears "Luna" often, so let the cloud have a look.
+            found, cleaned = _cloud_wake_check(utt_pcm)
+            if found:
+                print("[STT] Wake word (cloud) — conversation active")
+                with state.lock:
+                    state.conversation_active = True
+                    state.last_activity_time  = time.time()
+                return cleaned if cleaned else WAKE_ACK
 
             with state.lock:
                 state.luna_mode = "idle"

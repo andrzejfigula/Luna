@@ -4,6 +4,22 @@
   Format: date · area · what changed · why
 ══════════════════════════════════════════════════════════════════
 
+─── 2026-09-18 — Wake-word reliability, TTS prebuffer ────────────────────
+
+[stt] Vosk-small mishears "Luna" a lot ("nie", "cudowna", "zdaniem"...).
+  • REQUIRE_FACE_TO_TALK now False — with it on, "Luna!" was silently
+    ignored whenever the camera hadn't seen a face in the last 4 s.
+  • Thresholds lowered: STT_CONFIDENCE 0.55→0.45, WAKE_CONFIDENCE
+    0.60→0.45, WAKE_FUZZY_RATIO 0.80→0.70; Polish inflections of the
+    name added to WAKE_WORDS.
+  • CLOUD_WAKE_CHECK: in passive mode, speech that Vosk heard without a
+    wake word (or dropped as low-confidence but clearly loud) is sent to
+    the cloud and the wake word is looked for in that transcript.
+    Rate-limited to one check per CLOUD_WAKE_MIN_INTERVAL seconds.
+[tts] TTS_PREBUFFER_SECS (0.6 s) of audio is collected before the player
+  starts so a network stutter no longer underruns the sink (crackle).
+  Stream chunk size 4 KB → 16 KB.
+
 ─── 2026-09-18 — .env hardware options, jack output, brighter voice ─────
 
 [config] LUNA_CAMERA / LUNA_MIC / LUNA_SPEAKER / LUNA_TTS_VOICE read from

@@ -29,6 +29,7 @@ from config import (
     OPENAI_TTS_SPEED,
     OPENAI_TTS_INSTRUCTIONS,
     OPENAI_TTS_TIMEOUT,
+    TTS_PREBUFFER_SECS,
     TTS_PLAYER,
     AUDIO_OUTPUT_DEVICE,
 )
@@ -131,20 +132,43 @@ class OpenAITTS:
             if OPENAI_TTS_INSTRUCTIONS:
                 kwargs["instructions"] = OPENAI_TTS_INSTRUCTIONS
 
+            # Prebuffer: hold back the first TTS_PREBUFFER_SECS of audio before
+            # the player starts, so a network stutter drains the buffer instead
+            # of underrunning the sink (audible as crackle/gaps).
+            prebuf   = []
+            prebuf_n = 0
+            need     = int(TTS_PREBUFFER_SECS * PCM_RATE * 2)   # s16 mono
+
             with self._client.audio.speech.with_streaming_response.create(**kwargs) as resp:
-                player = subprocess.Popen(self._raw_cmd, stdin=subprocess.PIPE,
-                                          stderr=subprocess.DEVNULL)
-                for chunk in resp.iter_bytes(chunk_size=4096):
+                for chunk in resp.iter_bytes(chunk_size=16384):
                     if not chunk:
                         continue
-                    if not started:
+                    if player is None:
+                        prebuf.append(chunk)
+                        prebuf_n += len(chunk)
+                        if prebuf_n < need:
+                            continue
+                        player = subprocess.Popen(self._raw_cmd, stdin=subprocess.PIPE,
+                                                  stderr=subprocess.DEVNULL)
                         started = True
                         if on_audio_start:
                             on_audio_start()
+                        player.stdin.write(b"".join(prebuf))
+                        prebuf = []
+                        continue
                     player.stdin.write(chunk)
 
-            player.stdin.close()
-            player.wait()
+            if player is None and prebuf:          # short reply: under the prebuffer
+                player = subprocess.Popen(self._raw_cmd, stdin=subprocess.PIPE,
+                                          stderr=subprocess.DEVNULL)
+                started = True
+                if on_audio_start:
+                    on_audio_start()
+                player.stdin.write(b"".join(prebuf))
+
+            if player is not None:
+                player.stdin.close()
+                player.wait()
         except Exception as e:
             print(f"[TTS] streaming error: {e}")
             try:

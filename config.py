@@ -46,7 +46,11 @@ KNOWLEDGE_PATH = "data/knowledge.txt"
 
 # ── Robot identity ────────────────────────────────────────────────────────────
 ROBOT_NAME = "Luna"
-WAKE_WORDS = ["luna", "hej luna", "hey luna"]  # any of these activates conversation
+# Any of these activates conversation. Polish inflections included because
+# Vosk's small model often emits them for "Luna"; the cloud transcript is
+# checked too (CLOUD_WAKE_CHECK) so a misheard wake word still gets through.
+WAKE_WORDS = ["luna", "hej luna", "hey luna", "luno", "lunę", "lune", "luny",
+              "lunie", "luną", "lóna", "łuna"]
 
 SYSTEM_PROMPT = f"""You are {ROBOT_NAME}, a small, curious desktop robot with an
 animated face on a little screen. You are warm, playful and a bit cheeky, like
@@ -146,14 +150,22 @@ MIC_GATE_MAX         = 4000.0   # safety cap so speech can always get through
 # 2) Confidence gate: drop a recognised phrase whose average Vosk word
 #    confidence is below this (0.0–1.0). Filters low-confidence hallucinations
 #    that noise produces.
-STT_CONFIDENCE_THRESHOLD = 0.55
+STT_CONFIDENCE_THRESHOLD = 0.45   # the cloud does the real transcription;
+                                  # this only needs to reject pure noise
 
 # Wake words are checked on their OWN confidence (not the whole phrase) so a
 # noise-hallucinated "luna" can't wake her, while a clearly spoken wake word
 # still cuts through a noisy room. Slightly-misheard wake words (e.g. Vosk
 # hearing "lunar") also wake her via fuzzy matching when heard confidently.
-WAKE_CONFIDENCE_THRESHOLD = 0.60
-WAKE_FUZZY_RATIO          = 0.80   # difflib similarity for near-miss wake words
+WAKE_CONFIDENCE_THRESHOLD = 0.45
+WAKE_FUZZY_RATIO          = 0.70   # difflib similarity for near-miss wake words
+                                  # ("lena", "luma", "una" all pass at 0.70)
+
+# Cloud wake check: in passive mode, when Vosk heard real speech but no wake
+# word, send the utterance to the cloud and look for the wake word there.
+# Costs one cheap transcription per spoken sentence heard while idle.
+CLOUD_WAKE_CHECK          = True
+CLOUD_WAKE_MIN_INTERVAL   = 2.0    # seconds between cloud wake checks
 
 # 3) Addressed-speech gate: people talking TO Luna face her; people talking to
 #    EACH OTHER in the room don't. Speech (wake words included — "hello"
@@ -162,7 +174,9 @@ WAKE_FUZZY_RATIO          = 0.80   # difflib similarity for near-miss wake words
 #    side conversations in any language no longer get random replies. The
 #    gate disables itself automatically when no camera is available, and
 #    can be turned off here for mic-only / dim-light setups.
-REQUIRE_FACE_TO_TALK = True
+REQUIRE_FACE_TO_TALK = False   # off: the wake word is the gate. Turning it on
+                               # makes Luna ignore "Luna!" whenever the camera
+                               # hasn't seen a face in the last few seconds
 FACE_RECENT_SECS     = 4.0   # tolerance for glancing away mid-question
 
 # 3) Minimum length: ignore stray single-character tokens ("a", "i", "o") that
@@ -188,6 +202,8 @@ OPENAI_TTS_INSTRUCTIONS = (
     "pronunciation; switch to English naturally when the text is English."
 )
 OPENAI_TTS_TIMEOUT      = 20.0
+TTS_PREBUFFER_SECS      = 0.6    # audio buffered before playback starts — avoids
+                                 # crackle/underruns when the stream stutters
 
 # Raw-PCM capable player. pw-play goes through PipeWire, so audio follows the
 # desktop's default output (Bluetooth speaker, 3.5 mm jack, HDMI) and its
