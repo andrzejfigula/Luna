@@ -884,7 +884,8 @@ class Mouth:
             e  = self.talk_open
 
             if e > 0.55:
-                # OPEN JAW — rounded rect with teeth strip
+                # OPEN JAW — lips (outer rounded rect), dark interior inset,
+                # teeth as a strip INSIDE the interior under the upper lip
                 mh = max(20, int((e + self.jaw_bounce * 0.3) * 90))
                 mouth_r = pygame.Rect(cx - mw // 2, cy - mh // 2, mw, mh)
                 draw_glow_rect(surf, GLOW_COL, mouth_r, radius=26, layers=4,
@@ -892,32 +893,26 @@ class Mouth:
                 ms = pygame.Surface((mw, mh), pygame.SRCALPHA)
                 pygame.draw.rect(ms, (*MOUTH_COL, alpha),
                                  ms.get_rect(), border_radius=22)
-                surf.blit(ms, (cx - mw // 2, cy - mh // 2))
-                # teeth strip — top 25%
-                th = max(6, mh // 4)
-                ts = pygame.Surface((mw - 8, th), pygame.SRCALPHA)
-                pygame.draw.rect(ts, (*TEETH_COL, int(alpha * 0.7)),
-                                 ts.get_rect(), border_radius=8)
-                surf.blit(ts, (cx - mw // 2 + 4, cy - mh // 2 + 2))
                 # dark interior
-                ip = 8
-                ir = pygame.Rect(mouth_r.x + ip, mouth_r.y + th + ip,
-                                 mouth_r.w - ip * 2,
-                                 mouth_r.h - th - ip * 2)
+                lip = 8
+                ir  = pygame.Rect(lip, lip, mw - lip * 2, mh - lip * 2)
                 if ir.w > 6 and ir.h > 4:
-                    is_ = pygame.Surface((ir.w, ir.h), pygame.SRCALPHA)
-                    pygame.draw.rect(is_, (*PUPIL_COL, alpha),
-                                     is_.get_rect(), border_radius=14)
-                    surf.blit(is_, (ir.x, ir.y))
-
-                # corner lip curves
-                cl = int(self.corner_lift * 12)
-                pygame.draw.line(surf, EYE_MID,
-                                 (cx - mw // 2, cy - mh // 2 + cl),
-                                 (cx - mw // 2 + 20, cy - mh // 2 - cl), 4)
-                pygame.draw.line(surf, EYE_MID,
-                                 (cx + mw // 2, cy - mh // 2 + cl),
-                                 (cx + mw // 2 - 20, cy - mh // 2 - cl), 4)
+                    pygame.draw.rect(ms, (*PUPIL_COL, alpha), ir,
+                                     border_radius=16)
+                    # teeth: upper ~30 % of the interior, rounded at the
+                    # bottom only, slightly inset from the interior's sides
+                    th = max(6, int(ir.h * 0.30))
+                    tr = pygame.Rect(ir.x + 6, ir.y, ir.w - 12, th)
+                    pygame.draw.rect(ms, (*TEETH_COL, int(alpha * 0.85)), tr,
+                                     border_bottom_left_radius=10,
+                                     border_bottom_right_radius=10)
+                    # tooth gaps
+                    n = 5
+                    for i in range(1, n):
+                        gx = tr.x + tr.w * i // n
+                        pygame.draw.line(ms, (*PUPIL_COL, int(alpha * 0.55)),
+                                         (gx, tr.y + 2), (gx, tr.bottom - 3), 2)
+                surf.blit(ms, (cx - mw // 2, cy - mh // 2))
 
             elif e > 0.28:
                 # MID OPEN — rounded oval
