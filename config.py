@@ -198,13 +198,15 @@ TTS_RATE = 155   # legacy, unused by the OpenAI engine
 OPENAI_TTS_MODEL        = "gpt-4o-mini-tts"
 # .env: LUNA_TTS_VOICE=nova   (alloy, ash, ballad, coral, echo, fable, nova,
 # onyx, sage, shimmer, verse, marin, cedar — nova/shimmer/marin are the bright ones)
-OPENAI_TTS_VOICE        = _env("LUNA_TTS_VOICE", "nova")
+OPENAI_TTS_VOICE        = _env("LUNA_TTS_VOICE", "marin")
 OPENAI_TTS_SPEED        = 1.0
+# Delivery style. Kept conversational on purpose — "cheerful robot" style
+# prompts make the voice sound artificial.
 OPENAI_TTS_INSTRUCTIONS = (
-    "Voice: bright, warm and friendly, like a cheerful little robot companion "
-    "who is genuinely happy to talk to you. Tone: upbeat, playful, smiling, "
-    "energetic but not shouty. Pace: lively. Natural, native-sounding Polish "
-    "pronunciation; switch to English naturally when the text is English."
+    "Naturalna, ciepła, swobodna rozmowa — jak młoda kobieta, która z uśmiechem "
+    "gawędzi z przyjacielem. Spokojne, naturalne tempo, intonacja jak w "
+    "prawdziwej rozmowie, bez przesadnej ekspresji. Native Polish "
+    "pronunciation; switch to natural English when the text is English."
 )
 OPENAI_TTS_TIMEOUT      = 20.0
 TTS_PREBUFFER_SECS      = 0.6    # audio buffered before playback starts — avoids
