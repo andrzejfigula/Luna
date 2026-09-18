@@ -242,5 +242,6 @@ FACE_OVERRIDE_SECS     = 4.0   # how long the LLM-chosen emotion lingers after a
 # ── Face style ────────────────────────────────────────────────────────────────
 # 1 = Luna classic (purple, soft rounded)
 # 2 = Robo (cyan, sharp corners, equalizer-bar mouth — NIMO/modern-robot look)
-# Press 1 / 2 on the face window to switch live; this sets the startup default.
-FACE_STYLE = 2
+# 3 = Loona (amber gradient block eyes, no pupils, shape-based expressions)
+# Press 1 / 2 / 3 on the face window to switch live; this sets the startup default.
+FACE_STYLE = 3

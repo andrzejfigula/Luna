@@ -96,7 +96,9 @@ front of the camera for 30 s the face goes to sleep.
 - `data/persona.txt` — who Luna is and how she talks (identity, gender,
   language, tone). Plain text, edit freely, restart to apply.
   `data/knowledge.txt` — optional facts appended to the prompt.
-- `FACE_STYLE` — 1 purple "Luna classic", 2 cyan "robo".
+- `FACE_STYLE` — 1 purple "Luna classic", 2 cyan "robo", 3 amber "loona"
+  (default; pupil-less gradient blocks, expressions in the eye shape).
+  Keys 1/2/3 switch live when a keyboard is attached.
 
 ## Troubleshooting
 

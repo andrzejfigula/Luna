@@ -4,6 +4,18 @@
   Format: date · area · what changed · why
 ══════════════════════════════════════════════════════════════════
 
+─── 2026-09-18 — Face style 3 "loona" ──────────────────────────────────────
+
+[face] New STYLES[3]: amber palette, EYE_MODE="block" — pupil-less rounded
+  blocks with a vertical gradient (gradient_block, cached), the whole block
+  glances instead of a pupil, expressions carried by the eye shape: happy →
+  bottom cut into an upward arc, sad → outer top corners sloped, angry →
+  inner top corners sloped, squint lowers the lid. Cuts are done in the
+  eye's own layer so glow/blush behind stay intact. Per-style EYE_SCALE /
+  EYE_SPREAD (bigger, closer eyes); width capped so blocks never collide.
+  Brows, mouth, blush, hearts, tears, Zzz all kept. Key 3 switches live.
+  FACE_STYLE default 2 → 3.
+
 ─── 2026-09-18 — Mid-sentence crackle, real root cause: 128-sample quantum ──
 
 [audio] Bisected by ear: clean with Luna stopped, clean with mic+Vosk+camera

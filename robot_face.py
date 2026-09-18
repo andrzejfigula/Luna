@@ -50,8 +50,11 @@ AWAKE_DOT_Y   = min(265, HEIGHT - (HEIGHT // 2 + FACE_Y_OFFSET) - 25)
 # Style 1 — "luna":  the classic soft purple face (rounded, organic mouth)
 # Style 2 — "robo":  modern-robot look (cyan, sharp corners, square pupils,
 #                    equalizer-bar mouth while speaking)
-# Press 1 / 2 on the face window to switch at runtime — switching back to 1
-# restores the exact original face.
+# Style 3 — "loona": amber gradient "block" eyes without pupils, expressions
+#                    carried by the eye shape (arched when happy, sloped when
+#                    sad/angry), like the Loona pet robot
+# Press 1 / 2 / 3 on the face window to switch at runtime — switching back to
+# 1 restores the exact original face.
 STYLES = {
     1: dict(
         name="luna",
@@ -79,6 +82,21 @@ STYLES = {
         AWAKE_COL=(120, 255, 220),
         EYE_RADIUS=8, IRIS_SQUARE=True, MOUTH_STYLE="bars",
     ),
+    3: dict(
+        name="loona",
+        EYE_OUTER=(255, 160, 40),  EYE_MID=(255, 185, 70),
+        EYE_INNER=(255, 232, 160), IRIS_SHINE=(255, 250, 225),
+        GLOW_COL=(255, 125, 20),   MOUTH_COL=(255, 170, 50),
+        ZZZ_COL=(255, 205, 100),   LISTEN_COL=(255, 245, 215),
+        BLUSH_COL=(255, 120, 95),  TEAR_COL=(150, 205, 255),
+        STEAM_COL=(255, 110, 50),  STAR_COL=(255, 235, 130),
+        TEETH_COL=(255, 246, 225),
+        WAVE_COL=(255, 185, 60),   ANGRY_COL=(255, 55, 30),
+        HEART_COL=(255, 115, 110), AWAKE_COL=(255, 205, 100),
+        EYE_RADIUS=34, IRIS_SQUARE=False, MOUTH_STYLE="organic",
+        EYE_MODE="block", EYE_SCALE=1.18, EYE_SPREAD=150,
+        EYE_GRAD_TOP=(255, 224, 120), EYE_GRAD_BOTTOM=(244, 118, 22),
+    ),
 }
 
 # active style values (module globals so particles pick them up live)
@@ -91,6 +109,7 @@ def apply_style(n):
     global MOUTH_COL, ZZZ_COL, LISTEN_COL, BLUSH_COL, TEAR_COL, STEAM_COL
     global STAR_COL, TEETH_COL, WAVE_COL, ANGRY_COL, HEART_COL, AWAKE_COL
     global EYE_RADIUS, IRIS_SQUARE, MOUTH_STYLE
+    global EYE_MODE, EYE_GRAD_TOP, EYE_GRAD_BOTTOM, EYE_SCALE, EYE_SPREAD
 
     s = STYLES.get(n)
     if s is None:
@@ -108,7 +127,13 @@ def apply_style(n):
     EYE_RADIUS  = s["EYE_RADIUS"]
     IRIS_SQUARE = s["IRIS_SQUARE"]
     MOUTH_STYLE = s["MOUTH_STYLE"]
+    EYE_MODE        = s.get("EYE_MODE", "iris")     # "iris" | "block"
+    EYE_SCALE       = s.get("EYE_SCALE", 1.0)       # eye size multiplier
+    EYE_SPREAD      = s.get("EYE_SPREAD", 190)      # half distance between eyes
+    EYE_GRAD_TOP    = s.get("EYE_GRAD_TOP", EYE_INNER)
+    EYE_GRAD_BOTTOM = s.get("EYE_GRAD_BOTTOM", EYE_OUTER)
     _GLOW_CACHE.clear()   # cached glows are per-palette
+    _GRAD_CACHE.clear()
     print(f"[face] Style {n} ({s['name']}) active")
 
 
@@ -169,6 +194,39 @@ def draw_glow_circle(surf, color, center, radius, layers=4, max_alpha=55):
         _cache_put(key, glow)
     surf.blit(glow, (center[0] - glow.get_width() // 2,
                      center[1] - glow.get_height() // 2))
+
+
+# ── Gradient "block" eye (style 3) — cached per size bucket ──────────────────
+_GRAD_CACHE = {}
+
+
+def _lerp_col(a, b, t):
+    return (int(lerp(a[0], b[0], t)), int(lerp(a[1], b[1], t)),
+            int(lerp(a[2], b[2], t)))
+
+
+def gradient_block(w, h, radius, top, bottom):
+    """Rounded rect filled with a vertical gradient (top → bottom colour),
+    with a soft lighter band near the top like a lit LED panel."""
+    w = max(4, (w // 2) * 2)
+    h = max(4, (h // 2) * 2)
+    key = (w, h, radius, top, bottom)
+    surf = _GRAD_CACHE.get(key)
+    if surf is None:
+        if len(_GRAD_CACHE) > 400:
+            _GRAD_CACHE.clear()
+        surf = pygame.Surface((w, h), pygame.SRCALPHA)
+        for y in range(h):
+            t = y / max(1, h - 1)
+            t = t ** 1.35                      # keep the bright part up top
+            pygame.draw.line(surf, (*_lerp_col(top, bottom, t), 255),
+                             (0, y), (w, y))
+        mask = pygame.Surface((w, h), pygame.SRCALPHA)
+        pygame.draw.rect(mask, (255, 255, 255, 255), mask.get_rect(),
+                         border_radius=min(radius, h // 2, w // 2))
+        surf.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        _GRAD_CACHE[key] = surf
+    return surf
 
 
 # apply the configured startup style (defines all palette globals)
@@ -436,6 +494,11 @@ class Eye:
         vis_h = max(4, int(h_mod * self.blink_t))
         rect  = pygame.Rect(cx - w // 2, cy - vis_h // 2, w, vis_h)
 
+        if EYE_MODE == "block":
+            self._draw_block(surf, rect, cx, cy, vis_h, eye_color,
+                             angry, happy, sad, listening)
+            return
+
         draw_glow_rect(surf, GLOW_COL, rect, radius=EYE_RADIUS + 2, layers=5)
         pygame.draw.rect(surf, eye_color, rect, border_radius=EYE_RADIUS)
 
@@ -527,6 +590,108 @@ class Eye:
                                  pygame.Rect(cx - brow_w // 2, brow_y,
                                              brow_w, 9),
                                  border_radius=4)
+
+
+    # ── style 3: pupil-less gradient block, expression = shape ────────────
+    def _draw_block(self, surf, rect, cx, cy, vis_h, eye_color,
+                    angry, happy, sad, listening):
+        # the whole block glances instead of a pupil
+        rect = rect.move(int(self.pupil_ox * 0.55), int(self.pupil_oy * 0.55))
+        # never let the two blocks collide (surprised/excited grow them a lot)
+        max_w = EYE_SPREAD * 2 - 44
+        if rect.w > max_w:
+            rect = pygame.Rect(rect.centerx - max_w // 2, rect.y, max_w, rect.h)
+        # squint lowers the top edge (a lid coming down), rather than
+        # clearing pixels and exposing the glow underneath as a dark cap
+        if self.squint > 0.05:
+            clip_h = int(vis_h * self.squint * 0.5)
+            rect = pygame.Rect(rect.x, rect.y + clip_h, rect.w, max(4, rect.h - clip_h))
+        top, bottom = EYE_GRAD_TOP, EYE_GRAD_BOTTOM
+        if eye_color != EYE_OUTER:           # listening / angry / rest tints
+            top    = _lerp_col(top,    eye_color, 0.45)
+            bottom = _lerp_col(bottom, eye_color, 0.45)
+
+        # Build the eye in its own layer so shape cuts (arc, slopes, squint)
+        # remove eye pixels only — painting black on the canvas would also
+        # erase the glow and blush behind the eye.
+        block = gradient_block(rect.w, rect.h, EYE_RADIUS, top, bottom)
+        eye   = block.copy()
+        ew, eh = eye.get_size()
+        CLEAR = (0, 0, 0, 0)
+        is_left = cx < WIDTH // 2
+        open_enough = self.blink_t > 0.4
+
+        # glow: full block normally, only the upper part when the eye is a
+        # smiling arc (no halo hanging under the cut-away bottom)
+        glow_rect = rect
+        if happy and open_enough:
+            glow_rect = pygame.Rect(rect.x, rect.y, rect.w, int(rect.h * 0.55))
+        draw_glow_rect(surf, GLOW_COL, glow_rect, radius=EYE_RADIUS + 4,
+                       layers=5, max_alpha=60)
+
+        if happy and open_enough:
+            # bottom edge becomes an upward arc → "^ ^" smiling eyes
+            pygame.draw.ellipse(eye, CLEAR,
+                                pygame.Rect(-ew // 5, int(eh * 0.42),
+                                            ew + (ew * 2) // 5, int(eh * 1.3)))
+        elif sad and open_enough:
+            # outer top corners slope down → worried eyes
+            drop, span = int(eh * 0.45), int(ew * 0.70)
+            pts = ([(0, 0), (span, 0), (0, drop)] if is_left
+                   else [(ew, 0), (ew - span, 0), (ew, drop)])
+            pygame.draw.polygon(eye, CLEAR, pts)
+        elif angry and open_enough:
+            # inner top corners slope down → knitted, cross look
+            drop, span = int(eh * 0.50), int(ew * 0.75)
+            pts = ([(ew, 0), (ew - span, 0), (ew, drop)] if is_left
+                   else [(0, 0), (span, 0), (0, drop)])
+            pygame.draw.polygon(eye, CLEAR, pts)
+
+        # subtle highlight band — a lit panel, not a flat sticker
+        if eh > 24 and not (happy and open_enough):
+            hl = pygame.Rect(14, 10, max(4, ew - 28), 6)
+            hs = pygame.Surface(hl.size, pygame.SRCALPHA)
+            pygame.draw.rect(hs, (*IRIS_SHINE, 70), hs.get_rect(), border_radius=3)
+            eye.blit(hs, hl.topleft)
+
+        surf.blit(eye, (rect.centerx - ew // 2, rect.centery - eh // 2))
+
+        self._draw_brow(surf, rect, cx, int(self.w), angry, happy, sad, listening)
+
+    def _draw_brow(self, surf, rect, cx, w, angry, happy, sad, listening):
+        if self.blink_t <= 0.4:
+            return
+        brow_y = rect.top - 22
+        brow_w = int(w * 0.70)
+        is_left = cx < WIDTH // 2
+        if angry:
+            sign = 1 if is_left else -1
+            pygame.draw.line(surf, EYE_MID,
+                             (cx - brow_w // 2, brow_y + sign * 10),
+                             (cx + brow_w // 2, brow_y - sign * 10), 9)
+        elif happy:
+            arc_s = pygame.Surface((brow_w + 20, 30), pygame.SRCALPHA)
+            pygame.draw.arc(arc_s, (*EYE_MID, 200),
+                            pygame.Rect(10, 0, brow_w, 28),
+                            math.radians(10), math.radians(170), 7)
+            surf.blit(arc_s, (cx - brow_w // 2 - 10, brow_y - 10))
+        elif sad:
+            droop_amt = int(self.droop * 14)
+            if is_left:
+                pygame.draw.line(surf, EYE_MID, (cx - brow_w // 2, brow_y),
+                                 (cx + brow_w // 2, brow_y - droop_amt), 9)
+            else:
+                pygame.draw.line(surf, EYE_MID, (cx - brow_w // 2, brow_y - droop_amt),
+                                 (cx + brow_w // 2, brow_y), 9)
+        elif listening:
+            lift = int(10 * self.widen)
+            pygame.draw.rect(surf, EYE_MID,
+                             pygame.Rect(cx - brow_w // 2, brow_y - lift, brow_w, 9),
+                             border_radius=4)
+        else:
+            pygame.draw.rect(surf, EYE_MID,
+                             pygame.Rect(cx - brow_w // 2, brow_y, brow_w, 9),
+                             border_radius=4)
 
 
 # ── Mouth ─────────────────────────────────────────────────────────────────────
@@ -897,7 +1062,7 @@ class RobotFace:
         self.bounce_phase  = 0.0
         self.bounce_amp    = 0.0
 
-        EYE_SPREAD = 190
+        # rel_x is re-applied from the active style's EYE_SPREAD every frame
         self.left_eye  = Eye(-EYE_SPREAD, -30, 175, 125)
         self.right_eye = Eye( EYE_SPREAD, -30, 175, 125)
         self.mouth     = Mouth(0, 155)
@@ -1154,6 +1319,11 @@ class RobotFace:
         sad       = emotion == "sad"
         is_listen = listening and not speaking
 
+        # per-style geometry (so 1/2/3 can be switched live)
+        self.left_eye.rel_x  = -EYE_SPREAD
+        self.right_eye.rel_x =  EYE_SPREAD
+        tw, th = tw * EYE_SCALE, th * EYE_SCALE
+
         for eye in (self.left_eye, self.right_eye):
             eye.update(
                 tw, th, blink_t,
@@ -1308,6 +1478,8 @@ class RobotFace:
                     apply_style(1)
                 elif event.key in (pygame.K_2, pygame.K_KP2):
                     apply_style(2)
+                elif event.key in (pygame.K_3, pygame.K_KP3):
+                    apply_style(3)
 
         self.clock.tick(RENDER_FPS)
         self.update()
