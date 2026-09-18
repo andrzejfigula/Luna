@@ -98,10 +98,14 @@ front of the camera for 30 s the face goes to sleep.
 
 ## Troubleshooting
 
-- **Crackle mid-sentence** → PipeWire isn't realtime. Check
-  `ps -eLo cls,rtprio,comm | grep data-loop` — should show `FF 8x`. If it
-  shows `TS -`, do the `rtkit` + `usermod -aG pipewire` step and reboot.
-  `run.sh` also runs Luna at `nice 10` so audio wins the CPU regardless.
+- **Crackle mid-sentence** → check `pw-top` while a reply plays: the
+  `alsa_output…` line must show QUANT 1024 and a non-increasing ERR count.
+  `install_autostart.sh` installs `pi/51-luna-quantum.conf` (PipeWire) and
+  `pi/51-luna-no-suspend.conf` (WirePlumber) which fix this on the Pi 4's
+  3.5 mm output. Also make sure PipeWire is realtime
+  (`ps -eLo cls,rtprio,comm | grep data-loop` → `FF 8x`; otherwise do the
+  `rtkit` + `usermod -aG pipewire` step and reboot). `run.sh` runs Luna at
+  `nice 10` as well. Lowering `RENDER_FPS` is a last resort, not needed.
 - **No sound** → audio goes through PipeWire (`LUNA_SPEAKER`, default sink
   when unset); the startup log line `[TTS] … → <sink>` shows where it went.
   `wpctl status` lists sinks, `wpctl set-volume <id> 1.0` fixes a quiet one

@@ -4,6 +4,18 @@
   Format: date · area · what changed · why
 ══════════════════════════════════════════════════════════════════
 
+─── 2026-09-18 — Mid-sentence crackle, real root cause: 128-sample quantum ──
+
+[audio] Bisected by ear: clean with Luna stopped, clean with mic+Vosk+camera
+  only, crackly with the face renderer only. The renderer is cheap (~7 ms
+  per frame) — the problem was that PipeWire ran the 3.5 mm sink at a
+  128-sample quantum (2.7 ms), so every display page-flip from the renderer
+  caused an ALSA xrun (pw-top ERR counter climbing during playback).
+  pi/51-luna-quantum.conf pins the graph to a 1024-sample quantum, and
+  the WirePlumber rule adds api.alsa.headroom=1024. Verified: 0 xruns
+  over an 18 s playback with the face animating at 30 fps.
+  Power (get_throttled) was checked and ruled out for this symptom.
+
 ─── 2026-09-18 — Mid-sentence crackle: PipeWire had no realtime priority ──
 
 [audio] Root cause: rtkit not installed and the user not in the "pipewire"
