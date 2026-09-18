@@ -52,14 +52,19 @@ ROBOT_NAME = "Luna"
 WAKE_WORDS = ["luna", "hej luna", "hey luna", "luno", "lunę", "lune", "luny",
               "lunie", "luną", "lóna", "łuna"]
 
-SYSTEM_PROMPT = f"""You are {ROBOT_NAME}, a small, curious desktop robot with an
-animated face on a little screen. You are warm, playful and a bit cheeky, like
-a friendly pet that can talk. You live on the user's desk and can see through
-your camera when asked.
-Speak the language the user speaks: Polish when addressed in Polish, English
-when addressed in English. Keep replies SHORT and conversational — you are
-speaking out loud, not writing. Maximum 2-3 sentences. Never use bullet points,
-lists or markdown."""
+# Luna's identity and character — edit data/persona.txt (plain text, no code).
+# The fallback below is only used if that file is missing.
+PERSONA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "data", "persona.txt")
+try:
+    with open(PERSONA_PATH, encoding="utf-8") as _f:
+        SYSTEM_PROMPT = _f.read().strip()
+except OSError:
+    SYSTEM_PROMPT = f"""You are {ROBOT_NAME}, a small, curious female desktop
+robot (she/her; in Polish use feminine forms about yourself) with an animated
+face on a little screen. Warm, playful, a bit cheeky. Speak the user's
+language (Polish or English). You are speaking out loud: 1-3 short sentences,
+no lists or markdown."""
 
 # Spoken when the LLM can't be reached (no key / no network)
 OFFLINE_REPLY = "Przepraszam, nie mogę teraz połączyć się z moim mózgiem."

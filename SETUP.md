@@ -93,7 +93,9 @@ front of the camera for 30 s the face goes to sleep.
 - `CLOUD_STT_LANGUAGE = "pl"` to force Polish instead of auto-detect.
 - `REQUIRE_FACE_TO_TALK` — only answer when someone is facing the camera.
 - `VISION_KEYWORDS` — which questions get a camera frame attached.
-- `SYSTEM_PROMPT` — Luna's personality. `data/knowledge.txt` — optional facts.
+- `data/persona.txt` — who Luna is and how she talks (identity, gender,
+  language, tone). Plain text, edit freely, restart to apply.
+  `data/knowledge.txt` — optional facts appended to the prompt.
 - `FACE_STYLE` — 1 purple "Luna classic", 2 cyan "robo".
 
 ## Troubleshooting
