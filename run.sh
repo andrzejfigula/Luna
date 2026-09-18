@@ -16,4 +16,7 @@ if [[ "$PCT" =~ ^[0-9]+$ ]]; then
     done
 fi
 
-exec ./venv/bin/python -u main.py
+# Lower priority than PipeWire / the audio player: without realtime scheduling
+# for PipeWire (needs rtkit or the "pipewire" group), Luna's render and Vosk
+# threads would otherwise preempt the audio thread and cause crackle.
+exec nice -n 10 ./venv/bin/python -u main.py

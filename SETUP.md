@@ -20,7 +20,10 @@ camera vision, LLM-controlled emotions. No servos, no local ML models.
 ```bash
 # 1. system packages (pygame / numpy / opencv come from apt, not pip)
 sudo apt-get update
-sudo apt-get install -y python3-pygame python3-numpy python3-opencv libportaudio2
+sudo apt-get install -y python3-pygame python3-numpy python3-opencv libportaudio2 rtkit
+# realtime priority for PipeWire's audio thread — without it the face
+# renderer preempts audio and replies crackle. Takes effect after a reboot.
+sudo usermod -aG pipewire $USER
 
 # 2. project + venv (must see the apt packages → --system-site-packages)
 git clone <this repo> ~/luna && cd ~/luna
@@ -95,6 +98,10 @@ front of the camera for 30 s the face goes to sleep.
 
 ## Troubleshooting
 
+- **Crackle mid-sentence** → PipeWire isn't realtime. Check
+  `ps -eLo cls,rtprio,comm | grep data-loop` — should show `FF 8x`. If it
+  shows `TS -`, do the `rtkit` + `usermod -aG pipewire` step and reboot.
+  `run.sh` also runs Luna at `nice 10` so audio wins the CPU regardless.
 - **No sound** → audio goes through PipeWire (`LUNA_SPEAKER`, default sink
   when unset); the startup log line `[TTS] … → <sink>` shows where it went.
   `wpctl status` lists sinks, `wpctl set-volume <id> 1.0` fixes a quiet one
