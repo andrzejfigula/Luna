@@ -43,6 +43,7 @@ from config import (
     CONVO_TIMEOUT,
     POST_SPEAK_DELAY,
     DOUBLE_FLUSH,
+    MIC_GAIN,
     MIC_ENERGY_THRESHOLD,
     MIC_GATE_FACTOR,
     MIC_GATE_MAX,
@@ -237,6 +238,14 @@ def _resample_to_16k(raw_bytes):
     x_new = np.linspace(0.0, 1.0, num=n_out,      endpoint=False)
     resampled = np.interp(x_new, x_old, audio).astype(np.int16)
     return resampled.tobytes()
+
+
+def _apply_gain(raw_bytes):
+    """Software mic gain (int16, clipped)."""
+    if MIC_GAIN == 1.0:
+        return raw_bytes
+    a = np.frombuffer(raw_bytes, dtype=np.int16).astype(np.float32) * MIC_GAIN
+    return np.clip(a, -32768, 32767).astype(np.int16).tobytes()
 
 
 def _block_rms(raw_bytes):
@@ -529,6 +538,7 @@ def listen():
         data = _resample_to_16k(data)
         if not data:
             continue
+        data = _apply_gain(data)
 
         # Energy gate (VAD): silence out ambient-level blocks so Vosk never
         # transcribes background noise into words. The gate adapts to the

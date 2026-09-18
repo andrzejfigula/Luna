@@ -4,6 +4,14 @@
   Format: date · area · what changed · why
 ══════════════════════════════════════════════════════════════════
 
+─── 2026-09-18 — Mic sensitivity ────────────────────────────────────────
+
+[stt] The C270's hardware capture gain was already at max (+30 dB) and
+  PortAudio bypasses PipeWire's source volume, so: MIC_GAIN=1.6 software
+  gain on the mic stream (int16, clipped) before the gate/Vosk/cloud, and
+  a gentler gate (MIC_ENERGY_THRESHOLD 500→400, MIC_GATE_FACTOR 2.5→2.0).
+  Speech now sits 3-4x above the gate instead of ~2x.
+
 ─── 2026-09-18 — Real lip sync ───────────────────────────────────────────
 
 [tts] openai_tts.Envelope: every PCM chunk sent to the player is reduced

@@ -148,8 +148,11 @@ CLOUD_STT_MAX_SECS = 20        # longest utterance sent to the cloud
 #    MIC_ENERGY_THRESHOLD is the minimum gate (int16 RMS scale, 0–32767).
 #    To calibrate: watch the "[STT] ... peak_rms=/gate=" debug lines — speech
 #    should sit well above the gate, room noise below it.
-MIC_ENERGY_THRESHOLD = 500.0    # gate never drops below this
-MIC_GATE_FACTOR      = 2.5      # gate = noise_floor × this (≥ threshold above)
+MIC_GAIN             = 1.6      # software gain on the mic stream (the C270's
+                                # hardware gain is already at max); helps Vosk
+                                # with quiet / distant speech
+MIC_ENERGY_THRESHOLD = 400.0    # gate never drops below this (post-gain RMS)
+MIC_GATE_FACTOR      = 2.0      # gate = noise_floor × this (≥ threshold above)
 MIC_GATE_MAX         = 4000.0   # safety cap so speech can always get through
 
 # 2) Confidence gate: drop a recognised phrase whose average Vosk word
