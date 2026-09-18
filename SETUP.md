@@ -31,9 +31,21 @@ python3 -m venv --system-site-packages venv
 curl -LO https://alphacephei.com/vosk/models/vosk-model-small-pl-0.22.zip
 unzip vosk-model-small-pl-0.22.zip && rm vosk-model-small-pl-0.22.zip
 
-# 4. OpenAI key
+# 4. OpenAI key + hardware choices
 cp .env.example .env && nano .env      # OPENAI_API_KEY=sk-...
 ```
+
+`.env` also selects the hardware (all optional, auto-detect when empty):
+
+| Variable | Values | Example |
+|---|---|---|
+| `LUNA_CAMERA` | V4L2 index or device path | `0`, `/dev/video2` |
+| `LUNA_MIC` | sounddevice index or part of the name | `C270` |
+| `LUNA_SPEAKER` | `jack` (3.5 mm), `hdmi`, `bluetooth`, `default`, or a PipeWire node name | `jack` |
+| `LUNA_TTS_VOICE` | OpenAI voice — `nova`, `shimmer`, `marin` are bright; `coral`, `sage` calmer | `nova` |
+
+Output volume follows the chosen PipeWire sink: `wpctl status` lists them,
+`wpctl set-volume <id> 1.0` sets it.
 
 ## Run
 
@@ -68,7 +80,7 @@ front of the camera for 30 s the face goes to sleep.
 
 - `WAKE_WORDS`, `WAKE_FUZZY_RATIO` — Vosk-small sometimes mishears "Luna"; add
   variants it produces (check `luna.log`) or lower the ratio a little.
-- `OPENAI_MODEL`, `OPENAI_TTS_VOICE`, `OPENAI_TTS_INSTRUCTIONS`
+- `OPENAI_MODEL`, `OPENAI_TTS_INSTRUCTIONS` (voice character), `OPENAI_TTS_SPEED`
 - `CLOUD_STT_LANGUAGE = "pl"` to force Polish instead of auto-detect.
 - `REQUIRE_FACE_TO_TALK` — only answer when someone is facing the camera.
 - `VISION_KEYWORDS` — which questions get a camera frame attached.
@@ -77,9 +89,11 @@ front of the camera for 30 s the face goes to sleep.
 
 ## Troubleshooting
 
-- **No sound** → audio goes through PipeWire's default sink; check
-  `wpctl status` and `wpctl set-volume @DEFAULT_AUDIO_SINK@ 1.0`. `aplay` is
-  NOT used because `pipewire-alsa` isn't on the stock image.
+- **No sound** → audio goes through PipeWire (`LUNA_SPEAKER`, default sink
+  when unset); the startup log line `[TTS] … → <sink>` shows where it went.
+  `wpctl status` lists sinks, `wpctl set-volume <id> 1.0` fixes a quiet one
+  (the 3.5 mm jack ships at 40 %). `aplay` is NOT used because
+  `pipewire-alsa` isn't on the stock image.
 - **Mic not found** → `./venv/bin/python -c "import sounddevice as sd; print(sd.query_devices())"`
   and set `AUDIO_INPUT_DEVICE`.
 - **Nothing recognised** → `STT_DEBUG_AUDIO=True` prints `heard=... peak_rms=... gate=...`;

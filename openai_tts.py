@@ -15,6 +15,7 @@ subprocess blocks until the audio has actually finished, which is what keeps
 the mic-blocking / echo protection in text_to_speech.py correct.
 """
 
+import json
 import os
 import subprocess
 import threading
@@ -29,9 +30,45 @@ from config import (
     OPENAI_TTS_INSTRUCTIONS,
     OPENAI_TTS_TIMEOUT,
     TTS_PLAYER,
+    AUDIO_OUTPUT_DEVICE,
 )
 
 PCM_RATE = 24000   # fixed by the API for response_format="pcm"
+
+# LUNA_SPEAKER aliases → substrings of the PipeWire sink's node.name
+_SINK_ALIASES = {
+    "jack":       ["mailbox", "headphones"],   # Pi's 3.5 mm output
+    "headphones": ["mailbox", "headphones"],
+    "hdmi":       ["hdmi"],
+    "bluetooth":  ["bluez_output"],
+    "bt":         ["bluez_output"],
+}
+
+
+def _resolve_sink(spec):
+    """Turn LUNA_SPEAKER into a PipeWire node name for pw-play --target.
+    Returns None for "default" (follow the desktop's default output)."""
+    if not spec or spec.lower() == "default":
+        return None
+    try:
+        dump  = subprocess.run(["pw-dump"], capture_output=True, text=True,
+                               timeout=5).stdout
+        sinks = [o["info"]["props"] for o in json.loads(dump)
+                 if o.get("info", {}).get("props", {}).get("media.class") == "Audio/Sink"]
+    except Exception as e:
+        print(f"[TTS] pw-dump failed ({e}) — using {spec!r} as-is")
+        return spec
+    names = [s.get("node.name", "") for s in sinks]
+    if spec in names:
+        return spec
+    for needle in _SINK_ALIASES.get(spec.lower(), [spec.lower()]):
+        for s in sinks:
+            hay = (s.get("node.name", "") + " " + s.get("node.description", "")).lower()
+            if needle in hay:
+                return s["node.name"]
+    print(f"[TTS] No PipeWire sink matches LUNA_SPEAKER={spec!r} "
+          f"(have: {', '.join(names) or 'none'}) — using default output")
+    return None
 
 
 class OpenAITTS:
@@ -41,6 +78,7 @@ class OpenAITTS:
         self._client = (OpenAI(api_key=OPENAI_API_KEY, timeout=OPENAI_TTS_TIMEOUT,
                                max_retries=1)
                         if OPENAI_API_KEY else None)
+        self._sink    = _resolve_sink(AUDIO_OUTPUT_DEVICE)
         self._raw_cmd = self._build_raw_player_cmd()
         if self._client is None:
             print("[TTS] No OPENAI_API_KEY — replies will be printed, not spoken")
@@ -49,7 +87,8 @@ class OpenAITTS:
                   "use aplay, ffplay, pw-play or paplay")
         else:
             print(f"[TTS] OpenAI {OPENAI_TTS_MODEL}/{OPENAI_TTS_VOICE} "
-                  f"→ {os.path.basename(TTS_PLAYER)} @ {PCM_RATE} Hz")
+                  f"→ {os.path.basename(TTS_PLAYER)} @ {PCM_RATE} Hz "
+                  f"→ {self._sink or 'default output'}")
 
     # ── player command for raw PCM on stdin ─────────────────────────────────
     def _build_raw_player_cmd(self):
@@ -58,8 +97,11 @@ class OpenAITTS:
             return [TTS_PLAYER, "--raw", f"--rate={PCM_RATE}",
                     "--format=s16le", "--channels=1"]
         if player.startswith("pw-play") or player.startswith("pw-cat"):
-            return [TTS_PLAYER, "--playback", "--raw", f"--rate={PCM_RATE}",
-                    "--format=s16", "--channels=1", "-"]
+            cmd = [TTS_PLAYER, "--playback", "--raw", f"--rate={PCM_RATE}",
+                   "--format=s16", "--channels=1"]
+            if self._sink:
+                cmd += ["--target", self._sink]   # only pw-play can pick a sink
+            return cmd + ["-"]
         if player.startswith("aplay"):
             return [TTS_PLAYER, "-q", "-r", str(PCM_RATE),
                     "-f", "S16_LE", "-c", "1", "-t", "raw", "-"]

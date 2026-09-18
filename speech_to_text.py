@@ -77,20 +77,33 @@ WAKE_ACK = "__WAKE_ACK__"
 
 # ── Device + sample rate detection ────────────────────────────────────────────
 
+def _resolve_input_device(spec):
+    """AUDIO_INPUT_DEVICE may be an index or a case-insensitive substring of
+    the device name (LUNA_MIC=C270). Returns an index or None."""
+    if spec is None or isinstance(spec, int):
+        return spec
+    for i, dev in enumerate(sd.query_devices()):
+        if dev["max_input_channels"] > 0 and spec.lower() in dev["name"].lower():
+            return i
+    print(f"[STT] No input device matching {spec!r} — falling back to auto-detect")
+    return None
+
+
 def _pick_input_device():
     """Return (device_index_or_None, sample_rate) or (None, None) if no mic."""
-    if AUDIO_INPUT_DEVICE is not None:
+    wanted = _resolve_input_device(AUDIO_INPUT_DEVICE)
+    if wanted is not None:
         try:
-            dev = sd.query_devices(AUDIO_INPUT_DEVICE)
+            dev = sd.query_devices(wanted)
             if dev["max_input_channels"] > 0:
                 rate = MIC_SAMPLE_RATE or int(dev["default_samplerate"])
-                print(f"[STT] Using configured device {AUDIO_INPUT_DEVICE}: "
+                print(f"[STT] Using configured device {wanted}: "
                       f"{dev['name']} @ {rate} Hz")
-                return AUDIO_INPUT_DEVICE, rate
-            print(f"[STT] Configured device {AUDIO_INPUT_DEVICE} has no "
+                return wanted, rate
+            print(f"[STT] Configured device {wanted} has no "
                   f"input channels — falling back to auto-detect")
         except Exception as e:
-            print(f"[STT] Configured device {AUDIO_INPUT_DEVICE} error: {e} "
+            print(f"[STT] Configured device {wanted} error: {e} "
                   f"— falling back to auto-detect")
 
     # auto-detect: prefer the system default input, then any input device

@@ -4,6 +4,15 @@
   Format: date · area · what changed · why
 ══════════════════════════════════════════════════════════════════
 
+─── 2026-09-18 — .env hardware options, jack output, brighter voice ─────
+
+[config] LUNA_CAMERA / LUNA_MIC / LUNA_SPEAKER / LUNA_TTS_VOICE read from
+  .env (empty = auto). LUNA_MIC accepts a name substring ("C270");
+  LUNA_CAMERA accepts a /dev/videoN path; LUNA_SPEAKER accepts jack /
+  hdmi / bluetooth / default or a PipeWire node name — resolved through
+  pw-dump in openai_tts.py and passed to pw-play --target.
+[tts] Default voice coral → nova with bright/friendly/upbeat instructions.
+
 ─── 2026-09-18 — Raspberry Pi 4 desktop-robot fork (OpenAI, no servos) ──
 
 [deps] Python 3.13 / Pi OS Trixie / arm64. Removed torch, tensorflow,

@@ -25,8 +25,16 @@ SCREEN_HEIGHT  = 480
 FULLSCREEN     = True
 HIDE_CURSOR    = True
 
+def _env(name, default):
+    """Optional override from .env / environment; empty value = default."""
+    v = os.environ.get(name, "").strip()
+    return v if v else default
+
+
 # ── Camera (Logitech C270 on /dev/video0) ─────────────────────────────────────
-CAMERA_ID      = 0
+# .env: LUNA_CAMERA=0   or   LUNA_CAMERA=/dev/video2
+CAMERA_ID      = _env("LUNA_CAMERA", "0")
+CAMERA_ID      = int(CAMERA_ID) if CAMERA_ID.isdigit() else CAMERA_ID
 FRAME_WIDTH    = 640     # full frame goes to the LLM for "what do you see";
 FRAME_HEIGHT   = 480     # face detection runs on a half-size copy
 FPS            = 15
@@ -91,11 +99,16 @@ OPENAI_MODEL   = "gpt-4.1-mini"     # chat + vision; fast and cheap enough for v
 OPENAI_TIMEOUT = 15.0               # seconds — a stall must never freeze Luna
 
 # ── Audio devices ─────────────────────────────────────────────────────────────
-# None = auto detect (PipeWire default = the C270 mic), set to index if auto
-# detect picks wrong device
-# run: python3 -c "import sounddevice; print(sounddevice.query_devices())"
-AUDIO_INPUT_DEVICE  = None
-AUDIO_OUTPUT_DEVICE = None
+# Microphone — .env: LUNA_MIC=<index>  or  LUNA_MIC=<part of the device name>
+# (e.g. LUNA_MIC=C270). Unset = auto detect (system default input).
+# List devices: ./venv/bin/python -c "import sounddevice; print(sounddevice.query_devices())"
+AUDIO_INPUT_DEVICE  = _env("LUNA_MIC", None)
+if isinstance(AUDIO_INPUT_DEVICE, str) and AUDIO_INPUT_DEVICE.isdigit():
+    AUDIO_INPUT_DEVICE = int(AUDIO_INPUT_DEVICE)
+
+# Speaker — .env: LUNA_SPEAKER=jack | hdmi | bluetooth | default | <PipeWire node name>
+# ("jack" = 3.5 mm headphone jack). List sinks: wpctl status
+AUDIO_OUTPUT_DEVICE = _env("LUNA_SPEAKER", "default")
 
 # ── STT ───────────────────────────────────────────────────────────────────────
 # Vosk does wake-word spotting + endpointing locally; the cloud does the
@@ -164,9 +177,16 @@ STT_DEBUG_AUDIO = True
 TTS_RATE = 155   # legacy, unused by the OpenAI engine
 
 OPENAI_TTS_MODEL        = "gpt-4o-mini-tts"
-OPENAI_TTS_VOICE        = "coral"    # alloy, ash, ballad, coral, echo, fable, nova, sage, shimmer
+# .env: LUNA_TTS_VOICE=nova   (alloy, ash, ballad, coral, echo, fable, nova,
+# onyx, sage, shimmer, verse, marin, cedar — nova/shimmer/marin are the bright ones)
+OPENAI_TTS_VOICE        = _env("LUNA_TTS_VOICE", "nova")
 OPENAI_TTS_SPEED        = 1.0
-OPENAI_TTS_INSTRUCTIONS = "Speak like a cheerful small robot companion; natural Polish pronunciation."
+OPENAI_TTS_INSTRUCTIONS = (
+    "Voice: bright, warm and friendly, like a cheerful little robot companion "
+    "who is genuinely happy to talk to you. Tone: upbeat, playful, smiling, "
+    "energetic but not shouty. Pace: lively. Natural, native-sounding Polish "
+    "pronunciation; switch to English naturally when the text is English."
+)
 OPENAI_TTS_TIMEOUT      = 20.0
 
 # Raw-PCM capable player. pw-play goes through PipeWire, so audio follows the
