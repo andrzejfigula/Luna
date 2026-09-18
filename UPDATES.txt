@@ -4,6 +4,14 @@
   Format: date · area · what changed · why
 ══════════════════════════════════════════════════════════════════
 
+─── 2026-09-18 — Style 3 eyebrows: domed gradient + bloom ───────────────
+
+[face] gradient_sheet() (unmasked domed shading, shared with the eyes)
+  tints the brow shape; bloom() gives a shape-following glow via a cheap
+  shrink/enlarge blur. Brow layer is tight around the brow so the
+  gradient spans the brow itself; brows sit 30 px above the eye, 15 px
+  thick. 30 fps unchanged.
+
 ─── 2026-09-18 — Style 3 depth: domed gradient, pupils, gradient brows ──
 
 [face] gradient_block now numpy-generated: vertical gradient × radial

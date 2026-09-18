@@ -213,6 +213,33 @@ def _lerp_col(a, b, t):
             int(lerp(a[2], b[2], t)))
 
 
+def gradient_sheet(w, h, top, bottom, sheen=0.35, rim=0.34):
+    """Unmasked domed-panel shading: vertical gradient × radial falloff +
+    specular sheen. Used for the eye blocks and (via a shape mask) brows."""
+    key = ("sheet", w, h, top, bottom, sheen, rim)
+    surf = _GRAD_CACHE.get(key)
+    if surf is None:
+        if len(_GRAD_CACHE) > 400:
+            _GRAD_CACHE.clear()
+        ys = np.linspace(0.0, 1.0, h, dtype=np.float32)[None, :]      # (1,h)
+        xs = np.linspace(-1.0, 1.0, w, dtype=np.float32)[:, None]     # (w,1)
+        t  = ys ** 1.25
+        col = (np.array(top, np.float32)[None, None, :] * (1 - t[..., None])
+               + np.array(bottom, np.float32)[None, None, :] * t[..., None])
+        col = np.broadcast_to(col, (w, h, 3)).copy()
+        dy = (ys - 0.42) * 2.0
+        d2 = xs ** 2 * 0.9 + dy ** 2 * 1.1
+        light = 1.06 - rim * np.clip(d2, 0.0, 1.6)
+        col *= light[..., None]
+        sx = xs * 1.15
+        sy = (ys - 0.24) * 3.2
+        col += 255.0 * (np.exp(-(sx ** 2 + sy ** 2) * 2.2) * sheen)[..., None]
+        arr = np.clip(col, 0, 255).astype(np.uint8)
+        surf = pygame.surfarray.make_surface(arr).convert_alpha()
+        _GRAD_CACHE[key] = surf
+    return surf
+
+
 def gradient_block(w, h, radius, top, bottom):
     """Rounded rect that looks like a domed, back-lit amber panel:
     vertical gradient (top → bottom colour) × radial falloff (bright core,
@@ -248,6 +275,23 @@ def gradient_block(w, h, radius, top, bottom):
         surf.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
         _GRAD_CACHE[key] = surf
     return surf
+
+
+def bloom(surf, layer, pos, radius=10, passes=2, max_alpha=110):
+    """Soft glow that follows an arbitrary SRCALPHA shape. Cheap blur:
+    pad, shrink, enlarge (smoothscale both ways) — then blit behind."""
+    lw, lh = layer.get_size()
+    pad = radius * 3
+    big = pygame.Surface((lw + pad * 2, lh + pad * 2), pygame.SRCALPHA)
+    big.blit(layer, (pad, pad))
+    bw, bh = big.get_size()
+    small = pygame.transform.smoothscale(big, (max(2, bw // radius), max(2, bh // radius)))
+    for i in range(passes, 0, -1):
+        k = 1.0 + 0.10 * i
+        g = pygame.transform.smoothscale(small, (int(bw * k), int(bh * k)))
+        g.set_alpha(int(max_alpha * (1.0 - (i - 1) / passes) ** 1.5))
+        surf.blit(g, (pos[0] - pad - (g.get_width() - bw) // 2,
+                      pos[1] - pad - (g.get_height() - bh) // 2))
 
 
 _BROW_GRAD_CACHE = {}
@@ -717,20 +761,20 @@ class Eye:
             return
         brow_w  = int(w * 0.70)
         is_left = cx < WIDTH // 2
-        LW, LH  = brow_w + 40, 56                 # layer size
-        ox, oy  = cx - LW // 2, rect.top - 22 - LH + 18   # layer origin
-        by      = LH - 18                          # brow baseline inside layer
+        LW, LH  = brow_w + 40, 48                 # tight layer: the gradient
+        by      = LH // 2                          # spans the brow itself
+        ox, oy  = cx - LW // 2, rect.top - 30 - by   # brow centre 30 px above eye
         lx0, lx1 = 20, 20 + brow_w
         layer = pygame.Surface((LW, LH), pygame.SRCALPHA)
         W = (255, 255, 255, 255)
-        thick = 11
+        thick = 15
 
         if angry:
             sign = 1 if is_left else -1
             pygame.draw.line(layer, W, (lx0, by + sign * 10), (lx1, by - sign * 10), thick)
         elif happy:
-            pygame.draw.arc(layer, W, pygame.Rect(lx0, by - 14, brow_w, 30),
-                            math.radians(10), math.radians(170), 8)
+            pygame.draw.arc(layer, W, pygame.Rect(lx0, by - 16, brow_w, 34),
+                            math.radians(10), math.radians(170), 11)
         elif sad:
             droop_amt = int(self.droop * 14)
             if is_left:
@@ -739,18 +783,20 @@ class Eye:
                 pygame.draw.line(layer, W, (lx0, by - droop_amt), (lx1, by), thick)
         elif listening:
             lift = int(10 * self.widen)
-            pygame.draw.rect(layer, W, pygame.Rect(lx0, by - lift - 5, brow_w, thick),
-                             border_radius=5)
+            pygame.draw.rect(layer, W, pygame.Rect(lx0, by - lift - 7, brow_w, thick),
+                             border_radius=7)
         else:
-            pygame.draw.rect(layer, W, pygame.Rect(lx0, by - 5, brow_w, thick),
-                             border_radius=5)
+            pygame.draw.rect(layer, W, pygame.Rect(lx0, by - 7, brow_w, thick),
+                             border_radius=7)
 
-        # round the line ends a little
-        layer.blit(brow_gradient(LW, LH, BROW_GRAD_TOP, BROW_GRAD_BOTTOM), (0, 0),
+        # same domed shading as the eyes, masked by the brow shape
+        layer.blit(gradient_sheet(LW, LH, BROW_GRAD_TOP, BROW_GRAD_BOTTOM,
+                                  sheen=0.30, rim=0.30), (0, 0),
                    special_flags=pygame.BLEND_RGBA_MULT)
-        draw_glow_rect(surf, GLOW_COL, pygame.Rect(cx - brow_w // 2, oy + by - 6,
-                                                   brow_w, 12),
-                       radius=6, layers=3, max_alpha=28)
+        # bloom that follows the brow's actual shape
+        glow_layer = layer.copy()
+        glow_layer.fill((*GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
+        bloom(surf, glow_layer, (ox, oy), radius=8, passes=2, max_alpha=120)
         surf.blit(layer, (ox, oy))
 
 
