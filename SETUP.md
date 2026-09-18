@@ -86,6 +86,9 @@ front of the camera for 30 s the face goes to sleep.
   mishears "Luna"; the cloud check catches those (one cheap transcription per
   sentence heard while idle). Add variants from `luna.log` if needed.
 - `TTS_PREBUFFER_SECS` — raise if replies crackle mid-sentence.
+- Lip sync: `LIPSYNC_LATENCY_MS` (mouth ahead of sound → raise, behind →
+  lower), `LIPSYNC_GAIN` (wider mouth), `LIPSYNC_RMS_FULL` (loudness that
+  counts as fully open), `LIPSYNC_ATTACK/RELEASE` (smoothing).
 - `TTS_LEADIN_SECS` — silence before each reply; the Pi's 3.5 mm output pops
   when a stream opens. `install_autostart.sh` also installs a WirePlumber
   rule (`pi/51-luna-no-suspend.conf`) that stops the jack from suspending.

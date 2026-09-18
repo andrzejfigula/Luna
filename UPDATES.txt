@@ -4,6 +4,17 @@
   Format: date · area · what changed · why
 ══════════════════════════════════════════════════════════════════
 
+─── 2026-09-18 — Real lip sync ───────────────────────────────────────────
+
+[tts] openai_tts.Envelope: every PCM chunk sent to the player is reduced
+  to 20 ms RMS frames (0..1, perceptual curve); envelope.start() stamps
+  the wall clock when the player begins consuming byte 0 (after the
+  prebuffer). text_to_speech._energy_loop reads envelope.energy_at(now -
+  LIPSYNC_LATENCY_MS) with asymmetric attack/release smoothing; the old
+  sine-mix is kept only as a fallback. Mouth floor 0.15 → 0.04 so pauses
+  actually close the lips. Verified on the Pi: "Raz. Dwa. Trzy." shows
+  three bursts with silence between, word-level modulation after.
+
 ─── 2026-09-18 — Style 3 eyebrows: domed gradient + bloom ───────────────
 
 [face] gradient_sheet() (unmasked domed shading, shared with the eyes)

@@ -832,7 +832,7 @@ class Mouth:
         if speaking:
             # use energy directly but floor at 0.15 so mouth is never fully closed
             # while speaking — prevents dead mouth between words
-            effective_energy = max(0.15, energy)
+            effective_energy = max(0.04, energy)   # real lip sync: pauses close the mouth
             target_open      = effective_energy
             self.talk_open   = lerp(self.talk_open, target_open, 0.30)
             self.mouth_w     = lerp(self.mouth_w,

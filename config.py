@@ -214,6 +214,19 @@ TTS_PREBUFFER_SECS      = 0.6    # audio buffered before playback starts — avo
 TTS_LEADIN_SECS         = 0.25   # silence played before each reply so the Pi's
                                  # 3.5 mm output pop happens before the voice
 
+# ── Lip sync ──────────────────────────────────────────────────────────────────
+# The mouth follows the real loudness of the audio being played: the TTS
+# engine measures an RMS envelope of every PCM frame it sends to the player
+# and the renderer reads it back at (now - playback start - latency).
+LIPSYNC_FRAME_MS   = 20     # envelope resolution
+LIPSYNC_LATENCY_MS = 90     # pipe + PipeWire quantum/headroom + DAC delay;
+                            # raise if the mouth runs ahead of the sound,
+                            # lower if it lags behind
+LIPSYNC_GAIN       = 1.0    # >1 = mouth opens wider for the same loudness
+LIPSYNC_RMS_FULL   = 6500   # int16 RMS that counts as "fully open"
+LIPSYNC_ATTACK     = 0.55   # smoothing: how fast the mouth opens (0-1)
+LIPSYNC_RELEASE    = 0.30   # how fast it closes
+
 # Raw-PCM capable player. pw-play goes through PipeWire, so audio follows the
 # desktop's default output (Bluetooth speaker, 3.5 mm jack, HDMI) and its
 # volume. aplay would bypass PipeWire and hit the 3.5 mm jack directly.

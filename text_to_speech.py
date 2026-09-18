@@ -17,12 +17,16 @@ import time
 import random
 import math
 import subprocess
-from openai_tts import tts
+from openai_tts import tts, envelope
 
 from shared_state import state
 from config import (
     TTS_RATE,
     MIC_BLOCK_AFTER_SPEAK,
+    LIPSYNC_LATENCY_MS,
+    LIPSYNC_GAIN,
+    LIPSYNC_ATTACK,
+    LIPSYNC_RELEASE,
 )
 
 
@@ -56,9 +60,22 @@ def _engine_speak(text):
 _energy_phase = 0.0
 
 
+def _synthetic_energy():
+    """Fallback when the engine gives no loudness envelope: a plausible
+    talking rhythm from a few sines plus jitter."""
+    global _energy_phase
+    _energy_phase += 0.18
+    slow = abs(math.sin(_energy_phase * 0.9))
+    mid  = abs(math.sin(_energy_phase * 2.3)) * 0.5
+    fast = abs(math.sin(_energy_phase * 5.1)) * 0.2
+    raw  = (slow + mid + fast) / 1.7
+    return max(0.0, min(1.0, raw + random.uniform(-0.08, 0.08)))
+
+
 def _energy_loop():
 
     global _energy_phase
+    smoothed = 0.0
 
     while True:
 
@@ -69,29 +86,27 @@ def _energy_loop():
 
         if speaking:
 
-            _energy_phase += 0.18
+            # Real lip sync: loudness of the frame the speaker is playing
+            # right now (the envelope is stamped when playback started; the
+            # latency offset covers the pipe + PipeWire + DAC delay).
+            e = envelope.energy_at(time.time() - LIPSYNC_LATENCY_MS / 1000.0)
+            if e is None:
+                e = _synthetic_energy()
+            e = max(0.0, min(1.0, e * LIPSYNC_GAIN))
 
-            slow = abs(math.sin(_energy_phase * 0.9))
-            mid = abs(math.sin(_energy_phase * 2.3)) * 0.5
-            fast = abs(math.sin(_energy_phase * 5.1)) * 0.2
-
-            raw = (slow + mid + fast) / 1.7
-
-            jitter = random.uniform(-0.08, 0.08)
-
-            energy = max(
-                0.0,
-                min(1.0, raw + jitter)
-            )
+            # asymmetric smoothing — snappy open, softer close
+            k = LIPSYNC_ATTACK if e > smoothed else LIPSYNC_RELEASE
+            smoothed += (e - smoothed) * k
 
             with state.lock:
-                state.audio_energy = energy
+                state.audio_energy = smoothed
 
             time.sleep(0.016)   # ~60 fps mouth animation while speaking
 
         else:
 
             _energy_phase = 0.0
+            smoothed = 0.0
 
             with state.lock:
                 state.audio_energy = 0.0

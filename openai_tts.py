@@ -19,6 +19,9 @@ import json
 import os
 import subprocess
 import threading
+import time
+
+import numpy as np
 
 from openai import OpenAI
 
@@ -33,6 +36,8 @@ from config import (
     TTS_LEADIN_SECS,
     TTS_PLAYER,
     AUDIO_OUTPUT_DEVICE,
+    LIPSYNC_FRAME_MS,
+    LIPSYNC_RMS_FULL,
 )
 
 PCM_RATE = 24000   # fixed by the API for response_format="pcm"
@@ -71,6 +76,63 @@ def _resolve_sink(spec):
     print(f"[TTS] No PipeWire sink matches LUNA_SPEAKER={spec!r} "
           f"(have: {', '.join(names) or 'none'}) — using default output")
     return None
+
+
+class Envelope:
+    """Loudness-over-time of the audio currently being played, for lip sync.
+
+    feed() is called with every PCM chunk in playback order; frames of
+    LIPSYNC_FRAME_MS are reduced to a 0..1 energy. start() stamps the wall
+    clock when the player began consuming byte 0, so energy_at(now) can
+    look up what the speaker is producing right now."""
+
+    FRAME = int(24000 * LIPSYNC_FRAME_MS / 1000)   # samples per frame
+
+    def __init__(self):
+        self.lock     = threading.Lock()
+        self.frames   = []          # energy per frame, playback order
+        self.t0       = None        # wall-clock time byte 0 hit the player
+        self._carry   = b""
+
+    def reset(self):
+        with self.lock:
+            self.frames = []
+            self.t0     = None
+            self._carry = b""
+
+    def start(self):
+        with self.lock:
+            self.t0 = time.time()
+
+    def feed(self, pcm):
+        data = self._carry + pcm
+        n    = (len(data) // 2 // self.FRAME) * self.FRAME * 2
+        if n == 0:
+            self._carry = data
+            return
+        self._carry = data[n:]
+        a = np.frombuffer(data[:n], dtype=np.int16).astype(np.float32)
+        a = a.reshape(-1, self.FRAME)
+        rms = np.sqrt(np.mean(a * a, axis=1))
+        e   = np.clip(rms / LIPSYNC_RMS_FULL, 0.0, 1.0) ** 0.7   # perceptual-ish
+        with self.lock:
+            self.frames.extend(e.tolist())
+
+    def energy_at(self, t):
+        """Energy of the frame playing at wall-clock time t (None = not
+        playing / no data yet)."""
+        with self.lock:
+            if self.t0 is None:
+                return None
+            i = int((t - self.t0) * 1000 / LIPSYNC_FRAME_MS)
+            if i < 0:
+                return 0.0
+            if i >= len(self.frames):
+                return None if self.frames else 0.0
+            return self.frames[i]
+
+
+envelope = Envelope()
 
 
 class OpenAITTS:
@@ -142,11 +204,15 @@ class OpenAITTS:
             prebuf   = [leadin] if leadin else []
             prebuf_n = 0
             need     = int(TTS_PREBUFFER_SECS * PCM_RATE * 2)   # s16 mono
+            envelope.reset()
+            if leadin:
+                envelope.feed(leadin)
 
             with self._client.audio.speech.with_streaming_response.create(**kwargs) as resp:
                 for chunk in resp.iter_bytes(chunk_size=16384):
                     if not chunk:
                         continue
+                    envelope.feed(chunk)
                     if player is None:
                         prebuf.append(chunk)
                         prebuf_n += len(chunk)
@@ -154,6 +220,7 @@ class OpenAITTS:
                             continue
                         player = subprocess.Popen(self._raw_cmd, stdin=subprocess.PIPE,
                                                   stderr=subprocess.DEVNULL)
+                        envelope.start()
                         started = True
                         if on_audio_start:
                             on_audio_start()
@@ -165,6 +232,7 @@ class OpenAITTS:
             if player is None and prebuf:          # short reply: under the prebuffer
                 player = subprocess.Popen(self._raw_cmd, stdin=subprocess.PIPE,
                                           stderr=subprocess.DEVNULL)
+                envelope.start()
                 started = True
                 if on_audio_start:
                     on_audio_start()
@@ -173,6 +241,7 @@ class OpenAITTS:
             if player is not None:
                 player.stdin.close()
                 player.wait()
+            envelope.reset()
         except Exception as e:
             print(f"[TTS] streaming error: {e}")
             try:
