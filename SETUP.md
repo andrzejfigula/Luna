@@ -82,7 +82,10 @@ front of the camera for 30 s the face goes to sleep.
 - `WAKE_WORDS`, `WAKE_FUZZY_RATIO`, `CLOUD_WAKE_CHECK` — Vosk-small often
   mishears "Luna"; the cloud check catches those (one cheap transcription per
   sentence heard while idle). Add variants from `luna.log` if needed.
-- `TTS_PREBUFFER_SECS` — raise if replies crackle, lower for snappier starts.
+- `TTS_PREBUFFER_SECS` — raise if replies crackle mid-sentence.
+- `TTS_LEADIN_SECS` — silence before each reply; the Pi's 3.5 mm output pops
+  when a stream opens. `install_autostart.sh` also installs a WirePlumber
+  rule (`pi/51-luna-no-suspend.conf`) that stops the jack from suspending.
 - `OPENAI_MODEL`, `OPENAI_TTS_INSTRUCTIONS` (voice character), `OPENAI_TTS_SPEED`
 - `CLOUD_STT_LANGUAGE = "pl"` to force Polish instead of auto-detect.
 - `REQUIRE_FACE_TO_TALK` — only answer when someone is facing the camera.

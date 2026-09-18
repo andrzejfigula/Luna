@@ -204,6 +204,8 @@ OPENAI_TTS_INSTRUCTIONS = (
 OPENAI_TTS_TIMEOUT      = 20.0
 TTS_PREBUFFER_SECS      = 0.6    # audio buffered before playback starts — avoids
                                  # crackle/underruns when the stream stutters
+TTS_LEADIN_SECS         = 0.25   # silence played before each reply so the Pi's
+                                 # 3.5 mm output pop happens before the voice
 
 # Raw-PCM capable player. pw-play goes through PipeWire, so audio follows the
 # desktop's default output (Bluetooth speaker, 3.5 mm jack, HDMI) and its

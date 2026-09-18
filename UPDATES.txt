@@ -4,6 +4,14 @@
   Format: date · area · what changed · why
 ══════════════════════════════════════════════════════════════════
 
+─── 2026-09-18 — Start-of-reply crackle on the 3.5 mm jack ─────────────
+
+[audio] The BCM2835 analog output pops when its stream (re)opens after
+  PipeWire's idle suspend. Two layers: pi/51-luna-no-suspend.conf
+  (WirePlumber rule, session.suspend-timeout-seconds=0 for ALSA sinks,
+  installed by install_autostart.sh) and TTS_LEADIN_SECS of silence
+  prepended to every reply so any residual pop lands before the voice.
+
 ─── 2026-09-18 — Wake-word reliability, TTS prebuffer ────────────────────
 
 [stt] Vosk-small mishears "Luna" a lot ("nie", "cudowna", "zdaniem"...).

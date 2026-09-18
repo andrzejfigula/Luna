@@ -30,6 +30,7 @@ from config import (
     OPENAI_TTS_INSTRUCTIONS,
     OPENAI_TTS_TIMEOUT,
     TTS_PREBUFFER_SECS,
+    TTS_LEADIN_SECS,
     TTS_PLAYER,
     AUDIO_OUTPUT_DEVICE,
 )
@@ -135,7 +136,10 @@ class OpenAITTS:
             # Prebuffer: hold back the first TTS_PREBUFFER_SECS of audio before
             # the player starts, so a network stutter drains the buffer instead
             # of underrunning the sink (audible as crackle/gaps).
-            prebuf   = []
+            # Lead-in silence: the Pi's analog output pops when a stream
+            # opens; let that happen before the first spoken sample.
+            leadin   = bytes(int(TTS_LEADIN_SECS * PCM_RATE) * 2)
+            prebuf   = [leadin] if leadin else []
             prebuf_n = 0
             need     = int(TTS_PREBUFFER_SECS * PCM_RATE * 2)   # s16 mono
 
