@@ -313,9 +313,10 @@ WAVE_MIN_FACE_DIST     = 1.15  # hand centre at least this far to the side of
                                # take care of glasses / headphones)
 WAVE_MAX_FACE_DIST     = 7.0   # ...and not further than this
 WAVE_MAX_FACE_VDIST    = 2.6   # vertical tolerance for a single sample
-WAVE_MAX_BELOW_FACE    = 1.3   # loose: the hand's mean height must not be far
-                               # below the face (the cloud check below decides
-                               # wave vs. showing an object)
+WAVE_MAX_BELOW_FACE    = 0.7   # the hand's mean height must be at head level:
+                               # not lower than this many half face heights
+                               # below the face centre (waves -0.6..+0.6,
+                               # showing an object +0.8..+1.3)
 
 # Motion alone can't tell a wave from a hand showing an object — both move.
 # So a motion candidate is CONFIRMED by asking the vision model whether the
@@ -326,8 +327,11 @@ WAVE_CONFIRM_MIN_GAP   = 3.0   # seconds between confirmation requests
 # Local wave-vs-object check: skin colour. The face gives the person's own
 # skin tone (Cr/Cb statistics, adapts to lighting); an open empty hand is
 # mostly skin, a hand holding an object mostly isn't.
-WAVE_MIN_SKIN          = 0.65  # mean skin fraction of the moving blob's box
-                               # (measured: empty hand 0.72-0.94, object 0.37-0.49)
+WAVE_MIN_SKIN          = 0.75  # mean skin fraction of the moving blob's box
+                               # (measured: empty hand 0.80-1.00, object 0.19-0.69)
+WAVE_MIN_AREA_FACE     = 0.12  # mean blob area ≥ this × the face box area —
+                               # a whole waving hand, not a sliver of skin
+                               # next to an object (waves 0.16-0.26, slivers 0.04-0.07)
 WAVE_SKIN_SIGMA        = 2.5   # tolerance around the face's Cr/Cb mean, in std
 WAVE_HEAD_EXCLUDE      = 1.1   # motion inside this box around the head is
                                # ignored (head movement itself)

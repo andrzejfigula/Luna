@@ -30,7 +30,7 @@ from config import (GESTURE_FPS, WAVE_WINDOW_SECS, WAVE_MIN_REVERSALS,
                     WAVE_HEAD_EXCLUDE, WAVE_FACE_GRACE_SECS, WAVE_MIN_PRESENCE,
                     WAVE_MIN_MEAN_SPEED, WAVE_SWING_REGULARITY,
                     WAVE_MAX_BELOW_FACE, WAVE_MIN_SKIN, WAVE_SKIN_SIGMA,
-                    GESTURE_DEBUG)
+                    WAVE_MIN_AREA_FACE, GESTURE_DEBUG)
 from shared_state import state
 
 W, H = 160, 120           # analysis resolution
@@ -68,6 +68,8 @@ def _wave_in(track):
     dxf  = sum(p[3] for p in pts) / len(pts)          # mean offset from the face,
     dyf  = sum(p[4] for p in pts) / len(pts)          # in half-face units (signed y)
     skin = sum(p[5] for p in pts) / len(pts)          # mean skin fraction of the blob
+    farea = sum(p[6] for p in pts) / len(pts)         # mean face box area
+    area_ratio = area / max(1.0, farea)
     span_x = max(xs) - min(xs)
     span_y = max(ys) - min(ys)
     mean_speed = sum(abs(b - a) for a, b in zip(xs, xs[1:])) / (len(xs) - 1)
@@ -78,12 +80,14 @@ def _wave_in(track):
           and span_y <= span_x * WAVE_MAX_VERTICAL
           and dyf <= WAVE_MAX_BELOW_FACE
           and skin >= WAVE_MIN_SKIN
+          and area_ratio >= WAVE_MIN_AREA_FACE
           and mean_speed >= WAVE_MIN_MEAN_SPEED
           and reversals >= WAVE_MIN_REVERSALS
           and regularity >= WAVE_SWING_REGULARITY)
     last_features = (f"presence={presence:.2f} span_x={span_x:.0f} "
                      f"span_y={span_y:.0f} speed={mean_speed:.1f} rev={reversals} "
-                     f"area={area:.0f} dxf={dxf:.1f} dyf={dyf:+.1f} skin={skin:.2f}")
+                     f"area={area:.0f} ({area_ratio:.2f} face) dxf={dxf:.1f} "
+                     f"dyf={dyf:+.1f} skin={skin:.2f}")
     if GESTURE_DEBUG and reversals >= 3 and now - _last_debug > 0.5:
         _last_debug = now
         print(f"[gesture] {'WAVE' if ok else 'cand'} {last_features} "
@@ -207,6 +211,10 @@ def gesture_loop():
             n, labels, stats, cents = cv2.connectedComponentsWithStats(mask)
             x = y = None
             area = 0; dx = dy = 0.0; skin = 0.0
+            farea = 1.0
+            if face_detected:
+                _cx, _cy, _fw, _fh = _face_box(fx, fy, fwf)
+                farea = float(4 * _fw * _fh)
             if n > 1:
                 areas = stats[1:, cv2.CC_STAT_AREA]
                 i = int(np.argmax(areas)) + 1
@@ -227,7 +235,7 @@ def gesture_loop():
                                               int(stats[i, cv2.CC_STAT_TOP]),
                                               int(stats[i, cv2.CC_STAT_WIDTH]),
                                               int(stats[i, cv2.CC_STAT_HEIGHT]))
-            track.append((time.time(), x, y, area, dx, dy, skin))
+            track.append((time.time(), x, y, area, dx, dy, skin, farea))
 
             if (x is not None and not speaking
                     and time.time() - last_fire > WAVE_WINDOW_SECS
