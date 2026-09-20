@@ -1779,9 +1779,16 @@ class RobotFace:
                 if fcy + hy > HEIGHT + 60:      # fully tucked away
                     continue
                 img = hand_surface(self.hand_pose[side], side)
+                # rotate about the WRIST (bottom of the hand), not the centre:
+                # the fingers swing while the base stays put
+                pivot = pygame.math.Vector2(0, img.get_height() * 0.42)
                 if abs(ha) > 0.5:
                     img = pygame.transform.rotate(img, ha)
-                rect = img.get_rect(center=(fcx + int(hx), fcy + int(hy)))
+                    pivot = pivot.rotate(-ha)
+                wrist = pygame.math.Vector2(fcx + hx, fcy + hy + hand_surface(
+                    self.hand_pose[side], side).get_height() * 0.42)
+                rect = img.get_rect(center=(int(wrist.x - pivot.x),
+                                            int(wrist.y - pivot.y)))
                 glow = img.copy()
                 glow.fill((*GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
                 bloom(base, glow, rect.topleft, radius=12, passes=1, max_alpha=70)
