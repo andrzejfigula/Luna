@@ -859,10 +859,10 @@ def hand_surface(pose, side):
         s.blit(b, b.get_rect(center=(int(cx * S), int(cy * S))))
 
     if pose == "thumb":
-        block(24, 60, 12, 32, 66, 6)               # thumb up (base under the fist)
-        block(70, 66, 26, 60, 104)                 # fist
-        for i in range(4):                         # curled finger ridges
-            block(14, 22, 6, 44 + i * 13, 82)
+        block(24, 62, 12, 34, 64, 6)               # thumb up (base under the fist)
+        block(66, 76, 22, 62, 106)                 # fist
+        for i in range(4):                         # curled fingers: horizontal
+            block(52, 15, 7, 66, 84 + i * 15)      # segments stacked down the fist
     else:                                          # open palm
         # thumb first so its base sits UNDER the palm (attached, not floating)
         block(20, 50, 9, 24, 88, 30)              # base under the palm, tip leaning out
