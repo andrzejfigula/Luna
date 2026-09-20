@@ -262,19 +262,19 @@ GESTURE_REACT_COOLDOWN = 8.0   # seconds between reactions to the same gesture
 
 # A wave = a hand-sized moving blob near the face that reverses horizontal
 # direction several times within a short window.
-WAVE_WINDOW_SECS       = 1.8
-WAVE_MIN_REVERSALS     = 4     # a deliberate wave: ~2 full back-and-forths
-WAVE_MIN_AMPLITUDE     = 14    # px of travel at 160 px width
+WAVE_WINDOW_SECS       = 2.0
+WAVE_MIN_REVERSALS     = 3     # a deliberate wave: ~2 back-and-forths
+WAVE_MIN_AMPLITUDE     = 12    # px of travel at 160 px width
 WAVE_MIN_STEP          = 2     # px per sample that counts as movement
 WAVE_MIN_AREA          = 25    # blob size limits (px² at 160x120)
 WAVE_MAX_AREA          = 2200
 WAVE_DIFF_THRESHOLD    = 22    # frame-difference level that counts as motion
 WAVE_REQUIRE_FACE      = True  # no face in view → no wave (a hand over the
                                # face while taking headphones off isn't one)
-WAVE_MIN_FACE_DIST     = 1.5   # hand centre must be at least this many face
+WAVE_MIN_FACE_DIST     = 1.35  # hand centre must be at least this many face
                                # widths to the side of the head — adjusting
                                # glasses / headphones happens at ~1.0-1.3
-WAVE_MAX_FACE_DIST     = 4.0   # ...and not further than this
+WAVE_MAX_FACE_DIST     = 4.5   # ...and not further than this
 WAVE_MAX_FACE_VDIST    = 1.9   # vertical tolerance, in face heights
 WAVE_HEAD_EXCLUDE      = 1.4   # motion inside this many face widths/heights
                                # of the head is ignored (head movement)
