@@ -31,7 +31,8 @@ import time
 import numpy as np
 from shared_state import state
 from config import (RENDER_FPS, FACE_STYLE, SCREEN_WIDTH, SCREEN_HEIGHT,
-                    FULLSCREEN, HIDE_CURSOR, GESTURE_DURATION)
+                    FULLSCREEN, HIDE_CURSOR, GESTURE_DURATION,
+                    CAMERA_PREVIEW, CAMERA_PREVIEW_W)
 
 # The face geometry below is in absolute pixels and was drawn for a 1400x800
 # window; it fits the 800x480 DSI panel as-is (~560x400 used), just larger
@@ -1838,5 +1839,45 @@ class RobotFace:
             self.screen.blit(rotated, rect)
         else:
             self.screen.blit(base, (0, 0))
-        
+
+        # ── camera preview (on top, not rotated with the head) ───────────
+        if CAMERA_PREVIEW:
+            self._draw_camera_preview()
+
         pygame.display.flip()
+
+    # ── small mirrored camera view, bottom-right ──────────────────────────
+    _preview_surf  = None
+    _preview_tick  = 0
+
+    def _draw_camera_preview(self):
+        self._preview_tick += 1
+        if self._preview_tick % 2 == 0 or self._preview_surf is None:   # ~15 fps
+            with state.lock:
+                frame = state.frame
+                fd    = state.face_detected
+                fx, fy, fw = state.face_x, state.face_y, state.face_w
+            if frame is not None:
+                import cv2
+                pw = CAMERA_PREVIEW_W
+                ph = int(pw * frame.shape[0] / frame.shape[1])
+                small = cv2.resize(frame, (pw, ph), interpolation=cv2.INTER_AREA)
+                small = cv2.flip(small, 1)                     # mirror, like face_x
+                rgb   = cv2.cvtColor(small, cv2.COLOR_BGR2RGB)
+                surf  = pygame.surfarray.make_surface(rgb.swapaxes(0, 1))
+                if fd:
+                    # face_x is already mirrored → matches the flipped image
+                    bw = int(fw * pw); bh = int(bw * 1.25)
+                    cx, cy = int(fx * pw), int(fy * ph)
+                    pygame.draw.rect(surf, EYE_MID,
+                                     pygame.Rect(cx - bw // 2, cy - bh // 2, bw, bh), 2)
+                self._preview_surf = surf
+        if self._preview_surf is None:
+            return
+        surf = self._preview_surf
+        x = WIDTH - surf.get_width() - 10
+        y = HEIGHT - surf.get_height() - 10
+        pygame.draw.rect(self.screen, EYE_OUTER,
+                         pygame.Rect(x - 2, y - 2, surf.get_width() + 4,
+                                     surf.get_height() + 4), 2, border_radius=4)
+        self.screen.blit(surf, (x, y))

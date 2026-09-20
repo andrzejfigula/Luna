@@ -25,6 +25,12 @@ SCREEN_HEIGHT  = 480
 FULLSCREEN     = True
 HIDE_CURSOR    = True
 
+# Small live camera preview in the bottom-right corner (mirrored, with the
+# face box). .env: LUNA_CAMERA_PREVIEW=1   (size in px: LUNA_CAMERA_PREVIEW=200)
+_cp = os.environ.get("LUNA_CAMERA_PREVIEW", "").strip().lower()
+CAMERA_PREVIEW   = _cp not in ("", "0", "false", "no", "off")
+CAMERA_PREVIEW_W = int(_cp) if _cp.isdigit() and int(_cp) > 1 else 160
+
 def _env(name, default):
     """Optional override from .env / environment; empty value = default."""
     v = os.environ.get(name, "").strip()
@@ -211,10 +217,13 @@ OPENAI_TTS_SPEED        = 1.0
 # Delivery style. Kept conversational on purpose — "cheerful robot" style
 # prompts make the voice sound artificial.
 OPENAI_TTS_INSTRUCTIONS = (
-    "Naturalna, ciepła, swobodna rozmowa — jak młoda kobieta, która z uśmiechem "
-    "gawędzi z przyjacielem. Spokojne, naturalne tempo, intonacja jak w "
-    "prawdziwej rozmowie, bez przesadnej ekspresji. Native Polish "
-    "pronunciation; switch to natural English when the text is English."
+    "Voice identity: a young woman in her early twenties with a LIGHT, "
+    "HIGH-pitched, girlish, bright voice. Keep the pitch consistently high "
+    "and airy from the first word to the last; never drop into a low, deep, "
+    "husky or masculine register, even for serious or calm sentences. "
+    "Delivery: natural, warm, relaxed conversation with a friend, a smile in "
+    "the voice, natural pace and intonation, no exaggerated acting. Native "
+    "Polish pronunciation; switch to natural English when the text is English."
 )
 OPENAI_TTS_TIMEOUT      = 20.0
 TTS_PREBUFFER_SECS      = 0.6    # audio buffered before playback starts — avoids
