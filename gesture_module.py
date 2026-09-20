@@ -30,7 +30,8 @@ from config import (GESTURE_FPS, WAVE_WINDOW_SECS, WAVE_MIN_REVERSALS,
                     WAVE_HEAD_EXCLUDE, WAVE_FACE_GRACE_SECS, WAVE_MIN_PRESENCE,
                     WAVE_MIN_MEAN_SPEED, WAVE_SWING_REGULARITY,
                     WAVE_MAX_BELOW_FACE, WAVE_MIN_SKIN, WAVE_SKIN_SIGMA,
-                    WAVE_MIN_AREA_FACE, GESTURE_DEBUG)
+                    WAVE_MIN_AREA_FACE, WAVE_SKIN_REF_FW, WAVE_MIN_SKIN_FLOOR,
+                    GESTURE_DEBUG)
 from shared_state import state
 
 W, H = 160, 120           # analysis resolution
@@ -70,24 +71,30 @@ def _wave_in(track):
     skin = sum(p[5] for p in pts) / len(pts)          # mean skin fraction of the blob
     farea = sum(p[6] for p in pts) / len(pts)         # mean face box area
     area_ratio = area / max(1.0, farea)
+    fwidth = sum(p[7] for p in pts) / len(pts)        # mean face width (px)
+    min_amp   = max(6.0, WAVE_MIN_AMPLITUDE * fwidth)
+    min_speed = max(2.0, WAVE_MIN_MEAN_SPEED * fwidth)
+    min_swing = max(3.0, WAVE_MIN_SWING * fwidth)
+    min_skin  = max(WAVE_MIN_SKIN_FLOOR,
+                    min(WAVE_MIN_SKIN, WAVE_MIN_SKIN * fwidth / WAVE_SKIN_REF_FW))
     span_x = max(xs) - min(xs)
     span_y = max(ys) - min(ys)
     mean_speed = sum(abs(b - a) for a, b in zip(xs, xs[1:])) / (len(xs) - 1)
-    reversals, swings = _count_swings(xs)
+    reversals, swings = _count_swings(xs, min_swing)
     regularity = (min(swings) / max(swings)) if swings else 0.0
 
-    ok = (presence >= WAVE_MIN_PRESENCE and span_x >= WAVE_MIN_AMPLITUDE
+    ok = (presence >= WAVE_MIN_PRESENCE and span_x >= min_amp
           and span_y <= span_x * WAVE_MAX_VERTICAL
           and dyf <= WAVE_MAX_BELOW_FACE
-          and skin >= WAVE_MIN_SKIN
+          and skin >= min_skin
           and area_ratio >= WAVE_MIN_AREA_FACE
-          and mean_speed >= WAVE_MIN_MEAN_SPEED
+          and mean_speed >= min_speed
           and reversals >= WAVE_MIN_REVERSALS
           and regularity >= WAVE_SWING_REGULARITY)
     last_features = (f"presence={presence:.2f} span_x={span_x:.0f} "
                      f"span_y={span_y:.0f} speed={mean_speed:.1f} rev={reversals} "
                      f"area={area:.0f} ({area_ratio:.2f} face) dxf={dxf:.1f} "
-                     f"dyf={dyf:+.1f} skin={skin:.2f}")
+                     f"dyf={dyf:+.1f} skin={skin:.2f}/{min_skin:.2f} fw={fwidth:.0f}")
     if GESTURE_DEBUG and reversals >= 3 and now - _last_debug > 0.5:
         _last_debug = now
         print(f"[gesture] {'WAVE' if ok else 'cand'} {last_features} "
@@ -95,11 +102,11 @@ def _wave_in(track):
     return ok
 
 
-def _count_swings(xs):
-    """Direction changes that follow a real swing (≥ WAVE_MIN_SWING px) and
-    the length of each completed swing."""
+def _count_swings(xs, min_swing):
+    """Direction changes that follow a real swing (≥ min_swing px) and the
+    length of each completed swing."""
     # count direction changes, but only after the hand has travelled at
-    # least WAVE_MIN_SWING px since the last turn (ignores jitter)
+    # least min_swing px since the last turn (ignores jitter)
     reversals = 0
     swings    = []             # length of each completed swing
     last_dir  = 0
@@ -107,13 +114,13 @@ def _count_swings(xs):
     extreme   = xs[0]          # furthest point reached in the current direction
     for x in xs[1:]:
         if last_dir == 0:
-            if abs(x - anchor) >= WAVE_MIN_SWING:
+            if abs(x - anchor) >= min_swing:
                 last_dir = 1 if x > anchor else -1
                 extreme = x
             continue
         if (x - extreme) * last_dir > 0:
             extreme = x                       # still going the same way
-        elif abs(x - extreme) >= WAVE_MIN_SWING:
+        elif abs(x - extreme) >= min_swing:
             reversals += 1                    # turned around by a real swing
             swings.append(abs(extreme - anchor))
             last_dir  = -last_dir
@@ -211,10 +218,11 @@ def gesture_loop():
             n, labels, stats, cents = cv2.connectedComponentsWithStats(mask)
             x = y = None
             area = 0; dx = dy = 0.0; skin = 0.0
-            farea = 1.0
+            farea = 1.0; fwidth = 30.0
             if face_detected:
                 _cx, _cy, _fw, _fh = _face_box(fx, fy, fwf)
                 farea = float(4 * _fw * _fh)
+                fwidth = float(2 * _fw)
             if n > 1:
                 areas = stats[1:, cv2.CC_STAT_AREA]
                 i = int(np.argmax(areas)) + 1
@@ -235,7 +243,7 @@ def gesture_loop():
                                               int(stats[i, cv2.CC_STAT_TOP]),
                                               int(stats[i, cv2.CC_STAT_WIDTH]),
                                               int(stats[i, cv2.CC_STAT_HEIGHT]))
-            track.append((time.time(), x, y, area, dx, dy, skin, farea))
+            track.append((time.time(), x, y, area, dx, dy, skin, farea, fwidth))
 
             if (x is not None and not speaking
                     and time.time() - last_fire > WAVE_WINDOW_SECS

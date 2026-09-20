@@ -286,17 +286,18 @@ GESTURE_REACT_COOLDOWN = 4.0   # seconds between reactions to the same gesture
 # direction several times within a short window.
 WAVE_WINDOW_SECS       = 1.6
 WAVE_MIN_REVERSALS     = 4     # a wave: several direction changes in the window
-WAVE_MIN_AMPLITUDE     = 10    # px of travel at 160 px width
-WAVE_MIN_SWING         = 5     # px a half-swing must travel before a direction
-                               # change counts (kills jitter on a rising hand)
+WAVE_MIN_AMPLITUDE     = 0.35  # sideways travel ≥ this × the face width
+                               # (scale-free: works close up and far away)
+WAVE_MIN_SWING         = 0.15  # a half-swing must travel ≥ this × face width
+                               # before a direction change counts (kills jitter)
 WAVE_MAX_VERTICAL      = 3.0   # loose sanity limit only: the motion blob
                                # (hand + forearm) moves a lot vertically even
                                # in a real wave, so this can't be strict
 WAVE_MIN_PRESENCE      = 0.6   # the moving blob must be present in this
                                # fraction of the window's samples — a hand
                                # holding something up stops moving
-WAVE_MIN_MEAN_SPEED    = 4.0   # px per sample of sideways motion, averaged
-                               # over the window (a wave keeps moving)
+WAVE_MIN_MEAN_SPEED    = 0.12  # mean sideways speed ≥ this × face width per
+                               # sample (a wave keeps moving)
 WAVE_SWING_REGULARITY  = 0.0   # off — measured real waves are irregular
                                # (0.2-0.35) at 15 fps sampling
 WAVE_MIN_AREA          = 25    # blob size limits (px² at 160x120)
@@ -313,10 +314,10 @@ WAVE_MIN_FACE_DIST     = 1.15  # hand centre at least this far to the side of
                                # take care of glasses / headphones)
 WAVE_MAX_FACE_DIST     = 7.0   # ...and not further than this
 WAVE_MAX_FACE_VDIST    = 2.6   # vertical tolerance for a single sample
-WAVE_MAX_BELOW_FACE    = 0.7   # the hand's mean height must be at head level:
-                               # not lower than this many half face heights
-                               # below the face centre (waves -0.6..+0.6,
-                               # showing an object +0.8..+1.3)
+WAVE_MAX_BELOW_FACE    = 1.2   # the hand's mean height: not lower than this
+                               # many half face heights below the face centre
+                               # (close-up waves -0.6..+0.6; from further away
+                               # people wave lower, from the elbow)
 
 # Motion alone can't tell a wave from a hand showing an object — both move.
 # So a motion candidate is CONFIRMED by asking the vision model whether the
@@ -328,7 +329,13 @@ WAVE_CONFIRM_MIN_GAP   = 3.0   # seconds between confirmation requests
 # skin tone (Cr/Cb statistics, adapts to lighting); an open empty hand is
 # mostly skin, a hand holding an object mostly isn't.
 WAVE_MIN_SKIN          = 0.75  # mean skin fraction of the moving blob's box
-                               # (measured: empty hand 0.80-1.00, object 0.19-0.69)
+                               # when the face is WAVE_SKIN_REF_FW px wide
+                               # (close up: empty hand 0.80-1.00, object 0.19-0.69)
+WAVE_SKIN_REF_FW       = 40    # face width (px at 160 px analysis) the threshold
+                               # above is calibrated for; further away the hand
+                               # is small and its box holds more background, so
+                               # the threshold scales down with face width...
+WAVE_MIN_SKIN_FLOOR    = 0.50  # ...but never below this (far waves 0.55-0.70)
 WAVE_MIN_AREA_FACE     = 0.12  # mean blob area ≥ this × the face box area —
                                # a whole waving hand, not a sliver of skin
                                # next to an object (waves 0.16-0.26, slivers 0.04-0.07)

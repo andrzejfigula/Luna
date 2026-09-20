@@ -4,6 +4,16 @@
   Format: date · area · what changed · why
 ══════════════════════════════════════════════════════════════════
 
+─── 2026-09-21 — Wave detection: scale-free thresholds ──────────────────
+
+[gesture] Amplitude, swing and speed thresholds are now fractions of the
+  detected face width (were absolute px, so waves from further away had
+  half the pixel travel and were dropped). The skin threshold scales with
+  distance too: 0.75 at a 40 px face, down to a 0.50 floor (a small far
+  hand's box holds more background; measured far waves 0.55-0.70). Hand
+  height tolerance 0.7 → 1.2 (people wave lower from the elbow when
+  further away). Verified 6/6 waves at distance, objects rejected.
+
 ─── 2026-09-21 — Wave detection tuned on real data ────────────────────────
 
 [gesture] Logged every candidate's features (presence, spans, speed,
