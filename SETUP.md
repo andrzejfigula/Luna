@@ -47,6 +47,7 @@ cp .env.example .env && nano .env      # OPENAI_API_KEY=sk-...
 | `LUNA_SPEAKER` | `jack` (3.5 mm), `hdmi`, `bluetooth`, `default`, or a PipeWire node name | `jack` |
 | `LUNA_TTS_VOICE` | OpenAI voice — `nova`, `shimmer`, `marin` are bright; `coral`, `sage` calmer | `nova` |
 | `LUNA_BRIGHTNESS` | touchscreen backlight, percent (applied by `run.sh`) | `100` |
+| `LUNA_TIMEZONE` / `LUNA_LOCATION` | IANA zone + place name given to the model with the current local time | `Europe/Warsaw` / `Poland` |
 
 Output volume follows the chosen PipeWire sink: `wpctl status` lists them,
 `wpctl set-volume <id> 1.0` sets it.

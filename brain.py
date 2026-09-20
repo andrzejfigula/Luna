@@ -18,6 +18,8 @@ import base64
 import json
 import re
 import time
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import cv2
 from openai import OpenAI
@@ -39,7 +41,24 @@ from config import (
     VISION_KEYWORDS,
     VISION_JPEG_QUALITY,
     VISION_ALWAYS,
+    LUNA_TIMEZONE,
+    LUNA_LOCATION,
 )
+
+try:
+    _TZ = ZoneInfo(LUNA_TIMEZONE)
+except Exception as e:
+    print(f"[brain] Unknown LUNA_TIMEZONE={LUNA_TIMEZONE!r} ({e}) — using system time")
+    _TZ = None
+
+
+def _local_now_text():
+    """'Sunday, 20 September 2026, 23:30 (Europe/Warsaw, CEST, UTC+02:00)'"""
+    now = datetime.now(_TZ) if _TZ else datetime.now().astimezone()
+    off = now.strftime("%z")
+    return (f"{now.strftime('%A, %d %B %Y, %H:%M')} "
+            f"({LUNA_TIMEZONE if _TZ else 'system'}, {now.strftime('%Z')}, "
+            f"UTC{off[:3]}:{off[3:]})")
 
 # Safety net for the model slipping into masculine 1st-person forms.
 # Irregular / high-frequency ones first, then the regular "-łem" → "-łam"
@@ -201,8 +220,10 @@ def _ask_openai(text, image_b64=None, detail="low"):
 
         # the model has no clock — give it the real local time so "która
         # godzina?" isn't answered with a confident guess
-        now = time.strftime("%A, %d %B %Y, %H:%M")
-        system = f"{SYSTEM_PROMPT}\nCurrent local date and time: {now}."
+        system = (f"{SYSTEM_PROMPT}\nYou are in {LUNA_LOCATION}. The current "
+                  f"local date and time there is: {_local_now_text()}. When "
+                  f"asked the time or date, answer with exactly this local "
+                  f"time — do not convert it to any other zone.")
 
         response = _client.chat.completions.create(
             model=OPENAI_MODEL,

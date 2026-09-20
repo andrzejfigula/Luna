@@ -104,6 +104,11 @@ SLEEP_AFTER_FRAMES   = RENDER_FPS * 30   # nobody in view for 30 s → sleep
 # ── OpenAI ────────────────────────────────────────────────────────────────────
 # Put the key in .env (git-ignored):  OPENAI_API_KEY=sk-...
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+
+# Where Luna lives — the current local date/time in this zone is given to the
+# model with every request. .env: LUNA_TIMEZONE=Europe/Warsaw
+LUNA_TIMEZONE  = os.environ.get("LUNA_TIMEZONE", "").strip() or "Europe/Warsaw"
+LUNA_LOCATION  = os.environ.get("LUNA_LOCATION", "").strip() or "Poland"
 OPENAI_MODEL   = "gpt-4.1-mini"     # chat + vision; fast and cheap enough for voice
 OPENAI_TIMEOUT = 15.0               # seconds — a stall must never freeze Luna
 
