@@ -16,6 +16,7 @@ All settings pulled from config.py.
 
 import base64
 import json
+import re
 import time
 
 import cv2
@@ -40,6 +41,38 @@ from config import (
     VISION_ALWAYS,
 )
 
+# Safety net for the model slipping into masculine 1st-person forms.
+# Irregular / high-frequency ones first, then the regular "-łem" → "-łam"
+# and "-łbym" → "-łabym" endings.
+_FEM_SPECIAL = {
+    "mógłbym": "mogłabym", "mogłem": "mogłam", "poszedłem": "poszłam",
+    "poszedłbym": "poszłabym", "szedłem": "szłam", "wziąłem": "wzięłam",
+    "wziąłbym": "wzięłabym", "zacząłem": "zaczęłam", "zdjąłem": "zdjęłam",
+    "jestem gotowy": "jestem gotowa", "jestem pewny": "jestem pewna",
+    "jestem ciekawy": "jestem ciekawa", "jestem zmęczony": "jestem zmęczona",
+    "jestem szczęśliwy": "jestem szczęśliwa", "jestem zadowolony": "jestem zadowolona",
+    "byłbym": "byłabym", "chciałbym": "chciałabym", "wolałbym": "wolałabym",
+    "powinienem": "powinnam", "mogłem": "mogłam",
+}
+_FEM_SPECIAL_RE = re.compile(r"\b(" + "|".join(sorted(map(re.escape, _FEM_SPECIAL),
+                                                    key=len, reverse=True)) + r")\b",
+                             re.IGNORECASE)
+_FEM_ENDINGS_RE = re.compile(r"\b(\w+?)(łem|łbym)\b")
+
+
+def _feminize(text):
+    """Turn masculine 1st-person forms into feminine ones ("zrobiłem" →
+    "zrobiłam", "chciałbym" → "chciałabym"). Only touches endings that are
+    unambiguous 1st-person masculine in Polish."""
+    def special(m):
+        src = m.group(1); rep = _FEM_SPECIAL[src.lower()]
+        return rep.capitalize() if src[0].isupper() else rep
+    text = _FEM_SPECIAL_RE.sub(special, text)
+    text = _FEM_ENDINGS_RE.sub(lambda m: m.group(1) + ("łam" if m.group(2) == "łem"
+                                                       else "łabym"), text)
+    return text
+
+
 # Face states robot_face.py knows how to draw. The model must pick one.
 EMOTIONS = ["neutral", "happy", "sad", "angry", "surprised", "excited", "love"]
 # Body language robot_face.py can animate (head + hands).
@@ -56,6 +89,14 @@ except OSError:
     pass   # optional — nothing to do
 
 SYSTEM_PROMPT = _PERSONA.strip() + f"""
+
+GRAMMAR RULE (Polish): you are FEMALE. Every 1st-person verb and adjective
+about yourself takes the FEMININE form. Correct: "mogłabym", "chciałabym",
+"byłabym", "zrobiłam", "widziałam", "byłam", "jestem gotowa", "jestem
+pewna", "jestem ciekawa", "sama". WRONG, never use: "mógłbym",
+"chciałbym", "byłbym", "zrobiłem", "widziałem", "byłem", "jestem gotowy",
+"jestem pewny", "jestem ciekawy", "sam". Check your reply for this before
+answering.
 
 Always answer as JSON with exactly three keys:
   "reply"   — what you say out loud (plain text, no markdown, 1-3 short sentences)
@@ -174,6 +215,10 @@ def _ask_openai(text, image_b64=None, detail="low"):
         raw     = response.choices[0].message.content.strip()
         data    = json.loads(raw)
         reply   = str(data.get("reply", "")).strip()
+        fixed   = _feminize(reply)
+        if fixed != reply:
+            print(f"[brain] feminized: {reply!r} → {fixed!r}")
+            reply = fixed
         emotion = str(data.get("emotion", "neutral")).lower()
         if emotion not in EMOTIONS:
             emotion = "neutral"
