@@ -255,6 +255,38 @@ VISION_JPEG_QUALITY = 80
 # ── Expressions ───────────────────────────────────────────────────────────────
 FACE_OVERRIDE_SECS     = 4.0   # how long the LLM-chosen emotion lingers after a reply
 
+# ── Gestures (camera motion, see gesture_module.py) ───────────────────────────
+GESTURE_FPS            = 10    # analysis rate (160x120 frame differencing, ~1 ms)
+GESTURE_DEBUG          = True  # log detections
+GESTURE_REACT_COOLDOWN = 8.0   # seconds between reactions to the same gesture
+
+# A wave = a hand-sized moving blob near the face that reverses horizontal
+# direction several times within a short window.
+WAVE_WINDOW_SECS       = 1.4
+WAVE_MIN_REVERSALS     = 3     # left→right→left→right
+WAVE_MIN_AMPLITUDE     = 14    # px of travel at 160 px width
+WAVE_MIN_STEP          = 2     # px per sample that counts as movement
+WAVE_MIN_AREA          = 25    # blob size limits (px² at 160x120)
+WAVE_MAX_AREA          = 2200
+WAVE_DIFF_THRESHOLD    = 22    # frame-difference level that counts as motion
+WAVE_NEAR_FACE         = 3.5   # blob must be within this many face-widths of
+                               # the face (0 = anywhere)
+
+# Luna's reaction to a wave: happy face + she waves her hand + one of these
+# (spoken only when idle)
+WAVE_REPLIES           = ["Cześć!", "Hej, hej!", "O, cześć! Miło cię widzieć!",
+                          "Hejka!"]
+
+# ── Luna's own gestures (chosen by the LLM per reply, or by behavior_engine) ──
+# nod / shake move the head; wave / thumbs_up / heart bring a hand up.
+GESTURE_DURATION = {
+    "nod":       1.4,
+    "shake":     1.4,
+    "wave":      2.2,
+    "thumbs_up": 2.6,
+    "heart":     3.2,
+}
+
 # ── Face style ────────────────────────────────────────────────────────────────
 # 1 = Luna classic (purple, soft rounded)
 # 2 = Robo (cyan, sharp corners, equalizer-bar mouth — NIMO/modern-robot look)

@@ -17,6 +17,12 @@ from vision_module import start_vision
 start_vision()
 time.sleep(1.0)
 
+from gesture_module import start_gesture
+start_gesture()
+
+from behavior_engine import start_behavior
+start_behavior()
+
 import random
 import difflib
 

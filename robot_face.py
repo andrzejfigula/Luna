@@ -31,7 +31,7 @@ import time
 import numpy as np
 from shared_state import state
 from config import (RENDER_FPS, FACE_STYLE, SCREEN_WIDTH, SCREEN_HEIGHT,
-                    FULLSCREEN, HIDE_CURSOR)
+                    FULLSCREEN, HIDE_CURSOR, GESTURE_DURATION)
 
 # The face geometry below is in absolute pixels and was drawn for a 1400x800
 # window; it fits the 800x480 DSI panel as-is (~560x400 used), just larger
@@ -44,7 +44,7 @@ PUPIL_COL = (0, 0, 0)
 
 # On the 800x480 panel the mouth would kiss the bottom edge: lift the face a
 # little and keep the conversation-window dot (below the mouth) on-screen.
-FACE_Y_OFFSET = -28 if HEIGHT < 600 else 0
+FACE_Y_OFFSET = -14 if HEIGHT < 600 else 0   # room for the hair up top
 AWAKE_DOT_Y   = min(265, HEIGHT - (HEIGHT // 2 + FACE_Y_OFFSET) - 25)
 
 # ── Face styles ───────────────────────────────────────────────────────────────
@@ -99,11 +99,15 @@ STYLES = {
         EYE_GRAD_TOP=(255, 232, 140), EYE_GRAD_BOTTOM=(232, 96, 12),
         BLOCK_PUPIL=True, PUPIL_DARK=(28, 12, 2),
         BROW_GRAD_TOP=(255, 214, 110), BROW_GRAD_BOTTOM=(214, 96, 18),
+        HAIR=True, HANDS=True,
+        HAIR_GRAD_TOP=(255, 196, 80), HAIR_GRAD_BOTTOM=(196, 78, 10),
+        HAND_GRAD_TOP=(255, 226, 130), HAND_GRAD_BOTTOM=(238, 110, 20),
     ),
 }
 
 # active style values (module globals so particles pick them up live)
 CURRENT_STYLE = 1
+_HAND_CACHE = {}   # rendered hand images per (pose, side); cleared on style change
 
 
 def apply_style(n):
@@ -114,6 +118,7 @@ def apply_style(n):
     global EYE_RADIUS, IRIS_SQUARE, MOUTH_STYLE
     global EYE_MODE, EYE_GRAD_TOP, EYE_GRAD_BOTTOM, EYE_SCALE, EYE_SPREAD
     global BLOCK_PUPIL, PUPIL_DARK, BROW_GRAD_TOP, BROW_GRAD_BOTTOM
+    global HAIR, HANDS, HAIR_GRAD_TOP, HAIR_GRAD_BOTTOM, HAND_GRAD_TOP, HAND_GRAD_BOTTOM
 
     s = STYLES.get(n)
     if s is None:
@@ -140,6 +145,13 @@ def apply_style(n):
     PUPIL_DARK      = s.get("PUPIL_DARK", PUPIL_COL)
     BROW_GRAD_TOP    = s.get("BROW_GRAD_TOP", EYE_MID)
     BROW_GRAD_BOTTOM = s.get("BROW_GRAD_BOTTOM", EYE_MID)
+    HAIR             = s.get("HAIR", False)
+    HANDS            = s.get("HANDS", False)
+    HAIR_GRAD_TOP    = s.get("HAIR_GRAD_TOP", EYE_MID)
+    HAIR_GRAD_BOTTOM = s.get("HAIR_GRAD_BOTTOM", EYE_OUTER)
+    HAND_GRAD_TOP    = s.get("HAND_GRAD_TOP", EYE_INNER)
+    HAND_GRAD_BOTTOM = s.get("HAND_GRAD_BOTTOM", EYE_OUTER)
+    _HAND_CACHE.clear()
     _GLOW_CACHE.clear()   # cached glows are per-palette
     _GRAD_CACHE.clear()
     print(f"[face] Style {n} ({s['name']}) active")
@@ -800,6 +812,81 @@ class Eye:
         surf.blit(layer, (ox, oy))
 
 
+# ── Hair (style extra) ────────────────────────────────────────────────────────
+# A fringe of rounded tufts above the brows + a little cowlick. Each tuft is a
+# domed gradient block so it matches the eyes; it sways with the head.
+HAIR_TUFTS = [   # (x offset, y offset, w, h, tilt°) — overlapping → a fringe
+    (-198, -146, 118, 54, -10),
+    ( -99, -158, 122, 58,  -4),
+    (   0, -164, 126, 60,   0),
+    (  99, -158, 122, 58,   4),
+    ( 198, -146, 118, 54,  10),
+]
+HAIR_COWLICK = (14, -204, 22, 52, 14)
+
+
+def draw_hair(surf, fcx, fcy, sway):
+    for (ox, oy, w, h, tilt) in HAIR_TUFTS + [HAIR_COWLICK]:
+        block = gradient_block(w, h, min(w, h) // 2, HAIR_GRAD_TOP, HAIR_GRAD_BOTTOM)
+        angle = tilt + sway * (0.5 if h < 70 else 0.3)
+        img   = pygame.transform.rotate(block, angle) if abs(angle) > 0.5 else block
+        rect  = img.get_rect(center=(fcx + ox + int(sway * 1.5), fcy + oy))
+        draw_glow_rect(surf, GLOW_COL, pygame.Rect(rect.x + 8, rect.y + 8,
+                                                   rect.w - 16, rect.h - 16),
+                       radius=min(w, h) // 2, layers=3, max_alpha=30)
+        surf.blit(img, rect)
+
+
+# ── Hands (style extra) ───────────────────────────────────────────────────────
+# Rounded "mitten" hands drawn as gradient blocks. Poses:
+#   open      — palm + 4 fingers + thumb (waving, heart)
+#   thumb     — fist with the thumb up
+def hand_surface(pose, side):
+    """Cached hand image for a pose; side 'L'/'R' mirrors it."""
+    key = (pose, side)
+    s = _HAND_CACHE.get(key)
+    if s is not None:
+        return s
+    S = 1.6                                   # hand scale
+    W_, H_ = int(120 * S), int(150 * S)
+    s = pygame.Surface((W_, H_), pygame.SRCALPHA)
+    top, bot = HAND_GRAD_TOP, HAND_GRAD_BOTTOM
+
+    def block(w, h, r, cx, cy, angle=0):
+        b = gradient_block(int(w * S), int(h * S), int(r * S), top, bot)
+        if angle:
+            b = pygame.transform.rotate(b, angle)
+        s.blit(b, b.get_rect(center=(int(cx * S), int(cy * S))))
+
+    if pose == "thumb":
+        block(70, 66, 26, 60, 104)                 # fist
+        block(24, 58, 12, 26, 62, 8)               # thumb up
+        for i in range(4):                         # curled finger ridges
+            block(14, 22, 6, 44 + i * 13, 82)
+    else:                                          # open palm
+        block(66, 70, 26, 60, 108)                 # palm
+        for i, (dx, fh) in enumerate(((-24, 44), (-8, 52), (8, 50), (24, 42))):
+            block(16, fh, 7, 60 + dx, 78 - (fh - 40) // 2)
+        block(18, 44, 8, 20, 96, -30)              # thumb, out to the side
+    if side == "L":
+        s = pygame.transform.flip(s, True, False)
+    _HAND_CACHE[key] = s
+    return s
+
+
+def draw_heart(surf, cx, cy, size, alpha=255):
+    r = size // 2
+    hs = pygame.Surface((size * 2 + 8, size * 2 + 8), pygame.SRCALPHA)
+    ox, oy = size + 4, size // 2 + 4
+    col = (*HEART_COL, alpha)
+    pygame.draw.circle(hs, col, (ox - r // 1, oy), r)
+    pygame.draw.circle(hs, col, (ox + r // 1, oy), r)
+    pygame.draw.polygon(hs, col, [(ox - size + 1, oy + r // 3),
+                                  (ox + size - 1, oy + r // 3),
+                                  (ox, oy + size + r // 2)])
+    surf.blit(hs, (cx - ox, cy - oy))
+
+
 # ── Mouth ─────────────────────────────────────────────────────────────────────
 class Mouth:
     def __init__(self, rel_x, rel_y):
@@ -1163,6 +1250,14 @@ class RobotFace:
         self.bounce_phase  = 0.0
         self.bounce_amp    = 0.0
 
+        # hands: current (lerped) position + angle per side, and the pose
+        self.hand = {"L": [-320.0, 420.0, 0.0], "R": [320.0, 420.0, 0.0]}
+        self.hand_pose = {"L": "open", "R": "open"}
+        self._hand_target = {"L": (-320.0, 420.0, 0.0), "R": (320.0, 420.0, 0.0)}
+        self._gesture = None
+        self._gesture_p = 0.0
+        self._heart_pulse = 0.0
+
         # rel_x is re-applied from the active style's EYE_SPREAD every frame
         self.left_eye  = Eye(-EYE_SPREAD, -30, 175, 125)
         self.right_eye = Eye( EYE_SPREAD, -30, 175, 125)
@@ -1199,6 +1294,7 @@ class RobotFace:
 
     def update(self):
         self.breath_phase += 0.045
+        now_t = time.time()
 
         if self.visual_state != self.state:
             self.visual_state = self.state
@@ -1220,6 +1316,8 @@ class RobotFace:
             audio_energy   = state.audio_energy
             look_dir       = state.look_dir
             frozen_emotion = state.frozen_emotion
+            g_anim         = state.gesture_anim
+            g_start        = state.gesture_anim_start
             convo_active   = state.conversation_active
             convo_expired  = state.convo_expired_time
 
@@ -1409,10 +1507,53 @@ class RobotFace:
             bounce_y = -abs(math.sin(self.bounce_phase)) * self.bounce_amp
             self.bounce_amp *= 0.94   # decay
 
-        self.face_ox = lerp(self.face_ox, self.target_ox, 0.12)
+        # ── gestures: head (nod / shake) and hands (wave / thumbs_up / heart)
+        g_el  = now_t - g_start
+        g_dur = GESTURE_DURATION.get(g_anim, 0.0) if g_anim else 0.0
+        active = g_anim is not None and 0.0 <= g_el < g_dur
+        self._gesture   = g_anim if active else None
+        self._gesture_p = (g_el / g_dur) if active else 0.0
+        env = math.sin(math.pi * self._gesture_p) if active else 0.0   # ease in/out
+        head_fast = False
+
+        rest_L = (-320.0, 420.0, 0.0)          # tucked below the screen edge
+        rest_R = ( 320.0, 420.0, 0.0)
+        tgt_L, tgt_R = rest_L, rest_R
+        self.hand_pose["L"] = self.hand_pose["R"] = "open"
+
+        if active and g_anim == "nod":
+            self.target_oy += 16.0 * env * math.sin(g_el * 2 * math.pi * 2.0)
+            head_fast = True
+        elif active and g_anim == "shake":
+            self.target_ox  += 22.0 * env * math.sin(g_el * 2 * math.pi * 2.2)
+            self.target_tilt = -6.0 * env * math.sin(g_el * 2 * math.pi * 2.2)
+            head_fast = True
+        elif active and g_anim == "wave":
+            tgt_R = (285.0, 60.0, 24.0 * math.sin(g_el * 2 * math.pi * 3.0))
+            self.target_tilt = 5.0 * env * math.sin(g_el * 2 * math.pi * 3.0)
+        elif active and g_anim == "thumbs_up":
+            self.hand_pose["R"] = "thumb"
+            bob = 6.0 * math.sin(g_el * 2 * math.pi * 2.0)
+            tgt_R = (275.0, 95.0 + bob, -8.0)
+        elif active and g_anim == "heart":
+            tgt_L = (-96.0, 178.0,  30.0)
+            tgt_R = ( 96.0, 178.0, -30.0)
+            self._heart_pulse = 0.5 + 0.5 * math.sin(g_el * 2 * math.pi * 1.6)
+
+        self._hand_target = {"L": tgt_L, "R": tgt_R}
+        for side in ("L", "R"):
+            cur, tgt = self.hand[side], self._hand_target[side]
+            k = 0.22
+            cur[0] = lerp(cur[0], tgt[0], k)
+            cur[1] = lerp(cur[1], tgt[1], k)
+            cur[2] = lerp(cur[2], tgt[2], 0.35)
+
+        self.face_ox = lerp(self.face_ox, self.target_ox, 0.30 if head_fast else 0.12)
         self.face_oy = lerp(self.face_oy,
-                            self.target_oy + breath_y + bounce_y, 0.16)
-        self.head_angle = lerp(self.head_angle, self.target_tilt, 0.07)
+                            self.target_oy + breath_y + bounce_y,
+                            0.30 if head_fast else 0.16)
+        self.head_angle = lerp(self.head_angle, self.target_tilt,
+                               0.35 if head_fast or self._gesture == "wave" else 0.07)
 
         # ── update eye/mouth ──────────────────────────────────────────────
         angry     = emotion == "angry"
@@ -1591,6 +1732,10 @@ class RobotFace:
         fcx = int(self.face_cx + self.face_ox)
         fcy = int(self.face_cy + self.face_oy)
 
+        # ── hair (behind everything) ──────────────────────────────────────
+        if HAIR:
+            draw_hair(base, fcx, fcy, self.head_angle)
+
         # ── blush (behind eyes) ───────────────────────────────────────────
         self.left_blush.draw(base, fcx, fcy)
         self.right_blush.draw(base, fcx, fcy)
@@ -1625,6 +1770,24 @@ class RobotFace:
         my = fcy + self.mouth.rel_y
         self.mouth.draw(base, mx, my, self._emotion,
                         self._speaking, self._audio_energy)
+
+        # ── hands (in front of the face) ──────────────────────────────────
+        if HANDS:
+            for side in ("L", "R"):
+                hx, hy, ha = self.hand[side]
+                if fcy + hy > HEIGHT + 60:      # fully tucked away
+                    continue
+                img = hand_surface(self.hand_pose[side], side)
+                if abs(ha) > 0.5:
+                    img = pygame.transform.rotate(img, ha)
+                rect = img.get_rect(center=(fcx + int(hx), fcy + int(hy)))
+                glow = img.copy()
+                glow.fill((*GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
+                bloom(base, glow, rect.topleft, radius=12, passes=1, max_alpha=70)
+                base.blit(img, rect)
+            if self._gesture == "heart":
+                sz = int(50 + 12 * self._heart_pulse)
+                draw_heart(base, fcx, fcy + 112, sz)
 
         # ── particles (foreground) ────────────────────────────────────────
         for p in self.zzz_particles:

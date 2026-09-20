@@ -100,8 +100,11 @@ front of the camera for 30 s the face goes to sleep.
   language, tone). Plain text, edit freely, restart to apply.
   `data/knowledge.txt` — optional facts appended to the prompt.
 - `FACE_STYLE` — 1 purple "Luna classic", 2 cyan "robo", 3 amber "loona"
-  (default; pupil-less gradient blocks, expressions in the eye shape).
+  (default; gradient block eyes with pupils, hair and hands).
   Keys 1/2/3 switch live when a keyboard is attached.
+- Gestures: Luna nods / shakes her head / waves / thumbs-up / makes a heart
+  when it fits the reply (the LLM picks, see `brain.py`). Wave at the camera
+  and she waves back (`gesture_module.py`, motion-based; `WAVE_*` in config).
 
 ## Troubleshooting
 

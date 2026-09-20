@@ -12,6 +12,10 @@ class SharedState:
         "emotion",
         "frozen_emotion",        # emotion locked while speaking
         "gesture",
+        "gesture_time",          # time.time() the gesture was detected
+        "gesture_anim",          # animation Luna is performing: "nod" | "shake"
+                                 # | "wave" | "thumbs_up" | "heart" | None
+        "gesture_anim_start",    # time.time() it started
         "heard_text", "response",
         "speaking", "listening",
         "audio_energy",
@@ -44,6 +48,9 @@ class SharedState:
         self.emotion             = "Neutral"
         self.frozen_emotion      = None
         self.gesture             = None
+        self.gesture_time        = 0.0
+        self.gesture_anim        = None
+        self.gesture_anim_start  = 0.0
         self.heard_text          = ""
         self.response            = ""
         self.speaking            = False

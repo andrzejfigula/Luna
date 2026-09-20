@@ -25,6 +25,7 @@ from text_to_speech import speak
 from shared_state import state
 from config import (
     FACE_OVERRIDE_SECS,
+    GESTURE_DURATION,
     KNOWLEDGE_PATH,
     OPENAI_API_KEY,
     OPENAI_MODEL,
@@ -40,6 +41,8 @@ from config import (
 
 # Face states robot_face.py knows how to draw. The model must pick one.
 EMOTIONS = ["neutral", "happy", "sad", "angry", "surprised", "excited", "love"]
+# Body language robot_face.py can animate (head + hands).
+GESTURES = ["none", "nod", "shake", "wave", "thumbs_up", "heart"]
 
 # ── Optional knowledge.txt (facts injected into the system prompt) ────────────
 knowledge_text = ""
@@ -53,13 +56,27 @@ except OSError:
 
 SYSTEM_PROMPT = _PERSONA.strip() + f"""
 
-Always answer as JSON with exactly two keys:
+Always answer as JSON with exactly three keys:
   "reply"   — what you say out loud (plain text, no markdown, 1-3 short sentences)
   "emotion" — one of {EMOTIONS}, the facial expression you show while saying it.
+  "gesture" — one of {GESTURES}, the body language you perform while saying it.
 Pick the emotion that fits the reply: "happy" for warmth and good news,
 "excited" for enthusiasm, "love" for affection/compliments, "surprised" for
 unexpected things, "sad" for bad news or sympathy, "angry" only for playful
 grumpiness, otherwise "neutral".
+Pick the gesture from the CONTENT of your reply, in this priority:
+1. The reply answers a yes/no question. "nod" if the answer is yes/agree
+   ("Tak", "Yes", "Oczywiście", "Jasne", "Zgadzam się"); "shake" if the
+   answer is no/deny/disagree ("Nie", "No", "Niestety nie", "Nie sądzę").
+   The gesture MUST match the answer word: a reply beginning with "Nie" or
+   "No" is always "shake", never "nod".
+2. Greeting or goodbye ("Cześć", "Hej", "Do zobaczenia") → "wave".
+3. You praise the user or say well done / bravo / congratulations → "thumbs_up".
+4. The user expressed love or affection for you, or thanked you warmly, and
+   you reply with affection → "heart".
+5. Everything else, including ordinary answers, facts and likes → "none".
+Most replies are "none"; never use "nod" for a statement that is not an
+agreement or a yes.
 """
 if knowledge_text:
     SYSTEM_PROMPT += f"""
@@ -78,8 +95,9 @@ _RESPONSE_FORMAT = {
             "properties": {
                 "reply":   {"type": "string"},
                 "emotion": {"type": "string", "enum": EMOTIONS},
+                "gesture": {"type": "string", "enum": GESTURES},
             },
-            "required": ["reply", "emotion"],
+            "required": ["reply", "emotion", "gesture"],
             "additionalProperties": False,
         },
     },
@@ -119,7 +137,7 @@ def _camera_jpeg_b64():
 # ── OpenAI call ───────────────────────────────────────────────────────────────
 
 def _ask_openai(text, image_b64=None):
-    """Returns (reply, emotion) or None on any failure."""
+    """Returns (reply, emotion, gesture) or None on any failure."""
     if _client is None:
         return None
     try:
@@ -157,14 +175,17 @@ def _ask_openai(text, image_b64=None):
         emotion = str(data.get("emotion", "neutral")).lower()
         if emotion not in EMOTIONS:
             emotion = "neutral"
+        gesture = str(data.get("gesture", "none")).lower()
+        if gesture not in GESTURES:
+            gesture = "none"
 
         # keep history text-only: images are large and only matter for the
         # turn they were asked in
         _history[-1] = {"role": "user", "content": text}
         _history.append({"role": "assistant", "content": reply})
 
-        print(f"[brain] OpenAI ({emotion}): {reply}")
-        return reply, emotion
+        print(f"[brain] OpenAI ({emotion}, {gesture}): {reply}")
+        return reply, emotion, gesture
 
     except Exception as e:
         print(f"[brain] OpenAI error: {e}")
@@ -188,10 +209,10 @@ def process(text):
     result = _ask_openai(text, image)
 
     if result:
-        reply, emotion = result
+        reply, emotion, gesture = result
     else:
         print("[brain] OpenAI failed — using offline reply")
-        reply, emotion = OFFLINE_REPLY, "sad"
+        reply, emotion, gesture = OFFLINE_REPLY, "sad", "shake"
 
     # The LLM's emotion drives the face:
     #  • during the reply: text_to_speech freezes state.emotion for the whole
@@ -200,6 +221,9 @@ def process(text):
     #    the renderer falls back to neutral
     with state.lock:
         state.emotion = emotion.capitalize()
+        if gesture in GESTURE_DURATION:
+            state.gesture_anim       = gesture
+            state.gesture_anim_start = time.time()
     try:
         speak(reply)
     finally:
