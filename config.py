@@ -17,6 +17,16 @@ if os.path.exists(_env_path):
 # ── Pi 4 fixed config ─────────────────────────────────────────────────────────
 PI_MODEL        = 4
 VISION_FPS      = 6      # Haar face detection rate (cheap, but it's a Pi 4)
+# Haar cascade sensitivity: lower minNeighbors / scaleFactor and smaller
+# minSize find more faces (and a few more false ones); histogram
+# equalisation helps with side-lit faces. A face is held for
+# FACE_HOLD_SECS after the last detection so single missed frames don't
+# make the eyes / preview box flicker.
+FACE_MIN_NEIGHBORS = 3
+FACE_SCALE_FACTOR  = 1.1
+FACE_MIN_SIZE      = 24      # px on the half-size (320x240) analysis frame
+FACE_EQUALIZE      = True
+FACE_HOLD_SECS     = 0.6
 RENDER_FPS      = 30     # face animation; 30 is smooth on the 7" DSI panel
 
 # ── Display (official 7" DSI touchscreen) ─────────────────────────────────────

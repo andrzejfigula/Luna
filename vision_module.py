@@ -17,7 +17,8 @@ import cv2
 import threading
 import time
 
-from config import VISION_FPS
+from config import (VISION_FPS, FACE_MIN_NEIGHBORS, FACE_SCALE_FACTOR,
+                    FACE_MIN_SIZE, FACE_EQUALIZE, FACE_HOLD_SECS)
 from shared_state import state
 
 
@@ -71,16 +72,19 @@ def _vision_iteration_loop():
         # the camera now runs at 640x480 so the LLM gets a usable picture
         small = cv2.resize(frame, (frame.shape[1] // 2, frame.shape[0] // 2))
         gray  = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
+        if FACE_EQUALIZE:
+            gray = cv2.equalizeHist(gray)      # side-lit faces detect far better
         faces = face_cascade.detectMultiScale(
             gray,
-            scaleFactor=1.2,
-            minNeighbors=5,
-            minSize=(30, 30),
+            scaleFactor=FACE_SCALE_FACTOR,
+            minNeighbors=FACE_MIN_NEIGHBORS,
+            minSize=(FACE_MIN_SIZE, FACE_MIN_SIZE),
             flags=cv2.CASCADE_SCALE_IMAGE
         )
 
         if len(faces) > 0:
-            x, y, w, h = faces[0]
+            # the biggest face is the person in front of Luna
+            x, y, w, h = max(faces, key=lambda f: f[2] * f[3])
             # Mirror x: the webcam faces the person, so someone on THEIR left
             # appears on the RIGHT of the image. Luna's eyes must move toward
             # the person, i.e. toward the viewer's left on the screen.
@@ -95,7 +99,9 @@ def _vision_iteration_loop():
                 state.last_face_time = time.time()   # addressed-speech gate
         else:
             with state.lock:
-                state.face_detected = False
+                # hold the last face briefly — Haar drops single frames
+                if time.time() - state.last_face_time > FACE_HOLD_SECS:
+                    state.face_detected = False
 
         elapsed   = time.monotonic() - t0
         remaining = sleep_time - elapsed
