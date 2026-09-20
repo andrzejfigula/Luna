@@ -865,7 +865,7 @@ def hand_surface(pose, side):
             block(14, 22, 6, 44 + i * 13, 82)
     else:                                          # open palm
         # thumb first so its base sits UNDER the palm (attached, not floating)
-        block(20, 50, 9, 22, 86, -34)
+        block(20, 50, 9, 24, 88, 30)              # base under the palm, tip leaning out
         block(66, 70, 26, 60, 108)                 # palm
         for i, (dx, fh) in enumerate(((-24, 44), (-8, 52), (8, 50), (24, 42))):
             block(16, fh, 7, 60 + dx, 78 - (fh - 40) // 2)
