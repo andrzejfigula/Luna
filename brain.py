@@ -37,6 +37,7 @@ from config import (
     OFFLINE_REPLY,
     VISION_KEYWORDS,
     VISION_JPEG_QUALITY,
+    VISION_ALWAYS,
 )
 
 # Face states robot_face.py knows how to draw. The model must pick one.
@@ -136,7 +137,7 @@ def _camera_jpeg_b64():
 
 # ── OpenAI call ───────────────────────────────────────────────────────────────
 
-def _ask_openai(text, image_b64=None):
+def _ask_openai(text, image_b64=None, detail="low"):
     """Returns (reply, emotion, gesture) or None on any failure."""
     if _client is None:
         return None
@@ -146,9 +147,10 @@ def _ask_openai(text, image_b64=None):
                 {"type": "text", "text": text},
                 {"type": "image_url",
                  "image_url": {"url": f"data:image/jpeg;base64,{image_b64}",
-                               "detail": "low"}},
+                               "detail": detail}},
             ]
-            print("[brain] Attaching camera frame")
+            if detail != "low":
+                print(f"[brain] Attaching camera frame ({detail} detail)")
         else:
             content = text
 
@@ -205,8 +207,9 @@ def process(text):
 
     lower = text.lower()
 
-    image = _camera_jpeg_b64() if _wants_vision(lower) else None
-    result = _ask_openai(text, image)
+    visual = _wants_vision(lower)
+    image  = _camera_jpeg_b64() if (visual or VISION_ALWAYS) else None
+    result = _ask_openai(text, image, detail="high" if visual else "low")
 
     if result:
         reply, emotion, gesture = result

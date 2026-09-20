@@ -95,7 +95,9 @@ front of the camera for 30 s the face goes to sleep.
 - `OPENAI_MODEL`, `OPENAI_TTS_INSTRUCTIONS` (voice character), `OPENAI_TTS_SPEED`
 - `CLOUD_STT_LANGUAGE = "pl"` to force Polish instead of auto-detect.
 - `REQUIRE_FACE_TO_TALK` — only answer when someone is facing the camera.
-- `VISION_KEYWORDS` — which questions get a camera frame attached.
+- `VISION_ALWAYS` — a low-detail camera frame (~85 tokens) goes with every
+  request so Luna always "sees"; `VISION_KEYWORDS` (zobacz, przeczytaj, jaki
+  kolor, read…) switch it to high detail for that question.
 - `data/persona.txt` — who Luna is and how she talks (identity, gender,
   language, tone). Plain text, edit freely, restart to apply.
   `data/knowledge.txt` — optional facts appended to the prompt.

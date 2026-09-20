@@ -4,6 +4,14 @@
   Format: date · area · what changed · why
 ══════════════════════════════════════════════════════════════════
 
+─── 2026-09-20 — Luna always sees: camera frame on every request ────────
+
+[brain] VISION_ALWAYS: low-detail frame attached to every request; the
+  (expanded, PL+EN) VISION_KEYWORDS now only pick high detail (reading
+  text, small objects). Persona states that her sight is the Logitech
+  webcam on the Raspberry Pi and that "zobacz / przeczytaj / jaki kolor /
+  look / read" refer to that picture; never claim to be unable to see.
+
 ─── 2026-09-20 — Gestures: wave detection, nod/shake, hair + hands ──────
 
 [gesture] MediaPipe is unusable on the Pi 4 + Python 3.13 (its 1.0.x

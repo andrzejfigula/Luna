@@ -240,15 +240,22 @@ OPENAI_MAX_TOKENS   = 200   # max tokens per response (keep short for speech)
 OPENAI_TEMPERATURE  = 0.8   # creativity (0.0 = factual, 1.0 = creative)
 OPENAI_MAX_HISTORY  = 8     # max conversation history turns to send to API
 
-# Questions containing any of these get the current camera frame attached
+# The camera frame is attached to EVERY request at low detail (~85 tokens)
+# so Luna can always "see"; questions containing any of the words below get
+# it at high detail instead (needed to read text, small objects).
+VISION_ALWAYS = True
 VISION_KEYWORDS = [
     # Polish
-    "widzisz", "zobacz", "spójrz", "spojrz", "popatrz", "co to jest", "co to",
-    "kamer", "co trzymam", "jak wyglądam", "jak wygladam", "co mam na",
-    "kto to", "ile osób", "ile osob", "co jest na",
+    "widzisz", "widać", "widac", "zobacz", "spójrz", "spojrz", "popatrz",
+    "obejrzyj", "przeczytaj", "napisane", "napis", "tekst", "co to jest",
+    "co to", "kamer", "co trzymam", "jak wyglądam", "jak wygladam",
+    "co mam na", "kto to", "ile osób", "ile osob", "ile palc", "co jest na",
+    "jaki kolor", "jakiego koloru", "rozpoznaj", "pokaż", "pokaz", "obraz",
+    "zdjęci", "zdjeci", "ekran", "etykiet",
     # English
-    "see", "look", "what is this", "what's this", "camera", "what am i",
-    "holding", "wearing", "who is", "how many", "describe",
+    "see", "look", "read", "written", "text", "what is this", "what's this",
+    "camera", "what am i", "holding", "wearing", "who is", "how many",
+    "describe", "color", "colour", "label", "screen", "picture", "photo",
 ]
 VISION_JPEG_QUALITY = 80
 
