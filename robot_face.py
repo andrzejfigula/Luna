@@ -859,15 +859,16 @@ def hand_surface(pose, side):
         s.blit(b, b.get_rect(center=(int(cx * S), int(cy * S))))
 
     if pose == "thumb":
+        block(24, 60, 12, 32, 66, 6)               # thumb up (base under the fist)
         block(70, 66, 26, 60, 104)                 # fist
-        block(24, 58, 12, 26, 62, 8)               # thumb up
         for i in range(4):                         # curled finger ridges
             block(14, 22, 6, 44 + i * 13, 82)
     else:                                          # open palm
+        # thumb first so its base sits UNDER the palm (attached, not floating)
+        block(20, 50, 9, 22, 86, -34)
         block(66, 70, 26, 60, 108)                 # palm
         for i, (dx, fh) in enumerate(((-24, 44), (-8, 52), (8, 50), (24, 42))):
             block(16, fh, 7, 60 + dx, 78 - (fh - 40) // 2)
-        block(18, 44, 8, 20, 96, -30)              # thumb, out to the side
     if side == "L":
         s = pygame.transform.flip(s, True, False)
     _HAND_CACHE[key] = s

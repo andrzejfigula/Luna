@@ -24,8 +24,9 @@ import numpy as np
 
 from config import (GESTURE_FPS, WAVE_WINDOW_SECS, WAVE_MIN_REVERSALS,
                     WAVE_MIN_AMPLITUDE, WAVE_MIN_STEP, WAVE_MIN_AREA,
-                    WAVE_MAX_AREA, WAVE_DIFF_THRESHOLD, WAVE_NEAR_FACE,
-                    GESTURE_DEBUG)
+                    WAVE_MAX_AREA, WAVE_DIFF_THRESHOLD, WAVE_REQUIRE_FACE,
+                    WAVE_MIN_FACE_DIST, WAVE_MAX_FACE_DIST, WAVE_MAX_FACE_VDIST,
+                    WAVE_HEAD_EXCLUDE, GESTURE_DEBUG)
 from shared_state import state
 
 W, H = 160, 120           # analysis resolution
@@ -81,6 +82,11 @@ def gesture_loop():
             if frame is None:
                 time.sleep(0.2)
                 continue
+            if WAVE_REQUIRE_FACE and not face_detected:
+                prev = None            # don't let stale diffs pile up
+                track.clear()
+                time.sleep(period)
+                continue
 
             grey = cv2.cvtColor(cv2.resize(frame, (W, H)), cv2.COLOR_BGR2GRAY)
             grey = cv2.GaussianBlur(grey, (5, 5), 0)
@@ -91,12 +97,14 @@ def gesture_loop():
             prev = grey
             mask = (diff > WAVE_DIFF_THRESHOLD).astype(np.uint8) * 255
 
-            # ignore the face itself (and a margin around it): head motion
+            # ignore the head and a generous margin around it: turning the
+            # head, adjusting glasses, taking headphones off all happen here
             near_ok = True
             if face_detected:
                 cx, cy, fw, fh = _face_box(fx, fy)
-                x0, y0 = max(0, cx - fw), max(0, cy - fh)
-                x1, y1 = min(W, cx + fw), min(H, cy + fh)
+                ex, ey = int(fw * WAVE_HEAD_EXCLUDE), int(fh * WAVE_HEAD_EXCLUDE)
+                x0, y0 = max(0, cx - ex), max(0, cy - ey)
+                x1, y1 = min(W, cx + ex), min(H, cy + ey)
                 mask[y0:y1, x0:x1] = 0
 
             mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN,
@@ -109,10 +117,14 @@ def gesture_loop():
                 area = int(stats[i, cv2.CC_STAT_AREA])
                 if WAVE_MIN_AREA <= area <= WAVE_MAX_AREA:
                     bx, by = cents[i]
-                    if face_detected and WAVE_NEAR_FACE:
+                    if face_detected:
+                        # a wave happens clearly beside the head, roughly at
+                        # head height — not on it, not across the room
                         cx, cy, fw, fh = _face_box(fx, fy)
-                        near_ok = (abs(bx - cx) <= fw * WAVE_NEAR_FACE and
-                                   abs(by - cy) <= fh * WAVE_NEAR_FACE)
+                        dx = abs(bx - cx) / max(1, fw)
+                        dy = abs(by - cy) / max(1, fh)
+                        near_ok = (WAVE_MIN_FACE_DIST <= dx <= WAVE_MAX_FACE_DIST
+                                   and dy <= WAVE_MAX_FACE_VDIST)
                     if near_ok:
                         x = float(bx)
             track.append((time.time(), x))
