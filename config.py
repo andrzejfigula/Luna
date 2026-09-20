@@ -262,9 +262,9 @@ GESTURE_REACT_COOLDOWN = 8.0   # seconds between reactions to the same gesture
 
 # A wave = a hand-sized moving blob near the face that reverses horizontal
 # direction several times within a short window.
-WAVE_WINDOW_SECS       = 1.4
-WAVE_MIN_REVERSALS     = 3     # left→right→left→right
-WAVE_MIN_AMPLITUDE     = 14    # px of travel at 160 px width
+WAVE_WINDOW_SECS       = 1.8
+WAVE_MIN_REVERSALS     = 5     # a deliberate wave: 3 full back-and-forths
+WAVE_MIN_AMPLITUDE     = 18    # px of travel at 160 px width
 WAVE_MIN_STEP          = 2     # px per sample that counts as movement
 WAVE_MIN_AREA          = 25    # blob size limits (px² at 160x120)
 WAVE_MAX_AREA          = 2200
