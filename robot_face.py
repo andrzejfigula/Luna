@@ -44,7 +44,7 @@ PUPIL_COL = (0, 0, 0)
 
 # On the 800x480 panel the mouth would kiss the bottom edge: lift the face a
 # little and keep the conversation-window dot (below the mouth) on-screen.
-FACE_Y_OFFSET = -14 if HEIGHT < 600 else 0   # room for the hair up top
+FACE_Y_OFFSET = -28 if HEIGHT < 600 else 0
 AWAKE_DOT_Y   = min(265, HEIGHT - (HEIGHT // 2 + FACE_Y_OFFSET) - 25)
 
 # ── Face styles ───────────────────────────────────────────────────────────────
@@ -99,7 +99,7 @@ STYLES = {
         EYE_GRAD_TOP=(255, 232, 140), EYE_GRAD_BOTTOM=(232, 96, 12),
         BLOCK_PUPIL=True, PUPIL_DARK=(28, 12, 2),
         BROW_GRAD_TOP=(255, 214, 110), BROW_GRAD_BOTTOM=(214, 96, 18),
-        HAIR=True, HANDS=True,
+        HAIR=False, HANDS=True,     # hair can be switched on here
         HAIR_GRAD_TOP=(255, 196, 80), HAIR_GRAD_BOTTOM=(196, 78, 10),
         HAND_GRAD_TOP=(255, 226, 130), HAND_GRAD_BOTTOM=(238, 110, 20),
     ),
