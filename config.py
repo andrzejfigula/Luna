@@ -277,33 +277,60 @@ VISION_JPEG_QUALITY = 80
 FACE_OVERRIDE_SECS     = 4.0   # how long the LLM-chosen emotion lingers after a reply
 
 # ── Gestures (camera motion, see gesture_module.py) ───────────────────────────
-GESTURE_FPS            = 10    # analysis rate (160x120 frame differencing, ~1 ms)
-GESTURE_DEBUG          = True  # log detections
-GESTURE_REACT_COOLDOWN = 8.0   # seconds between reactions to the same gesture
+GESTURE_FPS            = 15    # analysis rate (160x120 frame differencing, ~1 ms);
+                               # a quick wave needs several samples per swing
+GESTURE_DEBUG          = False # log every near-miss with its features (tuning)
+GESTURE_REACT_COOLDOWN = 4.0   # seconds between reactions to the same gesture
 
 # A wave = a hand-sized moving blob near the face that reverses horizontal
 # direction several times within a short window.
-WAVE_WINDOW_SECS       = 2.0
-WAVE_MIN_REVERSALS     = 3     # a deliberate wave: ~2 back-and-forths
-WAVE_MIN_AMPLITUDE     = 12    # px of travel at 160 px width
-WAVE_MIN_SWING         = 8     # px a half-swing must travel before a direction
+WAVE_WINDOW_SECS       = 1.6
+WAVE_MIN_REVERSALS     = 4     # a wave: several direction changes in the window
+WAVE_MIN_AMPLITUDE     = 10    # px of travel at 160 px width
+WAVE_MIN_SWING         = 5     # px a half-swing must travel before a direction
                                # change counts (kills jitter on a rising hand)
-WAVE_MAX_VERTICAL      = 0.7   # vertical travel may be at most this fraction
-                               # of the horizontal travel (a wave is sideways;
-                               # lifting a hand to show something is up/down)
+WAVE_MAX_VERTICAL      = 3.0   # loose sanity limit only: the motion blob
+                               # (hand + forearm) moves a lot vertically even
+                               # in a real wave, so this can't be strict
+WAVE_MIN_PRESENCE      = 0.6   # the moving blob must be present in this
+                               # fraction of the window's samples — a hand
+                               # holding something up stops moving
+WAVE_MIN_MEAN_SPEED    = 4.0   # px per sample of sideways motion, averaged
+                               # over the window (a wave keeps moving)
+WAVE_SWING_REGULARITY  = 0.0   # off — measured real waves are irregular
+                               # (0.2-0.35) at 15 fps sampling
 WAVE_MIN_AREA          = 25    # blob size limits (px² at 160x120)
 WAVE_MAX_AREA          = 2200
 WAVE_DIFF_THRESHOLD    = 22    # frame-difference level that counts as motion
 WAVE_REQUIRE_FACE      = True  # no face in view → no wave (a hand over the
                                # face while taking headphones off isn't one)
+WAVE_FACE_GRACE_SECS   = 1.5   # ...but a face seen this recently still counts
+                               # (Haar drops frames while things move)
 # Distances below are in HALF face widths/heights from the face centre, using
 # the size the detector actually measured (so they hold at any distance).
-WAVE_MIN_FACE_DIST     = 1.6   # hand centre at least this far to the side of
-                               # the head — glasses/headphones are at ~1.0-1.4
+WAVE_MIN_FACE_DIST     = 1.15  # hand centre at least this far to the side of
+                               # the head (just outside it; the motion rules
+                               # take care of glasses / headphones)
 WAVE_MAX_FACE_DIST     = 7.0   # ...and not further than this
-WAVE_MAX_FACE_VDIST    = 2.6   # vertical tolerance
-WAVE_HEAD_EXCLUDE      = 1.35  # motion inside this box around the head is
-                               # ignored (head movement, glasses, headphones)
+WAVE_MAX_FACE_VDIST    = 2.6   # vertical tolerance for a single sample
+WAVE_MAX_BELOW_FACE    = 1.3   # loose: the hand's mean height must not be far
+                               # below the face (the cloud check below decides
+                               # wave vs. showing an object)
+
+# Motion alone can't tell a wave from a hand showing an object — both move.
+# So a motion candidate is CONFIRMED by asking the vision model whether the
+# current frame shows an open, empty hand waving. ~1 s, a fraction of a cent.
+WAVE_CLOUD_CONFIRM     = False   # off: too slow (~1 s) and missed real waves
+WAVE_CONFIRM_MIN_GAP   = 3.0   # seconds between confirmation requests
+
+# Local wave-vs-object check: skin colour. The face gives the person's own
+# skin tone (Cr/Cb statistics, adapts to lighting); an open empty hand is
+# mostly skin, a hand holding an object mostly isn't.
+WAVE_MIN_SKIN          = 0.65  # mean skin fraction of the moving blob's box
+                               # (measured: empty hand 0.72-0.94, object 0.37-0.49)
+WAVE_SKIN_SIGMA        = 2.5   # tolerance around the face's Cr/Cb mean, in std
+WAVE_HEAD_EXCLUDE      = 1.1   # motion inside this box around the head is
+                               # ignored (head movement itself)
 
 # Luna's reaction to a wave: happy face + she waves her hand + one of these
 # (spoken only when idle)

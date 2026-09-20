@@ -262,6 +262,45 @@ def _ask_openai(text, image_b64=None, detail="low"):
         return None
 
 
+# ── Yes/no question about the current camera frame (used by behavior_engine) ─
+
+def confirm_wave():
+    """Ask the vision model whether the person in the current frame is waving
+    (open, empty hand raised toward the camera). Returns True/False; False on
+    any failure so a network hiccup never produces a spurious reaction."""
+    if _client is None:
+        return False
+    img = _camera_jpeg_b64()
+    if not img:
+        return False
+    try:
+        r = _client.chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text":
+                     "Look at the person in this webcam frame. Are they WAVING "
+                     "at the camera — an open, EMPTY hand raised with the palm "
+                     "toward the camera, as a greeting? If the hand is holding, "
+                     "showing or pointing at any object, or the hand is not "
+                     "clearly visible, answer no. Answer with exactly one word: "
+                     "yes or no."},
+                    {"type": "image_url",
+                     "image_url": {"url": f"data:image/jpeg;base64,{img}",
+                                   "detail": "low"}},
+                ]}],
+            max_tokens=3,
+            temperature=0.0,
+        )
+        ans = (r.choices[0].message.content or "").strip().lower()
+        print(f"[brain] wave check → {ans}")
+        return ans.startswith("y")
+    except Exception as e:
+        print(f"[brain] wave check failed: {e}")
+        return False
+
+
 # ── Main process ──────────────────────────────────────────────────────────────
 
 def process(text):

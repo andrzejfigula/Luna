@@ -4,6 +4,27 @@
   Format: date · area · what changed · why
 ══════════════════════════════════════════════════════════════════
 
+─── 2026-09-21 — Wave detection tuned on real data ────────────────────────
+
+[gesture] Logged every candidate's features (presence, spans, speed,
+  reversals, blob area, position vs. face, skin fraction) while the user
+  waved / showed objects / adjusted glasses & headphones. Findings:
+  • the vertical-vs-horizontal ratio and swing-regularity rules rejected
+    REAL waves (the moving blob is hand + forearm; 15 fps sampling makes
+    swings uneven) → removed;
+  • 15 fps analysis (was 10) and a 1.5 s face-grace window fixed most
+    missed waves (Haar drops frames while the hand moves near the head);
+  • showing an object vs. waving can't be told apart by motion at all —
+    the discriminator is SKIN: the person's own Cr/Cb skin tone is
+    sampled from the face box every frame and the moving blob must be
+    ≥ 65 % skin (measured: empty hand 0.72-0.94, hand + object 0.19-0.58).
+  • cloud confirmation via the vision model was tried and dropped (~1 s
+    delay, missed real waves); WAVE_CLOUD_CONFIRM stays as an off switch.
+  Final: face seen ≤1.5 s ago, hand beside the head (1.15-7 half-widths),
+  ≥4 reversals of ≥5 px in 1.6 s, presence ≥0.6, speed ≥4 px/sample,
+  skin ≥0.65. Verified 4/4 waves, 0/4 objects, 0 false positives on
+  glasses / headphones / raising a hand.
+
 ─── 2026-09-20 — Luna always sees: camera frame on every request ────────
 
 [brain] VISION_ALWAYS: low-detail frame attached to every request; the
