@@ -277,19 +277,24 @@ GESTURE_REACT_COOLDOWN = 8.0   # seconds between reactions to the same gesture
 WAVE_WINDOW_SECS       = 2.0
 WAVE_MIN_REVERSALS     = 3     # a deliberate wave: ~2 back-and-forths
 WAVE_MIN_AMPLITUDE     = 12    # px of travel at 160 px width
-WAVE_MIN_STEP          = 2     # px per sample that counts as movement
+WAVE_MIN_SWING         = 8     # px a half-swing must travel before a direction
+                               # change counts (kills jitter on a rising hand)
+WAVE_MAX_VERTICAL      = 0.7   # vertical travel may be at most this fraction
+                               # of the horizontal travel (a wave is sideways;
+                               # lifting a hand to show something is up/down)
 WAVE_MIN_AREA          = 25    # blob size limits (px² at 160x120)
 WAVE_MAX_AREA          = 2200
 WAVE_DIFF_THRESHOLD    = 22    # frame-difference level that counts as motion
 WAVE_REQUIRE_FACE      = True  # no face in view → no wave (a hand over the
                                # face while taking headphones off isn't one)
-WAVE_MIN_FACE_DIST     = 1.35  # hand centre must be at least this many face
-                               # widths to the side of the head — adjusting
-                               # glasses / headphones happens at ~1.0-1.3
-WAVE_MAX_FACE_DIST     = 4.5   # ...and not further than this
-WAVE_MAX_FACE_VDIST    = 1.9   # vertical tolerance, in face heights
-WAVE_HEAD_EXCLUDE      = 1.4   # motion inside this many face widths/heights
-                               # of the head is ignored (head movement)
+# Distances below are in HALF face widths/heights from the face centre, using
+# the size the detector actually measured (so they hold at any distance).
+WAVE_MIN_FACE_DIST     = 1.6   # hand centre at least this far to the side of
+                               # the head — glasses/headphones are at ~1.0-1.4
+WAVE_MAX_FACE_DIST     = 7.0   # ...and not further than this
+WAVE_MAX_FACE_VDIST    = 2.6   # vertical tolerance
+WAVE_HEAD_EXCLUDE      = 1.35  # motion inside this box around the head is
+                               # ignored (head movement, glasses, headphones)
 
 # Luna's reaction to a wave: happy face + she waves her hand + one of these
 # (spoken only when idle)

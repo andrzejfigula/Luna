@@ -91,6 +91,7 @@ def _vision_iteration_loop():
                 state.face_detected  = True
                 state.face_x         = face_cx
                 state.face_y         = face_cy
+                state.face_w         = w / small.shape[1]
                 state.last_face_time = time.time()   # addressed-speech gate
         else:
             with state.lock:

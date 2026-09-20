@@ -23,7 +23,8 @@ import cv2
 import numpy as np
 
 from config import (GESTURE_FPS, WAVE_WINDOW_SECS, WAVE_MIN_REVERSALS,
-                    WAVE_MIN_AMPLITUDE, WAVE_MIN_STEP, WAVE_MIN_AREA,
+                    WAVE_MIN_AMPLITUDE, WAVE_MIN_SWING, WAVE_MAX_VERTICAL,
+                    WAVE_MIN_AREA,
                     WAVE_MAX_AREA, WAVE_DIFF_THRESHOLD, WAVE_REQUIRE_FACE,
                     WAVE_MIN_FACE_DIST, WAVE_MAX_FACE_DIST, WAVE_MAX_FACE_VDIST,
                     WAVE_HEAD_EXCLUDE, GESTURE_DEBUG)
@@ -32,35 +33,50 @@ from shared_state import state
 W, H = 160, 120           # analysis resolution
 
 
-def _face_box(face_x, face_y, face_w_frac=0.22):
-    """Approximate face rectangle in analysis coords (face_x is mirrored)."""
+def _face_box(face_x, face_y, face_w_frac):
+    """Face rectangle in analysis coords (face_x is mirrored; face_w_frac is
+    the detected width as a fraction of the frame). Returns centre and
+    HALF-sizes."""
     cx = int((1.0 - face_x) * W)
     cy = int(face_y * H)
-    fw = int(face_w_frac * W)
-    fh = int(fw * 1.3)
+    fw = max(8, int(face_w_frac * W * 0.5))
+    fh = int(fw * 1.25)
     return cx, cy, fw, fh
 
 
 def _wave_in(track):
-    """track: deque of (t, x). True when x oscillates like a wave."""
+    """track: deque of (t, x, y). True when the blob oscillates SIDEWAYS
+    like a wave: enough left/right direction changes, each after a real
+    swing, and horizontal travel dominating vertical travel."""
     now = time.time()
-    xs = [x for t, x in track if now - t <= WAVE_WINDOW_SECS and x is not None]
-    if len(xs) < 6:
+    pts = [(x, y) for t, x, y in track
+           if now - t <= WAVE_WINDOW_SECS and x is not None]
+    if len(pts) < 6:
         return False
-    if max(xs) - min(xs) < WAVE_MIN_AMPLITUDE:
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    span_x = max(xs) - min(xs)
+    span_y = max(ys) - min(ys)
+    if span_x < WAVE_MIN_AMPLITUDE or span_y > span_x * WAVE_MAX_VERTICAL:
         return False
+    # count direction changes, but only after the hand has travelled at
+    # least WAVE_MIN_SWING px since the last turn (ignores jitter)
     reversals = 0
     last_dir  = 0
-    prev      = xs[0]
+    anchor    = xs[0]          # x at the last turning point
+    extreme   = xs[0]          # furthest point reached in the current direction
     for x in xs[1:]:
-        dx = x - prev
-        if abs(dx) < WAVE_MIN_STEP:
+        if last_dir == 0:
+            if abs(x - anchor) >= WAVE_MIN_SWING:
+                last_dir = 1 if x > anchor else -1
+                extreme = x
             continue
-        d = 1 if dx > 0 else -1
-        if last_dir and d != last_dir:
-            reversals += 1
-        last_dir = d
-        prev = x
+        if (x - extreme) * last_dir > 0:
+            extreme = x                       # still going the same way
+        elif abs(x - extreme) >= WAVE_MIN_SWING:
+            reversals += 1                    # turned around by a real swing
+            last_dir  = -last_dir
+            anchor, extreme = extreme, x
     return reversals >= WAVE_MIN_REVERSALS
 
 
@@ -77,6 +93,7 @@ def gesture_loop():
                 frame         = state.frame
                 face_detected = state.face_detected
                 fx, fy        = state.face_x, state.face_y
+                fwf           = state.face_w
                 speaking      = state.speaking
 
             if frame is None:
@@ -101,7 +118,7 @@ def gesture_loop():
             # head, adjusting glasses, taking headphones off all happen here
             near_ok = True
             if face_detected:
-                cx, cy, fw, fh = _face_box(fx, fy)
+                cx, cy, fw, fh = _face_box(fx, fy, fwf)
                 ex, ey = int(fw * WAVE_HEAD_EXCLUDE), int(fh * WAVE_HEAD_EXCLUDE)
                 x0, y0 = max(0, cx - ex), max(0, cy - ey)
                 x1, y1 = min(W, cx + ex), min(H, cy + ey)
@@ -110,7 +127,7 @@ def gesture_loop():
             mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN,
                                     np.ones((3, 3), np.uint8))
             n, labels, stats, cents = cv2.connectedComponentsWithStats(mask)
-            x = None
+            x = y = None
             if n > 1:
                 areas = stats[1:, cv2.CC_STAT_AREA]
                 i = int(np.argmax(areas)) + 1
@@ -120,14 +137,14 @@ def gesture_loop():
                     if face_detected:
                         # a wave happens clearly beside the head, roughly at
                         # head height — not on it, not across the room
-                        cx, cy, fw, fh = _face_box(fx, fy)
-                        dx = abs(bx - cx) / max(1, fw)
+                        cx, cy, fw, fh = _face_box(fx, fy, fwf)
+                        dx = abs(bx - cx) / max(1, fw)      # in half-face-widths
                         dy = abs(by - cy) / max(1, fh)
                         near_ok = (WAVE_MIN_FACE_DIST <= dx <= WAVE_MAX_FACE_DIST
                                    and dy <= WAVE_MAX_FACE_VDIST)
                     if near_ok:
-                        x = float(bx)
-            track.append((time.time(), x))
+                        x, y = float(bx), float(by)
+            track.append((time.time(), x, y))
 
             if (x is not None and not speaking
                     and time.time() - last_fire > WAVE_WINDOW_SECS

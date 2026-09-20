@@ -9,6 +9,7 @@ class SharedState:
         "lock",
         "frame",
         "face_detected", "face_x", "face_y",
+        "face_w",                # face width as a fraction of the frame width
         "emotion",
         "frozen_emotion",        # emotion locked while speaking
         "gesture",
@@ -45,6 +46,7 @@ class SharedState:
         self.face_detected       = False
         self.face_x              = 0.5
         self.face_y              = 0.5
+        self.face_w              = 0.2
         self.emotion             = "Neutral"
         self.frozen_emotion      = None
         self.gesture             = None
