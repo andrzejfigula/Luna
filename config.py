@@ -324,11 +324,11 @@ WAVE_MIN_FACE_DIST     = 1.15  # hand centre at least this far to the side of
                                # take care of glasses / headphones)
 WAVE_MAX_FACE_DIST     = 7.0   # ...and not further than this
 WAVE_MAX_FACE_VDIST    = 2.6   # vertical tolerance for a single sample
-WAVE_MAX_BELOW_FACE    = 0.75  # the hand's mean height: not lower than this
+WAVE_MAX_BELOW_FACE    = 1.3   # the hand's mean height: not lower than this
                                # many half face heights below the face centre.
-                               # THE key wave-vs-object rule, consistent across
-                               # night / day / distance: waves -0.7..+0.7,
-                               # showing an object +0.8..+1.9
+                               # Waves land anywhere from -0.7 (hand raised)
+                               # to +1.3 (waving from the elbow); showing an
+                               # object is usually lower still (+1.4..+1.9)
 
 # Motion alone can't tell a wave from a hand showing an object — both move.
 # So a motion candidate is CONFIRMED by asking the vision model whether the
