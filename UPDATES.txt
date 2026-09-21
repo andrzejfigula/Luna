@@ -4,6 +4,18 @@
   Format: date · area · what changed · why
 ══════════════════════════════════════════════════════════════════
 
+─── 2026-09-21 — Wave detection in daylight ─────────────────────────────
+
+[gesture] In daylight the face-derived skin model collapsed (uniform face
+  → tiny std → window too narrow) and real waves scored 0.27-0.45 skin.
+  Measured four tolerance variants side by side: with any of them, skin
+  does NOT separate an empty hand from a hand with an object in daylight.
+  What does, consistently across night / day / distance, is the hand's
+  HEIGHT relative to the face (waves -0.7..+0.7 half face heights,
+  showing an object +0.8..+1.9) → WAVE_MAX_BELOW_FACE 1.2 → 0.75 is the
+  key rule again; skin kept as a weak wide filter (sigma 3.0, std floor
+  6, threshold 0.60 scaled by distance, floor 0.45).
+
 ─── 2026-09-21 — Wave detection: scale-free thresholds ──────────────────
 
 [gesture] Amplitude, swing and speed thresholds are now fractions of the

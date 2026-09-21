@@ -324,10 +324,11 @@ WAVE_MIN_FACE_DIST     = 1.15  # hand centre at least this far to the side of
                                # take care of glasses / headphones)
 WAVE_MAX_FACE_DIST     = 7.0   # ...and not further than this
 WAVE_MAX_FACE_VDIST    = 2.6   # vertical tolerance for a single sample
-WAVE_MAX_BELOW_FACE    = 1.2   # the hand's mean height: not lower than this
-                               # many half face heights below the face centre
-                               # (close-up waves -0.6..+0.6; from further away
-                               # people wave lower, from the elbow)
+WAVE_MAX_BELOW_FACE    = 0.75  # the hand's mean height: not lower than this
+                               # many half face heights below the face centre.
+                               # THE key wave-vs-object rule, consistent across
+                               # night / day / distance: waves -0.7..+0.7,
+                               # showing an object +0.8..+1.9
 
 # Motion alone can't tell a wave from a hand showing an object — both move.
 # So a motion candidate is CONFIRMED by asking the vision model whether the
@@ -338,18 +339,23 @@ WAVE_CONFIRM_MIN_GAP   = 3.0   # seconds between confirmation requests
 # Local wave-vs-object check: skin colour. The face gives the person's own
 # skin tone (Cr/Cb statistics, adapts to lighting); an open empty hand is
 # mostly skin, a hand holding an object mostly isn't.
-WAVE_MIN_SKIN          = 0.75  # mean skin fraction of the moving blob's box
-                               # when the face is WAVE_SKIN_REF_FW px wide
-                               # (close up: empty hand 0.80-1.00, object 0.19-0.69)
+WAVE_MIN_SKIN          = 0.60  # mean skin fraction of the moving blob's box
+                               # when the face is WAVE_SKIN_REF_FW px wide.
+                               # Weak filter only: in daylight skin does NOT
+                               # separate a hand from a hand with an object
+                               # (both 0.6-0.9 with the tolerance below)
 WAVE_SKIN_REF_FW       = 40    # face width (px at 160 px analysis) the threshold
                                # above is calibrated for; further away the hand
                                # is small and its box holds more background, so
                                # the threshold scales down with face width...
-WAVE_MIN_SKIN_FLOOR    = 0.50  # ...but never below this (far waves 0.55-0.70)
+WAVE_MIN_SKIN_FLOOR    = 0.45  # ...but never below this
 WAVE_MIN_AREA_FACE     = 0.12  # mean blob area ≥ this × the face box area —
                                # a whole waving hand, not a sliver of skin
                                # next to an object (waves 0.16-0.26, slivers 0.04-0.07)
-WAVE_SKIN_SIGMA        = 2.5   # tolerance around the face's Cr/Cb mean, in std
+WAVE_SKIN_SIGMA        = 3.0   # tolerance around the face's Cr/Cb mean, in std
+WAVE_SKIN_MIN_STD      = 6.0   # floor for that std: under even daylight the face
+                               # is very uniform and the window would collapse,
+                               # rejecting a hand lit by the window
 WAVE_HEAD_EXCLUDE      = 1.1   # motion inside this box around the head is
                                # ignored (head movement itself)
 

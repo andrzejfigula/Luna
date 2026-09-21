@@ -31,7 +31,7 @@ from config import (GESTURE_FPS, WAVE_WINDOW_SECS, WAVE_MIN_REVERSALS,
                     WAVE_MIN_MEAN_SPEED, WAVE_SWING_REGULARITY,
                     WAVE_MAX_BELOW_FACE, WAVE_MIN_SKIN, WAVE_SKIN_SIGMA,
                     WAVE_MIN_AREA_FACE, WAVE_SKIN_REF_FW, WAVE_MIN_SKIN_FLOOR,
-                    GESTURE_DEBUG)
+                    WAVE_SKIN_MIN_STD, GESTURE_DEBUG)
 from shared_state import state
 
 W, H = 160, 120           # analysis resolution
@@ -72,6 +72,9 @@ def _wave_in(track):
     farea = sum(p[6] for p in pts) / len(pts)         # mean face box area
     area_ratio = area / max(1.0, farea)
     fwidth = sum(p[7] for p in pts) / len(pts)        # mean face width (px)
+    vv = [p[8] for p in pts if p[8]]
+    variants = ([sum(v[i] for v in vv) / len(vv) for i in range(len(_SKIN_VARIANTS))]
+                if vv else [])
     min_amp   = max(6.0, WAVE_MIN_AMPLITUDE * fwidth)
     min_speed = max(2.0, WAVE_MIN_MEAN_SPEED * fwidth)
     min_swing = max(3.0, WAVE_MIN_SWING * fwidth)
@@ -94,7 +97,9 @@ def _wave_in(track):
     last_features = (f"presence={presence:.2f} span_x={span_x:.0f} "
                      f"span_y={span_y:.0f} speed={mean_speed:.1f} rev={reversals} "
                      f"area={area:.0f} ({area_ratio:.2f} face) dxf={dxf:.1f} "
-                     f"dyf={dyf:+.1f} skin={skin:.2f}/{min_skin:.2f} fw={fwidth:.0f}")
+                     f"dyf={dyf:+.1f} skin={skin:.2f}/{min_skin:.2f} fw={fwidth:.0f} "
+                     f"variants={[round(v, 2) for v in variants]} "
+                     f"skinmodel={tuple(round(v) for v in _skin) if _skin else None}")
     if GESTURE_DEBUG and reversals >= 3 and now - _last_debug > 0.5:
         _last_debug = now
         print(f"[gesture] {'WAVE' if ok else 'cand'} {last_features} "
@@ -129,7 +134,9 @@ def _count_swings(xs, min_swing):
 
 
 # ── skin model from the face ──────────────────────────────────────────────────
-_skin = None   # (meanCr, stdCr, meanCb, stdCb)
+_skin = None   # (meanCr, stdCr, meanCb, stdCb)  — raw std (floor applied at use)
+# tolerance variants measured side by side while tuning: (sigma, std floor)
+_SKIN_VARIANTS = [(2.5, 4.0), (2.5, 6.0), (3.0, 6.0), (3.5, 9.0)]
 
 
 def _update_skin_model(ycrcb, cx, cy, fw, fh):
@@ -141,8 +148,7 @@ def _update_skin_model(ycrcb, cx, cy, fw, fh):
         return
     patch = ycrcb[y0:y1, x0:x1].reshape(-1, 3).astype(np.float32)
     cr, cb = patch[:, 1], patch[:, 2]
-    _skin = (float(cr.mean()), max(4.0, float(cr.std())),
-             float(cb.mean()), max(4.0, float(cb.std())))
+    _skin = (float(cr.mean()), float(cr.std()), float(cb.mean()), float(cb.std()))
 
 
 def _skin_fraction(ycrcb, x, y, w, h):
@@ -155,9 +161,15 @@ def _skin_fraction(ycrcb, x, y, w, h):
         return 0.0
     box = ycrcb[y0:y1, x0:x1].astype(np.float32)
     mcr, scr, mcb, scb = _skin
-    m = ((np.abs(box[:, :, 1] - mcr) < WAVE_SKIN_SIGMA * scr) &
-         (np.abs(box[:, :, 2] - mcb) < WAVE_SKIN_SIGMA * scb))
-    return float(m.mean())
+    dcr = np.abs(box[:, :, 1] - mcr)
+    dcb = np.abs(box[:, :, 2] - mcb)
+
+    def frac(sigma, floor):
+        m = (dcr < sigma * max(floor, scr)) & (dcb < sigma * max(floor, scb))
+        return float(m.mean())
+
+    _skin_fraction.variants = [frac(sg, fl) for sg, fl in _SKIN_VARIANTS]
+    return frac(WAVE_SKIN_SIGMA, WAVE_SKIN_MIN_STD)
 
 
 def gesture_loop():
@@ -243,7 +255,9 @@ def gesture_loop():
                                               int(stats[i, cv2.CC_STAT_TOP]),
                                               int(stats[i, cv2.CC_STAT_WIDTH]),
                                               int(stats[i, cv2.CC_STAT_HEIGHT]))
-            track.append((time.time(), x, y, area, dx, dy, skin, farea, fwidth))
+                        variants = getattr(_skin_fraction, "variants", None)
+            track.append((time.time(), x, y, area, dx, dy, skin, farea, fwidth,
+                          variants if x is not None else None))
 
             if (x is not None and not speaking
                     and time.time() - last_fire > WAVE_WINDOW_SECS
