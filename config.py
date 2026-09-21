@@ -22,11 +22,12 @@ VISION_FPS      = 6      # Haar face detection rate (cheap, but it's a Pi 4)
 # equalisation helps with side-lit faces. A face is held for
 # FACE_HOLD_SECS after the last detection so single missed frames don't
 # make the eyes / preview box flicker.
-FACE_MIN_NEIGHBORS = 3
+FACE_MIN_NEIGHBORS = 2
 FACE_SCALE_FACTOR  = 1.1
 FACE_MIN_SIZE      = 24      # px on the half-size (320x240) analysis frame
-FACE_EQUALIZE      = True
+FACE_EQUALIZE      = True    # CLAHE (local contrast) — handles a backlit face
 FACE_HOLD_SECS     = 0.6
+VISION_DEBUG       = False   # log detections (position, size, count) every ~2 s
 RENDER_FPS      = 30     # face animation; 30 is smooth on the 7" DSI panel
 
 # ── Display (official 7" DSI touchscreen) ─────────────────────────────────────
@@ -303,16 +304,22 @@ WAVE_MIN_SWING         = 0.15  # a half-swing must travel ≥ this × face width
 WAVE_MAX_VERTICAL      = 3.0   # loose sanity limit only: the motion blob
                                # (hand + forearm) moves a lot vertically even
                                # in a real wave, so this can't be strict
-WAVE_MIN_PRESENCE      = 0.6   # the moving blob must be present in this
+WAVE_MIN_PRESENCE      = 0.6   # at a WAVE_SKIN_REF_FW-wide face; scales down
+                               # with distance to WAVE_MIN_PRESENCE_FLOOR —
+                               # a far hand's motion blob flickers at the turns
+WAVE_MIN_PRESENCE_FLOOR = 0.35
+                               # the moving blob must be present in this
                                # fraction of the window's samples — a hand
                                # holding something up stops moving
 WAVE_MIN_MEAN_SPEED    = 0.12  # mean sideways speed ≥ this × face width per
                                # sample (a wave keeps moving)
 WAVE_SWING_REGULARITY  = 0.0   # off — measured real waves are irregular
                                # (0.2-0.35) at 15 fps sampling
-WAVE_MIN_AREA          = 25    # blob size limits (px² at 160x120)
+WAVE_MIN_AREA          = 12    # blob size limits (px² at 160x120) — a far
+                               # hand is small
 WAVE_MAX_AREA          = 2200
-WAVE_DIFF_THRESHOLD    = 22    # frame-difference level that counts as motion
+WAVE_DIFF_THRESHOLD    = 16    # frame-difference level that counts as motion
+                               # (lower = a small far hand still registers)
 WAVE_REQUIRE_FACE      = True  # no face in view → no wave (a hand over the
                                # face while taking headphones off isn't one)
 WAVE_FACE_GRACE_SECS   = 1.5   # ...but a face seen this recently still counts

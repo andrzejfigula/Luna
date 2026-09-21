@@ -4,6 +4,16 @@
   Format: date · area · what changed · why
 ══════════════════════════════════════════════════════════════════
 
+─── 2026-09-21 — Far waves in daylight: presence scaling, CLAHE faces ───
+
+[gesture] From further away the small hand's motion blob flickers at the
+  turns, so the presence threshold now scales with face width (0.6 at a
+  40 px face → floor 0.35); motion mask more sensitive (diff 22→16, min
+  blob 25→12 px²). Hand-height limit 1.3 (waving from the elbow).
+[vision] Backlit far faces (window behind the user) were found only
+  ~2×/50 s: CLAHE local contrast instead of global equalisation and
+  minNeighbors 3→2 → ~10×/50 s. VISION_DEBUG flag logs detections.
+
 ─── 2026-09-21 — Wave detection in daylight ─────────────────────────────
 
 [gesture] In daylight the face-derived skin model collapsed (uniform face

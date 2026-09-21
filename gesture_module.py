@@ -31,7 +31,7 @@ from config import (GESTURE_FPS, WAVE_WINDOW_SECS, WAVE_MIN_REVERSALS,
                     WAVE_MIN_MEAN_SPEED, WAVE_SWING_REGULARITY,
                     WAVE_MAX_BELOW_FACE, WAVE_MIN_SKIN, WAVE_SKIN_SIGMA,
                     WAVE_MIN_AREA_FACE, WAVE_SKIN_REF_FW, WAVE_MIN_SKIN_FLOOR,
-                    WAVE_SKIN_MIN_STD, GESTURE_DEBUG)
+                    WAVE_SKIN_MIN_STD, WAVE_MIN_PRESENCE_FLOOR, GESTURE_DEBUG)
 from shared_state import state
 
 W, H = 160, 120           # analysis resolution
@@ -80,13 +80,15 @@ def _wave_in(track):
     min_swing = max(3.0, WAVE_MIN_SWING * fwidth)
     min_skin  = max(WAVE_MIN_SKIN_FLOOR,
                     min(WAVE_MIN_SKIN, WAVE_MIN_SKIN * fwidth / WAVE_SKIN_REF_FW))
+    min_pres  = max(WAVE_MIN_PRESENCE_FLOOR,
+                    min(WAVE_MIN_PRESENCE, WAVE_MIN_PRESENCE * fwidth / WAVE_SKIN_REF_FW))
     span_x = max(xs) - min(xs)
     span_y = max(ys) - min(ys)
     mean_speed = sum(abs(b - a) for a, b in zip(xs, xs[1:])) / (len(xs) - 1)
     reversals, swings = _count_swings(xs, min_swing)
     regularity = (min(swings) / max(swings)) if swings else 0.0
 
-    ok = (presence >= WAVE_MIN_PRESENCE and span_x >= min_amp
+    ok = (presence >= min_pres and span_x >= min_amp
           and span_y <= span_x * WAVE_MAX_VERTICAL
           and dyf <= WAVE_MAX_BELOW_FACE
           and skin >= min_skin
@@ -94,7 +96,7 @@ def _wave_in(track):
           and mean_speed >= min_speed
           and reversals >= WAVE_MIN_REVERSALS
           and regularity >= WAVE_SWING_REGULARITY)
-    last_features = (f"presence={presence:.2f} span_x={span_x:.0f} "
+    last_features = (f"presence={presence:.2f}/{min_pres:.2f} span_x={span_x:.0f} "
                      f"span_y={span_y:.0f} speed={mean_speed:.1f} rev={reversals} "
                      f"area={area:.0f} ({area_ratio:.2f} face) dxf={dxf:.1f} "
                      f"dyf={dyf:+.1f} skin={skin:.2f}/{min_skin:.2f} fw={fwidth:.0f} "

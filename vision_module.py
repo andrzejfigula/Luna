@@ -18,7 +18,10 @@ import threading
 import time
 
 from config import (VISION_FPS, FACE_MIN_NEIGHBORS, FACE_SCALE_FACTOR,
-                    FACE_MIN_SIZE, FACE_EQUALIZE, FACE_HOLD_SECS)
+                    FACE_MIN_SIZE, FACE_EQUALIZE, FACE_HOLD_SECS, VISION_DEBUG)
+
+_last_dbg = 0.0
+_clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
 from shared_state import state
 
 
@@ -73,7 +76,9 @@ def _vision_iteration_loop():
         small = cv2.resize(frame, (frame.shape[1] // 2, frame.shape[0] // 2))
         gray  = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
         if FACE_EQUALIZE:
-            gray = cv2.equalizeHist(gray)      # side-lit faces detect far better
+            # local contrast equalisation: a face in shadow against a bright
+            # window keeps its detail instead of being crushed to black
+            gray = _clahe.apply(gray)
         faces = face_cascade.detectMultiScale(
             gray,
             scaleFactor=FACE_SCALE_FACTOR,
@@ -85,6 +90,12 @@ def _vision_iteration_loop():
         if len(faces) > 0:
             # the biggest face is the person in front of Luna
             x, y, w, h = max(faces, key=lambda f: f[2] * f[3])
+            global _last_dbg
+            if VISION_DEBUG and time.time() - _last_dbg > 2.0:
+                _last_dbg = time.time()
+                print(f"[vision] faces={len(faces)} picked x={x} y={y} w={w} h={h} "
+                      f"of {small.shape[1]}x{small.shape[0]}  all={[tuple(int(v) for v in f) for f in faces]}",
+                      flush=True)
             # Mirror x: the webcam faces the person, so someone on THEIR left
             # appears on the RIGHT of the image. Luna's eyes must move toward
             # the person, i.e. toward the viewer's left on the screen.
