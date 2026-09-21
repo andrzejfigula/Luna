@@ -203,8 +203,22 @@ def _ask_openai(text, image_b64=None, detail="low"):
         return None
     try:
         if image_b64:
+            # The frame rides along with every message so Luna can always
+            # see, but a bare picture pulls the model's attention: it starts
+            # describing the room instead of continuing the conversation.
+            # Say explicitly, next to the image, what it is for.
+            if detail == "low":
+                note = ("(Załączone zdjęcie to aktualny obraz z Twojej kamery, "
+                        "dołączany do KAŻDEJ wiadomości. Użyj go tylko, jeśli moja "
+                        "wiadomość dotyczy tego, co widzisz. W przeciwnym razie "
+                        "zignoruj je całkowicie i odpowiedz na moją wiadomość w "
+                        "kontekście naszej rozmowy — nie opisuj, co jest na "
+                        "zdjęciu.)")
+            else:
+                note = ("(Załączone zdjęcie to aktualny obraz z Twojej kamery — "
+                        "moja wiadomość dotyczy tego, co na nim widać.)")
             content = [
-                {"type": "text", "text": text},
+                {"type": "text", "text": f"{text}" + chr(10) + chr(10) + note},
                 {"type": "image_url",
                  "image_url": {"url": f"data:image/jpeg;base64,{image_b64}",
                                "detail": detail}},

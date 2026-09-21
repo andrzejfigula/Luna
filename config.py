@@ -263,7 +263,8 @@ TTS_PLAYER = "pw-play"
 # ── Brain ─────────────────────────────────────────────────────────────────────
 OPENAI_MAX_TOKENS   = 200   # max tokens per response (keep short for speech)
 OPENAI_TEMPERATURE  = 0.8   # creativity (0.0 = factual, 1.0 = creative)
-OPENAI_MAX_HISTORY  = 8     # max conversation history turns to send to API
+OPENAI_MAX_HISTORY  = 12    # max conversation history messages sent to the API
+                            # (6 exchanges — riddles, follow-ups, "another one")
 
 # The camera frame is attached to EVERY request at low detail (~85 tokens)
 # so Luna can always "see"; questions containing any of the words below get
