@@ -32,7 +32,8 @@ import numpy as np
 from shared_state import state
 from config import (RENDER_FPS, FACE_STYLE, SCREEN_WIDTH, SCREEN_HEIGHT,
                     FULLSCREEN, HIDE_CURSOR, GESTURE_DURATION,
-                    CAMERA_PREVIEW, CAMERA_PREVIEW_W, TOUCH_DEBUG)
+                    CAMERA_PREVIEW, CAMERA_PREVIEW_W, TOUCH_DEBUG,
+                    TOUCH_REACT_SECS, TOUCH_POKE_SECS)
 
 # How long each idle micro-scene lasts
 IDLE_DURATION = {
@@ -1059,15 +1060,16 @@ class Mouth:
                             math.radians(200), math.radians(340), 22)
             surf.blit(smile_surf, (cx - aw // 2, cy - ah // 2))
 
-        #elif emotion == "surprised":
-            # O shape
-          #  r = 52
-          #  os_ = pygame.Surface((r * 2 + 4, r * 2 + 4), pygame.SRCALPHA)
-          #  draw_glow_circle(os_, GLOW_COL, (r + 2, r + 2), r)
-          #  pygame.draw.circle(os_, (*MOUTH_COL, alpha), (r + 2, r + 2), r)
-          #  pygame.draw.circle(os_, (*PUPIL_COL, alpha), (r + 2, r + 2),
-          #                     int(r * 0.55))
-          #  surf.blit(os_, (cx - r - 2, cy - r - 2))
+        elif emotion == "surprised":
+            # small "o" of surprise (was disabled upstream, which left the
+            # surprised face with no mouth at all)
+            r  = 44
+            os_ = pygame.Surface((r * 2 + 6, r * 2 + 6), pygame.SRCALPHA)
+            draw_glow_circle(os_, GLOW_COL, (r + 3, r + 3), r)
+            pygame.draw.circle(os_, (*MOUTH_COL, alpha), (r + 3, r + 3), r)
+            pygame.draw.circle(os_, (*PUPIL_COL, alpha), (r + 3, r + 3),
+                               int(r * 0.6))
+            surf.blit(os_, (cx - r - 3, cy - r - 3))
 
         elif emotion == "angry":
             # flat tight line angled
@@ -1553,22 +1555,27 @@ class RobotFace:
             self._touch_zone = self._zone_at(*touch_pt)
             self._touch_kind = touch_kind
             self._touch_react_t = now_t
-            with state.lock:
-                state.touch_zone = self._touch_zone
-            if TOUCH_DEBUG:
-                print(f"[face] touched: {touch_kind} on {self._touch_zone}", flush=True)
+            # The mood must go through face_override: face_renderer calls
+            # set_state() every frame, so setting it here would last 1 frame.
             if touch_kind == "multi":
-                self.set_state("angry")
-                self.bounce_phase, self.bounce_amp = 0.0, 10.0
+                mood, secs = "angry", TOUCH_POKE_SECS
             elif touch_kind == "stroke":
-                self.set_state("love" if self._touch_zone == "top" else "happy")
+                mood = "love" if self._touch_zone in ("top", "eye") else "happy"
+                secs = TOUCH_REACT_SECS
             elif self._touch_zone == "eye":
-                self.set_state("surprised")
+                mood, secs = "surprised", TOUCH_REACT_SECS
             elif self._touch_zone == "mouth":
-                self.set_state("happy")
-                self.bounce_phase, self.bounce_amp = 0.0, 24.0
+                mood, secs = "happy", TOUCH_REACT_SECS
+                self.bounce_phase, self.bounce_amp = 0.0, 26.0
             else:
-                self.set_state("happy")
+                mood, secs = "happy", TOUCH_REACT_SECS
+            with state.lock:
+                state.touch_zone          = self._touch_zone
+                state.face_override       = mood
+                state.face_override_until = now_t + secs
+            if TOUCH_DEBUG:
+                print(f"[face] touched: {touch_kind} on {self._touch_zone} "
+                      f"-> {mood}", flush=True)
         touch_el = now_t - self._touch_react_t
 
         # ── gestures: head (nod / shake) and hands (wave / thumbs_up / heart)
@@ -1628,13 +1635,21 @@ class RobotFace:
             self.target_oy  -= 10.0 * s
             self.target_tilt = -3.0 * s
 
-        # being touched: a small recoil from the finger
+        # being touched: recoil from the finger / squirm when poked
         if touch_el < 0.5 and self._touch_kind == "tap":
             k = (1.0 - touch_el / 0.5)
-            self.target_oy += 18.0 * k
-            self.target_ox += (self._touch_pull * 26.0) * k
-        elif touch_el < 0.6 and self._touch_kind == "multi":
-            self.target_ox += 14.0 * math.sin(now_t * 26.0) * (1.0 - touch_el / 0.6)
+            self.target_oy += 20.0 * k
+            self.target_ox += (self._touch_pull * 30.0) * k
+        elif touch_el < 1.0 and self._touch_kind == "multi":
+            k = 1.0 - touch_el / 1.0
+            self.target_ox  += 26.0 * math.sin(now_t * 24.0) * k
+            self.target_tilt = 9.0 * math.sin(now_t * 24.0) * k
+            head_fast = True
+        elif touch_el < 0.8 and self._touch_kind == "stroke":
+            # leans into the hand, slow and content
+            k = 1.0 - touch_el / 0.8
+            self.target_oy   += 8.0 * k
+            self.target_tilt += 5.0 * k * self._touch_pull
 
         self.face_ox = lerp(self.face_ox, self.target_ox, 0.30 if head_fast else 0.12)
         self.face_oy = lerp(self.face_oy,
@@ -1677,16 +1692,20 @@ class RobotFace:
         elif self._idle == "clock":
             widen = max(widen, 0.4 * math.sin(self._idle_p * math.pi))
 
-        # a poke makes her squint, a tap on the eye makes it blink shut
-        if touch_el < 0.45:
-            k = 1.0 - touch_el / 0.45
-            if self._touch_kind == "multi":
-                squint = max(squint, 0.7 * k)
-            elif self._touch_zone == "eye":
+        # poking -> screwed-up eyes; a tap on an eye shuts it then it pops
+        # wide open; petting -> a slow, contented squint
+        if self._touch_kind == "multi" and touch_el < 0.9:
+            squint = max(squint, 0.85 * (1.0 - touch_el / 0.9))
+        elif self._touch_kind == "stroke" and touch_el < 1.2:
+            squint = max(squint, 0.75)
+        elif self._touch_kind == "tap" and touch_el < 0.55:
+            k = 1.0 - touch_el / 0.55
+            if self._touch_zone == "eye":
                 if touch_pt[0] < 0.5:
-                    blink_l = min(blink_l, 1.0 - k)
+                    blink_l = 0.0 if touch_el < 0.2 else min(blink_l, 1.0 - k)
                 else:
-                    blink_r = min(blink_r, 1.0 - k)
+                    blink_r = 0.0 if touch_el < 0.2 else min(blink_r, 1.0 - k)
+            widen = max(widen, 0.8 * k)      # startled, wide eyes
 
         self.left_eye.update(
             tw, th, blink_l, self.pupil_ox, self.pupil_oy,

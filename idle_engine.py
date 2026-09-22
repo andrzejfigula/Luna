@@ -35,7 +35,8 @@ from config import (IDLE_LIFE, IDLE_ABSENCE_SECS, IDLE_SCENE_MIN_SECS,
                     GREETINGS_MORNING, GREETINGS_DAY, GREETINGS_EVENING,
                     GREETINGS_NIGHT, GREETINGS_FIRST_TODAY,
                     MUTE_PHRASES, UNMUTE_PHRASES, MUTE_SECS,
-                    TOUCH_REPLIES, TOUCH_REPLY_CHANCE, GESTURE_DURATION,
+                    TOUCH_REPLIES, TOUCH_REPLY_CHANCE, TOUCH_SPEECH_COOLDOWN,
+                    GESTURE_DURATION,
                     FACE_OVERRIDE_SECS, NIGHT_FROM, NIGHT_TO)
 
 _last_proactive = 0.0
@@ -152,6 +153,7 @@ def idle_loop():
     last_scene   = time.time()
     next_scene   = random.uniform(IDLE_SCENE_MIN_SECS, IDLE_SCENE_MAX_SECS)
     last_touch_t = 0.0
+    last_touch_say = 0.0
     greeted_day  = None                  # date of the last "first time today"
 
     while True:
@@ -191,9 +193,15 @@ def idle_loop():
             if touch_t > last_touch_t:
                 last_touch_t = touch_t
                 replies = TOUCH_REPLIES.get(touch_zone or "other", {}).get(touch_kind)
-                if (replies and not _busy() and random.random() < TOUCH_REPLY_CHANCE
-                        and _may_speak()):
-                    _last_proactive = now
+                # you started this, so it isn't rationed like unprompted talk —
+                # it only needs its own short cooldown (mute + quiet hours apply)
+                with state.lock:
+                    muted = state.proactive_muted_until
+                if (replies and not _busy() and not _quiet_now()
+                        and now > muted
+                        and now - last_touch_say >= TOUCH_SPEECH_COOLDOWN
+                        and random.random() < TOUCH_REPLY_CHANCE):
+                    last_touch_say = now
                     speak(random.choice(replies), can_drop=True)
 
             # ── micro-scenes ─────────────────────────────────────────────

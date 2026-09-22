@@ -345,7 +345,13 @@ TOUCH_DEBUG        = False
 
 # Zones are worked out from where the face is drawn: "eye", "mouth", "top"
 # (above the eyes), "other".
-TOUCH_REPLY_CHANCE = 0.35   # how often a touch also gets a spoken line
+TOUCH_REACT_SECS      = 2.2   # how long the face holds its touch reaction
+TOUCH_POKE_SECS       = 3.0   # ...when poked repeatedly (she sulks longer)
+TOUCH_SPEECH_COOLDOWN = 25    # seconds between spoken touch reactions. Being
+                              # touched is not "unprompted" — you started it —
+                              # so it has its own short budget, not the 15 min
+                              # proactive one (quiet hours and mute still apply)
+TOUCH_REPLY_CHANCE = 0.6    # how often a touch also gets a spoken line
 TOUCH_REPLIES = {
     "eye":   {"tap":    ["Hej, to moje oko!", "Łaskocze!"],
               "multi":  ["No dobra, wystarczy!", "Przestań mnie dziobać!"]},
