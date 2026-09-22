@@ -23,7 +23,7 @@ import time
 
 from config import (TOUCH_ENABLED, TOUCH_DEVICE, TOUCH_TAP_MAX_SECS,
                     TOUCH_STROKE_MIN, TOUCH_STROKE_REPEAT,
-                    TOUCH_MULTI_WINDOW, TOUCH_MULTI_COUNT,
+                    TOUCH_MULTI_WINDOW, TOUCH_MULTI_COUNT, TOUCH_POKE_HOLD,
                     TOUCH_FLIP_X, TOUCH_FLIP_Y, TOUCH_DEBUG)
 from shared_state import state
 
@@ -102,6 +102,7 @@ def _reader_loop(path):
     pub_pos = (0.0, 0.0)           # where the last stroke was reported
     pub_t   = 0.0
     taps = []                      # timestamps of recent taps
+    poking_until = 0.0             # while poking, further taps stay "multi"
 
     while True:
         try:
@@ -141,13 +142,20 @@ def _reader_loop(path):
                     held = time.time() - down_t
                     if not stroked and held <= TOUCH_TAP_MAX_SECS:
                         now = time.time()
-                        taps = [t for t in taps if now - t <= TOUCH_MULTI_WINDOW]
-                        taps.append(now)
-                        if len(taps) >= TOUCH_MULTI_COUNT:
-                            taps = []
+                        if now < poking_until:
+                            # still being poked — don't fall back to a
+                            # friendly "tap" on the 4th, 5th, ... touch
+                            poking_until = now + TOUCH_POKE_HOLD
                             _publish("multi", x, y)
                         else:
-                            _publish("tap", x, y)
+                            taps = [t for t in taps if now - t <= TOUCH_MULTI_WINDOW]
+                            taps.append(now)
+                            if len(taps) >= TOUCH_MULTI_COUNT:
+                                taps = []
+                                poking_until = now + TOUCH_POKE_HOLD
+                                _publish("multi", x, y)
+                            else:
+                                _publish("tap", x, y)
                     down_t = 0.0
         except Exception as e:
             print(f"[touch] read error (recovering): {e}")

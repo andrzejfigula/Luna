@@ -339,6 +339,9 @@ TOUCH_STROKE_MIN   = 0.06   # normalised travel that counts as stroking
 TOUCH_STROKE_REPEAT = 0.35  # min seconds between "still being petted" events
 TOUCH_MULTI_WINDOW = 1.6    # seconds
 TOUCH_MULTI_COUNT  = 3      # taps inside that window = "poking"
+TOUCH_POKE_HOLD    = 3.0    # once poking starts, every further tap keeps her
+                            # annoyed; she calms down this long after the last
+                            # one (otherwise tap 4 read as a friendly tap again)
 TOUCH_FLIP_X       = False  # set if the panel is mounted rotated
 TOUCH_FLIP_Y       = False
 TOUCH_DEBUG        = False
