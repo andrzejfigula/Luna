@@ -23,6 +23,12 @@ start_gesture()
 from behavior_engine import start_behavior
 start_behavior()
 
+from touch_module import start_touch
+start_touch()
+
+from idle_engine import start_idle, check_mute
+start_idle()
+
 import random
 import difflib
 
@@ -73,7 +79,9 @@ def voice_loop():
                     # wake word alone ("Luna!") — short acknowledgement
                     speak(random.choice(WAKE_REPLIES))
                 elif text:
-                    if _is_self_echo(text):
+                    if check_mute(text):
+                        pass          # "Luna, cicho" — handled, nothing to ask
+                    elif _is_self_echo(text):
                         print(f"[Luna] Ignoring self-echo: \"{text}\"")
                     else:
                         # speak() serializes internally — an answer is never

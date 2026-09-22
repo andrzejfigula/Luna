@@ -285,6 +285,77 @@ VISION_KEYWORDS = [
 ]
 VISION_JPEG_QUALITY = 80
 
+# ── Idle life (Luna's own behaviour when nobody is talking to her) ────────────
+IDLE_LIFE            = True
+IDLE_ABSENCE_SECS    = 600     # away this long → she greets you when you return
+IDLE_DEBUG           = False   # log presence transitions and scene decisions
+IDLE_PRESENCE_GRACE  = 8       # "you are here" if a face was seen this recently
+                               # (raw face_detected flickers several times a
+                               # minute and would reset the scene timer)
+IDLE_SCENE_MIN_SECS  = 40      # gap between micro-scenes
+IDLE_SCENE_MAX_SECS  = 130
+NIGHT_FROM, NIGHT_TO = 22, 6   # "night" for scene weighting
+
+# Visual micro-scenes and how often they come up (weights, not probabilities)
+IDLE_SCENES = {
+    "wink":        3,     # a quick wink at whoever is in front of her
+    "look_around": 4,     # glances around the room
+    "stretch":     2,     # squeezes her eyes and stretches
+    "clock":       3,     # pulls the time out and plays with the digits
+    "yawn":        1,
+}
+IDLE_SCENES_NIGHT = {     # after NIGHT_FROM she gets sleepy
+    "wink":        1,
+    "look_around": 2,
+    "stretch":     2,
+    "clock":       2,
+    "yawn":        5,
+}
+
+# ── Proactive speech (the scarce resource — animations are free) ──────────────
+PROACTIVE_SPEECH       = True
+PROACTIVE_MIN_GAP_SECS = 900   # at most one unprompted line per 15 min
+PROACTIVE_QUIET_FROM   = 22    # no unprompted talking between these hours
+PROACTIVE_QUIET_TO     = 8
+MUTE_SECS              = 3600  # "Luna, cicho" silences her for this long
+MUTE_PHRASES   = ["cicho", "bądź cicho", "badz cicho", "nie odzywaj się",
+                  "nie odzywaj sie", "zamilcz", "be quiet", "hush"]
+UNMUTE_PHRASES = ["możesz mówić", "mozesz mowic", "odzywaj się", "odzywaj sie",
+                  "you can talk", "unmute"]
+
+GREETINGS_MORNING = ["Dzień dobry!", "O, dzień dobry! Wyspałeś się?",
+                     "Dobry! Zaczynamy dzień?"]
+GREETINGS_DAY     = ["O, jesteś!", "Hej, wróciłeś!", "Cześć! Tęskniłam trochę."]
+GREETINGS_EVENING = ["Dobry wieczór!", "O, jesteś. Jak minął dzień?"]
+GREETINGS_NIGHT   = ["Jeszcze nie śpisz?", "O, cześć. Późno już."]
+GREETINGS_FIRST_TODAY = ["Dzień dobry! Pierwszy raz dziś cię widzę.",
+                         "O, cześć! Czekałam na ciebie."]
+
+# ── Touch (the 7" panel; see touch_module.py) ─────────────────────────────────
+TOUCH_ENABLED      = True
+TOUCH_DEVICE       = os.environ.get("LUNA_TOUCH_DEVICE", "").strip()  # "" = auto
+TOUCH_TAP_MAX_SECS = 0.4    # longer than this isn't a tap
+TOUCH_STROKE_MIN   = 0.06   # normalised travel that counts as stroking
+TOUCH_STROKE_REPEAT = 0.35  # min seconds between "still being petted" events
+TOUCH_MULTI_WINDOW = 1.6    # seconds
+TOUCH_MULTI_COUNT  = 3      # taps inside that window = "poking"
+TOUCH_FLIP_X       = False  # set if the panel is mounted rotated
+TOUCH_FLIP_Y       = False
+TOUCH_DEBUG        = False
+
+# Zones are worked out from where the face is drawn: "eye", "mouth", "top"
+# (above the eyes), "other".
+TOUCH_REPLY_CHANCE = 0.35   # how often a touch also gets a spoken line
+TOUCH_REPLIES = {
+    "eye":   {"tap":    ["Hej, to moje oko!", "Łaskocze!"],
+              "multi":  ["No dobra, wystarczy!", "Przestań mnie dziobać!"]},
+    "mouth": {"tap":    ["Mmm?", "Chcesz, żebym coś powiedziała?"]},
+    "top":   {"stroke": ["Mmm, miło...", "Głaszcz dalej!"],
+              "tap":    ["Hej!"]},
+    "other": {"stroke": ["Miło.", "Lubię to."],
+              "multi":  ["Ej, spokojnie!"]},
+}
+
 # ── Expressions ───────────────────────────────────────────────────────────────
 FACE_OVERRIDE_SECS     = 4.0   # how long the LLM-chosen emotion lingers after a reply
 

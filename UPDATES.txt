@@ -4,6 +4,30 @@
   Format: date · area · what changed · why
 ══════════════════════════════════════════════════════════════════
 
+─── 2026-09-22 — Idle life + touch: Luna notices you and can be petted ──
+
+[idle] idle_engine.py: presence is tracked with a debounced signal (raw
+  face_detected flickers several times a minute and reset every timer).
+  Coming back after IDLE_ABSENCE_SECS gets a happy face, a wave and —
+  budget permitting — a spoken greeting picked by time of day, with a
+  separate line the first time she sees you that day. Between
+  conversations she plays visual micro-scenes (wink / look_around /
+  stretch / yawn / clock), weighted differently after NIGHT_FROM.
+  Unprompted speech is the only rate-limited part (PROACTIVE_MIN_GAP_SECS,
+  quiet hours, "Luna, cicho" mutes for an hour); animations are free.
+  The absence timer is stamped before the deferred text_to_speech import,
+  which costs ~4 s building the TTS engine.
+[touch] touch_module.py: SDL/Wayland delivers NO touch events to the
+  pygame window (verified: no FingerDown/MouseButtonDown), so the panel's
+  evdev node is read directly — works regardless of focus, needs the user
+  in the "input" group. Taps, strokes and repeated pokes are recognised;
+  robot_face maps the point to a face zone (eye / mouth / top / other)
+  using the live face geometry and answers instantly (recoil, blink,
+  squint, bounce, love/angry face), idle_engine adds the occasional line.
+[face] Per-eye blink so she can wink; yawn drives the mouth; stretch
+  narrows the eyes; look_around sweeps head and pupils; the clock scene
+  floats the time below the eyes with a glow that follows the digits.
+
 ─── 2026-09-21 — Far waves in daylight: presence scaling, CLAHE faces ───
 
 [gesture] From further away the small hand's motion blob flickers at the

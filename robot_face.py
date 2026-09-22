@@ -32,7 +32,16 @@ import numpy as np
 from shared_state import state
 from config import (RENDER_FPS, FACE_STYLE, SCREEN_WIDTH, SCREEN_HEIGHT,
                     FULLSCREEN, HIDE_CURSOR, GESTURE_DURATION,
-                    CAMERA_PREVIEW, CAMERA_PREVIEW_W)
+                    CAMERA_PREVIEW, CAMERA_PREVIEW_W, TOUCH_DEBUG)
+
+# How long each idle micro-scene lasts
+IDLE_DURATION = {
+    "wink":        1.1,
+    "look_around": 4.0,
+    "stretch":     2.2,
+    "yawn":        3.0,
+    "clock":       6.0,
+}
 
 # The face geometry below is in absolute pixels and was drawn for a 1400x800
 # window; it fits the 800x480 DSI panel as-is (~560x400 used), just larger
@@ -1260,6 +1269,17 @@ class RobotFace:
         self._gesture_p = 0.0
         self._heart_pulse = 0.0
 
+        # idle scenes + touch
+        self._idle = None
+        self._idle_p = 0.0
+        self._wink_side = "R"
+        self._idle_prev = None
+        self._touch_t = 0.0
+        self._touch_zone = None
+        self._touch_kind = None
+        self._touch_react_t = -99.0
+        self._touch_pull = 0.0
+
         # rel_x is re-applied from the active style's EYE_SPREAD every frame
         self.left_eye  = Eye(-EYE_SPREAD, -30, 175, 125)
         self.right_eye = Eye( EYE_SPREAD, -30, 175, 125)
@@ -1320,6 +1340,11 @@ class RobotFace:
             frozen_emotion = state.frozen_emotion
             g_anim         = state.gesture_anim
             g_start        = state.gesture_anim_start
+            i_anim         = state.idle_action
+            i_start        = state.idle_action_start
+            touch_kind     = state.touch_kind
+            touch_t        = state.touch_time
+            touch_pt       = (state.touch_x, state.touch_y)
             convo_active   = state.conversation_active
             convo_expired  = state.convo_expired_time
 
@@ -1509,6 +1534,43 @@ class RobotFace:
             bounce_y = -abs(math.sin(self.bounce_phase)) * self.bounce_amp
             self.bounce_amp *= 0.94   # decay
 
+        # ── idle micro-scene (wink / stretch / yawn / look_around / clock) ─
+        i_el  = now_t - i_start
+        i_dur = IDLE_DURATION.get(i_anim, 0.0) if i_anim else 0.0
+        self._idle = i_anim if (i_anim and 0.0 <= i_el < i_dur) else None
+        self._idle_p = (i_el / i_dur) if self._idle else 0.0
+        if self._idle and self._idle != self._idle_prev:
+            self._wink_side = random.choice(("L", "R"))   # alternate eyes
+        self._idle_prev = self._idle
+        if i_anim and i_el >= i_dur:
+            with state.lock:
+                if state.idle_action == i_anim:
+                    state.idle_action = None
+
+        # ── touch: instant visual answer, and tell the engine which zone ──
+        if touch_t > self._touch_t:
+            self._touch_t = touch_t
+            self._touch_zone = self._zone_at(*touch_pt)
+            self._touch_kind = touch_kind
+            self._touch_react_t = now_t
+            with state.lock:
+                state.touch_zone = self._touch_zone
+            if TOUCH_DEBUG:
+                print(f"[face] touched: {touch_kind} on {self._touch_zone}", flush=True)
+            if touch_kind == "multi":
+                self.set_state("angry")
+                self.bounce_phase, self.bounce_amp = 0.0, 10.0
+            elif touch_kind == "stroke":
+                self.set_state("love" if self._touch_zone == "top" else "happy")
+            elif self._touch_zone == "eye":
+                self.set_state("surprised")
+            elif self._touch_zone == "mouth":
+                self.set_state("happy")
+                self.bounce_phase, self.bounce_amp = 0.0, 24.0
+            else:
+                self.set_state("happy")
+        touch_el = now_t - self._touch_react_t
+
         # ── gestures: head (nod / shake) and hands (wave / thumbs_up / heart)
         g_el  = now_t - g_start
         g_dur = GESTURE_DURATION.get(g_anim, 0.0) if g_anim else 0.0
@@ -1550,6 +1612,30 @@ class RobotFace:
             cur[1] = lerp(cur[1], tgt[1], k)
             cur[2] = lerp(cur[2], tgt[2], 0.35)
 
+        # idle scenes that move the head / body
+        if self._idle == "look_around":
+            ph = self._idle_p * math.pi * 2
+            self.target_ox  += 46.0 * math.sin(ph)
+            self.target_oy  += 12.0 * math.sin(ph * 2)
+            self.pupil_ox    = lerp(self.pupil_ox, 30.0 * math.sin(ph), 0.18)
+            self.target_tilt = 5.0 * math.sin(ph)
+        elif self._idle == "stretch":
+            s = math.sin(self._idle_p * math.pi)          # 0 → 1 → 0
+            self.target_oy  -= 26.0 * s
+            self.target_tilt = 6.0 * math.sin(self._idle_p * math.pi * 2)
+        elif self._idle == "yawn":
+            s = math.sin(self._idle_p * math.pi)
+            self.target_oy  -= 10.0 * s
+            self.target_tilt = -3.0 * s
+
+        # being touched: a small recoil from the finger
+        if touch_el < 0.5 and self._touch_kind == "tap":
+            k = (1.0 - touch_el / 0.5)
+            self.target_oy += 18.0 * k
+            self.target_ox += (self._touch_pull * 26.0) * k
+        elif touch_el < 0.6 and self._touch_kind == "multi":
+            self.target_ox += 14.0 * math.sin(now_t * 26.0) * (1.0 - touch_el / 0.6)
+
         self.face_ox = lerp(self.face_ox, self.target_ox, 0.30 if head_fast else 0.12)
         self.face_oy = lerp(self.face_oy,
                             self.target_oy + breath_y + bounce_y,
@@ -1568,17 +1654,56 @@ class RobotFace:
         self.right_eye.rel_x =  EYE_SPREAD
         tw, th = tw * EYE_SCALE, th * EYE_SCALE
 
-        for eye in (self.left_eye, self.right_eye):
-            eye.update(
-                tw, th, blink_t,
-                self.pupil_ox, self.pupil_oy,
-                pupil_scale = self.micro.pupil_scale,
-                squint      = self.micro.squint_target,
-                widen       = self.micro.widen_target,
-                droop       = self.micro.droop_target,
-            )
+        blink_l = blink_r = blink_t
+        squint  = self.micro.squint_target
+        widen   = self.micro.widen_target
 
-        self.mouth.update(audio_energy, emotion, speaking)
+        if self._idle == "wink":
+            # one eye only: closes fast, opens with a soft curve
+            w = math.sin(self._idle_p * math.pi) ** 0.5
+            wink = max(0.0, 1.0 - w * 1.25)
+            if self._wink_side == "R":
+                blink_r = min(blink_r, wink)
+            else:
+                blink_l = min(blink_l, wink)
+        elif self._idle == "yawn":
+            s = math.sin(self._idle_p * math.pi)
+            blink_l = blink_r = min(blink_t, 1.0 - 0.85 * s)   # eyes screwed shut
+            squint  = max(squint, s)
+        elif self._idle == "stretch":
+            s = math.sin(self._idle_p * math.pi)
+            blink_l = blink_r = min(blink_t, 1.0 - 0.5 * s)    # narrowed, not shut
+            squint  = max(squint, 0.8 * s)
+        elif self._idle == "clock":
+            widen = max(widen, 0.4 * math.sin(self._idle_p * math.pi))
+
+        # a poke makes her squint, a tap on the eye makes it blink shut
+        if touch_el < 0.45:
+            k = 1.0 - touch_el / 0.45
+            if self._touch_kind == "multi":
+                squint = max(squint, 0.7 * k)
+            elif self._touch_zone == "eye":
+                if touch_pt[0] < 0.5:
+                    blink_l = min(blink_l, 1.0 - k)
+                else:
+                    blink_r = min(blink_r, 1.0 - k)
+
+        self.left_eye.update(
+            tw, th, blink_l, self.pupil_ox, self.pupil_oy,
+            pupil_scale=self.micro.pupil_scale, squint=squint,
+            widen=widen, droop=self.micro.droop_target)
+        self.right_eye.update(
+            tw, th, blink_r, self.pupil_ox, self.pupil_oy,
+            pupil_scale=self.micro.pupil_scale, squint=squint,
+            widen=widen, droop=self.micro.droop_target)
+
+        self._yawn = 0.0
+        if self._idle == "yawn":
+            # a slow, wide "aaah" — drives the mouth as if she were speaking
+            self._yawn = math.sin(self._idle_p * math.pi) ** 0.7
+            self.mouth.update(self._yawn, emotion, True)
+        else:
+            self.mouth.update(audio_energy, emotion, speaking)
 
         # ── particle spawning ─────────────────────────────────────────────
         fcx = int(self.face_cx + self.face_ox)
@@ -1681,7 +1806,10 @@ class RobotFace:
         self._happy       = happy
         self._sad         = sad
         self._listen      = is_listen
-        self._speaking    = audio_playing   # mouth animates only with real sound
+        # the mouth draws as "speaking" for real audio and while yawning
+        self._speaking    = audio_playing or self._yawn > 0.02
+        if self._yawn > 0.02:
+            audio_energy = self._yawn
         self._emotion     = emotion
         self._audio_energy = audio_energy
 
@@ -1709,6 +1837,44 @@ class RobotFace:
                        int(eye_col[1] * (1 - d)),
                        int(eye_col[2] * (1 - d)))
         self._eye_color = None if eye_col == EYE_OUTER else eye_col
+
+    def _zone_at(self, nx, ny):
+        """Which part of the face was touched (normalised screen coords)."""
+        x, y = nx * WIDTH, ny * HEIGHT
+        fcx  = self.face_cx + self.face_ox
+        fcy  = self.face_cy + self.face_oy
+        self._touch_pull = 1.0 if x < fcx else -1.0     # recoil away from it
+        for eye in (self.left_eye, self.right_eye):
+            ex, ey = fcx + eye.rel_x, fcy + eye.rel_y
+            if abs(x - ex) < eye.w * 0.8 and abs(y - ey) < eye.h * 0.9:
+                return "eye"
+        mx, my = fcx + self.mouth.rel_x, fcy + self.mouth.rel_y
+        if abs(x - mx) < 150 and abs(y - my) < 90:
+            return "mouth"
+        if y < fcy - 120:
+            return "top"
+        return "other"
+
+    def _draw_clock(self, surf, fcx, fcy):
+        """Idle scene: the time floats up between the eyes, wobbles, sinks."""
+        p    = self._idle_p
+        rise = math.sin(min(1.0, p * 1.4) * math.pi / 2)      # ease in
+        fade = 1.0 if p < 0.75 else max(0.0, (1.0 - p) / 0.25)
+        font = _get_font(84)
+        txt  = time.strftime("%H:%M")
+        img  = font.render(txt, True, EYE_INNER)
+        img.set_alpha(int(235 * fade))
+        ang  = 9.0 * math.sin(p * math.pi * 4)
+        img  = pygame.transform.rotate(img, ang)
+        # settles below the eyes, well clear of them
+        y    = fcy + 215 - 105 * rise + 8 * math.sin(p * math.pi * 6)
+        rect = img.get_rect(center=(int(fcx), int(y)))
+        # glow that follows the digits (a glow RECT would look like a card)
+        glow = img.copy()
+        glow.fill((*GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
+        glow.set_alpha(int(150 * fade))
+        bloom(surf, glow, rect.topleft, radius=7, passes=1, max_alpha=110)
+        surf.blit(img, rect)
 
     def draw(self):
         for event in pygame.event.get():
@@ -1797,6 +1963,10 @@ class RobotFace:
             if self._gesture == "heart":
                 sz = int(50 + 12 * self._heart_pulse)
                 draw_heart(base, fcx, fcy + 112, sz)
+
+        # ── idle clock scene ──────────────────────────────────────────────
+        if self._idle == "clock":
+            self._draw_clock(base, fcx, fcy)
 
         # ── particles (foreground) ────────────────────────────────────────
         for p in self.zzz_particles:

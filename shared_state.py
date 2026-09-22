@@ -14,6 +14,14 @@ class SharedState:
         "frozen_emotion",        # emotion locked while speaking
         "gesture",
         "gesture_time",          # time.time() the gesture was detected
+        "idle_action",           # idle micro-scene: "wink" | "yawn" | "stretch"
+                                 # | "look_around" | "clock" | None
+        "idle_action_start",     # time.time() it started
+        "touch_kind",            # last touch: "tap" | "stroke" | "multi"
+        "touch_x", "touch_y",    # where, normalised 0..1
+        "touch_time",            # time.time() of that touch
+        "touch_zone",            # "eye" | "mouth" | "top" | "other"
+        "proactive_muted_until", # no unprompted speech before this time
         "gesture_anim",          # animation Luna is performing: "nod" | "shake"
                                  # | "wave" | "thumbs_up" | "heart" | None
         "gesture_anim_start",    # time.time() it started
@@ -51,6 +59,14 @@ class SharedState:
         self.frozen_emotion      = None
         self.gesture             = None
         self.gesture_time        = 0.0
+        self.idle_action         = None
+        self.idle_action_start   = 0.0
+        self.touch_kind          = None
+        self.touch_x             = 0.5
+        self.touch_y             = 0.5
+        self.touch_time          = 0.0
+        self.touch_zone          = None
+        self.proactive_muted_until = 0.0
         self.gesture_anim        = None
         self.gesture_anim_start  = 0.0
         self.heard_text          = ""

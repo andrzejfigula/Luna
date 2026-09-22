@@ -109,6 +109,18 @@ front of the camera for 30 s the face goes to sleep.
 - Gestures: Luna nods / shakes her head / waves / thumbs-up / makes a heart
   when it fits the reply (the LLM picks, see `brain.py`). Wave at the camera
   and she waves back (`gesture_module.py`, motion-based; `WAVE_*` in config).
+- Idle life (`idle_engine.py`): she greets you when you come back after
+  `IDLE_ABSENCE_SECS` away, and between conversations plays small scenes —
+  wink, look around, stretch, yawn, show the clock (`IDLE_SCENES`, weighted
+  differently at night). Unprompted SPEECH is rate-limited
+  (`PROACTIVE_MIN_GAP_SECS`), silent during `PROACTIVE_QUIET_FROM/TO`, and
+  stops for an hour when you say "Luna, cicho" (`MUTE_PHRASES`); animations
+  are never limited.
+- Touch (`touch_module.py`): the DSI panel is read straight from evdev (SDL
+  under Wayland does not deliver touch events). Tap an eye, tap her mouth,
+  stroke the top of the screen or poke her repeatedly — each gets its own
+  reaction, and occasionally a spoken line (`TOUCH_REPLIES`,
+  `TOUCH_REPLY_CHANCE`). The user must be in the `input` group.
 
 ## Troubleshooting
 
