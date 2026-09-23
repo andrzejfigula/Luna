@@ -4,6 +4,17 @@
   Format: date · area · what changed · why
 ══════════════════════════════════════════════════════════════════
 
+─── 2026-09-23 — Hands pack: eight scenes that use her hands ─────────────
+
+[idle] Scenes can now drive the hands: the gesture block hands a mutable
+  idle_scenes.Hands (target x/y/angle and pose per side) to the scene,
+  which may override it. New "fist" hand pose alongside open/thumb.
+  Scenes: clap, wave_both, peekaboo (eyes shut behind the hands, then
+  thrown open wide), rub_eyes (fists, sleepy — weighted up at night),
+  scratch_head, chin_rest, salute, please (with hearts). Six of them are
+  in_reply, so the LLM can use them as body language: 14 scenes are now
+  available to it, out of 28 in the catalogue.
+
 ─── 2026-09-23 — Scene registry + 11 new idle scenes + scenes in replies ──
 
 [refactor] idle_scenes.py: every idle behaviour is now a small class

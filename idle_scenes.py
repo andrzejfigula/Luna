@@ -43,8 +43,21 @@ class Scene:
     def eyes(self, face, p, e):
         pass
 
+    def hands(self, face, p, h):
+        pass
+
     def draw(self, face, surf, fcx, fcy, p):
         pass
+
+
+class Hands:
+    """Mutable hand targets: (x, y, angle) relative to the face centre, plus
+    the pose each hand holds. Resting hands sit below the screen edge."""
+    __slots__ = ("l", "r", "pose_l", "pose_r")
+
+    def __init__(self, l, r, pose_l, pose_r):
+        self.l, self.r = l, r
+        self.pose_l, self.pose_r = pose_l, pose_r
 
 
 class Eyes:
@@ -535,3 +548,149 @@ class Music(Scene):
             note = pygame.transform.rotate(note, 12 * math.sin(ph * 4 + i))
             note.set_alpha(a)
             surf.blit(note, note.get_rect(center=(int(nx), int(ny))))
+
+
+# ══ Hands ═══════════════════════════════════════════════════════════════════
+
+@scene("clap", duration=2.8, weight=3, mood="happy", needs_face=True,
+       in_reply=True)
+class Clap(Scene):
+    """Applause: both hands come together, again and again."""
+    def hands(self, face, p, h):
+        hold = rf._prop_hold(p, 0.15, 0.15)
+        near = abs(math.sin(p * self.duration * 3.4))     # 0 apart, 1 together
+        x = 165 - 120 * near
+        h.l = (-x * hold - 330 * (1 - hold), 120, 22 - 12 * near)
+        h.r = ( x * hold + 330 * (1 - hold), 120, -22 + 12 * near)
+
+    def motion(self, face, p):
+        near = abs(math.sin(p * self.duration * 3.4))
+        face.target_oy += 6.0 * near * rf._prop_hold(p, 0.15, 0.15)
+
+
+@scene("wave_both", duration=3.0, weight=2, mood="happy", needs_face=True,
+       in_reply=True)
+class WaveBoth(Scene):
+    """Waves with both hands — unmistakably pleased to see you."""
+    def hands(self, face, p, h):
+        hold = rf._prop_hold(p, 0.18, 0.18)
+        rock = 26.0 * math.sin(p * self.duration * 6.0)
+        h.l = (-290, 60 + 320 * (1 - hold), -rock)
+        h.r = ( 290, 60 + 320 * (1 - hold),  rock)
+
+    def motion(self, face, p):
+        face.target_tilt = 4.0 * math.sin(p * self.duration * 6.0)
+
+
+@scene("peekaboo", duration=3.4, weight=3, mood="happy", needs_face=True)
+class Peekaboo(Scene):
+    """Hides behind her hands, then throws them open: a kuku!"""
+    def hands(self, face, p, h):
+        if p < 0.45:                       # covering
+            k = min(1.0, p / 0.18)
+        elif p < 0.62:                     # peeking through
+            k = 1.0
+        else:                              # thrown open
+            k = max(0.0, 1.0 - (p - 0.62) / 0.28)
+        h.l = (rf.lerp(-330, -150, k), rf.lerp(420, -30, k), rf.lerp(0, -8, k))
+        h.r = (rf.lerp( 330,  150, k), rf.lerp(420, -30, k), rf.lerp(0,  8, k))
+
+    def eyes(self, face, p, e):
+        # the hands only half cover an eye this size, so she shuts them
+        # while hidden — that is what sells it — and pops them open wide
+        if 0.2 < p < 0.62:
+            e.blink_l = e.blink_r = 0.0
+        elif 0.62 <= p < 0.85:
+            k = (p - 0.62) / 0.23
+            e.blink_l = e.blink_r = min(1.0, k * 1.6)
+            e.widen = max(e.widen, 0.95 * (1.0 - k))
+
+
+@scene("rub_eyes", duration=3.2, weight=3, night_weight=5)
+class RubEyes(Scene):
+    """Rubs her eyes with both fists — sleepy, or just woke up."""
+    def hands(self, face, p, h):
+        hold = rf._prop_hold(p, 0.2, 0.2)
+        a = p * self.duration * 4.0
+        h.pose_l = h.pose_r = "fist"
+        h.l = (-150 + 16 * math.cos(a), -20 + 14 * math.sin(a) + 400 * (1 - hold), 0)
+        h.r = ( 150 - 16 * math.cos(a), -20 + 14 * math.sin(a) + 400 * (1 - hold), 0)
+
+    def eyes(self, face, p, e):
+        hold = rf._prop_hold(p, 0.2, 0.2)
+        e.blink_l = e.blink_r = min(e.blink_l, 1.0 - 0.8 * hold)
+        e.squint = max(e.squint, 0.7 * hold)
+
+
+@scene("scratch_head", duration=3.0, weight=3, in_reply=True)
+class ScratchHead(Scene):
+    """Scratches the top of her head — puzzled."""
+    def hands(self, face, p, h):
+        hold = rf._prop_hold(p, 0.2, 0.2)
+        a = p * self.duration * 5.0
+        h.r = (215, -155 + 6 * math.sin(a) + 420 * (1 - hold), -28)
+
+    def motion(self, face, p):
+        hold = rf._prop_hold(p, 0.2, 0.2)
+        face.target_tilt = -7.0 * hold
+        face.pupil_ox = rf.lerp(face.pupil_ox, 18.0 * hold, 0.12)
+        face.pupil_oy = rf.lerp(face.pupil_oy, -14.0 * hold, 0.12)
+
+    def eyes(self, face, p, e):
+        e.squint = max(e.squint, 0.35 * rf._prop_hold(p, 0.2, 0.2))
+
+
+@scene("chin_rest", duration=5.0, weight=3, in_reply=True)
+class ChinRest(Scene):
+    """Props her chin on one hand and thinks about it."""
+    def hands(self, face, p, h):
+        hold = rf._prop_hold(p, 0.15, 0.15)
+        h.r = (105, 188 + 260 * (1 - hold), -18)
+
+    def motion(self, face, p):
+        hold = rf._prop_hold(p, 0.15, 0.15)
+        face.target_tilt = 6.0 * hold
+        face.target_oy  += 6.0 * hold
+        face.pupil_ox = rf.lerp(face.pupil_ox, -20.0 * hold, 0.08)
+        face.pupil_oy = rf.lerp(face.pupil_oy, -12.0 * hold, 0.08)
+
+    def eyes(self, face, p, e):
+        e.squint = max(e.squint, 0.3 * rf._prop_hold(p, 0.15, 0.15))
+
+
+@scene("salute", duration=2.6, weight=2, mood="happy", needs_face=True,
+       in_reply=True)
+class Salute(Scene):
+    """Hand to the brow, held, then dropped. At your service."""
+    def hands(self, face, p, h):
+        if p < 0.22:
+            k = p / 0.22
+        elif p < 0.7:
+            k = 1.0
+        else:
+            k = max(0.0, 1.0 - (p - 0.7) / 0.3)
+        h.r = (rf.lerp(330, 190, k), rf.lerp(420, -150, k), rf.lerp(0, 34, k))
+
+    def motion(self, face, p):
+        if 0.22 < p < 0.75:
+            face.target_tilt = -4.0
+            face.target_oy -= 5.0
+
+
+@scene("please", duration=3.2, weight=2, mood="love", needs_face=True,
+       in_reply=True)
+class Please(Scene):
+    """Palms together, big pleading eyes."""
+    def hands(self, face, p, h):
+        hold = rf._prop_hold(p, 0.18, 0.18)
+        beg = 6.0 * math.sin(p * self.duration * 3.0)
+        h.l = (-40, 190 + beg + 300 * (1 - hold),  26)
+        h.r = ( 40, 190 + beg + 300 * (1 - hold), -26)
+
+    def motion(self, face, p):
+        hold = rf._prop_hold(p, 0.18, 0.18)
+        face.target_tilt = 5.0 * math.sin(p * math.pi * 2) * hold
+        face.pupil_oy = rf.lerp(face.pupil_oy, -10.0 * hold, 0.1)
+
+    def eyes(self, face, p, e):
+        e.widen = max(e.widen, 0.85 * rf._prop_hold(p, 0.18, 0.18))

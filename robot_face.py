@@ -898,7 +898,11 @@ def hand_surface(pose, side):
             b = pygame.transform.rotate(b, angle)
         s.blit(b, b.get_rect(center=(int(cx * S), int(cy * S))))
 
-    if pose == "thumb":
+    if pose == "fist":
+        block(66, 76, 22, 62, 106)                 # the fist
+        for i in range(4):                         # curled fingers
+            block(52, 15, 7, 66, 84 + i * 15)
+    elif pose == "thumb":
         block(24, 62, 12, 34, 64, 6)               # thumb up (base under the fist)
         block(66, 76, 22, 62, 106)                 # fist
         for i in range(4):                         # curled fingers: horizontal
@@ -1661,6 +1665,18 @@ class RobotFace:
             tgt_R = ( 96.0, 178.0, -30.0)
             self._heart_pulse = 0.5 + 0.5 * math.sin(g_el * 2 * math.pi * 1.6)
 
+        # a scene may take the hands over (see idle_scenes.Hands)
+        if self._scene:
+            h = idle_scenes.Hands(tgt_L, tgt_R,
+                                  self.hand_pose["L"], self.hand_pose["R"])
+            self._scene.hands(self, self._idle_p, h)
+            tgt_L, tgt_R = h.l, h.r
+            self.hand_pose["L"], self.hand_pose["R"] = h.pose_l, h.pose_r
+
+        self._pupil_converge = lerp(self._pupil_converge, 0.0, 0.25)
+        if self._scene:
+            self._scene.motion(self, self._idle_p)
+
         self._hand_target = {"L": tgt_L, "R": tgt_R}
         for side in ("L", "R"):
             cur, tgt = self.hand[side], self._hand_target[side]
@@ -1668,11 +1684,6 @@ class RobotFace:
             cur[0] = lerp(cur[0], tgt[0], k)
             cur[1] = lerp(cur[1], tgt[1], k)
             cur[2] = lerp(cur[2], tgt[2], 0.35)
-
-        # idle scenes that move the head / body
-        self._pupil_converge = lerp(self._pupil_converge, 0.0, 0.25)
-        if self._scene:
-            self._scene.motion(self, self._idle_p)
 
         # being touched: recoil from the finger / squirm when poked
         if touch_el < 0.5 and self._touch_kind == "tap":
