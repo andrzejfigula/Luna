@@ -132,6 +132,13 @@ front of the camera for 30 s the face goes to sleep.
   reaction, and occasionally a spoken line (`TOUCH_REPLIES`,
   `TOUCH_REPLY_CHANCE`). The user must be in the `input` group.
 
+After touching `idle_scenes.py` or `robot_face.py`, run every scene through
+the real renderer to make sure none of them raises:
+
+```bash
+./stop.sh && ./venv/bin/python test_scenes.py; ./run.sh &
+```
+
 ## Troubleshooting
 
 - **Crackle mid-sentence** → check `pw-top` while a reply plays: the

@@ -7,7 +7,8 @@ import threading
 from config import PI_MODEL
 
 if PI_MODEL:
-    print(f"[Luna] Running on Raspberry Pi {PI_MODEL}")
+    print(f"[Luna] Running on Raspberry Pi {PI_MODEL} "
+          f"(started {time.strftime('%H:%M:%S')})", flush=True)
 
 from camera_thread import start_camera
 start_camera()
@@ -107,8 +108,13 @@ def voice_loop():
 threading.Thread(target=voice_loop, daemon=True).start()
 
 
-def _shutdown(*_):
-    print("\n[Luna] Shutting down")
+def _shutdown(*args):
+    # say WHY: a signal from outside, or the renderer loop ending (a QUIT
+    # event or ESC). Without this an unexplained restart looks identical
+    # either way in the log.
+    why = f"signal {args[0]}" if args and isinstance(args[0], int) else "renderer stopped"
+    print(f"\n[Luna] Shutting down ({why}) at {time.strftime('%H:%M:%S')}",
+          flush=True)
     try:
         import pygame
         pygame.quit()
@@ -126,5 +132,16 @@ from face_renderer import renderer_loop
 
 try:
     renderer_loop()
+except SystemExit:
+    pass                      # QUIT event or ESC — a deliberate exit
+except BaseException:
+    # _shutdown() ends the process with os._exit(), which would kill the
+    # interpreter before it could print this. Any renderer bug used to look
+    # like a silent, unexplained restart.
+    import traceback
+    print("[Luna] renderer crashed:", flush=True)
+    traceback.print_exc()
+    sys.stdout.flush()
+    sys.stderr.flush()
 finally:
     _shutdown()

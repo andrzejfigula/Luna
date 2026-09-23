@@ -1914,13 +1914,23 @@ class RobotFace:
             return "top"
         return "other"
 
+    _seen_events = set()
+
     def draw(self):
         for event in pygame.event.get():
+            # log every kind of window event once, so an unexplained exit can
+            # be traced to what actually caused it
+            if event.type not in RobotFace._seen_events:
+                RobotFace._seen_events.add(event.type)
+                print(f"[face] window event: {pygame.event.event_name(event.type)}"
+                      f" ({event.type})", flush=True)
             if event.type == pygame.QUIT:
                 # main.py's finally block handles the full clean shutdown
+                print("[face] QUIT from the window system -> exiting", flush=True)
                 raise SystemExit
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
+                    print("[face] ESC pressed -> exiting", flush=True)
                     raise SystemExit
                 if event.key in (pygame.K_1, pygame.K_KP1):
                     apply_style(1)

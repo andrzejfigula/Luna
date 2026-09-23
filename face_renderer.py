@@ -55,4 +55,20 @@ def renderer_loop():
             mapped = EMOTION_MAP.get(emotion, "neutral")
             face.set_state(mapped)
 
-        face.draw()
+        try:
+            face.draw()
+        except SystemExit:
+            raise
+        except Exception as e:
+            # a single bad frame (usually a scene doing something silly with
+            # a surface) must not kill the face — drop the scene, not the app.
+            # A dead display is different: that one really is fatal.
+            import pygame, traceback
+            if not pygame.display.get_init():
+                raise
+            with state.lock:
+                bad = state.idle_action
+                state.idle_action = None
+            print(f"[face] frame error in scene {bad!r}: {e}", flush=True)
+            traceback.print_exc()
+            time.sleep(0.2)

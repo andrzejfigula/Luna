@@ -4,6 +4,27 @@
   Format: date · area · what changed · why
 ══════════════════════════════════════════════════════════════════
 
+─── 2026-09-23 — Fix: Luna kept restarting (regression from the refactor) ─
+
+[bug] Five scenes — clock, read_book, phone, ball, music — raised
+  NameError the moment they were picked: the script that migrated them
+  into idle_scenes.py during the registry refactor dropped their "def"
+  line, so each scene's drawing code ended up glued to the end of the
+  previous method, where surf/fcx/fcy do not exist. The renderer died,
+  lwrespawn restarted Luna, and the face blinked out for a second every
+  few minutes.
+[bug] Why nothing was in the log: main.py ran the renderer as
+  "try: renderer_loop() finally: _shutdown()", and _shutdown() ends the
+  process with os._exit() — which killed the interpreter before Python
+  could print the traceback. Every renderer bug looked like a silent,
+  unexplained restart. The traceback is printed now, the shutdown line
+  says whether it was a signal or the renderer stopping, and every window
+  event is logged once so a QUIT can be told apart from a crash.
+[robustness] face_renderer catches a bad frame, drops the offending scene
+  and carries on; a dead display is still fatal, as it should be.
+[test] test_scenes.py plays all 64 scenes through the real renderer and
+  reports failures — the check that would have caught this at the time.
+
 ─── 2026-09-23 — Occasions pack (10 scenes) ─────────────────────────────
 
 [registry] Two additions so the calendar can drive her: dates=("MM-DD",

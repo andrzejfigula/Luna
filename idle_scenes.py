@@ -396,6 +396,7 @@ class Clock(Scene):
     def eyes(self, face, p, e):
         e.widen = max(e.widen, 0.4 * math.sin(p * math.pi))
 
+    def draw(self, face, surf, fcx, fcy, p):
         """Idle scene: the time floats up between the eyes, wobbles, sinks."""
         p    = p
         rise = math.sin(min(1.0, p * 1.4) * math.pi / 2)      # ease in
@@ -428,6 +429,7 @@ class ReadBook(Scene):
         face.target_oy  += 10.0 * hold
         face.target_tilt = -2.0 * hold
 
+    def draw(self, face, surf, fcx, fcy, p):
         """Idle scene: an open book at the bottom, one page turning."""
         hold = rf._prop_hold(p)
         if hold < 0.02:
@@ -467,6 +469,7 @@ class Phone(Scene):
         face.target_oy  += 8.0 * hold
         face.target_tilt = 3.0 * hold
 
+    def draw(self, face, surf, fcx, fcy, p):
         """Idle scene: a little phone she scrolls through."""
         hold = rf._prop_hold(p)
         if hold < 0.02:
@@ -516,6 +519,7 @@ class Ball(Scene):
         face.target_ox  += rf.clamp((bx - face.face_cx) * 0.05, -20, 20)
         face.target_tilt = rf.clamp((face.face_cx - bx) * 0.02, -6, 6)
 
+    def draw(self, face, surf, fcx, fcy, p):
         """Idle scene: a ball she bounces and follows with her eyes."""
         hold = rf._prop_hold(p)
         if hold < 0.02:
@@ -548,6 +552,7 @@ class Music(Scene):
         beat = p * self.duration * 1.9
         e.squint = max(e.squint, 0.45 + 0.25 * abs(math.sin(beat * math.pi)))
 
+    def draw(self, face, surf, fcx, fcy, p):
         """Idle scene: headphones on, notes drifting up, bobbing to the beat."""
         hold = rf._prop_hold(p)
         if hold < 0.02:
