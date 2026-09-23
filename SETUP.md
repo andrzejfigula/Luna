@@ -111,8 +111,8 @@ front of the camera for 30 s the face goes to sleep.
   and she waves back (`gesture_module.py`, motion-based; `WAVE_*` in config).
 - Idle life (`idle_engine.py`): she greets you when you come back after
   `IDLE_ABSENCE_SECS` away, and between conversations plays small scenes —
-  wink, look around, stretch, yawn, show the clock (`IDLE_SCENES`, weighted
-  differently at night). Unprompted SPEECH is rate-limited
+  wink, look around, stretch, yawn, show the clock, read a book, scroll a
+  phone, bounce a ball (`IDLE_SCENES`, weighted differently at night). Unprompted SPEECH is rate-limited
   (`PROACTIVE_MIN_GAP_SECS`), silent during `PROACTIVE_QUIET_FROM/TO`, and
   stops for an hour when you say "Luna, cicho" (`MUTE_PHRASES`); animations
   are never limited.

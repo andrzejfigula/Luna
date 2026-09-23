@@ -302,6 +302,9 @@ IDLE_SCENES = {
     "look_around": 4,     # glances around the room
     "stretch":     2,     # squeezes her eyes and stretches
     "clock":       3,     # pulls the time out and plays with the digits
+    "read_book":   4,     # reads a book, eyes scanning the lines
+    "phone":       3,     # scrolls something on a little phone
+    "ball":        4,     # bounces a ball and follows it with her eyes
     "yawn":        1,
 }
 IDLE_SCENES_NIGHT = {     # after NIGHT_FROM she gets sleepy
@@ -309,6 +312,9 @@ IDLE_SCENES_NIGHT = {     # after NIGHT_FROM she gets sleepy
     "look_around": 2,
     "stretch":     2,
     "clock":       2,
+    "read_book":   3,     # reading in bed is a night thing
+    "phone":       2,
+    "ball":        1,
     "yawn":        5,
 }
 

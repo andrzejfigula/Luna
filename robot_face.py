@@ -42,6 +42,9 @@ IDLE_DURATION = {
     "stretch":     2.2,
     "yawn":        3.0,
     "clock":       6.0,
+    "read_book":  11.0,
+    "phone":       9.0,
+    "ball":        8.0,
 }
 
 # The face geometry below is in absolute pixels and was drawn for a 1400x800
@@ -173,6 +176,19 @@ def lerp(a, b, t):
 
 def clamp(v, lo, hi):
     return max(lo, min(hi, v))
+
+
+def _prop_hold(p, rise=0.12, fall=0.12):
+    """1.0 while a prop is on screen, easing in at the start of the scene and
+    out at the end (p is the scene's 0..1 progress)."""
+    if p < rise:
+        t = p / rise
+    elif p > 1.0 - fall:
+        t = (1.0 - p) / fall
+    else:
+        return 1.0
+    t = clamp(t, 0.0, 1.0)
+    return t * t * (3 - 2 * t)
 
 
 # ── Glow rendering — cached (was rebuilt from scratch every frame on the Pi) ──
@@ -907,11 +923,18 @@ class Mouth:
         self.talk_open    = 0.0
         self.mouth_w      = 140.0
         self.visible      = 0.0
+        self.speak_fade   = 0.0   # 1 while talking, decays after — without it
+                                  # the mouth vanished in one frame when speech
+                                  # ended (the "not speaking" branch draws
+                                  # nothing at all for a neutral face)
         self.corner_lift  = 0.0   # smile corners
         self.jaw_bounce   = 0.0   # extra bounce on high energy
         self.prev_energy  = 0.0
 
     def update(self, energy, emotion, speaking):
+        # fast to open, slow to let go — the tail is what reads as a fade
+        self.speak_fade = lerp(self.speak_fade, 1.0 if speaking else 0.0,
+                               0.35 if speaking else 0.09)
         if speaking:
             target_visible = 1.0
         elif emotion in ("happy", "excited", "love"):
@@ -923,6 +946,7 @@ class Mouth:
         else:
             target_visible = 0.0
 
+        target_visible    = max(target_visible, self.speak_fade)
         self.visible      = lerp(self.visible, target_visible, 0.20)  # faster open
         self.corner_lift  = lerp(self.corner_lift,
                                     0.8 if emotion in ("happy", "excited", "love")
@@ -973,12 +997,16 @@ class Mouth:
 
         alpha = int(clamp(self.visible * 255, 0, 255))
 
+        # Keep drawing the talking mouth briefly after speech ends: talk_open
+        # is already easing to 0, so the lips close and then fade.
+        talking = speaking or self.speak_fade > 0.05
+
         # ── SPEAKING — robotic bars or 4-shape jaw ────────────────────────
-        if speaking and MOUTH_STYLE == "bars":
+        if talking and MOUTH_STYLE == "bars":
             self._draw_bars(surf, cx, cy, alpha)
             return
 
-        if speaking:
+        if talking:
             mw = int(self.mouth_w)
             e  = self.talk_open
 
@@ -1033,17 +1061,22 @@ class Mouth:
                 surf.blit(ps, (cx - pw // 2, cy - ph // 2))
 
             else:
-                # CLOSED — thin line with slight curve
+                # CLOSED — thin line with slight curve. Drawn on its own
+                # surface so it honours alpha: painted straight onto the
+                # canvas it stayed at full brightness and the mouth never
+                # faded out after speech.
                 cl = int(self.corner_lift * 8)
+                pad = 12
+                ls = pygame.Surface((160, 2 * pad + 20), pygame.SRCALPHA)
                 pts = [
-                    (cx - 70, cy + cl),
-                    (cx - 20, cy - cl // 2),
-                    (cx,      cy - cl),
-                    (cx + 20, cy - cl // 2),
-                    (cx + 70, cy + cl),
+                    (10,  pad + cl),
+                    (60,  pad - cl // 2),
+                    (80,  pad - cl),
+                    (100, pad - cl // 2),
+                    (150, pad + cl),
                 ]
-                if len(pts) >= 2:
-                    pygame.draw.lines(surf, MOUTH_COL, False, pts, 10)
+                pygame.draw.lines(ls, (*MOUTH_COL, alpha), False, pts, 10)
+                surf.blit(ls, (cx - 80, cy - pad))
             return
 
         # ── NOT SPEAKING ──────────────────────────────────────────────────
@@ -1634,6 +1667,29 @@ class RobotFace:
             s = math.sin(self._idle_p * math.pi)
             self.target_oy  -= 10.0 * s
             self.target_tilt = -3.0 * s
+        elif self._idle == "read_book":
+            # eyes down on the page, scanning each line left → right
+            hold = _prop_hold(self._idle_p)
+            line = (self._idle_p * IDLE_DURATION["read_book"]) % 2.4 / 2.4
+            self.pupil_ox = lerp(self.pupil_ox, (-22 + 44 * line) * hold, 0.25)
+            self.pupil_oy = lerp(self.pupil_oy, 30.0 * hold, 0.10)
+            self.target_oy  += 10.0 * hold
+            self.target_tilt = -2.0 * hold
+        elif self._idle == "phone":
+            hold = _prop_hold(self._idle_p)
+            scroll = math.sin(self._idle_p * math.pi * 5) * 6
+            self.pupil_ox = lerp(self.pupil_ox, 20.0 * hold, 0.12)
+            self.pupil_oy = lerp(self.pupil_oy, (30.0 + scroll) * hold, 0.12)
+            self.target_oy  += 8.0 * hold
+            self.target_tilt = 3.0 * hold
+        elif self._idle == "ball":
+            bx, by = self._ball_xy()
+            self.pupil_ox = lerp(self.pupil_ox,
+                                 clamp((bx - self.face_cx) * 0.10, -30, 30), 0.35)
+            self.pupil_oy = lerp(self.pupil_oy,
+                                 clamp((by - self.face_cy) * 0.12, -22, 30), 0.35)
+            self.target_ox  += clamp((bx - self.face_cx) * 0.05, -20, 20)
+            self.target_tilt = clamp((self.face_cx - bx) * 0.02, -6, 6)
 
         # being touched: recoil from the finger / squirm when poked
         if touch_el < 0.5 and self._touch_kind == "tap":
@@ -1874,6 +1930,87 @@ class RobotFace:
             return "top"
         return "other"
 
+    def _ball_xy(self):
+        """Where the bouncing ball is right now (screen coords)."""
+        t = self._idle_p * IDLE_DURATION["ball"]
+        hold = _prop_hold(self._idle_p)
+        x = self.face_cx + 250 * math.sin(t * 1.9) * hold
+        # stays below the eyes so it never covers her face
+        y = (HEIGHT - 38) - abs(math.sin(t * 3.4)) * 110 * hold
+        return x, y
+
+    def _draw_book(self, surf, fcx, fcy):
+        """Idle scene: an open book at the bottom, one page turning."""
+        hold = _prop_hold(self._idle_p)
+        if hold < 0.02:
+            return
+        pw, ph = 156, 116
+        y = HEIGHT - 26 - (ph // 2) * hold + (1 - hold) * 90
+        turn = self._idle_p * IDLE_DURATION["read_book"] % 4.5 / 4.5
+        for side in (-1, 1):
+            w = pw
+            if side == 1 and 0.55 < turn < 0.8:        # right page flips over
+                w = max(12, int(pw * abs(math.cos((turn - 0.55) / 0.25 * math.pi))))
+            page = gradient_block(w, ph, 9, HAND_GRAD_TOP, HAND_GRAD_BOTTOM)
+            page = page.copy()
+            for i in range(4):                          # lines of text
+                ly = 22 + i * 21
+                pygame.draw.rect(page, (*PUPIL_DARK, 120),
+                                 pygame.Rect(14, ly, max(4, w - 34), 5),
+                                 border_radius=2)
+            img  = pygame.transform.rotate(page, -7 * side)
+            img.set_alpha(int(255 * hold))
+            rect = img.get_rect(center=(int(fcx + side * (pw // 2 + 3)), int(y)))
+            glow = img.copy()
+            glow.fill((*GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
+            glow.set_alpha(int(90 * hold))
+            bloom(surf, glow, rect.topleft, radius=10, passes=1, max_alpha=80)
+            surf.blit(img, rect)
+
+    def _draw_phone(self, surf, fcx, fcy):
+        """Idle scene: a little phone she scrolls through."""
+        hold = _prop_hold(self._idle_p)
+        if hold < 0.02:
+            return
+        bw, bh = 96, 168
+        x = fcx + 120
+        y = HEIGHT - 20 - (bh // 2) * hold + (1 - hold) * 110
+        body = pygame.Surface((bw, bh), pygame.SRCALPHA)
+        pygame.draw.rect(body, (*PUPIL_DARK, 255), body.get_rect(), border_radius=16)
+        pygame.draw.rect(body, (*EYE_MID, 220), body.get_rect(), 3, border_radius=16)
+        scr  = gradient_block(bw - 18, bh - 30, 8, HAND_GRAD_TOP, HAND_GRAD_BOTTOM)
+        body.blit(scr, (9, 15))
+        offset = int((self._idle_p * IDLE_DURATION["phone"] * 34) % 26)
+        for i in range(-1, 6):                          # content scrolling by
+            ly = 22 + i * 26 + offset
+            if 18 < ly < bh - 22:
+                pygame.draw.rect(body, (*PUPIL_DARK, 110),
+                                 pygame.Rect(18, ly, bw - 36, 7), border_radius=3)
+        body = pygame.transform.rotate(body, -12)
+        body.set_alpha(int(255 * hold))
+        rect = body.get_rect(center=(int(x), int(y)))
+        glow = body.copy()
+        glow.fill((*GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
+        glow.set_alpha(int(80 * hold))
+        bloom(surf, glow, rect.topleft, radius=10, passes=1, max_alpha=70)
+        surf.blit(body, rect)
+
+    def _draw_ball(self, surf, fcx, fcy):
+        """Idle scene: a ball she bounces and follows with her eyes."""
+        hold = _prop_hold(self._idle_p)
+        if hold < 0.02:
+            return
+        x, y = self._ball_xy()
+        r = 36
+        squash = 1.0 + 0.25 * max(0.0, (y - (HEIGHT - 90)) / 45.0)   # flattens on impact
+        ball = gradient_block(int(r * 2 / squash), int(r * 2 * squash), r,
+                              EYE_GRAD_TOP, EYE_GRAD_BOTTOM)
+        ball = ball.copy()
+        ball.set_alpha(int(255 * hold))
+        rect = ball.get_rect(center=(int(x), int(y)))
+        draw_glow_circle(surf, GLOW_COL, (int(x), int(y)), r, layers=3, max_alpha=45)
+        surf.blit(ball, rect)
+
     def _draw_clock(self, surf, fcx, fcy):
         """Idle scene: the time floats up between the eyes, wobbles, sinks."""
         p    = self._idle_p
@@ -1983,9 +2120,15 @@ class RobotFace:
                 sz = int(50 + 12 * self._heart_pulse)
                 draw_heart(base, fcx, fcy + 112, sz)
 
-        # ── idle clock scene ──────────────────────────────────────────────
+        # ── idle scenes with props ────────────────────────────────────────
         if self._idle == "clock":
             self._draw_clock(base, fcx, fcy)
+        elif self._idle == "read_book":
+            self._draw_book(base, fcx, fcy)
+        elif self._idle == "phone":
+            self._draw_phone(base, fcx, fcy)
+        elif self._idle == "ball":
+            self._draw_ball(base, fcx, fcy)
 
         # ── particles (foreground) ────────────────────────────────────────
         for p in self.zzz_particles:
