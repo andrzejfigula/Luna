@@ -29,7 +29,8 @@ import time
 from shared_state import state
 from config import (IDLE_LIFE, IDLE_ABSENCE_SECS, IDLE_SCENE_MIN_SECS,
                     IDLE_SCENE_MAX_SECS, IDLE_SCENES, IDLE_SCENES_NIGHT,
-                    IDLE_PRESENCE_GRACE, IDLE_DEBUG,
+                    IDLE_PRESENCE_GRACE, IDLE_DEBUG, IDLE_DURATION,
+                    IDLE_SCENE_MOODS,
                     PROACTIVE_SPEECH, PROACTIVE_MIN_GAP_SECS,
                     PROACTIVE_QUIET_FROM, PROACTIVE_QUIET_TO,
                     GREETINGS_MORNING, GREETINGS_DAY, GREETINGS_EVENING,
@@ -97,9 +98,14 @@ def _busy():
 
 def _play(action):
     """Start a visual idle scene (robot_face animates it)."""
+    now = time.time()
     with state.lock:
         state.idle_action       = action
-        state.idle_action_start = time.time()
+        state.idle_action_start = now
+        mood = IDLE_SCENE_MOODS.get(action)
+        if mood:
+            state.face_override       = mood
+            state.face_override_until = now + IDLE_DURATION.get(action, 6.0)
 
 
 def _gesture(name):

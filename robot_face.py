@@ -33,19 +33,7 @@ from shared_state import state
 from config import (RENDER_FPS, FACE_STYLE, SCREEN_WIDTH, SCREEN_HEIGHT,
                     FULLSCREEN, HIDE_CURSOR, GESTURE_DURATION,
                     CAMERA_PREVIEW, CAMERA_PREVIEW_W, TOUCH_DEBUG,
-                    TOUCH_REACT_SECS, TOUCH_POKE_SECS)
-
-# How long each idle micro-scene lasts
-IDLE_DURATION = {
-    "wink":        1.1,
-    "look_around": 4.0,
-    "stretch":     2.2,
-    "yawn":        3.0,
-    "clock":       6.0,
-    "read_book":  11.0,
-    "phone":       9.0,
-    "ball":        8.0,
-}
+                    TOUCH_REACT_SECS, TOUCH_POKE_SECS, IDLE_DURATION)
 
 # The face geometry below is in absolute pixels and was drawn for a 1400x800
 # window; it fits the 800x480 DSI panel as-is (~560x400 used), just larger
@@ -176,6 +164,31 @@ def lerp(a, b, t):
 
 def clamp(v, lo, hi):
     return max(lo, min(hi, v))
+
+
+_NOTE_CACHE = {}
+
+
+def _note_surface(size):
+    """A quaver: note head, stem and flag, in the style's own colour."""
+    s = _NOTE_CACHE.get(size)
+    if s is not None:
+        return s
+    w, h = size, int(size * 2.1)
+    s = pygame.Surface((w + 6, h + 6), pygame.SRCALPHA)
+    head_r = size // 2
+    stem_x = w - 4
+    pygame.draw.rect(s, (*EYE_INNER, 255),
+                     pygame.Rect(stem_x - 3, 3, 5, h - head_r - 2),
+                     border_radius=2)
+    pygame.draw.polygon(s, (*EYE_INNER, 255),
+                        [(stem_x + 2, 5), (stem_x + 2 + size // 2, size // 2),
+                         (stem_x + 2, size - 2)])
+    pygame.draw.ellipse(s, (*EYE_INNER, 255),
+                        pygame.Rect(stem_x - head_r * 2 + 2, h - head_r * 2 + 2,
+                                    int(head_r * 2.3), head_r * 2))
+    _NOTE_CACHE[size] = s
+    return s
 
 
 def _prop_hold(p, rise=0.12, fall=0.12):
@@ -1682,6 +1695,14 @@ class RobotFace:
             self.pupil_oy = lerp(self.pupil_oy, (30.0 + scroll) * hold, 0.12)
             self.target_oy  += 8.0 * hold
             self.target_tilt = 3.0 * hold
+        elif self._idle == "music":
+            hold = _prop_hold(self._idle_p)
+            beat = self._idle_p * IDLE_DURATION["music"] * 1.9   # ~114 bpm
+            self.target_oy  += 11.0 * math.sin(beat * 2 * math.pi) * hold
+            self.target_tilt = 8.0 * math.sin(beat * math.pi) * hold
+            self.pupil_ox = lerp(self.pupil_ox,
+                                 14.0 * math.sin(beat * math.pi) * hold, 0.2)
+            self.pupil_oy = lerp(self.pupil_oy, -4.0 * hold, 0.1)
         elif self._idle == "ball":
             bx, by = self._ball_xy()
             self.pupil_ox = lerp(self.pupil_ox,
@@ -1747,6 +1768,9 @@ class RobotFace:
             squint  = max(squint, 0.8 * s)
         elif self._idle == "clock":
             widen = max(widen, 0.4 * math.sin(self._idle_p * math.pi))
+        elif self._idle == "music":
+            beat = self._idle_p * IDLE_DURATION["music"] * 1.9
+            squint = max(squint, 0.45 + 0.25 * abs(math.sin(beat * math.pi)))
 
         # poking -> screwed-up eyes; a tap on an eye shuts it then it pops
         # wide open; petting -> a slow, contented squint
@@ -2011,6 +2035,60 @@ class RobotFace:
         draw_glow_circle(surf, GLOW_COL, (int(x), int(y)), r, layers=3, max_alpha=45)
         surf.blit(ball, rect)
 
+    def _draw_music(self, surf, fcx, fcy):
+        """Idle scene: headphones on, notes drifting up, bobbing to the beat."""
+        hold = _prop_hold(self._idle_p)
+        if hold < 0.02:
+            return
+        t    = self._idle_p * IDLE_DURATION["music"]
+        drop = int((1.0 - hold) * 120)          # slides on from above
+
+        # ── headband ──────────────────────────────────────────────────────
+        # an ellipse arc whose ends meet the ear cups: centre (fcx, fcy-40),
+        # semi-axes 310 x 110, so it peaks at fcy-150 and stays on screen
+        band = pygame.Surface((640, 260), pygame.SRCALPHA)
+        pygame.draw.arc(band, (*EYE_MID, 255), pygame.Rect(10, 10, 620, 220),
+                        0.0, math.pi, 17)
+        band.set_alpha(int(255 * hold))
+        brect = band.get_rect(center=(int(fcx), int(fcy) - 40 - drop))
+        bglow = band.copy()
+        bglow.fill((*GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
+        bglow.set_alpha(int(70 * hold))
+        bloom(surf, bglow, brect.topleft, radius=9, passes=1, max_alpha=70)
+        surf.blit(band, brect)
+
+        # ── ear cups ──────────────────────────────────────────────────────
+        for side in (-1, 1):
+            cw, ch = 74, 118
+            cup = gradient_block(cw, ch, 26, HAND_GRAD_TOP, HAND_GRAD_BOTTOM)
+            cup = cup.copy()
+            pygame.draw.rect(cup, (*PUPIL_DARK, 90),
+                             pygame.Rect(12, 20, cw - 24, ch - 40), border_radius=16)
+            cup.set_alpha(int(255 * hold))
+            rect = cup.get_rect(center=(int(fcx + side * 300),
+                                        int(fcy) - 16 - drop))
+            glow = cup.copy()
+            glow.fill((*GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
+            glow.set_alpha(int(90 * hold))
+            bloom(surf, glow, rect.topleft, radius=10, passes=1, max_alpha=80)
+            surf.blit(cup, rect)
+
+        # ── notes drifting up beside her ──────────────────────────────────
+        for i in range(6):
+            side = -1 if i % 2 else 1
+            ph   = (t * 0.55 + i * 0.37) % 1.0          # 0 → 1, then respawn
+            if ph > 0.92:
+                continue
+            a = int(235 * hold * min(1.0, ph * 5) * (1.0 - ph))
+            if a <= 6:
+                continue
+            nx = fcx + side * (232 + 46 * math.sin(ph * math.pi * 2 + i))
+            ny = fcy + 50 - ph * 250
+            note = _note_surface(24 + (i % 2) * 8)
+            note = pygame.transform.rotate(note, 12 * math.sin(ph * 4 + i))
+            note.set_alpha(a)
+            surf.blit(note, note.get_rect(center=(int(nx), int(ny))))
+
     def _draw_clock(self, surf, fcx, fcy):
         """Idle scene: the time floats up between the eyes, wobbles, sinks."""
         p    = self._idle_p
@@ -2129,6 +2207,8 @@ class RobotFace:
             self._draw_phone(base, fcx, fcy)
         elif self._idle == "ball":
             self._draw_ball(base, fcx, fcy)
+        elif self._idle == "music":
+            self._draw_music(base, fcx, fcy)
 
         # ── particles (foreground) ────────────────────────────────────────
         for p in self.zzz_particles:

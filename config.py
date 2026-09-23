@@ -305,6 +305,7 @@ IDLE_SCENES = {
     "read_book":   4,     # reads a book, eyes scanning the lines
     "phone":       3,     # scrolls something on a little phone
     "ball":        4,     # bounces a ball and follows it with her eyes
+    "music":       4,     # headphones on, bobbing to the beat
     "yawn":        1,
 }
 IDLE_SCENES_NIGHT = {     # after NIGHT_FROM she gets sleepy
@@ -315,7 +316,24 @@ IDLE_SCENES_NIGHT = {     # after NIGHT_FROM she gets sleepy
     "read_book":   3,     # reading in bed is a night thing
     "phone":       2,
     "ball":        1,
+    "music":       3,
     "yawn":        5,
+}
+
+# How long each scene runs, and the mood she wears while it plays
+IDLE_DURATION = {
+    "wink":        1.1,
+    "look_around": 4.0,
+    "stretch":     2.2,
+    "yawn":        3.0,
+    "clock":       6.0,
+    "read_book":  11.0,
+    "phone":       9.0,
+    "ball":        8.0,
+    "music":      11.0,
+}
+IDLE_SCENE_MOODS = {
+    "music": "happy",     # she enjoys it — smile, blush, softer eyes
 }
 
 # ── Proactive speech (the scarce resource — animations are free) ──────────────

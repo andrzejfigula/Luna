@@ -4,6 +4,15 @@
   Format: date · area · what changed · why
 ══════════════════════════════════════════════════════════════════
 
+─── 2026-09-23 — Idle scene: listening to music ─────────────────────────
+
+[idle] "music": headphones slide on (ellipse-arc headband meeting two ear
+  cups), quavers drift up beside her, head bobs and sways to ~114 bpm and
+  the eyes settle into a contented squint that pulses with the beat.
+  IDLE_DURATION moved to config.py so idle_engine can use it too, and
+  IDLE_SCENE_MOODS lets a scene wear a mood — music wears "happy", so the
+  smile and blush come along.
+
 ─── 2026-09-23 — More idle scenes + the mouth no longer vanishes ─────────
 
 [face] Mouth.draw branched on `speaking`, and the "not speaking" branch
