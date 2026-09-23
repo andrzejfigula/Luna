@@ -48,6 +48,7 @@ cp .env.example .env && nano .env      # OPENAI_API_KEY=sk-...
 | `LUNA_TTS_VOICE` | OpenAI voice — `nova`, `shimmer`, `marin` are bright; `coral`, `sage` calmer | `nova` |
 | `LUNA_BRIGHTNESS` | touchscreen backlight, percent (applied by `run.sh`) | `100` |
 | `LUNA_TIMEZONE` / `LUNA_LOCATION` | IANA zone + place name given to the model with the current local time | `Europe/Warsaw` / `Poland` |
+| `LUNA_BIRTHDAYS` | dates she should celebrate, `MM-DD`, comma separated | `09-22,05-14` |
 | `LUNA_CAMERA_PREVIEW` | live mirrored camera view bottom-right with the face box: `1` (160 px), a width in px, or empty = off | `1` |
 
 Output volume follows the chosen PipeWire sink: `wpctl status` lists them,

@@ -300,6 +300,10 @@ NIGHT_FROM, NIGHT_TO = 22, 6   # "night" for scene weighting
 # These are only overrides for tuning without touching the catalogue:
 #   IDLE_SCENE_WEIGHTS = {"ball": 8, "yawn": 0}   # 0 disables a scene
 IDLE_SCENE_WEIGHTS  = {}
+# Dates she should celebrate, "MM-DD", comma separated in .env:
+#   LUNA_BIRTHDAYS=09-22,05-14
+BIRTHDAYS = [d.strip() for d in
+             os.environ.get("LUNA_BIRTHDAYS", "").split(",") if d.strip()]
 IDLE_SCENES_DISABLED = []
 
 # ── Proactive speech (the scarce resource — animations are free) ──────────────

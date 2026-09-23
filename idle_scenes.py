@@ -36,7 +36,15 @@ class Scene:
     mood = None
     needs_face = False
     in_reply = False
-    hours = None            # (from, to) — only shows up inside this window
+    hours = None            # ("from", "to") hour window, e.g. (5, 18)
+    dates = None            # ("MM-DD", "MM-DD") window; wraps the new year
+    forced = False          # play as soon as available(), without waiting
+                            # for the random scene timer (calendar moments)
+
+    def available(self):
+        """Extra condition beyond hours/dates — the top of the hour, a
+        birthday in the config, that sort of thing."""
+        return True
 
     def motion(self, face, p):
         pass
@@ -79,17 +87,41 @@ class Eyes:
 
 
 def scene(name, duration, weight=3, night_weight=None, mood=None,
-          needs_face=False, in_reply=False, hours=None):
+          needs_face=False, in_reply=False, hours=None, dates=None,
+          forced=False):
     def deco(cls):
         inst = cls()
         inst.name, inst.duration = name, duration
         inst.weight = weight
         inst.night_weight = weight if night_weight is None else night_weight
         inst.mood, inst.needs_face, inst.in_reply = mood, needs_face, in_reply
-        inst.hours = hours
+        inst.hours, inst.dates, inst.forced = hours, dates, forced
         SCENES[name] = inst
         return cls
     return deco
+
+
+def _in_dates(window):
+    """True when today falls inside ("MM-DD", "MM-DD"); wraps the new year."""
+    if not window:
+        return True
+    a, b = window
+    today = time.strftime("%m-%d")
+    return a <= today <= b if a <= b else (today >= a or today <= b)
+
+
+def usable(s, face_present):
+    """Everything except the weights: is this scene allowed right now?"""
+    return (_in_hours(s.hours) and _in_dates(s.dates) and s.available()
+            and not (s.needs_face and not face_present))
+
+
+def forced_scene(face_present, disabled=()):
+    """A calendar moment that should play now, rather than wait its turn."""
+    for s in SCENES.values():
+        if s.forced and s.name not in disabled and usable(s, face_present):
+            return s.name
+    return None
 
 
 def _in_hours(window):
@@ -110,8 +142,7 @@ def pick(night, face_present, weights_override=None, disabled=()):
     """Weighted random scene name for the current situation."""
     names, weights = [], []
     for s in SCENES.values():
-        if (s.name in disabled or (s.needs_face and not face_present)
-                or not _in_hours(s.hours)):
+        if s.name in disabled or s.forced or not usable(s, face_present):
             continue
         w = (weights_override or {}).get(
             s.name, s.night_weight if night else s.weight)
@@ -1542,3 +1573,335 @@ class Curious(Scene):
         glow.set_alpha(int(120 * hold))
         rf.bloom(surf, glow, rect.topleft, radius=8, passes=1, max_alpha=90)
         surf.blit(img, rect)
+
+
+# ══ Occasions: the calendar and the clock ═══════════════════════════════════
+# These need no interaction at all — they simply happen on the right day or
+# at the right hour, which is most of their charm.
+
+from config import BIRTHDAYS
+
+
+def _burst(surf, cx, cy, t, hue, hold, n=18, spread=150):
+    """One firework: a ring of sparks falling away."""
+    if t < 0 or t > 1:
+        return
+    for i in range(n):
+        a = i * (6.283 / n)
+        d = t ** 0.6
+        x = cx + math.cos(a) * spread * d
+        y = cy + math.sin(a) * spread * d + 70 * t * t
+        al = int(240 * hold * (1.0 - t))
+        if al <= 5:
+            continue
+        pygame.draw.circle(surf, (*hue, al), (int(x), int(y)), max(2, int(6 * (1 - t))))
+
+
+@scene("morning", duration=8.0, weight=5, hours=(5, 10), mood="happy")
+class Morning(Scene):
+    """The sun comes up at the bottom of the screen and she wakes with it."""
+    def motion(self, face, p):
+        wake = rf.clamp(p * 2.2, 0, 1)
+        face.target_oy -= 14.0 * wake
+        if p < 0.3:
+            face.target_tilt = 6.0 * (1 - p / 0.3)
+
+    def eyes(self, face, p, e):
+        wake = rf.clamp(p * 2.4, 0, 1)
+        e.blink_l = e.blink_r = min(e.blink_l, 0.15 + 0.85 * wake)
+        e.squint = max(e.squint, 0.7 * (1 - wake))
+
+    def draw_bg(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p, 0.1, 0.15)
+        if hold < 0.02:
+            return
+        rise = rf.clamp(p * 1.6, 0, 1)
+        cy = rf.HEIGHT + 90 - 150 * rise
+        for i in range(7):                        # rays
+            a = (i / 7.0) * math.pi + p * 0.25
+            x2 = rf.WIDTH // 2 + math.cos(a) * 520
+            y2 = cy - math.sin(a) * 520
+            pygame.draw.line(surf, (*rf.EYE_OUTER, int(45 * hold)),
+                             (rf.WIDTH // 2, int(cy)), (int(x2), int(y2)), 16)
+        pygame.draw.circle(surf, (*rf.EYE_MID, int(200 * hold)),
+                           (rf.WIDTH // 2, int(cy)), 130)
+        pygame.draw.circle(surf, (*rf.EYE_INNER, int(235 * hold)),
+                           (rf.WIDTH // 2, int(cy)), 104)
+
+
+@scene("sunset", duration=9.0, weight=5, hours=(18, 21))
+class Sunset(Scene):
+    """Warm bands of evening sky behind her, the sun going down."""
+    def eyes(self, face, p, e):
+        e.squint = max(e.squint, 0.35 * rf._prop_hold(p))
+
+    def draw_bg(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p, 0.12, 0.15)
+        if hold < 0.02:
+            return
+        sink = rf.clamp(p * 1.2, 0, 1)
+        cy = rf.HEIGHT - 40 + 120 * sink
+        for i in range(6):                        # sky bands
+            a = int(26 * hold * (1.0 - i / 7.0))
+            band = pygame.Surface((rf.WIDTH, 34), pygame.SRCALPHA)
+            band.fill((*rf.EYE_OUTER, a))
+            surf.blit(band, (0, int(cy) - 200 + i * 36))
+        pygame.draw.circle(surf, (*rf.EYE_OUTER, int(210 * hold)),
+                           (rf.WIDTH // 2, int(cy)), 118)
+
+
+@scene("night_sky", duration=12.0, weight=4, hours=(21, 5))
+class NightSky(Scene):
+    """A moon and a sky full of stars, quietly twinkling."""
+    def __init__(self):
+        rnd = random.Random(31)
+        self.stars = [(rnd.random(), rnd.random() * 0.75, rnd.uniform(0, 6.3),
+                       rnd.uniform(1.5, 3.4)) for _ in range(46)]
+
+    def motion(self, face, p):
+        face.pupil_oy = rf.lerp(face.pupil_oy, -16.0 * rf._prop_hold(p), 0.05)
+
+    def draw_bg(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p)
+        if hold < 0.02:
+            return
+        t = p * self.duration
+        for x, y, ph, r in self.stars:
+            a = int(210 * hold * (0.45 + 0.55 * math.sin(t * 1.7 + ph)))
+            if a <= 5:
+                continue
+            pygame.draw.circle(surf, (*rf.TEETH_COL, a),
+                               (int(x * rf.WIDTH), int(y * rf.HEIGHT)), int(r))
+        mx, my = rf.WIDTH - 120, 92
+        pygame.draw.circle(surf, (*rf.EYE_INNER, int(225 * hold)), (mx, my), 52)
+        pygame.draw.circle(surf, (0, 0, 0), (mx - 24, my - 12), 48)   # crescent
+
+
+@scene("season", duration=8.0, weight=2)
+class Season(Scene):
+    """A small emblem of the time of year, drifting past."""
+    def _motif(self):
+        m = time.localtime().tm_mon
+        if m in (12, 1, 2):
+            return "snow"
+        if m in (3, 4, 5):
+            return "flower"
+        if m in (6, 7, 8):
+            return "sun"
+        return "leaf"
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p)
+        if hold < 0.02:
+            return
+        kind = self._motif()
+        x = 90 + p * (rf.WIDTH - 180)
+        y = 90 + 30 * math.sin(p * math.pi * 3)
+        a = int(235 * hold)
+        t = p * self.duration
+        if kind == "snow":
+            for i in range(3):
+                ang = t * 0.8 + i * (math.pi / 3)
+                dx, dy = math.cos(ang) * 30, math.sin(ang) * 30
+                pygame.draw.line(surf, (*rf.TEETH_COL, a),
+                                 (x - dx, y - dy), (x + dx, y + dy), 5)
+        elif kind == "flower":
+            for i in range(6):
+                ang = t * 0.5 + i * (math.pi / 3)
+                pygame.draw.circle(surf, (*rf.HEART_COL, a),
+                                   (int(x + math.cos(ang) * 22),
+                                    int(y + math.sin(ang) * 22)), 13)
+            pygame.draw.circle(surf, (*rf.STAR_COL, a), (int(x), int(y)), 11)
+        elif kind == "sun":
+            for i in range(8):
+                ang = t * 0.6 + i * (math.pi / 4)
+                pygame.draw.line(surf, (*rf.STAR_COL, a), (x, y),
+                                 (x + math.cos(ang) * 38, y + math.sin(ang) * 38), 5)
+            pygame.draw.circle(surf, (*rf.STAR_COL, a), (int(x), int(y)), 20)
+        else:
+            leaf = pygame.Surface((54, 30), pygame.SRCALPHA)
+            pygame.draw.ellipse(leaf, (*rf.EYE_OUTER, a), leaf.get_rect())
+            pygame.draw.line(leaf, (*rf.PUPIL_DARK, a), (3, 15), (51, 15), 3)
+            leaf = pygame.transform.rotate(leaf, math.degrees(t * 1.6))
+            surf.blit(leaf, leaf.get_rect(center=(int(x), int(y))))
+
+
+@scene("hour_chime", duration=9.0, weight=0, forced=True, mood="happy")
+class HourChime(Scene):
+    """Counts the last seconds down to the full hour, then announces it."""
+    _font = None
+
+    def available(self):
+        secs = 3600 - (time.time() % 3600)
+        return 5.0 < secs < 9.0          # so the countdown lands on the hour
+
+    def motion(self, face, p):
+        if p > 0.45:
+            face.target_oy += 10.0 * math.sin((p - 0.45) * 22)
+
+    def draw(self, face, surf, fcx, fcy, p):
+        if HourChime._font is None:
+            HourChime._font = rf._get_font(120)
+        # 3-2-1 over the first ~45 % of the scene, then the new hour holds
+        # for the rest of it (it used to appear only in the last moment)
+        left = 3.2 - p * self.duration * 0.80
+        if left > 0:                               # 3 … 2 … 1
+            n = int(left) + 1
+            k = left - int(left)
+            txt = HourChime._font.render(str(min(3, n)), True, rf.EYE_INNER)
+            txt.set_alpha(int(235 * k))
+            surf.blit(txt, txt.get_rect(center=(int(fcx), int(fcy - 140))))
+        else:                                      # the new hour itself
+            k = rf.clamp(-left * 2.5, 0, 1)      # fades IN once the count ends
+            txt = HourChime._font.render(time.strftime("%H:00"), True, rf.EYE_MID)
+            txt.set_alpha(int(235 * k))
+            rect = txt.get_rect(center=(int(fcx), int(fcy - 140)))
+            glow = txt.copy()
+            glow.fill((*rf.GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
+            glow.set_alpha(int(140 * k))
+            rf.bloom(surf, glow, rect.topleft, radius=8, passes=1, max_alpha=90)
+            surf.blit(txt, rect)
+
+
+@scene("birthday", duration=11.0, weight=0, forced=True, mood="excited")
+class Birthday(Scene):
+    """A cake with candles — she even blows them out."""
+    BLOW = 0.62
+
+    def available(self):
+        return time.strftime("%m-%d") in BIRTHDAYS
+
+    def motion(self, face, p):
+        if self.BLOW - 0.08 < p < self.BLOW + 0.12:
+            face._mouth_drive = 0.85
+            face.target_oy += 14.0
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p, 0.1, 0.12)
+        if hold < 0.02:
+            return
+        y = fcy + 170 + 300 * (1 - hold)
+        cake = rf.gradient_block(230, 96, 14, rf.HAND_GRAD_TOP, rf.HAND_GRAD_BOTTOM)
+        cake = cake.copy()
+        pygame.draw.rect(cake, (*rf.HEART_COL, 220),
+                         pygame.Rect(0, 0, 230, 20), border_radius=8)
+        cake.set_alpha(int(255 * hold))
+        surf.blit(cake, cake.get_rect(center=(int(fcx), int(y))))
+        lit = p < self.BLOW
+        t = p * self.duration
+        for i in (-70, 0, 70):                     # candles
+            cx = int(fcx + i)
+            pygame.draw.rect(surf, (*rf.TEETH_COL, int(240 * hold)),
+                             pygame.Rect(cx - 5, int(y) - 86, 10, 44),
+                             border_radius=3)
+            if lit:
+                fl = 7 + 3 * math.sin(t * 9 + i)
+                pygame.draw.circle(surf, (*rf.STAR_COL, int(245 * hold)),
+                                   (cx, int(y) - 94), int(fl))
+            elif p < self.BLOW + 0.25:             # a wisp of smoke
+                k = (p - self.BLOW) / 0.25
+                pygame.draw.circle(surf, (*rf.TEETH_COL, int(120 * hold * (1 - k))),
+                                   (cx + int(10 * k), int(y) - 100 - int(40 * k)),
+                                   int(4 + 8 * k))
+
+
+@scene("santa_hat", duration=9.0, weight=5, dates=("12-01", "12-31"),
+       mood="happy")
+class SantaHat(Scene):
+    """A red hat drops onto her head for the season."""
+    def _drop(self, p):
+        return rf.clamp(p * 4.0, 0, 1) * (1.0 if p < 0.85 else (1 - p) / 0.15)
+
+    def motion(self, face, p):
+        if 0.2 < p < 0.32:                          # the little bump of landing
+            face.target_oy += 9.0 * math.sin((p - 0.2) / 0.12 * math.pi)
+
+    def draw(self, face, surf, fcx, fcy, p):
+        k = self._drop(p)
+        if k < 0.02:
+            return
+        y = int(fcy - 168 - (1 - k) * 260)
+        hat = pygame.Surface((300, 170), pygame.SRCALPHA)
+        pygame.draw.polygon(hat, (*rf.ANGRY_COL, 245),
+                            [(20, 150), (280, 150), (210, 16)])
+        pygame.draw.rect(hat, (*rf.TEETH_COL, 250),
+                         pygame.Rect(6, 138, 288, 30), border_radius=14)
+        pygame.draw.circle(hat, (*rf.TEETH_COL, 250), (212, 14), 24)
+        hat.set_alpha(int(255 * min(1.0, k * 1.4)))
+        surf.blit(hat, hat.get_rect(center=(int(fcx), y)))
+
+
+@scene("pumpkin", duration=9.0, weight=5, dates=("10-24", "10-31"))
+class Pumpkin(Scene):
+    """A jack-o'-lantern keeps her company, flickering."""
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p)
+        if hold < 0.02:
+            return
+        t = p * self.duration
+        flicker = 0.75 + 0.25 * math.sin(t * 11) * math.sin(t * 3.1)
+        x, y = int(fcx + 250), int(fcy + 150 + 300 * (1 - hold))
+        body = pygame.Surface((190, 170), pygame.SRCALPHA)
+        for dx, w in ((0, 180), (-34, 120), (34, 120)):
+            pygame.draw.ellipse(body, (*rf.EYE_OUTER, 245),
+                                pygame.Rect(95 + dx - w // 2, 20, w, 140))
+        pygame.draw.rect(body, (*rf.EYE_MID, 245), pygame.Rect(86, 0, 18, 30),
+                         border_radius=6)
+        a = int(250 * flicker)
+        for ex in (60, 120):                        # eyes
+            pygame.draw.polygon(body, (*rf.STAR_COL, a),
+                                [(ex - 18, 78), (ex + 18, 78), (ex, 48)])
+        pygame.draw.polygon(body, (*rf.STAR_COL, a),
+                            [(56, 112), (134, 112), (120, 134), (100, 116),
+                             (80, 134)])
+        body.set_alpha(int(255 * hold))
+        surf.blit(body, body.get_rect(center=(x, y)))
+
+
+@scene("fireworks", duration=12.0, weight=6, forced=True,
+       dates=("12-31", "01-01"), hours=(20, 3), mood="excited")
+class Fireworks(Scene):
+    """New Year: the sky goes off behind her."""
+    def __init__(self):
+        rnd = random.Random(77)
+        self.shots = [(rnd.uniform(0.08, 0.85), rnd.uniform(0.1, 0.55),
+                       rnd.uniform(0.0, 0.8), rnd.randint(0, 4))
+                      for _ in range(9)]
+
+    def motion(self, face, p):
+        face.pupil_oy = rf.lerp(face.pupil_oy, -18.0 * rf._prop_hold(p), 0.06)
+
+    def draw_bg(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p, 0.08, 0.12)
+        if hold < 0.02:
+            return
+        palette = (rf.STAR_COL, rf.HEART_COL, rf.TEAR_COL, rf.EYE_INNER,
+                   rf.TEETH_COL)
+        for x, y, start, hue in self.shots:
+            k = (p - start) / 0.42
+            _burst(surf, x * rf.WIDTH, y * rf.HEIGHT, k, palette[hue], hold)
+
+
+@scene("valentine", duration=10.0, weight=5, dates=("02-13", "02-14"),
+       mood="love")
+class Valentine(Scene):
+    """Hearts everywhere, and she is entirely fine with that."""
+    def __init__(self):
+        rnd = random.Random(14)
+        self.hearts = [(rnd.random(), rnd.random(), rnd.uniform(0.25, 0.6),
+                        rnd.uniform(14, 26), rnd.uniform(0, 6.3))
+                       for _ in range(14)]
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p)
+        if hold < 0.02:
+            return
+        t = p * self.duration
+        for x0, y0, speed, size, ph in self.hearts:
+            k = (y0 + t * speed * 0.16) % 1.1
+            y = rf.HEIGHT - k * (rf.HEIGHT + 60)
+            x = x0 * rf.WIDTH + 34 * math.sin(t * 0.9 + ph)
+            a = int(235 * hold * min(1.0, k * 4) * (1.0 - k * 0.8))
+            if a <= 6:
+                continue
+            rf.draw_heart(surf, int(x), int(y), int(size), a)

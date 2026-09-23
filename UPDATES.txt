@@ -4,6 +4,25 @@
   Format: date · area · what changed · why
 ══════════════════════════════════════════════════════════════════
 
+─── 2026-09-23 — Occasions pack (10 scenes) ─────────────────────────────
+
+[registry] Two additions so the calendar can drive her: dates=("MM-DD",
+  "MM-DD") windows (wrapping the new year), a per-scene available()
+  predicate for anything else, and forced=True — a scene flagged so plays
+  as soon as it is available instead of waiting for the random scene
+  timer, which is what a New Year or a birthday needs. idle_engine checks
+  for those every tick, with FORCED_COOLDOWN between repeats.
+[idle] morning (the sun comes up and she wakes with it, 5-10), sunset
+  (18-21), night_sky (moon and twinkling stars, 21-5), season (a snowflake
+  / flower / sun / leaf, by month), hour_chime (counts 3-2-1 into the full
+  hour, then shows it — fires 5-9 s before the hour), birthday (cake, she
+  blows the candles out; dates from LUNA_BIRTHDAYS in .env), santa_hat
+  (December), pumpkin (24-31 Oct), fireworks (New Year's Eve, forced) and
+  valentine (13-14 Feb).
+[note] "Weather" from the original list was dropped: without a network
+  call there is no honest way to know it, and inventing it would be worse
+  than not having it. Valentine's Day took its place.
+
 ─── 2026-09-23 — Emotions pack (13 scenes) ──────────────────────────────
 
 [face] Mouth driving generalised: the yawn-only hack became

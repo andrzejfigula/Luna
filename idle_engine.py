@@ -42,6 +42,8 @@ from config import (IDLE_LIFE, IDLE_ABSENCE_SECS, IDLE_SCENE_MIN_SECS,
                     FACE_OVERRIDE_SECS, NIGHT_FROM, NIGHT_TO)
 
 _last_proactive = 0.0
+_forced_at = {}                  # calendar scene → when it last played
+FORCED_COOLDOWN = 600            # and how long before it may play again
 
 
 # ── quiet / mute ──────────────────────────────────────────────────────────────
@@ -204,6 +206,15 @@ def idle_loop():
                         and random.random() < TOUCH_REPLY_CHANCE):
                     last_touch_say = now
                     speak(random.choice(replies), can_drop=True)
+
+            # ── calendar moments jump the queue ──────────────────────────
+            if IDLE_LIFE and not _busy():
+                forced = idle_scenes.forced_scene(present, IDLE_SCENES_DISABLED)
+                if forced and now - _forced_at.get(forced, 0) > FORCED_COOLDOWN:
+                    _forced_at[forced] = now
+                    print(f"[idle] moment: {forced}")
+                    _play(forced)
+                    last_scene = now
 
             # ── micro-scenes ─────────────────────────────────────────────
             if IDLE_LIFE and not _busy() and now - last_scene >= next_scene:
