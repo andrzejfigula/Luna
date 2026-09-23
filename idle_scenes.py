@@ -346,11 +346,12 @@ class Stretch(Scene):
 
 @scene("yawn", duration=3.0, weight=1, night_weight=5)
 class Yawn(Scene):
-    """A wide "aaah" that also drives the mouth (see RobotFace.update)."""
+    """A wide "aaah" that opens her mouth as speech would."""
     def motion(self, face, p):
         s = math.sin(p * math.pi)
         face.target_oy  -= 10.0 * s
         face.target_tilt = -3.0 * s
+        face._mouth_drive = s ** 0.7
 
     def eyes(self, face, p, e):
         s = math.sin(p * math.pi)
@@ -1233,3 +1234,311 @@ class Hourglass(Scene):
         img = pygame.transform.rotate(glass, flip)
         img.set_alpha(int(255 * hold))
         surf.blit(img, img.get_rect(center=(int(fcx), int(fcy + 152 + 320 * (1 - hold)))))
+
+
+# ══ Emotions playing out ════════════════════════════════════════════════════
+# Mostly eyes, head and the particle systems the face already has: a scene
+# that wears mood="sad" gets tears for free, "angry" gets steam, "excited"
+# gets the starburst, "love" gets hearts.
+
+def _puff(surf, x, y, t, hold, n=5, spread=1.0, col=None):
+    """A little cloud of breath drifting up and out."""
+    col = col or rf.TEETH_COL
+    for i in range(n):
+        k = ((t * 0.9 + i * 0.21) % 1.0)
+        a = int(170 * hold * (1.0 - k))
+        if a <= 4:
+            continue
+        dx = (i - n / 2) * 15 * spread * (0.4 + k)
+        dy = -k * 70
+        r = int(6 + k * 13)
+        pygame.draw.circle(surf, (*col, a), (int(x + dx), int(y + dy)), r)
+
+
+@scene("laugh", duration=3.4, weight=3, mood="happy", needs_face=True,
+       in_reply=True)
+class Laugh(Scene):
+    """Shakes with laughter, mouth going, eyes screwed shut."""
+    def motion(self, face, p):
+        hold = rf._prop_hold(p, 0.12, 0.2)
+        shake = math.sin(p * self.duration * 13.0)
+        face.target_oy  += 13.0 * shake * hold
+        face.target_tilt = 6.0 * math.sin(p * self.duration * 6.5) * hold
+        face._mouth_drive = (0.5 + 0.45 * abs(shake)) * hold
+
+    def eyes(self, face, p, e):
+        hold = rf._prop_hold(p, 0.12, 0.2)
+        e.blink_l = e.blink_r = min(e.blink_l, 1.0 - 0.75 * hold)
+        e.squint = max(e.squint, 0.9 * hold)
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p, 0.2, 0.2)
+        if hold < 0.05:
+            return
+        for side in (-1, 1):                       # tears of laughter
+            k = (p * 2.2 + (0 if side < 0 else 0.5)) % 1.0
+            a = int(220 * hold * (1.0 - k))
+            if a <= 6:
+                continue
+            x = fcx + side * 250
+            y = fcy - 20 + k * 120
+            pygame.draw.circle(surf, (*rf.TEAR_COL, a), (int(x), int(y)), 9)
+
+
+@scene("sigh", duration=3.2, weight=3, in_reply=True)
+class Sigh(Scene):
+    """A long breath out; her whole face sinks with it."""
+    def motion(self, face, p):
+        out = math.sin(min(1.0, p * 1.2) * math.pi)
+        face.target_oy += 22.0 * (p if p < 0.5 else 1.0 - (p - 0.5) * 0.7)
+        face._mouth_drive = 0.35 * out
+        face.target_tilt = 3.0 * out
+
+    def eyes(self, face, p, e):
+        e.droop = max(e.droop, 0.9 * math.sin(min(1.0, p * 1.2) * math.pi))
+        e.squint = max(e.squint, 0.5)
+
+    def draw(self, face, surf, fcx, fcy, p):
+        if 0.25 < p < 0.8:
+            _puff(surf, fcx, fcy + 190, p * self.duration,
+                  math.sin((p - 0.25) / 0.55 * math.pi))
+
+
+@scene("impatient", duration=4.0, weight=3, in_reply=True)
+class Impatient(Scene):
+    """Drums her fingers and glances away. Any day now."""
+    def hands(self, face, p, h):
+        hold = rf._prop_hold(p, 0.15, 0.15)
+        tap = abs(math.sin(p * self.duration * 7.0))
+        h.r = (250, 210 - 26 * tap + 300 * (1 - hold), -8)
+
+    def motion(self, face, p):
+        hold = rf._prop_hold(p, 0.15, 0.15)
+        face.pupil_ox = rf.lerp(face.pupil_ox,
+                                26.0 * math.sin(p * math.pi * 2.5) * hold, 0.1)
+        face.target_tilt = 5.0 * hold
+
+    def eyes(self, face, p, e):
+        e.squint = max(e.squint, 0.55 * rf._prop_hold(p, 0.15, 0.15))
+
+
+@scene("think_bubble", duration=4.5, weight=3, in_reply=True)
+class ThinkBubble(Scene):
+    """Three dots rise above her head while she works something out."""
+    def motion(self, face, p):
+        hold = rf._prop_hold(p)
+        face.pupil_oy = rf.lerp(face.pupil_oy, -24.0 * hold, 0.1)
+        face.pupil_ox = rf.lerp(face.pupil_ox, 16.0 * hold, 0.08)
+        face.target_tilt = -4.0 * hold
+
+    def eyes(self, face, p, e):
+        e.squint = max(e.squint, 0.3 * rf._prop_hold(p))
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p)
+        if hold < 0.03:
+            return
+        for i, (dx, dy, r) in enumerate(((-96, -148, 9), (-66, -182, 14),
+                                         (-16, -226, 22))):
+            k = rf.clamp(p * 3.4 - i * 0.55, 0.0, 1.0)
+            if k <= 0:
+                continue
+            a = int(235 * hold * k)
+            pygame.draw.circle(surf, (*rf.EYE_MID, a),
+                               (int(fcx + dx), int(fcy + dy)), int(r * k), 4)
+
+
+@scene("proud", duration=3.2, weight=2, mood="excited", needs_face=True,
+       in_reply=True)
+class Proud(Scene):
+    """Chin up, chest out — she is quite pleased with herself."""
+    def motion(self, face, p):
+        s = math.sin(min(1.0, p * 1.3) * math.pi)
+        face.target_oy  -= 20.0 * s
+        face.target_tilt = -3.0 * s
+
+    def eyes(self, face, p, e):
+        s = math.sin(min(1.0, p * 1.3) * math.pi)
+        e.squint = max(e.squint, 0.5 * s)
+        e.blink_l = e.blink_r = min(e.blink_l, 1.0 - 0.25 * s)
+
+
+@scene("shy", duration=3.6, weight=3, mood="love", needs_face=True,
+       in_reply=True)
+class Shy(Scene):
+    """Looks away, blushing, half hiding behind a hand."""
+    def hands(self, face, p, h):
+        hold = rf._prop_hold(p, 0.2, 0.2)
+        h.l = (-215, -20 + 400 * (1 - hold), 14)
+
+    def motion(self, face, p):
+        hold = rf._prop_hold(p, 0.2, 0.2)
+        face.pupil_ox = rf.lerp(face.pupil_ox, 26.0 * hold, 0.08)
+        face.pupil_oy = rf.lerp(face.pupil_oy, 14.0 * hold, 0.08)
+        face.target_tilt = 8.0 * hold
+        face.target_ox += 14.0 * hold
+
+    def eyes(self, face, p, e):
+        e.squint = max(e.squint, 0.55 * rf._prop_hold(p, 0.2, 0.2))
+
+
+@scene("behind_you", duration=3.0, weight=2, needs_face=True)
+class BehindYou(Scene):
+    """Something moved over there — she snaps round to look."""
+    def motion(self, face, p):
+        if p < 0.14:
+            k = p / 0.14
+        elif p < 0.62:
+            k = 1.0
+        else:
+            k = max(0.0, 1.0 - (p - 0.62) / 0.38)
+        face.target_ox  += 64.0 * k
+        face.target_tilt = -11.0 * k
+        face.pupil_ox = rf.lerp(face.pupil_ox, 32.0 * k, 0.4)
+
+    def eyes(self, face, p, e):
+        if 0.1 < p < 0.55:
+            e.widen = max(e.widen, 0.95)
+
+
+@scene("scared", duration=3.0, weight=2, in_reply=True)
+class Scared(Scene):
+    """Trembling, small eyes, a bead of sweat."""
+    def motion(self, face, p):
+        hold = rf._prop_hold(p, 0.1, 0.25)
+        t = p * self.duration
+        face.target_ox  += 9.0 * math.sin(t * 34.0) * hold
+        face.target_oy  += 6.0 * math.sin(t * 27.0) * hold + 12.0 * hold
+        face.target_tilt = 4.0 * math.sin(t * 19.0) * hold
+
+    def eyes(self, face, p, e):
+        hold = rf._prop_hold(p, 0.1, 0.25)
+        e.squint = max(e.squint, 0.5 * hold)
+        e.blink_l = e.blink_r = min(e.blink_l, 1.0 - 0.2 * hold)
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p, 0.15, 0.2)
+        if hold < 0.05:
+            return
+        k = (p * 1.6) % 1.0                         # a drop running down
+        a = int(230 * hold * (1.0 - k * 0.6))
+        pygame.draw.circle(surf, (*rf.TEAR_COL, a),
+                           (int(fcx + 268), int(fcy - 130 + k * 150)), 11)
+
+
+@scene("anger_cools", duration=4.2, weight=2, mood="angry")
+class AngerCools(Scene):
+    """Fumes, then lets it go."""
+    def motion(self, face, p):
+        heat = max(0.0, 1.0 - p * 1.45)             # dies down over the scene
+        t = p * self.duration
+        face.target_ox  += 16.0 * math.sin(t * 16.0) * heat
+        face.target_tilt = 7.0 * math.sin(t * 11.0) * heat
+        if p > 0.72:
+            face._mouth_drive = 0.3 * math.sin((p - 0.72) / 0.28 * math.pi)
+
+    def eyes(self, face, p, e):
+        heat = max(0.0, 1.0 - p * 1.45)
+        e.squint = max(e.squint, 0.8 * heat)
+
+    def draw(self, face, surf, fcx, fcy, p):
+        if p > 0.72:                                # the relieved breath out
+            _puff(surf, fcx, fcy + 180, p * self.duration,
+                  math.sin((p - 0.72) / 0.28 * math.pi), spread=1.4)
+
+
+@scene("dance", duration=6.0, weight=3, mood="happy", needs_face=True,
+       in_reply=True)
+class Dance(Scene):
+    """A little dance, hands up, the whole face swinging."""
+    def hands(self, face, p, h):
+        hold = rf._prop_hold(p, 0.15, 0.15)
+        beat = p * self.duration * 2.1
+        h.l = (-270, 30 - 30 * math.sin(beat * math.pi) + 400 * (1 - hold),
+               -24 * math.sin(beat * math.pi))
+        h.r = ( 270, 30 + 30 * math.sin(beat * math.pi) + 400 * (1 - hold),
+                24 * math.sin(beat * math.pi))
+
+    def motion(self, face, p):
+        hold = rf._prop_hold(p, 0.15, 0.15)
+        beat = p * self.duration * 2.1
+        face.target_ox  += 34.0 * math.sin(beat * math.pi) * hold
+        face.target_oy  += 14.0 * math.sin(beat * 2 * math.pi) * hold
+        face.target_tilt = 10.0 * math.sin(beat * math.pi) * hold
+
+    def eyes(self, face, p, e):
+        e.squint = max(e.squint, 0.45 * rf._prop_hold(p, 0.15, 0.15))
+
+
+@scene("tear_wipe", duration=5.0, weight=2, mood="sad", in_reply=True)
+class TearWipe(Scene):
+    """A tear rolls down; after a moment she wipes it away."""
+    WIPE = 0.55
+
+    def hands(self, face, p, h):
+        if self.WIPE - 0.1 < p < self.WIPE + 0.25:
+            k = math.sin((p - self.WIPE + 0.1) / 0.35 * math.pi)
+            h.l = (-160, rf.lerp(420, -10, k), 10)
+
+    def motion(self, face, p):
+        face.target_oy += 12.0 * rf._prop_hold(p, 0.15, 0.2)
+        if p > self.WIPE + 0.3:
+            face.target_tilt = -3.0
+
+    def eyes(self, face, p, e):
+        e.droop = max(e.droop, 0.85)
+        if self.WIPE - 0.05 < p < self.WIPE + 0.2:
+            e.blink_l = min(e.blink_l, 0.15)
+
+
+@scene("relief", duration=3.4, weight=2, mood="happy", in_reply=True)
+class Relief(Scene):
+    """Lets out the breath she was holding."""
+    def motion(self, face, p):
+        out = math.sin(min(1.0, p * 1.4) * math.pi)
+        face.target_oy += 26.0 * out
+        face._mouth_drive = 0.4 * out
+
+    def eyes(self, face, p, e):
+        out = math.sin(min(1.0, p * 1.4) * math.pi)
+        e.blink_l = e.blink_r = min(e.blink_l, 1.0 - 0.7 * out)
+        e.squint = max(e.squint, 0.6 * out)
+
+    def draw(self, face, surf, fcx, fcy, p):
+        if 0.15 < p < 0.75:
+            _puff(surf, fcx, fcy + 185, p * self.duration,
+                  math.sin((p - 0.15) / 0.6 * math.pi), n=6, spread=1.3)
+
+
+@scene("curious", duration=3.6, weight=4, needs_face=True, in_reply=True)
+class Curious(Scene):
+    """Head right over to one side, with a question mark to match."""
+    _font = None
+
+    def motion(self, face, p):
+        hold = rf._prop_hold(p, 0.18, 0.18)
+        face.target_tilt = 14.0 * hold
+        face.target_ox  += 18.0 * hold
+        face.pupil_oy = rf.lerp(face.pupil_oy, -8.0 * hold, 0.1)
+
+    def eyes(self, face, p, e):
+        hold = rf._prop_hold(p, 0.18, 0.18)
+        e.widen = max(e.widen, 0.7 * hold)
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p, 0.18, 0.18)
+        if hold < 0.04:
+            return
+        if Curious._font is None:
+            Curious._font = rf._get_font(96)
+        img = Curious._font.render("?", True, rf.EYE_MID)
+        img = pygame.transform.rotate(img, 12 * math.sin(p * math.pi * 3))
+        img.set_alpha(int(255 * hold))
+        # kept well inside the frame: the 14 degree head tilt rotates the
+        # whole canvas, which pushes anything near an edge off screen
+        rect = img.get_rect(center=(int(fcx + 208), int(fcy - 92)))
+        glow = img.copy()
+        glow.fill((*rf.GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
+        glow.set_alpha(int(120 * hold))
+        rf.bloom(surf, glow, rect.topleft, radius=8, passes=1, max_alpha=90)
+        surf.blit(img, rect)

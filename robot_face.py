@@ -1326,6 +1326,7 @@ class RobotFace:
         self._idle_p = 0.0
         self._scene = None
         self._pupil_converge = 0.0
+        self._mouth_drive = 0.0
         self._wink_side = "R"
         self._idle_prev = None
         self._touch_t = 0.0
@@ -1674,6 +1675,7 @@ class RobotFace:
             self.hand_pose["L"], self.hand_pose["R"] = h.pose_l, h.pose_r
 
         self._pupil_converge = lerp(self._pupil_converge, 0.0, 0.25)
+        self._mouth_drive = 0.0
         if self._scene:
             self._scene.motion(self, self._idle_p)
 
@@ -1755,11 +1757,10 @@ class RobotFace:
             pupil_scale=self.micro.pupil_scale, squint=squint,
             widen=widen, droop=droop)
 
-        self._yawn = 0.0
-        if self._idle == "yawn":
-            # a slow, wide "aaah" — drives the mouth as if she were speaking
-            self._yawn = math.sin(self._idle_p * math.pi) ** 0.7
-            self.mouth.update(self._yawn, emotion, True)
+        # a scene may open her mouth (yawning, laughing, sighing): it sets
+        # face._mouth_drive in motion(), and it plays like speech would
+        if self._mouth_drive > 0.02:
+            self.mouth.update(self._mouth_drive, emotion, True)
         else:
             self.mouth.update(audio_energy, emotion, speaking)
 
@@ -1865,9 +1866,9 @@ class RobotFace:
         self._sad         = sad
         self._listen      = is_listen
         # the mouth draws as "speaking" for real audio and while yawning
-        self._speaking    = audio_playing or self._yawn > 0.02
-        if self._yawn > 0.02:
-            audio_energy = self._yawn
+        self._speaking    = audio_playing or self._mouth_drive > 0.02
+        if self._mouth_drive > 0.02:
+            audio_energy = self._mouth_drive
         self._emotion     = emotion
         self._audio_energy = audio_energy
 

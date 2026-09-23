@@ -4,6 +4,25 @@
   Format: date · area · what changed · why
 ══════════════════════════════════════════════════════════════════
 
+─── 2026-09-23 — Emotions pack (13 scenes) ──────────────────────────────
+
+[face] Mouth driving generalised: the yawn-only hack became
+  face._mouth_drive, which any scene may set in motion(), so laughing,
+  sighing and exhaling open her mouth the way speech does.
+[idle] laugh (shaking, mouth going, tears of mirth), sigh, impatient
+  (drumming fingers), think_bubble (three dots rising), proud, shy
+  (hiding behind a hand, blushing), behind_you (snaps round to look),
+  scared (trembling, a bead of sweat), anger_cools (fumes, then lets it
+  go with a breath), dance, tear_wipe (a tear, then she wipes it),
+  relief, curious (head right over, question mark). Scenes that wear a
+  mood get the matching particles for free — sad gives tears, angry
+  steam, excited the starburst.
+[brain] The reply vocabulary is now grouped by what it expresses rather
+  than listed, so it stays readable as it grows: 32 gestures available.
+  Verified live: a joke gets a wink, "my dog is sick" gets tear_wipe,
+  "how many stars are there" gets think_bubble.
+[perf] All hold ~30 fps on the Pi (dance 28).
+
 ─── 2026-09-23 — Everyday props pack ────────────────────────────────────
 
 [idle] coffee (steam curling up, she tilts the mug and sips, eyes closing
