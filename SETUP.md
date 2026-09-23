@@ -109,6 +109,12 @@ front of the camera for 30 s the face goes to sleep.
 - Gestures: Luna nods / shakes her head / waves / thumbs-up / makes a heart
   when it fits the reply (the LLM picks, see `brain.py`). Wave at the camera
   and she waves back (`gesture_module.py`, motion-based; `WAVE_*` in config).
+- Idle behaviours live in `idle_scenes.py` — one class per scene with its
+  own duration, weights (day/night), mood and flags. Add a behaviour by
+  writing one class; tune how often it shows up with `IDLE_SCENE_WEIGHTS`
+  in config (0 disables), or list it in `IDLE_SCENES_DISABLED`.
+  Scenes marked `in_reply=True` can also be chosen by the LLM as body
+  language while she answers.
 - Idle life (`idle_engine.py`): she greets you when you come back after
   `IDLE_ABSENCE_SECS` away, and between conversations plays small scenes —
   wink, look around, stretch, yawn, show the clock, read a book, scroll a

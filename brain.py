@@ -24,6 +24,8 @@ from zoneinfo import ZoneInfo
 import cv2
 from openai import OpenAI
 
+import idle_scenes
+
 from text_to_speech import speak
 from shared_state import state
 from config import (
@@ -94,8 +96,11 @@ def _feminize(text):
 
 # Face states robot_face.py knows how to draw. The model must pick one.
 EMOTIONS = ["neutral", "happy", "sad", "angry", "surprised", "excited", "love"]
-# Body language robot_face.py can animate (head + hands).
-GESTURES = ["none", "nod", "shake", "wave", "thumbs_up", "heart"]
+# Body language robot_face.py can animate: hand/head gestures plus the idle
+# scenes that are safe to play while she is talking (see idle_scenes.py).
+HAND_GESTURES = ["nod", "shake", "wave", "thumbs_up", "heart"]
+SCENE_GESTURES = sorted(idle_scenes.reply_scenes())
+GESTURES = ["none"] + HAND_GESTURES + SCENE_GESTURES
 
 # ── Optional knowledge.txt (facts injected into the system prompt) ────────────
 knowledge_text = ""
@@ -125,6 +130,12 @@ Pick the emotion that fits the reply: "happy" for warmth and good news,
 "excited" for enthusiasm, "love" for affection/compliments, "surprised" for
 unexpected things, "sad" for bad news or sympathy, "angry" only for playful
 grumpiness, otherwise "neutral".
+Gesture vocabulary: "nod"/"shake" move the head, "wave"/"thumbs_up"/"heart"
+use her hands, and the rest are facial: "wink" (playful, cheeky), "smirk"
+(she knows something), "eye_roll" (mock exasperation), "remember" (recalling
+something), "cross_eyes" (confusion or silliness), "slow_blink" (warm,
+content), "double_blink"/"eye_twitch" (surprise, mild disbelief).
+
 Pick the gesture from the CONTENT of your reply, in this priority:
 1. The reply answers a yes/no question. "nod" if the answer is yes/agree
    ("Tak", "Yes", "Oczywiście", "Jasne", "Zgadzam się"); "shake" if the
@@ -135,7 +146,10 @@ Pick the gesture from the CONTENT of your reply, in this priority:
 3. You praise the user or say well done / bravo / congratulations → "thumbs_up".
 4. The user expressed love or affection for you, or thanked you warmly, and
    you reply with affection → "heart".
-5. Everything else, including ordinary answers, facts and likes → "none".
+5. A playful, teasing or knowing reply → "wink" or "smirk"; recalling
+   something → "remember"; something absurd → "cross_eyes" or "eye_roll";
+   warmth without words → "slow_blink".
+6. Everything else, including ordinary answers and plain facts → "none".
 Most replies are "none"; never use "nod" for a statement that is not an
 agreement or a yes.
 """
@@ -343,9 +357,12 @@ def process(text):
     #    the renderer falls back to neutral
     with state.lock:
         state.emotion = emotion.capitalize()
-        if gesture in GESTURE_DURATION:
+        if gesture in GESTURE_DURATION:              # hands / head
             state.gesture_anim       = gesture
             state.gesture_anim_start = time.time()
+        elif gesture in idle_scenes.SCENES:          # facial scene
+            state.idle_action       = gesture
+            state.idle_action_start = time.time()
     try:
         speak(reply)
     finally:

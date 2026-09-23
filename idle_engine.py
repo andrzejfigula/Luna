@@ -27,10 +27,11 @@ import threading
 import time
 
 from shared_state import state
+import idle_scenes
 from config import (IDLE_LIFE, IDLE_ABSENCE_SECS, IDLE_SCENE_MIN_SECS,
-                    IDLE_SCENE_MAX_SECS, IDLE_SCENES, IDLE_SCENES_NIGHT,
-                    IDLE_PRESENCE_GRACE, IDLE_DEBUG, IDLE_DURATION,
-                    IDLE_SCENE_MOODS,
+                    IDLE_SCENE_MAX_SECS, IDLE_SCENE_WEIGHTS,
+                    IDLE_SCENES_DISABLED,
+                    IDLE_PRESENCE_GRACE, IDLE_DEBUG,
                     PROACTIVE_SPEECH, PROACTIVE_MIN_GAP_SECS,
                     PROACTIVE_QUIET_FROM, PROACTIVE_QUIET_TO,
                     GREETINGS_MORNING, GREETINGS_DAY, GREETINGS_EVENING,
@@ -99,13 +100,13 @@ def _busy():
 def _play(action):
     """Start a visual idle scene (robot_face animates it)."""
     now = time.time()
+    sc  = idle_scenes.SCENES.get(action)
     with state.lock:
         state.idle_action       = action
         state.idle_action_start = now
-        mood = IDLE_SCENE_MOODS.get(action)
-        if mood:
-            state.face_override       = mood
-            state.face_override_until = now + IDLE_DURATION.get(action, 6.0)
+        if sc and sc.mood:
+            state.face_override       = sc.mood
+            state.face_override_until = now + sc.duration
 
 
 def _gesture(name):
@@ -134,14 +135,8 @@ def _greeting(first_today):
 
 
 def _pick_scene(face_present):
-    table = IDLE_SCENES_NIGHT if _is_night() else IDLE_SCENES
-    names, weights = [], []
-    for name, w in table.items():
-        if name == "wink" and not face_present:
-            continue                      # winking at an empty room is odd
-        names.append(name)
-        weights.append(w)
-    return random.choices(names, weights=weights)[0] if names else None
+    return idle_scenes.pick(_is_night(), face_present,
+                            IDLE_SCENE_WEIGHTS, IDLE_SCENES_DISABLED)
 
 
 # ── main loop ─────────────────────────────────────────────────────────────────

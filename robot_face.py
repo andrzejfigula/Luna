@@ -33,7 +33,7 @@ from shared_state import state
 from config import (RENDER_FPS, FACE_STYLE, SCREEN_WIDTH, SCREEN_HEIGHT,
                     FULLSCREEN, HIDE_CURSOR, GESTURE_DURATION,
                     CAMERA_PREVIEW, CAMERA_PREVIEW_W, TOUCH_DEBUG,
-                    TOUCH_REACT_SECS, TOUCH_POKE_SECS, IDLE_DURATION)
+                    TOUCH_REACT_SECS, TOUCH_POKE_SECS)
 
 # The face geometry below is in absolute pixels and was drawn for a 1400x800
 # window; it fits the 800x480 DSI panel as-is (~560x400 used), just larger
@@ -1320,6 +1320,8 @@ class RobotFace:
         # idle scenes + touch
         self._idle = None
         self._idle_p = 0.0
+        self._scene = None
+        self._pupil_converge = 0.0
         self._wink_side = "R"
         self._idle_prev = None
         self._touch_t = 0.0
@@ -1582,10 +1584,12 @@ class RobotFace:
             bounce_y = -abs(math.sin(self.bounce_phase)) * self.bounce_amp
             self.bounce_amp *= 0.94   # decay
 
-        # ── idle micro-scene (wink / stretch / yawn / look_around / clock) ─
-        i_el  = now_t - i_start
-        i_dur = IDLE_DURATION.get(i_anim, 0.0) if i_anim else 0.0
-        self._idle = i_anim if (i_anim and 0.0 <= i_el < i_dur) else None
+        # ── idle micro-scene (see idle_scenes.py for the catalogue) ───────
+        i_el   = now_t - i_start
+        scene  = idle_scenes.SCENES.get(i_anim) if i_anim else None
+        i_dur  = scene.duration if scene else 0.0
+        self._idle = i_anim if (scene and 0.0 <= i_el < i_dur) else None
+        self._scene = scene if self._idle else None
         self._idle_p = (i_el / i_dur) if self._idle else 0.0
         if self._idle and self._idle != self._idle_prev:
             self._wink_side = random.choice(("L", "R"))   # alternate eyes
@@ -1666,51 +1670,9 @@ class RobotFace:
             cur[2] = lerp(cur[2], tgt[2], 0.35)
 
         # idle scenes that move the head / body
-        if self._idle == "look_around":
-            ph = self._idle_p * math.pi * 2
-            self.target_ox  += 46.0 * math.sin(ph)
-            self.target_oy  += 12.0 * math.sin(ph * 2)
-            self.pupil_ox    = lerp(self.pupil_ox, 30.0 * math.sin(ph), 0.18)
-            self.target_tilt = 5.0 * math.sin(ph)
-        elif self._idle == "stretch":
-            s = math.sin(self._idle_p * math.pi)          # 0 → 1 → 0
-            self.target_oy  -= 26.0 * s
-            self.target_tilt = 6.0 * math.sin(self._idle_p * math.pi * 2)
-        elif self._idle == "yawn":
-            s = math.sin(self._idle_p * math.pi)
-            self.target_oy  -= 10.0 * s
-            self.target_tilt = -3.0 * s
-        elif self._idle == "read_book":
-            # eyes down on the page, scanning each line left → right
-            hold = _prop_hold(self._idle_p)
-            line = (self._idle_p * IDLE_DURATION["read_book"]) % 2.4 / 2.4
-            self.pupil_ox = lerp(self.pupil_ox, (-22 + 44 * line) * hold, 0.25)
-            self.pupil_oy = lerp(self.pupil_oy, 30.0 * hold, 0.10)
-            self.target_oy  += 10.0 * hold
-            self.target_tilt = -2.0 * hold
-        elif self._idle == "phone":
-            hold = _prop_hold(self._idle_p)
-            scroll = math.sin(self._idle_p * math.pi * 5) * 6
-            self.pupil_ox = lerp(self.pupil_ox, 20.0 * hold, 0.12)
-            self.pupil_oy = lerp(self.pupil_oy, (30.0 + scroll) * hold, 0.12)
-            self.target_oy  += 8.0 * hold
-            self.target_tilt = 3.0 * hold
-        elif self._idle == "music":
-            hold = _prop_hold(self._idle_p)
-            beat = self._idle_p * IDLE_DURATION["music"] * 1.9   # ~114 bpm
-            self.target_oy  += 11.0 * math.sin(beat * 2 * math.pi) * hold
-            self.target_tilt = 8.0 * math.sin(beat * math.pi) * hold
-            self.pupil_ox = lerp(self.pupil_ox,
-                                 14.0 * math.sin(beat * math.pi) * hold, 0.2)
-            self.pupil_oy = lerp(self.pupil_oy, -4.0 * hold, 0.1)
-        elif self._idle == "ball":
-            bx, by = self._ball_xy()
-            self.pupil_ox = lerp(self.pupil_ox,
-                                 clamp((bx - self.face_cx) * 0.10, -30, 30), 0.35)
-            self.pupil_oy = lerp(self.pupil_oy,
-                                 clamp((by - self.face_cy) * 0.12, -22, 30), 0.35)
-            self.target_ox  += clamp((bx - self.face_cx) * 0.05, -20, 20)
-            self.target_tilt = clamp((self.face_cx - bx) * 0.02, -6, 6)
+        self._pupil_converge = lerp(self._pupil_converge, 0.0, 0.25)
+        if self._scene:
+            self._scene.motion(self, self._idle_p)
 
         # being touched: recoil from the finger / squirm when poked
         if touch_el < 0.5 and self._touch_kind == "tap":
@@ -1750,27 +1712,12 @@ class RobotFace:
         squint  = self.micro.squint_target
         widen   = self.micro.widen_target
 
-        if self._idle == "wink":
-            # one eye only: closes fast, opens with a soft curve
-            w = math.sin(self._idle_p * math.pi) ** 0.5
-            wink = max(0.0, 1.0 - w * 1.25)
-            if self._wink_side == "R":
-                blink_r = min(blink_r, wink)
-            else:
-                blink_l = min(blink_l, wink)
-        elif self._idle == "yawn":
-            s = math.sin(self._idle_p * math.pi)
-            blink_l = blink_r = min(blink_t, 1.0 - 0.85 * s)   # eyes screwed shut
-            squint  = max(squint, s)
-        elif self._idle == "stretch":
-            s = math.sin(self._idle_p * math.pi)
-            blink_l = blink_r = min(blink_t, 1.0 - 0.5 * s)    # narrowed, not shut
-            squint  = max(squint, 0.8 * s)
-        elif self._idle == "clock":
-            widen = max(widen, 0.4 * math.sin(self._idle_p * math.pi))
-        elif self._idle == "music":
-            beat = self._idle_p * IDLE_DURATION["music"] * 1.9
-            squint = max(squint, 0.45 + 0.25 * abs(math.sin(beat * math.pi)))
+        eyes = idle_scenes.Eyes(blink_t, squint, widen,
+                                self.micro.droop_target)
+        if self._scene:
+            self._scene.eyes(self, self._idle_p, eyes)
+        blink_l, blink_r = eyes.blink_l, eyes.blink_r
+        squint, widen, droop = eyes.squint, eyes.widen, eyes.droop
 
         # poking -> screwed-up eyes; a tap on an eye shuts it then it pops
         # wide open; petting -> a slow, contented squint
@@ -1787,14 +1734,15 @@ class RobotFace:
                     blink_r = 0.0 if touch_el < 0.2 else min(blink_r, 1.0 - k)
             widen = max(widen, 0.8 * k)      # startled, wide eyes
 
+        conv = self._pupil_converge          # cross-eyed scenes
         self.left_eye.update(
-            tw, th, blink_l, self.pupil_ox, self.pupil_oy,
+            tw, th, blink_l, self.pupil_ox + conv, self.pupil_oy,
             pupil_scale=self.micro.pupil_scale, squint=squint,
-            widen=widen, droop=self.micro.droop_target)
+            widen=widen, droop=droop)
         self.right_eye.update(
-            tw, th, blink_r, self.pupil_ox, self.pupil_oy,
+            tw, th, blink_r, self.pupil_ox - conv, self.pupil_oy,
             pupil_scale=self.micro.pupil_scale, squint=squint,
-            widen=widen, droop=self.micro.droop_target)
+            widen=widen, droop=droop)
 
         self._yawn = 0.0
         if self._idle == "yawn":
@@ -1954,162 +1902,6 @@ class RobotFace:
             return "top"
         return "other"
 
-    def _ball_xy(self):
-        """Where the bouncing ball is right now (screen coords)."""
-        t = self._idle_p * IDLE_DURATION["ball"]
-        hold = _prop_hold(self._idle_p)
-        x = self.face_cx + 250 * math.sin(t * 1.9) * hold
-        # stays below the eyes so it never covers her face
-        y = (HEIGHT - 38) - abs(math.sin(t * 3.4)) * 110 * hold
-        return x, y
-
-    def _draw_book(self, surf, fcx, fcy):
-        """Idle scene: an open book at the bottom, one page turning."""
-        hold = _prop_hold(self._idle_p)
-        if hold < 0.02:
-            return
-        pw, ph = 156, 116
-        y = HEIGHT - 26 - (ph // 2) * hold + (1 - hold) * 90
-        turn = self._idle_p * IDLE_DURATION["read_book"] % 4.5 / 4.5
-        for side in (-1, 1):
-            w = pw
-            if side == 1 and 0.55 < turn < 0.8:        # right page flips over
-                w = max(12, int(pw * abs(math.cos((turn - 0.55) / 0.25 * math.pi))))
-            page = gradient_block(w, ph, 9, HAND_GRAD_TOP, HAND_GRAD_BOTTOM)
-            page = page.copy()
-            for i in range(4):                          # lines of text
-                ly = 22 + i * 21
-                pygame.draw.rect(page, (*PUPIL_DARK, 120),
-                                 pygame.Rect(14, ly, max(4, w - 34), 5),
-                                 border_radius=2)
-            img  = pygame.transform.rotate(page, -7 * side)
-            img.set_alpha(int(255 * hold))
-            rect = img.get_rect(center=(int(fcx + side * (pw // 2 + 3)), int(y)))
-            glow = img.copy()
-            glow.fill((*GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
-            glow.set_alpha(int(90 * hold))
-            bloom(surf, glow, rect.topleft, radius=10, passes=1, max_alpha=80)
-            surf.blit(img, rect)
-
-    def _draw_phone(self, surf, fcx, fcy):
-        """Idle scene: a little phone she scrolls through."""
-        hold = _prop_hold(self._idle_p)
-        if hold < 0.02:
-            return
-        bw, bh = 96, 168
-        x = fcx + 120
-        y = HEIGHT - 20 - (bh // 2) * hold + (1 - hold) * 110
-        body = pygame.Surface((bw, bh), pygame.SRCALPHA)
-        pygame.draw.rect(body, (*PUPIL_DARK, 255), body.get_rect(), border_radius=16)
-        pygame.draw.rect(body, (*EYE_MID, 220), body.get_rect(), 3, border_radius=16)
-        scr  = gradient_block(bw - 18, bh - 30, 8, HAND_GRAD_TOP, HAND_GRAD_BOTTOM)
-        body.blit(scr, (9, 15))
-        offset = int((self._idle_p * IDLE_DURATION["phone"] * 34) % 26)
-        for i in range(-1, 6):                          # content scrolling by
-            ly = 22 + i * 26 + offset
-            if 18 < ly < bh - 22:
-                pygame.draw.rect(body, (*PUPIL_DARK, 110),
-                                 pygame.Rect(18, ly, bw - 36, 7), border_radius=3)
-        body = pygame.transform.rotate(body, -12)
-        body.set_alpha(int(255 * hold))
-        rect = body.get_rect(center=(int(x), int(y)))
-        glow = body.copy()
-        glow.fill((*GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
-        glow.set_alpha(int(80 * hold))
-        bloom(surf, glow, rect.topleft, radius=10, passes=1, max_alpha=70)
-        surf.blit(body, rect)
-
-    def _draw_ball(self, surf, fcx, fcy):
-        """Idle scene: a ball she bounces and follows with her eyes."""
-        hold = _prop_hold(self._idle_p)
-        if hold < 0.02:
-            return
-        x, y = self._ball_xy()
-        r = 36
-        squash = 1.0 + 0.25 * max(0.0, (y - (HEIGHT - 90)) / 45.0)   # flattens on impact
-        ball = gradient_block(int(r * 2 / squash), int(r * 2 * squash), r,
-                              EYE_GRAD_TOP, EYE_GRAD_BOTTOM)
-        ball = ball.copy()
-        ball.set_alpha(int(255 * hold))
-        rect = ball.get_rect(center=(int(x), int(y)))
-        draw_glow_circle(surf, GLOW_COL, (int(x), int(y)), r, layers=3, max_alpha=45)
-        surf.blit(ball, rect)
-
-    def _draw_music(self, surf, fcx, fcy):
-        """Idle scene: headphones on, notes drifting up, bobbing to the beat."""
-        hold = _prop_hold(self._idle_p)
-        if hold < 0.02:
-            return
-        t    = self._idle_p * IDLE_DURATION["music"]
-        drop = int((1.0 - hold) * 120)          # slides on from above
-
-        # ── headband ──────────────────────────────────────────────────────
-        # an ellipse arc whose ends meet the ear cups: centre (fcx, fcy-40),
-        # semi-axes 310 x 110, so it peaks at fcy-150 and stays on screen
-        band = pygame.Surface((640, 260), pygame.SRCALPHA)
-        pygame.draw.arc(band, (*EYE_MID, 255), pygame.Rect(10, 10, 620, 220),
-                        0.0, math.pi, 17)
-        band.set_alpha(int(255 * hold))
-        brect = band.get_rect(center=(int(fcx), int(fcy) - 40 - drop))
-        bglow = band.copy()
-        bglow.fill((*GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
-        bglow.set_alpha(int(70 * hold))
-        bloom(surf, bglow, brect.topleft, radius=9, passes=1, max_alpha=70)
-        surf.blit(band, brect)
-
-        # ── ear cups ──────────────────────────────────────────────────────
-        for side in (-1, 1):
-            cw, ch = 74, 118
-            cup = gradient_block(cw, ch, 26, HAND_GRAD_TOP, HAND_GRAD_BOTTOM)
-            cup = cup.copy()
-            pygame.draw.rect(cup, (*PUPIL_DARK, 90),
-                             pygame.Rect(12, 20, cw - 24, ch - 40), border_radius=16)
-            cup.set_alpha(int(255 * hold))
-            rect = cup.get_rect(center=(int(fcx + side * 300),
-                                        int(fcy) - 16 - drop))
-            glow = cup.copy()
-            glow.fill((*GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
-            glow.set_alpha(int(90 * hold))
-            bloom(surf, glow, rect.topleft, radius=10, passes=1, max_alpha=80)
-            surf.blit(cup, rect)
-
-        # ── notes drifting up beside her ──────────────────────────────────
-        for i in range(6):
-            side = -1 if i % 2 else 1
-            ph   = (t * 0.55 + i * 0.37) % 1.0          # 0 → 1, then respawn
-            if ph > 0.92:
-                continue
-            a = int(235 * hold * min(1.0, ph * 5) * (1.0 - ph))
-            if a <= 6:
-                continue
-            nx = fcx + side * (232 + 46 * math.sin(ph * math.pi * 2 + i))
-            ny = fcy + 50 - ph * 250
-            note = _note_surface(24 + (i % 2) * 8)
-            note = pygame.transform.rotate(note, 12 * math.sin(ph * 4 + i))
-            note.set_alpha(a)
-            surf.blit(note, note.get_rect(center=(int(nx), int(ny))))
-
-    def _draw_clock(self, surf, fcx, fcy):
-        """Idle scene: the time floats up between the eyes, wobbles, sinks."""
-        p    = self._idle_p
-        rise = math.sin(min(1.0, p * 1.4) * math.pi / 2)      # ease in
-        fade = 1.0 if p < 0.75 else max(0.0, (1.0 - p) / 0.25)
-        font = _get_font(84)
-        txt  = time.strftime("%H:%M")
-        img  = font.render(txt, True, EYE_INNER)
-        img.set_alpha(int(235 * fade))
-        ang  = 9.0 * math.sin(p * math.pi * 4)
-        img  = pygame.transform.rotate(img, ang)
-        # settles below the eyes, well clear of them
-        y    = fcy + 215 - 105 * rise + 8 * math.sin(p * math.pi * 6)
-        rect = img.get_rect(center=(int(fcx), int(y)))
-        # glow that follows the digits (a glow RECT would look like a card)
-        glow = img.copy()
-        glow.fill((*GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
-        glow.set_alpha(int(150 * fade))
-        bloom(surf, glow, rect.topleft, radius=7, passes=1, max_alpha=110)
-        surf.blit(img, rect)
-
     def draw(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -2198,17 +1990,9 @@ class RobotFace:
                 sz = int(50 + 12 * self._heart_pulse)
                 draw_heart(base, fcx, fcy + 112, sz)
 
-        # ── idle scenes with props ────────────────────────────────────────
-        if self._idle == "clock":
-            self._draw_clock(base, fcx, fcy)
-        elif self._idle == "read_book":
-            self._draw_book(base, fcx, fcy)
-        elif self._idle == "phone":
-            self._draw_phone(base, fcx, fcy)
-        elif self._idle == "ball":
-            self._draw_ball(base, fcx, fcy)
-        elif self._idle == "music":
-            self._draw_music(base, fcx, fcy)
+        # ── whatever the current idle scene draws on top ──────────────────
+        if self._scene:
+            self._scene.draw(self, base, fcx, fcy, self._idle_p)
 
         # ── particles (foreground) ────────────────────────────────────────
         for p in self.zzz_particles:
@@ -2293,3 +2077,9 @@ class RobotFace:
                          pygame.Rect(x - 2, y - 2, surf.get_width() + 4,
                                      surf.get_height() + 4), 2, border_radius=4)
         self.screen.blit(surf, (x, y))
+
+
+# Registering the scene catalogue last: idle_scenes reaches back into this
+# module for the drawing helpers and the live palette, so it can only be
+# imported once everything above exists.
+import idle_scenes  # noqa: E402

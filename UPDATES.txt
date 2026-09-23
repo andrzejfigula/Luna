@@ -4,6 +4,27 @@
   Format: date · area · what changed · why
 ══════════════════════════════════════════════════════════════════
 
+─── 2026-09-23 — Scene registry + 11 new idle scenes + scenes in replies ──
+
+[refactor] idle_scenes.py: every idle behaviour is now a small class
+  registered with @scene(name, duration, weight, night_weight, mood,
+  needs_face, in_reply), implementing any of motion() / eyes() / draw().
+  robot_face just looks the scene up and calls it — the elif chains in
+  update()/draw() and the _draw_* methods are gone, and adding a
+  behaviour no longer means editing four places. Weights, durations and
+  moods live with the scene; config keeps IDLE_SCENE_WEIGHTS /
+  IDLE_SCENES_DISABLED as tuning overrides.
+[idle] Eleven new eyes-only scenes (the cheap ones that carry most of the
+  liveliness): double_blink, slow_blink, cross_eyes, eye_roll,
+  eye_twitch, remember, peek, staring, bored, smirk, fly (a fly buzzes
+  around, she tracks it and blinks it away). Per-eye pupil offset added
+  for cross_eyes.
+[brain] The LLM may now pick a facial scene as body language, not just
+  hand gestures: wink, smirk, eye_roll, remember, cross_eyes,
+  slow_blink, double_blink, eye_twitch (scenes marked in_reply=True;
+  prop scenes stay out so nothing fights lip sync). The enum is built
+  from the registry, so marking a new scene in_reply is all it takes.
+
 ─── 2026-09-23 — Idle scene: listening to music ─────────────────────────
 
 [idle] "music": headphones slide on (ellipse-arc headband meeting two ear

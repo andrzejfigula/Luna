@@ -296,45 +296,11 @@ IDLE_SCENE_MIN_SECS  = 40      # gap between micro-scenes
 IDLE_SCENE_MAX_SECS  = 130
 NIGHT_FROM, NIGHT_TO = 22, 6   # "night" for scene weighting
 
-# Visual micro-scenes and how often they come up (weights, not probabilities)
-IDLE_SCENES = {
-    "wink":        3,     # a quick wink at whoever is in front of her
-    "look_around": 4,     # glances around the room
-    "stretch":     2,     # squeezes her eyes and stretches
-    "clock":       3,     # pulls the time out and plays with the digits
-    "read_book":   4,     # reads a book, eyes scanning the lines
-    "phone":       3,     # scrolls something on a little phone
-    "ball":        4,     # bounces a ball and follows it with her eyes
-    "music":       4,     # headphones on, bobbing to the beat
-    "yawn":        1,
-}
-IDLE_SCENES_NIGHT = {     # after NIGHT_FROM she gets sleepy
-    "wink":        1,
-    "look_around": 2,
-    "stretch":     2,
-    "clock":       2,
-    "read_book":   3,     # reading in bed is a night thing
-    "phone":       2,
-    "ball":        1,
-    "music":       3,
-    "yawn":        5,
-}
-
-# How long each scene runs, and the mood she wears while it plays
-IDLE_DURATION = {
-    "wink":        1.1,
-    "look_around": 4.0,
-    "stretch":     2.2,
-    "yawn":        3.0,
-    "clock":       6.0,
-    "read_book":  11.0,
-    "phone":       9.0,
-    "ball":        8.0,
-    "music":      11.0,
-}
-IDLE_SCENE_MOODS = {
-    "music": "happy",     # she enjoys it — smile, blush, softer eyes
-}
+# What she does and how often now lives with each scene in idle_scenes.py.
+# These are only overrides for tuning without touching the catalogue:
+#   IDLE_SCENE_WEIGHTS = {"ball": 8, "yawn": 0}   # 0 disables a scene
+IDLE_SCENE_WEIGHTS  = {}
+IDLE_SCENES_DISABLED = []
 
 # ── Proactive speech (the scarce resource — animations are free) ──────────────
 PROACTIVE_SPEECH       = True
