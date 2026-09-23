@@ -4,6 +4,21 @@
   Format: date · area · what changed · why
 ══════════════════════════════════════════════════════════════════
 
+─── 2026-09-23 — Screen pack: the panel itself as a medium ───────────────
+
+[face] Two new scene hooks: draw_bg() paints BEHIND her face and post()
+  works on the finished frame, so a scene can own the whole screen.
+[idle] rain (drops on the glass, she watches them), snow, leaves,
+  dvd_logo (the screensaver, bouncing, eyes tracking it, colour changes
+  on every bounce), matrix (glyph columns behind her), hyperspace (stars
+  streaming from the centre) and glitch (the frame tears into displaced
+  bands — also usable in a reply). All weighted up at night, where they
+  work as a wallpaper.
+[perf] Measured on the Pi: every one of them holds 30 fps. Two things
+  that would have cost: katakana in matrix rendered as empty boxes in the
+  system font (ASCII now) and copying ~190 glyph surfaces per frame
+  (set_alpha on the cached surface instead).
+
 ─── 2026-09-23 — Hands pack: eight scenes that use her hands ─────────────
 
 [idle] Scenes can now drive the hands: the gesture block hands a mutable

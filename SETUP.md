@@ -110,7 +110,9 @@ front of the camera for 30 s the face goes to sleep.
   when it fits the reply (the LLM picks, see `brain.py`). Wave at the camera
   and she waves back (`gesture_module.py`, motion-based; `WAVE_*` in config).
 - Idle behaviours live in `idle_scenes.py` — one class per scene with its
-  own duration, weights (day/night), mood and flags. Add a behaviour by
+  own duration, weights (day/night), mood and flags. A scene may implement
+  `motion` (head/pupils), `eyes`, `hands`, `draw` (props on top),
+  `draw_bg` (behind her) and `post` (the finished frame). Add a behaviour by
   writing one class; tune how often it shows up with `IDLE_SCENE_WEIGHTS`
   in config (0 disables), or list it in `IDLE_SCENES_DISABLED`.
   Scenes marked `in_reply=True` can also be chosen by the LLM as body

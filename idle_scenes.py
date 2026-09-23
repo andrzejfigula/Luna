@@ -46,7 +46,15 @@ class Scene:
     def hands(self, face, p, h):
         pass
 
+    def draw_bg(self, face, surf, fcx, fcy, p):
+        """Drawn BEHIND her face — weather, starfields, backdrops."""
+        pass
+
     def draw(self, face, surf, fcx, fcy, p):
+        pass
+
+    def post(self, face, screen, p):
+        """Applied to the finished frame — glitches and screen effects."""
         pass
 
 
@@ -694,3 +702,241 @@ class Please(Scene):
 
     def eyes(self, face, p, e):
         e.widen = max(e.widen, 0.85 * rf._prop_hold(p, 0.18, 0.18))
+
+
+# ══ The screen itself as a medium ═══════════════════════════════════════════
+# Ambient, wallpaper-like scenes. They run longer than the others and are
+# weighted up at night, when the room is dark and the panel is the only
+# thing giving light.
+
+def _fade(p, rise=0.1, fall=0.15):
+    return rf._prop_hold(p, rise, fall)
+
+
+@scene("rain", duration=13.0, weight=2, night_weight=4)
+class Rain(Scene):
+    """Rain running down the glass; she watches a drop now and then."""
+    N = 44
+
+    def __init__(self):
+        rnd = random.Random(7)
+        self.drops = [(rnd.random(), rnd.random(), rnd.uniform(0.7, 1.6),
+                       rnd.uniform(10, 26)) for _ in range(self.N)]
+
+    def motion(self, face, p):
+        hold = _fade(p)
+        # eyes wander up after the drops
+        face.pupil_oy = rf.lerp(face.pupil_oy, -14.0 * hold, 0.04)
+        face.pupil_ox = rf.lerp(face.pupil_ox,
+                                20.0 * math.sin(p * math.pi * 1.5) * hold, 0.04)
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = _fade(p)
+        if hold < 0.02:
+            return
+        t = p * self.duration
+        col = rf.TEAR_COL
+        for x0, y0, speed, length in self.drops:
+            y = ((y0 + t * speed * 0.42) % 1.25) * rf.HEIGHT - 60
+            x = x0 * rf.WIDTH
+            a = int(190 * hold)
+            line = pygame.Surface((3, int(length)), pygame.SRCALPHA)
+            line.fill((*col, a))
+            surf.blit(line, (int(x), int(y)))
+            pygame.draw.circle(surf, (*col, a), (int(x) + 1, int(y + length)), 2)
+
+
+@scene("snow", duration=14.0, weight=2, night_weight=4)
+class Snow(Scene):
+    """Big soft flakes drifting down past her."""
+    N = 60
+
+    def __init__(self):
+        rnd = random.Random(11)
+        self.flakes = [(rnd.random(), rnd.random(), rnd.uniform(0.18, 0.5),
+                        rnd.uniform(2.5, 6.0), rnd.uniform(0, 6.3))
+                       for _ in range(self.N)]
+
+    def motion(self, face, p):
+        hold = _fade(p)
+        face.pupil_oy = rf.lerp(face.pupil_oy, -8.0 * hold, 0.03)
+        face.target_tilt = 3.0 * math.sin(p * math.pi * 2) * hold
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = _fade(p)
+        if hold < 0.02:
+            return
+        t = p * self.duration
+        for x0, y0, speed, r, ph in self.flakes:
+            y = ((y0 + t * speed * 0.14) % 1.15) * rf.HEIGHT - 30
+            x = (x0 * rf.WIDTH + 26 * math.sin(t * 0.7 + ph)) % rf.WIDTH
+            a = int(200 * hold * (0.5 + 0.5 * math.sin(ph + t)))
+            fl = pygame.Surface((int(r * 2) + 2, int(r * 2) + 2), pygame.SRCALPHA)
+            pygame.draw.circle(fl, (*rf.TEETH_COL, a), (int(r) + 1, int(r) + 1), int(r))
+            surf.blit(fl, (int(x), int(y)))
+
+
+@scene("leaves", duration=13.0, weight=2, night_weight=1)
+class Leaves(Scene):
+    """Autumn leaves tumbling across the screen."""
+    N = 16
+
+    def __init__(self):
+        rnd = random.Random(23)
+        self.leaves = [(rnd.random(), rnd.random(), rnd.uniform(0.3, 0.7),
+                        rnd.uniform(10, 17), rnd.uniform(0, 6.3),
+                        rnd.uniform(1.5, 4.0)) for _ in range(self.N)]
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = _fade(p)
+        if hold < 0.02:
+            return
+        t = p * self.duration
+        for x0, y0, speed, size, ph, spin in self.leaves:
+            y = ((y0 + t * speed * 0.14) % 1.2) * rf.HEIGHT - 40
+            x = (x0 * rf.WIDTH + 70 * math.sin(t * 0.5 + ph)) % rf.WIDTH
+            leaf = pygame.Surface((int(size * 2), int(size * 2)), pygame.SRCALPHA)
+            pygame.draw.ellipse(leaf, (*rf.EYE_OUTER, int(220 * hold)),
+                                pygame.Rect(0, int(size * 0.5), int(size * 2), int(size)))
+            pygame.draw.line(leaf, (*rf.PUPIL_DARK, int(160 * hold)),
+                             (2, int(size)), (int(size * 2) - 2, int(size)), 2)
+            leaf = pygame.transform.rotate(leaf, math.degrees(t * spin + ph))
+            surf.blit(leaf, leaf.get_rect(center=(int(x), int(y))))
+
+
+@scene("dvd_logo", duration=14.0, weight=2, night_weight=3)
+class DvdLogo(Scene):
+    """The screensaver everyone has waited to see hit the corner."""
+    _font = None
+
+    def _pos(self, p):
+        w, h = 168, 76
+        sx, sy = 168.0, 121.0                      # px per second
+        t = p * self.duration
+        span_x, span_y = rf.WIDTH - w, rf.HEIGHT - h
+        x = abs(((t * sx + 40) % (2 * span_x)) - span_x)
+        y = abs(((t * sy + 30) % (2 * span_y)) - span_y)
+        bounces = int((t * sx + 40) // span_x) + int((t * sy + 30) // span_y)
+        return x, y, w, h, bounces
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = _fade(p, 0.08, 0.1)
+        if hold < 0.02:
+            return
+        if DvdLogo._font is None:
+            DvdLogo._font = rf._get_font(46)
+        x, y, w, h, bounces = self._pos(p)
+        palette = (rf.EYE_INNER, rf.EYE_MID, rf.TEAR_COL, rf.HEART_COL,
+                   rf.STAR_COL)
+        col = palette[bounces % len(palette)]
+        box = pygame.Surface((w, h), pygame.SRCALPHA)
+        pygame.draw.rect(box, (*col, int(70 * hold)), box.get_rect(), border_radius=14)
+        pygame.draw.rect(box, (*col, int(230 * hold)), box.get_rect(), 3,
+                         border_radius=14)
+        txt = DvdLogo._font.render("LUNA", True, col)
+        txt.set_alpha(int(255 * hold))
+        box.blit(txt, txt.get_rect(center=(w // 2, h // 2)))
+        surf.blit(box, (int(x), int(y)))
+
+    def motion(self, face, p):
+        x, y, w, h, _ = self._pos(p)
+        hold = _fade(p, 0.08, 0.1)
+        face.pupil_ox = rf.lerp(face.pupil_ox,
+                                rf.clamp((x + w / 2 - face.face_cx) * 0.09,
+                                         -30, 30) * hold, 0.3)
+        face.pupil_oy = rf.lerp(face.pupil_oy,
+                                rf.clamp((y + h / 2 - face.face_cy) * 0.09,
+                                         -24, 24) * hold, 0.3)
+
+
+@scene("matrix", duration=12.0, weight=2, night_weight=4)
+class Matrix(Scene):
+    """Glyphs raining down the background, green-screen style."""
+    COLS = 16
+    _glyphs = None
+
+    def __init__(self):
+        rnd = random.Random(5)
+        self.cols = [(rnd.random(), rnd.uniform(0.5, 1.4), rnd.randint(6, 12))
+                     for _ in range(self.COLS)]
+
+    def _build(self):
+        font = rf._get_font(26)
+        # plain ASCII only: the system font has no katakana and renders
+        # missing glyphs as empty boxes
+        chars = "01234567890ABCDEFGHJKLMNPQRSTUVWXYZ<>*+=/%#"
+        Matrix._glyphs = [font.render(c, True, rf.EYE_INNER) for c in chars]
+
+    def draw_bg(self, face, surf, fcx, fcy, p):
+        hold = _fade(p)
+        if hold < 0.02:
+            return
+        if Matrix._glyphs is None:
+            self._build()
+        t = p * self.duration
+        step = rf.WIDTH // self.COLS
+        for i, (y0, speed, length) in enumerate(self.cols):
+            head = ((y0 + t * speed * 0.22) % 1.3) * rf.HEIGHT
+            x = i * step + 6
+            for j in range(length):
+                y = head - j * 28
+                if y < -28 or y > rf.HEIGHT:
+                    continue
+                g = Matrix._glyphs[(i * 7 + j + int(t * 3)) % len(Matrix._glyphs)]
+                # set_alpha on the cached surface — copying ~190 glyphs per
+                # frame was the expensive part
+                g.set_alpha(int(hold * 235 * (1.0 - j / length) ** 1.5))
+                surf.blit(g, (x, int(y)))
+
+
+@scene("hyperspace", duration=11.0, weight=2, night_weight=3)
+class Hyperspace(Scene):
+    """Stars streaming past — she is going somewhere, apparently."""
+    N = 70
+
+    def __init__(self):
+        rnd = random.Random(3)
+        self.stars = [(rnd.uniform(0, 6.283), rnd.random(), rnd.uniform(0.6, 1.5))
+                      for _ in range(self.N)]
+
+    def draw_bg(self, face, surf, fcx, fcy, p):
+        hold = _fade(p)
+        if hold < 0.02:
+            return
+        t = p * self.duration
+        cx, cy = rf.WIDTH // 2, rf.HEIGHT // 2
+        for ang, phase, speed in self.stars:
+            d = ((phase + t * speed * 0.22) % 1.0)
+            r0 = 26 + d * d * 620
+            r1 = r0 + 12 + d * 52
+            a = int(230 * hold * min(1.0, d * 3) * (1.0 - d))
+            if a <= 5:
+                continue
+            ca, sa = math.cos(ang), math.sin(ang)
+            pygame.draw.line(surf, (*rf.EYE_INNER, a),
+                             (cx + ca * r0, cy + sa * r0),
+                             (cx + ca * r1, cy + sa * r1), 2)
+
+
+@scene("glitch", duration=2.6, weight=2, night_weight=2, in_reply=True)
+class Glitch(Scene):
+    """Her picture tears for a moment — a hiccup in the machine."""
+    def eyes(self, face, p, e):
+        if 0.2 < p < 0.75:
+            e.widen = max(e.widen, 0.5)
+
+    def post(self, face, screen, p):
+        if not (0.12 < p < 0.82):
+            return
+        rnd = random.Random(int(p * 24))
+        w, h = screen.get_size()
+        for _ in range(rnd.randint(2, 5)):
+            y = rnd.randint(0, h - 20)
+            bh = rnd.randint(8, 46)
+            dx = rnd.randint(-42, 42)
+            band = screen.subsurface(pygame.Rect(0, y, w, min(bh, h - y))).copy()
+            screen.blit(band, (dx, y))
+        if rnd.random() < 0.5:                      # a colour-split ghost
+            ghost = screen.copy()
+            ghost.set_alpha(60)
+            screen.blit(ghost, (rnd.randint(-6, 6), rnd.randint(-3, 3)))

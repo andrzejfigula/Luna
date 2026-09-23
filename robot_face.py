@@ -1937,6 +1937,10 @@ class RobotFace:
         fcx = int(self.face_cx + self.face_ox)
         fcy = int(self.face_cy + self.face_oy)
 
+        # ── whatever the scene puts BEHIND her (weather, starfields…) ─────
+        if self._scene:
+            self._scene.draw_bg(self, base, fcx, fcy, self._idle_p)
+
         # ── hair (behind everything) ──────────────────────────────────────
         if HAIR:
             draw_hair(base, fcx, fcy, self.head_angle)
@@ -2046,6 +2050,10 @@ class RobotFace:
             self.screen.blit(rotated, rect)
         else:
             self.screen.blit(base, (0, 0))
+
+        # ── scene post-processing on the finished frame (glitch…) ────────
+        if self._scene:
+            self._scene.post(self, self.screen, self._idle_p)
 
         # ── camera preview (on top, not rotated with the head) ───────────
         if CAMERA_PREVIEW:
