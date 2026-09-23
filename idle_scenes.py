@@ -36,6 +36,7 @@ class Scene:
     mood = None
     needs_face = False
     in_reply = False
+    hours = None            # (from, to) — only shows up inside this window
 
     def motion(self, face, p):
         pass
@@ -78,16 +79,26 @@ class Eyes:
 
 
 def scene(name, duration, weight=3, night_weight=None, mood=None,
-          needs_face=False, in_reply=False):
+          needs_face=False, in_reply=False, hours=None):
     def deco(cls):
         inst = cls()
         inst.name, inst.duration = name, duration
         inst.weight = weight
         inst.night_weight = weight if night_weight is None else night_weight
         inst.mood, inst.needs_face, inst.in_reply = mood, needs_face, in_reply
+        inst.hours = hours
         SCENES[name] = inst
         return cls
     return deco
+
+
+def _in_hours(window):
+    """True when the local hour is inside (from, to); wraps past midnight."""
+    if not window:
+        return True
+    h = time.localtime().tm_hour
+    a, b = window
+    return a <= h < b if a <= b else (h >= a or h < b)
 
 
 def reply_scenes():
@@ -99,7 +110,8 @@ def pick(night, face_present, weights_override=None, disabled=()):
     """Weighted random scene name for the current situation."""
     names, weights = [], []
     for s in SCENES.values():
-        if s.name in disabled or (s.needs_face and not face_present):
+        if (s.name in disabled or (s.needs_face and not face_present)
+                or not _in_hours(s.hours)):
             continue
         w = (weights_override or {}).get(
             s.name, s.night_weight if night else s.weight)
@@ -940,3 +952,284 @@ class Glitch(Scene):
             ghost = screen.copy()
             ghost.set_alpha(60)
             screen.blit(ghost, (rnd.randint(-6, 6), rnd.randint(-3, 3)))
+
+
+# ══ Everyday props ══════════════════════════════════════════════════════════
+
+@scene("coffee", duration=10.0, weight=4, night_weight=1, mood="happy",
+       hours=(5, 18))
+class Coffee(Scene):
+    """A mug of something hot: steam curls up, and she takes a sip."""
+    def _sip(self, p):
+        """0 → resting, 1 → mug at her lips."""
+        if 0.35 < p < 0.62:
+            return math.sin((p - 0.35) / 0.27 * math.pi)
+        return 0.0
+
+    def hands(self, face, p, h):
+        hold = rf._prop_hold(p)
+        sip = self._sip(p)
+        h.r = (120, rf.lerp(230, 130, sip) + 300 * (1 - hold), -14 - 10 * sip)
+
+    def motion(self, face, p):
+        sip = self._sip(p)
+        face.target_oy += 8.0 * sip
+        face.pupil_oy = rf.lerp(face.pupil_oy, 16.0 * rf._prop_hold(p), 0.08)
+
+    def eyes(self, face, p, e):
+        e.squint = max(e.squint, 0.7 * self._sip(p))
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p)
+        if hold < 0.02:
+            return
+        sip = self._sip(p)
+        mw, mh = 96, 92
+        x = fcx + 28
+        y = fcy + rf.lerp(198, 104, sip) + 300 * (1 - hold)
+        mug = rf.gradient_block(mw, mh, 14, rf.HAND_GRAD_TOP, rf.HAND_GRAD_BOTTOM)
+        mug = mug.copy()
+        pygame.draw.ellipse(mug, (*rf.PUPIL_DARK, 210),
+                            pygame.Rect(10, 4, mw - 20, 18))       # the drink
+        img = pygame.transform.rotate(mug, -22 * sip)
+        rect = img.get_rect(center=(int(x), int(y)))
+        pygame.draw.arc(surf, rf.EYE_MID,
+                        pygame.Rect(rect.right - 12, rect.y + 22, 40, 46),
+                        math.radians(-70), math.radians(70), 8)    # handle
+        glow = img.copy()
+        glow.fill((*rf.GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
+        glow.set_alpha(int(80 * hold))
+        rf.bloom(surf, glow, rect.topleft, radius=10, passes=1, max_alpha=70)
+        surf.blit(img, rect)
+
+        t = p * self.duration
+        for i in range(3):                                          # steam
+            for j in range(5):
+                sy = rect.top - 14 - j * 17 - (t * 26 + i * 40) % 30
+                if sy < fcy - 40:
+                    continue
+                a = int(150 * hold * (1.0 - j / 5.0))
+                sx = rect.centerx - 26 + i * 26 + 11 * math.sin(t * 2.2 + j * 0.9 + i)
+                pygame.draw.circle(surf, (*rf.TEETH_COL, a), (int(sx), int(sy)), 5)
+
+
+@scene("camera", duration=6.5, weight=3, night_weight=2, mood="happy",
+       needs_face=True)
+class Camera(Scene):
+    """Takes your picture — and the flash goes off in your face."""
+    FLASH = 0.62
+
+    def hands(self, face, p, h):
+        hold = rf._prop_hold(p, 0.15, 0.15)
+        h.l = (-150, 20 + 400 * (1 - hold), 18)
+        h.r = ( 150, 20 + 400 * (1 - hold), -18)
+
+    def eyes(self, face, p, e):
+        d = p - self.FLASH
+        if -0.06 < d < 0.16:                       # blinks at her own flash
+            e.blink_l = e.blink_r = min(e.blink_l, abs(d) / 0.16)
+        e.widen = max(e.widen, 0.4 * rf._prop_hold(p, 0.15, 0.15))
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p, 0.15, 0.15)
+        if hold < 0.02:
+            return
+        bw, bh = 250, 150
+        y = fcy - 10 + 320 * (1 - hold)
+        body = pygame.Surface((bw, bh), pygame.SRCALPHA)
+        pygame.draw.rect(body, (*rf.PUPIL_DARK, 245), body.get_rect(),
+                         border_radius=18)
+        pygame.draw.rect(body, (*rf.EYE_MID, 235), body.get_rect(), 4,
+                         border_radius=18)
+        pygame.draw.circle(body, (*rf.EYE_MID, 235), (bw // 2, bh // 2), 46, 5)
+        pygame.draw.circle(body, (*rf.EYE_INNER, 150), (bw // 2, bh // 2), 30)
+        pygame.draw.circle(body, (*rf.PUPIL_DARK, 255), (bw // 2, bh // 2), 18)
+        # the flash bulb lights up just before it fires
+        lit = 255 if abs(p - self.FLASH) < 0.05 else 110
+        pygame.draw.rect(body, (*rf.TEETH_COL, lit),
+                         pygame.Rect(bw - 62, 16, 34, 20), border_radius=6)
+        body.set_alpha(int(255 * hold))
+        surf.blit(body, body.get_rect(center=(int(fcx), int(y))))
+
+    def post(self, face, screen, p):
+        d = abs(p - self.FLASH)
+        if d < 0.055:                              # the flash itself
+            ov = pygame.Surface(screen.get_size())
+            ov.fill((255, 255, 255))
+            ov.set_alpha(int(235 * (1.0 - d / 0.055)))
+            screen.blit(ov, (0, 0))
+
+
+@scene("binoculars", duration=8.0, weight=3, night_weight=2)
+class Binoculars(Scene):
+    """Scans the room through a pair of binoculars."""
+    def _pan(self, p):
+        return math.sin(p * math.pi * 2.2)
+
+    def hands(self, face, p, h):
+        hold = rf._prop_hold(p, 0.15, 0.15)
+        pan = self._pan(p) * 26
+        h.l = (-232 + pan, 70 + 360 * (1 - hold), 30)
+        h.r = ( 232 + pan, 70 + 360 * (1 - hold), -30)
+
+    def motion(self, face, p):
+        hold = rf._prop_hold(p, 0.15, 0.15)
+        pan = self._pan(p)
+        face.target_ox += 26.0 * pan * hold
+        face.target_tilt = 4.0 * pan * hold
+        face.pupil_ox = rf.lerp(face.pupil_ox, 18.0 * pan * hold, 0.2)
+
+    def eyes(self, face, p, e):
+        e.squint = max(e.squint, 0.3 * rf._prop_hold(p, 0.15, 0.15))
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p, 0.15, 0.15)
+        if hold < 0.02:
+            return
+        pan = self._pan(p) * 26
+        y = int(fcy - 30 + 340 * (1 - hold))
+        r = 118
+        for side in (-1, 1):
+            x = int(fcx + side * 150 + pan)
+            lens = pygame.Surface((r * 2 + 12, r * 2 + 12), pygame.SRCALPHA)
+            c = (r + 6, r + 6)
+            pygame.draw.circle(lens, (*rf.PUPIL_DARK, 70), c, r)       # tinted glass
+            pygame.draw.circle(lens, (*rf.EYE_MID, 240), c, r, 12)     # rim
+            pygame.draw.circle(lens, (*rf.TEETH_COL, 90), c, r - 16, 3)
+            lens.set_alpha(int(255 * hold))
+            surf.blit(lens, lens.get_rect(center=(x, y)))
+        pygame.draw.rect(surf, rf.EYE_MID,
+                         pygame.Rect(int(fcx - 34 + pan), y - 13, 68, 26),
+                         border_radius=8)                              # bridge
+
+
+@scene("spinner", duration=7.5, weight=3, night_weight=2)
+class Spinner(Scene):
+    """A fidget spinner, spinning down. Hypnotic."""
+    def motion(self, face, p):
+        hold = rf._prop_hold(p)
+        face.pupil_oy = rf.lerp(face.pupil_oy, 26.0 * hold, 0.1)
+
+    def eyes(self, face, p, e):
+        e.squint = max(e.squint, 0.25 * rf._prop_hold(p))
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p)
+        if hold < 0.02:
+            return
+        t = p * self.duration
+        speed = 14.0 * (1.0 - p * 0.65)                # spins down over time
+        ang = t * speed
+        cx, cy = int(fcx), int(fcy + 148 + 300 * (1 - hold))
+        lobe_r, arm = 40, 66
+        body = pygame.Surface((240, 240), pygame.SRCALPHA)
+        bc = (120, 120)
+        for i in range(3):
+            a = ang + i * 2.0944
+            lx = bc[0] + math.cos(a) * arm
+            ly = bc[1] + math.sin(a) * arm
+            pygame.draw.line(body, (*rf.EYE_MID, 235), bc, (lx, ly), 26)
+            pygame.draw.circle(body, (*rf.EYE_OUTER, 245), (int(lx), int(ly)), lobe_r)
+            pygame.draw.circle(body, (*rf.EYE_INNER, 200), (int(lx), int(ly)),
+                               lobe_r - 12)
+        pygame.draw.circle(body, (*rf.EYE_MID, 255), bc, 26)
+        pygame.draw.circle(body, (*rf.PUPIL_DARK, 255), bc, 13)
+        body.set_alpha(int(255 * hold))
+        surf.blit(body, body.get_rect(center=(cx, cy)))
+
+
+@scene("yoyo", duration=8.0, weight=3, night_weight=2)
+class Yoyo(Scene):
+    """Walks the dog with a yo-yo; her eyes go up and down with it."""
+    def _drop(self, p):
+        return abs(math.sin(p * self.duration * 1.15))
+
+    def hands(self, face, p, h):
+        hold = rf._prop_hold(p, 0.12, 0.12)
+        h.r = (150, -60 + 420 * (1 - hold), -16)
+
+    def motion(self, face, p):
+        hold = rf._prop_hold(p, 0.12, 0.12)
+        face.pupil_oy = rf.lerp(face.pupil_oy,
+                                (-14 + 42 * self._drop(p)) * hold, 0.3)
+        face.pupil_ox = rf.lerp(face.pupil_ox, 16.0 * hold, 0.1)
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p, 0.12, 0.12)
+        if hold < 0.02:
+            return
+        top = (int(fcx + 150), int(fcy - 10 + 420 * (1 - hold)))
+        y = top[1] + 40 + self._drop(p) * 300
+        pygame.draw.line(surf, (*rf.TEETH_COL, int(200 * hold)),
+                         top, (top[0], int(y)), 3)
+        r = 40
+        disc = rf.gradient_block(r * 2, r * 2, r, rf.EYE_GRAD_TOP, rf.EYE_GRAD_BOTTOM)
+        disc = disc.copy()
+        pygame.draw.circle(disc, (*rf.PUPIL_DARK, 220), (r, r), 9)
+        disc.set_alpha(int(255 * hold))
+        rf.draw_glow_circle(surf, rf.GLOW_COL, (top[0], int(y)), r,
+                            layers=3, max_alpha=40)
+        surf.blit(disc, disc.get_rect(center=(top[0], int(y))))
+
+
+@scene("hourglass", duration=10.0, weight=3, night_weight=3)
+class Hourglass(Scene):
+    """Watches the sand run out, then flips it over."""
+    FLIP = 0.62
+
+    def _phase(self, p):
+        """(fill 0..1 of the top bulb, flip angle)."""
+        if p < self.FLIP:
+            return 1.0 - p / self.FLIP, 0.0
+        if p < self.FLIP + 0.12:                    # flipping
+            k = (p - self.FLIP) / 0.12
+            return k, 180.0 * k
+        k = (p - self.FLIP - 0.12) / max(0.01, 1.0 - self.FLIP - 0.12)
+        return 1.0 - k, 180.0
+
+    def motion(self, face, p):
+        hold = rf._prop_hold(p)
+        face.pupil_oy = rf.lerp(face.pupil_oy, 22.0 * hold, 0.08)
+
+    def hands(self, face, p, h):
+        if self.FLIP - 0.06 < p < self.FLIP + 0.18:
+            h.r = (95, 150, -20)
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p)
+        if hold < 0.02:
+            return
+        fill, flip = self._phase(p)
+        w, h = 124, 172
+        glass = pygame.Surface((w, h), pygame.SRCALPHA)
+        top = [(8, 8), (w - 8, 8), (w // 2 + 8, h // 2), (w // 2 - 8, h // 2)]
+        bot = [(8, h - 8), (w - 8, h - 8), (w // 2 + 8, h // 2), (w // 2 - 8, h // 2)]
+        # sand in the upper bulb, drawn as a shrinking wedge
+        if fill > 0.02:
+            k = fill
+            pygame.draw.polygon(glass, (*rf.EYE_OUTER, 235), [
+                (w // 2 - (w // 2 - 8) * k, h // 2 - (h // 2 - 8) * k),
+                (w // 2 + (w // 2 - 8) * k, h // 2 - (h // 2 - 8) * k),
+                (w // 2 + 8, h // 2), (w // 2 - 8, h // 2)])
+        # and the pile below
+        if fill < 0.98:
+            k = 1.0 - fill
+            pygame.draw.polygon(glass, (*rf.EYE_OUTER, 235), [
+                (w // 2 - (w // 2 - 10) * k, h - 10),
+                (w // 2 + (w // 2 - 10) * k, h - 10),
+                (w // 2, h - 10 - 62 * k)])
+        pygame.draw.polygon(glass, (*rf.EYE_MID, 245), top, 5)
+        pygame.draw.polygon(glass, (*rf.EYE_MID, 245), bot, 5)
+        pygame.draw.rect(glass, (*rf.EYE_MID, 245), pygame.Rect(0, 0, w, 10),
+                         border_radius=5)
+        pygame.draw.rect(glass, (*rf.EYE_MID, 245), pygame.Rect(0, h - 10, w, 10),
+                         border_radius=5)
+        if 0.03 < fill < 0.97:                       # the trickle
+            t = p * self.duration
+            for i in range(5):
+                gy = h // 2 + ((t * 170 + i * 21) % 80)
+                pygame.draw.rect(glass, (*rf.EYE_INNER, 230),
+                                 pygame.Rect(w // 2 - 2, int(gy), 4, 7))
+        img = pygame.transform.rotate(glass, flip)
+        img.set_alpha(int(255 * hold))
+        surf.blit(img, img.get_rect(center=(int(fcx), int(fcy + 152 + 320 * (1 - hold)))))

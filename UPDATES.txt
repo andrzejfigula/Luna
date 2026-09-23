@@ -4,6 +4,19 @@
   Format: date · area · what changed · why
 ══════════════════════════════════════════════════════════════════
 
+─── 2026-09-23 — Everyday props pack ────────────────────────────────────
+
+[idle] coffee (steam curling up, she tilts the mug and sips, eyes closing
+  — daytime only), camera (held in both hands, the bulb lights, then a
+  full-screen flash through post() and she blinks at her own flash),
+  binoculars (tinted lenses over her eyes, scanning the room, head
+  panning with them), spinner (spins down over the scene), yoyo (drops
+  and returns on its string, eyes tracking it) and hourglass (sand runs
+  out, then she flips it over).
+[registry] Scenes may declare hours=(from, to) and only come up inside
+  that window — used for coffee, and what the seasonal/occasion scenes
+  will need. Catalogue is now 41 scenes, 21 of them usable by the LLM.
+
 ─── 2026-09-23 — Screen pack: the panel itself as a medium ───────────────
 
 [face] Two new scene hooks: draw_bg() paints BEHIND her face and post()
