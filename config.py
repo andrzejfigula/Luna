@@ -316,6 +316,25 @@ BIRTHDAYS = [d.strip() for d in
              os.environ.get("LUNA_BIRTHDAYS", "").split(",") if d.strip()]
 IDLE_SCENES_DISABLED = []
 
+# ── Long-term memory (memory.py) ─────────────────────────────────────────────
+# After each conversation one cheap model call updates data/memory.json
+# (facts about you + a line about what you talked about); it is added to the
+# system prompt, so she can ask tomorrow how things went. Plain JSON on the
+# Pi — "Luna, zapomnij wszystko" wipes it. .env: LUNA_MEMORY=0 turns it off.
+MEMORY_ENABLED         = os.environ.get("LUNA_MEMORY", "1").strip().lower()                          not in ("0", "false", "no", "off")
+MEMORY_PATH            = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                      "data", "memory.json")
+MEMORY_MODEL           = "gpt-4.1-mini"
+MEMORY_MAX_FACTS       = 40
+MEMORY_MAX_EPISODES    = 30    # kept in the file
+MEMORY_PROMPT_EPISODES = 6     # the most recent ones go into the prompt
+MEMORY_MAX_THREADS     = 5     # open follow-ups ("jak poszła rozmowa?")
+MEMORY_THREAD_ASKS     = 2     # offered in at most this many conversations
+FORGET_PHRASES = ["zapomnij wszystko", "zapomnij o mnie", "wyczyść pamięć",
+                  "wyczysc pamiec", "wymaż pamięć", "wymaz pamiec",
+                  "forget everything", "forget about me"]
+FORGET_REPLY   = "Dobrze. Zapomniałam wszystko, co o tobie wiedziałam."
+
 # ── Proactive speech (the scarce resource — animations are free) ──────────────
 PROACTIVE_SPEECH       = True
 PROACTIVE_MIN_GAP_SECS = 900   # at most one unprompted line per 15 min

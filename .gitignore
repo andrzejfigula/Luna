@@ -29,3 +29,7 @@ vosk-model-*/
 .vscode/
 .idea/
 *.swp
+
+# ── What Luna remembers about you (memory.py) — personal, stays on the Pi ──
+data/memory.json
+data/memory.json.tmp

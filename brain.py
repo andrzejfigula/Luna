@@ -25,6 +25,7 @@ import cv2
 from openai import OpenAI
 
 import idle_scenes
+import memory
 
 from text_to_speech import speak
 from shared_state import state
@@ -258,7 +259,8 @@ def _ask_openai(text, image_b64=None, detail="low"):
         system = (f"{SYSTEM_PROMPT}\nYou are in {LUNA_LOCATION}. The current "
                   f"local date and time there is: {_local_now_text()}. When "
                   f"asked the time or date, answer with exactly this local "
-                  f"time — do not convert it to any other zone.")
+                  f"time — do not convert it to any other zone."
+                  + memory.prompt_block())
 
         response = _client.chat.completions.create(
             model=OPENAI_MODEL,
@@ -286,6 +288,7 @@ def _ask_openai(text, image_b64=None, detail="low"):
         # turn they were asked in
         _history[-1] = {"role": "user", "content": text}
         _history.append({"role": "assistant", "content": reply})
+        memory.record(text, reply)
 
         print(f"[brain] OpenAI ({emotion}, {gesture}): {reply}")
         return reply, emotion, gesture
