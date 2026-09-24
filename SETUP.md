@@ -50,6 +50,7 @@ cp .env.example .env && nano .env      # OPENAI_API_KEY=sk-...
 | `LUNA_TIMEZONE` / `LUNA_LOCATION` | IANA zone + place name given to the model with the current local time | `Europe/Warsaw` / `Poland` |
 | `LUNA_BIRTHDAYS` | dates she should celebrate, `MM-DD`, comma separated | `09-22,05-14` |
 | `LUNA_CAMERA_PREVIEW` | live mirrored camera view bottom-right with the face box: `1` (160 px), a width in px, or empty = off | `1` |
+| `LUNA_STT_SAVE` | keep the last N utterances (WAV + both transcripts, `stt_log/index.tsv`) to review misrecognitions; empty = off | `40` |
 
 Output volume follows the chosen PipeWire sink: `wpctl status` lists them,
 `wpctl set-volume <id> 1.0` sets it.
@@ -97,6 +98,11 @@ front of the camera for 30 s the face goes to sleep.
   rule (`pi/51-luna-no-suspend.conf`) that stops the jack from suspending.
 - `OPENAI_MODEL`, `OPENAI_TTS_INSTRUCTIONS` (voice character), `OPENAI_TTS_SPEED`
 - `CLOUD_STT_LANGUAGE = "pl"` to force Polish instead of auto-detect.
+- `CLOUD_STT_PROMPT` — context sentence for the transcriber. A plain
+  "Luna" let short replies ("Tak.") come back in the wrong language; the
+  Polish context sentence fixed that without hurting English. When the cloud
+  hears no words at all, the utterance is dropped (Vosk's guess at noise is
+  never answered); Vosk's text is only used when the cloud can't be reached.
 - `REQUIRE_FACE_TO_TALK` — only answer when someone is facing the camera.
 - `VISION_ALWAYS` — a low-detail camera frame (~85 tokens) goes with every
   request so Luna always "sees"; `VISION_KEYWORDS` (zobacz, przeczytaj, jaki

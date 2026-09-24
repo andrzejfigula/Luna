@@ -12,6 +12,7 @@ env/
 # ── Secrets (never commit the real key) ──────────────────────────────────────
 .env
 luna.log
+stt_log/
 
 # ── Large model weights — download separately, see README §4 ─────────────────
 vosk-model-*/

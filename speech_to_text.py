@@ -22,6 +22,7 @@ Improvements over the old version:
 """
 
 import io
+import os
 import re
 import queue
 import json
@@ -60,6 +61,7 @@ from config import (
     CLOUD_STT_PROMPT,
     CLOUD_STT_TIMEOUT,
     CLOUD_STT_MAX_SECS,
+    STT_SAVE_UTTERANCES,
     CLOUD_WAKE_CHECK,
     CLOUD_WAKE_MIN_INTERVAL,
     OPENAI_API_KEY,
@@ -352,7 +354,12 @@ def _wav_bytes(pcm16k):
 
 
 def _cloud_transcribe(pcm16k):
-    """Transcribe an utterance (16 kHz int16 mono bytes). Returns text or None."""
+    """Transcribe an utterance (16 kHz int16 mono bytes).
+
+    Returns the text, "" when the cloud heard no speech, or None when the
+    cloud could not be asked (no key, network, timeout). The difference
+    matters: "" means Vosk's guess was noise and must be dropped, None means
+    Vosk's guess is the best we have."""
     if _cloud is None or not pcm16k:
         return None
     try:
@@ -367,21 +374,67 @@ def _cloud_transcribe(pcm16k):
         text = (r if isinstance(r, str) else getattr(r, "text", "")).strip()
         if STT_DEBUG_AUDIO:
             print(f"[STT] cloud ({time.time() - t0:.1f}s): \"{text}\"")
-        return text or None
+        if _is_prompt_echo(text):
+            print("[STT] cloud echoed its prompt — treating as no speech")
+            return ""
+        return text
     except Exception as e:
         print(f"[STT] cloud transcription failed ({e}) — using Vosk text")
         return None
 
 
+def _words(s):
+    return re.findall(r"\w+", s.lower())
+
+
+def _is_prompt_echo(text):
+    """On audio with no words the transcriber sometimes returns its own
+    prompt ("Rozmowa po polsku z małym robotem…"). Three or more words lifted
+    verbatim from the prompt are that, not something anyone said; a lone
+    "Luna" is kept."""
+    if not CLOUD_STT_PROMPT or not text:
+        return False
+    heard, prompt = _words(text), _words(CLOUD_STT_PROMPT)
+    if len(heard) < 3:
+        return False
+    sm = difflib.SequenceMatcher(None, heard, prompt, autojunk=False)
+    run = sm.find_longest_match(0, len(heard), 0, len(prompt)).size
+    return run >= 3 and run >= 0.6 * len(heard)
+
+
+# Wake words as they appear in a CLOUD transcript. Fuzzy matching is only for
+# Vosk's mishearings; on correctly spelled text it ate real words ("lina",
+# "luka", "lupa" are 0.75 similar to "luna") and flattened the sentence to
+# lowercase with no punctuation, losing the question mark the LLM uses.
+_WAKE_RE = re.compile(
+    r"(?<!\w)(" + "|".join(re.escape(w) for w in
+                           sorted(WAKE_WORDS, key=len, reverse=True))
+    + r")(?!\w)", re.IGNORECASE)
+
+
+def _cloud_has_wake(cloud_text):
+    return bool(_WAKE_RE.search(cloud_text or ""))
+
+
 def _strip_wake_from_cloud(cloud_text):
-    """Remove the wake word from the cloud transcript (which has punctuation
-    and casing) using the same fuzzy matcher Vosk's text goes through."""
-    tokens = re.findall(r"[\w']+", cloud_text.lower())
-    hit = _find_wake_word(tokens)
-    if hit is None:
+    """Remove the first wake word from the cloud transcript, keeping its
+    casing and punctuation: "Luna, która godzina?" -> "Która godzina?",
+    "Co to jest, Luno?" -> "Co to jest?", "Luna." -> ""."""
+    m = _WAKE_RE.search(cloud_text)
+    if m is None:
         return cloud_text
-    start, n, _ = hit
-    return " ".join(tokens[:start] + tokens[start + n:]).strip()
+    before = cloud_text[:m.start()].rstrip(" ,")
+    after  = cloud_text[m.end():].lstrip()
+    if after[:1] in (",", ":", ";", "-") or (not before and after[:1] in (".", "!", "?")):
+        after = after[1:].lstrip()          # the comma after "Luna"
+    if not before:
+        out = after
+    elif not after or after[:1] in ".!?":
+        out = before + after                # "..., Luno?" keeps its "?"
+    else:
+        out = before + " " + after
+    out = out.strip()
+    return out[:1].upper() + out[1:]
 
 
 _last_cloud_wake_check = 0.0
@@ -398,14 +451,32 @@ def _cloud_wake_check(pcm16k):
         return False, None
     _last_cloud_wake_check = now
     cloud = _cloud_transcribe(pcm16k)
-    if not cloud:
+    if not cloud or not _cloud_has_wake(cloud):
         return False, None
-    tokens = re.findall(r"[\w']+", cloud.lower())
-    hit = _find_wake_word(tokens)
-    if hit is None:
-        return False, None
-    start, n, _ = hit
-    return True, " ".join(tokens[:start] + tokens[start + n:]).strip()
+    return True, _strip_wake_from_cloud(cloud)
+
+
+# ── Optional utterance log (review misrecognitions) ─────────────────────────
+_SAVE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stt_log")
+
+
+def _save_utterance(pcm16k, vosk_text, cloud_text, final):
+    """Keep the audio that was sent and what each recogniser made of it."""
+    if not STT_SAVE_UTTERANCES or not pcm16k:
+        return
+    try:
+        os.makedirs(_SAVE_DIR, exist_ok=True)
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        with open(os.path.join(_SAVE_DIR, stamp + ".wav"), "wb") as f:
+            f.write(_wav_bytes(pcm16k).getvalue())
+        cloud_txt = "<unreachable>" if cloud_text is None else cloud_text
+        with open(os.path.join(_SAVE_DIR, "index.tsv"), "a", encoding="utf-8") as f:
+            f.write(f"{stamp}\t{vosk_text}\t{cloud_txt}\t{final}\n")
+        wavs = sorted(n for n in os.listdir(_SAVE_DIR) if n.endswith(".wav"))
+        for old in wavs[:-STT_SAVE_UTTERANCES]:
+            os.remove(os.path.join(_SAVE_DIR, old))
+    except OSError as e:
+        print(f"[STT] could not save utterance: {e}")
 
 
 # ── Recognizer — created once, Reset() between turns (cheap on the Pi) ────────
@@ -649,7 +720,12 @@ def listen():
                 if cleaned:
                     cloud = _cloud_transcribe(utt_pcm)
                     if cloud:
-                        cleaned = _strip_wake_from_cloud(cloud) or cleaned
+                        cleaned = _strip_wake_from_cloud(cloud)
+                    elif cloud == "":
+                        # the cloud heard no words after "Luna" — whatever
+                        # Vosk made of the rest was noise; just answer "Tak?"
+                        cleaned = ""
+                    _save_utterance(utt_pcm, text, cloud, cleaned or "(wake)")
                 return cleaned if cleaned else WAKE_ACK
 
             if active:
@@ -663,10 +739,22 @@ def listen():
                         state.luna_mode = "listening"
                         state.listening = True
                     continue
+                cloud = _cloud_transcribe(utt_pcm)
+                if cloud == "":
+                    # The cloud heard no words. Vosk's text is its guess at
+                    # noise — answering it is how Luna replied to things
+                    # nobody said. Keep listening instead.
+                    print(f"[STT] cloud heard no speech — dropping Vosk's \"{text}\"")
+                    _save_utterance(utt_pcm, text, cloud, "(dropped)")
+                    with state.lock:
+                        state.luna_mode = "listening"
+                        state.listening = True
+                    continue
                 with state.lock:
                     state.last_activity_time = time.time()
-                cloud = _cloud_transcribe(utt_pcm)
-                return cloud or text
+                final = cloud if cloud else text     # None: cloud unreachable
+                _save_utterance(utt_pcm, text, cloud, final)
+                return final
 
             # Passive mode and Vosk didn't spot the wake word — its small
             # model mishears "Luna" often, so let the cloud have a look.

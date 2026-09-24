@@ -155,9 +155,19 @@ VOSK_SAMPLE_RATE = 16000    # vosk always needs 16000 — do not change
 CLOUD_STT          = True
 CLOUD_STT_MODEL    = "gpt-4o-mini-transcribe"
 CLOUD_STT_LANGUAGE = None      # None = auto-detect (Polish / English); or "pl"
-CLOUD_STT_PROMPT   = "Luna"    # spelling hint for the robot's name
+# Context for the transcriber. Measured on the Pi (speaker -> room -> C270):
+# with just "Luna" a lone "Tak." came back as "ták" (language guessed wrong
+# on a one-word clip) — this context took short-reply errors from 11 % to 0
+# and English still transcribes fine.
+CLOUD_STT_PROMPT   = ("Rozmowa po polsku z małym robotem biurkowym o imieniu "
+                      "Luna. Czasem pada zdanie po angielsku.")
 CLOUD_STT_TIMEOUT  = 8.0
 CLOUD_STT_MAX_SECS = 20        # longest utterance sent to the cloud
+
+# Keep the last N utterances (WAV + both transcripts) in stt_log/ to review
+# misrecognitions. Off by default: it stores your voice on the Pi.
+# .env: LUNA_STT_SAVE=40
+STT_SAVE_UTTERANCES = int(os.environ.get("LUNA_STT_SAVE", "0") or 0)
 
 # ── STT noise rejection (only respond when actually addressed) ─────────────────
 # Layered defence so ambient noise is never turned into words Luna answers.
@@ -370,8 +380,10 @@ GESTURE_REACT_COOLDOWN = 4.0   # seconds between reactions to the same gesture
 
 # A wave = a hand-sized moving blob near the face that reverses horizontal
 # direction several times within a short window.
-WAVE_WINDOW_SECS       = 1.6
-WAVE_MIN_REVERSALS     = 4     # a wave: several direction changes in the window
+WAVE_WINDOW_SECS       = 2.4   # how long a stretch of movement is judged at
+                               # once — longer means she needs to see you keep
+                               # it up before she believes you
+WAVE_MIN_REVERSALS     = 7     # ~3.5 full back-and-forths inside that window
 WAVE_MIN_AMPLITUDE     = 0.35  # sideways travel ≥ this × the face width
                                # (scale-free: works close up and far away)
 WAVE_MIN_SWING         = 0.15  # a half-swing must travel ≥ this × face width
