@@ -185,6 +185,33 @@ class OpenAITTS:
                 return
             self._speak_streaming(text, on_audio_start)
 
+    def play_pcm(self, pcm, on_audio_start=None):
+        """Play a ready 24 kHz s16 mono clip (non-verbal sounds) through the
+        same player and sink as speech, with lip sync. Blocks until played."""
+        with self.lock:
+            if self._raw_cmd is None:
+                return
+            leadin = bytes(int(TTS_LEADIN_SECS * PCM_RATE) * 2)   # the jack pops
+            data = leadin + pcm
+            envelope.reset()
+            envelope.feed(data)
+            player = None
+            try:
+                player = subprocess.Popen(self._raw_cmd, stdin=subprocess.PIPE,
+                                          stderr=subprocess.DEVNULL)
+                envelope.start()
+                if on_audio_start:
+                    on_audio_start()
+                player.stdin.write(data)
+                player.stdin.close()
+                player.wait()
+            except Exception as e:
+                print(f"[TTS] sound playback error: {e}")
+                if player and player.poll() is None:
+                    player.kill()
+            finally:
+                envelope.reset()
+
     # ── streaming: OpenAI pcm → (python pump) → player(raw stdin) ───────────
     def _speak_streaming(self, text, on_audio_start):
         player  = None

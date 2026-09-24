@@ -16,7 +16,9 @@ All settings pulled from config.py.
 
 import base64
 import json
+import random
 import re
+import threading
 import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -27,7 +29,7 @@ from openai import OpenAI
 import idle_scenes
 import memory
 
-from text_to_speech import speak
+from text_to_speech import speak, play_sound
 from shared_state import state
 from config import (
     FACE_OVERRIDE_SECS,
@@ -46,6 +48,9 @@ from config import (
     VISION_ALWAYS,
     LUNA_TIMEZONE,
     LUNA_LOCATION,
+    THINK_SOUND_DELAY,
+    THINK_SOUND_CHANCE,
+    THINK_SOUNDS,
 )
 
 try:
@@ -341,6 +346,11 @@ def confirm_wave():
 
 # ── Main process ──────────────────────────────────────────────────────────────
 
+def _think_filler(answered):
+    if not answered.wait(THINK_SOUND_DELAY):
+        play_sound(random.choice(THINK_SOUNDS))
+
+
 def process(text):
     text = text.strip()
     if not text:
@@ -352,7 +362,15 @@ def process(text):
 
     visual = _wants_vision(lower)
     image  = _camera_jpeg_b64() if (visual or VISION_ALWAYS) else None
-    result = _ask_openai(text, image, detail="high" if visual else "low")
+
+    # the answer takes 2-4 s; now and then fill the silence with a "hmm"
+    answered = threading.Event()
+    if random.random() < THINK_SOUND_CHANCE:
+        threading.Thread(target=_think_filler, args=(answered,), daemon=True).start()
+    try:
+        result = _ask_openai(text, image, detail="high" if visual else "low")
+    finally:
+        answered.set()
 
     if result:
         reply, emotion, gesture = result

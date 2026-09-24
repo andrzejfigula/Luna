@@ -316,6 +316,37 @@ BIRTHDAYS = [d.strip() for d in
              os.environ.get("LUNA_BIRTHDAYS", "").split(",") if d.strip()]
 IDLE_SCENES_DISABLED = []
 
+# ── Non-verbal sounds (sounds.py) ────────────────────────────────────────────
+# "mhm", "hmm", "hm?", a giggle, "oh!" — made once by her own TTS voice,
+# cached in data/sounds/, then played locally with no delay or cost.
+SOUNDS_ENABLED       = os.environ.get("LUNA_SOUNDS", "1").strip().lower() \
+                       not in ("0", "false", "no", "off")
+SOUNDS_DIR           = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                    "data", "sounds")
+WAKE_SOUND_CHANCE    = 0.7    # "Luna!" alone → a quick "hm?" instead of a sentence
+THINK_SOUND_DELAY    = 1.3    # answer not there after this long → a "hmm"
+THINK_SOUND_CHANCE   = 0.5    # ...this often (every time gets old)
+THINK_SOUNDS         = ["hmm", "mhm"]
+TOUCH_SOUND_CHANCE   = 0.75   # touched and not answering with words → a sound
+TOUCH_SOUND_COOLDOWN = 3.0
+# (zone, kind) → sounds; zone None = any zone
+TOUCH_SOUNDS = {
+    ("eye", "tap"):    ["oh"],
+    ("mouth", "tap"):  ["giggle"],
+    (None, "tap"):     ["huh", "giggle"],
+    (None, "stroke"):  ["aww", "giggle"],
+    (None, "multi"):   ["hey"],
+}
+# idle scene → (sound, when in the scene 0..1); only while someone is there
+SCENE_SOUNDS = {
+    "yawn":       ("yawn", 0.12),
+    "laugh":      ("giggle", 0.08),
+    "behind_you": ("oh", 0.1),
+    "nod_off":    ("oh", 0.72),
+    "heart_eyes": ("aww", 0.2),
+}
+SCENE_SOUND_CHANCE   = 0.5
+
 # ── Long-term memory (memory.py) ─────────────────────────────────────────────
 # After each conversation one cheap model call updates data/memory.json
 # (facts about you + a line about what you talked about); it is added to the

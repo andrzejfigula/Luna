@@ -33,15 +33,19 @@ start_idle()
 from memory import start_memory, check_forget
 start_memory()
 
+from sounds import start_sounds
+start_sounds()
+
 import random
 import difflib
 
 from speech_to_text import listen, WAKE_ACK
-from text_to_speech import speak
+from text_to_speech import speak, play_sound
 from brain import process
 from shared_state import state
 from config import (WAKE_REPLIES, ECHO_GUARD_WINDOW,
-                    ECHO_RUN_THRESH, ECHO_OVERLAP_THRESH, FORGET_REPLY)
+                    ECHO_RUN_THRESH, ECHO_OVERLAP_THRESH, FORGET_REPLY,
+                    WAKE_SOUND_CHANCE)
 
 
 def _is_self_echo(text):
@@ -80,8 +84,11 @@ def voice_loop():
             text = listen()
             try:
                 if text == WAKE_ACK:
-                    # wake word alone ("Luna!") — short acknowledgement
-                    speak(random.choice(WAKE_REPLIES))
+                    # wake word alone ("Luna!") — short acknowledgement; a
+                    # quick "hm?" is instant, a sentence needs a TTS round trip
+                    if not (random.random() < WAKE_SOUND_CHANCE
+                            and play_sound("huh", can_drop=False)):
+                        speak(random.choice(WAKE_REPLIES))
                 elif text:
                     if check_mute(text):
                         pass          # "Luna, cicho" — handled, nothing to ask

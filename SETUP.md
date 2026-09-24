@@ -51,6 +51,8 @@ cp .env.example .env && nano .env      # OPENAI_API_KEY=sk-...
 | `LUNA_BIRTHDAYS` | dates she should celebrate, `MM-DD`, comma separated | `09-22,05-14` |
 | `LUNA_CAMERA_PREVIEW` | live mirrored camera view bottom-right with the face box: `1` (160 px), a width in px, or empty = off | `1` |
 | `LUNA_STT_SAVE` | keep the last N utterances (WAV + both transcripts, `stt_log/index.tsv`) to review misrecognitions; empty = off | `40` |
+| `LUNA_MEMORY` | long-term memory in `data/memory.json` (`0` = off) | `1` |
+| `LUNA_SOUNDS` | non-verbal sounds — "mhm", "hm?", a giggle (`0` = off) | `1` |
 
 Output volume follows the chosen PipeWire sink: `wpctl status` lists them,
 `wpctl set-volume <id> 1.0` sets it.
@@ -141,6 +143,19 @@ front of the camera for 30 s the face goes to sleep.
   stroke the top of the screen or poke her repeatedly — each gets its own
   reaction, and occasionally a spoken line (`TOUCH_REPLIES`,
   `TOUCH_REPLY_CHANCE`). The user must be in the `input` group.
+
+- Memory (`memory.py`): when a conversation window closes, one cheap model
+  call updates `data/memory.json` — facts about the people she talks to,
+  a dated line about the conversation, and open threads ("Jak poszła
+  rozmowa o pracę?") that she brings up at the start of a later
+  conversation. It is plain JSON on the Pi; read or edit it freely.
+  "Luna, zapomnij wszystko" wipes it. `MEMORY_*` in config.
+- Sounds (`sounds.py`): "mhm", "hmm", "hm?", a giggle, "aww", "oh!", "ej!",
+  a yawn — generated once by her own TTS voice into `data/sounds/` (again
+  automatically when the voice changes), then played locally. Used for a
+  bare "Luna!" (`WAKE_SOUND_CHANCE`), while a slow answer is on its way
+  (`THINK_SOUND_*`), on touch (`TOUCH_SOUNDS`) and in a few idle scenes
+  (`SCENE_SOUNDS`). Quiet hours and "Luna, cicho" apply to the unprompted ones.
 
 After touching `idle_scenes.py` or `robot_face.py`, run every scene through
 the real renderer to make sure none of them raises:

@@ -39,12 +39,15 @@ from config import (IDLE_LIFE, IDLE_ABSENCE_SECS, IDLE_SCENE_MIN_SECS,
                     MUTE_PHRASES, UNMUTE_PHRASES, MUTE_SECS,
                     TOUCH_REPLIES, TOUCH_REPLY_CHANCE, TOUCH_SPEECH_COOLDOWN,
                     IDLE_AFTER_TOUCH_SECS,
+                    TOUCH_SOUNDS, TOUCH_SOUND_CHANCE, TOUCH_SOUND_COOLDOWN,
+                    SCENE_SOUNDS, SCENE_SOUND_CHANCE,
                     GESTURE_DURATION,
                     FACE_OVERRIDE_SECS, NIGHT_FROM, NIGHT_TO)
 
 _last_proactive = 0.0
 _forced_at = {}                  # calendar scene → when it last played
 FORCED_COOLDOWN = 600            # and how long before it may play again
+play_sound_async = None          # bound in idle_loop (text_to_speech imports late)
 
 
 # ── quiet / mute ──────────────────────────────────────────────────────────────
@@ -119,7 +122,38 @@ def _face_free(now):
 
 # ── actions ───────────────────────────────────────────────────────────────────
 
-def _play(action):
+def _voice_allowed(now):
+    """Quiet hours and "Luna, cicho" apply to every sound she makes on her
+    own — touch sounds included."""
+    with state.lock:
+        muted = state.proactive_muted_until
+    return not _quiet_now() and now > muted
+
+
+def _touch_sound(zone, kind):
+    choices = TOUCH_SOUNDS.get((zone, kind)) or TOUCH_SOUNDS.get((None, kind))
+    return random.choice(choices) if choices else None
+
+
+def _scene_sound(action, start, present):
+    """Some scenes come with a sound at the right moment (a yawn, a giggle)."""
+    spec = SCENE_SOUNDS.get(action)
+    sc = idle_scenes.SCENES.get(action)
+    if (not spec or not sc or not present or not _voice_allowed(start)
+            or random.random() >= SCENE_SOUND_CHANCE):
+        return
+    name, at = spec
+
+    def fire():
+        with state.lock:
+            still = (state.idle_action == action
+                     and state.idle_action_start == start)
+        if still and not _busy():
+            play_sound_async(name)
+    threading.Timer(sc.duration * at, fire).start()
+
+
+def _play(action, present=False):
     """Start a visual idle scene (robot_face animates it)."""
     now = time.time()
     sc  = idle_scenes.SCENES.get(action)
@@ -130,6 +164,7 @@ def _play(action):
         if sc and sc.mood:
             state.face_override       = sc.mood
             state.face_override_until = now + sc.duration
+    _scene_sound(action, now, present)
 
 
 def _gesture(name):
@@ -171,6 +206,8 @@ def idle_loop():
     left_at = time.time()
 
     from text_to_speech import speak     # deferred — avoids circular import
+    global play_sound_async
+    from text_to_speech import play_sound_async
     global _last_proactive
 
     was_present  = False
@@ -178,6 +215,7 @@ def idle_loop():
     next_scene   = random.uniform(IDLE_SCENE_MIN_SECS, IDLE_SCENE_MAX_SECS)
     last_touch_t = 0.0
     last_touch_say = 0.0
+    last_touch_sound = 0.0
     greeted_day  = None                  # date of the last "first time today"
 
     while True:
@@ -228,6 +266,14 @@ def idle_loop():
                         and random.random() < TOUCH_REPLY_CHANCE):
                     last_touch_say = now
                     speak(random.choice(replies), can_drop=True)
+                # no words this time → often a little sound (a giggle, "ej!")
+                elif (not _busy() and _voice_allowed(now)
+                        and now - last_touch_sound >= TOUCH_SOUND_COOLDOWN
+                        and random.random() < TOUCH_SOUND_CHANCE):
+                    snd = _touch_sound(touch_zone, touch_kind)
+                    if snd:
+                        last_touch_sound = now
+                        play_sound_async(snd)
 
             # ── calendar moments jump the queue ──────────────────────────
             if IDLE_LIFE and not _busy() and _face_free(now):
@@ -244,7 +290,7 @@ def idle_loop():
                 scene = _pick_scene(present)
                 if scene:
                     print(f"[idle] scene: {scene}")
-                    _play(scene)
+                    _play(scene, present)
                 last_scene = now
                 next_scene = random.uniform(IDLE_SCENE_MIN_SECS, IDLE_SCENE_MAX_SECS)
 

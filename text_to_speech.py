@@ -18,6 +18,7 @@ import random
 import math
 import subprocess
 from openai_tts import tts, envelope
+import sounds
 
 from shared_state import state
 from config import (
@@ -248,3 +249,37 @@ def speak(text, can_drop=False):
 
 
         _speak_lock.release()
+
+
+def play_sound(name, can_drop=True):
+    """Play a non-verbal sound (see sounds.py). Shares the speech lock, so it
+    never talks over a sentence; can_drop=True skips it when she is busy.
+    Returns False when nothing was played (busy, or sound not ready).
+
+    Unlike speak() it leaves luna_mode alone: a "hmm" while the answer is
+    being fetched must not knock the face out of "processing"."""
+    pcm = sounds.get(name)
+    if not pcm:
+        return False
+    if not _speak_lock.acquire(blocking=not can_drop):
+        return False
+    try:
+        with state.lock:
+            state.speaking = True     # the mic aborts a listen while True
+        print(f"[Luna] ({name})")
+        tts.play_pcm(pcm, on_audio_start=_on_audio_start)
+    finally:
+        with state.lock:
+            state.speaking = False
+            state.audio_playing = False
+            state.audio_energy = 0.0
+            state.mic_unblock_time = time.time() + MIC_BLOCK_AFTER_SPEAK
+            if state.conversation_active:
+                state.last_activity_time = time.time()
+        _speak_lock.release()
+    return True
+
+
+def play_sound_async(name):
+    """play_sound() without blocking the caller (touch, idle scenes)."""
+    threading.Thread(target=play_sound, args=(name,), daemon=True).start()
