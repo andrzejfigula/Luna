@@ -879,8 +879,11 @@ def draw_hair(surf, fcx, fcy, sway):
 
 # ── Hands (style extra) ───────────────────────────────────────────────────────
 # Rounded "mitten" hands drawn as gradient blocks. Poses:
-#   open      — palm + 4 fingers + thumb (waving, heart)
-#   thumb     — fist with the thumb up
+#   open       — palm + 4 fingers + thumb (waving, heart)
+#   thumb      — fist with the thumb up;  thumb_down — the same, upside down
+#   fist       — all fingers curled
+#   point      — fist with the index finger up (drawing in the air)
+#   ok         — thumb and index make a ring, three fingers up
 def hand_surface(pose, side):
     """Cached hand image for a pose; side 'L'/'R' mirrors it."""
     key = (pose, side)
@@ -902,7 +905,21 @@ def hand_surface(pose, side):
         block(66, 76, 22, 62, 106)                 # the fist
         for i in range(4):                         # curled fingers
             block(52, 15, 7, 66, 84 + i * 15)
-    elif pose == "thumb":
+    elif pose == "point":
+        block(17, 62, 8, 44, 60)                   # index finger (base under the fist)
+        block(66, 76, 22, 62, 106)                 # fist
+        for i in range(3):                         # the other three, curled
+            block(52, 15, 7, 68, 99 + i * 15)
+        block(18, 34, 8, 36, 104, 60)              # thumb folded across
+    elif pose == "ok":
+        for dx, fh in ((12, 52), (28, 48), (42, 40)):   # middle, ring, pinky up
+            block(16, fh, 7, 54 + dx, 80 - (fh - 40) // 2)
+        block(66, 70, 26, 62, 110)                 # palm
+        ring = gradient_block(int(46 * S), int(46 * S), int(23 * S), top, bot).copy()
+        pygame.draw.circle(ring, (0, 0, 0, 0), (int(23 * S), int(23 * S)),
+                           int(11 * S))            # thumb + index: the "O"
+        s.blit(ring, ring.get_rect(center=(int(36 * S), int(68 * S))))
+    elif pose in ("thumb", "thumb_down"):
         block(24, 62, 12, 34, 64, 6)               # thumb up (base under the fist)
         block(66, 76, 22, 62, 106)                 # fist
         for i in range(4):                         # curled fingers: horizontal
@@ -913,6 +930,8 @@ def hand_surface(pose, side):
         block(66, 70, 26, 60, 108)                 # palm
         for i, (dx, fh) in enumerate(((-24, 44), (-8, 52), (8, 50), (24, 42))):
             block(16, fh, 7, 60 + dx, 78 - (fh - 40) // 2)
+    if pose == "thumb_down":
+        s = pygame.transform.flip(s, False, True)
     if side == "L":
         s = pygame.transform.flip(s, True, False)
     _HAND_CACHE[key] = s
@@ -1326,6 +1345,7 @@ class RobotFace:
         self._idle_p = 0.0
         self._scene = None
         self._pupil_converge = 0.0
+        self._pupil_mul = 1.0            # scenes: 0 hides the pupils, 2 = huge
         self._mouth_drive = 0.0
         self._wink_side = "R"
         self._idle_prev = None
@@ -1694,6 +1714,7 @@ class RobotFace:
             self.hand_pose["L"], self.hand_pose["R"] = h.pose_l, h.pose_r
 
         self._pupil_converge = lerp(self._pupil_converge, 0.0, 0.25)
+        self._pupil_mul = 1.0
         self._mouth_drive = 0.0
         if self._scene:
             self._scene.motion(self, self._idle_p)
@@ -1769,11 +1790,11 @@ class RobotFace:
         conv = self._pupil_converge          # cross-eyed scenes
         self.left_eye.update(
             tw, th, blink_l, self.pupil_ox + conv, self.pupil_oy,
-            pupil_scale=self.micro.pupil_scale, squint=squint,
+            pupil_scale=self.micro.pupil_scale * self._pupil_mul, squint=squint,
             widen=widen, droop=droop)
         self.right_eye.update(
             tw, th, blink_r, self.pupil_ox - conv, self.pupil_oy,
-            pupil_scale=self.micro.pupil_scale, squint=squint,
+            pupil_scale=self.micro.pupil_scale * self._pupil_mul, squint=squint,
             widen=widen, droop=droop)
 
         # a scene may open her mouth (yawning, laughing, sighing): it sets

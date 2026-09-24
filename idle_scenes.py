@@ -348,6 +348,463 @@ class Fly(Scene):
         surf.blit(body, body.get_rect(center=(int(x), int(y + buzz))))
 
 
+# ── Drawing INTO the eyes ───────────────────────────────────────────────────
+# The scenes below paint over the eye blocks (spirals, hearts, static…). They
+# need to know where each eye is on this frame, which is what Eye.draw works
+# out from its size, blink, squint and glance — mirrored here.
+
+def _eye_rect(eye, fcx, fcy):
+    """Screen rect of an eye as drawn this frame."""
+    cx, cy = fcx + eye.rel_x, fcy + eye.rel_y
+    w = int(eye.w)
+    h_mod = eye.h * (1.0 - eye.squint * 0.4) * (1.0 + eye.widen * 0.2)
+    vis_h = max(4, int(h_mod * eye.blink_t))
+    r = pygame.Rect(cx - w // 2, cy - vis_h // 2, w, vis_h)
+    if rf.EYE_MODE == "block":
+        r = r.move(int(eye.pupil_ox * 0.55), int(eye.pupil_oy * 0.55))
+        max_w = rf.EYE_SPREAD * 2 - 44
+        if r.w > max_w:
+            r = pygame.Rect(r.centerx - max_w // 2, r.y, max_w, r.h)
+        if eye.squint > 0.05:
+            clip = int(vis_h * eye.squint * 0.5)
+            r = pygame.Rect(r.x, r.y + clip, r.w, max(4, r.h - clip))
+    return r
+
+
+def _eye_rects(face, fcx, fcy):
+    return [(e, _eye_rect(e, fcx, fcy)) for e in (face.left_eye, face.right_eye)]
+
+
+def _pupil_at(eye, rect):
+    """Where the pupil sits inside an eye rect."""
+    k = 0.45 if rf.EYE_MODE == "block" else 1.0
+    return (rect.centerx + int(eye.pupil_ox * k), rect.centery + int(eye.pupil_oy * k))
+
+
+def _eye_clip(layer):
+    """Cut a layer the size of an eye down to the eye's rounded shape."""
+    m = pygame.Surface(layer.get_size(), pygame.SRCALPHA)
+    pygame.draw.rect(m, (255, 255, 255, 255), m.get_rect(),
+                     border_radius=min(rf.EYE_RADIUS, min(m.get_size()) // 2))
+    layer.blit(m, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+    return layer
+
+
+def _dim(col, k):
+    """A colour faded toward the black background. The face canvas has no
+    alpha channel, so (r, g, b, a) drawn straight onto it comes out opaque."""
+    return rf._lerp_col((0, 0, 0), col, rf.clamp(k, 0.0, 1.0))
+
+
+def _star4(surf, x, y, r, col, alpha):
+    """A four-pointed twinkle."""
+    if r < 2 or alpha <= 4:
+        return
+    pts = []
+    for i in range(8):
+        a = i * math.pi / 4
+        rr = r if i % 2 == 0 else r * 0.28
+        pts.append((x + math.cos(a) * rr, y + math.sin(a) * rr))
+    s = pygame.Surface((int(r * 2 + 4), int(r * 2 + 4)), pygame.SRCALPHA)
+    pygame.draw.polygon(s, (*col, alpha), [(px - x + r + 2, py - y + r + 2) for px, py in pts])
+    surf.blit(s, (int(x - r - 2), int(y - r - 2)))
+
+
+@scene("dizzy", duration=3.4, weight=2, in_reply=True)
+class Dizzy(Scene):
+    """Spirals for eyes, head going round — then she shakes it off."""
+    def motion(self, face, p):
+        hold = rf._prop_hold(p, 0.12, 0.2)
+        t = p * self.duration
+        face._pupil_mul = 1.0 - hold
+        if p < 0.82:
+            face.target_ox += 16.0 * math.cos(t * 5.5) * hold
+            face.target_oy += 9.0 * math.sin(t * 5.5) * hold
+            face.target_tilt = 7.0 * math.sin(t * 2.7) * hold
+        else:                                     # shakes it off
+            face.target_ox += 18.0 * math.sin(t * 30.0) * (1.0 - p) / 0.18
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p, 0.12, 0.2)
+        if hold < 0.05:
+            return
+        t = p * self.duration
+        for i, (eye, rect) in enumerate(_eye_rects(face, fcx, fcy)):
+            R = min(rect.w, rect.h) / 2 - 8
+            if R < 12:
+                continue
+            spin = t * 7.0 * (1 if i == 0 else -1)
+            lw, lh = rect.w + 16, rect.h + 16      # small layer: the fade needs
+            pts = []                                # alpha, a full-screen one is slow
+            for j in range(80):
+                k = j / 79
+                a = spin + k * 3.2 * math.tau
+                pts.append((lw / 2 + math.cos(a) * R * k * 1.15,
+                            lh / 2 + math.sin(a) * R * k))
+            layer = pygame.Surface((lw, lh), pygame.SRCALPHA)
+            pygame.draw.lines(layer, (*rf.PUPIL_DARK, int(235 * hold)), False, pts, 7)
+            surf.blit(layer, (rect.x - 8, rect.y - 8))
+        for k in range(3):                        # little stars circling above
+            a = t * 3.0 + k * math.tau / 3
+            x = fcx + math.cos(a) * 150
+            y = fcy - 150 + math.sin(a) * 26
+            _star4(surf, x, y, 16, rf.STAR_COL, int(230 * hold))
+
+
+@scene("big_pupils", duration=3.4, weight=3, needs_face=True, in_reply=True)
+class BigPupils(Scene):
+    """Huge, shiny puppy-dog pupils. Hard to say no to."""
+    def motion(self, face, p):
+        hold = rf._prop_hold(p, 0.2, 0.2)
+        face._pupil_mul = 1.0 + 1.1 * hold
+        face.target_tilt = 7.0 * hold
+        face.pupil_oy = rf.lerp(face.pupil_oy, -8.0 * hold, 0.1)
+
+    def eyes(self, face, p, e):
+        e.widen = max(e.widen, 0.6 * rf._prop_hold(p, 0.2, 0.2))
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p, 0.3, 0.2)
+        if hold < 0.05:
+            return
+        t = p * self.duration
+        for eye, rect in _eye_rects(face, fcx, fcy):
+            if rect.h < 40:
+                continue
+            px, py = _pupil_at(eye, rect)
+            r = min(rect.w, rect.h) * 0.2 * eye.pupil_scale
+            a = int(220 * hold)                   # extra catch-lights = "wet" eyes
+            pygame.draw.circle(surf, rf.IRIS_SHINE,
+                               (int(px + r * 0.35), int(py + r * 0.4)), max(2, int(r * 0.12)))
+            _star4(surf, px - r * 0.35, py - r * 0.4,
+                   r * (0.3 + 0.05 * math.sin(t * 6)), rf.IRIS_SHINE, a)
+
+
+@scene("nod_off", duration=7.0, weight=2, night_weight=5)
+class NodOff(Scene):
+    """Fights to stay awake, loses, and jerks back up with a start."""
+    JERK = 0.72
+
+    def _sleep(self, p):
+        if p >= self.JERK:
+            return 0.0
+        s = p / self.JERK
+        s = s * s * (3 - 2 * s)
+        # twice she catches herself and the eyes open a little
+        for c in (0.35, 0.6):
+            d = abs(p - c * self.JERK)
+            if d < 0.04:
+                s *= 0.55 + 0.45 * d / 0.04
+        return s
+
+    def motion(self, face, p):
+        s = self._sleep(p)
+        face.target_oy += 34.0 * s
+        face.target_tilt = 9.0 * s
+        if self.JERK <= p < self.JERK + 0.06:     # the start
+            face.target_oy -= 26.0
+            face.target_tilt = -4.0
+        elif p >= self.JERK + 0.06:               # did anyone see that?
+            face.pupil_ox = rf.lerp(face.pupil_ox,
+                                    28.0 * math.sin((p - self.JERK) * 30), 0.2)
+
+    def eyes(self, face, p, e):
+        s = self._sleep(p)
+        e.blink_l = e.blink_r = min(e.blink_l, 1.0 - 0.9 * s)
+        e.droop = max(e.droop, 0.8 * s)
+        if self.JERK <= p < self.JERK + 0.2:
+            e.widen = max(e.widen, 1.0)
+
+
+@scene("flutter", duration=2.4, weight=2, mood="love", needs_face=True,
+       in_reply=True)
+class Flutter(Scene):
+    """Bats her eyelashes at you."""
+    def _flap(self, p):
+        if 0.1 < p < 0.8:
+            return abs(math.sin((p - 0.1) / 0.7 * math.pi * 5))
+        return 0.0
+
+    def motion(self, face, p):
+        hold = rf._prop_hold(p, 0.15, 0.2)
+        face.target_tilt = 8.0 * hold
+        face.pupil_oy = rf.lerp(face.pupil_oy, -10.0 * hold, 0.12)
+
+    def eyes(self, face, p, e):
+        f = self._flap(p)
+        e.blink_l = e.blink_r = min(e.blink_l, 1.0 - 0.85 * f)
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p, 0.1, 0.15)
+        if hold < 0.05:
+            return
+        for i, (eye, rect) in enumerate(_eye_rects(face, fcx, fcy)):
+            out = -1 if i == 0 else 1             # lashes sweep outward
+            for k in range(3):
+                x = rect.centerx + out * (rect.w * (0.18 + 0.16 * k))
+                y = rect.top + 4 + 6 * k
+                ang = math.radians(-90 + out * (25 + 18 * k))
+                ln = 22 + 4 * k
+                pygame.draw.line(surf, rf.EYE_MID, (x, y),
+                                 (x + math.cos(ang) * ln, y + math.sin(ang) * ln), 7)
+
+
+@scene("heart_eyes", duration=4.0, weight=3, needs_face=True, in_reply=True)
+class HeartEyes(Scene):
+    """Her pupils turn into beating hearts."""
+    def motion(self, face, p):
+        hold = rf._prop_hold(p, 0.15, 0.15)
+        t = p * self.duration
+        face._pupil_mul = 1.0 - hold
+        face.target_oy += 5.0 * math.sin(t * 9.0) * hold
+        face.target_tilt = 5.0 * math.sin(t * 2.0) * hold
+
+    def eyes(self, face, p, e):
+        e.widen = max(e.widen, 0.4 * rf._prop_hold(p, 0.15, 0.15))
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p, 0.15, 0.15)
+        if hold < 0.05:
+            return
+        t = p * self.duration
+        beat = 1.0 + 0.14 * max(0.0, math.sin(t * 9.0)) ** 3
+        for eye, rect in _eye_rects(face, fcx, fcy):
+            if rect.h < 30:
+                continue
+            px, py = _pupil_at(eye, rect)
+            size = int(min(rect.w, rect.h) * 0.36 * beat * hold)
+            if size > 6:
+                rf.draw_heart(surf, px, py - int(size * 0.45), size, 245)
+        for k in range(3):                        # small hearts floating up
+            u = (t * 0.45 + k / 3) % 1.0
+            a = int(220 * hold * (1.0 - u))
+            if a > 8:
+                rf.draw_heart(surf, int(fcx + (k - 1) * 170 + 20 * math.sin(t * 2 + k)),
+                              int(fcy - 110 - u * 110), 16, a)
+
+
+@scene("suspicious", duration=3.6, weight=3, needs_face=True, in_reply=True)
+class Suspicious(Scene):
+    """Narrowed eyes sliding sideways: hmm, really?"""
+    def motion(self, face, p):
+        hold = rf._prop_hold(p, 0.15, 0.2)
+        look = -1.0 if p < 0.5 else 1.0
+        face.pupil_ox = rf.lerp(face.pupil_ox, 30.0 * look * hold, 0.05)
+        face.target_ox += 12.0 * look * hold
+        face.target_tilt = -5.0 * look * hold
+
+    def eyes(self, face, p, e):
+        hold = rf._prop_hold(p, 0.15, 0.2)
+        e.squint = max(e.squint, 0.8 * hold)
+        e.blink_l = e.blink_r = min(e.blink_l, 1.0 - 0.2 * hold)
+
+
+@scene("sparkle_eyes", duration=3.0, weight=3, needs_face=True, in_reply=True)
+class SparkleEyes(Scene):
+    """Stars in her eyes — delighted, dazzled."""
+    SPOTS = ((-0.28, -0.22, 0.0), (0.24, 0.18, 1.9), (0.05, -0.05, 3.7))
+
+    def motion(self, face, p):
+        face._pupil_mul = 1.0 + 0.3 * rf._prop_hold(p, 0.15, 0.2)
+
+    def eyes(self, face, p, e):
+        e.widen = max(e.widen, 0.7 * rf._prop_hold(p, 0.15, 0.2))
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p, 0.15, 0.2)
+        if hold < 0.05:
+            return
+        t = p * self.duration
+        for eye, rect in _eye_rects(face, fcx, fcy):
+            if rect.h < 40:
+                continue
+            for dx, dy, ph in self.SPOTS:
+                tw = max(0.0, math.sin(t * 5.0 + ph))
+                r = min(rect.w, rect.h) * 0.2 * tw
+                _star4(surf, rect.centerx + dx * rect.w, rect.centery + dy * rect.h,
+                       r, rf.IRIS_SHINE, int(250 * hold))
+
+
+@scene("meditate", duration=10.0, weight=2, night_weight=3)
+class Meditate(Scene):
+    """Eyes shut, hands in a mudra, breathing slowly. Ommm."""
+    def _breath(self, p):
+        return math.sin(p * self.duration * math.tau / 4.0)   # 4 s per breath
+
+    def hands(self, face, p, h):
+        hold = rf._prop_hold(p, 0.12, 0.12)
+        h.pose_l = h.pose_r = "ok"
+        h.l = (-255, 190 + 300 * (1 - hold), 18)
+        h.r = ( 255, 190 + 300 * (1 - hold), -18)
+
+    def motion(self, face, p):
+        hold = rf._prop_hold(p, 0.12, 0.12)
+        face.target_oy += (-12.0 + 7.0 * self._breath(p)) * hold
+        face.target_ox *= 1.0 - hold               # stops following you around
+
+    def eyes(self, face, p, e):
+        hold = rf._prop_hold(p, 0.12, 0.12)
+        e.blink_l = e.blink_r = min(e.blink_l, 1.0 - 0.93 * hold)
+        e.squint = max(e.squint, 0.3 * hold)
+
+    def draw_bg(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p, 0.15, 0.15)
+        if hold < 0.03:
+            return
+        t = p * self.duration
+        for k in range(3):                         # calm rings drifting out
+            u = (t / 4.0 + k / 3) % 1.0
+            k = 0.3 * hold * math.sin(u * math.pi)
+            if k > 0.02:
+                pygame.draw.circle(surf, _dim(rf.EYE_OUTER, k), (int(fcx), int(fcy + 20)),
+                                   int(120 + u * 260), 5)
+
+
+@scene("shutter", duration=3.2, weight=2, needs_face=True)
+class Shutter(Scene):
+    """Her eyes become camera irises: focus on you… click-click."""
+    def _close(self, p):
+        if p < 0.12:
+            return 0.0
+        if p < 0.45:                                # slowly stops down, focusing
+            s = (p - 0.12) / 0.33
+            return 0.55 * s * s * (3 - 2 * s)
+        for c in (0.58, 0.72):                      # click, click
+            d = abs(p - c)
+            if d < 0.05:
+                return 0.55 + 0.45 * (1.0 - d / 0.05)
+        if p < 0.85:
+            return 0.55
+        return 0.55 * max(0.0, 1.0 - (p - 0.85) / 0.12)
+
+    def motion(self, face, p):
+        c = self._close(p)
+        face._pupil_mul = 1.0 - min(1.0, c * 2.0)
+        if 0.12 < p < 0.85:
+            face.pupil_ox = rf.lerp(face.pupil_ox, 0.0, 0.2)
+            face.pupil_oy = rf.lerp(face.pupil_oy, 0.0, 0.2)
+
+    def draw(self, face, surf, fcx, fcy, p):
+        c = self._close(p)
+        if c < 0.02:
+            return
+        blade = rf._lerp_col(rf.PUPIL_DARK, rf.EYE_OUTER, 0.18)
+        for i, (eye, rect) in enumerate(_eye_rects(face, fcx, fcy)):
+            if rect.h < 24:
+                continue
+            w, h = rect.size
+            layer = pygame.Surface((w, h), pygame.SRCALPHA)
+            layer.fill((*blade, 250))
+            R = math.hypot(w, h) / 2 + 4
+            ro = R * (1.0 - c)
+            rot = c * 1.2 + i * 0.5
+            cx, cy = w / 2, h / 2
+            hexa = [(cx + math.cos(rot + k * math.tau / 6) * ro,
+                     cy + math.sin(rot + k * math.tau / 6) * ro) for k in range(6)]
+            if ro > 2:
+                pygame.draw.polygon(layer, (0, 0, 0, 0), hexa)
+            for k in range(6):                      # blade edges
+                x0, y0 = hexa[k]
+                a = rot + k * math.tau / 6 + math.pi / 2 + 0.5
+                pygame.draw.line(layer, (*rf.EYE_MID, 200), (x0, y0),
+                                 (x0 + math.cos(a) * R, y0 + math.sin(a) * R), 3)
+            surf.blit(_eye_clip(layer), rect.topleft)
+
+
+@scene("dream", duration=11.0, weight=1, night_weight=4)
+class Dream(Scene):
+    """Dozes off and counts sheep in a dream bubble."""
+    _font = None
+
+    def motion(self, face, p):
+        hold = rf._prop_hold(p, 0.1, 0.1)
+        face.target_oy += (10.0 + 5.0 * math.sin(p * self.duration * 1.6)) * hold
+        face.target_tilt = -6.0 * hold
+
+    def eyes(self, face, p, e):
+        hold = rf._prop_hold(p, 0.1, 0.1)
+        e.blink_l = e.blink_r = min(e.blink_l, 1.0 - 0.94 * hold)
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p, 0.14, 0.12)
+        if hold < 0.03:
+            return
+        if Dream._font is None:
+            Dream._font = rf._get_font(30)
+        t = p * self.duration
+        bx, by = int(fcx + 225), int(fcy - 148)
+        for k, (dx, dy, r) in enumerate(((-150, 108, 8), (-120, 84, 12))):
+            pygame.draw.circle(surf, _dim(rf.EYE_MID, hold), (bx + dx, by + dy), r, 3)
+        W, H = 250, 128
+        bub = pygame.Surface((W, H), pygame.SRCALPHA)
+        for cx, cy, r in ((70, 70, 52), (125, 56, 60), (185, 70, 52), (125, 84, 44)):
+            pygame.draw.circle(bub, (*rf.PUPIL_DARK, 255), (cx, cy), r)
+        inner = bub.copy()
+        edge = pygame.Surface((W, H), pygame.SRCALPHA)
+        for cx, cy, r in ((70, 70, 52), (125, 56, 60), (185, 70, 52), (125, 84, 44)):
+            pygame.draw.circle(edge, (*rf.EYE_MID, 255), (cx, cy), r + 3)
+        edge.blit(inner, (0, 0))
+        # the sheep jumps a fence, again and again
+        fence_x, ground = 125, 100
+        for fx in (fence_x - 14, fence_x + 14):
+            pygame.draw.rect(edge, (*rf.EYE_OUTER, 255), pygame.Rect(fx - 3, ground - 28, 6, 28))
+        for fy in (ground - 22, ground - 11):
+            pygame.draw.rect(edge, (*rf.EYE_OUTER, 255), pygame.Rect(fence_x - 22, fy, 44, 5))
+        u = (t / 2.2) % 1.0
+        sx = 40 + u * 170
+        sy = ground - 16 - 46 * max(0.0, math.sin((u - 0.25) / 0.5 * math.pi)) \
+            if 0.25 < u < 0.75 else ground - 16
+        for ox, oy in ((-10, 0), (0, -6), (10, 0), (0, 4)):
+            pygame.draw.circle(edge, (*rf.TEETH_COL, 255), (int(sx + ox), int(sy + oy)), 11)
+        pygame.draw.circle(edge, (*rf.PUPIL_DARK, 255), (int(sx + 20), int(sy - 4)), 7)
+        for lx in (-8, 8):
+            pygame.draw.line(edge, (*rf.TEETH_COL, 255), (sx + lx, sy + 10),
+                             (sx + lx, sy + 18), 3)
+        n = int(t / 2.2) + 1                        # counting
+        num = Dream._font.render(str(n), True, rf.EYE_INNER)
+        edge.blit(num, (W - 70, 28))
+        edge.set_alpha(int(255 * hold))
+        surf.blit(edge, (bx - W // 2, by - H // 2))
+
+
+@scene("lost_signal", duration=4.0, weight=2, night_weight=2, in_reply=True)
+class LostSignal(Scene):
+    """Her eyes lose the signal and dissolve into static for a moment."""
+    def _level(self, p):
+        """0 clear … 1 pure static, with a flickery way in and out."""
+        if p < 0.12 or p > 0.9:
+            return 0.0
+        rnd = random.Random(int(p * self.duration * 12))
+        if p < 0.3 or p > 0.75:
+            return 1.0 if rnd.random() < 0.45 else 0.0
+        return 1.0
+
+    def motion(self, face, p):
+        if self._level(p) > 0.5:
+            face._pupil_mul = 0.0
+
+    def draw(self, face, surf, fcx, fcy, p):
+        lvl = self._level(p)
+        if lvl <= 0:
+            return
+        t = p * self.duration
+        rnd = random.Random(int(t * 20))
+        for eye, rect in _eye_rects(face, fcx, fcy):
+            if rect.h < 20:
+                continue
+            w, h = rect.size
+            layer = pygame.Surface((w, h), pygame.SRCALPHA)
+            layer.fill((*rf.PUPIL_DARK, 245))
+            for _ in range(110):
+                x = rnd.randint(0, w - 1)
+                y = rnd.randint(0, h - 1)
+                c = rf.TEETH_COL if rnd.random() < 0.6 else rf.EYE_INNER
+                pygame.draw.rect(layer, (*c, rnd.randint(60, 230)),
+                                 pygame.Rect(x, y, rnd.randint(3, 14), 3))
+            band = int((t * 90) % (h + 30)) - 15      # the rolling bar
+            pygame.draw.rect(layer, (*rf.TEETH_COL, 60), pygame.Rect(0, band, w, 14))
+            surf.blit(_eye_clip(layer), rect.topleft)
+
 # ══ Bigger scenes with props ════════════════════════════════════════════════
 
 @scene("look_around", duration=4.0, weight=4, night_weight=2)
@@ -752,6 +1209,278 @@ class Please(Scene):
     def eyes(self, face, p, e):
         e.widen = max(e.widen, 0.85 * rf._prop_hold(p, 0.18, 0.18))
 
+
+# Offsets from a hand's centre to its fingertip, right-hand image unrotated
+# (see robot_face.hand_surface): the raised index finger of "point", and the
+# pinched ring of "ok".
+_POINT_TIP = (-26, -74)
+_PINCH = (-38, -11)
+
+
+@scene("thumbs_down", duration=2.6, weight=1, in_reply=True)
+class ThumbsDown(Scene):
+    """Thumb down, a little shake of the head. Meh."""
+    def hands(self, face, p, h):
+        hold = rf._prop_hold(p, 0.2, 0.2)
+        bob = 6.0 * math.sin(p * self.duration * 4.0)
+        h.pose_r = "thumb_down"
+        h.r = (290, 135 + bob + 360 * (1 - hold), 6)
+
+    def motion(self, face, p):
+        hold = rf._prop_hold(p, 0.2, 0.2)
+        face.target_ox += 8.0 * math.sin(p * self.duration * 7.0) * hold
+        face.target_tilt = -4.0 * hold
+
+    def eyes(self, face, p, e):
+        hold = rf._prop_hold(p, 0.2, 0.2)
+        e.squint = max(e.squint, 0.5 * hold)
+        e.blink_l = e.blink_r = min(e.blink_l, 1.0 - 0.25 * hold)
+
+
+@scene("tap_screen", duration=4.4, weight=2, needs_face=True)
+class TapScreen(Scene):
+    """Knocks on the glass from the inside: hello, anyone out there?"""
+    KNOCKS = (0.36, 0.46, 0.56)
+    AT = (262, 80)                          # the fist, relative to the face
+
+    def _knock(self, p):
+        """0 hand back, 1 knuckles on the glass."""
+        best = 0.0
+        for c in self.KNOCKS:
+            d = abs(p - c)
+            if d < 0.05:
+                best = max(best, 1.0 - d / 0.05)
+        return best
+
+    def motion(self, face, p):
+        hold = rf._prop_hold(p, 0.2, 0.2)
+        face.pupil_ox = rf.lerp(face.pupil_ox, 0.0, 0.15)
+        face.pupil_oy = rf.lerp(face.pupil_oy, 0.0, 0.15)
+        if p > 0.62:                             # listens for an answer
+            face.target_tilt = 9.0 * hold
+            face.target_ox += 12.0 * hold
+
+    def eyes(self, face, p, e):
+        if any(abs(p - c) < 0.02 for c in self.KNOCKS):
+            e.blink_l = e.blink_r = min(e.blink_l, 0.3)
+        if p > 0.62:
+            e.widen = max(e.widen, 0.6 * rf._prop_hold(p, 0.2, 0.2))
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p, 0.2, 0.2)
+        if hold < 0.03:
+            return
+        k = self._knock(p)
+        img = rf.hand_surface("fist", "R")
+        sc = 0.95 + 0.6 * k                      # comes at you, towards the glass
+        img = pygame.transform.smoothscale(
+            img, (int(img.get_width() * sc), int(img.get_height() * sc)))
+        img.set_alpha(int(255 * hold))
+        x, y = fcx + self.AT[0], fcy + self.AT[1] + 380 * (1 - hold)
+        surf.blit(img, img.get_rect(center=(int(x), int(y))))
+        for c in self.KNOCKS:                    # a ripple on the glass per knock
+            u = (p - c) / 0.14
+            if 0.0 <= u <= 1.0:
+                pygame.draw.circle(surf, _dim(rf.TEETH_COL, 0.8 * (1 - u)),
+                                   (int(x - 30), int(y - 50)), int(30 + 90 * u), 4)
+
+    def post(self, face, screen, p):
+        if any(abs(p - c) < 0.012 for c in self.KNOCKS):
+            screen.scroll(0, 5)                  # the whole screen jolts
+
+
+@scene("snap", duration=2.4, weight=2, in_reply=True)
+class Snap(Scene):
+    """Snaps her fingers — got it!"""
+    SNAP = 0.5
+    _font = None
+
+    def hands(self, face, p, h):
+        hold = rf._prop_hold(p, 0.2, 0.2)
+        before = p < self.SNAP
+        h.pose_r = "ok" if before else "point"
+        wind = -10.0 * math.sin(min(1.0, p / self.SNAP) * math.pi) if before else 0.0
+        jolt = 14.0 if self.SNAP <= p < self.SNAP + 0.05 else 0.0
+        h.r = (250, 20 + jolt + 380 * (1 - hold), wind)
+
+    def motion(self, face, p):
+        if self.SNAP <= p < self.SNAP + 0.1:
+            face.target_oy -= 10.0
+
+    def eyes(self, face, p, e):
+        d = p - self.SNAP
+        if 0 <= d < 0.05:
+            e.blink_l = e.blink_r = min(e.blink_l, 0.2)
+        elif 0.05 <= d < 0.35:
+            e.widen = max(e.widen, 0.8)
+
+    def draw(self, face, surf, fcx, fcy, p):
+        d = (p - self.SNAP) / 0.25
+        if not 0.0 <= d <= 1.0:
+            return
+        if Snap._font is None:
+            Snap._font = rf._get_font(34)
+        x = fcx + 250 + _PINCH[0]
+        y = fcy + 20 + _PINCH[1]
+        a = int(250 * (1.0 - d))
+        for k in range(7):                      # a spark off the fingers
+            ang = -math.pi / 2 + (k - 3) * 0.42
+            r0, r1 = 26 + 30 * d, 46 + 52 * d
+            pygame.draw.line(surf, _dim(rf.STAR_COL, 1.0 - d),
+                             (x + math.cos(ang) * r0, y + math.sin(ang) * r0),
+                             (x + math.cos(ang) * r1, y + math.sin(ang) * r1), 5)
+        txt = Snap._font.render("pstryk!", True, rf.EYE_INNER)
+        txt.set_alpha(a)
+        surf.blit(txt, txt.get_rect(center=(int(x + 70), int(y - 150 - 20 * d))))
+
+
+@scene("ok_sign", duration=2.8, weight=2, mood="happy", needs_face=True,
+       in_reply=True)
+class OkSign(Scene):
+    """Thumb and finger in a ring, and a wink: all good."""
+    def hands(self, face, p, h):
+        hold = rf._prop_hold(p, 0.2, 0.2)
+        h.pose_r = "ok"
+        h.r = (262, 40 + 4 * math.sin(p * self.duration * 4.0) + 380 * (1 - hold), -6)
+
+    def motion(self, face, p):
+        face.target_tilt = -5.0 * rf._prop_hold(p, 0.2, 0.2)
+
+    def eyes(self, face, p, e):
+        if 0.35 < p < 0.65:                      # the wink that goes with it
+            w = math.sin((p - 0.35) / 0.3 * math.pi)
+            e.blink_r = min(e.blink_r, 1.0 - 0.95 * w)
+
+
+@scene("finger_stretch", duration=3.8, weight=3, night_weight=2)
+class FingerStretch(Scene):
+    """Laces her fingers, stretches them out, and shakes her hands loose."""
+    def hands(self, face, p, h):
+        hold = rf._prop_hold(p, 0.15, 0.15)
+        up = 420 * (1 - hold)
+        if p < 0.55:                               # push out and up, fingers wiggling
+            k = min(1.0, p / 0.3)
+            wig = 7.0 * math.sin(p * self.duration * 22.0) * k
+            h.l = (rf.lerp(-120, -250, k), -60 - 70 * k + up, 30 * k + wig)
+            h.r = (rf.lerp( 120,  250, k), -60 - 70 * k + up, -30 * k - wig)
+        else:                                      # shake them out
+            sh = 14.0 * math.sin(p * self.duration * 30.0)
+            h.l = (-240, 60 + sh + up, sh)
+            h.r = ( 240, 60 - sh + up, -sh)
+
+    def motion(self, face, p):
+        if p < 0.55:
+            face.target_oy -= 16.0 * min(1.0, p / 0.3)
+
+    def eyes(self, face, p, e):
+        if 0.1 < p < 0.55:
+            s = math.sin((p - 0.1) / 0.45 * math.pi)
+            e.squint = max(e.squint, 0.85 * s)
+            e.blink_l = e.blink_r = min(e.blink_l, 1.0 - 0.4 * s)
+
+
+@scene("juggle", duration=8.0, weight=3, night_weight=1, mood="happy")
+class Juggle(Scene):
+    """Three balls, a cascade, eyes on the highest one."""
+    SPAN, INNER, CATCH, PEAK = 175, 105, 150, 300
+
+    def _balls(self, p):
+        """[(x, y)] relative to the face for the three balls."""
+        t = p * self.duration
+        out = []
+        for i in range(3):
+            u = (t * 1.25 + i * 2.0 / 3.0) % 2.0
+            go = u if u < 1.0 else u - 1.0
+            if u < 1.0:
+                x0, x1, peak = -self.INNER, self.SPAN, self.PEAK
+            else:
+                x0, x1, peak = self.INNER, -self.SPAN, self.PEAK * 0.86
+            x = rf.lerp(x0, x1, go)
+            y = self.CATCH - peak * 4 * go * (1 - go)
+            out.append((x, y))
+        return out
+
+    def hands(self, face, p, h):
+        hold = rf._prop_hold(p, 0.12, 0.12)
+        t = p * self.duration
+        bob = 12.0 * abs(math.sin(t * 1.25 * math.pi * 1.5))
+        h.l = (-self.SPAN, self.CATCH + 60 + bob + 380 * (1 - hold), 12)
+        h.r = ( self.SPAN, self.CATCH + 60 + bob + 380 * (1 - hold), -12)
+
+    def motion(self, face, p):
+        hold = rf._prop_hold(p, 0.12, 0.12)
+        x, y = min(self._balls(p), key=lambda b: b[1])
+        face.pupil_ox = rf.lerp(face.pupil_ox, rf.clamp(x * 0.13, -30, 30) * hold, 0.2)
+        face.pupil_oy = rf.lerp(face.pupil_oy, rf.clamp(y * 0.12, -26, 26) * hold, 0.2)
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p, 0.12, 0.12)
+        if hold < 0.03:
+            return
+        cols = (rf.STAR_COL, rf.HEART_COL, rf.TEAR_COL)
+        for (x, y), col in zip(self._balls(p), cols):
+            cx, cy = int(fcx + x), int(fcy + y + 380 * (1 - hold))
+            rf.draw_glow_circle(surf, col, (cx, cy), 20, layers=3, max_alpha=45)
+            pygame.draw.circle(surf, col, (cx, cy), 20)
+            pygame.draw.circle(surf, rf.IRIS_SHINE, (cx - 6, cy - 6), 5)
+
+
+@scene("air_heart", duration=4.6, weight=2, mood="love", needs_face=True,
+       in_reply=True)
+class AirHeart(Scene):
+    """Draws a glowing heart in the air with one finger."""
+    DRAW_FROM, DRAW_TO = 0.15, 0.72
+    CX, CY, SCALE = 0, 70, 5.6
+
+    def _pt(self, a):
+        x = 16 * math.sin(a) ** 3
+        y = 13 * math.cos(a) - 5 * math.cos(2 * a) - 2 * math.cos(3 * a) - math.cos(4 * a)
+        return self.CX + x * self.SCALE, self.CY - y * self.SCALE
+
+    def _drawn(self, p):
+        """How far round the heart the finger has got, 0..1."""
+        return rf.clamp((p - self.DRAW_FROM) / (self.DRAW_TO - self.DRAW_FROM), 0, 1)
+
+    def hands(self, face, p, h):
+        h.pose_r = "point"
+        if p < self.DRAW_FROM:                     # up to the starting point
+            k = p / self.DRAW_FROM
+            tx, ty = self._pt(0.0)
+            h.r = (rf.lerp(330, tx - _POINT_TIP[0], k), rf.lerp(420, ty - _POINT_TIP[1], k), 0)
+        elif p < self.DRAW_TO:
+            tx, ty = self._pt(self._drawn(p) * math.tau)
+            h.r = (tx - _POINT_TIP[0], ty - _POINT_TIP[1], 0)
+        else:                                      # and away again
+            k = min(1.0, (p - self.DRAW_TO) / 0.15)
+            tx, ty = self._pt(0.0)
+            h.r = (rf.lerp(tx - _POINT_TIP[0], 330, k), rf.lerp(ty - _POINT_TIP[1], 420, k), 0)
+
+    def motion(self, face, p):
+        tx, ty = self._pt(self._drawn(p) * math.tau)
+        if self.DRAW_FROM < p < self.DRAW_TO:     # watches her own finger
+            face.pupil_ox = rf.lerp(face.pupil_ox, tx * 0.2, 0.2)
+            face.pupil_oy = rf.lerp(face.pupil_oy, rf.clamp((ty - 20) * 0.2, -20, 26), 0.2)
+
+    def draw(self, face, surf, fcx, fcy, p):
+        d = self._drawn(p)
+        if d <= 0.0 or p > 0.97:
+            return
+        fade = 1.0 if p < 0.85 else max(0.0, 1.0 - (p - 0.85) / 0.12)
+        n = max(2, int(80 * d))
+        pts = [(fcx + x, fcy + y)
+               for x, y in (self._pt(i / 79 * math.tau) for i in range(n))]
+        layer = pygame.Surface((340, 300), pygame.SRCALPHA)
+        ox, oy = fcx - 170, fcy - 60
+        local = [(x - ox, y - oy) for x, y in pts]
+        if d >= 1.0:                               # finished: it fills and beats
+            beat = 0.5 + 0.5 * math.sin(p * self.duration * 9.0)
+            pygame.draw.polygon(layer, (*rf.HEART_COL, int((90 + 70 * beat) * fade)), local)
+        if len(local) > 1:
+            pygame.draw.lines(layer, (*rf.HEART_COL, int(245 * fade)), d >= 1.0, local, 8)
+        glow = layer.copy()
+        glow.fill((*rf.GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
+        rf.bloom(surf, glow, (ox, oy), radius=8, passes=1, max_alpha=int(90 * fade))
+        surf.blit(layer, (ox, oy))
 
 # ══ The screen itself as a medium ═══════════════════════════════════════════
 # Ambient, wallpaper-like scenes. They run longer than the others and are
