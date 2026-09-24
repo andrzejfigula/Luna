@@ -17,6 +17,8 @@ class SharedState:
         "idle_action",           # idle micro-scene: "wink" | "yawn" | "stretch"
                                  # | "look_around" | "clock" | None
         "idle_action_start",     # time.time() it started
+        "idle_action_reply",     # True: the LLM chose it as body language for
+                                 # a reply (survives the conversation starting)
         "touch_kind",            # last touch: "tap" | "stroke" | "multi"
         "touch_x", "touch_y",    # where, normalised 0..1
         "touch_time",            # time.time() of that touch
@@ -61,6 +63,7 @@ class SharedState:
         self.gesture_time        = 0.0
         self.idle_action         = None
         self.idle_action_start   = 0.0
+        self.idle_action_reply   = False
         self.touch_kind          = None
         self.touch_x             = 0.5
         self.touch_y             = 0.5

@@ -132,6 +132,10 @@ front of the camera for 30 s the face goes to sleep.
   (`PROACTIVE_MIN_GAP_SECS`), silent during `PROACTIVE_QUIET_FROM/TO`, and
   stops for an hour when you say "Luna, cicho" (`MUTE_PHRASES`); animations
   are never limited.
+  One thing drives the face at a time: touch > hand/head gesture >
+  conversation > idle scene. A touch or gesture ends a playing scene
+  (with its mood) instead of mixing with it, and no scene starts during a
+  gesture, a lingering mood, or `IDLE_AFTER_TOUCH_SECS` after a touch.
 - Touch (`touch_module.py`): the DSI panel is read straight from evdev (SDL
   under Wayland does not deliver touch events). Tap an eye, tap her mouth,
   stroke the top of the screen or poke her repeatedly — each gets its own

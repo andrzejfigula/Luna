@@ -366,6 +366,7 @@ def process(text):
         elif gesture in idle_scenes.SCENES:          # facial scene
             state.idle_action       = gesture
             state.idle_action_start = time.time()
+            state.idle_action_reply = True
     try:
         speak(reply)
     finally:

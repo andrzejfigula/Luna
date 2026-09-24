@@ -354,6 +354,7 @@ TOUCH_DEBUG        = False
 # (above the eyes), "other".
 TOUCH_REACT_SECS      = 2.2   # how long the face holds its touch reaction
 TOUCH_POKE_SECS       = 3.0   # ...when poked repeatedly (she sulks longer)
+IDLE_AFTER_TOUCH_SECS = 8.0   # no idle scene starts this soon after a touch
 TOUCH_SPEECH_COOLDOWN = 25    # seconds between spoken touch reactions. Being
                               # touched is not "unprompted" — you started it —
                               # so it has its own short budget, not the 15 min

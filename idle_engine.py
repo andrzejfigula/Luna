@@ -38,6 +38,7 @@ from config import (IDLE_LIFE, IDLE_ABSENCE_SECS, IDLE_SCENE_MIN_SECS,
                     GREETINGS_NIGHT, GREETINGS_FIRST_TODAY,
                     MUTE_PHRASES, UNMUTE_PHRASES, MUTE_SECS,
                     TOUCH_REPLIES, TOUCH_REPLY_CHANCE, TOUCH_SPEECH_COOLDOWN,
+                    IDLE_AFTER_TOUCH_SECS,
                     GESTURE_DURATION,
                     FACE_OVERRIDE_SECS, NIGHT_FROM, NIGHT_TO)
 
@@ -97,6 +98,25 @@ def _busy():
                 or state.luna_mode in ("listening", "processing", "speaking"))
 
 
+def _face_free(now):
+    """May a scene start now? One thing drives the face at a time: a scene
+    must not start on top of a touch reaction, a wave/nod/heart, or a mood
+    someone else put on her face (a reply's lingering emotion, a greeting).
+    robot_face.py enforces the same order the other way round — a touch or a
+    gesture cancels a scene that is already playing."""
+    with state.lock:
+        touch_t   = state.touch_time
+        g_anim    = state.gesture_anim
+        g_start   = state.gesture_anim_start
+        override  = state.face_override
+        over_end  = state.face_override_until
+    if now - touch_t < IDLE_AFTER_TOUCH_SECS:
+        return False
+    if g_anim and now - g_start < GESTURE_DURATION.get(g_anim, 0.0):
+        return False
+    return not (override and now < over_end)
+
+
 # ── actions ───────────────────────────────────────────────────────────────────
 
 def _play(action):
@@ -106,6 +126,7 @@ def _play(action):
     with state.lock:
         state.idle_action       = action
         state.idle_action_start = now
+        state.idle_action_reply = False
         if sc and sc.mood:
             state.face_override       = sc.mood
             state.face_override_until = now + sc.duration
@@ -195,6 +216,7 @@ def idle_loop():
             # ── reaction to being touched (voice; visuals are in the face)
             if touch_t > last_touch_t:
                 last_touch_t = touch_t
+                last_scene = now          # the scene timer restarts after a touch
                 replies = TOUCH_REPLIES.get(touch_zone or "other", {}).get(touch_kind)
                 # you started this, so it isn't rationed like unprompted talk —
                 # it only needs its own short cooldown (mute + quiet hours apply)
@@ -208,7 +230,7 @@ def idle_loop():
                     speak(random.choice(replies), can_drop=True)
 
             # ── calendar moments jump the queue ──────────────────────────
-            if IDLE_LIFE and not _busy():
+            if IDLE_LIFE and not _busy() and _face_free(now):
                 forced = idle_scenes.forced_scene(present, IDLE_SCENES_DISABLED)
                 if forced and now - _forced_at.get(forced, 0) > FORCED_COOLDOWN:
                     _forced_at[forced] = now
@@ -217,7 +239,8 @@ def idle_loop():
                     last_scene = now
 
             # ── micro-scenes ─────────────────────────────────────────────
-            if IDLE_LIFE and not _busy() and now - last_scene >= next_scene:
+            if (IDLE_LIFE and not _busy() and now - last_scene >= next_scene
+                    and _face_free(now)):
                 scene = _pick_scene(present)
                 if scene:
                     print(f"[idle] scene: {scene}")

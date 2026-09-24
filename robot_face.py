@@ -33,7 +33,7 @@ from shared_state import state
 from config import (RENDER_FPS, FACE_STYLE, SCREEN_WIDTH, SCREEN_HEIGHT,
                     FULLSCREEN, HIDE_CURSOR, GESTURE_DURATION,
                     CAMERA_PREVIEW, CAMERA_PREVIEW_W, TOUCH_DEBUG,
-                    TOUCH_REACT_SECS, TOUCH_POKE_SECS)
+                    TOUCH_REACT_SECS, TOUCH_POKE_SECS, IDLE_DEBUG)
 
 # The face geometry below is in absolute pixels and was drawn for a 1400x800
 # window; it fits the 800x480 DSI panel as-is (~560x400 used), just larger
@@ -1397,6 +1397,7 @@ class RobotFace:
             g_start        = state.gesture_anim_start
             i_anim         = state.idle_action
             i_start        = state.idle_action_start
+            i_reply        = state.idle_action_reply
             touch_kind     = state.touch_kind
             touch_t        = state.touch_time
             touch_pt       = (state.touch_x, state.touch_y)
@@ -1624,6 +1625,10 @@ class RobotFace:
                 self.bounce_phase, self.bounce_amp = 0.0, 26.0
             else:
                 mood, secs = "happy", TOUCH_REACT_SECS
+            # a touch outranks whatever scene was playing: finish it now,
+            # or its eyes / mouth / props mix with the touch reaction
+            if self._scene:
+                self._cancel_scene(i_anim, i_start, "touch")
             with state.lock:
                 state.touch_zone          = self._touch_zone
                 state.face_override       = mood
@@ -1632,6 +1637,20 @@ class RobotFace:
                 print(f"[face] touched: {touch_kind} on {self._touch_zone} "
                       f"-> {mood}", flush=True)
         touch_el = now_t - self._touch_react_t
+
+        # ── one thing drives the face at a time ──────────────────────────
+        # touch > hand/head gesture > conversation > idle scene. A scene
+        # that loses is ended outright, not blended (idle_engine won't start
+        # a new one on top of the others either — see _face_free there).
+        if self._scene:
+            g_live = (g_anim is not None
+                      and 0.0 <= now_t - g_start < GESTURE_DURATION.get(g_anim, 0.0))
+            if g_live:
+                self._cancel_scene(i_anim, i_start, f"gesture {g_anim}")
+            elif not i_reply and (speaking or convo_active):
+                # (not luna_mode: Vosk flips it to "processing" on every bit
+                # of room noise, which would cut scenes for nothing)
+                self._cancel_scene(i_anim, i_start, "conversation")
 
         # ── gestures: head (nod / shake) and hands (wave / thumbs_up / heart)
         g_el  = now_t - g_start
@@ -1896,6 +1915,21 @@ class RobotFace:
                        int(eye_col[1] * (1 - d)),
                        int(eye_col[2] * (1 - d)))
         self._eye_color = None if eye_col == EYE_OUTER else eye_col
+
+    def _cancel_scene(self, name, start, why):
+        """End the playing scene now. Its mood goes too — but only the mood
+        the scene itself put on (same expiry), never one set by someone else."""
+        sc = idle_scenes.SCENES.get(name)
+        with state.lock:
+            if state.idle_action == name and state.idle_action_start == start:
+                state.idle_action = None
+            if (sc and sc.mood and state.face_override == sc.mood
+                    and abs(state.face_override_until - (start + sc.duration)) < 0.05):
+                state.face_override = None
+        self._idle = self._scene = None
+        self._idle_p = 0.0
+        if IDLE_DEBUG:
+            print(f"[face] scene {name} cut short by {why}", flush=True)
 
     def _zone_at(self, nx, ny):
         """Which part of the face was touched (normalised screen coords)."""
