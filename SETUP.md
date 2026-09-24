@@ -150,6 +150,12 @@ front of the camera for 30 s the face goes to sleep.
   rozmowa o pracę?") that she brings up at the start of a later
   conversation. It is plain JSON on the Pi; read or edit it freely.
   "Luna, zapomnij wszystko" wipes it. `MEMORY_*` in config.
+- Your mood (`brain.py`): every reply also returns `user_mood`, read from
+  the camera frame that is attached anyway (tired, sad, stressed, happy…,
+  or `no_person`). It quietly sets her tone. She may SAY something about it
+  only when the same mood was read twice in a row and `MOOD_COMMENT_COOLDOWN`
+  (30 min) has passed — noticing once is friendly, commenting on your face
+  all the time is not. The log shows it: `[brain] OpenAI (happy, none, you: tired)`.
 - Sounds (`sounds.py`): "mhm", "hmm", "hm?", a giggle, "aww", "oh!", "ej!",
   a yawn — generated once by her own TTS voice into `data/sounds/` (again
   automatically when the voice changes), then played locally. Used for a

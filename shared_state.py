@@ -48,6 +48,8 @@ class SharedState:
                                  # speech gate: people talking TO Luna face her)
         "last_spoken_text",      # Luna's most recent utterance (lowercased)
         "last_spoken_time",      # time.time() when that utterance finished
+        "user_mood",             # how the user seemed on camera at the last
+                                 # reply (brain.USER_MOODS), "no_person"
     )
 
     def __init__(self):
@@ -92,6 +94,7 @@ class SharedState:
         self.last_face_time      = 0.0
         self.last_spoken_text    = ""
         self.last_spoken_time    = 0.0
+        self.user_mood           = "no_person"
 
 
 state = SharedState()

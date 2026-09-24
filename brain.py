@@ -51,6 +51,8 @@ from config import (
     THINK_SOUND_DELAY,
     THINK_SOUND_CHANCE,
     THINK_SOUNDS,
+    MOOD_COMMENT_MOODS,
+    MOOD_COMMENT_COOLDOWN,
 )
 
 try:
@@ -107,6 +109,10 @@ EMOTIONS = ["neutral", "happy", "sad", "angry", "surprised", "excited", "love"]
 HAND_GESTURES = ["nod", "shake", "wave", "thumbs_up", "heart"]
 SCENE_GESTURES = sorted(idle_scenes.reply_scenes())
 GESTURES = ["none"] + HAND_GESTURES + SCENE_GESTURES
+# How the person on camera seems — read from the frame that goes with every
+# message anyway, so it costs nothing extra.
+USER_MOODS = ["no_person", "neutral", "happy", "tired", "sad", "stressed",
+              "annoyed", "surprised"]
 
 # ── Optional knowledge.txt (facts injected into the system prompt) ────────────
 knowledge_text = ""
@@ -128,10 +134,19 @@ pewna", "jestem ciekawa", "sama". WRONG, never use: "mógłbym",
 "jestem pewny", "jestem ciekawy", "sam". Check your reply for this before
 answering.
 
-Always answer as JSON with exactly three keys:
+Always answer as JSON with exactly these keys:
+  "user_mood" — one of {USER_MOODS}: how the person in the camera picture
+                seems right now (face, eyes, posture). "no_person" when nobody
+                is visible or the picture is too dark or blurry to tell.
   "reply"   — what you say out loud (plain text, no markdown, 1-3 short sentences)
   "emotion" — one of {EMOTIONS}, the facial expression you show while saying it.
   "gesture" — one of {GESTURES}, the body language you perform while saying it.
+  "mood_comment" — true only if your reply remarks on how the user looks or
+                seems; otherwise false.
+Let user_mood quietly shape HOW you answer — softer, calmer and shorter when
+they seem tired, sad or stressed; livelier when they seem happy — without
+mentioning it. Whether you may actually SAY something about it is stated
+below the date in every message; if not, don't.
 Pick the emotion that fits the reply: "happy" for warmth and good news,
 "excited" for enthusiasm, "love" for affection/compliments, "surprised" for
 unexpected things, "sad" for bad news or sympathy, "angry" only for playful
@@ -180,12 +195,16 @@ _RESPONSE_FORMAT = {
         "strict": True,
         "schema": {
             "type": "object",
+            # user_mood comes first on purpose: the model reads the person
+            # before it writes the reply, so the mood can shape the tone
             "properties": {
-                "reply":   {"type": "string"},
-                "emotion": {"type": "string", "enum": EMOTIONS},
-                "gesture": {"type": "string", "enum": GESTURES},
+                "user_mood":    {"type": "string", "enum": USER_MOODS},
+                "reply":        {"type": "string"},
+                "emotion":      {"type": "string", "enum": EMOTIONS},
+                "gesture":      {"type": "string", "enum": GESTURES},
+                "mood_comment": {"type": "boolean"},
             },
-            "required": ["reply", "emotion", "gesture"],
+            "required": ["user_mood", "reply", "emotion", "gesture", "mood_comment"],
             "additionalProperties": False,
         },
     },
@@ -220,6 +239,44 @@ def _camera_jpeg_b64():
     if not ok:
         return None
     return base64.b64encode(buf.tobytes()).decode("ascii")
+
+
+# ── The user's mood, and the (rare) permission to mention it ──────────────────
+# Reading the mood is constant and silent: it only changes her tone. SAYING
+# it ("wyglądasz na zmęczonego") is rationed — a friend notices once, a
+# camera that comments on your face every time is creepy. So a remark is
+# allowed only when the same non-neutral mood was read twice in a row (not a
+# single odd frame) and MOOD_COMMENT_COOLDOWN has passed since the last one.
+
+_mood_seen = []                  # the last few readings, newest last
+_last_mood_comment = 0.0
+
+
+def _mood_rule(have_image):
+    if not have_image:
+        return ("There is no camera picture this time: user_mood is "
+                "\"no_person\" and do not remark on how the user looks.\n")
+    steady = (len(_mood_seen) >= 1 and _mood_seen[-1] in MOOD_COMMENT_MOODS)
+    if steady and time.time() - _last_mood_comment > MOOD_COMMENT_COOLDOWN:
+        return ("You MAY, if it fits naturally, add one short, kind remark on "
+                "how the user seems (e.g. \"Wyglądasz na zmęczonego — długi "
+                "dzień?\"), but only if the picture clearly shows it. Set "
+                "mood_comment accordingly.\n")
+    return ("Do NOT remark on how the user looks or seems in this reply; "
+            "mood_comment must be false.\n")
+
+
+def _note_mood(mood, commented):
+    global _last_mood_comment
+    # the permission above looks at the PREVIOUS reading, so it takes two
+    # matching readings in a row before she may say anything
+    if mood != "no_person":
+        _mood_seen.append(mood)
+        del _mood_seen[:-3]
+    if commented:
+        _last_mood_comment = time.time()
+    with state.lock:
+        state.user_mood = mood
 
 
 # ── OpenAI call ───────────────────────────────────────────────────────────────
@@ -264,7 +321,8 @@ def _ask_openai(text, image_b64=None, detail="low"):
         system = (f"{SYSTEM_PROMPT}\nYou are in {LUNA_LOCATION}. The current "
                   f"local date and time there is: {_local_now_text()}. When "
                   f"asked the time or date, answer with exactly this local "
-                  f"time — do not convert it to any other zone."
+                  f"time — do not convert it to any other zone.\n"
+                  + _mood_rule(image_b64 is not None)
                   + memory.prompt_block())
 
         response = _client.chat.completions.create(
@@ -288,6 +346,9 @@ def _ask_openai(text, image_b64=None, detail="low"):
         gesture = str(data.get("gesture", "none")).lower()
         if gesture not in GESTURES:
             gesture = "none"
+        mood = str(data.get("user_mood", "no_person")).lower()
+        _note_mood(mood if mood in USER_MOODS else "no_person",
+                   bool(data.get("mood_comment", False)))
 
         # keep history text-only: images are large and only matter for the
         # turn they were asked in
@@ -295,7 +356,8 @@ def _ask_openai(text, image_b64=None, detail="low"):
         _history.append({"role": "assistant", "content": reply})
         memory.record(text, reply)
 
-        print(f"[brain] OpenAI ({emotion}, {gesture}): {reply}")
+        print(f"[brain] OpenAI ({emotion}, {gesture}, you: {mood}"
+              f"{', commented' if data.get('mood_comment') else ''}): {reply}")
         return reply, emotion, gesture
 
     except Exception as e:

@@ -316,6 +316,13 @@ BIRTHDAYS = [d.strip() for d in
              os.environ.get("LUNA_BIRTHDAYS", "").split(",") if d.strip()]
 IDLE_SCENES_DISABLED = []
 
+# ── The user's mood (brain.py) ───────────────────────────────────────────────
+# Read from the camera frame on every request and used to set her tone.
+# Mentioning it out loud is rationed: the same mood twice in a row, one of
+# these, and not more often than the cooldown.
+MOOD_COMMENT_MOODS    = ["tired", "sad", "stressed", "happy"]
+MOOD_COMMENT_COOLDOWN = 1800   # seconds (30 min)
+
 # ── Non-verbal sounds (sounds.py) ────────────────────────────────────────────
 # "mhm", "hmm", "hm?", a giggle, "oh!" — made once by her own TTS voice,
 # cached in data/sounds/, then played locally with no delay or cost.
