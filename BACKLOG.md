@@ -158,3 +158,10 @@ the game's hand reading, photos, the mood read from a face.
 | 57 | **Hold to interrupt** — holding a finger while she talks stops her and listens to you at once | Barge-in without shouting over her | ✅ |
 | 58 | **Voice messages** — "nagraj wiadomość": your next sentence is recorded as-is; whoever comes by next hears "masz wiadomość", and "odtwórz wiadomość" plays it in your own voice | A family message board that talks | ✅ found while testing: Vosk ends an utterance at a ~1 s pause, cutting messages — while recording, its endpoints are ignored until 2 s of silence; an envelope shows while a message waits |
 
+## Batch 16
+
+| # | Item | Why | Status |
+|---|------|-----|--------|
+| 59 | **The morning hello knows your to-do list** — it may mention one item in passing | Lists are in real use already (a to-do list appeared on the Pi while I worked) | ✅ |
+| 60 | **Safe restarts** — `restart.sh` waits for 3 quiet minutes and appends the log | My deploys were interrupting real conversations and erasing their log | ✅ |
+

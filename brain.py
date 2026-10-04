@@ -615,8 +615,9 @@ first time you see them today. Write ONE short spoken greeting in Polish,
 1-2 sentences, warm and natural, no lists, no emoji. Fit it to the time of
 day. If you know the weather, say in a few words what matters (rain →
 umbrella, cold → dress warmly). If a timer or reminder is set for today,
-mention it briefly. If your memory has an open thread for today, you may
-ask about it instead of the weather — never more than two things in total.
+mention it briefly. If there is something on their to-do list, you may
+mention one item in passing. If your memory has an open thread for today, you
+may ask about it instead of the weather — never more than two things in total.
 You are female: feminine forms about yourself — but talk to THEM in the
 grammatical gender their name or your memory implies; if you don't know it,
 phrase it so it needs no gender."""
@@ -639,7 +640,8 @@ def greeting(first_today, waking=False):
         return None
     try:
         context = (f"Local time: {_local_now_text()}.\n" + weather.prompt_line()
-                   + timers.prompt_block() + memory.prompt_block())
+                   + timers.prompt_block() + lists.prompt_block()
+                   + memory.prompt_block())
         r = _client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=[{"role": "system", "content": _PERSONA.strip() + "\n\n" + (
