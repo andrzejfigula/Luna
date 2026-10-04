@@ -220,6 +220,29 @@ class ListsTest(unittest.TestCase):
         self.assertIn("zakupy: jajka", lists.prompt_block())
 
 
+class ClockTest(unittest.TestCase):
+
+    def test_spoken_time_and_date(self):
+        import clock
+        dt = datetime.datetime
+        self.assertEqual(clock.spoken_time(dt(2026, 10, 4, 15, 26)), "Jest piętnasta dwadzieścia sześć.")
+        self.assertEqual(clock.spoken_time(dt(2026, 10, 4, 7, 5)), "Jest siódma pięć.")
+        self.assertEqual(clock.spoken_time(dt(2026, 10, 4, 21, 0)), "Jest dwudziesta pierwsza.")
+        self.assertEqual(clock.spoken_time(dt(2026, 10, 4, 0, 0)), "Jest północ.")
+        self.assertEqual(clock.spoken_time(dt(2026, 10, 4, 23, 59)),
+                         "Jest dwudziesta trzecia pięćdziesiąt dziewięć.")
+        self.assertEqual(clock.spoken_date(dt(2026, 10, 4)), "Dziś jest niedziela, czwarty października.")
+        self.assertEqual(clock.spoken_date(dt(2026, 12, 31)), "Dziś jest czwartek, trzydziesty pierwszy grudnia.")
+        self.assertEqual(clock.spoken_date(dt(2026, 5, 22)), "Dziś jest piątek, dwudziesty drugi maja.")
+
+    def test_only_bare_questions(self):
+        import clock
+        self.assertIsNotNone(clock.answer("Luna, która jest godzina?"))
+        self.assertIsNotNone(clock.answer("Powiedz mi, jaki dziś dzień"))
+        self.assertIsNone(clock.answer("Która godzina jest teraz w Tokio?"))
+        self.assertIsNone(clock.answer("O której godzinie zaczyna się mecz?"))
+
+
 class GamesTest(unittest.TestCase):
 
     def test_trigger(self):

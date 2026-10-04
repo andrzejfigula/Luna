@@ -53,6 +53,8 @@ class SharedState:
                                  # flash over the whole screen (screens.py)
         "sunrise",               # (start, end) of a wake-up alarm's dawn:
                                  # the screen brightens until end (timers.py)
+        "voice_mood",            # forces the TTS delivery ("sleepy" for the
+                                 # bedtime story) — None = the reply's emotion
         "caption",               # (who, text, until): subtitles — "luna" or
                                  # "you" (drawn when captions are on)
         "online",                # the cloud answered last time (health.py)
@@ -115,6 +117,7 @@ class SharedState:
         self.big_text            = None
         self.online              = True
         self.caption             = None
+        self.voice_mood          = None
         self.sunrise             = None
         self.overlay             = None
         self.focus_until         = 0.0

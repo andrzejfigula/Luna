@@ -286,6 +286,9 @@ TTS_EMOTION_STYLE = {
                  "intonation, a touch of disbelief.",
     "angry":     "Right now you are playfully grumpy, mock-annoyed with a "
                  "pout — never actually aggressive or harsh.",
+    "sleepy":    "Right now you are telling a bedtime story: very calm, soft "
+                 "and slow, a little sleepy, gentle pauses — soothing, almost "
+                 "a lullaby.",
 }
 # How the listener seems on camera (brain.USER_MOODS) can soften the delivery.
 TTS_LISTENER_STYLE = {

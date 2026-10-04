@@ -215,7 +215,7 @@ def _speaking(run, spoken_text, can_drop):
             state.speaking = True
             state.luna_mode = "speaking"
             state.frozen_emotion = state.emotion
-            style = _voice_style(state.emotion, state.user_mood)
+            style = _voice_style(state.voice_mood or state.emotion, state.user_mood)
 
         # ACTUAL SPEECH — streamed; playback starts on the first chunk. The
         # mouth animation is started from _on_audio_start() at the exact

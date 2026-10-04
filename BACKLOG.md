@@ -143,3 +143,11 @@ the game's hand reading, photos, the mood read from a face.
 | 52 | **Bedtime story** — "bajka na dobranoc": a calm story, then she falls asleep herself | A kid's evening ritual | ✅ |
 | 53 | **Captions** — what she says, and what she understood from you, as text at the bottom of the screen ("włącz napisy") | Noisy room, hard of hearing, or just checking she heard right | ✅ off by default, "włącz napisy" (kept in settings) |
 
+## Batch 14
+
+| # | Item | Why | Status |
+|---|------|-----|--------|
+| 54 | **"Która godzina?" answered instantly** — time and date in proper spoken Polish ("piętnasta dwadzieścia sześć"), locally | The most frequent question shouldn't wait 2 s for a language model | ✅ "Jest siedemnasta cztery.", "Dziś jest niedziela, czwarty października."; "która godzina w Tokio?" still goes to the model |
+| 55 | **Live captions while you speak** — with captions on, the words appear as you say them (Vosk's partials), then the cloud's clean version | You see she's hearing you before she answers | ✅ |
+| 56 | **A sleepy voice for the bedtime story** | A cheerful voice doesn't put anyone to sleep | ✅ |
+

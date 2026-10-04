@@ -295,6 +295,13 @@ def handle(text, speak, play_sound):
             speak("Jeszcze nic nie mówiłam.")
         return True
 
+    # "która godzina?" / "jaki dziś dzień?" — answered at once, locally
+    import clock
+    said = clock.answer(text)
+    if said:
+        speak(said)
+        return True
+
     # everything below acts on a request — never on a question about it
     if question:
         return False
@@ -335,8 +342,14 @@ def handle(text, speak, play_sound):
             and any(k in low for k in ("bajk", "historyjk", "opowieść", "opowiesc"))
             and _short(text, 10)):
         import brain
-        brain.process("Opowiedz mi spokojną, krótką bajkę na dobranoc — około 8 "
-                      "zdań, łagodnie i sennie — i zakończ życzeniem dobrej nocy.")
+        with state.lock:
+            state.voice_mood = "sleepy"          # a lullaby voice, not a cheerful one
+        try:
+            brain.process("Opowiedz mi spokojną, krótką bajkę na dobranoc — około 8 "
+                          "zdań, łagodnie i sennie — i zakończ życzeniem dobrej nocy.")
+        finally:
+            with state.lock:
+                state.voice_mood = None
         go_to_sleep()
         return "recorded"            # process() already put it in the history
 

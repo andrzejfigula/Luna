@@ -816,3 +816,5 @@ def listen():
         if partial:
             with state.lock:
                 state.heard_text = partial
+                if active:                       # live captions while you speak
+                    state.caption = ("you", partial + "…", time.time() + 3.0)
