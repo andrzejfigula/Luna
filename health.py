@@ -75,6 +75,10 @@ def _log():
             audio = f", audio: {u} underruns, max stall {m * 1000:.0f} ms"
     except Exception:
         pass
+    with state.lock:
+        light = state.light
+    if light is not None:
+        audio += f", light {light:.2f}"
     print(f"[health] {time.strftime('%H:%M')} CPU {t:.0f}°C, load {body.load_percent()}%, "
           f"RAM {_mem_used()}%, last hour: {s['replies']} answers (avg {avg}), "
           f"{s['failures']} failures{audio}", flush=True)

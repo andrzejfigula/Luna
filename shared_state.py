@@ -46,6 +46,8 @@ class SharedState:
                                  # speech gate: people talking TO Luna face her)
         "last_spoken_text",      # Luna's most recent utterance (lowercased)
         "last_spoken_time",      # time.time() when that utterance finished
+        "light",                 # log10(room light) from the camera, smoothed
+                                 # (camera_thread.py) — None until measured
         "focus_until",           # "tryb skupienia": no small talk until then
         "overlay",               # (kind, until, data): mirror / photo / clock /
                                  # flash over the whole screen (screens.py)
@@ -113,6 +115,7 @@ class SharedState:
         self.sunrise             = None
         self.overlay             = None
         self.focus_until         = 0.0
+        self.light               = None
         self.game_hand           = None
 
 

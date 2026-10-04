@@ -352,6 +352,15 @@ SETTINGS_PATH    = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 SLEEP_BRIGHTNESS = 3      # screen % while she sleeps ("dobranoc")
 # Night mode (display.py): during the quiet hours the screen dims by itself,
 # and comes up a bit while you talk to her. Never above LUNA_BRIGHTNESS.
+# Auto-brightness from the room's light (display.py, camera_thread.py). The
+# camera's auto-exposure hides darkness in the picture, so the light level is
+# picture brightness ÷ exposure time; log10 of it is compared with these.
+# Measured: daylight ≈ -0.15 (mean 111 / exposure 156). The dark end is a
+# conservative guess — the hourly [health] line logs "light" for tuning.
+AMBIENT_AUTO           = True
+AMBIENT_LOG_BRIGHT     = -0.8   # at or above: LUNA_BRIGHTNESS
+AMBIENT_LOG_DARK       = -2.2   # at or below: AMBIENT_MIN_BRIGHTNESS
+AMBIENT_MIN_BRIGHTNESS = 25
 NIGHT_MODE            = True
 NIGHT_BRIGHTNESS      = 12
 NIGHT_TALK_BRIGHTNESS = 40

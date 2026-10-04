@@ -70,7 +70,7 @@ Status: ✅ done · 🚧 in progress · ⏳ queued · 💤 parked (with the reas
 
 | # | Item | Why | Status |
 |---|------|-----|--------|
-| 32 | **Auto-brightness from the camera** — the room's light (mean brightness of the camera picture) sets the screen level: dimmer in a dark room, full in daylight | Quiet hours are a guess; the camera *knows* the lights are off | ⏳ |
+| 32 | **Auto-brightness from the camera** — the room's light (mean brightness of the camera picture) sets the screen level: dimmer in a dark room, full in daylight | Quiet hours are a guess; the camera *knows* the lights are off | ✅ light = brightness ÷ exposure (daylight measured −0.14). The dark threshold (−2.2) is a guess — check the `light` value in the hourly `[health]` line one evening and tune `AMBIENT_LOG_*` |
 | 33 | **Photo gallery** — "pokaż zdjęcia": the photos she took, a tap shows the next one | Photos nobody can see again are lost | ⏳ |
 | 34 | **Soak test** — 40 mixed conversations through the real pipeline (model, TTS, audio, renderer) in a row: memory growth, errors, audio underruns | Many features landed in one day; find what breaks only after a while | ✅ 40 utterances: 0 exceptions, RSS flat at ~270 MB, 0 audio underruns. Found: 2 empty streamed answers (not reproducible alone) → now retried plainly, or what was already said is kept (`tests/soak_pi.py`) |
 

@@ -10,6 +10,8 @@ thread here decides the brightness from her situation and fades to it:
   night (quiet hours), you talk      → NIGHT_TALK_BRIGHTNESS
   night, nobody talking              → NIGHT_BRIGHTNESS
   day                                → LUNA_BRIGHTNESS
+  …and in any case no brighter than the room's light calls for (camera,
+  AMBIENT_*), down to AMBIENT_MIN_BRIGHTNESS in a dark room
 
 Never brighter than LUNA_BRIGHTNESS. The backlight file is writable by the
 "video" group, so no sudo is needed.
@@ -78,7 +80,21 @@ def target_percent():
         return min(base, SLEEP_BRIGHTNESS)
     if NIGHT_MODE and _night():
         return min(base, NIGHT_TALK_BRIGHTNESS if talking else NIGHT_BRIGHTNESS)
-    return base
+    return min(base, _ambient_cap(base))
+
+
+def _ambient_cap(base):
+    from shared_state import state
+    from config import (AMBIENT_AUTO, AMBIENT_LOG_BRIGHT, AMBIENT_LOG_DARK,
+                        AMBIENT_MIN_BRIGHTNESS)
+    with state.lock:
+        light = state.light
+    if not AMBIENT_AUTO or light is None:
+        return base
+    k = (light - AMBIENT_LOG_DARK) / (AMBIENT_LOG_BRIGHT - AMBIENT_LOG_DARK)
+    k = max(0.0, min(1.0, k))
+    low = min(base, AMBIENT_MIN_BRIGHTNESS)
+    return round(low + (base - low) * k)
 
 
 def _manager():

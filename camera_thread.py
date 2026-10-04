@@ -73,6 +73,23 @@ def _open_local_camera():
     return None
 
 
+def _measure_light(cap, frame):
+    """Room light for auto-brightness: the camera compensates darkness with a
+    longer exposure, so brightness / exposure tracks the real light. Kept as
+    log10 and smoothed (~20 s) so a hand in front of the lens doesn't flicker
+    the screen."""
+    try:
+        small = cv2.resize(frame, (80, 60))
+        mean = float(cv2.cvtColor(small, cv2.COLOR_BGR2GRAY).mean())
+        exposure = float(cap.get(cv2.CAP_PROP_EXPOSURE)) or 156.0
+        level = np.log10(max(mean, 1.0) / max(exposure, 1.0))
+        with state.lock:
+            prev = state.light
+            state.light = level if prev is None else prev + (level - prev) * 0.1
+    except Exception:
+        pass
+
+
 def _local_loop():
     """Read from local USB or Pi camera. Retries forever if no camera —
     Luna keeps running (voice + face) without vision."""
@@ -98,6 +115,7 @@ def _local_loop():
         print(f"[camera] Local camera started {FRAME_WIDTH}x{FRAME_HEIGHT} @ {FPS}fps")
 
         fail_count = 0
+        last_light = 0.0
         while True:
             ret, frame = cap.read()
 
@@ -112,6 +130,9 @@ def _local_loop():
             fail_count = 0
             with state.lock:
                 state.frame = frame
+            if time.time() - last_light > 2.0:
+                last_light = time.time()
+                _measure_light(cap, frame)
 
         cap.release()
         time.sleep(2.0)
