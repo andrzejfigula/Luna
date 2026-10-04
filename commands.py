@@ -57,12 +57,23 @@ _FOCUS     = ("tryb skupienia", "pomodoro", "pomóż mi się skupić", "chcę si
               "chce sie skupic", "focus mode", "pomoz mi sie skupic")
 _FOCUS_END = ("koniec skupienia", "przerwij skupienie", "wyłącz tryb skupienia",
               "wyłącz pomodoro", "stop pomodoro", "koniec pomodoro")
-_QUESTION  = {"co", "czym", "jak", "czy", "dlaczego", "kiedy", "what", "how", "why"}
+# A question ABOUT something is never a command for it: "ile trwa pomodoro?",
+# "co jest mocniejsze, papier czy kamień?", "co to jest lustro?".
+_QUESTION  = {"co", "czym", "jak", "jaki", "jaka", "jakie", "dlaczego", "czemu",
+              "kiedy", "kto", "ile", "gdzie", "który", "która", "które", "czy",
+              "what", "how", "why", "when", "who", "where", "which", "is", "are", "do"}
+# …except a polite request: "czy możesz pokazać zegar?"
+_POLITE    = {"możesz", "mozesz", "mogłabyś", "moglabys", "można", "mozna", "can", "could"}
 _REPEAT  = ("co powiedziałaś", "co powiedzialas", "co mówiłaś", "co mowilas",
             "możesz powtórzyć", "mozesz powtorzyc", "nie dosłyszałem", "nie dosłyszałam",
             "say that again", "can you repeat")
-_NIGHT   = ("dobranoc", "dobranocka", "idę spać", "ide spac", "idę już spać",
+_NIGHT   = ("dobranoc", "idę spać", "ide spac", "idę już spać", "idę już spać",
             "good night", "goodnight")
+# "dobranoc" must be the whole point of the utterance — "powiedz dobranoc mojej
+# córce" or "co było na dobranockę?" are not her bedtime
+_NIGHT_OK = {"dobranoc", "luna", "luno", "idę", "ide", "spać", "spac", "już", "juz",
+             "to", "ja", "no", "dobra", "dzięki", "dziękuję", "kochana", "pa", "papa",
+             "i", "good", "night", "goodnight", "słodkich", "snów", "kolorowych"}
 
 
 def _words(text):
@@ -80,6 +91,16 @@ _FILLER = {"luna", "luno", "mów", "mow", "mówić", "mowic", "trochę", "troche
            "proszę", "prosze", "możesz", "mozesz", "czy", "a", "i", "zrób",
            "zrob", "bądź", "badz", "please", "a", "bit", "little", "much",
            "speak", "talk", "more", "be", "can", "you", "volume", "turn", "it"}
+
+
+def is_question(text):
+    """A question about something (not a request to do it)."""
+    words = [w for w in _words(text) if w not in ("luna", "luno", "hej", "a")]
+    if not words:
+        return False
+    if words[0] in _QUESTION:
+        return not (len(words) > 1 and words[1] in _POLITE)
+    return False
 
 
 def _bare(text, keywords):
@@ -191,9 +212,11 @@ def handle(text, speak, play_sound):
     """Handle a local command. Returns True when the utterance was one (and
     must not go to the model)."""
     low = text.lower()
+    question = is_question(text)
 
     # good night — said to her while awake
-    if any(k in low for k in _NIGHT) and _short(text, 6):
+    if (any(k in low for k in _NIGHT) and not question
+            and all(w in _NIGHT_OK for w in _words(text))):
         speak(random.choice(GOODNIGHT_REPLIES))
         go_to_sleep()
         return True
@@ -217,17 +240,28 @@ def handle(text, speak, play_sound):
         print("[cmd] goodbye — conversation closed", flush=True)
         return True
 
-    # focus mode (pomodoro) — a command, not a question about it
-    words = _words(text)
-    is_question = text.strip().endswith("?") or (words and words[0] in _QUESTION)
-    if any(k in low for k in _FOCUS_END) and not is_question:
+    # "powtórz" / "co powiedziałaś?" — a question that IS a request: her last
+    # answer again, from its audio (no new request)
+    if (_bare(text, ("powtórz", "powtorz", "repeat")) or
+            (any(k in low for k in _REPEAT) and _short(text, 6))):
+        from text_to_speech import replay_last
+        if not replay_last():
+            speak("Jeszcze nic nie mówiłam.")
+        return True
+
+    # everything below acts on a request — never on a question about it
+    if question:
+        return False
+
+    # focus mode (pomodoro)
+    if any(k in low for k in _FOCUS_END):
         import timers
         timers.remove({"skupienie", "przerwa"})
         with state.lock:
             state.focus_until = 0.0
         speak("Dobrze, koniec skupienia.")
         return True
-    if any(k in low for k in _FOCUS) and not is_question and _short(text, 9):
+    if any(k in low for k in _FOCUS) and _short(text, 9):
         import timers
         m = re.search(r"(\d{1,3})\s*(min|minut)", low)
         mins = int(m.group(1)) if m else FOCUS_MINUTES
@@ -244,16 +278,8 @@ def handle(text, speak, play_sound):
         speak(f"Dobrze, {mins} minut skupienia. Będę cicho — powodzenia!")
         return True
 
-    # "powtórz" — her last answer again, from its audio (no new request)
-    if (_bare(text, ("powtórz", "powtorz", "repeat")) or
-            (any(k in low for k in _REPEAT) and _short(text, 6))):
-        from text_to_speech import replay_last
-        if not replay_last():
-            speak("Jeszcze nic nie mówiłam.")
-        return True
-
     import breathing                               # guided breathing
-    if breathing.is_trigger(low) and not is_question:
+    if breathing.is_trigger(low):
         breathing.run(speak, play_sound)
         return True
 

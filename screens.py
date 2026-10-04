@@ -82,7 +82,7 @@ def _take_photo(speak, play_sound_async):
 
 def handle(text, speak, play_sound_async):
     """A screen request? Show it and return True."""
-    low = text.lower()
+    low = text.lower().replace("pokazać", "pokaż").replace("pokazac", "pokaz")
     if len(re.findall(r"\w+", low)) > 7:
         return False
     if any(k in low for k in _PHOTO):

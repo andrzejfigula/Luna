@@ -22,6 +22,8 @@ LOCAL = {
     "Luna, mów trochę szybciej proszę": "speed",
     "Jeszcze trochę głośniej": "volume",
     "Dobranoc, Luna": "sleep",
+    "No to dobranoc, idę już spać": "sleep",
+    "Czy możesz pokazać zegar?": "screen",
     "Pa!": "bye",
     "Zrób mi zdjęcie": "screen",
     "Pokaż lustro": "screen",
@@ -62,6 +64,12 @@ MODEL = [
     "Powtórz mi tabliczkę mnożenia przez siedem",
     "Ile ścian ma kostka do gry?",
     "Kto wymyślił lampkę nocną?",
+    "Ile trwa jedno pomodoro",
+    "Co jest mocniejsze, papier czy kamień?",
+    "Co to jest lustro?",
+    "Powiedz dobranoc mojej córce",
+    "Co było wczoraj na dobranockę?",
+    "Czy zegar w kuchni się spieszy?",
 ]
 
 
