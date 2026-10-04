@@ -375,6 +375,7 @@ TIMERS_PATH       = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                  "data", "timers.json")
 TIMERS_MAX        = 10
 TIMER_REPEAT_SECS = 60    # nobody reacted to the ring → once more after this
+SUNRISE_SECS      = 600   # a wake-up alarm brightens the screen this long before
 
 # ── Between conversations (idle_engine.py: greeting you, touch voice) ─────────
 IDLE_ABSENCE_SECS    = 600     # away this long → she greets you when you return

@@ -1,10 +1,16 @@
 """
-timers.py — kitchen timers and reminders.
+timers.py — kitchen timers, reminders and wake-up alarms.
 
   "Luna, minutnik na 10 minut"                    → timer, 600 s
   "przypomnij mi o 18 żeby zadzwonić do mamy"     → reminder at 18:00
   "za pół godziny przypomnij mi o praniu"         → timer with a label
   "wyłącz minutnik" / "ile zostało?"              → the model sees the list
+  "obudź mnie o 7"                                → alarm: for SUNRISE_SECS
+                                                    before, the screen
+                                                    brightens like a dawn
+                                                    (display.py), then a
+                                                    good-morning with the
+                                                    weather
 
 The model asks for them through the "actions" field of its JSON reply (see
 brain.py); this module keeps them in data/timers.json so they survive a
@@ -23,7 +29,8 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from shared_state import state
-from config import TIMERS_PATH, TIMERS_MAX, TIMER_REPEAT_SECS, LUNA_TIMEZONE
+from config import (TIMERS_PATH, TIMERS_MAX, TIMER_REPEAT_SECS, LUNA_TIMEZONE,
+                    SUNRISE_SECS)
 
 try:
     _TZ = ZoneInfo(LUNA_TIMEZONE)
@@ -90,12 +97,12 @@ def apply(actions):
                     _timers.append({"due": time.time() + secs, "label": label,
                                     "kind": "timer", "secs": secs, "set": time.time()})
                     done.append(f"timer {secs}s '{label}'")
-            elif kind == "reminder":
+            elif kind in ("reminder", "alarm"):
                 due = _parse_at(str(a.get("at", "")))
                 if due:
-                    _timers.append({"due": due, "label": label, "kind": "reminder",
+                    _timers.append({"due": due, "label": label, "kind": kind,
                                     "set": time.time()})
-                    done.append(f"reminder {time.strftime('%d.%m %H:%M', time.localtime(due))} '{label}'")
+                    done.append(f"{kind} {time.strftime('%d.%m %H:%M', time.localtime(due))} '{label}'")
             elif kind == "cancel":
                 before = len(_timers)
                 if label:
@@ -146,7 +153,7 @@ def countdown_text():
             return None
         t = _timers[0]
     left = t["due"] - time.time()
-    if t["kind"] == "reminder" and left > 3600:
+    if t["kind"] in ("reminder", "alarm") and left > 3600:
         return time.strftime("%H:%M", time.localtime(t["due"]))
     left = max(0, int(left))
     h, rem = divmod(left, 3600)
@@ -166,6 +173,13 @@ def _minutes_pl(n):
 
 def _announcement(t, missed=False):
     label = t["label"]
+    if t["kind"] == "alarm":
+        try:
+            from brain import greeting
+            text = greeting(True, waking=True)   # good morning + weather + plans
+        except Exception:
+            text = None
+        return text or "Dzień dobry! Pora wstawać."
     if t["kind"] == "timer":
         mins = round(t.get("secs", 0) / 60)
         if label:
@@ -199,7 +213,10 @@ def _ring(t, missed=False):
             state.gesture_anim = "wave"
             state.gesture_anim_start = time.time()
         play_sound("chime", can_drop=False)
-        speak(text if attempt == 0 else "Halo! " + text)
+        if attempt and t["kind"] == "alarm":
+            speak("Halo, śpiochu! Pora wstawać!")
+        else:
+            speak(text if attempt == 0 else "Halo! " + text)
         rang = time.time()
         if attempt == 0:
             # once more in a minute, unless you touched her or talked to her
@@ -221,12 +238,22 @@ def _watch():
                 if due:
                     _save()
             for t in due:
+                if t["kind"] == "alarm":
+                    from commands import wake_up     # before the dawn ends
+                    wake_up("alarm")
                 missed = first and now - t["due"] > 120
                 print(f"[timers] ringing: {t['kind']} '{t['label']}'", flush=True)
                 threading.Thread(target=_ring, args=(t, missed), daemon=True).start()
             first = False
+            # a wake-up alarm close enough: the dawn on the screen
+            with _lock:
+                alarm = next((t for t in _timers if t["kind"] == "alarm"), None)
+            dawn = None
+            if alarm and alarm["due"] - now <= SUNRISE_SECS:
+                dawn = (alarm["due"] - SUNRISE_SECS, alarm["due"])
             with state.lock:
                 state.timer_text = countdown_text()
+                state.sunrise = dawn
         except Exception as e:
             print(f"[timers] watch error (recovering): {e}")
         time.sleep(0.5)

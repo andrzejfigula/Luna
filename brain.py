@@ -138,7 +138,9 @@ about yourself takes the FEMININE form. Correct: "mogłabym", "chciałabym",
 pewna", "jestem ciekawa", "sama". WRONG, never use: "mógłbym",
 "chciałbym", "byłbym", "zrobiłem", "widziałem", "byłem", "jestem gotowy",
 "jestem pewny", "jestem ciekawy", "sam". Check your reply for this before
-answering.
+answering. The FEMININE rule is about YOU only: talk to the user in the
+grammatical gender their name or your memory implies, and if you don't know
+it, phrase things so they need no gender.
 
 Always answer as JSON with exactly these keys:
   "user_mood" — one of {USER_MOODS}: how the person in the camera picture
@@ -161,6 +163,9 @@ Always answer as JSON with exactly these keys:
                 "label":"zadzwonić do mamy"}} for "przypomnij mi o 18 …"
                 (local time; "za pół godziny przypomnij mi…" is a timer
                 with a label);
+                {{"type":"alarm","seconds":0,"at":"YYYY-MM-DD HH:MM",
+                "label":""}} for waking up: "obudź mnie o 7", "budzik na
+                6:30" (the screen brightens like a sunrise before it);
                 {{"type":"cancel","seconds":0,"at":"","label":""}} to cancel
                 (label = which one, empty = all).
                 Confirm briefly in "reply" ("Jasne, minutnik na 10 minut.").
@@ -235,7 +240,7 @@ _RESPONSE_FORMAT = {
                     "type": "object",
                     "properties": {
                         "type":    {"type": "string",
-                                    "enum": ["timer", "reminder", "cancel"]},
+                                    "enum": ["timer", "reminder", "alarm", "cancel"]},
                         "seconds": {"type": "integer"},
                         "at":      {"type": "string"},
                         "label":   {"type": "string"},
@@ -471,12 +476,24 @@ day. If you know the weather, say in a few words what matters (rain →
 umbrella, cold → dress warmly). If a timer or reminder is set for today,
 mention it briefly. If your memory has an open thread for today, you may
 ask about it instead of the weather — never more than two things in total.
-You are female: feminine forms about yourself."""
+You are female: feminine forms about yourself — but talk to THEM in the
+grammatical gender their name or your memory implies; if you don't know it,
+phrase it so it needs no gender."""
 
 
-def greeting(first_today):
+_WAKING = """Their wake-up alarm, which you set for them, has just gone off
+and you are waking them. ONE short spoken good-morning in Polish, 1-2
+sentences: gentle but cheerful, then what matters for their day — the
+weather in a few words if you know it, a reminder set for today if there is
+one. No lists, no emoji. You are female: feminine forms about yourself —
+but talk to THEM in the grammatical gender their name or your memory
+implies; if you don't know it, phrase it so it needs no gender."""
+
+
+def greeting(first_today, waking=False):
     """A context-aware hello (weather, reminders, memory), or None when the
-    model can't be reached — the caller then uses a fixed phrase."""
+    model can't be reached — the caller then uses a fixed phrase.
+    waking=True: their wake-up alarm just rang — a good-morning instead."""
     if _client is None or not first_today:
         return None
     try:
@@ -484,7 +501,8 @@ def greeting(first_today):
                    + timers.prompt_block() + memory.prompt_block())
         r = _client.chat.completions.create(
             model=OPENAI_MODEL,
-            messages=[{"role": "system", "content": _PERSONA.strip() + "\n\n" + _BRIEFING},
+            messages=[{"role": "system", "content": _PERSONA.strip() + "\n\n" + (
+                          _WAKING if waking else _BRIEFING)},
                       {"role": "user", "content": context}],
             max_tokens=90,
             temperature=0.8,

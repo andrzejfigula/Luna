@@ -4,6 +4,8 @@ display.py — the touchscreen's backlight.
 run.sh sets the panel to LUNA_BRIGHTNESS at start. While Luna runs, one
 thread here decides the brightness from her situation and fades to it:
 
+  a wake-up alarm is near            → rises from where it is to full,
+                                       like a dawn (timers.py sets it)
   asleep ("dobranoc")                → SLEEP_BRIGHTNESS
   night (quiet hours), you talk      → NIGHT_TALK_BRIGHTNESS
   night, nobody talking              → NIGHT_BRIGHTNESS
@@ -66,6 +68,12 @@ def target_percent():
     with state.lock:
         asleep  = state.sleep_mode
         talking = state.conversation_active or state.speaking
+        dawn    = state.sunrise
+    if dawn:
+        start, end = dawn
+        k = max(0.0, min(1.0, (time.time() - start) / max(1.0, end - start)))
+        low = min(base, SLEEP_BRIGHTNESS if asleep else NIGHT_BRIGHTNESS)
+        return round(low + (base - low) * k * k)    # slow at first, like dawn
     if asleep:
         return min(base, SLEEP_BRIGHTNESS)
     if NIGHT_MODE and _night():

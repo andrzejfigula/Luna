@@ -69,13 +69,17 @@ def _describe(d):
 
 
 def prompt_line():
-    """One line for the system prompt, or "" when off / not fetched yet."""
+    """One line for the system prompt. Without data it says so explicitly —
+    otherwise the model happily invents sunshine (seen in testing)."""
+    unknown = ("You have NO weather information: never describe or guess the "
+               "weather; if asked, say you can't check it (it can be switched "
+               "on by setting LUNA_LAT and LUNA_LON).\n")
     if not enabled():
-        return ""
+        return unknown
     with _lock:
         s = _summary
     if not s:
-        return ""
+        return unknown
     return (s + " Use it when asked about the weather, or briefly when it "
             "matters (going out, a morning greeting) — don't recite it unasked.\n")
 

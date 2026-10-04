@@ -46,6 +46,8 @@ class SharedState:
                                  # speech gate: people talking TO Luna face her)
         "last_spoken_text",      # Luna's most recent utterance (lowercased)
         "last_spoken_time",      # time.time() when that utterance finished
+        "sunrise",               # (start, end) of a wake-up alarm's dawn:
+                                 # the screen brightens until end (timers.py)
         "online",                # the cloud answered last time (health.py)
         "big_text",              # (text, until): a big glyph between her eyes
                                  # (the rock-paper-scissors countdown)
@@ -105,6 +107,7 @@ class SharedState:
         self.timer_text          = None
         self.big_text            = None
         self.online              = True
+        self.sunrise             = None
         self.game_hand           = None
 
 
