@@ -19,6 +19,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Bajki i dłuższe wyjaśnienia | „Opowiedz mi bajkę o smoku”, „Wyjaśnij dokładnie, jak działa…” |
 | Co potrafi | „Luna, co potrafisz?” |
 | Godzina i data | „Która godzina?”, „Jaki dziś dzień?” — odpowiedź od razu, bez chmury |
+| Wiadomości | „Jakie są wiadomości?”, „Co słychać na świecie?”, „Co słychać w sporcie?” — 3 najważniejsze nagłówki z RMF24, jej słowami |
 | Kalkulator | „Ile to jest 17 razy 23?”, „15% z 80”, „pierwiastek z 144”, „dwa do potęgi dziesięć” — od razu, bez chmury |
 | Ile dni do… | „Ile dni do Wigilii?”, „do weekendu”, „do piątku”, „do 15 marca”, „do Wielkanocy” |
 | Quiz z matmy | „Przepytaj mnie z tabliczki mnożenia”, „Quiz z dodawania do dwudziestu”, „Pobawmy się w rachunki” — 5 pytań na ekranie, odpowiadasz liczbą; „nie wiem”, „koniec” |

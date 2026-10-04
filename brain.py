@@ -261,6 +261,9 @@ use something, explain in your own words, briefly, a few examples at a time
   counting for hide and seek ("policz do dwudziestu"), a stopwatch
 - a tooth-brushing coach ("myjemy zęby") and step-by-step routines from a
   list ("zacznij poranek" walks through the list "poranek")
+- the news: "jakie są wiadomości?" reads the latest headlines (RMF24). You
+  have NO other access to news or the internet — never invent news; if news
+  headlines are not in this prompt, suggest asking "jakie są wiadomości?"
 - internet radio: "włącz radio", "włącz Trójkę" / RMF FM / ZET / 357 / Nowy
   Świat or any station by name, "wyłącz radio za 30 minut". You can't pick
   songs or play Spotify — if asked for music, suggest a station instead.
@@ -451,7 +454,8 @@ def _message_json(message):
     raise ValueError("empty answer")
 
 
-def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=None):
+def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=None,
+                context=None):
     """Returns (reply, emotion, gesture) or None on any failure.
 
     With on_head / on_sentence the answer is streamed: the face is set and
@@ -510,7 +514,8 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   + weather.prompt_line()
                   + timers.prompt_block()
                   + lists.prompt_block()
-                  + memory.prompt_block())
+                  + memory.prompt_block()
+                  + (context or ""))          # e.g. news headlines, this question only
 
         request = dict(model=OPENAI_MODEL,
                        messages=[{"role": "system", "content": system}, *_history],
@@ -753,7 +758,8 @@ def _think_filler(answered):
         play_sound(random.choice(THINK_SOUNDS))
 
 
-def process(text):
+def process(text, context=None):
+    """context: extra system-prompt text for this one question (news.py)."""
     text = text.strip()
     if not text:
         return
@@ -792,7 +798,7 @@ def process(text):
 
     t0 = time.time()
     try:
-        result = _ask_openai(text, image, detail="high" if visual else "low",
+        result = _ask_openai(text, image, detail="high" if visual else "low", context=context,
                              on_head=on_head, on_sentence=on_sentence)
     finally:
         answered.set()

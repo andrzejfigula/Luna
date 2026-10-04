@@ -20,6 +20,7 @@ commands.py — things Luna does herself, without asking the model.
   messages "nagraj wiadomość" / "odtwórz wiadomość" / "usuń wiadomości"
   calc     "ile to jest 17 razy 23?", "ile dni do Wigilii?" (calc.py)
   length   "mów krócej" / "odpowiadaj dłużej" / "normalne odpowiedzi"
+  news     "jakie są wiadomości?" — headlines from RSS, summarised (news.py)
   quiz     "przepytaj mnie z tabliczki mnożenia" (quiz.py)
   remember "zapamiętaj, że klucze są w szufladzie" (memory.add_fact)
   spell    "jak się pisze żółw?" — on the screen and letter by letter
@@ -443,6 +444,18 @@ def handle(text, speak, play_sound):
     if word:
         _spell(word, speak)
         return True
+
+    # "jakie są wiadomości?" — real headlines (RSS) for the model to summarise;
+    # without them she used to make news up
+    import news
+    if news.is_request(text):
+        import brain
+        ctx = news.context()
+        if ctx is None:
+            speak("Nie mogę teraz pobrać wiadomości — nie mam połączenia z internetem.")
+        else:
+            brain.process(text, context=ctx)
+        return "recorded"
 
     # "ile to jest 17 razy 23?" / "ile dni do Wigilii?" — counted locally
     import calc

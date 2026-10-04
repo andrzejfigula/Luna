@@ -82,6 +82,10 @@ LOCAL = {
     "Włącz muzykę": "radio",
     "Budź mnie radiem": "radio",
     "Mów krócej": "length",
+    "Jakie są wiadomości?": "news",
+    "Luna, co słychać na świecie?": "news",
+    "Co słychać w sporcie?": "news",
+    "Przeczytaj mi trzy najważniejsze wiadomości na dzisiaj": "news",
     "Super, to na razie wszystko": "bye",
     "Dobra, dzięki, to by było na tyle": "bye",
     "To teraz idziemy spać": "sleep",
@@ -148,6 +152,8 @@ MODEL = [
     "Dlaczego mówisz krócej niż wczoraj?",
     "Mów mi więcej o kotach i psach",
     "Jaki kolor ma niebo?",
+    "Czy lubisz oglądać wiadomości?",
+    "Co słychać u ciebie?",
     "Na razie nie",
     "Dlaczego dzieci idą spać wcześniej?",
     "O której pora spać dla sześciolatka?",
@@ -161,6 +167,7 @@ class RoutingTest(unittest.TestCase):
     def setUp(self):
         import breathing
         import calc
+        import news
         import quiz
         import counting
         import kids
@@ -198,6 +205,7 @@ class RoutingTest(unittest.TestCase):
             (fun, "roll", lambda *a: self._mark("fun")),
             (fun, "flip", lambda *a: self._mark("fun")),
             (calc, "answer", self._calc(calc.answer)),
+            (news, "context", lambda: self._mark("news") or "headlines"),
             (quiz, "start", lambda *a: self._mark("quiz")),
             (counting, "count", lambda *a: self._mark("count")),
             (kids, "_brush", lambda *a: self._mark("kids")),
@@ -217,7 +225,7 @@ class RoutingTest(unittest.TestCase):
         fake_brain = type(sys)("brain")
         fake_brain.set_translator = lambda lang: self._mark("translate")
         fake_brain.translator = lambda: None
-        fake_brain.process = lambda text: self._mark("story")
+        fake_brain.process = lambda text, **k: self._mark("story")
         stubs_dict = mock.patch.dict(sys.modules, {"text_to_speech": fake_tts,
                                                    "brain": fake_brain})
         stubs_dict.start()
