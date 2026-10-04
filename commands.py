@@ -130,6 +130,13 @@ _MSG_PLAY   = ("odtwórz wiadomość", "odtwórz wiadomości", "odtworz wiadomos
                "jakie mam wiadomości", "mam jakieś wiadomości", "puść wiadomość",
                "posłuchaj wiadomości", "play the message", "any messages")
 _MSG_DELETE = ("usuń wiadomości", "usuń wiadomość", "skasuj wiadomości", "usun wiadomosci")
+# "pogoda dla Krakowa", "ustaw pogodę na Gdańsk", "mieszkam w Zakopanem"
+# ("pogoda w Berlinie?" is a question, not where you live — it goes to the model)
+_WEATHER_SET = re.compile(r"^(?:luna,? |luno,? )?(?:(?:włącz|wlacz|ustaw|sprawdzaj) )"
+                          r"(?:pogod[aęy]|prognoz[aęy])(?: pogody)? (?:dla|w|na) \w|"
+                          r"^(?:luna,? |luno,? )?(?:pogod[aęy]|prognoz[aęy]) dla \w|"
+                          r"^(?:luna,? |luno,? )?(?:mieszkam|mieszkamy) (?:w|we|na) \w")
+_WEATHER_OFF = ("wyłącz pogodę", "wylacz pogode", "nie sprawdzaj pogody")
 _RESTART = ("zrestartuj się", "zrestartuj sie", "uruchom się ponownie",
             "uruchom sie ponownie", "restart yourself")
 _TRANSLATE_START = ("tłumacz na", "tlumacz na", "tłumaczyć na", "tlumaczyc na", "tryb tłumacza", "bądź tłumaczem",
@@ -443,6 +450,23 @@ def handle(text, speak, play_sound):
     word = _spell_word(text)
     if word:
         _spell(word, speak)
+        return True
+
+    # "pogoda dla Krakowa" / "mieszkam w Gdańsku" — switch the forecast on
+    if _WEATHER_SET.search(low) and _short(text, 8):
+        import weather
+        try:
+            name = weather.set_place(text)
+        except Exception as e:
+            print(f"[cmd] weather place failed: {e}", flush=True)
+            name = None
+        speak(f"Dobrze, sprawdzam pogodę dla miejscowości {name}." if name
+              else "Nie znalazłam tej miejscowości. Powiedz na przykład: pogoda dla Krakowa.")
+        return True
+    if any(k in low for k in _WEATHER_OFF) and _short(text, 5):
+        import weather
+        weather.forget_place()
+        speak("Dobrze, nie sprawdzam już pogody.")
         return True
 
     # "jakie są wiadomości?" — real headlines (RSS) for the model to summarise;

@@ -82,6 +82,9 @@ LOCAL = {
     "Włącz muzykę": "radio",
     "Budź mnie radiem": "radio",
     "Mów krócej": "length",
+    "Luna, pogoda dla Krakowa": "weather",
+    "Mieszkam w Zielonej Górze": "weather",
+    "Ustaw pogodę na Gdańsk": "weather",
     "Jakie są wiadomości?": "news",
     "Luna, co słychać na świecie?": "news",
     "Co słychać w sporcie?": "news",
@@ -152,6 +155,10 @@ MODEL = [
     "Dlaczego mówisz krócej niż wczoraj?",
     "Mów mi więcej o kotach i psach",
     "Jaki kolor ma niebo?",
+    "Jaka jest pogoda?",
+    "Pogoda w Berlinie?",
+    "Jaka będzie jutro pogoda w Krakowie?",
+    "Mieszkam w Krakowie od dziesięciu lat i bardzo to lubię, a ty?",
     "Czy lubisz oglądać wiadomości?",
     "Co słychać u ciebie?",
     "Na razie nie",
@@ -168,6 +175,7 @@ class RoutingTest(unittest.TestCase):
         import breathing
         import calc
         import news
+        import weather
         import quiz
         import counting
         import kids
@@ -206,6 +214,7 @@ class RoutingTest(unittest.TestCase):
             (fun, "flip", lambda *a: self._mark("fun")),
             (calc, "answer", self._calc(calc.answer)),
             (news, "context", lambda: self._mark("news") or "headlines"),
+            (weather, "set_place", lambda t: self._mark("weather") or "Kraków"),
             (quiz, "start", lambda *a: self._mark("quiz")),
             (counting, "count", lambda *a: self._mark("count")),
             (kids, "_brush", lambda *a: self._mark("kids")),

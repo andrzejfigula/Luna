@@ -1,10 +1,14 @@
 """
 weather.py — the forecast, so "jaka będzie pogoda?" gets a real answer.
 
-Opt-in: set LUNA_LAT and LUNA_LON in .env (decimal degrees). Without them
-nothing is fetched and nothing leaves the Pi. With them, open-meteo.com
-(free, no key) is asked every WEATHER_REFRESH_SECS in the background, and
-a short summary goes into every request: now, today, tomorrow.
+Opt-in: set LUNA_LAT and LUNA_LON in .env (decimal degrees) — or just say
+"Luna, pogoda dla Krakowa" / "mieszkam w Gdańsku": the place is turned into
+its nominative ("Krakowa" → "Kraków", one small model call — the geocoder
+only knows nominatives), found with open-meteo's geocoder and kept in
+settings ("wyłącz pogodę" forgets it). Without a place nothing is fetched
+and nothing leaves the Pi. With one, open-meteo.com (free, no key) is asked
+every WEATHER_REFRESH_SECS in the background, and a short summary goes into
+every request: now, today, tomorrow.
 """
 
 import json
@@ -34,13 +38,91 @@ _WMO = {
 }
 
 
+
+def _place():
+    """(lat, lon, name): .env first, else the place set by voice, else None."""
+    if WEATHER_LAT is not None and WEATHER_LON is not None:
+        return WEATHER_LAT, WEATHER_LON, LUNA_LOCATION
+    import settings
+    p = settings.get("weather_place")
+    if p:
+        return p["lat"], p["lon"], p["name"]
+    return None
+
+
 def enabled():
-    return WEATHER_LAT is not None and WEATHER_LON is not None
+    return _place() is not None
+
+
+def _nominative(phrase):
+    """"Krakowa" / "w Zielonej Górze" → "Kraków" / "Zielona Góra"."""
+    from openai import OpenAI
+    from config import OPENAI_API_KEY, OPENAI_MODEL
+    c = OpenAI(api_key=OPENAI_API_KEY, timeout=10, max_retries=1)
+    r = c.chat.completions.create(
+        model=OPENAI_MODEL, temperature=0, max_tokens=40,
+        response_format={"type": "json_object"},
+        messages=[{"role": "user", "content":
+                   "Return JSON {\"place\": ...}: the name of the town or city in this "
+                   "Polish phrase, in the nominative case, as on a map (e.g. "
+                   "\"Krakowa\" -> \"Kraków\", \"w Zielonej Górze\" -> \"Zielona Góra\", "
+                   "\"w Berlinie\" -> \"Berlin\"). Empty string if there is none.\n\n"
+                   + phrase}])
+    return json.loads(r.choices[0].message.content).get("place", "").strip()
+
+
+def set_place(phrase):
+    """Find the place said and switch the weather on for it. Returns its
+    name, or None when it can't be found."""
+    import settings
+    name = _nominative(phrase)
+    if not name:
+        return None
+    # Poland first — but only an exact name: the Polish search turns "Berlin"
+    # into "Barlinek"; then the whole world; then the nearest Polish guess
+    picks = []
+    for country in ("&countryCode=PL", ""):
+        url = ("https://geocoding-api.open-meteo.com/v1/search?count=3&language=pl"
+               + country + "&name=" + urllib.parse.quote(name))
+        with urllib.request.urlopen(url, timeout=8) as r:
+            picks += (json.loads(r.read().decode("utf-8")).get("results") or [])
+    exact = [f for f in picks if f["name"].lower() == name.lower()]
+    if not (exact or picks):
+        return None
+    f = (exact or picks)[0]
+    settings.put("weather_place", {"name": f["name"], "lat": f["latitude"],
+                                   "lon": f["longitude"]})
+    print(f"[weather] place set: {f['name']} ({f['latitude']:.2f}, "
+          f"{f['longitude']:.2f})", flush=True)
+    refresh()
+    return f["name"]
+
+
+def forget_place():
+    import settings
+    global _summary
+    settings.put("weather_place", None)
+    with _lock:
+        _summary = ""
+
+
+def refresh():
+    """Fetch now (after the place changed); starts the loop if needed."""
+    global _summary, _fetched
+    try:
+        s = _describe(_fetch())
+        with _lock:
+            _summary, _fetched = s, time.time()
+        print(f"[weather] {s}", flush=True)
+    except Exception as e:
+        print(f"[weather] fetch failed ({e})", flush=True)
+    start_weather()
 
 
 def _fetch():
+    lat, lon, _ = _place()
     q = urllib.parse.urlencode({
-        "latitude": WEATHER_LAT, "longitude": WEATHER_LON,
+        "latitude": lat, "longitude": lon,
         "current": "temperature_2m,apparent_temperature,weather_code,wind_speed_10m,precipitation",
         "daily": "weather_code,temperature_2m_max,temperature_2m_min,"
                  "precipitation_probability_max,sunrise,sunset",
@@ -64,7 +146,7 @@ def _describe(d):
                 + (f", rain chance {rain}%" if rain is not None else ""))
 
     sun = (f"sunrise {day['sunrise'][0][-5:]}, sunset {day['sunset'][0][-5:]}")
-    return (f"Weather in {LUNA_LOCATION} (open-meteo): now {now}. Today: {day_text(0)}; "
+    return (f"Weather in {_place()[2]} (open-meteo): now {now}. Today: {day_text(0)}; "
             f"{sun}. Tomorrow: {day_text(1)}.")
 
 
@@ -72,8 +154,9 @@ def prompt_line():
     """One line for the system prompt. Without data it says so explicitly —
     otherwise the model happily invents sunshine (seen in testing)."""
     unknown = ("You have NO weather information: never describe or guess the "
-               "weather; if asked, say you can't check it (it can be switched "
-               "on by setting LUNA_LAT and LUNA_LON).\n")
+               "weather; if asked, say you can't check it yet — it is switched "
+               "on by saying \"Luna, pogoda dla\" and the town, e.g. \"pogoda dla "
+               "Krakowa\".\n")
     if not enabled():
         return unknown
     with _lock:
@@ -84,9 +167,15 @@ def prompt_line():
             "matters (going out, a morning greeting) — don't recite it unasked.\n")
 
 
+_started = [False]
+
+
 def _loop():
     global _summary, _fetched
     while True:
+        if not enabled():                    # "wyłącz pogodę"
+            time.sleep(60)
+            continue
         try:
             s = _describe(_fetch())
             with _lock:
@@ -99,6 +188,7 @@ def _loop():
 
 
 def start_weather():
-    if not enabled():
+    if not enabled() or _started[0]:
         return
+    _started[0] = True
     threading.Thread(target=_loop, daemon=True, name="weather").start()
