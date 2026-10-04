@@ -38,7 +38,10 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Włącz | „Włącz radio” (ostatnia stacja), „Włącz Trójkę”, „Puść radio Nowy Świat”, „Włącz muzykę” — wbudowane: RMF FM, ZET, Jedynka, Dwójka, Trójka, 357, Nowy Świat; inne nazwy Luna znajdzie w internecie |
 | Wyłącz | „Wyłącz radio” |
 | Do snu | „Wyłącz radio za 30 minut”, „Radio na 20 minut” |
-| Co gra | „Jakie to radio?” |
+| Co gra | „Jakie to radio?”, „Co teraz gra?” — tytuł piosenki (RMF FM, 357, Nowy Świat go podają) |
+| Głośność muzyki | gdy gra radio, „ciszej” / „głośniej” zmienia muzykę, nie głos Luny („mów ciszej” — jej głos) |
+| Następna stacja | „Następna stacja”, „Zmień stację” |
+| Komendy przy radiu | każde polecenie zaczynaj od „Luna” — przy grającym radiu nie słucha bez imienia, żeby nie odpowiadać radiu |
 | Budzenie radiem | „Budź mnie radiem” — budzik włącza ostatnią stację, najpierw cichutko, przez minutę coraz głośniej; „Budź mnie dzwonkiem” — z powrotem dzwonek. „Dobranoc” wyłącza radio (chyba że ustawiłeś „radio na 30 minut”) |
 | Mówienie przy muzyce | gdy słucha albo mówi, muzyka sama ścisza się prawie do zera; nutka na ekranie = radio gra |
 

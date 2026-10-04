@@ -6,6 +6,10 @@ radio.py — internet radio.
   "Wyłącz radio" / "stop radio"
   "Wyłącz radio za 30 minut"    → a sleep timer ("radio na 20 minut" too)
   "Jakie to radio?"             → the station's name
+  "Co teraz gra?"               → the song, from the stream's ICY title
+  "Następna stacja"             → the next built-in station
+  "Ciszej" / "głośniej"         → while music plays: the MUSIC, not her voice
+                                  ("mów ciszej" is still about her voice)
   "Budź mnie radiem"            → wake-up alarms start the radio, fading in
                                   over a minute, instead of the chime
                                   ("budź mnie dzwonkiem" switches back)
@@ -32,7 +36,8 @@ from shared_state import state
 
 RATE, CHANNELS = 44100, 2
 CHUNK = RATE * CHANNELS * 2 // 10          # 0.1 s of s16 stereo
-RADIO_GAIN = 0.55                          # music under her voice's level
+RADIO_GAIN = 0.55                          # music under her voice's level (default;
+                                           # "ciszej" while it plays changes it)
 RADIO_DUCK = 0.12                          # while she listens or speaks
 RETRIES = 3
 
@@ -45,6 +50,15 @@ STATIONS = {
     "dwójka":        ("Dwójka", "http://mp3.polskieradio.pl:8902/;.mp3"),
     "radio 357":     ("Radio 357", "https://n-11-21.dcs.redcdn.pl/sc/o2/radio357/live/radio357_pr.livx?preroll=0"),
     "nowy świat":    ("Radio Nowy Świat", "https://go-audio.toya.net.pl/63214"),
+}
+# stations move and fail: what to try next when a stream won't start
+# (checked 2026-10-04 evening: Trójka's MP3 stream was down, its HLS worked)
+FALLBACKS = {
+    "http://195.150.20.242:8000/rmf_fm": ["http://195.150.20.9/RMFFM48"],
+    "http://zet-net-01.cdn.eurozet.pl:8400/": ["https://r.dcs.redcdn.pl/sc/o2/Eurozet/live/audio.livx?audio=5"],
+    "http://mp3.polskieradio.pl:8904/;.mp3": ["https://stream13.polskieradio.pl/pr3/pr3.sdp/playlist.m3u8"],
+    "http://mp3.polskieradio.pl:8900/;.mp3": ["http://stream3.polskieradio.pl:8950/;.mp3"],
+    "https://n-11-21.dcs.redcdn.pl/sc/o2/radio357/live/radio357_pr.livx?preroll=0": ["https://stream.radio357.pl/"],
 }
 _ALIASES = {"rmf": "rmf fm", "rmfu": "rmf fm", "rmf-u": "rmf fm", "zet": "radio zet",
             "zetkę": "radio zet", "zetka": "radio zet", "trójkę": "trójka", "trojke": "trójka",
@@ -64,6 +78,13 @@ _OFF = ("wyłącz radio", "wylacz radio", "stop radio", "zatrzymaj radio", "wył
         "wylacz muzyke", "zatrzymaj muzykę", "koniec radia", "radio stop", "ścisz radio do zera")
 _WHAT = ("jakie to radio", "jaka to stacja", "co to za radio", "co to za stacja",
          "jakie radio gra", "jakie radio leci")
+_SONG = ("co teraz gra", "co to za piosenka", "co to za utwór", "co to za utwor",
+         "jaka to piosenka", "jaki to utwór", "jaki to utwor", "kto to śpiewa",
+         "kto to spiewa", "co leci", "co to leci", "what song is this", "what's playing")
+_NEXT = ("następna stacja", "nastepna stacja", "zmień stację", "zmien stacje",
+         "inna stacja", "inną stację", "inna stacje", "next station", "kolejna stacja")
+_QUIETER = ("ciszej", "ścisz", "scisz", "przycisz", "quieter")
+_LOUDER = ("głośniej", "glosniej", "podgłośnij", "podglosnij", "pogłośnij", "louder")
 _SLEEP = re.compile(r"(?:wyłącz|wylacz)\s+(?:radio|muzykę|muzyke)\s+za\s+(.+)$|"
                     r"radio\s+(?:na|przez)\s+(.+)$")
 
@@ -143,9 +164,65 @@ def _sink():
         return None
 
 
+def _gain():
+    import settings
+    return settings.get("radio_gain", RADIO_GAIN)
+
+
 def _ducked():
     with state.lock:
         return state.speaking or state.listening or state.conversation_active
+
+
+def _open_icy(url):
+    """(response, metaint, ffmpeg format) when the server sends ICY titles;
+    "dead" when the server refused (ICY/HTTP 4xx-5xx) — try another address;
+    else None — then ffmpeg reads the URL itself."""
+    try:
+        req = urllib.request.Request(url, headers={"Icy-MetaData": "1",
+                                                   "User-Agent": "Luna-robot/1.0"})
+        r = urllib.request.urlopen(req, timeout=8)
+        mi = int(r.headers.get("icy-metaint") or 0)
+        ctype = (r.headers.get("content-type") or "").lower()
+        fmt = "mp3" if "mpeg" in ctype else "aac" if "aac" in ctype else None
+        if mi and fmt:
+            return r, mi, fmt
+        r.close()
+    except Exception as e:
+        msg = " ".join(str(e).split())
+        if re.search(r"(ICY|HTTP Error) [45]\d\d", msg):
+            print(f"[radio] {url} refused: {msg}", flush=True)
+            return "dead"
+        print(f"[radio] no ICY titles ({msg}) — ffmpeg reads the stream", flush=True)
+    return None
+
+
+def _feed(p, r, mi, dec):
+    """Copy the audio into ffmpeg; every `mi` bytes comes a title block."""
+    try:
+        while not p["stop"].is_set():
+            data = r.read(mi)
+            if not data:
+                break
+            dec.stdin.write(data)
+            n = r.read(1)
+            if not n:
+                break
+            if n[0]:
+                meta = r.read(n[0] * 16)
+                m = re.search(rb"StreamTitle='(.*?)';", meta)
+                title = m.group(1).decode("utf-8", "replace").strip(" -") if m else ""
+                if title and title != p.get("title"):
+                    p["title"] = title
+                    print(f"[radio] now playing: {title}", flush=True)
+    except Exception:
+        pass
+    finally:
+        for close in (dec.stdin.close, r.close):
+            try:
+                close()
+            except Exception:
+                pass
 
 
 def _play(p):
@@ -159,15 +236,33 @@ def _play(p):
     p["out"] = out
     gain = 0.0
     fails = 0
+    urls = [p["url"]] + FALLBACKS.get(p["url"], [])
+    alt = 0                                  # which of them is playing
     try:
         while not p["stop"].is_set() and fails <= RETRIES:
+            p["url"] = urls[alt % len(urls)]
+            icy = _open_icy(p["url"])
+            if icy == "dead":
+                if len(urls) > 1:
+                    alt += 1
+                fails += 1
+                time.sleep(0.3)
+                continue
+            if icy:
+                src = ["-f", icy[2], "-i", "pipe:0"]
+            else:
+                src = ["-reconnect", "1", "-reconnect_streamed", "1",
+                       "-reconnect_delay_max", "5", "-i", p["url"]]
             dec = subprocess.Popen(
-                ["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error",
-                 "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "5",
-                 "-i", p["url"], "-f", "s16le", "-ac", str(CHANNELS), "-ar", str(RATE), "-"],
+                ["ffmpeg", "-hide_banner", "-loglevel", "error"] + src +
+                ["-f", "s16le", "-ac", str(CHANNELS), "-ar", str(RATE), "-"],
+                stdin=subprocess.PIPE if icy else subprocess.DEVNULL,
                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                 preexec_fn=_die_with_parent)
             p["dec"] = dec
+            if icy:
+                threading.Thread(target=_feed, args=(p, icy[0], icy[1], dec),
+                                 daemon=True, name="radio-icy").start()
             got = 0
             while not p["stop"].is_set():
                 if p.get("until") and time.time() > p["until"]:
@@ -179,7 +274,7 @@ def _play(p):
                     break
                 got += len(data)
                 a = np.frombuffer(data, np.int16).astype(np.float32)
-                target = RADIO_GAIN * (RADIO_DUCK if _ducked() else 1.0)
+                target = _gain() * (RADIO_DUCK if _ducked() else 1.0)
                 if p.get("fade"):                    # an alarm: from a whisper up
                     target *= min(1.0, 0.05 + (time.time() - p["t0"]) / p["fade"])
                 new = target if abs(target - gain) < 0.01 else gain + (target - gain) * 0.5
@@ -191,10 +286,21 @@ def _play(p):
             if p["stop"].is_set():
                 break
             fails = 0 if got > RATE * 4 * 30 else fails + 1    # ran 30 s+ → fresh tries
+            if got < RATE * 4 and len(urls) > 1:
+                alt += 1                                     # didn't even start: next address
+                print(f"[radio] trying {urls[alt % len(urls)]}", flush=True)
+            if fails == RETRIES and not p.get("looked_up"):
+                p["looked_up"] = True                        # last resort: the directory
+                found = _lookup(p["name"])
+                if found and found[1] not in urls:
+                    urls.append(found[1])
+                    alt = len(urls) - 1
+                    print(f"[radio] directory says: {found[1]}", flush=True)
             print(f"[radio] stream ended — reconnecting ({fails}/{RETRIES})", flush=True)
-            time.sleep(2 * fails)
+            time.sleep(min(2 * fails, 4))
     except (BrokenPipeError, OSError) as e:
-        print(f"[radio] player failed: {e}", flush=True)
+        if not p["stop"].is_set():               # a stop kills the player on purpose
+            print(f"[radio] player failed: {e}", flush=True)
     finally:
         try:
             out.stdin.close()
@@ -305,6 +411,38 @@ def handle(text, speak):
         now = playing()
         speak(f"Gra {now}." if now else "Radio nie gra.")
         return True
+    words = re.findall(r"\w+", low)
+    if playing() and any(k in low for k in _SONG) and len(words) <= 7:
+        with _lock:
+            title = _player.get("title") if _player else None
+        speak(f"Teraz gra: {title.rstrip('.!?')}." if title else
+              f"Gra {playing()}, ale stacja nie podaje tytułu piosenki.")
+        return True
+    if any(k in low for k in _NEXT) and len(words) <= 5:
+        names = list(STATIONS.values())
+        now = playing()
+        i = next((k for k, st in enumerate(names) if st[0] == now), -1)
+        name, url = names[(i + 1) % len(names)]
+        speak(f"Teraz {name}.")
+        play(name, url)
+        settings.put("radio_last", [name, url])
+        return True
+    # "ciszej" while music plays: the music. "mów ciszej": her voice (commands.py)
+    if (playing() and len(words) <= 6 and not any(w.startswith("mów") or w == "mow" for w in words)
+            and any(k in low for k in _QUIETER + _LOUDER)):
+        g = _gain()
+        m = re.search(r"(\d{1,3})\s*(%|procent)?", low)
+        if m:
+            g = int(m.group(1)) / 100
+        else:
+            step = 1.5 if any(k in low for k in _LOUDER) else 1 / 1.5
+            if "dużo" in low or "duzo" in low:
+                step = step ** 2
+            g *= step
+        g = round(max(0.05, min(1.0, g)), 3)
+        settings.put("radio_gain", g)
+        print(f"[radio] music volume → {g:.0%}", flush=True)
+        return True                        # the music itself is the answer
     m = _SLEEP.search(low)
     if m and ("radio" in low or "muzyk" in low):
         secs = _minutes(m.group(1) or m.group(2))

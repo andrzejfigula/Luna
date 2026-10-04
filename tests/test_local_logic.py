@@ -445,5 +445,28 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(len(memory._load()["facts"]), 2)
 
 
+class RadioTest(unittest.TestCase):
+
+    def test_volume_while_playing_is_the_music(self):
+        import radio
+        said = []
+        with mock.patch.object(radio, "playing", lambda: "RMF FM"):
+            g0 = radio._gain()
+            self.assertTrue(radio.handle("Ciszej", said.append))
+            self.assertLess(radio._gain(), g0)
+            self.assertTrue(radio.handle("Luna, dużo głośniej", said.append))
+            self.assertGreater(radio._gain(), g0)
+            self.assertFalse(radio.handle("Mów ciszej", said.append))     # her voice
+        self.assertFalse(radio.handle("Ciszej", said.append))            # radio off
+        settings.put("radio_gain", radio.RADIO_GAIN)
+
+    def test_song_title(self):
+        import radio
+        said = []
+        with mock.patch.object(radio, "playing", lambda: "Radio 357"),                 mock.patch.object(radio, "_player", {"title": "Beck - In the Night"}):
+            self.assertTrue(radio.handle("Co teraz gra?", said.append))
+        self.assertEqual(said[-1], "Teraz gra: Beck - In the Night.")
+
+
 if __name__ == "__main__":
     unittest.main()

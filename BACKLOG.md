@@ -231,3 +231,12 @@ the game's hand reading, photos, the mood read from a face.
 | 83 | **Her voice player had low priority** | `nice -n 10` on the whole process was inherited by pw-play: her own face renderer outranked her voice; pygame also kept an unused 3 ms audio stream open; OpenCV's 4 worker threads busy-waited at ~20 % each | ✅ only renderer, camera and vision are niced (prio.py), players run at normal priority; SDL audio off; OpenCV on 1 thread |
 | 84 | **"She just looks at me"** | (1) after every answer the mic was deaf for 1.4 s (echo guard 0.6 + settle 0.8, audio thrown away) — the first words of a quick reply were lost; (2) the 10 s window counted from the end of her answer, and a sentence started as it closed was dropped as "no wake word" | ✅ deaf time 0.65 s (the persistent player knows when her last sample plays); a sentence that BEGAN inside the window, or up to 4 s after, is still answered (not after "pa!", "dobranoc" or with the radio on); log lines carry the time |
 | 85 | **Half the CPU** — Luna used ~145 % of the Pi (70 °C); face detection alone 54 % | The cheap search near the last face missed often (Haar drops frames) and every miss fell back to a 123 ms whole-frame search | ✅ two misses allowed before searching everywhere, coarser scales for the whole-frame search (71 ms), and with nobody in view it searches 3× a second: vision 54 % → 24 %, Luna ~145 % → ~84 %. `kill -USR1 <pid>` logs CPU per thread and the detector's costs |
+
+## Batch 25 — radio, round two
+
+| # | Item | Why | Status |
+|---|------|-----|--------|
+| 86 | **"Co teraz gra?"** — the song's title, read from the stream (ICY metadata: Luna reads the stream herself, strips the titles and feeds ffmpeg) | The first thing you ask a radio | ✅ RMF FM, 357, Nowy Świat send titles; ZET sends empty ones, Polskie Radio none — then she says so |
+| 87 | **"Ciszej" / "głośniej" while music plays changes the music**, not her voice ("mów ciszej" still means her voice); remembered | Turning the music down shouldn't make her whisper | ✅ |
+| 88 | **"Następna stacja"** — through the built-in stations | — | ✅ |
+| 89 | **Backup addresses** — when a stream won't start, the next address, and as a last resort the directory | Trójka's MP3 stream died tonight (ICY 401) while its HLS stream worked | ✅ a refused address is skipped at once instead of waiting for ffmpeg's retries |
