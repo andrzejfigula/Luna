@@ -7,6 +7,13 @@ voice is the scarce resource (rate limits, quiet hours, "Luna, cicho").
 
 Status: ✅ done · 🚧 in progress · ⏳ queued · 💤 parked (with the reason)
 
+**Where it stands (2026-10-04):** 48 items done, plus the fixes in "Found while
+reviewing / testing". 53 commits on `surprise-pack`, not merged into `main`.
+38 logic tests (`python -X utf8 -m unittest discover -s tests`) pass on Windows
+and on the Pi; `tests/soak_pi.py` (40 conversations through the real
+pipeline) runs clean. Not tested with a real person in front of the camera:
+the game's hand reading, photos, the mood read from a face.
+
 | # | Item | Why | Status |
 |---|------|-----|--------|
 | 1 | **Emotional voice** — the reply's emotion goes into the TTS instructions (warmer when happy, softer when sad, bouncier when excited) | The face already shows the mood; the voice stayed flat | ✅ |
