@@ -17,6 +17,7 @@ import cv2
 import threading
 import time
 
+from config import FACE_SCALE_FULL, VISION_NEAR_MISSES
 from config import (VISION_FPS, FACE_MIN_NEIGHBORS, FACE_SCALE_FACTOR,
                     FACE_MIN_SIZE, FACE_EQUALIZE, FACE_HOLD_SECS, VISION_DEBUG,
                     VISION_IDLE_FPS, VISION_IDLE_AFTER, VISION_FULL_EVERY)
@@ -61,8 +62,13 @@ def vision_loop():
             time.sleep(1.0)
 
 
-def _detect(gray, min_size, max_size=None):
-    kw = dict(scaleFactor=FACE_SCALE_FACTOR, minNeighbors=FACE_MIN_NEIGHBORS,
+# what the detector costs (main.py's SIGUSR1 dump, health): frames, full-frame
+# searches, searches near the last face, seconds spent in each, frames with a face
+stats = {"frames": 0, "full": 0, "near": 0, "t_full": 0.0, "t_near": 0.0, "face": 0}
+
+
+def _detect(gray, min_size, max_size=None, scale=FACE_SCALE_FACTOR):
+    kw = dict(scaleFactor=scale, minNeighbors=FACE_MIN_NEIGHBORS,
               minSize=(min_size, min_size), flags=cv2.CASCADE_SCALE_IMAGE)
     if max_size:
         kw["maxSize"] = (max_size, max_size)
@@ -85,6 +91,7 @@ def _search_near(gray, box):
 
 def _vision_iteration_loop():
     last_box = None          # where the face was last time (small-frame coords)
+    misses = 0               # near searches in a row that found nothing
     n = 0
 
     while True:
@@ -112,10 +119,27 @@ def _vision_iteration_loop():
             # window keeps its detail instead of being crushed to black
             gray = _clahe.apply(gray)
         faces = []
-        if last_box is not None and n % VISION_FULL_EVERY:
+        stats["frames"] += 1
+        near = last_box is not None and n % VISION_FULL_EVERY
+        if last_box is None and not slow and n % 2:
+            # nobody in view: searching everywhere 3× a second finds a face
+            # just as well — the search costs ~70 ms a time
+            time.sleep(sleep_time)
+            continue
+        if near:
+            t = time.monotonic()
             faces = _search_near(gray, last_box)
-        if len(faces) == 0:
-            faces = _detect(gray, FACE_MIN_SIZE)              # the whole frame
+            stats["near"] += 1
+            stats["t_near"] += time.monotonic() - t
+            misses = 0 if len(faces) else misses + 1
+        if len(faces) == 0 and (not near or misses > VISION_NEAR_MISSES):
+            t = time.monotonic()
+            faces = _detect(gray, FACE_MIN_SIZE, scale=FACE_SCALE_FULL)   # everywhere
+            stats["full"] += 1
+            stats["t_full"] += time.monotonic() - t
+            misses = 0
+        if len(faces) > 0:
+            stats["face"] += 1
 
         if len(faces) > 0:
             # the biggest face is the person in front of Luna
@@ -140,7 +164,8 @@ def _vision_iteration_loop():
                 state.face_w         = w / small.shape[1]
                 state.last_face_time = time.time()   # addressed-speech gate
         else:
-            last_box = None
+            if not near or misses == 0:      # searched everywhere: really gone
+                last_box = None
             with state.lock:
                 # hold the last face briefly — Haar drops single frames
                 if time.time() - state.last_face_time > FACE_HOLD_SECS:

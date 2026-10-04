@@ -37,6 +37,11 @@ VISION_FULL_EVERY = 6      # with a face in view, search only around it, and
 # make the eyes / preview box flicker.
 FACE_MIN_NEIGHBORS = 2
 FACE_SCALE_FACTOR  = 1.1
+FACE_SCALE_FULL    = 1.2     # the whole-frame search: coarser scale steps, ~half the
+                             # cost (it was 123 ms a frame on the Pi, the biggest
+                             # single CPU user) — near the last face 1.1 still
+VISION_NEAR_MISSES = 2       # Haar drops single frames: miss the face near where
+                             # it was this many times before searching everywhere
 FACE_MIN_SIZE      = 24      # px on the half-size (320x240) analysis frame
 FACE_EQUALIZE      = True    # CLAHE (local contrast) — handles a backlit face
 FACE_HOLD_SECS     = 0.6

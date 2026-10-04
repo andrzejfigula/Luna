@@ -201,6 +201,33 @@ def _shutdown(*args):
     os._exit(0)
 
 
+def _dump_threads(*_):
+    """kill -USR1 <pid>: each thread's name, nice and CPU seconds — which
+    part of her is eating the Pi."""
+    tick = os.sysconf("SC_CLK_TCK")
+    rows = []
+    for t in threading.enumerate():
+        try:
+            with open(f"/proc/self/task/{t.native_id}/stat") as f:
+                st = f.read().rsplit(")", 1)[1].split()
+            cpu = (int(st[11]) + int(st[12])) / tick
+            rows.append((cpu, t.native_id, int(st[16]), t.name))
+        except Exception:
+            pass
+    try:
+        import vision_module as v
+        s = v.stats
+        print(f"[threads] vision: {s['frames']} frames, {s['face']} with a face; "
+              f"full {s['full']}× avg {1000 * s['t_full'] / max(1, s['full']):.0f} ms, "
+              f"near {s['near']}× avg {1000 * s['t_near'] / max(1, s['near']):.0f} ms", flush=True)
+    except Exception as e:
+        print(f"[threads] vision stats: {e}", flush=True)
+    print("[threads] cpu-s  tid  nice  name", flush=True)
+    for cpu, tid, ni, name in sorted(rows, reverse=True):
+        print(f"[threads] {cpu:7.1f} {tid} {ni:3d}  {name}", flush=True)
+
+
+signal.signal(signal.SIGUSR1, _dump_threads)
 signal.signal(signal.SIGINT,  _shutdown)
 signal.signal(signal.SIGTERM, _shutdown)
 
