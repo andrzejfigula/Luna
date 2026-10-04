@@ -22,6 +22,8 @@ import time
 from config import DATA_DIR
 
 PATH = os.path.join(DATA_DIR, "day.json")
+DIARY = os.path.join(DATA_DIR, "diary.json")   # the days before, short (14 kept)
+DIARY_DAYS = 14
 _lock = threading.Lock()
 _day = None
 
@@ -39,8 +41,47 @@ def _load():
         except (OSError, ValueError):
             _day = {}
     if _day.get("date") != _today():
+        if _day.get("date") and _day.get("talks"):
+            _to_diary(_day)                   # yesterday goes into her diary
         _day = {"date": _today(), "talks": {}, "kind": 0, "rude": 0, "last": _day.get("last", 0)}
     return _day
+
+
+def _diary():
+    try:
+        with open(DIARY, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return []
+
+
+def _to_diary(day):
+    entries = [e for e in _diary() if e.get("date") != day["date"]]
+    entries.append({k: day.get(k) for k in ("date", "talks", "kind", "rude")})
+    entries = sorted(entries, key=lambda e: e["date"])[-DIARY_DAYS:]
+    tmp = DIARY + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(entries, f, ensure_ascii=False)
+    os.replace(tmp, DIARY)
+
+
+def _past_line():
+    """The last few days, from her diary, for "co robiłaś wczoraj?"."""
+    days = _diary()[-3:]
+    if not days:
+        return ""
+    parts = []
+    for e in reversed(days):
+        who = ", ".join(f"{n} ({c})" for n, c in
+                        sorted(e.get("talks", {}).items(), key=lambda kv: -kv[1]))
+        extra = []
+        if e.get("kind"):
+            extra.append(f"{e['kind']} kind words")
+        if e.get("rude"):
+            extra.append(f"{e['rude']} rude ones")
+        parts.append(f"{e['date']}: talked with {who or 'nobody'}"
+                     + (f", {', '.join(extra)}" if extra else ""))
+    return " Your diary of the last days: " + "; ".join(parts) + "."
 
 
 def _save():
@@ -95,7 +136,7 @@ def prompt_line():
         elif mins > 30:
             gap = f" The last chat was {mins:.0f} min ago."
     return (f"Your own day so far: {day}" + ("; " + ", ".join(feel) if feel else "")
-            + f".{gap} It is {part}. Let this colour your mood lightly (livelier after "
+            + f".{gap}{_past_line()} It is {part}. Let this colour your mood lightly (livelier after "
             "a nice day, glad to have company after being alone, sleepy late); if asked "
             "how you are or how your day was, answer from this — say briefly who you "
             "talked with and how it felt — and don't invent events.\n")

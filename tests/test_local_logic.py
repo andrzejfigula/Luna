@@ -32,7 +32,7 @@ class TimersTest(unittest.TestCase):
         timers._timers.clear()
 
     def test_timer_reminder_and_cancel_by_label(self):
-        timers.apply([{"type": "timer", "seconds": 600, "at": "", "label": "makaron"}])
+        timers.apply([{"type": "timer", "seconds": 60, "at": "", "label": "makaron"}])   # sooner than 23:59 even at 23:49
         timers.apply([{"type": "reminder", "seconds": 0, "at": "23:59", "label": "piekarnik"}])
         self.assertEqual([t["label"] for t in timers._timers], ["makaron", "piekarnik"])
         timers.apply([{"type": "cancel", "seconds": 0, "at": "", "label": "piekarnik"}])
@@ -223,6 +223,12 @@ class ListsTest(unittest.TestCase):
 
 
 class ClockTest(unittest.TestCase):
+
+    def test_greeting_before_the_question(self):
+        import clock
+        self.assertTrue(clock.answer("Cześć, która godzina?").startswith("Jest "))
+        self.assertTrue(clock.answer("Dzień dobry, jaki dziś dzień?").startswith("Dziś jest"))
+        self.assertIsNone(clock.answer("Która godzina w Tokio?"))
 
     def test_spoken_time_and_date(self):
         import clock
@@ -639,8 +645,11 @@ class MoodTest(unittest.TestCase):
         self.assertIn("Maja (raz)", line)
         self.assertIn("kind to you raz", line)
         self.assertIn("rude to you raz", line)
-        mood._day["date"] = "2000-01-01"                  # a new day starts empty
+        mood.DIARY = os.path.join(TMP, "diary.json")
+        mood._day["date"] = "2000-01-01"                  # a new day starts empty…
         self.assertIn("nobody has talked", mood.prompt_line())
+        line = mood.prompt_line()                         # …and the old one is in the diary
+        self.assertIn("2000-01-01: talked with Andrzej (3)", line)
 
 
 class PhotoPeopleTest(unittest.TestCase):

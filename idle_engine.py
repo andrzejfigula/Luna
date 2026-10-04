@@ -178,8 +178,19 @@ def idle_loop():
                     greeted_days[who] = today
                     print(f"[idle] welcome back{' ' + who if who else ''} "
                           f"(away {away / 60:.0f} min)")
-                    _set_face("happy", GESTURE_DURATION["wave"] + 2.0)
-                    _gesture("wave")
+                    # her face follows how she feels about them (relationship.py):
+                    # a heart for someone she likes a lot, no wave for someone
+                    # who was rude — the words that follow say the rest
+                    import relationship
+                    feel = relationship.score(who or relationship.SOMEONE)
+                    if feel >= 3:
+                        _set_face("love", GESTURE_DURATION["heart"] + 2.0)
+                        _gesture("heart")
+                    elif feel <= -1:
+                        _set_face("neutral", 3.0)
+                    else:
+                        _set_face("happy", GESTURE_DURATION["wave"] + 2.0)
+                        _gesture("wave")
                     if _may_speak():
                         _last_proactive = now
                         # the first hello of the day knows your day (weather,

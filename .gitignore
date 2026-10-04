@@ -51,6 +51,8 @@ data/relations.json
 data/relations.json.tmp
 data/day.json
 data/day.json.tmp
+data/diary.json
+data/diary.json.tmp
 data/backups/
 # face models from the OpenCV Zoo (download, see SETUP.md)
 data/models/

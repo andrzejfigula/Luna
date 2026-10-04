@@ -23,7 +23,7 @@ from config import DATA_DIR, PHOTOS_DIR
 BACKUP_DAYS = 7
 DIR = os.path.join(DATA_DIR, "backups")
 FILES = ["memory.json", "people.json", "lists.json", "timers.json", "settings.json",
-         "relations.json", "day.json", os.path.join("messages", "index.json")]
+         "relations.json", "day.json", "diary.json", os.path.join("messages", "index.json")]
 
 
 def backup_now():

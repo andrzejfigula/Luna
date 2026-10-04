@@ -304,3 +304,12 @@ the game's hand reading, photos, the mood read from a face.
 | 126 | **Homework held up to the camera** — "pomóż mi z tym zadaniem", "co jest w zeszycie", "zobacz mój rysunek" now send the high-detail picture | A sum in an exercise book is unreadable in the low-detail one | ✅ |
 | 127 | **Birthdays** — "Maja ma urodziny 12 maja 2018", "moje urodziny są 14 lutego": kept with the person; "ile dni do urodzin Mai?" counted exactly ("…Skończy 9 lat."); on the day the first hello is a birthday wish ("Witaj, Maju! Wszystkiego najlepszego z okazji ósmych urodzin…"), a week before she knows it's coming | Family dates; models are bad at calendar sums | ✅ only for people she knows by face |
 | 128 | **Names in any case** — "Mai", "Maję", "Emilki", "Emilce", "Andrzeja"… matched to the known person locally (`faces.match_name`) | The model turned "Mai" into "Mai", not "Maja"; and the month "3 maja" must not be Maja | ✅ used by birthdays and "pokaż zdjęcia Mai" |
+
+## Batch 31
+
+| # | Item | Why | Status |
+|---|------|-----|--------|
+| 129 | **"Cześć, która godzina?" answered at once** — a greeting before the time/date question no longer sends it to the model | From the log: "Cześć, która godzina?" took the 2-second route | ✅ "Która godzina w Tokio?" still goes to the model |
+| 130 | **Her face greets you the way she feels** — a heart and loving eyes for someone she likes a lot (score ≥ 3), no wave and a neutral face for someone who was rude, the usual happy wave otherwise | Reciprocity should show before she says a word | ✅ |
+| 131 | **Reply length per person** — "mów krócej" said by Andrzej is his setting; Maja keeps hers | One house, different tastes | ✅ an unrecognised speaker sets the house default |
+| 132 | **Her diary** — at midnight her day (who she talked with, kind and rude words) goes to `data/diary.json` (14 days, in the daily backup); the last three days are in the prompt, so "co robiłaś wczoraj?" has a true answer | Her day used to vanish at midnight | ✅ also fixed a test that failed only between 23:49 and 23:59 |

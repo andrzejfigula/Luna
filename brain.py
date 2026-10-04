@@ -394,7 +394,10 @@ def set_translator(lang):
 def _length_rule():
     """"Mów krócej" / "odpowiadaj dłużej" (commands.py keeps it in settings)."""
     import settings
-    n = settings.get("reply_length", "normal")
+    with state.lock:
+        who = state.person[0] if state.person else None
+    mine = (settings.get("reply_length_by", {}) or {}).get(who) if who else None
+    n = mine or settings.get("reply_length", "normal")
     if n == "short":
         return ("\nThe user asked for SHORT answers: \"reply\" is ONE sentence of at "
                 "most 12 words (this overrides the 1-3 sentence rule) — unless they "

@@ -814,8 +814,16 @@ def handle(text, speak, play_sound):
                   "long" if any(k in low for k in _LONGER) else
                   "normal" if any(k in low for k in _NORMAL_LENGTH) else None)
         if length:
-            settings.put("reply_length", length)
-            print(f"[cmd] reply length → {length}", flush=True)
+            with state.lock:
+                who = state.person[0] if state.person else None
+            if who:                                # each person their own
+                by = settings.get("reply_length_by", {}) or {}
+                by[who] = length
+                settings.put("reply_length_by", by)
+            else:
+                settings.put("reply_length", length)
+            print(f"[cmd] reply length → {length}" + (f" for {who}" if who else ""),
+                  flush=True)
             speak({"short": "Dobrze, będę mówić krócej.",
                    "long": "Dobrze, będę odpowiadać dłużej.",
                    "normal": "Dobrze, wracam do zwykłych odpowiedzi."}[length])

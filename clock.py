@@ -47,7 +47,10 @@ _DATE_Q = ("jaki dziś dzień", "jaki dzisiaj dzień", "jaki jest dzisiaj dzień
 # what may surround the bare question
 _FILL = {"luna", "luno", "a", "powiedz", "mi", "proszę", "prosze", "teraz", "hej",
          "no", "to", "czy", "wiesz", "możesz", "mozesz", "jest", "mamy", "dziś",
-         "dzisiaj", "is", "it", "now", "please"}
+         "dzisiaj", "is", "it", "now", "please",
+         # a greeting before the question ("Cześć, która godzina?" went to the model)
+         "cześć", "czesc", "siema", "hejka", "dzień", "dobry", "dobry", "wieczór",
+         "dobranoc", "hello", "hi", "hey", "dzięki", "dzieki"}
 
 
 def _minutes(m):
