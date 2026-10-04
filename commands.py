@@ -57,6 +57,24 @@ def _short(text, n):
     return len(_words(text)) <= n
 
 
+# Words a bare command may consist of. "Dlaczego w nocy jest ciszej?" is a
+# question, not a command — every word has to come from this set.
+_FILLER = {"luna", "luno", "mów", "mow", "mówić", "mowic", "trochę", "troche",
+           "troszkę", "troszke", "nieco", "dużo", "duzo", "bardziej", "jeszcze",
+           "proszę", "prosze", "możesz", "mozesz", "czy", "a", "i", "zrób",
+           "zrob", "bądź", "badz", "please", "a", "bit", "little", "much",
+           "speak", "talk", "more", "be", "can", "you", "volume", "turn", "it"}
+
+
+def _bare(text, keywords):
+    """True when the utterance is nothing but a command: one of `keywords`
+    plus filler words."""
+    words = _words(text)
+    keys = {w for k in keywords for w in k.split()}
+    return (any(w in keys for w in words)
+            and all(w in keys or w in _FILLER for w in words))
+
+
 # ── volume ────────────────────────────────────────────────────────────────────
 
 def _sink_id():
@@ -101,7 +119,7 @@ def _volume_command(text):
     m = re.search(r"(\d{1,3})\s*(%|procent)?", low)
     if m and any(k in low for k in _VOLUME):
         return int(m.group(1)) / 100.0
-    if any(k in low for k in _LOUDER + _QUIETER) and _short(text, 5):
+    if _bare(text, _LOUDER + _QUIETER):
         cur = get_volume()
         if cur is None:
             return None
@@ -192,7 +210,7 @@ def handle(text, speak, play_sound):
         games.play_match(speak, _sound_async)
         return True
 
-    if _short(text, 5) and any(k in low for k in _SLOWER + _FASTER + _NORMAL_SPEED):
+    if _bare(text, _SLOWER + _FASTER) or any(k in low for k in _NORMAL_SPEED):
         cur = settings.get("tts_speed", OPENAI_TTS_SPEED)
         if any(k in low for k in _NORMAL_SPEED):
             new = OPENAI_TTS_SPEED
