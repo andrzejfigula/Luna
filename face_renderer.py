@@ -1,7 +1,7 @@
 import time
 from shared_state import state
 from robot_face import RobotFace
-from config import SLEEP_AFTER_FRAMES
+from config import SLEEP_AFTER_FRAMES, RENDER_FPS, RENDER_FPS_ASLEEP
 
 # state.emotion (set by brain.py from the LLM's choice) → face state
 EMOTION_MAP = {
@@ -59,6 +59,12 @@ def renderer_loop():
         else:
             mapped = EMOTION_MAP.get(emotion, "neutral")
             face.set_state(mapped)
+
+        # asleep → fewer frames (the face barely moves); anything that wakes
+        # her (an override from a touch, speech, listening) restores 30 fps
+        sleepy = (not override and not speaking and not listening
+                  and (asleep or face.idle_frames > SLEEP_AFTER_FRAMES))
+        face.fps = RENDER_FPS_ASLEEP if sleepy else RENDER_FPS
 
         try:
             face.draw()

@@ -35,7 +35,7 @@ Status: ✅ done · 🚧 in progress · ⏳ queued · 💤 parked (with the reas
 | # | Item | Why | Status |
 |---|------|-----|--------|
 | 16 | **Warm start** — the first cloud call in a process paid ~2 s extra (lazy SDK imports + handshake); now each client is warmed with a free request at start-up | Measured: first TTS byte 2.5 s cold → 0.4–0.6 s. Idle connections turned out NOT to go cold (0.6 s after 130 s idle), so no keep-alive pinging was needed | ✅ |
-| 17 | **CPU diet** — Luna uses ~160 % of the Pi's 4 cores and the CPU sits at ~70 °C; find the hungry threads and trim them without making her look or listen worse | Cooler Pi, no throttling, more headroom for audio | ⏳ |
+| 17 | **CPU diet** — Luna uses ~160 % of the Pi's 4 cores and the CPU sits at ~70 °C; find the hungry threads and trim them without making her look or listen worse | Cooler Pi, no throttling, more headroom for audio | ✅ empty room: 158 % → 51 % CPU, 70 → 63 °C. Face detection searches around the last face and slows to 2/s when nobody is there; the sleeping face is drawn at 12 fps |
 | 18 | **Stories** — "opowiedz mi bajkę", "wyjaśnij dokładnie": longer answers when you ask for them (streaming makes them start just as fast; a tap stops them) | 1–3 sentences is right for chat, wrong for a bedtime story | ⏳ |
 | 19 | **Sunrise alarm** — "obudź mnie o 7": the screen slowly brightens over the last 10 minutes like a sunrise, then a gentle chime and a good-morning with the weather | A wake-up light is a perfect job for a glowing face | ⏳ |
 

@@ -17,6 +17,12 @@ if os.path.exists(_env_path):
 # ── Pi 4 fixed config ─────────────────────────────────────────────────────────
 PI_MODEL        = 4
 VISION_FPS      = 6      # Haar face detection rate (cheap, but it's a Pi 4)
+# One full-frame Haar pass costs ~110 ms of CPU on the Pi (measured), so 6/s
+# was two thirds of a core. Two savings (vision_module.py):
+VISION_IDLE_FPS   = 2      # nobody seen for VISION_IDLE_AFTER s → look less often
+VISION_IDLE_AFTER = 60
+VISION_FULL_EVERY = 6      # with a face in view, search only around it, and
+                           # scan the whole frame every Nth time (new people)
 # Haar cascade sensitivity: lower minNeighbors / scaleFactor and smaller
 # minSize find more faces (and a few more false ones); histogram
 # equalisation helps with side-lit faces. A face is held for
@@ -29,6 +35,9 @@ FACE_EQUALIZE      = True    # CLAHE (local contrast) — handles a backlit face
 FACE_HOLD_SECS     = 0.6
 VISION_DEBUG       = False   # log detections (position, size, count) every ~2 s
 RENDER_FPS      = 30     # face animation; 30 is smooth on the 7" DSI panel
+RENDER_FPS_ASLEEP = 12   # while she sleeps (nobody around / "dobranoc"): the
+                         # sleeping face barely moves, and drawing it at 30 fps
+                         # was half a CPU core
 
 # ── Display (official 7" DSI touchscreen) ─────────────────────────────────────
 SCREEN_WIDTH   = 800

@@ -1330,6 +1330,7 @@ class RobotFace:
         self._pupil_converge = 0.0
         self._pupil_mul = 1.0            # scenes: 0 hides the pupils, 2 = huge
         self._big_text = None            # (text, until) — game countdown
+        self.fps = RENDER_FPS            # face_renderer lowers it while she sleeps
         self._mouth_drive = 0.0
         self._wink_side = "R"
         self._scene_prev = None
@@ -1984,7 +1985,7 @@ class RobotFace:
                 elif event.key in (pygame.K_3, pygame.K_KP3):
                     apply_style(3)
 
-        self.clock.tick(RENDER_FPS)
+        self.clock.tick(self.fps)
         self.update()
 
         base = self.base   # reused surface — no per-frame allocation

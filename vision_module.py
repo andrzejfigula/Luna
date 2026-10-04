@@ -18,7 +18,8 @@ import threading
 import time
 
 from config import (VISION_FPS, FACE_MIN_NEIGHBORS, FACE_SCALE_FACTOR,
-                    FACE_MIN_SIZE, FACE_EQUALIZE, FACE_HOLD_SECS, VISION_DEBUG)
+                    FACE_MIN_SIZE, FACE_EQUALIZE, FACE_HOLD_SECS, VISION_DEBUG,
+                    VISION_IDLE_FPS, VISION_IDLE_AFTER, VISION_FULL_EVERY)
 
 _last_dbg = 0.0
 _clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
@@ -58,11 +59,38 @@ def vision_loop():
             time.sleep(1.0)
 
 
+def _detect(gray, min_size, max_size=None):
+    kw = dict(scaleFactor=FACE_SCALE_FACTOR, minNeighbors=FACE_MIN_NEIGHBORS,
+              minSize=(min_size, min_size), flags=cv2.CASCADE_SCALE_IMAGE)
+    if max_size:
+        kw["maxSize"] = (max_size, max_size)
+    return face_cascade.detectMultiScale(gray, **kw)
+
+
+def _search_near(gray, box):
+    """Look for the face only around where it just was, at about its size —
+    a few scales of a small crop instead of every scale of the frame."""
+    x, y, w, h = box
+    H, W = gray.shape[:2]
+    x0, y0 = max(0, x - w), max(0, y - h)
+    x1, y1 = min(W, x + 2 * w), min(H, y + 2 * h)
+    crop = gray[y0:y1, x0:x1]
+    if crop.shape[0] < FACE_MIN_SIZE or crop.shape[1] < FACE_MIN_SIZE:
+        return []
+    faces = _detect(crop, max(FACE_MIN_SIZE, int(w * 0.6)), int(w * 1.6) + 1)
+    return [(fx + x0, fy + y0, fw, fh) for fx, fy, fw, fh in faces]
+
+
 def _vision_iteration_loop():
-    sleep_time = 1.0 / VISION_FPS
+    last_box = None          # where the face was last time (small-frame coords)
+    n = 0
 
     while True:
         t0 = time.monotonic()
+        n += 1
+        with state.lock:
+            unseen = time.time() - state.last_face_time
+        sleep_time = 1.0 / (VISION_IDLE_FPS if unseen > VISION_IDLE_AFTER else VISION_FPS)
 
         with state.lock:
             frame = state.frame
@@ -79,17 +107,16 @@ def _vision_iteration_loop():
             # local contrast equalisation: a face in shadow against a bright
             # window keeps its detail instead of being crushed to black
             gray = _clahe.apply(gray)
-        faces = face_cascade.detectMultiScale(
-            gray,
-            scaleFactor=FACE_SCALE_FACTOR,
-            minNeighbors=FACE_MIN_NEIGHBORS,
-            minSize=(FACE_MIN_SIZE, FACE_MIN_SIZE),
-            flags=cv2.CASCADE_SCALE_IMAGE
-        )
+        faces = []
+        if last_box is not None and n % VISION_FULL_EVERY:
+            faces = _search_near(gray, last_box)
+        if len(faces) == 0:
+            faces = _detect(gray, FACE_MIN_SIZE)              # the whole frame
 
         if len(faces) > 0:
             # the biggest face is the person in front of Luna
             x, y, w, h = max(faces, key=lambda f: f[2] * f[3])
+            last_box = (int(x), int(y), int(w), int(h))
             global _last_dbg
             if VISION_DEBUG and time.time() - _last_dbg > 2.0:
                 _last_dbg = time.time()
@@ -109,6 +136,7 @@ def _vision_iteration_loop():
                 state.face_w         = w / small.shape[1]
                 state.last_face_time = time.time()   # addressed-speech gate
         else:
+            last_box = None
             with state.lock:
                 # hold the last face briefly — Haar drops single frames
                 if time.time() - state.last_face_time > FACE_HOLD_SECS:
