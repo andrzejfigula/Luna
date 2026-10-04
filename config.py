@@ -286,6 +286,8 @@ AUDIO_PERSISTENT  = True
 AUDIO_AHEAD_SECS  = 0.40    # audio kept queued in the player: the writer
                             # thread stalled up to 0.18 s under face rendering
 AUDIO_PREBUFFER_SECS = 0.15 # speech held back before it starts (net stutter)
+NIGHT_VOICE_GAIN  = 0.5     # during the quiet hours she speaks at half volume
+                            # (and her mouth moves less) — 1.0 = off
 TTS_STREAM_PREBUFFER_SECS = 0.3  # streamed replies: an underrun there is filled with
                                   # silence (a pause, not crackle), so less is safe
 TTS_PREBUFFER_SECS      = 0.6    # audio buffered before playback starts — avoids
@@ -351,6 +353,7 @@ SLEEP_BRIGHTNESS = 3      # screen % while she sleeps ("dobranoc")
 NIGHT_MODE            = True
 NIGHT_BRIGHTNESS      = 12
 NIGHT_TALK_BRIGHTNESS = 40
+GOODBYE_REPLIES = ["Pa pa!", "Do zobaczenia!", "Na razie!", "Papa, wracaj szybko!"]
 GOODNIGHT_REPLIES = ["Dobranoc! Śpij dobrze.", "Dobranoc, słodkich snów!",
                      "Dobranoc. To ja też się zdrzemnę."]
 

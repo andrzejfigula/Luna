@@ -7,6 +7,8 @@ commands.py — things Luna does herself, without asking the model.
            eyes close and she stays quiet (no greetings, no touch talk)
            until morning — or until you speak to her
   game     "zagrajmy w kamień, papier, nożyce" (games.py)
+  goodbye  "pa", "do zobaczenia", "dzięki, to wszystko": a wave, and the
+           conversation window closes at once
   wake     anything you say to her while she sleeps wakes her up (so
            "dzień dobry, Luna" does); in the morning (PROACTIVE_QUIET_TO) she
            wakes on her own, silently
@@ -27,7 +29,8 @@ from shared_state import state
 import settings
 from config import (SPEED_STEP, SPEED_MIN, SPEED_MAX, OPENAI_TTS_SPEED,
                     VOLUME_STEP, VOLUME_MIN, VOLUME_MAX,
-                    GOODNIGHT_REPLIES, PROACTIVE_QUIET_TO, AUDIO_OUTPUT_DEVICE)
+                    GOODNIGHT_REPLIES, GOODBYE_REPLIES, PROACTIVE_QUIET_TO,
+                    AUDIO_OUTPUT_DEVICE)
 
 _LOUDER  = ("głośniej", "glosniej", "louder", "volume up")
 _QUIETER = ("ciszej", "quieter", "volume down")
@@ -35,6 +38,12 @@ _VOLUME  = ("głośność", "glosnosc", "volume")
 _SLOWER  = ("wolniej", "slower")
 _FASTER  = ("szybciej", "faster")
 _NORMAL_SPEED = ("normalnym tempie", "normalne tempo", "normalnie mów", "mów normalnie")
+# goodbyes: the whole utterance must be one of these (after dropping "Luna")
+# — "na razie nie" or "pa, a jeszcze jedno…" are not goodbyes
+_BYE = {("pa",), ("pa", "pa"), ("papa",), ("do", "widzenia"), ("do", "zobaczenia"),
+        ("na", "razie"), ("bye",), ("bye", "bye"), ("see", "you"), ("cześć", "pa"),
+        ("to", "wszystko"), ("dzięki", "to", "wszystko"), ("dziękuję", "to", "wszystko"),
+        ("dobra", "to", "wszystko"), ("trzymaj", "się")}
 _NIGHT   = ("dobranoc", "dobranocka", "idę spać", "ide spac", "idę już spać",
             "good night", "goodnight")
 
@@ -151,6 +160,22 @@ def handle(text, speak, play_sound):
 
     # anything else said to her wakes her up, then is handled as usual
     wake_up("spoken to")
+
+    # goodbye — wave, and stop listening right away (otherwise the window
+    # stays open and she may answer the next thing said in the room)
+    if tuple(w for w in _words(text) if w not in ("luna", "luno")) in _BYE:
+        with state.lock:
+            state.gesture_anim = "wave"
+            state.gesture_anim_start = time.time()
+            state.emotion = "Happy"
+        speak(random.choice(GOODBYE_REPLIES))
+        with state.lock:
+            state.emotion = "Neutral"
+            state.conversation_active = False
+            state.convo_expired_time = time.time()
+            state.listening = False
+        print("[cmd] goodbye — conversation closed", flush=True)
+        return True
 
     import games                                   # rock, paper, scissors
     if games.is_trigger(text) or games.is_rematch(text):

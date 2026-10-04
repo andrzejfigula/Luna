@@ -147,6 +147,16 @@ class CommandsTest(unittest.TestCase):
         self.assertFalse(self.handle("Dzień dobry!"))     # wakes her, then the model answers
         self.assertFalse(state.sleep_mode)
 
+    def test_goodbye_closes_the_conversation(self):
+        with state.lock:
+            state.conversation_active = True
+        self.assertTrue(self.handle("Pa, Luna!"))
+        self.assertFalse(state.conversation_active)
+        with state.lock:
+            state.conversation_active = True
+        self.assertFalse(self.handle("Na razie nie, dzięki"))
+        self.assertTrue(state.conversation_active)
+
     def test_speech_speed(self):
         settings.put("tts_speed", 1.0)
         self.assertTrue(self.handle("Mów wolniej"))
