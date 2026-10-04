@@ -46,6 +46,8 @@ class SharedState:
                                  # speech gate: people talking TO Luna face her)
         "last_spoken_text",      # Luna's most recent utterance (lowercased)
         "last_spoken_time",      # time.time() when that utterance finished
+        "timer_text",            # nearest timer for the corner of the screen
+                                 # ("7:42") or None (timers.py)
         "sleep_mode",            # "dobranoc" → asleep until morning or until
                                  # spoken to (commands.py)
         "user_mood",             # how the user seemed on camera at the last
@@ -95,6 +97,7 @@ class SharedState:
         self.last_spoken_time    = 0.0
         self.user_mood           = "no_person"
         self.sleep_mode          = False
+        self.timer_text          = None
 
 
 state = SharedState()

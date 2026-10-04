@@ -28,6 +28,7 @@ from openai import OpenAI
 
 import reply_scenes
 import memory
+import timers
 
 from text_to_speech import speak, play_sound
 from shared_state import state
@@ -143,6 +144,19 @@ Always answer as JSON with exactly these keys:
   "gesture" — one of {GESTURES}, the body language you perform while saying it.
   "mood_comment" — true only if your reply remarks on how the user looks or
                 seems; otherwise false.
+  "actions" — almost always []. Timers and reminders, which you really can
+                set (they ring on time, even after a restart):
+                {{"type":"timer","seconds":600,"at":"","label":""}} for
+                "minutnik na 10 minut" (label = what it is for, if said:
+                "makaron", "pranie");
+                {{"type":"reminder","seconds":0,"at":"YYYY-MM-DD HH:MM",
+                "label":"zadzwonić do mamy"}} for "przypomnij mi o 18 …"
+                (local time; "za pół godziny przypomnij mi…" is a timer
+                with a label);
+                {{"type":"cancel","seconds":0,"at":"","label":""}} to cancel
+                (label = which one, empty = all).
+                Confirm briefly in "reply" ("Jasne, minutnik na 10 minut.").
+                The active ones are listed below the date.
 Let user_mood quietly shape HOW you answer — softer, calmer and shorter when
 they seem tired, sad or stressed; livelier when they seem happy — without
 mentioning it. Whether you may actually SAY something about it is stated
@@ -203,8 +217,21 @@ _RESPONSE_FORMAT = {
                 "emotion":      {"type": "string", "enum": EMOTIONS},
                 "gesture":      {"type": "string", "enum": GESTURES},
                 "mood_comment": {"type": "boolean"},
+                "actions": {"type": "array", "items": {
+                    "type": "object",
+                    "properties": {
+                        "type":    {"type": "string",
+                                    "enum": ["timer", "reminder", "cancel"]},
+                        "seconds": {"type": "integer"},
+                        "at":      {"type": "string"},
+                        "label":   {"type": "string"},
+                    },
+                    "required": ["type", "seconds", "at", "label"],
+                    "additionalProperties": False,
+                }},
             },
-            "required": ["user_mood", "reply", "emotion", "gesture", "mood_comment"],
+            "required": ["user_mood", "reply", "emotion", "gesture",
+                         "mood_comment", "actions"],
             "additionalProperties": False,
         },
     },
@@ -323,6 +350,7 @@ def _ask_openai(text, image_b64=None, detail="low"):
                   f"asked the time or date, answer with exactly this local "
                   f"time — do not convert it to any other zone.\n"
                   + _mood_rule(image_b64 is not None)
+                  + timers.prompt_block()
                   + memory.prompt_block())
 
         response = _client.chat.completions.create(
@@ -349,6 +377,7 @@ def _ask_openai(text, image_b64=None, detail="low"):
         mood = str(data.get("user_mood", "no_person")).lower()
         _note_mood(mood if mood in USER_MOODS else "no_person",
                    bool(data.get("mood_comment", False)))
+        timers.apply(data.get("actions") or [])
 
         # keep history text-only: images are large and only matter for the
         # turn they were asked in

@@ -39,6 +39,9 @@ start_sounds()
 import commands
 commands.start_commands()
 
+from timers import start_timers
+start_timers()
+
 import random
 import difflib
 

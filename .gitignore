@@ -34,3 +34,5 @@ vosk-model-*/
 data/memory.json
 data/memory.json.tmp
 data/sounds/
+data/timers.json
+data/timers.json.tmp

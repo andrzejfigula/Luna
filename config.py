@@ -326,6 +326,12 @@ SLEEP_BRIGHTNESS = 3      # screen % while she sleeps ("dobranoc")
 GOODNIGHT_REPLIES = ["Dobranoc! Śpij dobrze.", "Dobranoc, słodkich snów!",
                      "Dobranoc. To ja też się zdrzemnę."]
 
+# ── Timers & reminders (timers.py) ───────────────────────────────────────────
+TIMERS_PATH       = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 "data", "timers.json")
+TIMERS_MAX        = 10
+TIMER_REPEAT_SECS = 60    # nobody reacted to the ring → once more after this
+
 # ── Between conversations (idle_engine.py: greeting you, touch voice) ─────────
 IDLE_ABSENCE_SECS    = 600     # away this long → she greets you when you return
 IDLE_DEBUG           = False   # log presence transitions

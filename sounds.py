@@ -107,8 +107,26 @@ def _generate(name):
     return pcm
 
 
+def _chime():
+    """A soft two-note bell ("ding-dong", twice) made right here — the timer
+    must ring even with no network and with LUNA_SOUNDS=0."""
+    def bell(freq, secs):
+        t = np.arange(int(secs * RATE)) / RATE
+        tone = (np.sin(2 * np.pi * freq * t)
+                + 0.45 * np.sin(2 * np.pi * freq * 2.0 * t) * np.exp(-t * 3.0)
+                + 0.18 * np.sin(2 * np.pi * freq * 3.01 * t) * np.exp(-t * 5.0))
+        env = np.minimum(1.0, t / 0.005) * np.exp(-t * 3.2)
+        return tone * env
+    notes = [(1318.5, 0.42), (1046.5, 0.70), (1318.5, 0.42), (1046.5, 1.1)]
+    out = np.concatenate([bell(f, d) for f, d in notes])
+    out = out / np.abs(out).max() * 0.42 * 32767
+    return out.astype(np.int16).tobytes()
+
+
 def get(name):
     """PCM for a sound, or None if it isn't ready (or sounds are off)."""
+    if name == "chime" and "chime" not in _cache:
+        _cache["chime"] = _chime()
     return _cache.get(name)
 
 

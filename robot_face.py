@@ -2093,7 +2093,30 @@ class RobotFace:
         if CAMERA_PREVIEW:
             self._draw_camera_preview()
 
+        # ── a running timer: small countdown, top-right corner ───────────
+        with state.lock:
+            timer_text = state.timer_text
+        if timer_text:
+            self._draw_timer(timer_text)
+
         pygame.display.flip()
+
+    def _draw_timer(self, text):
+        """A little clock and the time left, top-right. Cached per text."""
+        if getattr(self, "_timer_cache", (None,))[0] != text:
+            font = _get_font(34)
+            label = font.render(text, True, EYE_MID)
+            w, h = label.get_width() + 46, max(label.get_height(), 32) + 8
+            surf = pygame.Surface((w, h), pygame.SRCALPHA)
+            c = (18, h // 2)
+            pygame.draw.circle(surf, EYE_MID, c, 13, 3)            # clock face
+            pygame.draw.line(surf, EYE_MID, c, (c[0], c[1] - 8), 3)
+            pygame.draw.line(surf, EYE_MID, c, (c[0] + 6, c[1]), 3)
+            surf.blit(label, (40, (h - label.get_height()) // 2))
+            surf.set_alpha(200)
+            self._timer_cache = (text, surf)
+        surf = self._timer_cache[1]
+        self.screen.blit(surf, (WIDTH - surf.get_width() - 14, 10))
 
     # ── small mirrored camera view, bottom-right ──────────────────────────
     _preview_surf  = None
