@@ -8,6 +8,7 @@ commands.py — things Luna does herself, without asking the model.
            until morning — or until you speak to her
   game     "zagrajmy w kamień, papier, nożyce" (games.py)
   screens  "zrób mi zdjęcie", "pokaż lustro", "pokaż zegar" (screens.py)
+  breathe  "ćwiczenie oddechowe" — a guided breathing circle (breathing.py)
   focus    "tryb skupienia" (optionally "na 50 minut"): no small talk,
            a countdown, then "czas na przerwę" and a break timer;
            "koniec skupienia" ends it
@@ -235,6 +236,11 @@ def handle(text, speak, play_sound):
             state.conversation_active = False
         print(f"[cmd] focus mode: {mins} min", flush=True)
         speak(f"Dobrze, {mins} minut skupienia. Będę cicho — powodzenia!")
+        return True
+
+    import breathing                               # guided breathing
+    if breathing.is_trigger(low) and not is_question:
+        breathing.run(speak, play_sound)
         return True
 
     import screens                                 # mirror, photo, clock

@@ -28,6 +28,8 @@ LOCAL = {
     "Pokaż przypomnienia": "screen",
     "Włącz tryb skupienia": "focus",
     "Pomodoro na 50 minut": "focus",
+    "Luna, ćwiczenie oddechowe": "breath",
+    "Pomóż mi się uspokoić": "breath",
     "Zagrajmy w kamień, papier, nożyce": "game",
 }
 MODEL = [
@@ -44,6 +46,7 @@ MODEL = [
     "Mów mi więcej o kotach",
     "Co to jest pomodoro?",
     "Jak działa tryb skupienia",
+    "Czy ćwiczenie oddechowe pomaga na stres?",
 ]
 
 
@@ -63,6 +66,8 @@ class RoutingTest(unittest.TestCase):
         timers.screen_lines = lambda: [("1:00", "test")]  # independent of other tests
         timers.add = lambda *a, **k: self._mark("focus")
         timers.remove = lambda *a, **k: None
+        import breathing
+        breathing.run = lambda *a: self._mark("breath")
         commands.GOODBYE_REPLIES = ["<BYE>"]
 
     def _mark(self, what):

@@ -57,5 +57,5 @@ Status: ✅ done · 🚧 in progress · ⏳ queued · 💤 parked (with the reas
 | 26 | **Recurring alarms & reminders** — "budzik w dni robocze o 6:30", "codziennie o 21 przypomnij o tabletkach" | A wake-up alarm you have to set every evening isn't one | ✅ |
 | 27 | **"Pokaż przypomnienia"** — the list of timers, reminders and alarms on her screen | See at a glance what's set | ✅ |
 | 28 | **Focus mode (pomodoro)** — "tryb skupienia": 25 min of quiet (no small talk, a calm face), then a break reminder | A desk companion that helps you work | ✅ |
-| 29 | **Breathing exercise** — "ćwiczenie oddechowe": a circle on her screen grows and shrinks, she guides "wdech… wydech" | Calm-down moment on request — only when asked | ⏳ |
+| 29 | **Breathing exercise** — "ćwiczenie oddechowe": a circle on her screen grows and shrinks, she guides "wdech… wydech" | Calm-down moment on request — only when asked | ✅ 4-2-6 breathing, 5 cycles; her "wdech / wydech" recorded once so they land on time |
 

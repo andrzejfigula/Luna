@@ -53,6 +53,13 @@ SOUNDS = {
     "hey":    ("Ej!",
                "A short, playful protest 'hey!' — mildly annoyed at being poked, "
                "but not really angry."),
+    # the breathing exercise (breathing.py): calm guidance, exactly on time
+    "inhale": ("Wdech...",
+               "Very calm, soft and slow, like a yoga teacher guiding a breathing "
+               "exercise. A gentle, drawn-out word.", 2.5),
+    "exhale": ("I wydech...",
+               "Very calm, soft and slow, like a yoga teacher guiding a breathing "
+               "exercise, a relaxed out-breath in the voice.", 2.8),
     # not a sound but a sentence: recorded while online, played when the
     # cloud is unreachable (TTS would fail too, leaving her silent)
     "offline": ("Przepraszam, nie mogę teraz połączyć się z moim mózgiem w chmurze. "

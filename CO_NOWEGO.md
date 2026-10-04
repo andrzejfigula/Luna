@@ -12,6 +12,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Mów bez „Luna” | **przytrzymaj palec na ekranie** ~1 s → „hm?” i słucha |
 | Przerwij jej | **stuknij w ekran**, kiedy mówi |
 | Koniec rozmowy | „Pa!”, „Do zobaczenia”, „Dzięki, to wszystko” — pomacha i przestanie słuchać |
+| Czeka na odpowiedź | gdy zada pytanie, słucha dłużej (+8 s) |
 | Bajki i dłuższe wyjaśnienia | „Opowiedz mi bajkę o smoku”, „Wyjaśnij dokładnie, jak działa…” |
 | Co potrafi | „Luna, co potrafisz?” |
 | Jak się czuje | „Jak się czujesz?” — zna temperaturę swojego procesora i czas pracy |
@@ -35,6 +36,10 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Ile zostało | „Ile zostało na minutniku?” — odliczanie widać też w prawym górnym rogu |
 | Anuluj | „Wyłącz minutnik”, „Usuń przypomnienie o mamie” |
 | Budzik ze świtem | „Obudź mnie jutro o siódmej” — 10 min wcześniej ekran powoli się rozjaśnia |
+| Powtarzające się | „Budzik w dni robocze na 6:30”, „Codziennie o 21 przypominaj mi o tabletkach” (też „w weekendy”) |
+| Lista | „Pokaż przypomnienia” — wszystko, co ustawione, na ekranie |
+| Tryb skupienia | „Włącz tryb skupienia” (albo „pomodoro na 50 minut”) — 25 min ciszy, potem „czas na przerwę” i 5 min przerwy; „koniec skupienia” wyłącza |
+| Oddech | „Ćwiczenie oddechowe” / „Pomóż mi się uspokoić” — okrąg na ekranie i jej głos: wdech 4 s, pauza 2 s, wydech 6 s |
 | Głośność | „Głośniej”, „Ciszej”, „Głośność na 40” |
 | Tempo mowy | „Mów wolniej”, „Szybciej”, „Mów normalnie” (zapamiętuje) |
 | Pogoda | „Jaka będzie jutro pogoda?” — **trzeba włączyć**: w `.env` wpisz `LUNA_LAT=` i `LUNA_LON=` (np. 52.23 / 21.01) |

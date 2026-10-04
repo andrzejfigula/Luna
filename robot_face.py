@@ -2193,6 +2193,24 @@ class RobotFace:
             card = self._photo_cache[1]
             scr.fill(BG)
             scr.blit(card, card.get_rect(center=(WIDTH // 2, HEIGHT // 2)))
+        elif kind == "breath":
+            t0, t_in, t_hold, t_out = data
+            u = (time.time() - t0) % (t_in + t_hold + t_out)
+            ease = lambda x: 0.5 - 0.5 * math.cos(math.pi * max(0.0, min(1.0, x)))
+            if time.time() < t0 or u < t_in:
+                k, word = ease(u / t_in) if time.time() >= t0 else 0.0, "wdech"
+            elif u < t_in + t_hold:
+                k, word = 1.0, "zatrzymaj"
+            else:
+                k, word = 1.0 - ease((u - t_in - t_hold) / t_out), "wydech"
+            scr.fill(BG)
+            r = int(70 + 120 * k)
+            c = (WIDTH // 2, HEIGHT // 2 - 20)
+            draw_glow_circle(scr, GLOW_COL, c, r, layers=5, max_alpha=60)
+            pygame.draw.circle(scr, _lerp_col(EYE_OUTER, EYE_INNER, k), c, r)
+            pygame.draw.circle(scr, IRIS_SHINE, c, r, 3)
+            txt = _get_font(40).render(word, True, EYE_INNER)
+            scr.blit(txt, txt.get_rect(center=(WIDTH // 2, HEIGHT - 45)))
         elif kind == "list":
             scr.fill(BG)
             title = _get_font(44).render("Przypomnienia", True, EYE_MID)
