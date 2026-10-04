@@ -38,7 +38,7 @@ PEOPLE_PATH = os.path.join(DATA_DIR, "people.json")
 DETECT_SCORE = 0.75        # YuNet confidence for a face
 MATCH_COSINE = 0.40        # SFace: same person above this (paper: 0.363; a bit
                            # stricter — a wrong name is worse than none)
-SAMPLES_MAX = 12           # kept per person
+SAMPLES_MAX = 30           # kept per person (photos + a few seconds of webcam)
 ENROLL_SECS = 4.0
 RECOGNISE_EVERY = 2.5      # seconds between recognitions of a face in view
 
@@ -117,6 +117,13 @@ def _save():
 def names():
     with _lock:
         return sorted(_load())
+
+
+def notes():
+    """{name: note} — who someone is ("córka, 8 lat — dziecko"), set by hand
+    in data/people.json; goes into the prompt with the name."""
+    with _lock:
+        return {n: p.get("note", "") for n, p in _load().items()}
 
 
 def identify(feature):
@@ -221,16 +228,18 @@ def forget(name):
 def prompt_line():
     """Who she knows and who is in front of her, for the system prompt."""
     known = names()
+    about = notes()
     with state.lock:
         person = state.person
         seen = state.face_detected
     if not known:
         return ("Nobody's face is known yet — if someone tells you their name, "
                 "they can say \"Luna, zapamiętaj moją twarz, jestem …\".\n")
+    who = ", ".join(f"{n} ({about[n]})" if about.get(n) else n for n in known)
     now = (f"In front of you now: {person[0]} (recognised by face)."
            if person else
            "In front of you now: a face you don't recognise." if seen else
            "Nobody is in front of the camera now.")
-    return (f"People you know by face: {', '.join(known)}. {now} Talk to the "
+    return (f"People you know by face: {who}. {now} Talk to the "
             "recognised person by name now and then (in the right Polish case), "
             "not in every sentence.\n")
