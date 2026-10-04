@@ -20,6 +20,35 @@ from config import HEALTH_PROBE_SECS, HEALTH_LOG_SECS
 
 _lock = threading.Lock()
 _stats = {"replies": 0, "secs": 0.0, "failures": 0}
+_api = {}                    # API calls this hour, by kind (cost at a glance)
+_API_KINDS = (("/chat/completions", "chat"), ("/audio/speech", "tts"),
+              ("/audio/transcriptions", "stt"), ("/models", "ping"))
+
+
+def _count_api_calls():
+    """Every OpenAI client talks through one HTTP library (httpx2 in the SDK
+    on the Pi, httpx in older ones); counting there sees all of them —
+    brain, TTS, STT, memory, sounds — without touching any call site."""
+    import importlib
+    for name in ("httpx2", "httpx"):
+        try:
+            lib = importlib.import_module(name)
+        except ImportError:
+            continue
+        send = lib.Client.send
+        if getattr(send, "_luna_counted", False):
+            continue
+
+        def counted(self, request, *a, _send=send, **kw):
+            path = str(request.url.path)
+            kind = next((k for p, k in _API_KINDS if path.endswith(p)), None)
+            if kind and "openai" in str(request.url.host):
+                with _lock:
+                    _api[kind] = _api.get(kind, 0) + 1
+            return _send(self, request, *a, **kw)
+
+        counted._luna_counted = True
+        lib.Client.send = counted
 
 
 def note_reply(ok, secs=0.0):
@@ -65,6 +94,8 @@ def _log():
     with _lock:
         s = dict(_stats)
         _stats.update(replies=0, secs=0.0, failures=0)
+        api = ", ".join(f"{k} {v}" for k, v in sorted(_api.items())) or "none"
+        _api.clear()
     avg = f"{s['secs'] / s['replies']:.1f}s" if s["replies"] else "-"
     t = body.cpu_temp()
     audio = ""
@@ -81,7 +112,7 @@ def _log():
         audio += f", light {light:.2f}"
     print(f"[health] {time.strftime('%H:%M')} CPU {t:.0f}°C, load {body.load_percent()}%, "
           f"RAM {_mem_used()}%, last hour: {s['replies']} answers (avg {avg}), "
-          f"{s['failures']} failures{audio}", flush=True)
+          f"{s['failures']} failures{audio}; API calls: {api}", flush=True)
 
 
 def _loop():
@@ -136,5 +167,6 @@ def _warm_up():
 
 
 def start_health():
+    _count_api_calls()
     threading.Thread(target=_warm_up, daemon=True, name="warm-up").start()
     threading.Thread(target=_loop, daemon=True, name="health").start()
