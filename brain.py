@@ -16,6 +16,7 @@ All settings pulled from config.py.
 
 import base64
 import json
+import queue
 import random
 import re
 import threading
@@ -30,7 +31,7 @@ import reply_scenes
 import memory
 import timers
 
-from text_to_speech import speak, play_sound
+from text_to_speech import speak, speak_stream, play_sound
 from shared_state import state
 from config import (
     FACE_OVERRIDE_SECS,
@@ -209,13 +210,15 @@ _RESPONSE_FORMAT = {
         "strict": True,
         "schema": {
             "type": "object",
-            # user_mood comes first on purpose: the model reads the person
-            # before it writes the reply, so the mood can shape the tone
+            # Order matters, the model writes the keys in this order:
+            # user_mood first, so reading the person can shape the reply;
+            # emotion and gesture BEFORE the reply, so the face is ready the
+            # moment the first sentence can be spoken (brain streams it).
             "properties": {
                 "user_mood":    {"type": "string", "enum": USER_MOODS},
-                "reply":        {"type": "string"},
                 "emotion":      {"type": "string", "enum": EMOTIONS},
                 "gesture":      {"type": "string", "enum": GESTURES},
+                "reply":        {"type": "string"},
                 "mood_comment": {"type": "boolean"},
                 "actions": {"type": "array", "items": {
                     "type": "object",
@@ -230,7 +233,7 @@ _RESPONSE_FORMAT = {
                     "additionalProperties": False,
                 }},
             },
-            "required": ["user_mood", "reply", "emotion", "gesture",
+            "required": ["user_mood", "emotion", "gesture", "reply",
                          "mood_comment", "actions"],
             "additionalProperties": False,
         },
@@ -308,8 +311,91 @@ def _note_mood(mood, commented):
 
 # ── OpenAI call ───────────────────────────────────────────────────────────────
 
-def _ask_openai(text, image_b64=None, detail="low"):
-    """Returns (reply, emotion, gesture) or None on any failure."""
+# A sentence ends at . ! ? … (maybe followed by a closing quote) and a space.
+_SENTENCE_END = re.compile(r"[.!?…]+[\"”»)]?\s")
+_FIRST_MIN_CHARS = 20          # don't send "Tak." alone — it sounds clipped
+
+
+class _ReplyStream:
+    """Pulls the "reply" string out of the model's JSON while it is still
+    streaming. on_head(emotion, gesture) fires when the reply starts (both
+    come before it in the schema); on_sentence(text) gets the first sentence
+    as soon as it is complete, and everything else in one piece at the end —
+    two TTS calls keep the intonation of the rest natural."""
+
+    _ESC = {"n": " ", "t": " ", "r": "", "b": "", "f": "", "/": "/",
+            '"': '"', "\\": "\\"}
+
+    def __init__(self, on_head, on_sentence):
+        self.on_head, self.on_sentence = on_head, on_sentence
+        self.raw = ""
+        self.pos = None            # where the reply string's content starts
+        self.text = ""             # the reply decoded so far
+        self.closed = False        # the reply string's closing quote seen
+        self.sent = 0              # characters of text already handed out
+
+    def feed(self, piece):
+        self.raw += piece
+        if self.pos is None:
+            m = re.search(r'"reply"\s*:\s*"', self.raw)
+            if not m:
+                return
+            self.pos = m.end()
+            emo = re.search(r'"emotion"\s*:\s*"(\w+)"', self.raw)
+            ges = re.search(r'"gesture"\s*:\s*"(\w+)"', self.raw)
+            self.on_head(emo.group(1) if emo else "neutral",
+                         ges.group(1) if ges else "none")
+        if not self.closed:
+            self._decode()
+        if self.sent == 0:
+            m = _SENTENCE_END.search(self.text, _FIRST_MIN_CHARS)
+            if m:
+                self._out(m.end())
+        if self.closed:
+            self.finish()
+
+    def _decode(self):
+        s, i, out = self.raw, self.pos, []
+        while i < len(s):
+            c = s[i]
+            if c == "\\":
+                if i + 1 >= len(s):
+                    break                              # escape split across chunks
+                n = s[i + 1]
+                if n == "u":
+                    if i + 6 > len(s):
+                        break
+                    out.append(chr(int(s[i + 2:i + 6], 16)))
+                    i += 6
+                    continue
+                out.append(self._ESC.get(n, n))
+                i += 2
+                continue
+            if c == '"':
+                self.closed = True
+                i += 1
+                break
+            out.append(c)
+            i += 1
+        self.text += "".join(out)
+        self.pos = i
+
+    def _out(self, upto):
+        piece = self.text[self.sent:upto].strip()
+        self.sent = upto
+        if piece:
+            self.on_sentence(piece)
+
+    def finish(self):
+        if self.pos is not None and self.sent < len(self.text):
+            self._out(len(self.text))
+
+
+def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=None):
+    """Returns (reply, emotion, gesture) or None on any failure.
+
+    With on_head / on_sentence the answer is streamed: the face is set and
+    the first sentence spoken while the model is still writing the rest."""
     if _client is None:
         return None
     try:
@@ -353,15 +439,22 @@ def _ask_openai(text, image_b64=None, detail="low"):
                   + timers.prompt_block()
                   + memory.prompt_block())
 
-        response = _client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=[{"role": "system", "content": system}, *_history],
-            max_tokens=OPENAI_MAX_TOKENS,
-            temperature=OPENAI_TEMPERATURE,
-            response_format=_RESPONSE_FORMAT,
-        )
+        request = dict(model=OPENAI_MODEL,
+                       messages=[{"role": "system", "content": system}, *_history],
+                       max_tokens=OPENAI_MAX_TOKENS,
+                       temperature=OPENAI_TEMPERATURE,
+                       response_format=_RESPONSE_FORMAT)
+        if on_head is None:
+            response = _client.chat.completions.create(**request)
+            raw = response.choices[0].message.content.strip()
+        else:
+            rs = _ReplyStream(on_head, on_sentence)
+            for chunk in _client.chat.completions.create(stream=True, **request):
+                if chunk.choices and chunk.choices[0].delta.content:
+                    rs.feed(chunk.choices[0].delta.content)
+            rs.finish()
+            raw = rs.raw.strip()
 
-        raw     = response.choices[0].message.content.strip()
         data    = json.loads(raw)
         reply   = str(data.get("reply", "")).strip()
         fixed   = _feminize(reply)
@@ -437,6 +530,22 @@ def confirm_wave():
 
 # ── Main process ──────────────────────────────────────────────────────────────
 
+def _show(emotion, gesture):
+    """The LLM's emotion and gesture drive the face:
+      • during the reply: text_to_speech freezes state.emotion for the whole
+        utterance, so set it BEFORE speaking
+      • after the reply: process() holds it as a face_override for a few
+        seconds, then the renderer falls back to neutral"""
+    with state.lock:
+        state.emotion = emotion.capitalize()
+        if gesture in GESTURE_DURATION:              # hands / head
+            state.gesture_anim       = gesture
+            state.gesture_anim_start = time.time()
+        elif gesture in reply_scenes.SCENES:         # facial / hand scene
+            state.reply_scene       = gesture
+            state.reply_scene_start = time.time()
+
+
 def _think_filler(answered):
     if not answered.wait(THINK_SOUND_DELAY):
         play_sound(random.choice(THINK_SOUNDS))
@@ -458,32 +567,52 @@ def process(text):
     answered = threading.Event()
     if random.random() < THINK_SOUND_CHANCE:
         threading.Thread(target=_think_filler, args=(answered,), daemon=True).start()
+
+    # Streamed: the face is set when the model gets to the reply, the first
+    # sentence is spoken while it writes the rest (see _ReplyStream).
+    sentences = queue.Queue()
+    speaker = []
+    head = {}
+
+    def on_head(emotion, gesture):
+        head["_t"] = time.time() - t0
+        head["emotion"] = emotion if emotion in EMOTIONS else "neutral"
+        head["gesture"] = gesture if gesture in GESTURES else "none"
+        answered.set()
+        _show(head["emotion"], head["gesture"])
+        t = threading.Thread(target=speak_stream, args=(iter(sentences.get, None),),
+                             daemon=True)
+        t.start()
+        speaker.append(t)
+
+    def on_sentence(sentence):
+        sentences.put(_feminize(sentence))
+
+    t0 = time.time()
     try:
-        result = _ask_openai(text, image, detail="high" if visual else "low")
+        result = _ask_openai(text, image, detail="high" if visual else "low",
+                             on_head=on_head, on_sentence=on_sentence)
     finally:
         answered.set()
+        sentences.put(None)
+    if speaker:
+        print(f"[brain] reply started streaming after {head['_t']:.1f}s, "
+              f"model done after {time.time() - t0:.1f}s")
 
     if result:
         reply, emotion, gesture = result
+    elif speaker:                                    # broke off mid-answer
+        reply, emotion, gesture = "", head["emotion"], head["gesture"]
     else:
         print("[brain] OpenAI failed — using offline reply")
         reply, emotion, gesture = OFFLINE_REPLY, "sad", "shake"
+        _show(emotion, gesture)
 
-    # The LLM's emotion drives the face:
-    #  • during the reply: text_to_speech freezes state.emotion for the whole
-    #    utterance, so set it BEFORE speak()
-    #  • after the reply: hold it as a face_override for a few seconds, then
-    #    the renderer falls back to neutral
-    with state.lock:
-        state.emotion = emotion.capitalize()
-        if gesture in GESTURE_DURATION:              # hands / head
-            state.gesture_anim       = gesture
-            state.gesture_anim_start = time.time()
-        elif gesture in reply_scenes.SCENES:         # facial / hand scene
-            state.reply_scene       = gesture
-            state.reply_scene_start = time.time()
     try:
-        speak(reply)
+        if speaker:
+            speaker[0].join()
+        else:
+            speak(reply)
     finally:
         with state.lock:
             state.emotion             = "Neutral"

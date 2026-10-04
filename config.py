@@ -270,6 +270,8 @@ TTS_LISTENER_STYLE = {
     "sad":      "The listener looks sad: be extra gentle and warm.",
     "stressed": "The listener looks stressed: calm, steady and reassuring.",
 }
+TTS_STREAM_PREBUFFER_SECS = 0.3  # streamed replies: an underrun there is filled with
+                                  # silence (a pause, not crackle), so less is safe
 TTS_PREBUFFER_SECS      = 0.6    # audio buffered before playback starts — avoids
                                  # crackle/underruns when the stream stutters
 TTS_LEADIN_SECS         = 0.25   # silence played before each reply so the Pi's

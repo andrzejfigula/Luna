@@ -17,6 +17,7 @@ the mic-blocking / echo protection in text_to_speech.py correct.
 
 import json
 import os
+import queue
 import subprocess
 import threading
 import time
@@ -33,6 +34,7 @@ from config import (
     OPENAI_TTS_INSTRUCTIONS,
     OPENAI_TTS_TIMEOUT,
     TTS_PREBUFFER_SECS,
+    TTS_STREAM_PREBUFFER_SECS,
     TTS_LEADIN_SECS,
     TTS_PLAYER,
     AUDIO_OUTPUT_DEVICE,
@@ -310,6 +312,139 @@ class OpenAITTS:
             self._player = None
             if not started and on_audio_start:
                 on_audio_start()   # never leave the caller waiting for sync
+
+    # ── a reply that arrives sentence by sentence ───────────────────────────
+    def speak_stream(self, sentences, on_audio_start=None, style=""):
+        """Speak sentences as they come (an iterator that blocks until the
+        next one is ready). ONE player for the whole reply; each sentence's
+        audio is fetched in its own thread the moment the sentence exists, so
+        sentence 2 downloads while sentence 1 plays. If the next audio is not
+        there yet, short silence keeps the player fed — an underrun would
+        crackle — and that shows up as a natural pause."""
+        with self.lock:
+            if self._client is None or self._raw_cmd is None:
+                for _ in sentences:
+                    pass
+                if on_audio_start:
+                    on_audio_start()
+                return
+            self._cut.clear()
+            kwargs = dict(model=OPENAI_TTS_MODEL, voice=OPENAI_TTS_VOICE,
+                          response_format="pcm", speed=OPENAI_TTS_SPEED)
+            instructions = "\n".join(x for x in (OPENAI_TTS_INSTRUCTIONS, style) if x)
+            if instructions:
+                kwargs["instructions"] = instructions
+
+            parts = queue.Queue()        # one chunk queue per sentence, in order
+
+            def fetch(text, q):
+                try:
+                    with self._client.audio.speech.with_streaming_response.create(
+                            input=text, **kwargs) as resp:
+                        for chunk in resp.iter_bytes(chunk_size=16384):
+                            if self._cut.is_set():
+                                break
+                            if chunk:
+                                q.put(chunk)
+                except Exception as e:
+                    if not self._cut.is_set():
+                        print(f"[TTS] streaming error: {e}")
+                finally:
+                    q.put(None)
+
+            def feeder():
+                try:
+                    for text in sentences:
+                        if self._cut.is_set():
+                            continue             # drain the producer quietly
+                        q = queue.Queue()
+                        parts.put(q)
+                        threading.Thread(target=fetch, args=(text, q),
+                                         daemon=True).start()
+                finally:
+                    parts.put(None)
+
+            threading.Thread(target=feeder, daemon=True).start()
+
+            leadin  = bytes(int(TTS_LEADIN_SECS * PCM_RATE) * 2)
+            need    = int(TTS_STREAM_PREBUFFER_SECS * PCM_RATE * 2)
+            gap     = bytes(int(0.05 * PCM_RATE) * 2)
+            prebuf  = [leadin] if leadin else []
+            player  = None
+            started = False
+            written = 0                  # bytes handed to the player
+            t0      = 0.0
+            envelope.reset()
+
+            def start_player():
+                nonlocal player, started, t0, written
+                player = subprocess.Popen(self._raw_cmd, stdin=subprocess.PIPE,
+                                          stderr=subprocess.DEVNULL)
+                self._player = player
+                data = b"".join(prebuf)
+                for c in prebuf:
+                    envelope.feed(c)
+                envelope.start()
+                t0, started = time.time(), True
+                if on_audio_start:
+                    on_audio_start()
+                player.stdin.write(data)
+                written = len(data)
+                prebuf.clear()
+
+            def write(chunk):
+                nonlocal written
+                if player is None:
+                    prebuf.append(chunk)
+                    if sum(len(c) for c in prebuf) >= need:
+                        start_player()
+                    return
+                envelope.feed(chunk)
+                player.stdin.write(chunk)
+                written += len(chunk)
+
+            def get(q):
+                """Next item of q; while waiting, keep a started player fed."""
+                while True:
+                    try:
+                        return q.get(timeout=0.03)
+                    except queue.Empty:
+                        if self._cut.is_set():
+                            return None
+                        if player is not None:
+                            ahead = written / (PCM_RATE * 2) - (time.time() - t0)
+                            if ahead < 0.12:
+                                write(gap)
+
+            try:
+                while not self._cut.is_set():
+                    q = get(parts)
+                    if q is None:
+                        break
+                    while not self._cut.is_set():
+                        chunk = get(q)
+                        if chunk is None:
+                            break
+                        write(chunk)
+                if player is None and prebuf and not self._cut.is_set():
+                    if sum(len(c) for c in prebuf) > len(leadin):
+                        start_player()           # short reply: under the prebuffer
+                if player is not None:
+                    if self._cut.is_set():
+                        player.kill()
+                    else:
+                        player.stdin.close()
+                    player.wait()
+            except Exception as e:
+                if not self._cut.is_set():
+                    print(f"[TTS] stream playback error: {e}")
+                if player is not None and player.poll() is None:
+                    player.kill()
+            finally:
+                self._player = None
+                envelope.reset()
+                if not started and on_audio_start:
+                    on_audio_start()
 
 
 tts = OpenAITTS()

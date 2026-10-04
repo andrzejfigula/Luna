@@ -151,7 +151,6 @@ _speak_lock = threading.Lock()
 
 
 def speak(text, can_drop=False):
-
     """
     Speak text.
 
@@ -161,103 +160,76 @@ def speak(text, can_drop=False):
     can_drop=True:
         Optional reactions can be skipped.
     """
-
     if not text:
         return
 
+    def run(style):
+        print(f"[Luna] {text}")
+        _engine_speak(text, style)
 
+    _speaking(run, lambda: text, can_drop)
+
+
+def speak_stream(sentences):
+    """Speak a reply that is still being written: `sentences` yields each
+    sentence as soon as the model has produced it (brain.process). Playback
+    starts on the first one."""
+    said = []
+
+    def collect():
+        for sentence in sentences:
+            said.append(sentence)
+            print(f"[Luna] {sentence}")
+            yield sentence
+
+    def run(style):
+        tts.speak_stream(collect(), on_audio_start=_on_audio_start, style=style)
+
+    _speaking(run, lambda: " ".join(said), False)
+
+
+def _speaking(run, spoken_text, can_drop):
+    """The state around any speech: the lock (one voice at a time), the
+    speaking flags the face and mic watch, echo protection afterwards."""
     if can_drop:
-
         if not _speak_lock.acquire(blocking=False):
             return
-
     else:
-
         _speak_lock.acquire()
-
-
 
     # Defined before the try so the finally block can always measure elapsed
     # time, even if something throws before the real speech starts.
     speech_start = time.time()
-
     try:
-
         with state.lock:
-
             state.speaking = True
             state.luna_mode = "speaking"
             state.frozen_emotion = state.emotion
             style = _voice_style(state.emotion, state.user_mood)
 
-
-
-        print(f"[Luna] {text}")
-
-
-
-        # ------------------------------------------------------------
-        # ACTUAL SPEECH — streamed; playback starts on the first chunk.
-        # The mouth animation is started from _on_audio_start() at the
-        # exact moment sound begins, so there's no silent lip-flap.
-        # ------------------------------------------------------------
-
+        # ACTUAL SPEECH — streamed; playback starts on the first chunk. The
+        # mouth animation is started from _on_audio_start() at the exact
+        # moment sound begins, so there's no silent lip-flap.
         speech_start = time.time()
-
-        _engine_speak(text, style)
-
-
+        run(style)
 
     finally:
-
         elapsed = time.time() - speech_start
-
-
-
         with state.lock:
-
-
             state.speaking = False
-
             state.audio_playing = False
-
             state.audio_energy = 0.0
-
             state.frozen_emotion = None
-
             state.luna_mode = "idle"
-
-
-
             # Since the player blocks until playback finishes,
             # only normal echo protection is needed.
-            state.mic_unblock_time = (
-                time.time()
-                +
-                MIC_BLOCK_AFTER_SPEAK
-            )
-
-
-            state.last_spoken_text = text.lower()
-
+            state.mic_unblock_time = time.time() + MIC_BLOCK_AFTER_SPEAK
+            state.last_spoken_text = spoken_text().lower()
             state.last_spoken_time = time.time()
-
-
-
-            # Do not consume conversation timeout
-            # while Luna is speaking.
-
+            # Do not consume conversation timeout while Luna is speaking.
             if state.conversation_active:
-
                 state.last_activity_time = time.time()
-
-
-
-        print(
-            f"[TTS] finished in {elapsed:.1f}s"
-        )
-
-
+        print(f"[TTS] finished in {elapsed:.1f}s")
         _speak_lock.release()
 
 

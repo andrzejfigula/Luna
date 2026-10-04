@@ -76,9 +76,11 @@ Log: `~/luna/luna.log`. ESC on an attached keyboard quits; keys 1/2 switch face 
 ```
 C270 mic ─► sounddevice 16 kHz ─► energy gate ─► Vosk (wake word "Luna", endpointing)
      ─► utterance audio ─► OpenAI gpt-4o-mini-transcribe (auto PL/EN)
-     ─► brain.py: gpt-4.1-mini, JSON {reply, emotion} (+ camera JPEG if the
-        question is visual: "co widzisz", "ile palców", "what is this"…)
-     ─► state.emotion drives the face ─► gpt-4o-mini-tts streamed as PCM ─► pw-play
+     ─► brain.py: gpt-4.1-mini, streamed JSON {user_mood, emotion, gesture,
+        reply, …} with a camera frame (high detail if the question is visual)
+     ─► emotion + gesture set the face as soon as they arrive; the FIRST
+        SENTENCE goes to gpt-4o-mini-tts while the model writes the rest
+     ─► one pw-play per reply; sentence 2's audio downloads while 1 plays
 ```
 
 Say **"Luna"** first; after that the conversation window stays open for
