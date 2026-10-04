@@ -7,6 +7,8 @@ screens.py — things Luna shows on her whole screen for a moment, on request.
   "pokaż zegar" / "pokaż godzinę"    → a big clock with the date, CLOCK_SECS
   "pokaż przypomnienia"              → timers, reminders and alarms, 10 s
   "pokaż listę zakupów"              → a list from lists.py, 12 s
+  "pokaż zdjęcia"                    → her photos, newest first, 6 s each;
+                                       a tap shows the next one
 
 robot_face.py draws the overlay (state.overlay = (kind, until, data)); a tap
 on the screen closes it. Photos stay on the Pi (photos/, newest PHOTOS_KEEP
@@ -25,6 +27,10 @@ _PHOTO  = ("zrób mi zdjęcie", "zrób zdjęcie", "zrób nam zdjęcie", "zrób f
            "zrob mi zdjecie", "zrob zdjecie", "take a photo", "take a picture")
 _LIST   = ("pokaż przypomnienia", "pokaż minutniki", "pokaż budziki",
            "pokaz przypomnienia", "pokaż mi przypomnienia", "show my reminders")
+_GALLERY = ("pokaż zdjęcia", "pokaż ostatnie zdjęcie", "pokaż moje zdjęcia",
+            "pokaż fotki", "pokaz zdjecia", "pokaż zdjęcie", "show my photos",
+            "show the photos")
+GALLERY_STEP = 6.0          # seconds per photo; a tap shows the next one
 _SHOW_LIST = ("pokaż listę", "pokaz liste", "pokaż mi listę", "show the list",
               "show my list")
 _CLOCK  = ("pokaż zegar", "pokaż godzinę", "pokaz zegar", "pokaz godzine",
@@ -93,6 +99,16 @@ def handle(text, speak, play_sound_async):
             speak("Nie masz teraz żadnych minutników ani przypomnień.")
         else:
             _show("list", 10, ("Przypomnienia", lines))
+        return True
+    if any(k in low for k in _GALLERY):
+        shots = sorted((f for f in os.listdir(PHOTOS_DIR) if f.endswith(".jpg")),
+                       reverse=True) if os.path.isdir(PHOTOS_DIR) else []
+        if not shots:
+            speak("Nie mam jeszcze żadnych zdjęć. Powiedz: zrób mi zdjęcie!")
+        else:
+            paths = [os.path.join(PHOTOS_DIR, f) for f in shots]
+            _show("gallery", len(paths) * GALLERY_STEP + 1,
+                  {"paths": paths, "i": 0, "next": time.time() + GALLERY_STEP})
         return True
     if any(k in low for k in _SHOW_LIST):
         import lists

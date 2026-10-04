@@ -1613,9 +1613,19 @@ class RobotFace:
 
         # ── touch: instant visual answer, and tell the engine which zone ──
         if touch_t > self._touch_t and self._overlay_on():
-            self._touch_t = touch_t                     # a tap closes it
+            self._touch_t = touch_t                     # a tap closes it…
             with state.lock:
-                state.overlay = None
+                ov = state.overlay
+                if ov and ov[0] == "gallery":           # …or turns the page
+                    g = ov[2]
+                    g["i"] += 1
+                    g["next"] = time.time() + 6.0
+                    if g["i"] >= len(g["paths"]):
+                        state.overlay = None
+                    else:
+                        state.overlay = (ov[0], time.time() + 6.0 * (len(g["paths"]) - g["i"]) + 1, g)
+                else:
+                    state.overlay = None
         if touch_t > self._touch_t:
             self._touch_t = touch_t
             self._touch_zone = self._zone_at(*touch_pt)
@@ -2178,7 +2188,19 @@ class RobotFace:
             img = pygame.transform.scale(img, (sw, HEIGHT))
             scr.fill(BG)
             scr.blit(img, ((WIDTH - sw) // 2, 0))
-        elif kind == "photo":
+        elif kind in ("photo", "gallery"):
+            if kind == "gallery":
+                if time.time() >= data["next"]:            # turn the page
+                    data["i"] += 1
+                    data["next"] = time.time() + 6.0
+                if data["i"] >= len(data["paths"]):
+                    with state.lock:
+                        state.overlay = None
+                    return
+                counter = f"{data['i'] + 1}/{len(data['paths'])}"
+                data = data["paths"][data["i"]]
+            else:
+                counter = None
             if getattr(self, "_photo_cache", (None,))[0] != data:
                 try:
                     pic = pygame.image.load(data)
@@ -2193,6 +2215,9 @@ class RobotFace:
             card = self._photo_cache[1]
             scr.fill(BG)
             scr.blit(card, card.get_rect(center=(WIDTH // 2, HEIGHT // 2)))
+            if counter:
+                c = _get_font(28).render(counter, True, EYE_MID)
+                scr.blit(c, (WIDTH - c.get_width() - 16, HEIGHT - c.get_height() - 10))
         elif kind == "breath":
             t0, t_in, t_hold, t_out = data
             u = (time.time() - t0) % (t_in + t_hold + t_out)

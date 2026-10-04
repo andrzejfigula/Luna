@@ -28,6 +28,7 @@ LOCAL = {
     "Pokaż zegar": "screen",
     "Pokaż przypomnienia": "screen",
     "Pokaż listę zakupów": "screen",
+    "Pokaż zdjęcia": "screen",
     "Włącz tryb skupienia": "focus",
     "Pomodoro na 50 minut": "focus",
     "Luna, ćwiczenie oddechowe": "breath",
@@ -80,6 +81,7 @@ class RoutingTest(unittest.TestCase):
             (lists, "find", lambda text: "zakupy"),
             (lists, "get", lambda name=None: ["mleko"]),
             (breathing, "run", lambda *a: self._mark("breath")),
+            (screens, "PHOTOS_DIR", self._photos_dir()),
         ]
         fake_tts = type(sys)("text_to_speech")
         fake_tts.replay_last = lambda: self._mark("repeat") or True
@@ -92,6 +94,13 @@ class RoutingTest(unittest.TestCase):
             p = mock.patch.object(obj, name, value)
             p.start()
             self.addCleanup(p.stop)
+
+    @staticmethod
+    def _photos_dir():
+        import tempfile
+        d = tempfile.mkdtemp(prefix="luna-photos-")
+        open(os.path.join(d, "20260101-120000.jpg"), "wb").close()
+        return d
 
     def _mark(self, what):
         if self.hit is None:

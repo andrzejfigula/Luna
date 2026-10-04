@@ -52,6 +52,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 |---|---|
 | Kamień, papier, nożyce | „Zagrajmy w kamień, papier, nożyce!” — do dwóch wygranych, pokaż rękę do kamery na „!”; „tak” = rewanż |
 | Zdjęcie | „Zrób mi zdjęcie” — odliczanie, błysk, zdjęcie jak polaroid; zapisuje się w `~/luna/photos/` (tylko na Pi) |
+| Galeria | „Pokaż zdjęcia” — zrobione zdjęcia, najnowsze pierwsze, co 6 s; stuknięcie = następne |
 | Lusterko | „Pokaż lustro” — kamera jako lustro przez 15 s |
 | Zegar | „Pokaż zegar” — duża godzina z datą przez 10 s |
 | Rekwizyty przy odpowiedzi | samo działa — przy rozmowie o pogodzie słońce/chmury/deszcz/śnieg, przy pomyśle żarówka, przy muzyce nutki |
@@ -64,6 +65,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 |---|---|
 | Dobranoc | „Dobranoc” — zamyka oczy, ekran prawie gaśnie, nie zagaduje do rana; obudzi się, gdy się do niej odezwiesz |
 | Tryb nocny | samo działa — w godzinach ciszy (22–8) ekran przygasa, a głos jest o połowę cichszy (budziki i minutniki dzwonią normalnie) |
+| Jasność od światła w pokoju | samo działa — kamera mierzy światło; w ciemnym pokoju ekran schodzi do 25 %. Próg ciemności jest na razie zgadnięty — wartość `light` jest co godzinę w `luna.log` (`[health]`) |
 | Cisza | „Luna, cicho” — godzina bez zagadywania (było już wcześniej) |
 
 ## Pod maską
