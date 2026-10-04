@@ -22,6 +22,7 @@ them.
 """
 
 import json
+import re
 import os
 import threading
 import time
@@ -109,6 +110,37 @@ def _next_matching(due, repeat, inclusive=False):
     return dt.timestamp()
 
 
+_KIND_WORDS = {"minutnik": "timer", "minutniki": "timer", "timer": "timer",
+               "budzik": "alarm", "budziki": "alarm", "alarm": "alarm",
+               "przypomnienie": "reminder", "przypomnienia": "reminder",
+               "reminder": "reminder"}
+
+
+def _stems(text):
+    return {w[:5] for w in re.findall(r"\w+", text.lower()) if len(w) >= 4}
+
+
+def _to_cancel(label):
+    """Which entries a cancel means. Never more than asked for: a label that
+    matches nothing cancels nothing (it used to clear everything — a weekday
+    alarm included)."""
+    low = label.lower().strip()
+    if low in ("wszystko", "wszystkie", "all", "everything"):
+        return list(_timers)
+    if low in _KIND_WORDS:                       # "wyłącz budzik"
+        return [t for t in _timers if t["kind"] == _KIND_WORDS[low]]
+    if not low:
+        # "wyłącz minutnik" with no name: the kitchen timers — or the only
+        # thing set, if there is just one
+        timers_only = [t for t in _timers if t["kind"] == "timer"]
+        return timers_only or (list(_timers) if len(_timers) == 1 else [])
+    exact = [t for t in _timers if low in t["label"].lower()]
+    if exact:
+        return exact
+    want = _stems(low)                           # "piekarnika" ~ "piekarnik"
+    return [t for t in _timers if want & _stems(t["label"])]
+
+
 def apply(actions):
     """Carry out the model's timer actions. Returns a short log string."""
     done = []
@@ -135,13 +167,10 @@ def apply(actions):
                     done.append(f"{kind} {time.strftime('%d.%m %H:%M', time.localtime(due))} "
                                 f"'{label}'" + (f" ({repeat})" if repeat != "none" else ""))
             elif kind == "cancel":
-                before = len(_timers)
-                if label:
-                    _timers[:] = [t for t in _timers
-                                  if label.lower() not in t["label"].lower()]
-                if not label or len(_timers) == before:
-                    _timers.clear()            # "wyłącz minutnik" with one set
-                done.append(f"cancelled {before - len(_timers)}")
+                gone = _to_cancel(label)
+                _timers[:] = [t for t in _timers if t not in gone]
+                done.append(f"cancelled {len(gone)}" + ("" if gone else
+                            f" (nothing matched '{label}')"))
         _timers.sort(key=lambda t: t["due"])
         del _timers[TIMERS_MAX:]
         if done:
@@ -192,7 +221,10 @@ def screen_lines():
     for t in items:
         if t["kind"] == "timer":
             left = int(t["due"] - now)
-            when = f"{left // 60}:{left % 60:02d}" if left < 3600 else                 time.strftime("%H:%M", time.localtime(t["due"]))
+            if left < 3600:
+                when = f"{left // 60}:{left % 60:02d}"
+            else:
+                when = time.strftime("%H:%M", time.localtime(t["due"]))
         else:
             when = time.strftime("%H:%M", time.localtime(t["due"]))
             if t["due"] - now > 86400 and t.get("repeat", "none") == "none":

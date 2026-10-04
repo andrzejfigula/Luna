@@ -35,10 +35,22 @@ class TimersTest(unittest.TestCase):
         timers.apply([{"type": "cancel", "seconds": 0, "at": "", "label": "piekarnik"}])
         self.assertEqual([t["label"] for t in timers._timers], ["makaron"])
 
-    def test_cancel_without_label_clears_all(self):
+    def test_cancel_without_label_takes_the_kitchen_timers_only(self):
         for s in (60, 120):
             timers.apply([{"type": "timer", "seconds": s, "at": "", "label": ""}])
+        timers.apply([{"type": "alarm", "seconds": 0, "at": "06:30", "label": "",
+                       "repeat": "weekdays"}])
         timers.apply([{"type": "cancel", "seconds": 0, "at": "", "label": ""}])
+        self.assertEqual([t["kind"] for t in timers._timers], ["alarm"])
+
+    def test_cancel_never_takes_more_than_asked(self):
+        timers.apply([{"type": "reminder", "seconds": 0, "at": "23:58", "label": "wyłączyć piekarnik"}])
+        timers.apply([{"type": "alarm", "seconds": 0, "at": "06:30", "label": "", "repeat": "daily"}])
+        timers.apply([{"type": "cancel", "seconds": 0, "at": "", "label": "zadzwonić do mamy"}])
+        self.assertEqual(len(timers._timers), 2)                  # no match: nothing gone
+        timers.apply([{"type": "cancel", "seconds": 0, "at": "", "label": "piekarnika"}])
+        self.assertEqual([t["kind"] for t in timers._timers], ["alarm"])   # stem match
+        timers.apply([{"type": "cancel", "seconds": 0, "at": "", "label": "budzik"}])
         self.assertEqual(timers._timers, [])
 
     def test_nonsense_is_ignored(self):

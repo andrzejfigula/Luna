@@ -168,7 +168,9 @@ Always answer as JSON with exactly these keys:
                 "label":""}} for waking up: "obudź mnie o 7", "budzik na
                 6:30" (the screen brightens like a sunrise before it);
                 {{"type":"cancel","seconds":0,"at":"","label":""}} to cancel
-                (label = which one, empty = all).
+                (label = what it is for, e.g. "piekarnik"; or a kind:
+                "minutnik", "budzik", "przypomnienie"; "wszystko" only when
+                they clearly want everything gone; empty = the kitchen timer).
                 "repeat" is "none" unless they ask for it again and again:
                 "codziennie" → "daily", "w dni robocze / od poniedziałku do
                 piątku" → "weekdays", "w weekendy" → "weekends" (reminders
