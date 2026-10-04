@@ -1,0 +1,163 @@
+"""
+commands.py — things Luna does herself, without asking the model.
+
+  volume   "głośniej", "ciszej", "głośność na 40", "louder" …
+  sleep    "dobranoc" / "idę spać": she says good night, the screen dims, her
+           eyes close and she stays quiet (no greetings, no touch talk)
+           until morning — or until you speak to her
+  wake     anything you say to her while she sleeps wakes her up (so
+           "dzień dobry, Luna" does); in the morning (PROACTIVE_QUIET_TO) she
+           wakes on her own, silently
+
+They are instant and offline. Matching is deliberately strict — short
+utterances only — so a normal sentence that happens to contain "ciszej" still
+goes to the model.
+"""
+
+import json
+import random
+import re
+import subprocess
+import threading
+import time
+
+import display
+from shared_state import state
+from config import (VOLUME_STEP, VOLUME_MIN, VOLUME_MAX, SLEEP_BRIGHTNESS,
+                    GOODNIGHT_REPLIES, PROACTIVE_QUIET_TO, AUDIO_OUTPUT_DEVICE)
+
+_LOUDER  = ("głośniej", "glosniej", "louder", "volume up")
+_QUIETER = ("ciszej", "quieter", "volume down")
+_VOLUME  = ("głośność", "glosnosc", "volume")
+_NIGHT   = ("dobranoc", "dobranocka", "idę spać", "ide spac", "idę już spać",
+            "good night", "goodnight")
+
+
+def _words(text):
+    return re.findall(r"\w+", text.lower())
+
+
+def _short(text, n):
+    return len(_words(text)) <= n
+
+
+# ── volume ────────────────────────────────────────────────────────────────────
+
+def _sink_id():
+    """wpctl wants a node id; resolve the sink Luna speaks through."""
+    try:
+        from openai_tts import tts
+        name = tts._sink
+    except Exception:
+        name = None
+    if name:
+        try:
+            dump = json.loads(subprocess.run(["pw-dump"], capture_output=True,
+                                             text=True, timeout=5).stdout)
+            for o in dump:
+                if o.get("info", {}).get("props", {}).get("node.name") == name:
+                    return str(o["id"])
+        except Exception:
+            pass
+    return "@DEFAULT_AUDIO_SINK@"
+
+
+def get_volume():
+    try:
+        out = subprocess.run(["wpctl", "get-volume", _sink_id()], capture_output=True,
+                             text=True, timeout=5).stdout
+        return float(re.search(r"([\d.]+)", out).group(1))
+    except Exception:
+        return None
+
+
+def set_volume(v):
+    v = max(VOLUME_MIN, min(VOLUME_MAX, v))
+    subprocess.run(["wpctl", "set-volume", _sink_id(), f"{v:.2f}"], timeout=5)
+    return v
+
+
+def _volume_command(text):
+    """New volume (0..1) for a volume command, or None if it isn't one."""
+    low = text.lower()
+    if not _short(text, 7):
+        return None
+    m = re.search(r"(\d{1,3})\s*(%|procent)?", low)
+    if m and any(k in low for k in _VOLUME):
+        return int(m.group(1)) / 100.0
+    if any(k in low for k in _LOUDER + _QUIETER) and _short(text, 5):
+        cur = get_volume()
+        if cur is None:
+            return None
+        step = VOLUME_STEP if any(k in low for k in _LOUDER) else -VOLUME_STEP
+        if "dużo" in low or "duzo" in low or "much" in low:
+            step *= 2
+        return cur + step
+    return None
+
+
+# ── sleep ─────────────────────────────────────────────────────────────────────
+
+def sleeping():
+    with state.lock:
+        return state.sleep_mode
+
+
+def go_to_sleep():
+    with state.lock:
+        state.sleep_mode = True
+        state.conversation_active = False
+    display.set_percent(SLEEP_BRIGHTNESS)
+    print("[cmd] good night — sleeping until morning", flush=True)
+
+
+def wake_up(why):
+    with state.lock:
+        if not state.sleep_mode:
+            return False
+        state.sleep_mode = False
+    display.set_percent(display.base_percent())
+    print(f"[cmd] awake ({why})", flush=True)
+    return True
+
+
+def _morning_watch():
+    """She wakes on her own when the quiet hours end."""
+    while True:
+        try:
+            if sleeping() and time.localtime().tm_hour == PROACTIVE_QUIET_TO:
+                wake_up("morning")
+        except Exception as e:
+            print(f"[cmd] morning watch error: {e}")
+        time.sleep(30)
+
+
+# ── entry point from the voice loop ───────────────────────────────────────────
+
+def handle(text, speak, play_sound):
+    """Handle a local command. Returns True when the utterance was one (and
+    must not go to the model)."""
+    low = text.lower()
+
+    # good night — said to her while awake
+    if any(k in low for k in _NIGHT) and _short(text, 6):
+        speak(random.choice(GOODNIGHT_REPLIES))
+        go_to_sleep()
+        return True
+
+    # anything else said to her wakes her up, then is handled as usual
+    wake_up("spoken to")
+
+    vol = _volume_command(text)
+    if vol is not None:
+        v = set_volume(vol)
+        print(f"[cmd] volume → {v:.0%}", flush=True)
+        if not play_sound("mhm", can_drop=False):   # heard at the new level
+            speak(f"Głośność {round(v * 100)} procent.")
+        return True
+
+    return False
+
+
+def start_commands():
+    threading.Thread(target=_morning_watch, daemon=True, name="commands").start()

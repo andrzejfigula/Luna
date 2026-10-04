@@ -59,7 +59,8 @@ def _behavior_step(speak, confirm_wave):
     global _last_confirm
     with state.lock:
         gesture  = state.gesture
-        busy     = state.speaking or state.luna_mode in ("processing", "speaking")
+        busy     = (state.speaking or state.sleep_mode
+                    or state.luna_mode in ("processing", "speaking"))
         in_convo = state.conversation_active
         state.gesture = None          # consume
 

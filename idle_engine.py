@@ -65,9 +65,14 @@ def _quiet_now():
     return h >= PROACTIVE_QUIET_FROM or h < PROACTIVE_QUIET_TO
 
 
+def _asleep():
+    with state.lock:
+        return state.sleep_mode
+
+
 def _may_speak():
     """Unprompted speech allowed right now?"""
-    if not PROACTIVE_SPEECH or _quiet_now():
+    if not PROACTIVE_SPEECH or _quiet_now() or _asleep():
         return False
     with state.lock:
         muted = state.proactive_muted_until
@@ -85,7 +90,7 @@ def _voice_allowed(now):
     own — touch sounds included."""
     with state.lock:
         muted = state.proactive_muted_until
-    return not _quiet_now() and now > muted
+    return not _quiet_now() and not _asleep() and now > muted
 
 
 # ── actions ───────────────────────────────────────────────────────────────────
@@ -156,7 +161,7 @@ def idle_loop():
                       f"(away {now - left_at:.0f}s, busy={_busy()})", flush=True)
             if present and not was_present:
                 away = now - left_at
-                if away >= IDLE_ABSENCE_SECS and not _busy():
+                if away >= IDLE_ABSENCE_SECS and not _busy() and not _asleep():
                     today = time.strftime("%Y-%m-%d")
                     first_today = greeted_day != today
                     greeted_day = today
@@ -179,6 +184,8 @@ def idle_loop():
                     state.last_activity_time  = now
                 if not already:
                     print("[idle] finger held on the screen — listening")
+                    from commands import wake_up
+                    wake_up("finger held on the screen")
                     play_sound_async("huh")       # "hm?" — I'm listening
 
             # ── reaction to being touched (voice; visuals are in the face)

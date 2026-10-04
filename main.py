@@ -36,6 +36,9 @@ start_memory()
 from sounds import start_sounds
 start_sounds()
 
+import commands
+commands.start_commands()
+
 import random
 import difflib
 
@@ -84,6 +87,7 @@ def voice_loop():
             text = listen()
             try:
                 if text == WAKE_ACK:
+                    commands.wake_up("wake word")
                     # wake word alone ("Luna!") — short acknowledgement; a
                     # quick "hm?" is instant, a sentence needs a TTS round trip
                     if not (random.random() < WAKE_SOUND_CHANCE
@@ -94,6 +98,8 @@ def voice_loop():
                         pass          # "Luna, cicho" — handled, nothing to ask
                     elif check_forget(text):
                         speak(FORGET_REPLY)   # never goes near the model
+                    elif commands.handle(text, speak, play_sound):
+                        pass          # volume, good night — done locally
                     elif _is_self_echo(text):
                         print(f"[Luna] Ignoring self-echo: \"{text}\"")
                     else:

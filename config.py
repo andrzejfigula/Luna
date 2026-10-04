@@ -318,6 +318,14 @@ VISION_KEYWORDS = [
 ]
 VISION_JPEG_QUALITY = 80
 
+# ── Local commands (commands.py) — handled without the model ─────────────────
+VOLUME_STEP      = 0.10   # "głośniej" / "ciszej"
+VOLUME_MIN       = 0.10   # never fully silent by voice — she must answer you
+VOLUME_MAX       = 1.00
+SLEEP_BRIGHTNESS = 3      # screen % while she sleeps ("dobranoc")
+GOODNIGHT_REPLIES = ["Dobranoc! Śpij dobrze.", "Dobranoc, słodkich snów!",
+                     "Dobranoc. To ja też się zdrzemnę."]
+
 # ── Between conversations (idle_engine.py: greeting you, touch voice) ─────────
 IDLE_ABSENCE_SECS    = 600     # away this long → she greets you when you return
 IDLE_DEBUG           = False   # log presence transitions

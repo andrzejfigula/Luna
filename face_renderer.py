@@ -29,6 +29,7 @@ def renderer_loop():
             thinking      = state.luna_mode == "processing"
             override      = state.face_override
             override_end  = state.face_override_until
+            asleep        = state.sleep_mode
             # expire stale overrides
             if override and now > override_end:
                 state.face_override = None
@@ -37,6 +38,10 @@ def renderer_loop():
         # ── LLM-chosen emotion lingering after a reply wins ──────────────
         if override:
             face.set_state(override)
+
+        # ── "Dobranoc" — asleep until morning or until spoken to ─────────
+        elif asleep and not speaking:
+            face.set_state("sleeping")
 
         # ── Sleep when idle ───────────────────────────────────────────────
         elif face.idle_frames > SLEEP_AFTER_FRAMES:
