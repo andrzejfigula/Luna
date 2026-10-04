@@ -1,25 +1,19 @@
 """
-idle_engine.py — Luna's own life when nobody is talking to her.
-
-Two jobs:
+idle_engine.py — Luna between conversations.
 
   • Noticing you. When you come back after a while she brightens up, waves and
     (sometimes) says hello; the greeting depends on the time of day and on
     whether it's the first time she's seen you today.
 
-  • Micro-scenes. Every so often, while idle, she does something small and
-    human: winks, stretches, yawns (more at night), glances around the room,
-    or pulls out a clock and plays with it. These are purely visual — free,
-    local, and they can run as often as we like.
+  • Touch. robot_face.py draws the instant visual response; this module adds
+    the voice — now and then a spoken line, otherwise often a little sound.
 
 Speech is the scarce resource: unprompted talking gets old fast and costs an
 API call, so it is rate-limited (PROACTIVE_MIN_GAP_SECS), silenced during
 quiet hours, and can be muted by saying "Luna, cicho" (see check_mute()).
-Animations are not limited — movement is what makes her feel alive, the voice
-is what makes her intrusive.
 
-Touch reactions live here too: robot_face.py draws the instant visual
-response, this module adds the occasional voice.
+She plays no animations of her own here: body-language scenes only run as
+part of a reply (reply_scenes.py, chosen by the model in brain.py).
 """
 
 import random
@@ -27,27 +21,17 @@ import threading
 import time
 
 from shared_state import state
-import idle_scenes
-from config import (IDLE_LIFE, IDLE_ABSENCE_SECS, IDLE_SCENE_MIN_SECS,
-                    IDLE_SCENE_MAX_SECS, IDLE_SCENE_WEIGHTS,
-                    IDLE_SCENES_DISABLED,
-                    IDLE_PRESENCE_GRACE, IDLE_DEBUG,
+from config import (IDLE_ABSENCE_SECS, IDLE_PRESENCE_GRACE, IDLE_DEBUG,
                     PROACTIVE_SPEECH, PROACTIVE_MIN_GAP_SECS,
                     PROACTIVE_QUIET_FROM, PROACTIVE_QUIET_TO,
                     GREETINGS_MORNING, GREETINGS_DAY, GREETINGS_EVENING,
                     GREETINGS_NIGHT, GREETINGS_FIRST_TODAY,
                     MUTE_PHRASES, UNMUTE_PHRASES, MUTE_SECS,
                     TOUCH_REPLIES, TOUCH_REPLY_CHANCE, TOUCH_SPEECH_COOLDOWN,
-                    IDLE_AFTER_TOUCH_SECS,
                     TOUCH_SOUNDS, TOUCH_SOUND_CHANCE, TOUCH_SOUND_COOLDOWN,
-                    SCENE_SOUNDS, SCENE_SOUND_CHANCE,
-                    GESTURE_DURATION,
-                    FACE_OVERRIDE_SECS, NIGHT_FROM, NIGHT_TO)
+                    GESTURE_DURATION, FACE_OVERRIDE_SECS)
 
 _last_proactive = 0.0
-_forced_at = {}                  # calendar scene → when it last played
-FORCED_COOLDOWN = 600            # and how long before it may play again
-play_sound_async = None          # bound in idle_loop (text_to_speech imports late)
 
 
 # ── quiet / mute ──────────────────────────────────────────────────────────────
@@ -74,11 +58,6 @@ def _hour():
     return time.localtime().tm_hour
 
 
-def _is_night():
-    h = _hour()
-    return h >= NIGHT_FROM or h < NIGHT_TO
-
-
 def _quiet_now():
     h = _hour()
     if PROACTIVE_QUIET_FROM <= PROACTIVE_QUIET_TO:
@@ -101,27 +80,6 @@ def _busy():
                 or state.luna_mode in ("listening", "processing", "speaking"))
 
 
-def _face_free(now):
-    """May a scene start now? One thing drives the face at a time: a scene
-    must not start on top of a touch reaction, a wave/nod/heart, or a mood
-    someone else put on her face (a reply's lingering emotion, a greeting).
-    robot_face.py enforces the same order the other way round — a touch or a
-    gesture cancels a scene that is already playing."""
-    with state.lock:
-        touch_t   = state.touch_time
-        g_anim    = state.gesture_anim
-        g_start   = state.gesture_anim_start
-        override  = state.face_override
-        over_end  = state.face_override_until
-    if now - touch_t < IDLE_AFTER_TOUCH_SECS:
-        return False
-    if g_anim and now - g_start < GESTURE_DURATION.get(g_anim, 0.0):
-        return False
-    return not (override and now < over_end)
-
-
-# ── actions ───────────────────────────────────────────────────────────────────
-
 def _voice_allowed(now):
     """Quiet hours and "Luna, cicho" apply to every sound she makes on her
     own — touch sounds included."""
@@ -130,41 +88,11 @@ def _voice_allowed(now):
     return not _quiet_now() and now > muted
 
 
+# ── actions ───────────────────────────────────────────────────────────────────
+
 def _touch_sound(zone, kind):
     choices = TOUCH_SOUNDS.get((zone, kind)) or TOUCH_SOUNDS.get((None, kind))
     return random.choice(choices) if choices else None
-
-
-def _scene_sound(action, start, present):
-    """Some scenes come with a sound at the right moment (a yawn, a giggle)."""
-    spec = SCENE_SOUNDS.get(action)
-    sc = idle_scenes.SCENES.get(action)
-    if (not spec or not sc or not present or not _voice_allowed(start)
-            or random.random() >= SCENE_SOUND_CHANCE):
-        return
-    name, at = spec
-
-    def fire():
-        with state.lock:
-            still = (state.idle_action == action
-                     and state.idle_action_start == start)
-        if still and not _busy():
-            play_sound_async(name)
-    threading.Timer(sc.duration * at, fire).start()
-
-
-def _play(action, present=False):
-    """Start a visual idle scene (robot_face animates it)."""
-    now = time.time()
-    sc  = idle_scenes.SCENES.get(action)
-    with state.lock:
-        state.idle_action       = action
-        state.idle_action_start = now
-        state.idle_action_reply = False
-        if sc and sc.mood:
-            state.face_override       = sc.mood
-            state.face_override_until = now + sc.duration
-    _scene_sound(action, now, present)
 
 
 def _gesture(name):
@@ -192,11 +120,6 @@ def _greeting(first_today):
     return random.choice(GREETINGS_NIGHT)
 
 
-def _pick_scene(face_present):
-    return idle_scenes.pick(_is_night(), face_present,
-                            IDLE_SCENE_WEIGHTS, IDLE_SCENES_DISABLED)
-
-
 # ── main loop ─────────────────────────────────────────────────────────────────
 
 def idle_loop():
@@ -205,14 +128,11 @@ def idle_loop():
     # below, which builds the TTS engine (a few seconds).
     left_at = time.time()
 
-    from text_to_speech import speak     # deferred — avoids circular import
-    global play_sound_async
-    from text_to_speech import play_sound_async
+    # deferred — avoids a circular import
+    from text_to_speech import speak, play_sound_async
     global _last_proactive
 
     was_present  = False
-    last_scene   = time.time()
-    next_scene   = random.uniform(IDLE_SCENE_MIN_SECS, IDLE_SCENE_MAX_SECS)
     last_touch_t = 0.0
     last_touch_say = 0.0
     last_touch_sound = 0.0
@@ -246,7 +166,6 @@ def idle_loop():
                     if _may_speak():
                         _last_proactive = now
                         speak(_greeting(first_today), can_drop=True)
-                    last_scene = now      # don't fire a scene right after
             elif was_present and not present:
                 left_at = now
             was_present = present
@@ -254,14 +173,10 @@ def idle_loop():
             # ── reaction to being touched (voice; visuals are in the face)
             if touch_t > last_touch_t:
                 last_touch_t = touch_t
-                last_scene = now          # the scene timer restarts after a touch
                 replies = TOUCH_REPLIES.get(touch_zone or "other", {}).get(touch_kind)
                 # you started this, so it isn't rationed like unprompted talk —
                 # it only needs its own short cooldown (mute + quiet hours apply)
-                with state.lock:
-                    muted = state.proactive_muted_until
-                if (replies and not _busy() and not _quiet_now()
-                        and now > muted
+                if (replies and not _busy() and _voice_allowed(now)
                         and now - last_touch_say >= TOUCH_SPEECH_COOLDOWN
                         and random.random() < TOUCH_REPLY_CHANCE):
                     last_touch_say = now
@@ -274,25 +189,6 @@ def idle_loop():
                     if snd:
                         last_touch_sound = now
                         play_sound_async(snd)
-
-            # ── calendar moments jump the queue ──────────────────────────
-            if IDLE_LIFE and not _busy() and _face_free(now):
-                forced = idle_scenes.forced_scene(present, IDLE_SCENES_DISABLED)
-                if forced and now - _forced_at.get(forced, 0) > FORCED_COOLDOWN:
-                    _forced_at[forced] = now
-                    print(f"[idle] moment: {forced}")
-                    _play(forced)
-                    last_scene = now
-
-            # ── micro-scenes ─────────────────────────────────────────────
-            if (IDLE_LIFE and not _busy() and now - last_scene >= next_scene
-                    and _face_free(now)):
-                scene = _pick_scene(present)
-                if scene:
-                    print(f"[idle] scene: {scene}")
-                    _play(scene, present)
-                last_scene = now
-                next_scene = random.uniform(IDLE_SCENE_MIN_SECS, IDLE_SCENE_MAX_SECS)
 
         except Exception as e:
             print(f"[idle] loop error (recovering): {e}")

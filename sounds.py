@@ -53,8 +53,6 @@ SOUNDS = {
     "hey":    ("Ej!",
                "A short, playful protest 'hey!' — mildly annoyed at being poked, "
                "but not really angry."),
-    "yawn":   ("Aaaaaaah... mmm.",
-               "A big, sleepy yawn, ending in a small contented sigh."),
 }
 
 _cache = {}                    # name → PCM bytes, ready to play

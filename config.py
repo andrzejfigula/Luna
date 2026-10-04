@@ -295,26 +295,12 @@ VISION_KEYWORDS = [
 ]
 VISION_JPEG_QUALITY = 80
 
-# ── Idle life (Luna's own behaviour when nobody is talking to her) ────────────
-IDLE_LIFE            = True
+# ── Between conversations (idle_engine.py: greeting you, touch voice) ─────────
 IDLE_ABSENCE_SECS    = 600     # away this long → she greets you when you return
-IDLE_DEBUG           = False   # log presence transitions and scene decisions
+IDLE_DEBUG           = False   # log presence transitions
 IDLE_PRESENCE_GRACE  = 8       # "you are here" if a face was seen this recently
                                # (raw face_detected flickers several times a
-                               # minute and would reset the scene timer)
-IDLE_SCENE_MIN_SECS  = 40      # gap between micro-scenes
-IDLE_SCENE_MAX_SECS  = 130
-NIGHT_FROM, NIGHT_TO = 22, 6   # "night" for scene weighting
-
-# What she does and how often now lives with each scene in idle_scenes.py.
-# These are only overrides for tuning without touching the catalogue:
-#   IDLE_SCENE_WEIGHTS = {"ball": 8, "yawn": 0}   # 0 disables a scene
-IDLE_SCENE_WEIGHTS  = {}
-# Dates she should celebrate, "MM-DD", comma separated in .env:
-#   LUNA_BIRTHDAYS=09-22,05-14
-BIRTHDAYS = [d.strip() for d in
-             os.environ.get("LUNA_BIRTHDAYS", "").split(",") if d.strip()]
-IDLE_SCENES_DISABLED = []
+                               # minute)
 
 # ── The user's mood (brain.py) ───────────────────────────────────────────────
 # Read from the camera frame on every request and used to set her tone.
@@ -344,15 +330,6 @@ TOUCH_SOUNDS = {
     (None, "stroke"):  ["aww", "giggle"],
     (None, "multi"):   ["hey"],
 }
-# idle scene → (sound, when in the scene 0..1); only while someone is there
-SCENE_SOUNDS = {
-    "yawn":       ("yawn", 0.12),
-    "laugh":      ("giggle", 0.08),
-    "behind_you": ("oh", 0.1),
-    "nod_off":    ("oh", 0.72),
-    "heart_eyes": ("aww", 0.2),
-}
-SCENE_SOUND_CHANCE   = 0.5
 
 # ── Long-term memory (memory.py) ─────────────────────────────────────────────
 # After each conversation one cheap model call updates data/memory.json
@@ -411,7 +388,6 @@ TOUCH_DEBUG        = False
 # (above the eyes), "other".
 TOUCH_REACT_SECS      = 2.2   # how long the face holds its touch reaction
 TOUCH_POKE_SECS       = 3.0   # ...when poked repeatedly (she sulks longer)
-IDLE_AFTER_TOUCH_SECS = 8.0   # no idle scene starts this soon after a touch
 TOUCH_SPEECH_COOLDOWN = 25    # seconds between spoken touch reactions. Being
                               # touched is not "unprompted" — you started it —
                               # so it has its own short budget, not the 15 min

@@ -33,7 +33,7 @@ from shared_state import state
 from config import (RENDER_FPS, FACE_STYLE, SCREEN_WIDTH, SCREEN_HEIGHT,
                     FULLSCREEN, HIDE_CURSOR, GESTURE_DURATION,
                     CAMERA_PREVIEW, CAMERA_PREVIEW_W, TOUCH_DEBUG,
-                    TOUCH_REACT_SECS, TOUCH_POKE_SECS, IDLE_DEBUG)
+                    TOUCH_REACT_SECS, TOUCH_POKE_SECS)
 
 # The face geometry below is in absolute pixels and was drawn for a 1400x800
 # window; it fits the 800x480 DSI panel as-is (~560x400 used), just larger
@@ -164,31 +164,6 @@ def lerp(a, b, t):
 
 def clamp(v, lo, hi):
     return max(lo, min(hi, v))
-
-
-_NOTE_CACHE = {}
-
-
-def _note_surface(size):
-    """A quaver: note head, stem and flag, in the style's own colour."""
-    s = _NOTE_CACHE.get(size)
-    if s is not None:
-        return s
-    w, h = size, int(size * 2.1)
-    s = pygame.Surface((w + 6, h + 6), pygame.SRCALPHA)
-    head_r = size // 2
-    stem_x = w - 4
-    pygame.draw.rect(s, (*EYE_INNER, 255),
-                     pygame.Rect(stem_x - 3, 3, 5, h - head_r - 2),
-                     border_radius=2)
-    pygame.draw.polygon(s, (*EYE_INNER, 255),
-                        [(stem_x + 2, 5), (stem_x + 2 + size // 2, size // 2),
-                         (stem_x + 2, size - 2)])
-    pygame.draw.ellipse(s, (*EYE_INNER, 255),
-                        pygame.Rect(stem_x - head_r * 2 + 2, h - head_r * 2 + 2,
-                                    int(head_r * 2.3), head_r * 2))
-    _NOTE_CACHE[size] = s
-    return s
 
 
 def _prop_hold(p, rise=0.12, fall=0.12):
@@ -1340,15 +1315,15 @@ class RobotFace:
         self._gesture_p = 0.0
         self._heart_pulse = 0.0
 
-        # idle scenes + touch
-        self._idle = None
-        self._idle_p = 0.0
+        # reply scenes + touch
+        self._scene_name = None
+        self._scene_p = 0.0
         self._scene = None
         self._pupil_converge = 0.0
         self._pupil_mul = 1.0            # scenes: 0 hides the pupils, 2 = huge
         self._mouth_drive = 0.0
         self._wink_side = "R"
-        self._idle_prev = None
+        self._scene_prev = None
         self._touch_t = 0.0
         self._touch_zone = None
         self._touch_kind = None
@@ -1415,9 +1390,8 @@ class RobotFace:
             frozen_emotion = state.frozen_emotion
             g_anim         = state.gesture_anim
             g_start        = state.gesture_anim_start
-            i_anim         = state.idle_action
-            i_start        = state.idle_action_start
-            i_reply        = state.idle_action_reply
+            i_anim         = state.reply_scene
+            i_start        = state.reply_scene_start
             touch_kind     = state.touch_kind
             touch_t        = state.touch_time
             touch_pt       = (state.touch_x, state.touch_y)
@@ -1610,20 +1584,20 @@ class RobotFace:
             bounce_y = -abs(math.sin(self.bounce_phase)) * self.bounce_amp
             self.bounce_amp *= 0.94   # decay
 
-        # ── idle micro-scene (see idle_scenes.py for the catalogue) ───────
+        # ── reply body language (see reply_scenes.py for the catalogue) ───
         i_el   = now_t - i_start
-        scene  = idle_scenes.SCENES.get(i_anim) if i_anim else None
+        scene  = reply_scenes.SCENES.get(i_anim) if i_anim else None
         i_dur  = scene.duration if scene else 0.0
-        self._idle = i_anim if (scene and 0.0 <= i_el < i_dur) else None
-        self._scene = scene if self._idle else None
-        self._idle_p = (i_el / i_dur) if self._idle else 0.0
-        if self._idle and self._idle != self._idle_prev:
+        self._scene_name = i_anim if (scene and 0.0 <= i_el < i_dur) else None
+        self._scene = scene if self._scene_name else None
+        self._scene_p = (i_el / i_dur) if self._scene_name else 0.0
+        if self._scene_name and self._scene_name != self._scene_prev:
             self._wink_side = random.choice(("L", "R"))   # alternate eyes
-        self._idle_prev = self._idle
+        self._scene_prev = self._scene_name
         if i_anim and i_el >= i_dur:
             with state.lock:
-                if state.idle_action == i_anim:
-                    state.idle_action = None
+                if state.reply_scene == i_anim:
+                    state.reply_scene = None
 
         # ── touch: instant visual answer, and tell the engine which zone ──
         if touch_t > self._touch_t:
@@ -1659,18 +1633,13 @@ class RobotFace:
         touch_el = now_t - self._touch_react_t
 
         # ── one thing drives the face at a time ──────────────────────────
-        # touch > hand/head gesture > conversation > idle scene. A scene
-        # that loses is ended outright, not blended (idle_engine won't start
-        # a new one on top of the others either — see _face_free there).
+        # touch > hand/head gesture > scene. A scene that loses is ended
+        # outright, not blended (e.g. a wave-back starting mid-reply).
         if self._scene:
             g_live = (g_anim is not None
                       and 0.0 <= now_t - g_start < GESTURE_DURATION.get(g_anim, 0.0))
             if g_live:
                 self._cancel_scene(i_anim, i_start, f"gesture {g_anim}")
-            elif not i_reply and (speaking or convo_active):
-                # (not luna_mode: Vosk flips it to "processing" on every bit
-                # of room noise, which would cut scenes for nothing)
-                self._cancel_scene(i_anim, i_start, "conversation")
 
         # ── gestures: head (nod / shake) and hands (wave / thumbs_up / heart)
         g_el  = now_t - g_start
@@ -1705,11 +1674,11 @@ class RobotFace:
             tgt_R = ( 96.0, 178.0, -30.0)
             self._heart_pulse = 0.5 + 0.5 * math.sin(g_el * 2 * math.pi * 1.6)
 
-        # a scene may take the hands over (see idle_scenes.Hands)
+        # a scene may take the hands over (see reply_scenes.Hands)
         if self._scene:
-            h = idle_scenes.Hands(tgt_L, tgt_R,
+            h = reply_scenes.Hands(tgt_L, tgt_R,
                                   self.hand_pose["L"], self.hand_pose["R"])
-            self._scene.hands(self, self._idle_p, h)
+            self._scene.hands(self, self._scene_p, h)
             tgt_L, tgt_R = h.l, h.r
             self.hand_pose["L"], self.hand_pose["R"] = h.pose_l, h.pose_r
 
@@ -1717,7 +1686,7 @@ class RobotFace:
         self._pupil_mul = 1.0
         self._mouth_drive = 0.0
         if self._scene:
-            self._scene.motion(self, self._idle_p)
+            self._scene.motion(self, self._scene_p)
 
         self._hand_target = {"L": tgt_L, "R": tgt_R}
         for side in ("L", "R"):
@@ -1765,10 +1734,10 @@ class RobotFace:
         squint  = self.micro.squint_target
         widen   = self.micro.widen_target
 
-        eyes = idle_scenes.Eyes(blink_t, squint, widen,
+        eyes = reply_scenes.Eyes(blink_t, squint, widen,
                                 self.micro.droop_target)
         if self._scene:
-            self._scene.eyes(self, self._idle_p, eyes)
+            self._scene.eyes(self, self._scene_p, eyes)
         blink_l, blink_r = eyes.blink_l, eyes.blink_r
         squint, widen, droop = eyes.squint, eyes.widen, eyes.droop
 
@@ -1940,16 +1909,16 @@ class RobotFace:
     def _cancel_scene(self, name, start, why):
         """End the playing scene now. Its mood goes too — but only the mood
         the scene itself put on (same expiry), never one set by someone else."""
-        sc = idle_scenes.SCENES.get(name)
+        sc = reply_scenes.SCENES.get(name)
         with state.lock:
-            if state.idle_action == name and state.idle_action_start == start:
-                state.idle_action = None
+            if state.reply_scene == name and state.reply_scene_start == start:
+                state.reply_scene = None
             if (sc and sc.mood and state.face_override == sc.mood
                     and abs(state.face_override_until - (start + sc.duration)) < 0.05):
                 state.face_override = None
-        self._idle = self._scene = None
-        self._idle_p = 0.0
-        if IDLE_DEBUG:
+        self._scene_name = self._scene = None
+        self._scene_p = 0.0
+        if TOUCH_DEBUG:
             print(f"[face] scene {name} cut short by {why}", flush=True)
 
     def _zone_at(self, nx, ny):
@@ -2002,10 +1971,6 @@ class RobotFace:
 
         fcx = int(self.face_cx + self.face_ox)
         fcy = int(self.face_cy + self.face_oy)
-
-        # ── whatever the scene puts BEHIND her (weather, starfields…) ─────
-        if self._scene:
-            self._scene.draw_bg(self, base, fcx, fcy, self._idle_p)
 
         # ── hair (behind everything) ──────────────────────────────────────
         if HAIR:
@@ -2071,9 +2036,9 @@ class RobotFace:
                 sz = int(50 + 12 * self._heart_pulse)
                 draw_heart(base, fcx, fcy + 112, sz)
 
-        # ── whatever the current idle scene draws on top ──────────────────
+        # ── whatever the current scene draws on top ───────────────────────
         if self._scene:
-            self._scene.draw(self, base, fcx, fcy, self._idle_p)
+            self._scene.draw(self, base, fcx, fcy, self._scene_p)
 
         # ── particles (foreground) ────────────────────────────────────────
         for p in self.zzz_particles:
@@ -2119,7 +2084,7 @@ class RobotFace:
 
         # ── scene post-processing on the finished frame (glitch…) ────────
         if self._scene:
-            self._scene.post(self, self.screen, self._idle_p)
+            self._scene.post(self, self.screen, self._scene_p)
 
         # ── camera preview (on top, not rotated with the head) ───────────
         if CAMERA_PREVIEW:
@@ -2164,7 +2129,7 @@ class RobotFace:
         self.screen.blit(surf, (x, y))
 
 
-# Registering the scene catalogue last: idle_scenes reaches back into this
+# Registering the scene catalogue last: reply_scenes reaches back into this
 # module for the drawing helpers and the live palette, so it can only be
 # imported once everything above exists.
-import idle_scenes  # noqa: E402
+import reply_scenes  # noqa: E402

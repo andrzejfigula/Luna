@@ -2,7 +2,7 @@
 test_scenes.py — play every scene in the catalogue through the real renderer
 and report any that raise.
 
-Run it on the Pi after touching idle_scenes.py or robot_face.py:
+Run it on the Pi after touching reply_scenes.py or robot_face.py:
 
     ./stop.sh && ./venv/bin/python test_scenes.py ; ./run.sh &
 
@@ -15,16 +15,16 @@ now, and this catches the same class of bug before you ship it.
 
 import time, traceback
 from shared_state import state
-import idle_scenes
+import reply_scenes
 from robot_face import RobotFace
 
 face = RobotFace()
 bad = []
-for name in sorted(idle_scenes.SCENES):
-    sc = idle_scenes.SCENES[name]
+for name in sorted(reply_scenes.SCENES):
+    sc = reply_scenes.SCENES[name]
     with state.lock:
-        state.idle_action = name
-        state.idle_action_start = time.time()
+        state.reply_scene = name
+        state.reply_scene_start = time.time()
         state.face_detected = True
         state.last_face_time = time.time()
         if sc.mood:
@@ -37,7 +37,7 @@ for name in sorted(idle_scenes.SCENES):
     steps = 90
     for i in range(steps):
         with state.lock:
-            state.idle_action_start = time.time() - (i / steps) * sc.duration
+            state.reply_scene_start = time.time() - (i / steps) * sc.duration
         try:
             face.draw()
         except Exception as e:
@@ -48,9 +48,9 @@ for name in sorted(idle_scenes.SCENES):
         bad.append((name, err))
         print("FAIL %-14s %s" % (name, err), flush=True)
     with state.lock:
-        state.idle_action = None
+        state.reply_scene = None
         state.face_override = None
-print("=== scenes tested:", len(idle_scenes.SCENES), "failures:", len(bad), flush=True)
+print("=== scenes tested:", len(reply_scenes.SCENES), "failures:", len(bad), flush=True)
 for n, e in bad:
     print("   ", n, "->", e, flush=True)
 print("DONE", flush=True)

@@ -48,7 +48,6 @@ cp .env.example .env && nano .env      # OPENAI_API_KEY=sk-...
 | `LUNA_TTS_VOICE` | OpenAI voice — `nova`, `shimmer`, `marin` are bright; `coral`, `sage` calmer | `nova` |
 | `LUNA_BRIGHTNESS` | touchscreen backlight, percent (applied by `run.sh`) | `100` |
 | `LUNA_TIMEZONE` / `LUNA_LOCATION` | IANA zone + place name given to the model with the current local time | `Europe/Warsaw` / `Poland` |
-| `LUNA_BIRTHDAYS` | dates she should celebrate, `MM-DD`, comma separated | `09-22,05-14` |
 | `LUNA_CAMERA_PREVIEW` | live mirrored camera view bottom-right with the face box: `1` (160 px), a width in px, or empty = off | `1` |
 | `LUNA_STT_SAVE` | keep the last N utterances (WAV + both transcripts, `stt_log/index.tsv`) to review misrecognitions; empty = off | `40` |
 | `LUNA_MEMORY` | long-term memory in `data/memory.json` (`0` = off) | `1` |
@@ -118,26 +117,21 @@ front of the camera for 30 s the face goes to sleep.
 - Gestures: Luna nods / shakes her head / waves / thumbs-up / makes a heart
   when it fits the reply (the LLM picks, see `brain.py`). Wave at the camera
   and she waves back (`gesture_module.py`, motion-based; `WAVE_*` in config).
-- Idle behaviours live in `idle_scenes.py` — one class per scene with its
-  own duration, weights (day/night), mood and flags. A scene may implement
-  `motion` (head/pupils), `eyes`, `hands`, `draw` (props on top),
-  `draw_bg` (behind her) and `post` (the finished frame). Add a behaviour by
-  writing one class; tune how often it shows up with `IDLE_SCENE_WEIGHTS`
-  in config (0 disables), or list it in `IDLE_SCENES_DISABLED`.
-  Scenes marked `in_reply=True` can also be chosen by the LLM as body
-  language while she answers.
-- Idle life (`idle_engine.py`): she greets you when you come back after
-  `IDLE_ABSENCE_SECS` away, and between conversations plays small scenes —
-  wink, look around, stretch, yawn, show the clock, read a book, scroll a
-  phone, bounce a ball, listen to music (`IDLE_SCENES`, weighted
-  differently at night; `IDLE_DURATION`, `IDLE_SCENE_MOODS`). Unprompted SPEECH is rate-limited
+- Body language while she answers lives in `reply_scenes.py` — one class
+  per scene (wink, laugh, think_bubble, air_heart, …) with its duration and
+  mood; the model picks one per reply as its "gesture". A scene may
+  implement `motion` (head/pupils), `eyes`, `hands`, `draw` (props on top)
+  and `post` (the finished frame). Add one by writing a class and naming it
+  in the gesture vocabulary in `brain.py`. She plays no animations on her
+  own between conversations — only the blinking, glancing and breathing of
+  the face itself.
+  One thing drives the face at a time: touch > hand/head gesture > scene.
+  A touch or a wave-back ends a playing scene (with its mood) instead of
+  mixing with it.
+- Between conversations (`idle_engine.py`): she greets you when you come
+  back after `IDLE_ABSENCE_SECS` away. Unprompted SPEECH is rate-limited
   (`PROACTIVE_MIN_GAP_SECS`), silent during `PROACTIVE_QUIET_FROM/TO`, and
-  stops for an hour when you say "Luna, cicho" (`MUTE_PHRASES`); animations
-  are never limited.
-  One thing drives the face at a time: touch > hand/head gesture >
-  conversation > idle scene. A touch or gesture ends a playing scene
-  (with its mood) instead of mixing with it, and no scene starts during a
-  gesture, a lingering mood, or `IDLE_AFTER_TOUCH_SECS` after a touch.
+  stops for an hour when you say "Luna, cicho" (`MUTE_PHRASES`).
 - Touch (`touch_module.py`): the DSI panel is read straight from evdev (SDL
   under Wayland does not deliver touch events). Tap an eye, tap her mouth,
   stroke the top of the screen or poke her repeatedly — each gets its own
@@ -156,14 +150,14 @@ front of the camera for 30 s the face goes to sleep.
   only when the same mood was read twice in a row and `MOOD_COMMENT_COOLDOWN`
   (30 min) has passed — noticing once is friendly, commenting on your face
   all the time is not. The log shows it: `[brain] OpenAI (happy, none, you: tired)`.
-- Sounds (`sounds.py`): "mhm", "hmm", "hm?", a giggle, "aww", "oh!", "ej!",
-  a yawn — generated once by her own TTS voice into `data/sounds/` (again
+- Sounds (`sounds.py`): "mhm", "hmm", "hm?", a giggle, "aww", "oh!" and
+  "ej!" — generated once by her own TTS voice into `data/sounds/` (again
   automatically when the voice changes), then played locally. Used for a
   bare "Luna!" (`WAKE_SOUND_CHANCE`), while a slow answer is on its way
-  (`THINK_SOUND_*`), on touch (`TOUCH_SOUNDS`) and in a few idle scenes
-  (`SCENE_SOUNDS`). Quiet hours and "Luna, cicho" apply to the unprompted ones.
+  (`THINK_SOUND_*`) and on touch (`TOUCH_SOUNDS`). Quiet hours and
+  "Luna, cicho" apply to the unprompted ones.
 
-After touching `idle_scenes.py` or `robot_face.py`, run every scene through
+After touching `reply_scenes.py` or `robot_face.py`, run every scene through
 the real renderer to make sure none of them raises:
 
 ```bash

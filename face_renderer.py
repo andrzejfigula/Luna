@@ -67,8 +67,8 @@ def renderer_loop():
             if not pygame.display.get_init():
                 raise
             with state.lock:
-                bad = state.idle_action
-                state.idle_action = None
+                bad = state.reply_scene
+                state.reply_scene = None
             print(f"[face] frame error in scene {bad!r}: {e}", flush=True)
             traceback.print_exc()
             time.sleep(0.2)

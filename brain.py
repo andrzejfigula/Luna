@@ -26,7 +26,7 @@ from zoneinfo import ZoneInfo
 import cv2
 from openai import OpenAI
 
-import idle_scenes
+import reply_scenes
 import memory
 
 from text_to_speech import speak, play_sound
@@ -104,10 +104,10 @@ def _feminize(text):
 
 # Face states robot_face.py knows how to draw. The model must pick one.
 EMOTIONS = ["neutral", "happy", "sad", "angry", "surprised", "excited", "love"]
-# Body language robot_face.py can animate: hand/head gestures plus the idle
-# scenes that are safe to play while she is talking (see idle_scenes.py).
+# Body language robot_face.py can animate: hand/head gestures plus the
+# scenes in reply_scenes.py.
 HAND_GESTURES = ["nod", "shake", "wave", "thumbs_up", "heart"]
-SCENE_GESTURES = sorted(idle_scenes.reply_scenes())
+SCENE_GESTURES = sorted(reply_scenes.SCENES)
 GESTURES = ["none"] + HAND_GESTURES + SCENE_GESTURES
 # How the person on camera seems — read from the frame that goes with every
 # message anyway, so it costs nothing extra.
@@ -450,10 +450,9 @@ def process(text):
         if gesture in GESTURE_DURATION:              # hands / head
             state.gesture_anim       = gesture
             state.gesture_anim_start = time.time()
-        elif gesture in idle_scenes.SCENES:          # facial scene
-            state.idle_action       = gesture
-            state.idle_action_start = time.time()
-            state.idle_action_reply = True
+        elif gesture in reply_scenes.SCENES:         # facial / hand scene
+            state.reply_scene       = gesture
+            state.reply_scene_start = time.time()
     try:
         speak(reply)
     finally:
