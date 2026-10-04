@@ -325,6 +325,11 @@ VOLUME_STEP      = 0.10   # "głośniej" / "ciszej"
 VOLUME_MIN       = 0.10   # never fully silent by voice — she must answer you
 VOLUME_MAX       = 1.00
 SLEEP_BRIGHTNESS = 3      # screen % while she sleeps ("dobranoc")
+# Night mode (display.py): during the quiet hours the screen dims by itself,
+# and comes up a bit while you talk to her. Never above LUNA_BRIGHTNESS.
+NIGHT_MODE            = True
+NIGHT_BRIGHTNESS      = 12
+NIGHT_TALK_BRIGHTNESS = 40
 GOODNIGHT_REPLIES = ["Dobranoc! Śpij dobrze.", "Dobranoc, słodkich snów!",
                      "Dobranoc. To ja też się zdrzemnę."]
 

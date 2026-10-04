@@ -22,9 +22,8 @@ import subprocess
 import threading
 import time
 
-import display
 from shared_state import state
-from config import (VOLUME_STEP, VOLUME_MIN, VOLUME_MAX, SLEEP_BRIGHTNESS,
+from config import (VOLUME_STEP, VOLUME_MIN, VOLUME_MAX,
                     GOODNIGHT_REPLIES, PROACTIVE_QUIET_TO, AUDIO_OUTPUT_DEVICE)
 
 _LOUDER  = ("głośniej", "glosniej", "louder", "volume up")
@@ -108,7 +107,6 @@ def go_to_sleep():
     with state.lock:
         state.sleep_mode = True
         state.conversation_active = False
-    display.set_percent(SLEEP_BRIGHTNESS)
     print("[cmd] good night — sleeping until morning", flush=True)
 
 
@@ -117,7 +115,6 @@ def wake_up(why):
         if not state.sleep_mode:
             return False
         state.sleep_mode = False
-    display.set_percent(display.base_percent())
     print(f"[cmd] awake ({why})", flush=True)
     return True
 

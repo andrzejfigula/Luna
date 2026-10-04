@@ -39,6 +39,9 @@ start_sounds()
 import commands
 commands.start_commands()
 
+from display import start_display
+start_display()
+
 from timers import start_timers
 start_timers()
 
