@@ -2,6 +2,7 @@
 commands.py — things Luna does herself, without asking the model.
 
   volume   "głośniej", "ciszej", "głośność na 40", "louder" …
+  speed    "mów wolniej", "szybciej", "mów normalnie" (kept in settings.json)
   sleep    "dobranoc" / "idę spać": she says good night, the screen dims, her
            eyes close and she stays quiet (no greetings, no touch talk)
            until morning — or until you speak to her
@@ -23,12 +24,17 @@ import threading
 import time
 
 from shared_state import state
-from config import (VOLUME_STEP, VOLUME_MIN, VOLUME_MAX,
+import settings
+from config import (SPEED_STEP, SPEED_MIN, SPEED_MAX, OPENAI_TTS_SPEED,
+                    VOLUME_STEP, VOLUME_MIN, VOLUME_MAX,
                     GOODNIGHT_REPLIES, PROACTIVE_QUIET_TO, AUDIO_OUTPUT_DEVICE)
 
 _LOUDER  = ("głośniej", "glosniej", "louder", "volume up")
 _QUIETER = ("ciszej", "quieter", "volume down")
 _VOLUME  = ("głośność", "glosnosc", "volume")
+_SLOWER  = ("wolniej", "slower")
+_FASTER  = ("szybciej", "faster")
+_NORMAL_SPEED = ("normalnym tempie", "normalne tempo", "normalnie mów", "mów normalnie")
 _NIGHT   = ("dobranoc", "dobranocka", "idę spać", "ide spac", "idę już spać",
             "good night", "goodnight")
 
@@ -150,6 +156,22 @@ def handle(text, speak, play_sound):
     if games.is_trigger(text) or games.is_rematch(text):
         from text_to_speech import play_sound_async
         games.play_match(speak, play_sound_async)
+        return True
+
+    if _short(text, 5) and any(k in low for k in _SLOWER + _FASTER + _NORMAL_SPEED):
+        cur = settings.get("tts_speed", OPENAI_TTS_SPEED)
+        if any(k in low for k in _NORMAL_SPEED):
+            new = OPENAI_TTS_SPEED
+        else:
+            step = SPEED_STEP if any(k in low for k in _FASTER) else -SPEED_STEP
+            new = round(max(SPEED_MIN, min(SPEED_MAX, cur + step)), 2)
+        settings.put("tts_speed", new)
+        print(f"[cmd] speech speed {cur} → {new}", flush=True)
+        if new == cur:
+            speak("Szybciej już nie umiem." if new >= SPEED_MAX else
+                  "Wolniej już nie umiem." if new <= SPEED_MIN else "Mówię normalnie.")
+        else:
+            speak("Dobrze, tak mówię teraz. Może być?")
         return True
 
     vol = _volume_command(text)

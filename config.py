@@ -324,6 +324,10 @@ VISION_JPEG_QUALITY = 80
 VOLUME_STEP      = 0.10   # "głośniej" / "ciszej"
 VOLUME_MIN       = 0.10   # never fully silent by voice — she must answer you
 VOLUME_MAX       = 1.00
+SPEED_STEP       = 0.10   # "mów wolniej" / "mów szybciej"
+SPEED_MIN, SPEED_MAX = 0.75, 1.40
+SETTINGS_PATH    = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                "data", "settings.json")
 SLEEP_BRIGHTNESS = 3      # screen % while she sleeps ("dobranoc")
 # Night mode (display.py): during the quiet hours the screen dims by itself,
 # and comes up a bit while you talk to her. Never above LUNA_BRIGHTNESS.

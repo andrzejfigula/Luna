@@ -24,6 +24,8 @@ import time
 
 import numpy as np
 
+import settings
+
 from openai import OpenAI
 
 from config import (
@@ -240,7 +242,8 @@ class OpenAITTS:
         self._cut.clear()
         try:
             kwargs = dict(model=OPENAI_TTS_MODEL, voice=OPENAI_TTS_VOICE,
-                          input=text, response_format="pcm", speed=OPENAI_TTS_SPEED)
+                          input=text, response_format="pcm",
+                          speed=settings.get("tts_speed", OPENAI_TTS_SPEED))
             instructions = "\n".join(x for x in (OPENAI_TTS_INSTRUCTIONS, style) if x)
             if instructions:
                 kwargs["instructions"] = instructions
@@ -330,7 +333,8 @@ class OpenAITTS:
                 return
             self._cut.clear()
             kwargs = dict(model=OPENAI_TTS_MODEL, voice=OPENAI_TTS_VOICE,
-                          response_format="pcm", speed=OPENAI_TTS_SPEED)
+                          response_format="pcm",
+                          speed=settings.get("tts_speed", OPENAI_TTS_SPEED))
             instructions = "\n".join(x for x in (OPENAI_TTS_INSTRUCTIONS, style) if x)
             if instructions:
                 kwargs["instructions"] = instructions

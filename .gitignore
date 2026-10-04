@@ -36,3 +36,5 @@ data/memory.json.tmp
 data/sounds/
 data/timers.json
 data/timers.json.tmp
+data/settings.json
+data/settings.json.tmp
