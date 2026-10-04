@@ -53,6 +53,7 @@ cp .env.example .env && nano .env      # OPENAI_API_KEY=sk-...
 | `LUNA_LAT` / `LUNA_LON` | your location for the weather (open-meteo, no key); empty = off, nothing fetched | `52.23` / `21.01` |
 | `LUNA_MEMORY` | long-term memory in `data/memory.json` (`0` = off) | `1` |
 | `LUNA_SOUNDS` | non-verbal sounds — "mhm", "hm?", a giggle (`0` = off) | `1` |
+| `LUNA_DATA_DIR` | where memory, timers, lists and settings live (default `data/`); tests point it at a temp dir | `/tmp/luna-test` |
 
 Output volume follows the chosen PipeWire sink: `wpctl status` lists them,
 `wpctl set-volume <id> 1.0` sets it.
@@ -180,6 +181,16 @@ front of the camera for 30 s the face goes to sleep.
 - Audio (`audio_out.py`): one long-lived pw-play fed with silence between
   replies — no start-up delay or pop. `AUDIO_PERSISTENT = False` restores a
   player per reply.
+- Lists (`lists.py`, `data/lists.json`): shopping / to-do / any named list,
+  changed by the model's `list_*` actions; "pokaż listę zakupów" shows one.
+- On request only (`fun.py`, `breathing.py`, `screens.py`): night light,
+  high five, dice and coin, guided breathing, photo booth + gallery,
+  mirror, clock, reminders list, status screen.
+- Translator mode ("tłumacz na angielski" … "koniec tłumaczenia"),
+  focus mode ("tryb skupienia"), "powtórz" (replays the last answer from
+  its audio), "zrestartuj się" (exits; lwrespawn restarts her).
+- A plain "minutnik na 10 minut" is parsed locally (`timers.local_timer`):
+  instant, and it works offline.
 - Health (`health.py`): an offline icon and a recorded apology when the
   cloud is unreachable, a warm-up of the API clients at start, and an
   hourly `[health]` line in the log.
