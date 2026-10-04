@@ -66,6 +66,8 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Poznaj kogoś | Stań przodem do Luny (sam, blisko) i powiedz: „Luna, jestem Andrzej” albo „to jest Kasia”, „poznaj Olę”, „zapamiętaj moją twarz, mam na imię Ola” — patrz na nią 4 sekundy; potem wita po imieniu i pamięta, czyje są plany i upodobania |
 | Powitanie | każdy domownik dostaje swoje pierwsze dzisiejsze powitanie (pogoda, plany), później krótkie po imieniu |
 | Wiadomość dla kogoś | „Nagraj wiadomość dla Emilki” — powie Emilce, gdy ją zobaczy, i kto ją zostawił |
+| Dla Mai | mówi do niej wolniej i cieplej; przy lekcjach naprowadza zamiast podawać wynik; bajki mogą być o niej; wiadomości tylko lekkie |
+| Radio każdego | „Włącz radio” włącza stację, której ta osoba słuchała ostatnio |
 | Kim jestem? | „Kim jestem?”, „Poznajesz mnie?” |
 | Zapomnij | „Zapomnij moją twarz”, „Zapomnij twarz Kasi” |
 | Charakter | ma swoje zdanie (ulubiony kolor fioletowy, lubi radio, burze i gwiazdy), poczucie humoru i godność robota |

@@ -220,6 +220,17 @@ def _learn_face(name_as_said, text, speak):
     return "recorded"
 
 
+def _child_here():
+    """Is the recognised person marked as a child (faces.py notes)?"""
+    try:
+        import faces
+        with state.lock:
+            who = state.person[0] if state.person else None
+        return bool(who) and "dziecko" in faces.notes().get(who, "").lower()
+    except Exception:
+        return False
+
+
 def _remember(text):
     """"Zapamiętaj, że klucze są w szufladzie" → "klucze są w szufladzie"."""
     m = _REMEMBER.match(text.strip())
@@ -563,6 +574,8 @@ def handle(text, speak, play_sound):
     # "ile to jest 17 razy 23?" / "ile dni do Wigilii?" — counted locally
     import calc
     said = calc.answer(text)
+    if said and calc.arithmetic(text) and _child_here():
+        said = None        # homework: for a child the model hints instead of answering
     if said:
         print(f"[cmd] calc: {said}", flush=True)
         speak(said)

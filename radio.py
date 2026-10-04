@@ -119,8 +119,9 @@ def _station(words):
     import settings
     w = words.strip(" .!?").lower()
     w = re.sub(r"^(?:radio|stację|stacje)\s+", "", w)
-    if not w:
-        last = settings.get("radio_last")
+    if not w:                              # "włącz radio": your last station
+        mine = (settings.get("radio_last_by", {}) or {}).get(_who())
+        last = mine or settings.get("radio_last")
         return tuple(last) if last else STATIONS["rmf fm"]
     key = _ALIASES.get(w, w)
     if key in STATIONS:
@@ -139,6 +140,22 @@ def _station(words):
 
 
 # ── playback ──────────────────────────────────────────────────────────────────
+
+def _who():
+    with state.lock:
+        return state.person[0] if state.person else None
+
+
+def _remember_station(name, url):
+    """The last station, for the house and for whoever asked (by face)."""
+    import settings
+    settings.put("radio_last", [name, url])
+    who = _who()
+    if who:
+        by = settings.get("radio_last_by", {}) or {}
+        by[who] = [name, url]
+        settings.put("radio_last_by", by)
+
 
 def _die_with_parent():
     """Children get SIGTERM when Luna's process dies — even killed -9 or
@@ -425,7 +442,7 @@ def handle(text, speak):
         name, url = names[(i + 1) % len(names)]
         speak(f"Teraz {name}.")
         play(name, url)
-        settings.put("radio_last", [name, url])
+        _remember_station(name, url)
         return True
     # "ciszej" while music plays: the music. "mów ciszej": her voice (commands.py)
     if (playing() and len(words) <= 6 and not any(w.startswith("mów") or w == "mow" for w in words)
@@ -483,5 +500,5 @@ def handle(text, speak):
     name, url = st
     speak(f"Włączam {_acc(name)}.")
     play(name, url)
-    settings.put("radio_last", [name, url])
+    _remember_station(name, url)
     return True

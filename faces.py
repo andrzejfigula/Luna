@@ -282,6 +282,12 @@ def prompt_line():
            if person else
            "In front of you now: a face you don't recognise." if seen else
            "Nobody is in front of the camera now.")
+    if person and "dziecko" in about.get(person[0], "").lower():
+        # the persona's general "with a child" rules lost to a plain question
+        # (tested: 56 : 7 was answered "8" straight away) — said here, now
+        now += (f" {person[0]} IS A CHILD, so right now: simple words; for any school "
+                "task or sum NEVER say the result — ask what they think, give one "
+                "hint, and only confirm or gently correct THEIR answer.")
     return (f"People you know by face: {who}. {now} Talk to the "
             "recognised person by name now and then (in the right Polish case), "
             "not in every sentence.\n")

@@ -59,10 +59,24 @@ def _engine_speak(text, style=""):
 
 
 def _voice_style(emotion, user_mood):
-    """Delivery for this line: her emotion, softened for a tired/sad listener."""
+    """Delivery for this line: her emotion, softened for a tired/sad listener,
+    slower and warmer for a child (faces.py notes say who is one)."""
     parts = [TTS_EMOTION_STYLE.get((emotion or "").lower(), ""),
              TTS_LISTENER_STYLE.get(user_mood or "", "")]
+    if _child_listening():
+        parts.append("You are talking to a young child: a little slower, very clear, "
+                     "warm and playful, with a smile in your voice.")
     return " ".join(p for p in parts if p)
+
+
+def _child_listening():
+    try:
+        import faces
+        with state.lock:
+            who = state.person[0] if state.person else None
+        return bool(who) and "dziecko" in faces.notes().get(who, "").lower()
+    except Exception:
+        return False
 
 # ============================================================================
 # Talking mouth energy animation
