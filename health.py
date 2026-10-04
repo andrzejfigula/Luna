@@ -96,5 +96,41 @@ def _loop():
         time.sleep(HEALTH_PROBE_SECS)
 
 
+def _warm_up():
+    """The first OpenAI call in a process costs ~2 s extra on the Pi (the
+    SDK loads its modules lazily, plus the TLS handshake) — measured: first
+    TTS byte 2.5 s cold vs 0.4-0.7 s warm. Pay that at start-up instead of on
+    your first question: one free request per client, and touch the API
+    resources each module uses."""
+    t0 = time.time()
+    clients = []
+    try:
+        import brain
+        clients.append(("brain", brain._client))
+    except Exception:
+        pass
+    try:
+        from openai_tts import tts
+        clients.append(("tts", tts._client))
+    except Exception:
+        pass
+    try:
+        import speech_to_text
+        clients.append(("stt", speech_to_text._cloud))
+    except Exception:
+        pass
+    from config import OPENAI_MODEL
+    for name, c in clients:
+        if c is None:
+            continue
+        try:
+            c.models.retrieve(OPENAI_MODEL)
+            _ = (c.chat.completions, c.audio.speech, c.audio.transcriptions)
+        except Exception as e:
+            print(f"[health] warm-up {name}: {e}")
+    print(f"[health] cloud clients warmed up in {time.time() - t0:.1f}s", flush=True)
+
+
 def start_health():
+    threading.Thread(target=_warm_up, daemon=True, name="warm-up").start()
     threading.Thread(target=_loop, daemon=True, name="health").start()

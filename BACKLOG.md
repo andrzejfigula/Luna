@@ -30,3 +30,12 @@ Status: ✅ done · 🚧 in progress · ⏳ queued · 💤 parked (with the reas
 | 14 | **Tests that run on any PC** — the streaming JSON parser, local commands, timers, memory dates — no Pi, no network | The parts most likely to break quietly | ✅ 25 tests, pass on Windows and on the Pi |
 | 15 | **Always-open audio stream** — one long-lived player fed with silence, so a reply starts without the 0.25 s pop-guard and player start-up | Another ~0.3 s off every answer, and no pop risk | ✅ sounds start at once; 0 underruns under load, max writer stall 205 ms vs 400 ms margin; CPU unchanged (158 % vs 161 %) |
 
+## Batch 3
+
+| # | Item | Why | Status |
+|---|------|-----|--------|
+| 16 | **Warm start** — the first cloud call in a process paid ~2 s extra (lazy SDK imports + handshake); now each client is warmed with a free request at start-up | Measured: first TTS byte 2.5 s cold → 0.4–0.6 s. Idle connections turned out NOT to go cold (0.6 s after 130 s idle), so no keep-alive pinging was needed | ✅ |
+| 17 | **CPU diet** — Luna uses ~160 % of the Pi's 4 cores and the CPU sits at ~70 °C; find the hungry threads and trim them without making her look or listen worse | Cooler Pi, no throttling, more headroom for audio | ⏳ |
+| 18 | **Stories** — "opowiedz mi bajkę", "wyjaśnij dokładnie": longer answers when you ask for them (streaming makes them start just as fast; a tap stops them) | 1–3 sentences is right for chat, wrong for a bedtime story | ⏳ |
+| 19 | **Sunrise alarm** — "obudź mnie o 7": the screen slowly brightens over the last 10 minutes like a sunrise, then a gentle chime and a good-morning with the weather | A wake-up light is a perfect job for a glowing face | ⏳ |
+
