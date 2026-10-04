@@ -96,7 +96,28 @@ def context():
         return None
     lines = "\n".join(f"- {t}" + (f" — {d}" if d else "") + (f" ({w})" if w else "")
                       for t, d, w in items)
-    return (f"\nLATEST NEWS HEADLINES from {source} (RSS, fetched just now):\n{lines}\n"
+    child = None
+    try:
+        import faces
+        from shared_state import state
+        with state.lock:
+            who = state.person[0] if state.person else None
+        if who and "dziecko" in faces.notes().get(who, "").lower():
+            child = who
+    except Exception:
+        pass
+    head = f"\nLATEST NEWS HEADLINES from {source} (RSS, fetched just now):\n{lines}\n"
+    if child:
+        # a soft extra sentence lost to "pick the 3 most important" (tested):
+        # for a child the whole instruction is different
+        return (head + f"You are talking to {child}, a CHILD. From these headlines "
+                "tell ONLY the ones with nothing about violence, crime, vandalism, "
+                "fires, accidents, war, disasters, illness or death — sport, science, "
+                "animals, culture, nice events — at most 3, simply, one short sentence "
+                "each, in Polish. Fewer is fine; if none fits, say kindly that today "
+                "there is nothing interesting for kids in the news. Never add news "
+                "that is not listed.\n")
+    return (head +
             "The user asked for the news. Answer ONLY from these headlines: pick the "
             "3 most important (or what they asked about), one short sentence each, in "
             "your own words, in Polish; mention the source once (\"według " + source +

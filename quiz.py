@@ -240,12 +240,40 @@ def _finish(speak, play_sound_async):
         said, emo = (f"{score} na {QUESTIONS}. Nic nie szkodzi — ćwiczenie czyni mistrza. "
                      "Zagramy jeszcze raz?"), "Neutral"
     print(f"[quiz] done: {score}/{QUESTIONS}", flush=True)
+    if score == QUESTIONS:                     # how many perfect rounds so far
+        import settings
+        with state.lock:
+            who = state.person[0] if state.person else "_"
+        recs = settings.get("records", {}) or {}
+        mine = recs.setdefault(who, {})
+        mine["perfect"] = mine.get("perfect", 0) + 1
+        settings.put("records", recs)
+        if mine["perfect"] > 1:
+            said += f" To już {mine['perfect']}. bezbłędna runda!"
     _card(f"{score} / {QUESTIONS}", "wynik", "ok" if score >= QUESTIONS - 1 else None, secs=6)
     with state.lock:
         state.emotion = emo
     if score >= QUESTIONS - 1:
         play_sound_async("chime")
     speak(said)
+
+
+def _record(field, value, better):
+    """Keep a per-person best (by face; "_" for someone unknown) in settings.
+    Returns the previous best when `value` beats it, True for the first one,
+    else None."""
+    import settings
+    with state.lock:
+        who = state.person[0] if state.person else "_"
+    recs = settings.get("records", {}) or {}
+    mine = recs.setdefault(who, {})
+    old = mine.get(field)
+    if old is None or better(value, old):
+        mine[field] = value
+        settings.put("records", recs)
+        print(f"[quiz] record for {who}: {field} = {value} (was {old})", flush=True)
+        return old if old is not None else True
+    return None
 
 
 def _tries_pl(n):
@@ -284,6 +312,9 @@ def _guess(text, speak, play_sound_async):
         play_sound_async("chime")
         print(f"[quiz] number guessed in {q['tries']}", flush=True)
         extra = " Niesamowite!" if q["tries"] <= 3 else (" Sprytnie!" if q["tries"] <= 7 else "")
+        prev = _record("guess", q["tries"], lambda new, old: new < old)
+        if prev is not None and prev is not True:
+            extra += f" Nowy rekord! Poprzedni: {prev} prób."
         speak(f"Brawo, to {n}! Udało się {_tries_pl(q['tries'])}.{extra}")
         _q = None
         return True
