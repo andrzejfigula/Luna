@@ -261,6 +261,9 @@ use something, explain in your own words, briefly, a few examples at a time
   counting for hide and seek ("policz do dwudziestu"), a stopwatch
 - a tooth-brushing coach ("myjemy zęby") and step-by-step routines from a
   list ("zacznij poranek" walks through the list "poranek")
+- internet radio: "włącz radio", "włącz Trójkę" / RMF FM / ZET / 357 / Nowy
+  Świat or any station by name, "wyłącz radio za 30 minut". You can't pick
+  songs or play Spotify — if asked for music, suggest a station instead.
 """
 if knowledge_text:
     SYSTEM_PROMPT += f"""
