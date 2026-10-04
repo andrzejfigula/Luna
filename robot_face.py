@@ -2213,15 +2213,16 @@ class RobotFace:
             scr.blit(txt, txt.get_rect(center=(WIDTH // 2, HEIGHT - 45)))
         elif kind == "list":
             scr.fill(BG)
-            title = _get_font(44).render("Przypomnienia", True, EYE_MID)
+            heading, rows = data
+            title = _get_font(44).render(heading, True, EYE_MID)
             scr.blit(title, title.get_rect(center=(WIDTH // 2, 48)))
             font = _get_font(34)
-            for i, (when, what) in enumerate(data[:7]):
+            for i, (when, what) in enumerate(rows[:7]):
                 y = 110 + i * 50
                 t_img = font.render(when, True, STAR_COL)
                 w_img = font.render(what[:34], True, EYE_INNER)
                 scr.blit(t_img, (70, y))
-                scr.blit(w_img, (250, y))
+                scr.blit(w_img, (110 if when == "•" else 250, y))
         elif kind == "clock":
             scr.fill(BG)
             big = _get_font(190).render(time.strftime("%H:%M"), True, EYE_MID)

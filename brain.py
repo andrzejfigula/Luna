@@ -32,6 +32,7 @@ from reply_stream import ReplyStream
 import body
 import health
 import memory
+import lists
 import timers
 import weather
 
@@ -172,6 +173,13 @@ Always answer as JSON with exactly these keys:
                 "codziennie" → "daily", "w dni robocze / od poniedziałku do
                 piątku" → "weekdays", "w weekendy" → "weekends" (reminders
                 and alarms only).
+                Lists: {{"type":"list_add","label":"mleko","list":"zakupy",
+                ...}} — one action per item ("dopisz mleko i chleb" = two);
+                "list_remove" to cross an item off, "list_clear" to empty a
+                list. "list" is the list's name in Polish, lowercase:
+                "zakupy" for shopping, "do zrobienia" for to-dos, or what
+                they call it. Set "list" to "" for every non-list action.
+                The lists are shown below the date — read them from there.
                 Confirm briefly in "reply" ("Jasne, minutnik na 10 minut.").
                 The active ones are listed below the date.
 Let user_mood quietly shape HOW you answer — softer, calmer and shorter when
@@ -263,14 +271,16 @@ _RESPONSE_FORMAT = {
                     "type": "object",
                     "properties": {
                         "type":    {"type": "string",
-                                    "enum": ["timer", "reminder", "alarm", "cancel"]},
+                                    "enum": ["timer", "reminder", "alarm", "cancel",
+                                             "list_add", "list_remove", "list_clear"]},
                         "seconds": {"type": "integer"},
                         "at":      {"type": "string"},
                         "label":   {"type": "string"},
                         "repeat":  {"type": "string",
                                     "enum": ["none", "daily", "weekdays", "weekends"]},
+                        "list":    {"type": "string"},
                     },
-                    "required": ["type", "seconds", "at", "label", "repeat"],
+                    "required": ["type", "seconds", "at", "label", "repeat", "list"],
                     "additionalProperties": False,
                 }},
             },
@@ -400,6 +410,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   + body.prompt_line()
                   + weather.prompt_line()
                   + timers.prompt_block()
+                  + lists.prompt_block()
                   + memory.prompt_block())
 
         request = dict(model=OPENAI_MODEL,
@@ -434,6 +445,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
         _note_mood(mood if mood in USER_MOODS else "no_person",
                    bool(data.get("mood_comment", False)))
         timers.apply(data.get("actions") or [])
+        lists.apply(data.get("actions") or [])
 
         # keep history text-only: images are large and only matter for the
         # turn they were asked in

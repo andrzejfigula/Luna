@@ -38,6 +38,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Budzik ze świtem | „Obudź mnie jutro o siódmej” — 10 min wcześniej ekran powoli się rozjaśnia |
 | Powtarzające się | „Budzik w dni robocze na 6:30”, „Codziennie o 21 przypominaj mi o tabletkach” (też „w weekendy”) |
 | Lista | „Pokaż przypomnienia” — wszystko, co ustawione, na ekranie |
+| Listy zakupów / zadań | „Dopisz mleko i chleb do listy zakupów”, „Skreśl chleb”, „Co mam na liście?”, „Dodaj do listy rzeczy do zrobienia: …”, „Pokaż listę zakupów” (na ekranie) |
 | Tryb skupienia | „Włącz tryb skupienia” (albo „pomodoro na 50 minut”) — 25 min ciszy, potem „czas na przerwę” i 5 min przerwy; „koniec skupienia” wyłącza |
 | Oddech | „Ćwiczenie oddechowe” / „Pomóż mi się uspokoić” — okrąg na ekranie i jej głos: wdech 4 s, pauza 2 s, wydech 6 s |
 | Głośność | „Głośniej”, „Ciszej”, „Głośność na 40” |

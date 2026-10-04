@@ -4,6 +4,7 @@ The local commands must never swallow an ordinary question."""
 import os
 import sys
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -26,6 +27,7 @@ LOCAL = {
     "Pokaż lustro": "screen",
     "Pokaż zegar": "screen",
     "Pokaż przypomnienia": "screen",
+    "Pokaż listę zakupów": "screen",
     "Włącz tryb skupienia": "focus",
     "Pomodoro na 50 minut": "focus",
     "Luna, ćwiczenie oddechowe": "breath",
@@ -47,28 +49,40 @@ MODEL = [
     "Co to jest pomodoro?",
     "Jak działa tryb skupienia",
     "Czy ćwiczenie oddechowe pomaga na stres?",
+    "Dopisz mleko do listy zakupów",
+    "Co mam na liście?",
 ]
 
 
 class RoutingTest(unittest.TestCase):
 
     def setUp(self):
-        self.hit = None
-        commands.set_volume = lambda v: self._mark("volume") or v
-        commands.get_volume = lambda: 0.5
-        commands.settings.put = lambda k, v: self._mark("speed")
-        commands.go_to_sleep = lambda: self._mark("sleep")
-        screens._take_photo = lambda *a: self._mark("screen")
-        screens._show = lambda *a, **k: self._mark("screen")
-        games.play_match = lambda *a: self._mark("game")
-        games._rematch_until = 0
-        import timers
-        timers.screen_lines = lambda: [("1:00", "test")]  # independent of other tests
-        timers.add = lambda *a, **k: self._mark("focus")
-        timers.remove = lambda *a, **k: None
         import breathing
-        breathing.run = lambda *a: self._mark("breath")
-        commands.GOODBYE_REPLIES = ["<BYE>"]
+        import lists
+        import timers
+        self.hit = None
+        stubs = [
+            (commands, "set_volume", lambda v: self._mark("volume") or v),
+            (commands, "get_volume", lambda: 0.5),
+            (commands.settings, "put", lambda k, v: self._mark("speed")),
+            (commands, "go_to_sleep", lambda: self._mark("sleep")),
+            (commands, "GOODBYE_REPLIES", ["<BYE>"]),
+            (screens, "_take_photo", lambda *a: self._mark("screen")),
+            (screens, "_show", lambda *a, **k: self._mark("screen")),
+            (games, "play_match", lambda *a: self._mark("game")),
+            (games, "_rematch_until", 0),
+            (timers, "screen_lines", lambda: [("1:00", "test")]),
+            (timers, "add", lambda *a, **k: self._mark("focus")),
+            (timers, "remove", lambda *a, **k: None),
+            (lists, "find", lambda text: "zakupy"),
+            (lists, "get", lambda name=None: ["mleko"]),
+            (breathing, "run", lambda *a: self._mark("breath")),
+        ]
+        # patched for this test only — other test modules see the real ones
+        for obj, name, value in stubs:
+            p = mock.patch.object(obj, name, value)
+            p.start()
+            self.addCleanup(p.stop)
 
     def _mark(self, what):
         if self.hit is None:

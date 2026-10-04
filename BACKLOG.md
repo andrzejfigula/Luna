@@ -59,3 +59,10 @@ Status: ✅ done · 🚧 in progress · ⏳ queued · 💤 parked (with the reas
 | 28 | **Focus mode (pomodoro)** — "tryb skupienia": 25 min of quiet (no small talk, a calm face), then a break reminder | A desk companion that helps you work | ✅ |
 | 29 | **Breathing exercise** — "ćwiczenie oddechowe": a circle on her screen grows and shrinks, she guides "wdech… wydech" | Calm-down moment on request — only when asked | ✅ 4-2-6 breathing, 5 cycles; her "wdech / wydech" recorded once so they land on time |
 
+## Batch 6
+
+| # | Item | Why | Status |
+|---|------|-----|--------|
+| 30 | **Lists** — "dopisz mleko do listy zakupów", "co mam na liście?", "skreśl chleb", "pokaż listę zakupów" (on screen); kept in `data/lists.json` | The most common thing people ask a kitchen/desk assistant | ✅ |
+| 31 | **"Powtórz"** — replays her last answer instantly from the audio she already has (no new request) | Missed a word? Don't make her think again | ⏳ |
+

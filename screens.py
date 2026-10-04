@@ -6,6 +6,7 @@ screens.py — things Luna shows on her whole screen for a moment, on request.
                                        photos/ and shown for a few seconds
   "pokaż zegar" / "pokaż godzinę"    → a big clock with the date, CLOCK_SECS
   "pokaż przypomnienia"              → timers, reminders and alarms, 10 s
+  "pokaż listę zakupów"              → a list from lists.py, 12 s
 
 robot_face.py draws the overlay (state.overlay = (kind, until, data)); a tap
 on the screen closes it. Photos stay on the Pi (photos/, newest PHOTOS_KEEP
@@ -24,6 +25,8 @@ _PHOTO  = ("zrób mi zdjęcie", "zrób zdjęcie", "zrób nam zdjęcie", "zrób f
            "zrob mi zdjecie", "zrob zdjecie", "take a photo", "take a picture")
 _LIST   = ("pokaż przypomnienia", "pokaż minutniki", "pokaż budziki",
            "pokaz przypomnienia", "pokaż mi przypomnienia", "show my reminders")
+_SHOW_LIST = ("pokaż listę", "pokaz liste", "pokaż mi listę", "show the list",
+              "show my list")
 _CLOCK  = ("pokaż zegar", "pokaż godzinę", "pokaz zegar", "pokaz godzine",
            "show the clock", "show me the time")
 
@@ -89,7 +92,16 @@ def handle(text, speak, play_sound_async):
         if not lines:
             speak("Nie masz teraz żadnych minutników ani przypomnień.")
         else:
-            _show("list", 10, lines)
+            _show("list", 10, ("Przypomnienia", lines))
+        return True
+    if any(k in low for k in _SHOW_LIST):
+        import lists
+        name = lists.find(text)
+        items = lists.get(name) if name else []
+        if not items:
+            speak("Ta lista jest pusta." if name else "Nie masz jeszcze żadnej listy.")
+        else:
+            _show("list", 12, (f"Lista: {name}", [("•", i) for i in items]))
         return True
     if any(k in low for k in _CLOCK):
         _show("clock", CLOCK_SECS)

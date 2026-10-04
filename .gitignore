@@ -41,3 +41,5 @@ data/settings.json.tmp
 
 # photos she took ("zrób mi zdjęcie") — personal, stay on the Pi
 photos/
+data/lists.json
+data/lists.json.tmp

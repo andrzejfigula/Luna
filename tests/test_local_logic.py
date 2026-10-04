@@ -10,6 +10,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import games
+import lists
 import memory
 import settings
 import timers
@@ -19,6 +20,7 @@ TMP = tempfile.mkdtemp(prefix="luna-tests-")
 timers.TIMERS_PATH = os.path.join(TMP, "timers.json")
 memory.MEMORY_PATH = os.path.join(TMP, "memory.json")
 settings.SETTINGS_PATH = os.path.join(TMP, "settings.json")
+lists.LISTS_PATH = os.path.join(TMP, "lists.json")
 
 
 class TimersTest(unittest.TestCase):
@@ -118,6 +120,38 @@ class MemoryTest(unittest.TestCase):
         self.assertFalse(memory.check_forget("Zapomnij o tym, nieważne"))
         self.assertTrue(memory.check_forget("Luna, zapomnij wszystko"))
         self.assertEqual(memory._load()["facts"], [])
+
+
+class ListsTest(unittest.TestCase):
+
+    def setUp(self):
+        lists._lists = {}
+
+    def act(self, kind, label="", lst="zakupy"):
+        return lists.apply([{"type": kind, "label": label, "list": lst,
+                             "seconds": 0, "at": "", "repeat": "none"}])
+
+    def test_add_no_duplicates_remove_clear(self):
+        self.act("list_add", "mleko")
+        self.act("list_add", "Mleko")
+        self.act("list_add", "chleb")
+        self.act("list_add", "zadzwonić do Ani", "do zrobienia")
+        self.assertEqual(lists.get("zakupy"), ["mleko", "chleb"])
+        self.act("list_remove", "chleb")
+        self.assertEqual(lists.get("zakupy"), ["mleko"])
+        self.act("list_clear")
+        self.assertEqual(lists.get(), {"do zrobienia": ["zadzwonić do Ani"]})
+
+    def test_timer_actions_are_not_list_actions(self):
+        self.assertEqual(lists.apply([{"type": "timer", "label": "makaron", "list": "",
+                                       "seconds": 60, "at": "", "repeat": "none"}]), [])
+
+    def test_find_and_prompt(self):
+        self.act("list_add", "jajka")
+        self.act("list_add", "pranie", "do zrobienia")
+        self.assertEqual(lists.find("Pokaż listę zakupów"), "zakupy")
+        self.assertEqual(lists.find("pokaż listę do zrobienia"), "do zrobienia")
+        self.assertIn("zakupy: jajka", lists.prompt_block())
 
 
 class GamesTest(unittest.TestCase):
