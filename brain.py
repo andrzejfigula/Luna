@@ -28,6 +28,7 @@ import cv2
 from openai import OpenAI
 
 import reply_scenes
+import body
 import memory
 import timers
 
@@ -436,6 +437,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   f"asked the time or date, answer with exactly this local "
                   f"time — do not convert it to any other zone.\n"
                   + _mood_rule(image_b64 is not None)
+                  + body.prompt_line()
                   + timers.prompt_block()
                   + memory.prompt_block())
 
@@ -477,6 +479,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
         _history[-1] = {"role": "user", "content": text}
         _history.append({"role": "assistant", "content": reply})
         memory.record(text, reply)
+        body.note_conversation()
 
         print(f"[brain] OpenAI ({emotion}, {gesture}, you: {mood}"
               f"{', commented' if data.get('mood_comment') else ''}): {reply}")
