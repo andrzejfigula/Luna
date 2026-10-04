@@ -496,6 +496,12 @@ class FacesTest(unittest.TestCase):
         self.assertEqual(faces.identify(kasia + rng.normal(scale=0.3, size=128))[0], "Kasia")
         self.assertEqual(faces.identify(ola * 2)[0], "Ola")
         self.assertIsNone(faces.identify(rng.normal(size=128))[0])   # a stranger
+        faces._last_auto.clear()
+        faces._people["Kasia"].pop("auto", None)
+        faces.identify(kasia * 1.1)                                   # a sure match…
+        self.assertEqual(len(faces._people["Kasia"].get("auto", [])), 1)   # …teaches
+        faces.identify(kasia * 1.2)
+        self.assertEqual(len(faces._people["Kasia"]["auto"]), 1)      # once a minute
         self.assertTrue(faces.forget("kasia"))
         self.assertEqual(faces.names(), ["Ola"])
 

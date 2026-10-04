@@ -40,6 +40,10 @@ MATCH_COSINE = 0.40        # SFace: same person above this (paper: 0.363; a bit
                            # stricter — a wrong name is worse than none)
 SAMPLES_MAX = 30           # kept per person (photos + a few seconds of webcam)
 ENROLL_SECS = 4.0
+AUTO_MIN = 0.50            # self-learning: only from a sure recognition…
+AUTO_MARGIN = 0.25         # …well ahead of the second-best person…
+AUTO_EVERY = 60            # …at most one sample a minute per person…
+AUTO_MAX = 15              # …and at most this many (the oldest go first)
 RECOGNISE_EVERY = 2.5      # seconds between recognitions of a face in view
 
 _lock = threading.Lock()
@@ -126,19 +130,57 @@ def notes():
         return {n: p.get("note", "") for n, p in _load().items()}
 
 
-def identify(feature):
-    """(name, similarity) of the best match above MATCH_COSINE, else (None, best)."""
+def _scores(feature):
+    """{name: best cosine similarity over their samples (photos, enrolment
+    and self-learned)}."""
     with _lock:
-        people = {n: p["samples"] for n, p in _load().items()}
-    best, who = 0.0, None
+        people = {n: p["samples"] + p.get("auto", []) for n, p in _load().items()}
     f = feature / (np.linalg.norm(feature) + 1e-9)
+    out = {}
     for name, samples in people.items():
+        if not samples:
+            continue
         s = np.asarray(samples, np.float32)
         s = s / (np.linalg.norm(s, axis=1, keepdims=True) + 1e-9)
-        sim = float(np.max(s @ f))
-        if sim > best:
-            best, who = sim, name
-    return (who, best) if best >= MATCH_COSINE else (None, best)
+        out[name] = float(np.max(s @ f))
+    return out
+
+
+def identify(feature):
+    """(name, similarity) of the best match above MATCH_COSINE, else (None, best).
+    A sure match also teaches her a little (see learn)."""
+    scores = _scores(feature)
+    if not scores:
+        return None, 0.0
+    ranked = sorted(scores.items(), key=lambda kv: -kv[1])
+    who, best = ranked[0]
+    second = ranked[1][1] if len(ranked) > 1 else 0.0
+    if best < MATCH_COSINE:
+        return None, best
+    if best >= AUTO_MIN and best - second >= AUTO_MARGIN:
+        learn(who, feature)
+    return who, best
+
+
+_last_auto = {}
+
+
+def learn(name, feature):
+    """Self-learning: keep a few webcam samples of a surely recognised face —
+    the photos were taken by a phone in other light; this is how she sees
+    them every day. Separate from the photos/enrolment, capped, oldest out."""
+    now = time.time()
+    if now - _last_auto.get(name, 0) < AUTO_EVERY:
+        return
+    _last_auto[name] = now
+    with _lock:
+        p = _load().get(name)
+        if p is None:
+            return
+        p["auto"] = (p.get("auto", []) + [[round(float(v), 5) for v in feature]])[-AUTO_MAX:]
+        _save()
+    print(f"[faces] learned a little more of {name} ({len(p['auto'])} webcam samples)",
+          flush=True)
 
 
 def start_enrolment(name):

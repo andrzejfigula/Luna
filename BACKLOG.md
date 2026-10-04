@@ -274,3 +274,4 @@ the game's hand reading, photos, the mood read from a face.
 | # | Item | Why | Status |
 |---|------|-----|--------|
 | 108 | **Fewer phantom waves** — a wave must travel ≥ 0.8 face widths (was 0.35); she still waves back every time but says hello at most every 2 minutes | Tonight's log: "Hejka!", "Hej, hej!" seven times while Andrzej sat at the desk — hand movements of 14–27 px with a 40 px face; the real waves in the same log were 107–151 px | ✅ |
+| 109 | **She learns faces by herself** — a sure recognition (≥ 0.50, ≥ 0.25 ahead of anyone else) adds one webcam sample a minute, up to 15 per person, kept apart from the photo/enrolment samples | The photos came from a phone in other light; through the C270 Andrzej scored 0.41–0.62, near the 0.40 line | ✅ live: one webcam sample later he scored 0.67 |
