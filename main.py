@@ -186,14 +186,18 @@ def _shutdown(*args):
     why = f"signal {args[0]}" if args and isinstance(args[0], int) else "renderer stopped"
     print(f"\n[Luna] Shutting down ({why}) at {time.strftime('%H:%M:%S')}",
           flush=True)
-    try:
-        import pygame
-        pygame.quit()
-    except Exception:
-        pass
+    # whatever hangs below, she is gone in 2 s: on 4 Oct a process stuck in
+    # here (a lock, after "Shutting down") lived on beside the new one and kept
+    # the microphone — the new Luna came up deaf
+    threading.Timer(2.0, lambda: os._exit(0)).start()
     try:                       # the radio's ffmpeg / pw-play must not outlive her
         import radio
         radio.stop()
+    except Exception:
+        pass
+    try:
+        import pygame
+        pygame.quit()
     except Exception:
         pass
     # hard exit: the daemon camera/mic threads hold native handles (OpenCV,

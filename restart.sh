@@ -15,7 +15,16 @@ if [ "$1" != "--now" ]; then
     done
 fi
 ./stop.sh >/dev/null 2>&1
-sleep 2
+# a Luna that doesn't go within 5 s is killed — two of them fight over the mic
+for _ in 1 2 3 4 5; do
+    pgrep -f "^\./venv/bin/python -u main.py" >/dev/null || break
+    sleep 1
+done
+for pid in $(pgrep -f "^\./venv/bin/python -u main.py"); do
+    [ "$(readlink -f /proc/$pid/cwd)" = "$PWD" ] && kill -9 "$pid" 2>/dev/null \
+        && echo "restart: killed a stuck Luna ($pid)" >> luna.log
+done
+sleep 1
 echo "===== restart $(date '+%F %T') =====" >> luna.log
 (setsid nohup /usr/bin/lwrespawn "$PWD/run.sh" >> "$PWD/luna.log" 2>&1 < /dev/null &)
 sleep 15
