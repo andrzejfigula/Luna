@@ -521,9 +521,9 @@ def handle(text, speak, play_sound):
         m = re.search(r"\bdla\s+(\w+)", text)
         if m:                                       # "…dla Emilki" → Emilka
             import faces
-            to = faces.nominative(m.group(1))
-            known = {n.lower(): n for n in faces.names()}
-            to = known.get(to.lower(), to)
+            to = faces.match_name(m.group(1))       # "dla Mai" → Maja, locally
+            if not to:                              # someone she doesn't know
+                to = faces.nominative(m.group(1))
         messages.arm(to)
         with state.lock:
             state.conversation_active = True
@@ -764,7 +764,7 @@ def handle(text, speak, play_sound):
     if m and _short(text, 6):
         import faces
         if m.group(1):
-            who = faces.nominative(m.group(1))
+            who = faces.match_name(m.group(1)) or faces.nominative(m.group(1))
         else:
             with state.lock:
                 who = state.person[0] if state.person else None
