@@ -64,7 +64,11 @@ def renderer_loop():
         # her (an override from a touch, speech, listening) restores 30 fps
         sleepy = (not override and not speaking and not listening
                   and (asleep or face.idle_frames > SLEEP_AFTER_FRAMES))
-        face.fps = RENDER_FPS_ASLEEP if sleepy else RENDER_FPS
+        with state.lock:
+            ov = state.overlay
+        still = bool(ov and ov[0] in ("lamp", "clock", "list", "photo", "gallery")
+                     and now < ov[1] - 0.6)          # (full speed for the fade-out)
+        face.fps = 8 if still else RENDER_FPS_ASLEEP if sleepy else RENDER_FPS
 
         try:
             face.draw()

@@ -90,7 +90,9 @@ def _vision_iteration_loop():
         n += 1
         with state.lock:
             unseen = time.time() - state.last_face_time
-        sleep_time = 1.0 / (VISION_IDLE_FPS if unseen > VISION_IDLE_AFTER else VISION_FPS)
+            asleep = state.sleep_mode            # "dobranoc": no need to watch closely
+        slow = unseen > VISION_IDLE_AFTER or asleep
+        sleep_time = 1.0 / (VISION_IDLE_FPS if slow else VISION_FPS)
 
         with state.lock:
             frame = state.frame
