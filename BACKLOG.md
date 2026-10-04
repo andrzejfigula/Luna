@@ -103,3 +103,10 @@ Status: ✅ done · 🚧 in progress · ⏳ queued · 💤 parked (with the reas
 | 39 | **Local actions in the conversation** — what she did herself (dice, photo, volume, lists shown, game score…) goes into the chat history, so "co wypadło?" or "a jak teraz?" make sense to the model | Otherwise the model doesn't know half of what just happened | ✅ "rzuć kostką" → "co wypadło?" → "Wypadło trzy." |
 | 40 | **She knows her settings** — volume, speech speed, screen brightness, night/focus/sleep state in the prompt | "Jak głośno teraz mówisz?" | ✅ |
 
+## Batch 10 — shaving latency
+
+| # | Item | Why | Status |
+|---|------|-----|--------|
+| 41 | **Quicker end of your sentence** — Vosk waits ~1.05 s of silence (measured); now 0.75 s of silence after real speech ends the utterance (`STT_END_SILENCE`) | Measured speaker→mic: text ready 1.28–1.46 s after the sentence instead of 1.50–1.90 s, transcripts complete | ✅ |
+| 42 | **No silence queued in front of a reply** — the always-open player keeps only 0.08 s of silence queued between utterances (0.4 s margin only once speech flows) | First speech byte heard ~75 ms after the call instead of ~400 ms | ✅ |
+

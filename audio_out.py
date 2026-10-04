@@ -29,6 +29,8 @@ CHUNK = int(0.04 * RATE) * 2    # writer granularity: 40 ms
 # quiet hours: timers.py sets this while an alarm rings.
 full_volume_until = 0.0
 
+IDLE_AHEAD = 0.08               # seconds of silence queued between utterances
+
 
 class AudioOut:
 
@@ -89,17 +91,22 @@ class AudioOut:
             if ahead < 0:
                 # the player ran dry (we were late): it played everything
                 # we gave it and waited, so move the clock to match
-                self.underruns += 1
+                if self.active and self.started:
+                    self.underruns += 1          # gaps in silence don't count
                 if self.active and self.started:
                     print(f"[audio] underrun during speech (writer late "
                           f"{stall * 1000:.0f} ms) — raise AUDIO_AHEAD_SECS "
                           f"if this repeats", flush=True)
                 self.t_start = now - self.written / BPS
                 ahead = 0.0
-            if ahead >= self.target:
+            # until speech flows keep only a sliver of silence queued, so a
+            # reply isn't stuck behind 0.4 s of it (a gap in silence is
+            # inaudible); once she speaks: the full jitter margin
+            target = self.target if (self.active and self.started) else IDLE_AHEAD
+            if ahead >= target:
                 # sleep exactly as long as the margin allows: waking 100+
                 # times a second cost ~10 % of a core for nothing
-                time.sleep(min(0.06, ahead - self.target + 0.01))
+                time.sleep(min(0.06, ahead - target + 0.01))
                 continue
             data, speech = silence, False
             with self.lock:

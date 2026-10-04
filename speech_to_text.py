@@ -61,6 +61,7 @@ from config import (
     CLOUD_STT_PROMPT,
     CLOUD_STT_TIMEOUT,
     CLOUD_STT_MAX_SECS,
+    STT_END_SILENCE,
     STT_SAVE_UTTERANCES,
     CLOUD_WAKE_CHECK,
     CLOUD_WAKE_MIN_INTERVAL,
@@ -576,6 +577,8 @@ def listen():
         state.listening = active
         state.luna_mode = "listening" if active else "idle"
 
+    voiced       = False # real speech heard in the current utterance
+    silent_run   = 0.0   # seconds of gated silence since the last speech
     utt_peak_rms = 0.0   # loudest block in the utterance being accumulated
     utt_audio    = []    # raw (ungated) 16 kHz blocks of the current utterance
     utt_bytes    = 0
@@ -628,11 +631,21 @@ def listen():
         if utt_bytes < utt_max:
             utt_audio.append(data)
             utt_bytes += len(data)
-        if rms < _energy_gate():
+        gated = rms < _energy_gate()
+        if gated:
             data = bytes(len(data))
+            silent_run += len(data) / (VOSK_SAMPLE_RATE * 2)
+        else:
+            voiced, silent_run = True, 0.0
 
-        if rec.AcceptWaveform(data):
-            result   = json.loads(rec.Result())
+        # Vosk only calls the utterance finished after ~1.05 s of silence
+        # (measured). Ours is quicker: STT_END_SILENCE of gated silence after
+        # real speech — a third of a second sooner to the answer.
+        final = rec.AcceptWaveform(data)
+        early = not final and voiced and silent_run >= STT_END_SILENCE
+        if final or early:
+            result   = json.loads(rec.FinalResult() if early else rec.Result())
+            voiced, silent_run = False, 0.0
             text     = result.get("text", "").strip()
             peak_rms = utt_peak_rms
             utt_peak_rms = 0.0   # reset for the next utterance

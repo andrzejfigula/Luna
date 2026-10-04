@@ -233,6 +233,10 @@ FACE_RECENT_SECS     = 4.0   # tolerance for glancing away mid-question
 # 3) Minimum length: ignore stray single-character tokens ("a", "i", "o") that
 #    noise commonly yields. Real short answers ("yes"/"no"/"hi") still pass.
 STT_MIN_UTTERANCE_CHARS = 2
+# The utterance is over after this much silence following real speech (Vosk
+# alone waits ~1.05 s). Raise it if she answers before you finish sentences
+# with long pauses.
+STT_END_SILENCE = 0.75
 
 # Print per-utterance rms/confidence so the thresholds above can be tuned.
 STT_DEBUG_AUDIO = True
