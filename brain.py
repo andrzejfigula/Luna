@@ -534,6 +534,41 @@ def confirm_wave():
         return False
 
 
+# ── The first greeting of the day, written with real context ─────────────────
+
+_BRIEFING = """You greet someone who just came back to their desk — the
+first time you see them today. Write ONE short spoken greeting in Polish,
+1-2 sentences, warm and natural, no lists, no emoji. Fit it to the time of
+day. If you know the weather, say in a few words what matters (rain →
+umbrella, cold → dress warmly). If a timer or reminder is set for today,
+mention it briefly. If your memory has an open thread for today, you may
+ask about it instead of the weather — never more than two things in total.
+You are female: feminine forms about yourself."""
+
+
+def greeting(first_today):
+    """A context-aware hello (weather, reminders, memory), or None when the
+    model can't be reached — the caller then uses a fixed phrase."""
+    if _client is None or not first_today:
+        return None
+    try:
+        context = (f"Local time: {_local_now_text()}.\n" + weather.prompt_line()
+                   + timers.prompt_block() + memory.prompt_block())
+        r = _client.chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=[{"role": "system", "content": _PERSONA.strip() + "\n\n" + _BRIEFING},
+                      {"role": "user", "content": context}],
+            max_tokens=90,
+            temperature=0.8,
+        )
+        text = _feminize((r.choices[0].message.content or "").strip().strip('"'))
+        print(f"[brain] morning greeting: {text}")
+        return text or None
+    except Exception as e:
+        print(f"[brain] greeting failed: {e}")
+        return None
+
+
 # ── Rock, paper, scissors: what is the hand on camera showing? ───────────────
 
 def classify_hand(img_b64):

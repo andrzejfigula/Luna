@@ -170,7 +170,11 @@ def idle_loop():
                     _gesture("wave")
                     if _may_speak():
                         _last_proactive = now
-                        speak(_greeting(first_today), can_drop=True)
+                        # the first hello of the day knows your day (weather,
+                        # reminders, memory); later ones are short phrases
+                        from brain import greeting
+                        speak(greeting(first_today) or _greeting(first_today),
+                              can_drop=True)
             elif was_present and not present:
                 left_at = now
             was_present = present
