@@ -16,6 +16,7 @@ on the screen closes it. Photos stay on the Pi (photos/, newest PHOTOS_KEEP
 kept) and are never sent anywhere.
 """
 
+import json
 import os
 import re
 import time
@@ -68,6 +69,7 @@ def _take_photo(speak, play_sound_async):
     path = os.path.join(PHOTOS_DIR, time.strftime("%Y%m%d-%H%M%S") + ".jpg")
     cv2.imwrite(path, cv2.flip(frame, 1), [int(cv2.IMWRITE_JPEG_QUALITY), 92])
     print(f"[screens] photo saved: {path}", flush=True)
+    names = _tag(path)
     shots = sorted(f for f in os.listdir(PHOTOS_DIR) if f.endswith(".jpg"))
     for old in shots[:-PHOTOS_KEEP]:
         try:
@@ -78,9 +80,64 @@ def _take_photo(speak, play_sound_async):
     _show("photo", PHOTO_SHOW_SECS, path)
     with state.lock:
         state.emotion = "Happy"
-    speak("Pięknie wyszło!")
+    speak("Pięknie wyszło!" + (f" {_and(names)} na zdjęciu." if names else ""))
     with state.lock:
         state.emotion = "Neutral"
+
+
+_TAGS = os.path.join(PHOTOS_DIR, "people.json")
+
+
+def _tags():
+    try:
+        with open(_TAGS, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def _tag(path):
+    """Who is in the photo just taken (faces.py), kept in photos/people.json."""
+    try:
+        import cv2
+        import faces
+        names = faces.who_in(cv2.imread(path))
+    except Exception as e:
+        print(f"[screens] who is in the photo: {e}", flush=True)
+        return []
+    tags = _tags()
+    tags[os.path.basename(path)] = names
+    keep = set(os.listdir(PHOTOS_DIR))
+    tags = {f: n for f, n in tags.items() if f in keep}
+    with open(_TAGS, "w", encoding="utf-8") as f:
+        json.dump(tags, f, ensure_ascii=False)
+    if names:
+        print(f"[screens] in the photo: {', '.join(names)}", flush=True)
+    return names
+
+
+def _and(names):
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " i " + names[-1]
+
+
+def _person_in(low):
+    """"pokaż zdjęcia Mai" → "Maja" (a known person), else None."""
+    try:
+        import faces
+        known = faces.names()
+    except Exception:
+        return None
+    m = re.search(r"zdję\w*\s+(?:z\s+)?(\w+)", low)
+    if not m or not known:
+        return None
+    word = m.group(1)
+    for n in known:                       # "Andrzeja", "Emilki": the stem is enough
+        if word.startswith(n.lower()[:-1]) or n.lower().startswith(word):
+            return n
+    if word in ("mi", "moje", "mnie", "nas", "nasze", "ostatnie", "wszystkie"):
+        return None
+    nom = faces.nominative(word)          # "Mai" → "Maja"
+    return next((n for n in known if n.lower() == nom.lower()), None)
 
 
 def handle(text, speak, play_sound_async):
@@ -106,12 +163,18 @@ def handle(text, speak, play_sound_async):
     if any(k in low for k in _GALLERY):
         shots = sorted((f for f in os.listdir(PHOTOS_DIR) if f.endswith(".jpg")),
                        reverse=True) if os.path.isdir(PHOTOS_DIR) else []
+        tags = _tags()
+        who = _person_in(low)
+        if who:                               # "pokaż zdjęcia Mai"
+            shots = [f for f in shots if who in tags.get(f, [])]
         if not shots:
-            speak("Nie mam jeszcze żadnych zdjęć. Powiedz: zrób mi zdjęcie!")
+            speak(f"Nie mam zdjęć, na których jest {who}." if who else
+                  "Nie mam jeszcze żadnych zdjęć. Powiedz: zrób mi zdjęcie!")
         else:
             paths = [os.path.join(PHOTOS_DIR, f) for f in shots]
             _show("gallery", len(paths) * GALLERY_STEP + 1,
-                  {"paths": paths, "i": 0, "next": time.time() + GALLERY_STEP})
+                  {"paths": paths, "i": 0, "next": time.time() + GALLERY_STEP,
+                   "names": [_and(tags[f]) if tags.get(f) else "" for f in shots]})
         return True
     if any(k in low for k in _SHOW_LIST):
         import lists

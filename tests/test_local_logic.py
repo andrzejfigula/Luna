@@ -543,6 +543,23 @@ class MoodTest(unittest.TestCase):
         self.assertIn("nobody has talked", mood.prompt_line())
 
 
+class PhotoPeopleTest(unittest.TestCase):
+
+    def test_whose_photos(self):
+        import faces
+        import screens
+        with mock.patch.object(faces, "names", lambda: ["Andrzej", "Emilka", "Maja"]), \
+                mock.patch.object(faces, "nominative",
+                                  lambda w: {"mai": "Maja", "mają": "Maja"}.get(w, w)):
+            self.assertEqual(screens._person_in("pokaż zdjęcia andrzeja"), "Andrzej")
+            self.assertEqual(screens._person_in("pokaż zdjęcia emilki"), "Emilka")
+            self.assertEqual(screens._person_in("pokaż zdjęcia mai"), "Maja")
+            self.assertEqual(screens._person_in("pokaż zdjęcia z mają"), "Maja")
+            self.assertIsNone(screens._person_in("pokaż zdjęcia"))
+            self.assertIsNone(screens._person_in("pokaż moje zdjęcia"))
+        self.assertEqual(screens._and(["Andrzej", "Maja"]), "Andrzej i Maja")
+
+
 class MessagesForPeopleTest(unittest.TestCase):
 
     def test_message_waits_for_its_person(self):

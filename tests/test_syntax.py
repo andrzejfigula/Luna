@@ -51,7 +51,8 @@ class ShadowTest(unittest.TestCase):
                         targets = [n.target]
                     for t in targets:
                         for name in ast.walk(t):
-                            if (isinstance(name, ast.Name) and name.id in imported
+                            if (isinstance(name, ast.Name) and isinstance(name.ctx, ast.Store)
+                                    and name.id in imported
                                     and name.id not in local_imports):
                                 with self.subTest(file=os.path.basename(path), fn=fn.name):
                                     self.fail(f"local '{name.id}' shadows the module "

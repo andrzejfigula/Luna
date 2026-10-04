@@ -47,6 +47,8 @@ AUTO_MAX = 15              # …and at most this many (the oldest go first)
 RECOGNISE_EVERY = 2.5      # seconds between recognitions of a face in view
 
 _lock = threading.Lock()
+_net_lock = threading.Lock()   # one user of the networks at a time: vision and a
+                               # photo being tagged would resize the same detector
 _det = None
 _rec = None
 _people = None             # {name: {"samples": [[128 floats]], "added": t}}
@@ -83,7 +85,8 @@ def _recogniser():
 def detect(bgr):
     """YuNet rows (x, y, w, h, 10 landmark coords, score) for a BGR frame."""
     h, w = bgr.shape[:2]
-    _, faces = _detector(w, h).detect(bgr)
+    with _net_lock:
+        _, faces = _detector(w, h).detect(bgr)
     return faces if faces is not None else np.zeros((0, 15), np.float32)
 
 
@@ -93,9 +96,10 @@ def embed(bgr_full, row_small, scale):
     detail recognition needs."""
     row = row_small.copy()
     row[:14] *= scale
-    rec = _recogniser()
-    crop = rec.alignCrop(bgr_full, row)
-    return rec.feature(crop).flatten()
+    with _net_lock:
+        rec = _recogniser()
+        crop = rec.alignCrop(bgr_full, row)
+        return rec.feature(crop).flatten()
 
 
 # ── who is who ────────────────────────────────────────────────────────────────
@@ -146,7 +150,24 @@ def _scores(feature):
     return out
 
 
-def identify(feature):
+def who_in(bgr):
+    """Names of the known people in a picture (a photo she took), left to
+    right; [] without the models."""
+    if not (available() and can_recognise()):
+        return []
+    import cv2
+    h, w = bgr.shape[:2]
+    k = min(1.0, 640 / max(h, w))
+    small = cv2.resize(bgr, (int(w * k), int(h * k))) if k < 1 else bgr
+    found = []
+    for r in sorted(detect(small), key=lambda r: r[0]):
+        name, _ = identify(embed(bgr, r, 1 / k), learn_ok=False)
+        if name and name not in found:
+            found.append(name)
+    return found
+
+
+def identify(feature, learn_ok=True):
     """(name, similarity) of the best match above MATCH_COSINE, else (None, best).
     A sure match also teaches her a little (see learn)."""
     scores = _scores(feature)
@@ -157,7 +178,7 @@ def identify(feature):
     second = ranked[1][1] if len(ranked) > 1 else 0.0
     if best < MATCH_COSINE:
         return None, best
-    if best >= AUTO_MIN and best - second >= AUTO_MARGIN:
+    if learn_ok and best >= AUTO_MIN and best - second >= AUTO_MARGIN:
         learn(who, feature)
     return who, best
 

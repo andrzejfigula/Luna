@@ -2273,6 +2273,9 @@ class RobotFace:
                         state.overlay = None
                     return
                 counter = f"{data['i'] + 1}/{len(data['paths'])}"
+                who = (data.get("names") or [""] * len(data["paths"]))[data["i"]]
+                if who:
+                    counter = f"{who}   {counter}"
                 data = data["paths"][data["i"]]
             else:
                 counter = None

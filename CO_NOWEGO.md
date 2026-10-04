@@ -68,6 +68,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Wiadomość dla kogoś | „Nagraj wiadomość dla Emilki” — powie Emilce, gdy ją zobaczy, i kto ją zostawił |
 | Dla Mai | mówi do niej wolniej i cieplej; przy lekcjach naprowadza zamiast podawać wynik; bajki mogą być o niej; wiadomości tylko lekkie |
 | Radio każdego | „Włącz radio” włącza stację, której ta osoba słuchała ostatnio |
+| Zdjęcia z imionami | po „zrób nam zdjęcie” powie, kto jest na zdjęciu; „pokaż zdjęcia Mai” — tylko te z Mają; w galerii imiona pod zdjęciem |
 | Gość | nieznaną twarz Luna przywita i zapyta o imię — wystarczy odpowiedzieć „Jestem Ola” albo samo „Ola” |
 | Kim jestem? | „Kim jestem?”, „Poznajesz mnie?” |
 | Zapomnij | „Zapomnij moją twarz”, „Zapomnij twarz Kasi” |
