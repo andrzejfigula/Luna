@@ -13,6 +13,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Przerwij jej | **stuknij w ekran**, kiedy mówi |
 | Koniec rozmowy | „Pa!”, „Do zobaczenia”, „Dzięki, to wszystko” — pomacha i przestanie słuchać |
 | Czeka na odpowiedź | gdy zada pytanie, słucha dłużej (+8 s) |
+| Napisy | „Włącz napisy” — na dole ekranu to, co mówi, i to, co usłyszała od Ciebie („Ty: …”); „wyłącz napisy” |
 | Powtórz | „Powtórz”, „Co powiedziałaś?” — odtwarza ostatnią odpowiedź od razu, bez pytania chmury |
 | Bajki i dłuższe wyjaśnienia | „Opowiedz mi bajkę o smoku”, „Wyjaśnij dokładnie, jak działa…” |
 | Co potrafi | „Luna, co potrafisz?” |
@@ -37,8 +38,9 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Przypomnienie | „Przypomnij mi o 18:30, żeby zadzwonić do mamy” |
 | Ile zostało | „Ile zostało na minutniku?” — odliczanie widać też w prawym górnym rogu, a ostatnie 5 sekund wielkimi cyframi |
 | Anuluj | „Wyłącz minutnik”, „Usuń przypomnienie o mamie” |
+| Drzemka / dłużej | Po dzwonku: „Jeszcze 5 minut” albo „drzemka” (9 min); „Dodaj 5 minut do minutnika” |
 | Budzik ze świtem | „Obudź mnie jutro o siódmej” — 10 min wcześniej ekran powoli się rozjaśnia |
-| Powtarzające się | „Budzik w dni robocze na 6:30”, „Codziennie o 21 przypominaj mi o tabletkach” (też „w weekendy”) |
+| Powtarzające się | „Budzik w dni robocze na 6:30”, „Codziennie o 21 przypominaj mi o tabletkach”, „W każdy wtorek o 18 trening”, „Co roku 12 maja urodziny mamy” |
 | Lista | „Pokaż przypomnienia” — wszystko, co ustawione, na ekranie |
 | Listy zakupów / zadań | „Dopisz mleko i chleb do listy zakupów”, „Skreśl chleb”, „Co mam na liście?”, „Dodaj do listy rzeczy do zrobienia: …”, „Pokaż listę zakupów” (na ekranie) |
 | Tryb skupienia | „Włącz tryb skupienia” (albo „pomodoro na 50 minut”) — 25 min ciszy, potem „czas na przerwę” i 5 min przerwy; „koniec skupienia” wyłącza |
@@ -67,6 +69,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Co | Jak |
 |---|---|
 | Lampka nocna | „Włącz lampkę” — cały ekran ciepło świeci (45 %); „wyłącz lampkę” albo stuknięcie gasi |
+| Bajka na dobranoc | „Opowiedz bajkę na dobranoc” — spokojna bajka, a potem Luna sama zasypia |
 | Dobranoc | „Dobranoc” — zamyka oczy, ekran prawie gaśnie, nie zagaduje do rana; obudzi się, gdy się do niej odezwiesz |
 | Tryb nocny | samo działa — w godzinach ciszy (22–8) ekran przygasa, a głos jest o połowę cichszy (budziki i minutniki dzwonią normalnie) |
 | Jasność od światła w pokoju | samo działa — kamera mierzy światło; w ciemnym pokoju ekran schodzi do 25 %. Próg ciemności jest na razie zgadnięty — wartość `light` jest co godzinę w `luna.log` (`[health]`) |

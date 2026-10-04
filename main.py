@@ -114,6 +114,8 @@ def voice_loop():
                             and play_sound("huh", can_drop=False)):
                         speak(random.choice(WAKE_REPLIES))
                 elif text:
+                    with state.lock:                     # subtitles: what she heard
+                        state.caption = ("you", text, time.time() + 6.0)
                     if check_mute(text):
                         pass          # "Luna, cicho" — handled, nothing to ask
                     elif check_forget(text):

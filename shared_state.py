@@ -53,6 +53,8 @@ class SharedState:
                                  # flash over the whole screen (screens.py)
         "sunrise",               # (start, end) of a wake-up alarm's dawn:
                                  # the screen brightens until end (timers.py)
+        "caption",               # (who, text, until): subtitles — "luna" or
+                                 # "you" (drawn when captions are on)
         "online",                # the cloud answered last time (health.py)
         "big_text",              # (text, until): a big glyph between her eyes
                                  # (the rock-paper-scissors countdown)
@@ -112,6 +114,7 @@ class SharedState:
         self.timer_text          = None
         self.big_text            = None
         self.online              = True
+        self.caption             = None
         self.sunrise             = None
         self.overlay             = None
         self.focus_until         = 0.0

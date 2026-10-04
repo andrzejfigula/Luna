@@ -90,6 +90,8 @@ _SNOOZE = ("drzemka", "drzemkę", "jeszcze chwilę", "jeszcze chwile", "jeszcze 
            "jeszcze pięć", "jeszcze 10", "jeszcze dziesięć", "jeszcze minut",
            "snooze")
 _EXTEND = ("dodaj", "przedłuż", "przedluz", "add")
+_CAPTIONS_ON  = ("włącz napisy", "wlacz napisy", "pokazuj napisy", "captions on")
+_CAPTIONS_OFF = ("wyłącz napisy", "wylacz napisy", "bez napisów", "captions off")
 _RESTART = ("zrestartuj się", "zrestartuj sie", "uruchom się ponownie",
             "uruchom sie ponownie", "restart yourself")
 _TRANSLATE_START = ("tłumacz na", "tlumacz na", "tłumaczyć na", "tlumaczyc na", "tryb tłumacza", "bądź tłumaczem",
@@ -305,6 +307,13 @@ def handle(text, speak, play_sound):
         import os
         import signal
         os.kill(os.getpid(), signal.SIGTERM)    # main._shutdown does the rest
+        return True
+
+    # subtitles — "włącz napisy" / "wyłącz napisy"
+    if _bare(text, _CAPTIONS_ON + _CAPTIONS_OFF):
+        on = any(k in low for k in ("włącz", "wlacz", "pokazuj", "on"))
+        settings.put("captions", on)
+        speak("Dobrze, włączam napisy." if on else "Dobrze, wyłączam napisy.")
         return True
 
     # translator mode — "tłumacz na angielski" … "koniec tłumaczenia"

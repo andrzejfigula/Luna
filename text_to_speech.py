@@ -151,6 +151,11 @@ _speak_lock = threading.Lock()
 
 
 
+def _caption(text, secs=60.0):
+    with state.lock:
+        state.caption = ("luna", text, time.time() + secs)
+
+
 def speak(text, can_drop=False):
     """
     Speak text.
@@ -166,6 +171,7 @@ def speak(text, can_drop=False):
 
     def run(style):
         print(f"[Luna] {text}")
+        _caption(text)
         _engine_speak(text, style)
         _last_answer[0] = text
 
@@ -182,6 +188,7 @@ def speak_stream(sentences):
         for sentence in sentences:
             said.append(sentence)
             print(f"[Luna] {sentence}")
+            _caption(sentence)
             yield sentence
 
     def run(style):
@@ -229,6 +236,9 @@ def _speaking(run, spoken_text, can_drop):
             state.mic_unblock_time = time.time() + MIC_BLOCK_AFTER_SPEAK
             state.last_spoken_text = spoken_text().lower()
             state.last_spoken_time = time.time()
+            # subtitles linger a moment after she stops
+            if state.caption and state.caption[0] == "luna":
+                state.caption = ("luna", state.caption[1], time.time() + 2.0)
             # Do not consume conversation timeout while Luna is speaking —
             # and if she just asked something, give the answer more time.
             if state.conversation_active:

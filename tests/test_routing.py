@@ -42,6 +42,8 @@ LOCAL = {
     "Włącz tryb skupienia": "focus",
     "Minutnik na 10 minut": "timer",
     "Jeszcze 5 minut": "snooze",
+    "Włącz napisy": "captions",
+    "Luna, wyłącz napisy": "captions",
     "Opowiedz mi bajkę na dobranoc": "story",
     "Drzemka": "snooze",
     "Dodaj 5 minut do minutnika": "extend",
@@ -100,7 +102,7 @@ class RoutingTest(unittest.TestCase):
         stubs = [
             (commands, "set_volume", lambda v: self._mark("volume") or v),
             (commands, "get_volume", lambda: 0.5),
-            (commands.settings, "put", lambda k, v: self._mark("speed")),
+            (commands.settings, "put", lambda k, v: self._mark("captions" if k == "captions" else "speed")),
             (commands, "go_to_sleep", lambda: self._mark("sleep")),
             (commands, "GOODBYE_REPLIES", ["<BYE>"]),
             (screens, "_take_photo", lambda *a: self._mark("screen")),

@@ -2138,6 +2138,9 @@ class RobotFace:
         if timer_text:
             self._draw_timer(timer_text)
 
+        # ── subtitles: what she says / what she heard ─────────────────────
+        self._draw_caption()
+
         # ── no cloud: a small crossed-out cloud, top-left ─────────────────
         if not online:
             self._draw_offline()
@@ -2163,6 +2166,46 @@ class RobotFace:
         glow.fill((*GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
         bloom(surf, glow, rect.topleft, radius=10, passes=1, max_alpha=int(120 * k))
         surf.blit(img, rect)
+
+    def _draw_caption(self):
+        with state.lock:
+            cap = state.caption
+        if not cap or time.time() > cap[2]:
+            return
+        try:
+            import settings
+            if not settings.get("captions", False):
+                return
+        except Exception:
+            return
+        who, text, _ = cap
+        key = (who, text)
+        if getattr(self, "_cap_cache", (None,))[0] != key:
+            font = _get_font(24)
+            words = (("Ty: " if who == "you" else "") + text).split()
+            lines, line = [], ""
+            for w in words:                          # wrap to the screen width
+                test = (line + " " + w).strip()
+                if font.size(test)[0] > WIDTH - 40 and line:
+                    lines.append(line)
+                    line = w
+                else:
+                    line = test
+            if line:
+                lines.append(line)
+            if len(lines) > 3:                       # three lines, from the start
+                lines = lines[:3]
+                lines[2] = lines[2].rstrip(".,") + "…"
+            col = EYE_INNER if who == "you" else TEETH_COL
+            h = 12 + 28 * len(lines)
+            band = pygame.Surface((WIDTH, h), pygame.SRCALPHA)
+            band.fill((0, 0, 0, 175))
+            for i, ln in enumerate(lines):
+                img = font.render(ln, True, col)
+                band.blit(img, img.get_rect(center=(WIDTH // 2, 6 + 14 + 28 * i)))
+            self._cap_cache = (key, band)
+        band = self._cap_cache[1]
+        self.screen.blit(band, (0, HEIGHT - band.get_height()))
 
     def _overlay_on(self):
         with state.lock:

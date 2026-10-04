@@ -141,5 +141,5 @@ the game's hand reading, photos, the mood read from a face.
 | 50 | **Extend a timer** — "dodaj 5 minut do minutnika", "przedłuż o minutę" | Cooking never goes to plan | ✅ |
 | 51 | **Weekly, monthly, yearly** — "w każdy wtorek o 18 trening", "przypomnij o urodzinach mamy 12 maja co roku" | Birthdays and routines | ✅ found: a date in the past ("12 maja" in October) moved by one day and rang at once as missed — now the next year / an ignored one-off |
 | 52 | **Bedtime story** — "bajka na dobranoc": a calm story, then she falls asleep herself | A kid's evening ritual | ✅ |
-| 53 | **Captions** — what she says, and what she understood from you, as text at the bottom of the screen ("włącz napisy") | Noisy room, hard of hearing, or just checking she heard right | ⏳ |
+| 53 | **Captions** — what she says, and what she understood from you, as text at the bottom of the screen ("włącz napisy") | Noisy room, hard of hearing, or just checking she heard right | ✅ off by default, "włącz napisy" (kept in settings) |
 
