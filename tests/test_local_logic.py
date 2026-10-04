@@ -314,5 +314,59 @@ class CommandsTest(unittest.TestCase):
         self.assertAlmostEqual(settings.get("tts_speed"), 1.0)
 
 
+class CalcTest(unittest.TestCase):
+
+    def test_arithmetic(self):
+        import calc
+        cases = {
+            "Ile to jest 17 razy 23?": "17 razy 23 to 391.",
+            "ile to jest dwanaście razy siedem": "12 razy 7 to 84.",
+            "piętnaście procent z osiemdziesięciu": "15 procent z 80 to 12.",
+            "pierwiastek z 144": "Pierwiastek z 144 to 12.",
+            "100 podzielić przez 8": "100 przez 8 to 12,5.",
+            "2+2*2": "2 plus 2 razy 2 to 6.",
+            "dwa do potęgi dziesięć": "2 do potęgi 10 to 1024.",
+            "minus pięć razy dwa": "Minus 5 razy 2 to minus 10.",
+            "10 przez 0": "Przez zero nie da się dzielić.",
+            "1 000 plus 1": "1000 plus 1 to 1001.",
+        }
+        for text, want in cases.items():
+            with self.subTest(text=text):
+                self.assertEqual(calc.arithmetic(text), want)
+        for text in ("ile to jest 5", "ile razy dziennie podlewać kwiatki?",
+                     "plus minus", "dwa razy w tygodniu"):
+            with self.subTest(text=text):
+                self.assertIsNone(calc.arithmetic(text))
+
+    def test_days_until(self):
+        import calc
+        sunday = datetime.date(2026, 10, 4)
+        self.assertEqual(calc.days_until("Ile dni do Wigilii?", sunday),
+                         "Do Wigilii zostało 81 dni, czyli około 12 tygodni.")
+        self.assertEqual(calc.days_until("ile do piątku", sunday), "Do piątku zostało 5 dni.")
+        self.assertEqual(calc.days_until("ile jeszcze do weekendu", sunday),
+                         "Przecież już jest weekend!")
+        self.assertEqual(calc.days_until("ile dni do 6 października", sunday),
+                         "Do 6 października zostały 2 dni.")
+        self.assertEqual(calc.days_until("ile dni do piątego października", sunday),
+                         "To już jutro!")
+        self.assertEqual(calc.days_until("ile dni do 1 października", sunday)[:22],
+                         "Do 1 października zost")              # next year
+        self.assertIsNone(calc.days_until("ile kosztuje bilet do Krakowa", sunday))
+        self.assertIsNone(calc.days_until("ile dni do moich urodzin", sunday))
+        self.assertEqual(calc._easter(2027), datetime.date(2027, 3, 28))
+        self.assertEqual(calc._easter(2026), datetime.date(2026, 4, 5))
+
+    def test_goodnight_mentions_the_alarm(self):
+        timers._timers.clear()
+        self.assertIsNone(timers.goodnight_note())
+        due = time.time() + 8 * 3600
+        timers._timers.append({"due": due, "label": "", "kind": "alarm", "set": time.time()})
+        self.assertTrue(timers.goodnight_note().startswith("Budzik masz na "))
+        timers._timers[0]["due"] = time.time() + 30 * 3600     # not tonight
+        self.assertIsNone(timers.goodnight_note())
+        timers._timers.clear()
+
+
 if __name__ == "__main__":
     unittest.main()

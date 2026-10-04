@@ -55,6 +55,11 @@ LOCAL = {
     "Co powiedziałaś?": "repeat",
     "Pomóż mi się uspokoić": "breath",
     "Zagrajmy w kamień, papier, nożyce": "game",
+    "Ile to jest 17 razy 23?": "calc",
+    "dwanaście razy siedem": "calc",
+    "Ile dni do Wigilii?": "calc",
+    "Ile jeszcze do weekendu?": "calc",
+    "15% z 80": "calc",
 }
 MODEL = [
     "Co widzisz?",
@@ -87,6 +92,12 @@ MODEL = [
     "Co było wczoraj na dobranockę?",
     "Dlaczego bajki na dobranoc pomagają zasnąć?",
     "Czy zegar w kuchni się spieszy?",
+    "Ile razy dziennie mam podlewać kwiatki?",
+    "Ile kosztuje bilet do Krakowa?",
+    "Ile dni do moich urodzin?",
+    "Ile minut ma godzina?",
+    "Dwa razy w tygodniu chodzę na basen",
+    "Ile jest planet w układzie słonecznym?",
 ]
 
 
@@ -94,6 +105,7 @@ class RoutingTest(unittest.TestCase):
 
     def setUp(self):
         import breathing
+        import calc
         import fun
         import health
         import lists
@@ -124,6 +136,7 @@ class RoutingTest(unittest.TestCase):
             (fun, "high_five", lambda *a: self._mark("fun")),
             (fun, "roll", lambda *a: self._mark("fun")),
             (fun, "flip", lambda *a: self._mark("fun")),
+            (calc, "answer", self._calc(calc.answer)),
         ]
         fake_tts = type(sys)("text_to_speech")
         fake_tts.replay_last = lambda: self._mark("repeat") or True
@@ -150,6 +163,14 @@ class RoutingTest(unittest.TestCase):
         d = tempfile.mkdtemp(prefix="luna-photos-")
         open(os.path.join(d, "20260101-120000.jpg"), "wb").close()
         return d
+
+    def _calc(self, real):
+        def answer(text):
+            said = real(text)
+            if said:
+                self._mark("calc")
+            return said
+        return answer
 
     def _mark(self, what):
         if self.hit is None:

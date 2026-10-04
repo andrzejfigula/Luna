@@ -18,6 +18,8 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Bajki i dłuższe wyjaśnienia | „Opowiedz mi bajkę o smoku”, „Wyjaśnij dokładnie, jak działa…” |
 | Co potrafi | „Luna, co potrafisz?” |
 | Godzina i data | „Która godzina?”, „Jaki dziś dzień?” — odpowiedź od razu, bez chmury |
+| Kalkulator | „Ile to jest 17 razy 23?”, „15% z 80”, „pierwiastek z 144”, „dwa do potęgi dziesięć” — od razu, bez chmury |
+| Ile dni do… | „Ile dni do Wigilii?”, „do weekendu”, „do piątku”, „do 15 marca”, „do Wielkanocy” |
 | Tłumacz | „Tłumacz na angielski” (niemiecki, hiszpański, francuski, włoski, ukraiński…) — każde zdanie wraca przetłumaczone, w obie strony; „Koniec tłumaczenia” |
 | Jak się czuje | „Jak się czujesz?” — zna temperaturę swojego procesora i czas pracy |
 
@@ -72,7 +74,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 |---|---|
 | Lampka nocna | „Włącz lampkę” — cały ekran ciepło świeci (45 %); „wyłącz lampkę” albo stuknięcie gasi |
 | Bajka na dobranoc | „Opowiedz bajkę na dobranoc” — spokojna bajka, a potem Luna sama zasypia |
-| Dobranoc | „Dobranoc” — zamyka oczy, ekran prawie gaśnie, nie zagaduje do rana; obudzi się, gdy się do niej odezwiesz |
+| Dobranoc | „Dobranoc” — zamyka oczy, ekran prawie gaśnie, nie zagaduje do rana; obudzi się, gdy się do niej odezwiesz. Jeśli masz nastawiony budzik, powie, na którą |
 | Tryb nocny | samo działa — w godzinach ciszy (22–8) ekran przygasa, a głos jest o połowę cichszy (budziki i minutniki dzwonią normalnie) |
 | Jasność od światła w pokoju | samo działa — kamera mierzy światło; w ciemnym pokoju ekran schodzi do 25 %. Próg ciemności jest na razie zgadnięty — wartość `light` jest co godzinę w `luna.log` (`[health]`) |
 | Cisza | „Luna, cicho” — godzina bez zagadywania (było już wcześniej) |

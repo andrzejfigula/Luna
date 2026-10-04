@@ -165,3 +165,12 @@ the game's hand reading, photos, the mood read from a face.
 | 59 | **The morning hello knows your to-do list** — it may mention one item in passing | Lists are in real use already (a to-do list appeared on the Pi while I worked) | ✅ |
 | 60 | **Safe restarts** — `restart.sh` waits for 3 quiet minutes and appends the log | My deploys were interrupting real conversations and erasing their log | ✅ |
 
+
+## Batch 17
+
+| # | Item | Why | Status |
+|---|------|-----|--------|
+| 61 | **Calculator** — "ile to jest 17 razy 23?", "15% z 80", "pierwiastek z 144", "dwa do potęgi dziesięć", answered locally (`calc.py`) | Kitchen and homework maths in 0 s instead of 2, and it works offline (Vosk's "dwanaście razy siedem" too) | ✅ strict: every word must be a number, an operator or a filler, so "ile razy dziennie podlewać kwiatki?" still goes to the model |
+| 62 | **Days until** — "ile dni do Wigilii / weekendu / piątku / 15 marca / Wielkanocy?" | Kids ask it every December; Easter is computed, not looked up | ✅ "Do Wigilii zostało 81 dni, czyli około 12 tygodni." |
+| 63 | **Good night mentions tomorrow's alarm** — "Dobranoc! Budzik masz na siódmą trzydzieści." | The last thing you want to know before sleep is that the alarm is set | ✅ only alarms within 16 h |
+| — | **Web panel on the home network** (lists, reminders, messages, photos, "say it out loud" from a phone) | Managing her from the sofa | ⏸ written but parked: it opens a network port, so it waits for your OK |

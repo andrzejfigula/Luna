@@ -340,6 +340,20 @@ def screen_lines():
     return out
 
 
+def goodnight_note(within=16 * 3600):
+    """What "dobranoc" adds: the next wake-up alarm, if one rings before
+    morning is over — "Budzik masz na siódmą trzydzieści." Else None."""
+    import clock
+    now = time.time()
+    with _lock:
+        alarms = sorted(t["due"] for t in _timers
+                        if t["kind"] == "alarm" and 0 < t["due"] - now < within)
+    if not alarms:
+        return None
+    lt = time.localtime(alarms[0])
+    return f"Budzik masz na {clock.hour_accusative(lt.tm_hour, lt.tm_min)}."
+
+
 def countdown_text():
     """What the corner of the screen shows: the nearest timer, or None."""
     with _lock:

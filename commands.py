@@ -18,6 +18,7 @@ commands.py — things Luna does herself, without asking the model.
            "koniec skupienia" ends it
   bedtime  "bajka na dobranoc": a calm story, then she falls asleep
   messages "nagraj wiadomość" / "odtwórz wiadomość" / "usuń wiadomości"
+  calc     "ile to jest 17 razy 23?", "ile dni do Wigilii?" (calc.py)
   goodbye  "pa", "do zobaczenia", "dzięki, to wszystko": a wave, and the
            conversation window closes at once
   wake     anything you say to her while she sleeps wakes her up (so
@@ -271,7 +272,9 @@ def handle(text, speak, play_sound):
     # good night — said to her while awake
     if (any(k in low for k in _NIGHT) and not question
             and all(w in _NIGHT_OK for w in _words(text))):
-        speak(random.choice(GOODNIGHT_REPLIES))
+        import timers
+        note = timers.goodnight_note()
+        speak(random.choice(GOODNIGHT_REPLIES) + (" " + note if note else ""))
         go_to_sleep()
         return True
 
@@ -326,6 +329,14 @@ def handle(text, speak, play_sound):
     import clock
     said = clock.answer(text)
     if said:
+        speak(said)
+        return True
+
+    # "ile to jest 17 razy 23?" / "ile dni do Wigilii?" — counted locally
+    import calc
+    said = calc.answer(text)
+    if said:
+        print(f"[cmd] calc: {said}", flush=True)
         speak(said)
         return True
 

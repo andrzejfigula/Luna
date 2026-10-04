@@ -73,6 +73,16 @@ def spoken_time(now=None):
     return f"Jest {_HOURS[h]} {_minutes(m)}."
 
 
+def hour_accusative(h, m):
+    """7:30 → "siódmą trzydzieści", 6:05 → "szóstą zero pięć" ("na …")."""
+    if h == 0 and m == 0:
+        return "północ"
+    hour = " ".join(w[:-1] + "ą" if w.endswith("a") else w for w in _HOURS[h].split())
+    if m == 0:
+        return hour
+    return f"{hour} {'zero ' if m < 10 else ''}{_minutes(m)}"
+
+
 def spoken_date(now=None):
     now = now or (datetime.now(_TZ) if _TZ else datetime.now())
     return (f"Dziś jest {_DAYS[now.weekday()]}, {_ordinal_day(now.day)} "
