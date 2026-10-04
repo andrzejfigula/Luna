@@ -179,6 +179,8 @@ Gesture vocabulary, by what it expresses:
     snap (got an idea), suspicious (doubt)
   feeling — sigh, relief, proud, scared, impatient, tear_wipe
   delight — sparkle_eyes
+  showing the topic — sunny, cloudy, rainy, snowy (the weather), lightbulb
+    (an idea), music_notes (songs, music)
   surprise/confusion — double_blink, eye_twitch, cross_eyes, glitch, dizzy,
     lost_signal
 
@@ -195,6 +197,8 @@ Pick the gesture from the CONTENT of your reply, in this priority:
 5. A playful, teasing or knowing reply → "wink" or "smirk"; recalling
    something → "remember"; something absurd → "cross_eyes" or "eye_roll";
    warmth without words → "slow_blink".
+   Talking about the weather → show it: "sunny", "cloudy", "rainy" or
+   "snowy"; an idea or a suggestion → "lightbulb"; music → "music_notes".
 6. Everything else, including ordinary answers and plain facts → "none".
 Most replies are "none"; never use "nod" for a statement that is not an
 agreement or a yes.

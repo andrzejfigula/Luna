@@ -999,3 +999,216 @@ class Curious(Scene):
         glow.set_alpha(int(120 * hold))
         rf.bloom(surf, glow, rect.topleft, radius=8, passes=1, max_alpha=90)
         surf.blit(img, rect)
+
+
+# ══ Showing what she talks about ════════════════════════════════════════════
+# Small props for the topic of a reply — the weather, an idea, a song. They
+# sit above her head on the right, clear of the eyes, and fade in and out.
+
+_PROP_X, _PROP_Y = 215, -128           # relative to the face centre
+
+
+def _cloud(w, col, alpha):
+    """A soft cartoon cloud on its own layer (w px wide)."""
+    h = int(w * 0.62)
+    s = pygame.Surface((w, h), pygame.SRCALPHA)
+    c = (*col, alpha)
+    r = w // 5
+    for fx, fy, fr in ((0.28, 0.62, 1.0), (0.5, 0.42, 1.35), (0.72, 0.62, 1.0),
+                       (0.5, 0.68, 1.1)):
+        pygame.draw.circle(s, c, (int(w * fx), int(h * fy)), int(r * fr))
+    return s
+
+
+def _blit_glow(surf, img, center, hold, glow=110):
+    rect = img.get_rect(center=(int(center[0]), int(center[1])))
+    g = img.copy()
+    g.fill((*rf.GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
+    rf.bloom(surf, g, rect.topleft, radius=8, passes=1, max_alpha=int(glow * hold))
+    surf.blit(img, rect)
+
+
+@scene("sunny", duration=3.6, mood="happy")
+class Sunny(Scene):
+    """A little sun with turning rays; she squints happily into it."""
+    def eyes(self, face, p, e):
+        e.squint = max(e.squint, 0.45 * rf._prop_hold(p, 0.2, 0.2))
+
+    def motion(self, face, p):
+        hold = rf._prop_hold(p, 0.2, 0.2)
+        face.pupil_ox = rf.lerp(face.pupil_ox, 18.0 * hold, 0.1)
+        face.pupil_oy = rf.lerp(face.pupil_oy, -16.0 * hold, 0.1)
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p, 0.2, 0.2)
+        if hold < 0.04:
+            return
+        t = p * self.duration
+        size = 150
+        s = pygame.Surface((size, size), pygame.SRCALPHA)
+        c = size // 2
+        for i in range(10):
+            a = t * 0.9 + i * math.tau / 10
+            r0, r1 = 34, 52 + 6 * math.sin(t * 4 + i)
+            pygame.draw.line(s, (*rf.STAR_COL, 235),
+                             (c + math.cos(a) * r0, c + math.sin(a) * r0),
+                             (c + math.cos(a) * r1, c + math.sin(a) * r1), 6)
+        pygame.draw.circle(s, (*rf.STAR_COL, 255), (c, c), 27)
+        s.set_alpha(int(255 * hold))
+        _blit_glow(surf, s, (fcx + _PROP_X, fcy + _PROP_Y), hold, 140)
+
+
+@scene("cloudy", duration=3.6)
+class Cloudy(Scene):
+    """Two clouds drift past above her head."""
+    def motion(self, face, p):
+        face.pupil_oy = rf.lerp(face.pupil_oy, -14.0 * rf._prop_hold(p, 0.2, 0.2), 0.1)
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p, 0.2, 0.2)
+        if hold < 0.04:
+            return
+        drift = (p - 0.5) * 60
+        for dx, dy, w, a in ((-40, 14, 110, 170), (30, -6, 150, 235)):
+            c = _cloud(w, rf.TEETH_COL, int(a * hold))
+            surf.blit(c, c.get_rect(center=(int(fcx + _PROP_X + dx + drift * (w / 150)),
+                                            int(fcy + _PROP_Y + dy))))
+
+
+@scene("rainy", duration=3.8, mood="sad")
+class Rainy(Scene):
+    """A small cloud right above her, raining on her head."""
+    def eyes(self, face, p, e):
+        e.squint = max(e.squint, 0.3 * rf._prop_hold(p, 0.2, 0.2))
+
+    def motion(self, face, p):
+        hold = rf._prop_hold(p, 0.2, 0.2)
+        face.pupil_oy = rf.lerp(face.pupil_oy, -18.0 * hold, 0.1)
+        face.target_oy += 6.0 * hold                 # ducks a little
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p, 0.2, 0.2)
+        if hold < 0.04:
+            return
+        t = p * self.duration
+        cx, cy = fcx + 30, fcy - 150
+        layer = pygame.Surface((300, 230), pygame.SRCALPHA)
+        for i in range(14):                           # the drops
+            k = (t * 1.6 + i * 0.37) % 1.0
+            x = 40 + (i * 47) % 220
+            y = 50 + k * 170
+            pygame.draw.line(layer, (*rf.TEAR_COL, int(220 * (1 - k * 0.6))),
+                             (x, y), (x - 3, y + 14), 4)
+        layer.set_alpha(int(255 * hold))
+        surf.blit(layer, (int(cx - 150), int(cy - 10)))
+        c = _cloud(190, (150, 160, 175), int(240 * hold))
+        surf.blit(c, c.get_rect(center=(int(cx), int(cy))))
+
+
+@scene("snowy", duration=4.0)
+class Snowy(Scene):
+    """Snowflakes swirl down past her face."""
+    def motion(self, face, p):
+        hold = rf._prop_hold(p, 0.2, 0.2)
+        face.pupil_oy = rf.lerp(face.pupil_oy, 14.0 * math.sin(p * math.pi * 3) * hold, 0.08)
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p, 0.2, 0.2)
+        if hold < 0.04:
+            return
+        t = p * self.duration
+        layer = pygame.Surface((rf.WIDTH, rf.HEIGHT), pygame.SRCALPHA)
+        rnd = random.Random(7)
+        for i in range(26):
+            x0, speed, ph = rnd.random(), rnd.uniform(0.18, 0.35), rnd.uniform(0, 6.3)
+            y = ((rnd.random() + t * speed) % 1.1) * rf.HEIGHT - 20
+            x = x0 * rf.WIDTH + 18 * math.sin(t * 1.5 + ph)
+            r = 3 + (i % 3) * 2
+            pygame.draw.circle(layer, (*rf.TEETH_COL, 225), (int(x), int(y)), r)
+        layer.set_alpha(int(255 * hold))
+        surf.blit(layer, (0, 0))
+
+
+@scene("lightbulb", duration=3.0, mood="happy")
+class Lightbulb(Scene):
+    """A bulb above her head flickers on: she has an idea."""
+    ON = 0.3
+
+    def eyes(self, face, p, e):
+        if p > self.ON:
+            e.widen = max(e.widen, 0.7 * rf._prop_hold(p, 0.2, 0.2))
+
+    def motion(self, face, p):
+        if self.ON < p < self.ON + 0.1:
+            face.target_oy -= 10.0
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p, 0.15, 0.2)
+        if hold < 0.04:
+            return
+        # flickers on: off, on, off, ON
+        lit = p > self.ON and not (self.ON + 0.04 < p < self.ON + 0.08)
+        s = pygame.Surface((110, 150), pygame.SRCALPHA)
+        glass = (*(rf.STAR_COL if lit else (120, 110, 90)), 245)
+        pygame.draw.circle(s, glass, (55, 52), 40)
+        pygame.draw.polygon(s, glass, [(30, 70), (80, 70), (70, 100), (40, 100)])
+        for i in range(3):                                   # the screw base
+            pygame.draw.rect(s, (*rf.EYE_MID, 245), pygame.Rect(38, 102 + i * 11, 34, 8),
+                             border_radius=3)
+        if lit:
+            pygame.draw.circle(s, (*rf.IRIS_SHINE, 230), (42, 40), 9)
+        s = pygame.transform.smoothscale(s, (82, 112))
+        s.set_alpha(int(255 * hold))
+        bx, by = fcx, fcy - 150                     # right above her head
+        _blit_glow(surf, s, (bx, by), hold, 170 if lit else 0)
+        if lit:
+            t = p * self.duration
+            for i in range(8):                               # rays
+                a = i * math.tau / 8 + t * 0.5
+                r0, r1 = 46, 58 + 4 * math.sin(t * 8 + i)
+                x, y = bx, by - 14
+                pygame.draw.line(surf, _dim(rf.STAR_COL, hold),
+                                 (x + math.cos(a) * r0, y + math.sin(a) * r0),
+                                 (x + math.cos(a) * r1, y + math.sin(a) * r1), 4)
+
+
+def _note(size, col):
+    """A quaver: head, stem and flag."""
+    w, h = size, int(size * 2.1)
+    s = pygame.Surface((w + 8, h + 6), pygame.SRCALPHA)
+    hr = size // 2
+    sx = w - 4
+    pygame.draw.rect(s, col, pygame.Rect(sx - 3, 3, 6, h - hr - 2), border_radius=2)
+    pygame.draw.polygon(s, col, [(sx + 2, 5), (sx + 2 + size // 2, size // 2), (sx + 2, size - 2)])
+    pygame.draw.ellipse(s, col, pygame.Rect(sx - hr * 2 + 2, h - hr * 2 + 2, int(hr * 2.3), hr * 2))
+    return s
+
+
+@scene("music_notes", duration=4.0, mood="happy")
+class MusicNotes(Scene):
+    """Notes float up while she sways — for songs and anything musical."""
+    def motion(self, face, p):
+        hold = rf._prop_hold(p, 0.15, 0.2)
+        face.target_tilt = 7.0 * math.sin(p * self.duration * 3.0) * hold
+        face.target_ox += 10.0 * math.sin(p * self.duration * 3.0) * hold
+
+    def eyes(self, face, p, e):
+        e.squint = max(e.squint, 0.5 * rf._prop_hold(p, 0.15, 0.2))
+
+    def draw(self, face, surf, fcx, fcy, p):
+        hold = rf._prop_hold(p, 0.15, 0.2)
+        if hold < 0.04:
+            return
+        t = p * self.duration
+        for i in range(5):
+            k = (t * 0.45 + i / 5) % 1.0
+            a = int(235 * hold * math.sin(k * math.pi))
+            if a <= 8:
+                continue
+            side = 1 if i % 2 else -1
+            x = fcx + side * (230 + 30 * math.sin(t * 2 + i))
+            y = fcy + 60 - k * 230
+            n = _note(26 + (i % 2) * 8, (*rf.EYE_INNER, 255))
+            n = pygame.transform.rotate(n, 14 * math.sin(t * 3 + i))
+            n.set_alpha(a)
+            surf.blit(n, n.get_rect(center=(int(x), int(y))))
