@@ -366,6 +366,9 @@ VISION_KEYWORDS = [
     "co mam na", "kto to", "ile osób", "ile osob", "ile palc", "co jest na",
     "jaki kolor", "jakiego koloru", "rozpoznaj", "pokaż", "pokaz", "obraz",
     "zdjęci", "zdjeci", "ekran", "etykiet",
+    # homework held up to the camera: the task must be readable (high detail)
+    "zadani", "ćwiczeni", "cwiczeni", "zeszyt", "książk", "ksiazk", "stron",
+    "kartk", "rysun", "obrazek", "obrazku",
     # English
     "see", "look", "read", "written", "text", "what is this", "what's this",
     "camera", "what am i", "holding", "wearing", "who is", "how many",
