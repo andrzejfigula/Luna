@@ -335,6 +335,35 @@ _mood_seen = []                  # the last few readings, newest last
 _last_mood_comment = 0.0
 
 
+# ── Translator mode ("tłumacz na angielski") ─────────────────────────────────
+TRANSLATE_IDLE_SECS = 600          # unused this long → the mode ends by itself
+_translate = {"lang": None, "last": 0.0}
+
+
+def set_translator(lang):
+    """lang: an English language name, or None to stop."""
+    _translate["lang"], _translate["last"] = lang, time.time()
+    print(f"[brain] translator mode: {lang or 'off'}", flush=True)
+
+
+def translator():
+    if _translate["lang"] and time.time() - _translate["last"] > TRANSLATE_IDLE_SECS:
+        set_translator(None)
+    return _translate["lang"]
+
+
+def _translator_rule():
+    lang = translator()
+    if not lang:
+        return ""
+    _translate["last"] = time.time()
+    return (f"TRANSLATOR MODE IS ON. You are interpreting between Polish and {lang}. "
+            f"Your reply is ONLY the translation of what the user just said: into "
+            f"{lang} if they spoke Polish, into Polish if they spoke {lang} — no "
+            f"comments, no answers, no greetings of your own, emotion neutral, "
+            f"gesture none.\n")
+
+
 def _mood_rule(have_image):
     if not have_image:
         return ("There is no camera picture this time: user_mood is "
@@ -371,6 +400,14 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
     the first sentence spoken while the model is still writing the rest."""
     if _client is None:
         return None
+    lang = translator()
+    if lang:
+        # The rule in the system prompt alone was ignored in testing (she
+        # chatted back); the instruction has to sit right next to the words.
+        text = (f"[TRYB TŁUMACZA — nie odpowiadaj na to, tylko przetłumacz "
+                f"dokładnie: na {lang}, jeśli to po polsku; na polski, jeśli to "
+                f"w języku {lang}] {text}")
+        image_b64 = None                       # interpreting needs no camera
     try:
         if image_b64:
             # The frame rides along with every message so Luna can always
@@ -408,6 +445,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   f"local date and time there is: {_local_now_text()}. When "
                   f"asked the time or date, answer with exactly this local "
                   f"time — do not convert it to any other zone.\n"
+                  + _translator_rule()
                   + _mood_rule(image_b64 is not None)
                   + body.prompt_line()
                   + weather.prompt_line()
@@ -477,7 +515,8 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
         # turn they were asked in
         _history[-1] = {"role": "user", "content": text}
         _history.append({"role": "assistant", "content": reply})
-        memory.record(text, reply)
+        if not translator():                 # interpreting is not about the user
+            memory.record(text, reply)
         body.note_conversation()
 
         print(f"[brain] OpenAI ({emotion}, {gesture}, you: {mood}"

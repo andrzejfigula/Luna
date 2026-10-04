@@ -16,6 +16,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Powtórz | „Powtórz”, „Co powiedziałaś?” — odtwarza ostatnią odpowiedź od razu, bez pytania chmury |
 | Bajki i dłuższe wyjaśnienia | „Opowiedz mi bajkę o smoku”, „Wyjaśnij dokładnie, jak działa…” |
 | Co potrafi | „Luna, co potrafisz?” |
+| Tłumacz | „Tłumacz na angielski” (niemiecki, hiszpański, francuski, włoski, ukraiński…) — każde zdanie wraca przetłumaczone, w obie strony; „Koniec tłumaczenia” |
 | Jak się czuje | „Jak się czujesz?” — zna temperaturę swojego procesora i czas pracy |
 
 ## Pamięć i nastrój
@@ -32,7 +33,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 
 | Co | Jak |
 |---|---|
-| Minutnik | „Minutnik na 10 minut”, „Nastaw minutnik na makaron, 8 minut” |
+| Minutnik | „Minutnik na 10 minut”, „na pół godziny”, „na kwadrans” — od razu, bez chmury (działa też bez internetu); „Nastaw minutnik na makaron, 8 minut” — z etykietą |
 | Przypomnienie | „Przypomnij mi o 18:30, żeby zadzwonić do mamy” |
 | Ile zostało | „Ile zostało na minutniku?” — odliczanie widać też w prawym górnym rogu, a ostatnie 5 sekund wielkimi cyframi |
 | Anuluj | „Wyłącz minutnik”, „Usuń przypomnienie o mamie” |

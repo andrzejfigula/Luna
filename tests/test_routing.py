@@ -37,6 +37,9 @@ LOCAL = {
     "Rzuć dwiema kostkami": "fun",
     "Orzeł czy reszka?": "fun",
     "Włącz tryb skupienia": "focus",
+    "Minutnik na 10 minut": "timer",
+    "Tłumacz na angielski": "translate",
+    "Czy możesz tłumaczyć na niemiecki?": "translate",
     "Pomodoro na 50 minut": "focus",
     "Luna, ćwiczenie oddechowe": "breath",
     "Powtórz": "repeat",
@@ -63,6 +66,8 @@ MODEL = [
     "Co mam na liście?",
     "Powtórz mi tabliczkę mnożenia przez siedem",
     "Ile ścian ma kostka do gry?",
+    "Nastaw minutnik na 10 minut na makaron",
+    "Jak się mówi kot po angielsku?",
     "Kto wymyślił lampkę nocną?",
     "Ile trwa jedno pomodoro",
     "Co jest mocniejsze, papier czy kamień?",
@@ -94,6 +99,7 @@ class RoutingTest(unittest.TestCase):
             (timers, "screen_lines", lambda: [("1:00", "test")]),
             (timers, "add", lambda *a, **k: self._mark("focus")),
             (timers, "remove", lambda *a, **k: None),
+            (timers, "apply", lambda *a, **k: self._mark("timer")),
             (lists, "find", lambda text: "zakupy"),
             (lists, "get", lambda name=None: ["mleko"]),
             (breathing, "run", lambda *a: self._mark("breath")),
@@ -106,7 +112,13 @@ class RoutingTest(unittest.TestCase):
         fake_tts = type(sys)("text_to_speech")
         fake_tts.replay_last = lambda: self._mark("repeat") or True
         fake_tts.play_sound_async = lambda name: None
-        stubs_dict = mock.patch.dict(sys.modules, {"text_to_speech": fake_tts})
+        # brain needs cv2 and the OpenAI SDK; routing only needs its
+        # translator switch
+        fake_brain = type(sys)("brain")
+        fake_brain.set_translator = lambda lang: self._mark("translate")
+        fake_brain.translator = lambda: None
+        stubs_dict = mock.patch.dict(sys.modules, {"text_to_speech": fake_tts,
+                                                   "brain": fake_brain})
         stubs_dict.start()
         self.addCleanup(stubs_dict.stop)
         # patched for this test only — other test modules see the real ones

@@ -76,6 +76,31 @@ _NIGHT_OK = {"dobranoc", "luna", "luno", "idę", "ide", "spać", "spac", "już",
              "i", "good", "night", "goodnight", "słodkich", "snów", "kolorowych"}
 
 
+_LANGS = {"angiel": ("English", "angielski"), "niemiec": ("German", "niemiecki"),
+          "hiszpa": ("Spanish", "hiszpański"), "francu": ("French", "francuski"),
+          "włos": ("Italian", "włoski"), "wlos": ("Italian", "włoski"),
+          "ukrai": ("Ukrainian", "ukraiński"), "rosyj": ("Russian", "rosyjski"),
+          "czes": ("Czech", "czeski"), "portugal": ("Portuguese", "portugalski"),
+          "japo": ("Japanese", "japoński"), "chiń": ("Chinese", "chiński"),
+          "english": ("English", "angielski"), "german": ("German", "niemiecki"),
+          "spanish": ("Spanish", "hiszpański"), "french": ("French", "francuski")}
+_TRANSLATE_START = ("tłumacz na", "tlumacz na", "tłumaczyć na", "tlumaczyc na", "tryb tłumacza", "bądź tłumaczem",
+                    "przetłumacz wszystko na", "tłumacz z polskiego na", "translate to",
+                    "be my interpreter", "tłumacz mnie na", "tłumacz to co mówię na")
+_TRANSLATE_END = ("koniec tłumaczenia", "przestań tłumaczyć", "wyłącz tłumacza",
+                  "stop translating", "koniec tlumaczenia")
+
+
+def _translator_language(low):
+    """(English name, Polish name) when the utterance starts translator mode."""
+    if not any(k in low for k in _TRANSLATE_START) or len(_words(low)) > 9:
+        return None
+    for stem, lang in _LANGS.items():
+        if re.search(r"\b" + stem, low):
+            return lang
+    return ("English", "angielski") if "tryb tłumacza" in low or "tłumaczem" in low else None
+
+
 def _words(text):
     return re.findall(r"\w+", text.lower())
 
@@ -263,6 +288,29 @@ def handle(text, speak, play_sound):
     # everything below acts on a request — never on a question about it
     if question:
         return False
+
+    # translator mode — "tłumacz na angielski" … "koniec tłumaczenia"
+    lang = _translator_language(low)
+    if lang:
+        import brain
+        brain.set_translator(lang[0])
+        speak(f"Dobrze, tłumaczę na {lang[1]}. Powiedz „koniec tłumaczenia”, żeby skończyć.")
+        return True
+    if any(k in low for k in _TRANSLATE_END):
+        import brain
+        if brain.translator():
+            brain.set_translator(None)
+            speak("Koniec tłumaczenia.")
+            return True
+
+    # "minutnik na 10 minut" — instant, and works without the cloud
+    import timers
+    secs = timers.local_timer(text)
+    if secs:
+        timers.apply([{"type": "timer", "seconds": secs, "at": "", "label": "",
+                       "repeat": "none", "list": ""}])
+        speak(f"Jasne, minutnik na {timers.say_duration(secs)}.")
+        return True
 
     # focus mode (pomodoro)
     if any(k in low for k in _FOCUS_END):

@@ -180,6 +180,88 @@ def apply(actions):
     return done
 
 
+# ── "minutnik na 10 minut" without the model ─────────────────────────────────
+
+_NUM = {"jeden": 1, "jedna": 1, "jedną": 1, "jedno": 1, "dwa": 2, "dwie": 2,
+        "trzy": 3, "cztery": 4, "pięć": 5, "sześć": 6, "siedem": 7, "osiem": 8,
+        "dziewięć": 9, "dziesięć": 10, "jedenaście": 11, "dwanaście": 12,
+        "trzynaście": 13, "czternaście": 14, "piętnaście": 15, "szesnaście": 16,
+        "siedemnaście": 17, "osiemnaście": 18, "dziewiętnaście": 19,
+        "dwadzieścia": 20, "trzydzieści": 30, "czterdzieści": 40,
+        "pięćdziesiąt": 50, "sześćdziesiąt": 60, "dziewięćdziesiąt": 90}
+_UNIT = (("sek", 1), ("min", 60), ("godz", 3600))
+# what a bare timer command may contain besides the duration
+_TIMER_WORDS = {"minutnik", "timer", "nastaw", "ustaw", "włącz", "odlicz", "odliczaj",
+                "na", "mi", "proszę", "luna", "luno", "nowy", "z", "i", "a", "set",
+                "for", "a", "minutnika"}
+
+
+def _unit(word):
+    if word.startswith("minutnik"):
+        return None
+    return next((u for p, u in _UNIT if word.startswith(p)), None)
+
+
+def parse_duration(text):
+    """Seconds in "10 minut", "pięć minut", "dwadzieścia pięć sekund",
+    "pół godziny", "półtorej godziny", "kwadrans", "godzinę"; None if none.
+    Returns (seconds, set of the words that made up the duration)."""
+    words = re.findall(r"\w+", text.lower())
+    total, used, i = 0, set(), 0
+    while i < len(words):
+        w = words[i]
+        if w == "kwadrans":
+            total += 900; used.add(w); i += 1; continue
+        if w in ("pół", "półtorej", "półtora") and i + 1 < len(words) \
+                and words[i + 1].startswith(("godz", "min")):
+            unit = 3600 if words[i + 1].startswith("godz") else 60
+            total += int(unit * (0.5 if w == "pół" else 1.5))
+            used.update((w, words[i + 1])); i += 2; continue
+        n, j = None, i
+        if w.isdigit():
+            n, j = int(w), i + 1
+        elif w in _NUM:
+            n, j = _NUM[w], i + 1
+            if n >= 20 and j < len(words) and words[j] in _NUM and _NUM[words[j]] < 10:
+                n += _NUM[words[j]]; j += 1                     # dwadzieścia pięć
+        if n is not None and j < len(words):
+            unit = _unit(words[j])
+            if unit:
+                total += n * unit
+                used.update(words[i:j + 1]); i = j + 1; continue
+        if n is None and w in ("minutę", "sekundę", "godzinę"):  # "na godzinę"
+            total += _unit(w); used.add(w)
+        i += 1
+    return (total, used) if total else (None, used)
+
+
+def local_timer(text):
+    """Seconds when the whole utterance is a plain timer request ("nastaw
+    minutnik na 10 minut"); None otherwise — anything more ("na makaron")
+    goes to the model, which can label it."""
+    low = text.lower()
+    if not any(k in low for k in ("minutnik", "timer", "odlicz")):
+        return None
+    secs, used = parse_duration(low)
+    if not secs or secs > 7 * 86400:
+        return None
+    words = set(re.findall(r"\w+", low))
+    return secs if words <= (_TIMER_WORDS | used) else None
+
+
+def say_duration(secs):
+    """Polish words for a duration, for her confirmation."""
+    if secs % 3600 == 0:
+        h = secs // 3600
+        return "godzinę" if h == 1 else f"{h} godziny" if h in (2, 3, 4) else f"{h} godzin"
+    if secs == 5400:
+        return "półtorej godziny"
+    if secs % 60 == 0:
+        m = secs // 60
+        return "minutę" if m == 1 else f"{m} {_minutes_pl(m) if m != 1 else 'minuta'}"
+    return f"{secs} sekund"
+
+
 def _left(secs):
     secs = max(0, int(secs))
     h, rem = divmod(secs, 3600)

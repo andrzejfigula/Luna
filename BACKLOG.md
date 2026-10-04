@@ -110,3 +110,10 @@ Status: ✅ done · 🚧 in progress · ⏳ queued · 💤 parked (with the reas
 | 41 | **Quicker end of your sentence** — Vosk waits ~1.05 s of silence (measured); now 0.75 s of silence after real speech ends the utterance (`STT_END_SILENCE`) | Measured speaker→mic: text ready 1.28–1.46 s after the sentence instead of 1.50–1.90 s, transcripts complete | ✅ |
 | 42 | **No silence queued in front of a reply** — the always-open player keeps only 0.08 s of silence queued between utterances (0.4 s margin only once speech flows) | First speech byte heard ~75 ms after the call instead of ~400 ms | ✅ |
 
+## Batch 11
+
+| # | Item | Why | Status |
+|---|------|-----|--------|
+| 43 | **Instant kitchen timer** — "minutnik na 10 minut" / "nastaw minutnik na pół godziny" handled locally (digits and Polish number words): no model round trip, works offline | The most common timer phrase doesn't need a language model | ✅ digits, number words, "pół godziny", "kwadrans"; with a label ("na makaron") it still goes to the model |
+| 44 | **Translator mode** — "tłumacz na angielski" (or niemiecki, hiszpański…): every sentence comes back translated, spoken in that language, until "koniec tłumaczenia" | A desk robot that interprets for a visitor | ✅ the rule in the system prompt alone was ignored — the instruction now sits next to each utterance; ends itself after 10 idle minutes |
+

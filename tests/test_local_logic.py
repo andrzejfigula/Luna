@@ -94,6 +94,29 @@ class TimersTest(unittest.TestCase):
         self.assertEqual([t["label"] for t in timers._timers], ["tabletki"])
         self.assertGreater(timers._timers[0]["due"], now + 23 * 3600)
 
+    def test_local_timer_phrases(self):
+        cases = {
+            "Minutnik na 10 minut": 600,
+            "Nastaw minutnik na pięć minut": 300,
+            "Luna, ustaw timer na dwadzieścia pięć sekund": 25,
+            "minutnik na pół godziny": 1800,
+            "Nastaw minutnik na półtorej godziny": 5400,
+            "minutnik na kwadrans": 900,
+            "minutnik na godzinę": 3600,
+            "Ustaw minutnik na 2 minuty i 30 sekund": 150,
+        }
+        for text, secs in cases.items():
+            self.assertEqual(timers.local_timer(text), secs, text)
+        for text in ("Nastaw minutnik na 10 minut na makaron",   # a label: the model
+                     "Ile zostało na minutniku?",
+                     "Przypomnij mi za 10 minut o praniu"):
+            self.assertIsNone(timers.local_timer(text), text)
+
+    def test_say_duration(self):
+        self.assertEqual([timers.say_duration(s) for s in (60, 300, 120, 1800, 3600, 5400, 45)],
+                         ["minutę", "5 minut", "2 minuty", "30 minut", "godzinę",
+                          "półtorej godziny", "45 sekund"])
+
     def test_polish_minutes(self):
         self.assertEqual([timers._minutes_pl(n) for n in (1, 2, 5, 12, 22, 25)],
                          ["minuta", "minuty", "minut", "minut", "minuty", "minut"])
