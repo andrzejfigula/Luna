@@ -513,6 +513,14 @@ class FacesTest(unittest.TestCase):
         self.assertIsNone(commands._intro_name("To jest problem"))
         self.assertIsNone(commands._intro_name("Jestem zmęczony"))
         self.assertIsNone(commands._intro_name("To Luna"))
+        self.assertIsNone(commands._bare_name("Ola."))           # nobody asked
+        commands.expect_name()
+        self.assertEqual(commands._bare_name("Ola."), "Ola")
+        self.assertIsNone(commands._bare_name("Ola."))           # only once
+        commands.expect_name()
+        self.assertIsNone(commands._bare_name("nie powiem"))
+        self.assertIsNone(commands._bare_name("Ciszej"))
+        commands._name_wanted[0] = 0.0
 
 
 class MessagesForPeopleTest(unittest.TestCase):

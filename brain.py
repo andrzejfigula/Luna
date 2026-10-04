@@ -691,6 +691,13 @@ warm, fitted to the time of day and to how you feel about them. No emoji.
 Feminine forms about yourself; THEIR gender from their name."""
 
 
+_STRANGER = """Someone you don't recognise has just come to the desk (you know
+the people of this home by face, and this face isn't one of them — or the
+light is poor). Say hello in Polish and kindly ask for their name, in 1-2
+short sentences, without grammatical gender for them; mention that you'll
+remember their face if they tell you ("powiedz: jestem…"). No emoji."""
+
+
 _WAKING = """Their wake-up alarm, which you set for them, has just gone off
 and you are waking them. ONE short spoken good-morning in Polish, 1-2
 sentences: gentle but cheerful, then what matters for their day — the
@@ -700,14 +707,15 @@ but talk to THEM in the grammatical gender their name or your memory
 implies; if you don't know it, phrase it so it needs no gender."""
 
 
-def greeting(first_today, waking=False, who=None):
+def greeting(first_today, waking=False, who=None, stranger=False):
     """A context-aware hello (weather, reminders, memory), or None when the
     model can't be reached — the caller then uses a fixed phrase.
     waking=True: their wake-up alarm just rang — a good-morning instead.
     who: the recognised person — then later hellos are by name too."""
-    if _client is None or not (first_today or who):
+    if _client is None or not (first_today or who or stranger):
         return None
-    prompt = _WAKING if waking else _BRIEFING if first_today else _HELLO_AGAIN
+    prompt = (_WAKING if waking else _STRANGER if stranger else
+              _BRIEFING if first_today else _HELLO_AGAIN)
     try:
         context = (f"Local time: {_local_now_text()}.\n" + weather.prompt_line()
                    + faces.prompt_line() + relationship.prompt_line()

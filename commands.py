@@ -180,7 +180,11 @@ _FACE_BARE = ("zapamiętaj moją twarz", "zapamietaj moja twarz", "naucz się mo
               "zapamiętaj mnie", "zapamiętaj jak wyglądam")
 _FACE_FORGET = re.compile(r"zapomnij\s+(?:moją\s+twarz|mnie|twarz\s+(\w+))", re.I)
 _NOT_NAMES = {"Luna", "Luno", "Polak", "Polką", "Tak", "Nie", "Ok", "Okej", "Dobrze", "Super",
-              "Gotowy", "Gotowa", "Głodny", "Zmęczony", "Zmęczona", "Tutaj", "Tu", "Ja"}
+              "Gotowy", "Gotowa", "Głodny", "Zmęczony", "Zmęczona", "Tutaj", "Tu", "Ja",
+              # one-word replies that are not names (after "jak masz na imię?")
+              "Cześć", "Hej", "Hejka", "Siema", "Witaj", "Halo", "Dzięki", "Dziękuję",
+              "Ciszej", "Głośniej", "Stop", "Nic", "Co", "Pa", "Dobranoc", "Później",
+              "Spadaj", "Słucham", "Jasne", "Proszę", "Przepraszam", "Nikt", "Zgadnij"}
 
 
 def _intro_name(text):
@@ -218,6 +222,24 @@ def _learn_face(name_as_said, text, speak):
                                  f"{name} warmly by name — the Polish vocative — in one or "
                                  "two sentences; say you will recognise them from now on.\n"))
     return "recorded"
+
+
+_name_wanted = [0.0]        # until when a bare name ("Ola.") answers "jak masz na imię?"
+
+
+def expect_name(secs=20):
+    _name_wanted[0] = time.time() + secs
+
+
+def _bare_name(text):
+    """"Ola." / "Ola!" / "Luna, Ola" right after she asked — the name, else None."""
+    if time.time() > _name_wanted[0]:
+        return None
+    t = re.sub(r"^(?:luna|luno)[,!]?\s+", "", text.strip(), flags=re.I).strip(" .!")
+    if re.fullmatch(_NAME, t) and t not in _NOT_NAMES:
+        _name_wanted[0] = 0.0
+        return t
+    return None
 
 
 def _child_here():
@@ -734,7 +756,7 @@ def handle(text, speak, play_sound):
         else:
             speak("Nie znam tej twarzy.")
         return True
-    name = _intro_name(text)
+    name = _intro_name(text) or _bare_name(text)
     if name:
         return _learn_face(name, text, speak)
     if any(k in low for k in _FACE_BARE) and _short(text, 6):

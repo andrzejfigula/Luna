@@ -143,6 +143,7 @@ def idle_loop():
     last_touch_say = 0.0
     last_touch_sound = 0.0
     greeted_days = {}                    # who (None: unknown) → day of their first hello
+    asked_name_at = 0.0                  # when she last asked a stranger their name
 
     while True:
         try:
@@ -184,8 +185,21 @@ def idle_loop():
                         # the first hello of the day knows your day (weather,
                         # reminders, memory); later ones are short phrases
                         from brain import greeting
-                        speak(greeting(first_today, who=who) or _greeting(first_today),
-                              can_drop=True)
+                        # a face she doesn't know, in a home whose faces she
+                        # does: ask for the name (at most every 30 min)
+                        import faces
+                        stranger = (who is None and faces.names()
+                                    and now - asked_name_at > 1800)
+                        if stranger:
+                            asked_name_at = now
+                        speak(greeting(first_today, who=who, stranger=bool(stranger))
+                              or _greeting(first_today), can_drop=True)
+                        if stranger:                  # the answer needs no "Luna"
+                            import commands
+                            commands.expect_name()
+                            with state.lock:
+                                state.conversation_active = True
+                                state.last_activity_time = time.time() + 8
                         import messages
                         waiting = messages.unheard(who)
                         if waiting:
