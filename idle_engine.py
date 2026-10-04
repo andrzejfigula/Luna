@@ -170,8 +170,19 @@ def idle_loop():
                 left_at = now
             was_present = present
 
+            # ── finger held on the screen: "I want to talk to you" ───────
+            if touch_t > last_touch_t and touch_kind == "hold":
+                last_touch_t = touch_t
+                with state.lock:
+                    already = state.conversation_active
+                    state.conversation_active = True
+                    state.last_activity_time  = now
+                if not already:
+                    print("[idle] finger held on the screen — listening")
+                    play_sound_async("huh")       # "hm?" — I'm listening
+
             # ── reaction to being touched (voice; visuals are in the face)
-            if touch_t > last_touch_t:
+            if touch_t > last_touch_t and touch_kind != "stop":
                 last_touch_t = touch_t
                 replies = TOUCH_REPLIES.get(touch_zone or "other", {}).get(touch_kind)
                 # you started this, so it isn't rationed like unprompted talk —

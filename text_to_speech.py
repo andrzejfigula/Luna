@@ -261,6 +261,15 @@ def speak(text, can_drop=False):
         _speak_lock.release()
 
 
+def stop_speaking():
+    """Cut her short (a tap on the screen while she talks)."""
+    with state.lock:
+        talking = state.speaking
+    if talking:
+        print("[TTS] interrupted by touch")
+        tts.stop()
+
+
 def play_sound(name, can_drop=True):
     """Play a non-verbal sound (see sounds.py). Shares the speech lock, so it
     never talks over a sentence; can_drop=True skips it when she is busy.

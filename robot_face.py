@@ -1607,7 +1607,9 @@ class RobotFace:
             self._touch_react_t = now_t
             # The mood must go through face_override: face_renderer calls
             # set_state() every frame, so setting it here would last 1 frame.
-            if touch_kind == "multi":
+            if touch_kind in ("hold", "stop"):
+                mood, secs = None, 0.0          # commands, handled elsewhere
+            elif touch_kind == "multi":
                 mood, secs = "angry", TOUCH_POKE_SECS
             elif touch_kind == "stroke":
                 mood = "love" if self._touch_zone in ("top", "eye") else "happy"
@@ -1625,8 +1627,9 @@ class RobotFace:
                 self._cancel_scene(i_anim, i_start, "touch")
             with state.lock:
                 state.touch_zone          = self._touch_zone
-                state.face_override       = mood
-                state.face_override_until = now_t + secs
+                if mood:
+                    state.face_override       = mood
+                    state.face_override_until = now_t + secs
             if TOUCH_DEBUG:
                 print(f"[face] touched: {touch_kind} on {self._touch_zone} "
                       f"-> {mood}", flush=True)

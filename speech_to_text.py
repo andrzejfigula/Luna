@@ -599,11 +599,15 @@ def listen():
                     state.luna_mode = "idle"
             continue
 
-        # if Luna started speaking, abort this listen (mic gets flushed after)
+        # if Luna started speaking, abort this listen (mic gets flushed after);
+        # and if the conversation was opened from outside (finger held on
+        # the screen) restart as an active listen — no wake word needed
         with state.lock:
             if state.speaking:
                 state.listening = False
                 state.luna_mode = "idle"
+                return ""
+            if state.conversation_active and not active:
                 return ""
 
         data = _resample_to_16k(data)

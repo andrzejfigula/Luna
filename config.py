@@ -399,6 +399,8 @@ TOUCH_TAP_MAX_SECS = 0.4    # longer than this isn't a tap
 TOUCH_STROKE_MIN   = 0.06   # normalised travel that counts as stroking
 TOUCH_STROKE_REPEAT = 0.35  # min seconds between "still being petted" events
 TOUCH_MULTI_WINDOW = 1.6    # seconds
+TOUCH_HOLD_SECS    = 0.7    # finger held still this long = "listen to me"
+                            # (talk without the wake word)
 TOUCH_MULTI_COUNT  = 3      # taps inside that window = "poking"
 TOUCH_POKE_HOLD    = 3.0    # once poking starts, every further tap keeps her
                             # annoyed; she calms down this long after the last

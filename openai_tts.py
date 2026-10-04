@@ -139,6 +139,8 @@ class OpenAITTS:
 
     def __init__(self):
         self.lock    = threading.Lock()
+        self._cut    = threading.Event()     # stop() → abandon the current line
+        self._player = None
         self._client = (OpenAI(api_key=OPENAI_API_KEY, timeout=OPENAI_TTS_TIMEOUT,
                                max_retries=1)
                         if OPENAI_API_KEY else None)
@@ -187,12 +189,24 @@ class OpenAITTS:
                 return
             self._speak_streaming(text, on_audio_start, style)
 
+    def stop(self):
+        """Cut whatever is playing now (called from another thread — a tap on
+        the screen). The speaking call then returns as if it had finished."""
+        self._cut.set()
+        p = self._player
+        if p is not None and p.poll() is None:
+            try:
+                p.kill()
+            except Exception:
+                pass
+
     def play_pcm(self, pcm, on_audio_start=None):
         """Play a ready 24 kHz s16 mono clip (non-verbal sounds) through the
         same player and sink as speech, with lip sync. Blocks until played."""
         with self.lock:
             if self._raw_cmd is None:
                 return
+            self._cut.clear()
             leadin = bytes(int(TTS_LEADIN_SECS * PCM_RATE) * 2)   # the jack pops
             data = leadin + pcm
             envelope.reset()
@@ -201,6 +215,7 @@ class OpenAITTS:
             try:
                 player = subprocess.Popen(self._raw_cmd, stdin=subprocess.PIPE,
                                           stderr=subprocess.DEVNULL)
+                self._player = player
                 envelope.start()
                 if on_audio_start:
                     on_audio_start()
@@ -208,16 +223,19 @@ class OpenAITTS:
                 player.stdin.close()
                 player.wait()
             except Exception as e:
-                print(f"[TTS] sound playback error: {e}")
+                if not self._cut.is_set():
+                    print(f"[TTS] sound playback error: {e}")
                 if player and player.poll() is None:
                     player.kill()
             finally:
+                self._player = None
                 envelope.reset()
 
     # ── streaming: OpenAI pcm → (python pump) → player(raw stdin) ───────────
     def _speak_streaming(self, text, on_audio_start, style=""):
         player  = None
         started = False
+        self._cut.clear()
         try:
             kwargs = dict(model=OPENAI_TTS_MODEL, voice=OPENAI_TTS_VOICE,
                           input=text, response_format="pcm", speed=OPENAI_TTS_SPEED)
@@ -240,6 +258,8 @@ class OpenAITTS:
 
             with self._client.audio.speech.with_streaming_response.create(**kwargs) as resp:
                 for chunk in resp.iter_bytes(chunk_size=16384):
+                    if self._cut.is_set():
+                        break                      # tapped: stop downloading
                     if not chunk:
                         continue
                     envelope.feed(chunk)
@@ -250,6 +270,7 @@ class OpenAITTS:
                             continue
                         player = subprocess.Popen(self._raw_cmd, stdin=subprocess.PIPE,
                                                   stderr=subprocess.DEVNULL)
+                        self._player = player
                         envelope.start()
                         started = True
                         if on_audio_start:
@@ -259,9 +280,11 @@ class OpenAITTS:
                         continue
                     player.stdin.write(chunk)
 
-            if player is None and prebuf:          # short reply: under the prebuffer
+            if player is None and prebuf and not self._cut.is_set():
+                # short reply: under the prebuffer
                 player = subprocess.Popen(self._raw_cmd, stdin=subprocess.PIPE,
                                           stderr=subprocess.DEVNULL)
+                self._player = player
                 envelope.start()
                 started = True
                 if on_audio_start:
@@ -269,17 +292,22 @@ class OpenAITTS:
                 player.stdin.write(b"".join(prebuf))
 
             if player is not None:
-                player.stdin.close()
+                if self._cut.is_set():
+                    player.kill()
+                else:
+                    player.stdin.close()
                 player.wait()
             envelope.reset()
         except Exception as e:
-            print(f"[TTS] streaming error: {e}")
+            if not self._cut.is_set():
+                print(f"[TTS] streaming error: {e}")
             try:
                 if player and player.poll() is None:
                     player.kill()
             except Exception:
                 pass
         finally:
+            self._player = None
             if not started and on_audio_start:
                 on_audio_start()   # never leave the caller waiting for sync
 

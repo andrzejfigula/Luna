@@ -12,6 +12,10 @@ visual reaction) and idle_engine.py (voice reaction):
   tap     — quick touch, barely any movement
   stroke  — finger dragged across the face ("petting")
   multi   — TOUCH_MULTI_COUNT taps inside TOUCH_MULTI_WINDOW ("poking")
+  hold    — finger held still for TOUCH_HOLD_SECS: start listening without
+            the wake word (fired while the finger is still down)
+  stop    — a tap while she is talking: cut the answer short. Handled right
+            here, in the touch thread, so it is instant.
 """
 
 import fcntl
@@ -24,6 +28,7 @@ import time
 from config import (TOUCH_ENABLED, TOUCH_DEVICE, TOUCH_TAP_MAX_SECS,
                     TOUCH_STROKE_MIN, TOUCH_STROKE_REPEAT,
                     TOUCH_MULTI_WINDOW, TOUCH_MULTI_COUNT, TOUCH_POKE_HOLD,
+                    TOUCH_HOLD_SECS,
                     TOUCH_FLIP_X, TOUCH_FLIP_Y, TOUCH_DEBUG)
 from shared_state import state
 
@@ -68,6 +73,13 @@ def _find_device():
 # ── gesture recognition ───────────────────────────────────────────────────────
 
 def _publish(kind, nx, ny):
+    if kind == "tap":
+        with state.lock:
+            talking = state.speaking
+        if talking:
+            kind = "stop"
+            from text_to_speech import stop_speaking   # deferred (heavy import)
+            stop_speaking()
     with state.lock:
         state.touch_kind = kind
         state.touch_x    = nx
@@ -103,10 +115,16 @@ def _reader_loop(path):
     pub_t   = 0.0
     taps = []                      # timestamps of recent taps
     poking_until = 0.0             # while poking, further taps stay "multi"
+    held = False                   # "hold" already fired for this touch
 
     while True:
         try:
-            r, _, _ = select.select([f], [], [], 0.5)
+            # poll fast while a finger is down, so "hold" fires on time
+            r, _, _ = select.select([f], [], [], 0.05 if down_t else 0.5)
+            if (down_t and not held and not stroked and x is not None
+                    and time.time() - down_t >= TOUCH_HOLD_SECS):
+                held = True
+                _publish("hold", x, y)
             if not r:
                 continue
             data = f.read(_SZ)
@@ -138,9 +156,10 @@ def _reader_loop(path):
                     down_pos = (x, y)
                     moved    = 0.0
                     stroked  = False
+                    held     = False
                 elif value == 0 and down_t:
-                    held = time.time() - down_t
-                    if not stroked and held <= TOUCH_TAP_MAX_SECS:
+                    dur = time.time() - down_t
+                    if not stroked and not held and dur <= TOUCH_TAP_MAX_SECS:
                         now = time.time()
                         if now < poking_until:
                             # still being poked — don't fall back to a
