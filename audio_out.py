@@ -61,13 +61,15 @@ class AudioOut:
     # ── player process ────────────────────────────────────────────────────
     def _spawn(self):
         if self.proc is not None:
-            try:
-                self.proc.kill()
-            except Exception:
-                pass
+            for close in (self.proc.kill, self.proc.stdin.close):
+                try:
+                    close()
+                except Exception:
+                    pass                     # a dead pipe: nothing to flush
         self.proc = subprocess.Popen(self.cmd, stdin=subprocess.PIPE,
                                      stderr=subprocess.DEVNULL)
-        self.t_start = time.time()
+        # a fresh stream: count it as just ahead, not as already late
+        self.t_start = time.time() + 0.05
         self.written = 0
 
     def _ahead(self):
@@ -130,10 +132,22 @@ class AudioOut:
             try:
                 self.proc.stdin.write(data)
                 self.proc.stdin.flush()
+                self._fails = 0
             except Exception:
-                print("[audio] player died — restarting it", flush=True)
-                time.sleep(0.2)
-                self._spawn()
+                # back off if it keeps dying (PipeWire down), and say so once
+                # a minute instead of five times a second
+                self._fails = getattr(self, "_fails", 0) + 1
+                if time.time() - getattr(self, "_fail_logged", 0) > 60:
+                    self._fail_logged = time.time()
+                    print(f"[audio] player died — restarting it "
+                          f"(attempt {self._fails})", flush=True)
+                time.sleep(min(5.0, 0.2 * self._fails))
+                with self.lock:
+                    self._spawn()
+                    # the new stream's clock starts at 0: whatever the old
+                    # one still owed is gone, so an utterance in progress
+                    # must not wait for the old stream's end time
+                    self.last_speech_end = 0
                 continue
             self.written += len(data)
             if feeding:
