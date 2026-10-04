@@ -28,6 +28,7 @@ import cv2
 from openai import OpenAI
 
 import reply_scenes
+from reply_stream import ReplyStream
 import body
 import health
 import memory
@@ -318,86 +319,6 @@ def _note_mood(mood, commented):
 
 # ── OpenAI call ───────────────────────────────────────────────────────────────
 
-# A sentence ends at . ! ? … (maybe followed by a closing quote) and a space.
-_SENTENCE_END = re.compile(r"[.!?…]+[\"”»)]?\s")
-_FIRST_MIN_CHARS = 20          # don't send "Tak." alone — it sounds clipped
-
-
-class _ReplyStream:
-    """Pulls the "reply" string out of the model's JSON while it is still
-    streaming. on_head(emotion, gesture) fires when the reply starts (both
-    come before it in the schema); on_sentence(text) gets the first sentence
-    as soon as it is complete, and everything else in one piece at the end —
-    two TTS calls keep the intonation of the rest natural."""
-
-    _ESC = {"n": " ", "t": " ", "r": "", "b": "", "f": "", "/": "/",
-            '"': '"', "\\": "\\"}
-
-    def __init__(self, on_head, on_sentence):
-        self.on_head, self.on_sentence = on_head, on_sentence
-        self.raw = ""
-        self.pos = None            # where the reply string's content starts
-        self.text = ""             # the reply decoded so far
-        self.closed = False        # the reply string's closing quote seen
-        self.sent = 0              # characters of text already handed out
-
-    def feed(self, piece):
-        self.raw += piece
-        if self.pos is None:
-            m = re.search(r'"reply"\s*:\s*"', self.raw)
-            if not m:
-                return
-            self.pos = m.end()
-            emo = re.search(r'"emotion"\s*:\s*"(\w+)"', self.raw)
-            ges = re.search(r'"gesture"\s*:\s*"(\w+)"', self.raw)
-            self.on_head(emo.group(1) if emo else "neutral",
-                         ges.group(1) if ges else "none")
-        if not self.closed:
-            self._decode()
-        if self.sent == 0:
-            m = _SENTENCE_END.search(self.text, _FIRST_MIN_CHARS)
-            if m:
-                self._out(m.end())
-        if self.closed:
-            self.finish()
-
-    def _decode(self):
-        s, i, out = self.raw, self.pos, []
-        while i < len(s):
-            c = s[i]
-            if c == "\\":
-                if i + 1 >= len(s):
-                    break                              # escape split across chunks
-                n = s[i + 1]
-                if n == "u":
-                    if i + 6 > len(s):
-                        break
-                    out.append(chr(int(s[i + 2:i + 6], 16)))
-                    i += 6
-                    continue
-                out.append(self._ESC.get(n, n))
-                i += 2
-                continue
-            if c == '"':
-                self.closed = True
-                i += 1
-                break
-            out.append(c)
-            i += 1
-        self.text += "".join(out)
-        self.pos = i
-
-    def _out(self, upto):
-        piece = self.text[self.sent:upto].strip()
-        self.sent = upto
-        if piece:
-            self.on_sentence(piece)
-
-    def finish(self):
-        if self.pos is not None and self.sent < len(self.text):
-            self._out(len(self.text))
-
-
 def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=None):
     """Returns (reply, emotion, gesture) or None on any failure.
 
@@ -457,7 +378,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             response = _client.chat.completions.create(**request)
             raw = response.choices[0].message.content.strip()
         else:
-            rs = _ReplyStream(on_head, on_sentence)
+            rs = ReplyStream(on_head, on_sentence)
             for chunk in _client.chat.completions.create(stream=True, **request):
                 if chunk.choices and chunk.choices[0].delta.content:
                     rs.feed(chunk.choices[0].delta.content)
@@ -650,7 +571,7 @@ def process(text):
         threading.Thread(target=_think_filler, args=(answered,), daemon=True).start()
 
     # Streamed: the face is set when the model gets to the reply, the first
-    # sentence is spoken while it writes the rest (see _ReplyStream).
+    # sentence is spoken while it writes the rest (see reply_stream.py).
     sentences = queue.Queue()
     speaker = []
     head = {}

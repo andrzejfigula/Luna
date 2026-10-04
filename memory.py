@@ -33,7 +33,10 @@ import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from openai import OpenAI
+try:
+    from openai import OpenAI
+except ImportError:          # tests on a PC without the SDK
+    OpenAI = None
 
 from shared_state import state
 from config import (
@@ -59,7 +62,7 @@ except Exception:
 _lock    = threading.Lock()      # guards the file and _session
 _session = []                    # [(user_text, luna_reply)] not yet consolidated
 _client  = (OpenAI(api_key=OPENAI_API_KEY, timeout=OPENAI_TIMEOUT, max_retries=1)
-            if (OPENAI_API_KEY and MEMORY_ENABLED) else None)
+            if (OpenAI and OPENAI_API_KEY and MEMORY_ENABLED) else None)
 
 _SCHEMA = {
     "type": "json_schema",

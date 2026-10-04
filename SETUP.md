@@ -160,6 +160,13 @@ front of the camera for 30 s the face goes to sleep.
   (`THINK_SOUND_*`) and on touch (`TOUCH_SOUNDS`). Quiet hours and
   "Luna, cicho" apply to the unprompted ones.
 
+Logic tests (stream parser, timers, memory, game, voice commands) run on
+any computer, no Pi or network needed:
+
+```bash
+python -X utf8 -m unittest discover -s tests
+```
+
 After touching `reply_scenes.py` or `robot_face.py`, run every scene through
 the real renderer to make sure none of them raises:
 
