@@ -39,3 +39,13 @@ Status: ✅ done · 🚧 in progress · ⏳ queued · 💤 parked (with the reas
 | 18 | **Stories** — "opowiedz mi bajkę", "wyjaśnij dokładnie": longer answers when you ask for them (streaming makes them start just as fast; a tap stops them) | 1–3 sentences is right for chat, wrong for a bedtime story | ✅ a fairy tale starts after 2.6 s and flows in ~180-character pieces |
 | 19 | **Sunrise alarm** — "obudź mnie o 7": the screen slowly brightens over the last 10 minutes like a sunrise, then a gentle chime and a good-morning with the weather | A wake-up light is a perfect job for a glowing face | ✅ tested with a compressed dawn: 3 % → 60 %, then chime and a waking good-morning. Found on the way: with no weather data she *invented* sunshine — now told explicitly she doesn't know |
 
+## Batch 4
+
+| # | Item | Why | Status |
+|---|------|-----|--------|
+| 20 | **"Co potrafisz?"** — the persona learns her own features (timers, alarm, game, volume, sleep, stories, hold-to-talk, tap-to-stop…) so she can explain them, in her own words | Features nobody knows about don't exist | ⏳ |
+| 21 | **"Pa!" ends the conversation** — goodbye phrases close the conversation window at once, with a wave | Otherwise she keeps listening for 10 s and may answer the next thing said in the room | ⏳ |
+| 22 | **Night voice** — during quiet hours she speaks at a lower volume | Full volume at midnight is rude | ⏳ |
+| 23 | **Photo booth & mirror** — "zrób mi zdjęcie": 3-2-1, flash, the photo shown on her screen and saved to `photos/`; "pokaż lustro": the camera as a mirror for 15 s | Fun, and the camera is right there | ⏳ |
+| 24 | **"Pokaż zegar"** — a big clock on her screen for 10 s | Quick glance from across the room | ⏳ |
+
