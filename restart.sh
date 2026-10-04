@@ -4,6 +4,8 @@
 # with the log APPENDED, so earlier conversations stay readable.
 #   ./restart.sh          wait for 3 quiet minutes (up to 30 min)
 #   ./restart.sh --now    don't wait
+#   ./restart.sh --force  skip the smoke test (tests/smoke_pi.py) — only if
+#                         it's the test itself that is broken
 cd "$(dirname "$0")"
 IDLE_SECS=180
 if [ "$1" != "--now" ]; then
@@ -13,6 +15,16 @@ if [ "$1" != "--now" ]; then
         if [ $(( now - ${last%.*} )) -ge $IDLE_SECS ]; then break; fi
         sleep 10
     done
+fi
+# the new code must pass the smoke test (real modules, silent) — a broken
+# version is never started; the running Luna stays as she is
+if [ "$1" != "--force" ] && [ -f tests/smoke_pi.py ]; then
+    if ! timeout 180 ./venv/bin/python tests/smoke_pi.py > /tmp/luna_smoke.out 2>&1; then
+        echo "restart: SMOKE TEST FAILED — not restarting:"
+        grep -E "FAIL|^  -" /tmp/luna_smoke.out
+        echo "restart: smoke test failed, kept the running Luna" >> luna.log
+        exit 1
+    fi
 fi
 ./stop.sh >/dev/null 2>&1
 # a Luna that doesn't go within 5 s is killed — two of them fight over the mic
