@@ -13,7 +13,8 @@ visual reaction) and idle_engine.py (voice reaction):
   stroke  — finger dragged across the face ("petting")
   multi   — TOUCH_MULTI_COUNT taps inside TOUCH_MULTI_WINDOW ("poking")
   hold    — finger held still for TOUCH_HOLD_SECS: start listening without
-            the wake word (fired while the finger is still down)
+            the wake word (fired while the finger is still down); if she is
+            talking, she stops first — barge-in
   stop    — a tap while she is talking: cut the answer short. Handled right
             here, in the touch thread, so it is instant.
 """
@@ -73,11 +74,13 @@ def _find_device():
 # ── gesture recognition ───────────────────────────────────────────────────────
 
 def _publish(kind, nx, ny):
-    if kind == "tap":
+    if kind in ("tap", "hold"):
         with state.lock:
             talking = state.speaking
         if talking:
-            kind = "stop"
+            # a tap stops her; a held finger stops her AND she listens to you
+            if kind == "tap":
+                kind = "stop"
             from text_to_speech import stop_speaking   # deferred (heavy import)
             stop_speaking()
     with state.lock:

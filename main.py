@@ -39,6 +39,9 @@ start_sounds()
 import commands
 commands.start_commands()
 
+import messages
+messages.refresh()
+
 from display import start_display
 start_display()
 
@@ -116,6 +119,12 @@ def voice_loop():
                 elif text:
                     with state.lock:                     # subtitles: what she heard
                         state.caption = ("you", text, time.time() + 6.0)
+                    if messages.armed():
+                        # "nagraj wiadomość" — this sentence IS the message
+                        import speech_to_text
+                        messages.store(speech_to_text.last_utterance_pcm, text)
+                        speak("Zapisałam wiadomość.")
+                        continue
                     if check_mute(text):
                         pass          # "Luna, cicho" — handled, nothing to ask
                     elif check_forget(text):

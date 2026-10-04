@@ -10,7 +10,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Szybsze odpowiedzi | samo działa — mówi pierwsze zdanie, zanim model dopisze resztę (pierwszy dźwięk ~1–1,5 s) |
 | Głos z emocjami | samo działa — wesoła odpowiedź brzmi weselej, smutna łagodniej; ciszej i spokojniej, gdy wyglądasz na zmęczonego |
 | Mów bez „Luna” | **przytrzymaj palec na ekranie** ~1 s → „hm?” i słucha |
-| Przerwij jej | **stuknij w ekran**, kiedy mówi |
+| Przerwij jej | **stuknij w ekran**, kiedy mówi; **przytrzymaj palec** — przerwie i od razu Cię wysłucha |
 | Koniec rozmowy | „Pa!”, „Do zobaczenia”, „Dzięki, to wszystko” — pomacha i przestanie słuchać |
 | Czeka na odpowiedź | gdy zada pytanie, słucha dłużej (+8 s) |
 | Napisy | „Włącz napisy” — na dole ekranu to, co mówi, i to, co usłyszała od Ciebie („Ty: …”); „wyłącz napisy” |
@@ -42,6 +42,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Drzemka / dłużej | Po dzwonku: „Jeszcze 5 minut” albo „drzemka” (9 min); „Dodaj 5 minut do minutnika” |
 | Budzik ze świtem | „Obudź mnie jutro o siódmej” — 10 min wcześniej ekran powoli się rozjaśnia |
 | Powtarzające się | „Budzik w dni robocze na 6:30”, „Codziennie o 21 przypominaj mi o tabletkach”, „W każdy wtorek o 18 trening”, „Co roku 12 maja urodziny mamy” |
+| Wiadomości głosowe | „Nagraj wiadomość” → mówisz (pauzy są OK); następna osoba usłyszy „masz wiadomość”, a na ekranie świeci koperta; „Odtwórz wiadomość”, „Usuń wiadomości” |
 | Lista | „Pokaż przypomnienia” — wszystko, co ustawione, na ekranie |
 | Listy zakupów / zadań | „Dopisz mleko i chleb do listy zakupów”, „Skreśl chleb”, „Co mam na liście?”, „Dodaj do listy rzeczy do zrobienia: …”, „Pokaż listę zakupów” (na ekranie) |
 | Tryb skupienia | „Włącz tryb skupienia” (albo „pomodoro na 50 minut”) — 25 min ciszy, potem „czas na przerwę” i 5 min przerwy; „koniec skupienia” wyłącza |

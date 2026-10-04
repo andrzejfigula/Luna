@@ -17,6 +17,7 @@ commands.py — things Luna does herself, without asking the model.
            a countdown, then "czas na przerwę" and a break timer;
            "koniec skupienia" ends it
   bedtime  "bajka na dobranoc": a calm story, then she falls asleep
+  messages "nagraj wiadomość" / "odtwórz wiadomość" / "usuń wiadomości"
   goodbye  "pa", "do zobaczenia", "dzięki, to wszystko": a wave, and the
            conversation window closes at once
   wake     anything you say to her while she sleeps wakes her up (so
@@ -92,6 +93,13 @@ _SNOOZE = ("drzemka", "drzemkę", "jeszcze chwilę", "jeszcze chwile", "jeszcze 
 _EXTEND = ("dodaj", "przedłuż", "przedluz", "add")
 _CAPTIONS_ON  = ("włącz napisy", "wlacz napisy", "pokazuj napisy", "captions on")
 _CAPTIONS_OFF = ("wyłącz napisy", "wylacz napisy", "bez napisów", "captions off")
+_MSG_RECORD = ("nagraj wiadomość", "nagraj wiadomosc", "zostaw wiadomość",
+               "nagraj notatkę", "nagraj mi wiadomość", "chcę zostawić wiadomość",
+               "record a message")
+_MSG_PLAY   = ("odtwórz wiadomość", "odtwórz wiadomości", "odtworz wiadomosc",
+               "jakie mam wiadomości", "mam jakieś wiadomości", "puść wiadomość",
+               "posłuchaj wiadomości", "play the message", "any messages")
+_MSG_DELETE = ("usuń wiadomości", "usuń wiadomość", "skasuj wiadomości", "usun wiadomosci")
 _RESTART = ("zrestartuj się", "zrestartuj sie", "uruchom się ponownie",
             "uruchom sie ponownie", "restart yourself")
 _TRANSLATE_START = ("tłumacz na", "tlumacz na", "tłumaczyć na", "tlumaczyc na", "tryb tłumacza", "bądź tłumaczem",
@@ -293,6 +301,25 @@ def handle(text, speak, play_sound):
         from text_to_speech import replay_last
         if not replay_last():
             speak("Jeszcze nic nie mówiłam.")
+        return True
+
+    # voice messages — "nagraj wiadomość", "odtwórz wiadomość", "usuń wiadomości"
+    import messages
+    if any(k in low for k in _MSG_RECORD) and _short(text, 8):
+        messages.arm()
+        with state.lock:
+            state.conversation_active = True
+            state.last_activity_time = time.time()
+        speak("Dobrze, nagrywam. Mów teraz.")
+        return True
+    if any(k in low for k in _MSG_PLAY) and _short(text, 8):
+        from text_to_speech import play_clip
+        if not messages.play(speak, play_clip):
+            speak("Nie ma żadnych wiadomości.")
+        return True
+    if any(k in low for k in _MSG_DELETE) and _short(text, 6):
+        messages.delete_all()
+        speak("Usunęłam wiadomości.")
         return True
 
     # "która godzina?" / "jaki dziś dzień?" — answered at once, locally

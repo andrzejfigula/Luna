@@ -176,6 +176,10 @@ def idle_loop():
                         from brain import greeting
                         speak(greeting(first_today) or _greeting(first_today),
                               can_drop=True)
+                        import messages
+                        if messages.unheard():
+                            speak("Masz nową wiadomość głosową. Powiedz: odtwórz "
+                                  "wiadomość.", can_drop=True)
             elif was_present and not present:
                 left_at = now
             was_present = present

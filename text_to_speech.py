@@ -265,6 +265,18 @@ def replay_last():
     return ok[0]
 
 
+def play_clip(pcm24):
+    """Play a recorded 24 kHz clip (a voice message) with the usual speaking
+    state around it — mouth, mic block."""
+    if not pcm24:
+        return
+
+    def run(style):
+        tts.play_pcm(pcm24, on_audio_start=_on_audio_start)
+
+    _speaking(run, lambda: "(wiadomość głosowa)", False)
+
+
 def stop_speaking():
     """Cut her short (a tap on the screen while she talks)."""
     with state.lock:

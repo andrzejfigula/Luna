@@ -2145,6 +2145,12 @@ class RobotFace:
         if not online:
             self._draw_offline()
 
+        # ── an unheard voice message: a small envelope, top-left ─────────
+        with state.lock:
+            waiting = state.messages_waiting
+        if waiting:
+            self._draw_envelope(84 if not online else 14)
+
         # ── whole-screen moments: mirror, photo, clock, flash ─────────────
         if self._overlay_on():
             self._draw_overlay()
@@ -2362,6 +2368,18 @@ class RobotFace:
             veil.fill(BG)
             veil.set_alpha(int(255 * (1 - left / 0.5)))
             scr.blit(veil, (0, 0))
+
+    def _draw_envelope(self, x):
+        if getattr(self, "_envelope", None) is None:
+            s = pygame.Surface((56, 40), pygame.SRCALPHA)
+            col = (*STAR_COL, 230)
+            pygame.draw.rect(s, col, pygame.Rect(2, 4, 52, 34), 3, border_radius=5)
+            pygame.draw.lines(s, col, False, [(4, 7), (28, 24), (52, 7)], 3)
+            self._envelope = s
+        pulse = 0.6 + 0.4 * abs(math.sin(time.time() * 2.0))
+        env = self._envelope.copy()
+        env.set_alpha(int(255 * pulse))
+        self.screen.blit(env, (x, 12))
 
     def _draw_offline(self):
         if getattr(self, "_offline_icon", None) is None:

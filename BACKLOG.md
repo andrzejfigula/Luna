@@ -151,3 +151,10 @@ the game's hand reading, photos, the mood read from a face.
 | 55 | **Live captions while you speak** — with captions on, the words appear as you say them (Vosk's partials), then the cloud's clean version | You see she's hearing you before she answers | ✅ |
 | 56 | **A sleepy voice for the bedtime story** | A cheerful voice doesn't put anyone to sleep | ✅ |
 
+## Batch 15
+
+| # | Item | Why | Status |
+|---|------|-----|--------|
+| 57 | **Hold to interrupt** — holding a finger while she talks stops her and listens to you at once | Barge-in without shouting over her | ✅ |
+| 58 | **Voice messages** — "nagraj wiadomość": your next sentence is recorded as-is; whoever comes by next hears "masz wiadomość", and "odtwórz wiadomość" plays it in your own voice | A family message board that talks | ✅ found while testing: Vosk ends an utterance at a ~1 s pause, cutting messages — while recording, its endpoints are ignored until 2 s of silence; an envelope shows while a message waits |
+

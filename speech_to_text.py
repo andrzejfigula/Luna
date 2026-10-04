@@ -443,6 +443,8 @@ _last_cloud_wake_check = 0.0
 
 
 _wake_checks = []                      # times of recent cloud wake checks
+last_utterance_pcm = b""               # the audio of the last answered utterance
+                                       # (a voice message is saved from it)
 
 
 def _maybe_wake(words):
@@ -602,6 +604,7 @@ def listen():
         state.listening = active
         state.luna_mode = "listening" if active else "idle"
 
+    msg_parts    = []    # Vosk segments of a voice message being recorded
     voiced       = False # real speech heard in the current utterance
     silent_run   = 0.0   # seconds of gated silence since the last speech
     utt_peak_rms = 0.0   # loudest block in the utterance being accumulated
@@ -667,9 +670,24 @@ def listen():
         # (measured). Ours is quicker: STT_END_SILENCE of gated silence after
         # real speech — a third of a second sooner to the answer.
         final = rec.AcceptWaveform(data)
-        early = not final and voiced and silent_run >= STT_END_SILENCE
+        import messages                  # a voice message may have pauses
+        recording = messages.armed()
+        end_after = 2.0 if recording else STT_END_SILENCE
+        if final and recording and silent_run < end_after:
+            # Vosk thinks you're done (~1 s pause) but a message may go on:
+            # keep its text, keep the audio, keep listening
+            seg = json.loads(rec.Result()).get("text", "").strip()
+            if seg:
+                msg_parts.append(seg)
+            print(f"[STT] message: pause after {seg!r}, still recording "
+                  f"(silence {silent_run:.2f}s)", flush=True)
+            final = False
+        early = not final and voiced and silent_run >= end_after
         if final or early:
             result   = json.loads(rec.FinalResult() if early else rec.Result())
+            if msg_parts:                # a recorded message: all its parts
+                result = {"text": " ".join(msg_parts + [result.get("text", "")]).strip()}
+                msg_parts = []
             voiced, silent_run = False, 0.0
             text     = result.get("text", "").strip()
             peak_rms = utt_peak_rms
@@ -794,6 +812,8 @@ def listen():
                     continue
                 with state.lock:
                     state.last_activity_time = time.time()
+                global last_utterance_pcm
+                last_utterance_pcm = utt_pcm
                 final = cloud if cloud else text     # None: cloud unreachable
                 _save_utterance(utt_pcm, text, cloud, final)
                 return final
