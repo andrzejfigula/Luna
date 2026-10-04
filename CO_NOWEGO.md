@@ -61,6 +61,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Co | Jak |
 |---|---|
 | Minutnik | „Minutnik na 10 minut”, „na pół godziny”, „na kwadrans” — od razu, bez chmury (działa też bez internetu); „Nastaw minutnik na makaron, 8 minut” — z etykietą |
+| Lampka | „Włącz lampkę”, „Lampka na niebiesko” (czerwony, zielony, fioletowy, różowy, żółty, pomarańczowy, biały), „Lampka na 20 minut” — sama zgaśnie; „Wyłącz lampkę” albo stuknięcie |
 | Przypomnienie | „Przypomnij mi o 18:30, żeby zadzwonić do mamy” |
 | Ile zostało | „Ile zostało na minutniku?” — odliczanie widać też w prawym górnym rogu, a ostatnie 5 sekund wielkimi cyframi |
 | Stoper | „Włącz stoper”, „Ile na stoperze?”, „Zatrzymaj stoper” — czas widać w prawym górnym rogu |

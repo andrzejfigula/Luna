@@ -3,6 +3,9 @@ fun.py — small on-request games and gadgets (all local, no model call).
 
   "włącz lampkę"           → night light: a warm glow over the whole screen
                              until "wyłącz lampkę" or a tap
+  "lampka na niebiesko"    → in a colour (czerwony, zielony, niebieski, fioletowy,
+                             różowy, żółty, pomarańczowy, biały, ciepły)
+  "lampka na 20 minut"     → goes out by itself
   "przybij piątkę"         → her hand comes up; tap the screen within 4 s
   "rzuć kostką"            → a die rolls on her screen ("dwiema kostkami": two)
   "rzuć monetą" / "orzeł czy reszka" → a coin flips
@@ -30,6 +33,19 @@ COIN = ("rzuć monetą", "rzuc moneta", "orzeł czy reszka", "orzel czy reszka",
 
 LAMP_HOURS = 10
 
+# stem → (centre colour, edge colour) of the glow
+LAMP_COLOURS = {
+    "ciepł": ((255, 214, 150), (120, 50, 8)),    "ciepl": ((255, 214, 150), (120, 50, 8)),
+    "czerwon": ((255, 90, 70), (110, 10, 5)),    "zielon": ((120, 255, 140), (10, 90, 25)),
+    "niebiesk": ((110, 170, 255), (10, 30, 110)), "fiolet": ((200, 130, 255), (60, 15, 110)),
+    "różow": ((255, 150, 210), (110, 25, 70)),   "rozow": ((255, 150, 210), (110, 25, 70)),
+    "żółt": ((255, 240, 120), (120, 90, 5)),     "zolt": ((255, 240, 120), (120, 90, 5)),
+    "pomarańcz": ((255, 170, 70), (120, 45, 5)), "pomarancz": ((255, 170, 70), (120, 45, 5)),
+    "biał": ((255, 255, 250), (110, 110, 105)),  "bial": ((255, 255, 250), (110, 110, 105)),
+    "red": ((255, 90, 70), (110, 10, 5)), "green": ((120, 255, 140), (10, 90, 25)),
+    "blue": ((110, 170, 255), (10, 30, 110)),
+}
+
 
 def _overlay(kind, secs, data=None):
     with state.lock:
@@ -41,8 +57,19 @@ def _mood(emotion):
         state.emotion = emotion
 
 
-def lamp_on():
-    _overlay("lamp", LAMP_HOURS * 3600)
+def _colour(low):
+    return next((c for stem, c in LAMP_COLOURS.items() if stem in low), None)
+
+
+def lamp_on(colour=None, secs=None):
+    _overlay("lamp", secs or LAMP_HOURS * 3600,
+             {"col": colour or LAMP_COLOURS["ciepł"]})
+
+
+def lamp_lit():
+    with state.lock:
+        ov = state.overlay
+    return bool(ov and ov[0] == "lamp" and time.time() < ov[1])
 
 
 def lamp_off():
@@ -111,8 +138,22 @@ def handle(text, speak, play_sound, play_sound_async):
     if any(k in low for k in LAMP_OFF):
         lamp_off()
         return True
-    if any(k in low for k in LAMP_ON):
-        lamp_on()
+    colour = _colour(low)
+    lampish = any(k in low for k in LAMP_ON) or re.search(r"\blamp", low)
+    # "lampka na niebiesko", "zmień kolor lampki na zielony", "lampka na 20 minut"
+    if lampish and (any(k in low for k in LAMP_ON) or colour
+                    or re.search(r"\b(?:włącz|wlacz|zapal|zmień|zmien|ustaw|zrób|zrob|daj)\b", low)
+                    or re.search(r"\bna\s+\S+\s+(?:minut|godzin|sekund)", low)
+                    or "kwadrans" in low or "pół godziny" in low):
+        import timers
+        secs, _ = timers.parse_duration(low)
+        if colour is None and lamp_lit():           # "lampka na 20 minut" while on:
+            with state.lock:                        # keep its colour
+                colour = (state.overlay[2] or {}).get("col")
+        lamp_on(colour, secs)
+        if secs:
+            speak(f"Lampka zgaśnie za {timers.say_duration(secs)}.")
+        print(f"[fun] lamp {colour or 'warm'}" + (f" for {secs}s" if secs else ""), flush=True)
         return True
     if any(k in low for k in HIGH_FIVE):
         high_five(speak, play_sound)

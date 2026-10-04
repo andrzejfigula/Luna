@@ -2294,16 +2294,17 @@ class RobotFace:
                 c = _get_font(28).render(counter, True, EYE_MID)
                 scr.blit(c, (WIDTH - c.get_width() - 16, HEIGHT - c.get_height() - 10))
         elif kind == "lamp":
-            if getattr(self, "_lamp", None) is None:
+            inner, outer = (data or {}).get("col") or ((255, 214, 150), (120, 50, 8))
+            if getattr(self, "_lamp", (None,))[0] != (inner, outer):
                 lamp = pygame.Surface((WIDTH, HEIGHT))
                 cx, cy = WIDTH // 2, HEIGHT // 2
                 maxr = int(math.hypot(cx, cy))
-                for r in range(maxr, 0, -6):                 # warm radial glow
+                for r in range(maxr, 0, -6):                 # radial glow
                     k = r / maxr
-                    col = _lerp_col((255, 214, 150), (120, 50, 8), k ** 0.8)
+                    col = _lerp_col(inner, outer, k ** 0.8)
                     pygame.draw.circle(lamp, col, (cx, cy), r)
-                self._lamp = lamp
-            scr.blit(self._lamp, (0, 0))
+                self._lamp = ((inner, outer), lamp)
+            scr.blit(self._lamp[1], (0, 0))
         elif kind == "card":
             # a quiz question or a spelled word — big, in the middle (quiz.py,
             # commands.py); "ok" glows green, "bad" warm red

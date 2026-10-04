@@ -82,6 +82,9 @@ LOCAL = {
     "Włącz muzykę": "radio",
     "Budź mnie radiem": "radio",
     "Mów krócej": "length",
+    "Lampka na niebiesko": "fun",
+    "Zmień kolor lampki na zielony": "fun",
+    "Włącz lampkę na 20 minut": "fun",
     "Luna, odpowiadaj dłużej": "length",
     "Normalne odpowiedzi proszę": "length",
 }
@@ -140,6 +143,8 @@ MODEL = [
     "Budź mnie radiem jutro o 6:30",
     "Dlaczego mówisz krócej niż wczoraj?",
     "Mów mi więcej o kotach i psach",
+    "Jaki kolor ma niebo?",
+    "Ile kosztuje lampka nocna?",
 ]
 
 
@@ -179,7 +184,7 @@ class RoutingTest(unittest.TestCase):
             (lists, "get", lambda name=None: ["mleko"]),
             (breathing, "run", lambda *a: self._mark("breath")),
             (screens, "PHOTOS_DIR", self._photos_dir()),
-            (fun, "lamp_on", lambda: self._mark("fun")),
+            (fun, "lamp_on", lambda *a: self._mark("fun")),
             (health, "status_rows", lambda: [("CPU", "ok")]),
             (fun, "high_five", lambda *a: self._mark("fun")),
             (fun, "roll", lambda *a: self._mark("fun")),
