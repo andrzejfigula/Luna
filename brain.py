@@ -393,6 +393,26 @@ def _note_mood(mood, commented):
 
 # ── OpenAI call ───────────────────────────────────────────────────────────────
 
+def _as_reply(text):
+    """A bare answer text wrapped as our JSON reply."""
+    return json.dumps({"reply": text.strip(), "emotion": "neutral", "gesture": "none",
+                       "user_mood": "no_person", "mood_comment": False, "actions": []},
+                      ensure_ascii=False)
+
+
+def _message_json(message):
+    """The JSON reply of a non-streamed answer — or its refusal text, which
+    the model sometimes uses for an ordinary answer (see the soak tests)."""
+    content = (message.content or "").strip()
+    if content:
+        return content
+    refusal = (getattr(message, "refusal", None) or "").strip()
+    if refusal:
+        print(f"[brain] answer came as a refusal: {refusal[:80]!r}", flush=True)
+        return _as_reply(refusal)
+    raise ValueError("empty answer")
+
+
 def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=None):
     """Returns (reply, emotion, gesture) or None on any failure.
 
@@ -460,7 +480,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                        response_format=_RESPONSE_FORMAT)
         if on_head is None:
             response = _client.chat.completions.create(**request)
-            raw = response.choices[0].message.content.strip()
+            raw = _message_json(response.choices[0].message)
         else:
             rs = ReplyStream(on_head, on_sentence)
             finish, refusal = None, ""
@@ -477,15 +497,17 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             try:
                 json.loads(raw)
             except ValueError:
-                # Seen twice in a 40-utterance soak test, not reproducible on
-                # its own: an empty / broken streamed answer. Log what came,
-                # and recover instead of going silent.
+                # Seen in the soak tests: the model sometimes puts its whole
+                # (perfectly ordinary) answer into the "refusal" channel of
+                # structured output and leaves the content empty. Speak it.
                 print(f"[brain] bad streamed answer (finish={finish}, "
                       f"refusal={refusal!r}, raw={raw[:120]!r})", flush=True)
-                if rs.pos is None:
+                if rs.pos is None and refusal.strip():
+                    raw = _as_reply(refusal)
+                elif rs.pos is None:
                     # nothing said yet: ask once more, plainly
                     response = _client.chat.completions.create(**request)
-                    raw = response.choices[0].message.content.strip()
+                    raw = _message_json(response.choices[0].message)
                 else:
                     # already speaking: keep what was said
                     raw = json.dumps({"reply": rs.text, "emotion": rs.emotion,
