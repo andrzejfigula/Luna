@@ -20,6 +20,9 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Godzina i data | „Która godzina?”, „Jaki dziś dzień?” — odpowiedź od razu, bez chmury |
 | Kalkulator | „Ile to jest 17 razy 23?”, „15% z 80”, „pierwiastek z 144”, „dwa do potęgi dziesięć” — od razu, bez chmury |
 | Ile dni do… | „Ile dni do Wigilii?”, „do weekendu”, „do piątku”, „do 15 marca”, „do Wielkanocy” |
+| Quiz z matmy | „Przepytaj mnie z tabliczki mnożenia”, „Quiz z dodawania do dwudziestu”, „Pobawmy się w rachunki” — 5 pytań na ekranie, odpowiadasz liczbą; „nie wiem”, „koniec” |
+| Jak się pisze | „Jak się pisze żółw?” — słowo wielkimi literami na ekranie i literowanie |
+| Zapamiętaj | „Zapamiętaj, że klucze są w szufladzie” — zapisuje od razu; potem „gdzie są klucze?” |
 | Tłumacz | „Tłumacz na angielski” (niemiecki, hiszpański, francuski, włoski, ukraiński…) — każde zdanie wraca przetłumaczone, w obie strony; „Koniec tłumaczenia” |
 | Jak się czuje | „Jak się czujesz?” — zna temperaturę swojego procesora i czas pracy |
 

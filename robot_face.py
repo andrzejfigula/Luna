@@ -2278,6 +2278,31 @@ class RobotFace:
                     pygame.draw.circle(lamp, col, (cx, cy), r)
                 self._lamp = lamp
             scr.blit(self._lamp, (0, 0))
+        elif kind == "card":
+            # a quiz question or a spelled word — big, in the middle (quiz.py,
+            # commands.py); "ok" glows green, "bad" warm red
+            col = {"ok": (120, 230, 140), "bad": (255, 120, 100)}.get(data.get("tone"),
+                                                                       STAR_COL)
+            key = (data["text"], data.get("sub"), col)
+            if getattr(self, "_card_cache", (None,))[0] != key:
+                size = 130
+                font = _get_font(size)
+                while font.size(data["text"])[0] > WIDTH - 60 and size > 40:
+                    size -= 10
+                    font = _get_font(size)
+                img = font.render(data["text"], True, col)
+                sub = (_get_font(30).render(data["sub"], True, EYE_MID)
+                       if data.get("sub") else None)
+                self._card_cache = (key, img, sub)
+            _, img, sub = self._card_cache
+            scr.fill(BG)
+            rect = img.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 20))
+            glow = img.copy()
+            glow.fill((*GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
+            bloom(scr, glow, rect.topleft, radius=8, passes=1, max_alpha=70)
+            scr.blit(img, rect)
+            if sub:
+                scr.blit(sub, sub.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 90)))
         elif kind == "dice":
             scr.fill(BG)
             t = time.time() - data["t0"]
@@ -2359,7 +2384,7 @@ class RobotFace:
             rect = big.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 30))
             glow = big.copy()
             glow.fill((*GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
-            bloom(scr, glow, rect.topleft, radius=10, passes=1, max_alpha=110)
+            bloom(scr, glow, rect.topleft, radius=8, passes=1, max_alpha=70)
             scr.blit(big, rect)
             scr.blit(small, small.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 85)))
         # fade out in the last half second

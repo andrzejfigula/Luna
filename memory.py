@@ -27,6 +27,7 @@ wipes it (FORGET_PHRASES); LUNA_MEMORY=0 in .env switches memory off.
 """
 
 import json
+import re
 import os
 import threading
 import time
@@ -61,6 +62,9 @@ except Exception:
 
 _lock    = threading.Lock()      # guards the file and _session
 _session = []                    # [(user_text, luna_reply)] not yet consolidated
+_added   = []                    # [(time, fact)] from "zapamiętaj, że…" — kept
+                                 # even if a consolidation running meanwhile
+                                 # rewrites the facts without them
 _client  = (OpenAI(api_key=OPENAI_API_KEY, timeout=OPENAI_TIMEOUT, max_retries=1)
             if (OpenAI and OPENAI_API_KEY and MEMORY_ENABLED) else None)
 
@@ -288,6 +292,8 @@ def consolidate():
 
     facts = [str(f).strip() for f in data.get("facts", []) if str(f).strip()]
     facts = facts[:MEMORY_MAX_FACTS]
+    with _lock:
+        facts += [f for t, f in _added if t >= t0 and f not in facts]
     episode = str(data.get("episode", "")).strip()
     with _lock:
         mem = _load()                        # re-read: a wipe may have happened
@@ -310,6 +316,41 @@ def consolidate():
 
 
 # ── "Luna, zapomnij wszystko" ─────────────────────────────────────────────────
+
+_FIRST_PERSON = {"jestem", "mam", "mój", "moja", "moje", "mojego", "mojej", "moich",
+                 "mnie", "mi", "lubię", "lubie", "mieszkam", "pracuję", "pracuje",
+                 "muszę", "musze", "chcę", "chce", "będę", "bede", "my", "nasz",
+                 "nasza", "nasze", "naszego", "naszej", "mamy", "jesteśmy"}
+_RELATIVE = {"jutro", "pojutrze", "dziś", "dzisiaj", "wczoraj", "przedwczoraj",
+             "przyszły", "przyszłym", "przyszłą", "przyszłej", "tydzień", "tygodniu",
+             "weekend", "weekendzie", "miesiąc", "miesiącu", "wieczorem", "rano"}
+
+
+def add_fact(fact):
+    """"Zapamiętaj, że klucze są w szufladzie" — written at once, not at the
+    end of the conversation, and never judged as trivia."""
+    fact = fact.strip().rstrip(".")
+    words = set(re.findall(r"\w+", fact.lower()))
+    if words & _FIRST_PERSON or any(w.endswith(("łem", "łam")) for w in words):
+        fact = f"Powiedziano mi: „{fact}”"          # "jestem uczulony…" — not Luna
+    else:
+        fact = fact[0].upper() + fact[1:]
+    if words & _RELATIVE:                          # "jutro" must keep its day
+        fact += f" (zanotowane {_today().strftime('%d.%m.%Y')})"
+    fact += "."
+    with _lock:
+        mem = _load()
+        if fact.lower() in (f.lower() for f in mem["facts"]):
+            return fact
+        mem["facts"].append(fact)
+        if len(mem["facts"]) > MEMORY_MAX_FACTS:
+            mem["facts"] = mem["facts"][-MEMORY_MAX_FACTS:]
+        _save(mem)
+        _added.append((time.time(), fact))
+        del _added[:-20]
+    print(f"[memory] noted: {fact}", flush=True)
+    return fact
+
 
 def check_forget(text):
     """True when the utterance asks her to wipe her memory (and it was)."""

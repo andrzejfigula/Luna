@@ -69,6 +69,23 @@ def _words_number(words):
     return total + cur
 
 
+def number_in(text):
+    """The first number said in the text — "56", "pięćdziesiąt sześć", "to
+    będzie czterdzieści dwa" — as an int/float, or None."""
+    words = re.findall(r"-?\d+(?:[.,]\d+)?|[^\W\d_]+", text.lower())
+    for i, w in enumerate(words):
+        if re.fullmatch(r"-?\d+(?:[.,]\d+)?", w):
+            x = float(w.replace(",", "."))
+            return int(x) if x == int(x) else x
+        if w in _ONES or w in _SCALES:
+            j = i
+            while j < len(words) and (words[j] in _ONES or words[j] in _SCALES):
+                j += 1
+            n = _words_number(words[i:j])
+            return -n if i and words[i - 1] == "minus" else n
+    return None
+
+
 # ── arithmetic ────────────────────────────────────────────────────────────────
 
 # operator phrases, longest first (matched on the joined words)

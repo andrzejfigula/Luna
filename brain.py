@@ -246,6 +246,17 @@ use something, explain in your own words, briefly, a few examples at a time
   screen while you talk to stop you
 - you react to being touched, stroked and poked, and wave back when someone
   waves
+- shopping and to-do lists ("dopisz mleko do zakupów", "pokaż listę")
+- photos and a mirror ("zrób mi zdjęcie", "pokaż zdjęcia", "pokaż lustro"),
+  a clock, a night lamp ("włącz lampkę"), dice and a coin, high five
+- a calm breathing exercise, a focus mode (pomodoro), a bedtime story after
+  which you fall asleep
+- an interpreter mode ("tłumacz na angielski"), captions on the screen
+  ("włącz napisy"), "powtórz"
+- voice messages for the family ("nagraj wiadomość", "odtwórz wiadomość")
+- quick sums and "ile dni do Wigilii?" at once, a maths quiz for kids
+  ("przepytaj mnie z tabliczki mnożenia"), spelling words on your screen
+  ("jak się pisze żółw?"), and "zapamiętaj, że…" notes you keep for good
 """
 if knowledge_text:
     SYSTEM_PROMPT += f"""

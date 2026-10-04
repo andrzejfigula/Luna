@@ -19,6 +19,9 @@ commands.py — things Luna does herself, without asking the model.
   bedtime  "bajka na dobranoc": a calm story, then she falls asleep
   messages "nagraj wiadomość" / "odtwórz wiadomość" / "usuń wiadomości"
   calc     "ile to jest 17 razy 23?", "ile dni do Wigilii?" (calc.py)
+  quiz     "przepytaj mnie z tabliczki mnożenia" (quiz.py)
+  remember "zapamiętaj, że klucze są w szufladzie" (memory.add_fact)
+  spell    "jak się pisze żółw?" — on the screen and letter by letter
   goodbye  "pa", "do zobaczenia", "dzięki, to wszystko": a wave, and the
            conversation window closes at once
   wake     anything you say to her while she sleeps wakes her up (so
@@ -118,6 +121,64 @@ def _translator_language(low):
         if re.search(r"\b" + stem, low):
             return lang
     return ("English", "angielski") if "tryb tłumacza" in low or "tłumaczem" in low else None
+
+
+_REMEMBER = re.compile(r"^(?:luna,? |luno,? |hej,? )?(?:proszę,? )?(?:zapamiętaj|zapamietaj|"
+                       r"zanotuj|zapisz|pamiętaj|pamietaj|remember)(?: sobie)?(?: proszę)?"
+                       r",? (?:że|ze|to,? że|to ze|that) (.+)$", re.I)
+
+
+def _remember(text):
+    """"Zapamiętaj, że klucze są w szufladzie" → "klucze są w szufladzie"."""
+    m = _REMEMBER.match(text.strip())
+    if not m:
+        return None
+    fact = m.group(1).strip(" .!")
+    return fact if len(_words(fact)) >= 2 else None
+
+
+_SPELL = re.compile(r"(?:jak (?:się |sie )?(?:pisze|piszę|napisać|napisac|literuje)|"
+                    r"przeliteruj|literuj|spell)(?: (?:się|sie))?(?: słowo| wyraz| word)?"
+                    r"[ ,:]+[„\"']?([\w\- ]+?)[”\"']?[?.!]*$", re.I)
+_LETTERS = {"a": "a", "ą": "a z ogonkiem", "b": "be", "c": "ce", "ć": "ce z kreską",
+            "d": "de", "e": "e", "ę": "e z ogonkiem", "f": "ef", "g": "gie", "h": "ha",
+            "i": "i", "j": "jot", "k": "ka", "l": "el", "ł": "eł", "m": "em", "n": "en",
+            "ń": "en z kreską", "o": "o", "ó": "o z kreską", "p": "pe", "q": "ku",
+            "r": "er", "s": "es", "ś": "es z kreską", "t": "te", "u": "u otwarte",
+            "v": "fau", "w": "wu", "x": "iks", "y": "igrek", "z": "zet",
+            "ź": "zet z kreską", "ż": "zet z kropką"}
+
+
+def _spell_word(text):
+    """"Jak się pisze żółw?" → "żółw" (one to three words), else None."""
+    m = _SPELL.search(text.strip())
+    if not m:
+        return None
+    word = m.group(1).strip(" -")
+    if (not word or len(_words(word)) > 3 or any(c.isdigit() for c in word)
+            or re.search(r"\bpo \w+sku\b|\bin \w+", word.lower())):   # translation
+        return None
+    return word
+
+
+def _spell(word, speak):
+    """The word big on her screen, then letter by letter."""
+    with state.lock:
+        state.overlay = ("card", time.time() + 15, {"text": word, "sub": "", "tone": None})
+    letters = [c for c in word.lower() if c.isalpha()]
+    names = ", ".join(_LETTERS.get(c, c) for c in letters)
+    tricky = [t for t in ("ó", "rz", "ż", "ch", "h", "u") if t in word.lower()]
+    tip = ""
+    if "ó" in tricky:
+        tip = " Uwaga, przez o z kreską!"
+    elif "rz" in tricky:
+        tip = " Uwaga: rz, czyli er i zet."
+    elif "ż" in tricky:
+        tip = " Uwaga, przez zet z kropką!"
+    elif "ch" in tricky:
+        tip = " Uwaga: ch, czyli ce i ha."
+    print(f"[cmd] spell: {word}", flush=True)
+    speak(f"{word}: {names}.{tip}")
 
 
 def _words(text):
@@ -281,6 +342,11 @@ def handle(text, speak, play_sound):
     # anything else said to her wakes her up, then is handled as usual
     wake_up("spoken to")
 
+    # a maths quiz is on: this utterance is probably the answer
+    import quiz
+    if quiz.active() and quiz.answer(text, speak, _sound_async):
+        return True
+
     # goodbye — wave, and stop listening right away (otherwise the window
     # stays open and she may answer the next thing said in the room)
     if tuple(w for w in _words(text) if w not in ("luna", "luno")) in _BYE:
@@ -330,6 +396,12 @@ def handle(text, speak, play_sound):
     said = clock.answer(text)
     if said:
         speak(said)
+        return True
+
+    # "jak się pisze żółw?" — a question, but one she answers on the screen
+    word = _spell_word(text)
+    if word:
+        _spell(word, speak)
         return True
 
     # "ile to jest 17 razy 23?" / "ile dni do Wigilii?" — counted locally
@@ -459,6 +531,21 @@ def handle(text, speak, play_sound):
     import games                                   # rock, paper, scissors
     if games.is_trigger(text) or games.is_rematch(text):
         games.play_match(speak, _sound_async)
+        return True
+
+    kind = quiz.trigger(text)                      # "przepytaj mnie z tabliczki"
+    if kind:
+        quiz.start(kind, text, speak, _sound_async)
+        return True
+
+    note = _remember(text)                         # "zapamiętaj, że …"
+    if note:
+        import memory
+        memory.add_fact(note)
+        with state.lock:
+            state.reply_scene = "remember"
+            state.reply_scene_start = time.time()
+        speak(random.choice(("Zapamiętane.", "Dobrze, zapamiętam.", "Zapisane w pamięci.")))
         return True
 
     if _bare(text, _SLOWER + _FASTER) or any(k in low for k in _NORMAL_SPEED):

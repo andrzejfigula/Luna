@@ -174,3 +174,12 @@ the game's hand reading, photos, the mood read from a face.
 | 62 | **Days until** — "ile dni do Wigilii / weekendu / piątku / 15 marca / Wielkanocy?" | Kids ask it every December; Easter is computed, not looked up | ✅ "Do Wigilii zostało 81 dni, czyli około 12 tygodni." |
 | 63 | **Good night mentions tomorrow's alarm** — "Dobranoc! Budzik masz na siódmą trzydzieści." | The last thing you want to know before sleep is that the alarm is set | ✅ only alarms within 16 h |
 | — | **Web panel on the home network** (lists, reminders, messages, photos, "say it out loud" from a phone) | Managing her from the sofa | ⏸ written but parked: it opens a network port, so it waits for your OK |
+
+## Batch 18 — for kids (and forgetful grown-ups)
+
+| # | Item | Why | Status |
+|---|------|-----|--------|
+| 64 | **Maths quiz** — "przepytaj mnie z tabliczki mnożenia" / "quiz z dodawania do dwudziestu" / "pobawmy się w rachunki": 5 questions, big on her screen, a second try, a score | Loona-style play that is also homework | ✅ answers in words or digits; "nie wiem" moves on, "koniec" stops, anything else ends it and goes to the model |
+| 65 | **"Zapamiętaj, że…"** — stored at once as a fact, with a "remember" gesture | Facts used to wait for the end of the conversation, and the summariser could drop "klucze są w szufladzie" as trivia | ✅ "jestem uczulony…" is kept as a quote (not about Luna), "jutro…" keeps the date it was said; survives a consolidation running at the same time |
+| 66 | **Spelling** — "jak się pisze żółw?": the word big on the screen, then letter by letter, with a tip for ó / rz / ż / ch | Polish spelling is the classic kid question | ✅ "jak się pisze po angielsku pies" still goes to the model |
+| 67 | **"Co potrafisz?" is up to date** — the system prompt's list knew nothing of lists, photos, translator, messages… | She undersold herself | ✅ |

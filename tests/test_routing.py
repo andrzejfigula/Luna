@@ -60,6 +60,12 @@ LOCAL = {
     "Ile dni do Wigilii?": "calc",
     "Ile jeszcze do weekendu?": "calc",
     "15% z 80": "calc",
+    "Przepytaj mnie z tabliczki mnożenia": "quiz",
+    "Pobawmy się w rachunki": "quiz",
+    "Zapamiętaj, że klucze są w szufladzie": "remember",
+    "Luna, zapamiętaj sobie że mama ma urodziny 12 maja": "remember",
+    "Jak się pisze żółw?": "spell",
+    "Przeliteruj chrząszcz": "spell",
 }
 MODEL = [
     "Co widzisz?",
@@ -98,6 +104,11 @@ MODEL = [
     "Ile minut ma godzina?",
     "Dwa razy w tygodniu chodzę na basen",
     "Ile jest planet w układzie słonecznym?",
+    "Przepytaj mnie z historii",
+    "Czy pamiętasz, co mówiłem wczoraj?",
+    "Zapamiętaj to",
+    "Jak się pisze list motywacyjny do pracy w banku?",
+    "Jak się pisze po angielsku pies?",
 ]
 
 
@@ -106,6 +117,7 @@ class RoutingTest(unittest.TestCase):
     def setUp(self):
         import breathing
         import calc
+        import quiz
         import fun
         import health
         import lists
@@ -137,6 +149,9 @@ class RoutingTest(unittest.TestCase):
             (fun, "roll", lambda *a: self._mark("fun")),
             (fun, "flip", lambda *a: self._mark("fun")),
             (calc, "answer", self._calc(calc.answer)),
+            (quiz, "start", lambda *a: self._mark("quiz")),
+            (memory, "add_fact", lambda f: self._mark("remember")),
+            (commands, "_spell", lambda *a: self._mark("spell")),
         ]
         fake_tts = type(sys)("text_to_speech")
         fake_tts.replay_last = lambda: self._mark("repeat") or True

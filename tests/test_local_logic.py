@@ -6,6 +6,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ["LUNA_DATA_DIR"] = tempfile.mkdtemp(prefix="luna-tests-")  # never real data
@@ -366,6 +367,45 @@ class CalcTest(unittest.TestCase):
         timers._timers[0]["due"] = time.time() + 30 * 3600     # not tonight
         self.assertIsNone(timers.goodnight_note())
         timers._timers.clear()
+
+
+class KidsTest(unittest.TestCase):
+
+    def test_quiz_round(self):
+        import quiz
+        said = []
+        say = lambda t, **k: said.append(t)
+        with mock.patch.object(quiz, "QUESTIONS", 3):
+            quiz.start("mul", "przepytaj mnie z tabliczki", say, lambda n: None)
+            self.assertTrue(quiz.active())
+            quiz.answer(str(quiz._q["res"]), say, lambda n: None)          # right
+            wrong = quiz._q["res"] + 1
+            quiz.answer(f"to będzie {wrong}", say, lambda n: None)          # wrong once
+            self.assertIn("Spróbuj jeszcze raz", said[-1])
+            quiz.answer("nie wiem", say, lambda n: None)                    # gives up
+            quiz.answer(str(quiz._q["res"]), say, lambda n: None)          # right
+        self.assertFalse(quiz.active())
+        self.assertIn("2 na 3", said[-1])
+
+    def test_quiz_ends_on_unrelated_talk(self):
+        import quiz
+        quiz.start("add", "quiz z dodawania do 20", lambda t, **k: None, lambda n: None)
+        self.assertEqual(quiz._q["limit"], 20)
+        self.assertFalse(quiz.answer("jaka jest pogoda?", lambda t, **k: None, lambda n: None))
+        self.assertFalse(quiz.active())
+
+    def test_remember_and_spell(self):
+        import commands
+        self.assertEqual(commands._remember("Zapamiętaj, że klucze są w szufladzie"),
+                         "klucze są w szufladzie")
+        self.assertIsNone(commands._remember("zapamiętaj to"))
+        self.assertEqual(commands._spell_word("Jak się pisze żółw?"), "żółw")
+        self.assertIsNone(commands._spell_word("jak się pisze po angielsku pies"))
+        memory._save(memory._empty())
+        self.assertEqual(memory.add_fact("jestem uczulony na orzechy"),
+                         "Powiedziano mi: „jestem uczulony na orzechy”.")
+        self.assertIn("zanotowane", memory.add_fact("jutro jest wywiadówka"))
+        self.assertEqual(len(memory._load()["facts"]), 2)
 
 
 if __name__ == "__main__":
