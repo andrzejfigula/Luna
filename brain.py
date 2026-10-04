@@ -491,6 +491,20 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
         return None
 
 
+# ── Things she did herself, without the model ─────────────────────────────────
+
+def note_local(user_text, said):
+    """A local command (dice, volume, a photo…) was handled without the model.
+    Put the exchange into the chat history and memory anyway, so "co
+    wypadło?" or "a teraz?" make sense to the model afterwards."""
+    reply = " ".join(said).strip() or f"(zrobione: {user_text})"
+    _history.append({"role": "user", "content": user_text})
+    _history.append({"role": "assistant", "content": reply})
+    while len(_history) > OPENAI_MAX_HISTORY:
+        _history.pop(0)
+    memory.record(user_text, reply)
+
+
 # ── Yes/no question about the current camera frame (used by behavior_engine) ─
 
 def confirm_wave():

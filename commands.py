@@ -133,6 +133,16 @@ def _sink_id():
     return "@DEFAULT_AUDIO_SINK@"
 
 
+_vol_cache = [None, 0.0]
+
+
+def cached_volume():
+    """Volume for the prompt: wpctl at most every 30 s (it's not free)."""
+    if time.time() - _vol_cache[1] > 30:
+        _vol_cache[:] = [get_volume(), time.time()]
+    return _vol_cache[0]
+
+
 def get_volume():
     try:
         out = subprocess.run(["wpctl", "get-volume", _sink_id()], capture_output=True,
@@ -145,6 +155,7 @@ def get_volume():
 def set_volume(v):
     v = max(VOLUME_MIN, min(VOLUME_MAX, v))
     subprocess.run(["wpctl", "set-volume", _sink_id(), f"{v:.2f}"], timeout=5)
+    _vol_cache[:] = [v, time.time()]
     return v
 
 

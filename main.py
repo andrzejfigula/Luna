@@ -56,7 +56,7 @@ import difflib
 
 from speech_to_text import listen, WAKE_ACK
 from text_to_speech import speak, play_sound
-from brain import process
+from brain import process, note_local
 from shared_state import state
 from config import (WAKE_REPLIES, ECHO_GUARD_WINDOW,
                     ECHO_RUN_THRESH, ECHO_OVERLAP_THRESH, FORGET_REPLY,
@@ -93,6 +93,14 @@ def _is_self_echo(text):
     return run_ratio >= ECHO_RUN_THRESH and overlap >= ECHO_OVERLAP_THRESH
 
 
+def _logged(said):
+    """speak() that also remembers what was said (for note_local)."""
+    def say(text, **kw):
+        said.append(text)
+        return speak(text, **kw)
+    return say
+
+
 def voice_loop():
     while True:
         try:
@@ -110,8 +118,8 @@ def voice_loop():
                         pass          # "Luna, cicho" — handled, nothing to ask
                     elif check_forget(text):
                         speak(FORGET_REPLY)   # never goes near the model
-                    elif commands.handle(text, speak, play_sound):
-                        pass          # volume, good night — done locally
+                    elif commands.handle(text, _logged(said := []), play_sound):
+                        note_local(text, said)   # the model learns what happened
                     elif _is_self_echo(text):
                         print(f"[Luna] Ignoring self-echo: \"{text}\"")
                     else:

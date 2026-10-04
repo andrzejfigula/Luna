@@ -96,3 +96,10 @@ Status: ✅ done · 🚧 in progress · ⏳ queued · 💤 parked (with the reas
 | No weather data, yet asked | she invented sunshine | told explicitly she doesn't know |
 | Mouth flag set from a late thread | mouth could keep flapping after a very short clip | set synchronously |
 
+## Batch 9
+
+| # | Item | Why | Status |
+|---|------|-----|--------|
+| 39 | **Local actions in the conversation** — what she did herself (dice, photo, volume, lists shown, game score…) goes into the chat history, so "co wypadło?" or "a jak teraz?" make sense to the model | Otherwise the model doesn't know half of what just happened | ✅ "rzuć kostką" → "co wypadło?" → "Wypadło trzy." |
+| 40 | **She knows her settings** — volume, speech speed, screen brightness, night/focus/sleep state in the prompt | "Jak głośno teraz mówisz?" | ✅ |
+

@@ -60,6 +60,41 @@ def note_conversation():
     _talks_today[1] += 1
 
 
+def _settings():
+    """Her adjustable state, so "jak głośno mówisz?" has an answer."""
+    out = []
+    try:
+        import commands
+        v = commands.cached_volume()
+        if v is not None:
+            out.append(f"speaker volume {round(v * 100)}%")
+    except Exception:
+        pass
+    try:
+        import settings
+        from config import OPENAI_TTS_SPEED
+        out.append(f"speech speed {settings.get('tts_speed', OPENAI_TTS_SPEED)}")
+    except Exception:
+        pass
+    try:
+        import display
+        b = display.get_percent()
+        if b is not None:
+            out.append(f"screen brightness {b}%")
+    except Exception:
+        pass
+    try:
+        from shared_state import state
+        with state.lock:
+            if time.time() < state.focus_until:
+                out.append(f"focus mode for {int((state.focus_until - time.time()) / 60)} more min")
+            if state.overlay and time.time() < state.overlay[1]:
+                out.append(f"showing {state.overlay[0]} on your screen")
+    except Exception:
+        pass
+    return out
+
+
 def prompt_line():
     parts = []
     t = cpu_temp()
@@ -75,6 +110,7 @@ def prompt_line():
         parts.append(f"load {ld}%")
     parts.append(f"running for {_span(time.time() - _STARTED)} since your last start")
     parts.append(f"{_talks_today[1]} things said to you today")
+    parts += _settings()
     return ("Your body right now (Raspberry Pi 4): " + ", ".join(parts) + ". "
             "Bring it up only when asked how you are or about yourself — then "
             "weave in one such detail playfully, like a person mentioning "
