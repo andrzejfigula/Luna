@@ -406,6 +406,23 @@ class KidsTest(unittest.TestCase):
             tries += 1
         self.assertLessEqual(tries, 7)                     # binary search wins
 
+    def test_riddles(self):
+        import quiz
+        said = []
+        say = lambda t, **k: said.append(t)
+        self.assertEqual(quiz.trigger("Zadaj mi zagadkę"), "riddle")
+        self.assertIsNone(quiz.trigger("To bardzo zagadkowe"))
+        self.assertEqual(quiz.trigger("zagadki z matematyki"), "mix")
+        quiz.start("riddle", "zagadka", say, lambda n: None)
+        q = quiz._q
+        self.assertEqual(q["total"], quiz.RIDDLES)
+        quiz.answer("krzesło", say, lambda n: None)                  # wrong → a hint
+        self.assertIn("Podpowiedź", said[-1])
+        quiz.answer(f"to chyba {q['answer'][-1]}!", say, lambda n: None)   # another form
+        self.assertEqual(quiz._q["score"], 1)
+        quiz.answer("koniec", say, lambda n: None)
+        self.assertFalse(quiz.active())
+
     def test_quiz_ends_on_unrelated_talk(self):
         import quiz
         quiz.start("add", "quiz z dodawania do 20", lambda t, **k: None, lambda n: None)

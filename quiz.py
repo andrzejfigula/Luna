@@ -27,6 +27,7 @@ import time
 from shared_state import state
 
 QUESTIONS   = 5
+RIDDLES     = 3           # a round of riddles is shorter
 THINK_SECS  = 15          # extra listening time after each question
 EXPIRE_SECS = 60          # no answer this long → the game is over
 
@@ -91,12 +92,28 @@ def trigger(text):
         return None
     if any(g in low for g in _GUESS):
         return "guess"
+    if _riddle_request(low):
+        return "riddle"
     if not any(t in low for t in _TRIGGERS):
         return None
     for kind, stems in _KINDS:
         if any(s in low for s in stems):
             return kind
     return None
+
+
+def _riddle_request(low):
+    """"zadaj mi zagadkę", "pobawmy się w zagadki", "zagadka!" (not "zagadki z
+    matematyki" — that's a maths quiz)."""
+    words = re.findall(r"\w+", low)
+    if not re.search(r"\bzagad(?:ka|kę|ki|ek|kami|kach)\b", low) or len(words) > 8:
+        return False                       # "to zagadkowe" isn't a request
+    if any(s in low for _, stems in _KINDS for s in stems):
+        return False
+    asked = re.search(r"\b(?:zadaj|zadasz|opowiedz|powiedz|daj|wymyśl|wymysl|pobawmy|"
+                      r"zagrajmy|chcę|chce|jeszcze|kolejn\w*|następn\w*|nastepn\w*)\b", low)
+    return bool(asked) or [w for w in words if w not in ("luna", "luno")] in (
+        ["zagadka"], ["zagadki"])
 
 
 def active():
@@ -146,9 +163,30 @@ def _math_problem(kind, limit):
     return op, a, b, a - b
 
 
+def _riddle(seen):
+    """The next riddle (riddles.py, written by hand — the model's were too often
+    untrue): one not asked in this round nor in the last rounds (settings)."""
+    import random
+    import riddles
+    import settings
+    recent = set(settings.get("riddles_recent", []) or []) | seen
+    pool = [r for r in riddles.RIDDLES if r[1][0] not in recent] or \
+           [r for r in riddles.RIDDLES if r[1][0] not in seen] or riddles.RIDDLES
+    riddle, accept, hint = random.choice(pool)
+    settings.put("riddles_recent", (list(settings.get("riddles_recent", []) or [])
+                                    + [accept[0]])[-20:])
+    return riddle, accept[0], accept, hint
+
+
 def _new_question(q):
     """Fills q with the next question: card, spoken, answer, reveal."""
     seen = q["seen"]
+    if q["kind"] == "riddle":
+        riddle, answer, accept, hint = _riddle(seen)
+        seen.add(answer)
+        q.update(card="?", say=riddle, answer=accept, hint=hint,
+                 reveal=answer, right=f"To {answer}!")
+        return
     if q["kind"] == "words":
         pool = [w for w in WORDS if w[0] not in seen] or WORDS
         pl, en = random.choice(pool)
@@ -169,6 +207,19 @@ def _new_question(q):
 
 def _check(q, text):
     """True / False, or None when the utterance is no answer at all."""
+    if q["kind"] == "riddle":
+        said = _norm(text).split()
+        if not said:
+            return None
+        for a in q["answer"]:
+            stem = a[:max(3, len(a) - 2)]          # "kot" / "kotek" / "kotka"
+            if any(w.startswith(stem) or difflib.SequenceMatcher(None, w, a).ratio() >= 0.8
+                   for w in said):
+                return True
+        if len(said) > 6:                           # a sentence, not a guess
+            return None
+        q["last_try"] = " ".join(said[-2:])
+        return False
     if q["kind"] == "words":
         said = _norm(text)
         if not said:
@@ -193,7 +244,9 @@ def _ask(speak):
     _new_question(q)
     q.update(tries=0, asked=time.time())
     q["n"] += 1
-    sub = f"pytanie {q['n']} z {QUESTIONS}"
+    total = q["total"]
+    sub = (f"zagadka {q['n']} z {total}" if q["kind"] == "riddle"
+           else f"pytanie {q['n']} z {total}")
     _card(q["card"], ("po angielsku · " if q["kind"] == "words" else "") + sub)
     speak(q["say"])
     _listen_longer()
@@ -206,7 +259,8 @@ def start(kind, text, speak, play_sound_async):
     limit = 20 if re.search(r"\b(20|dwudziestu|dwadzieścia)\b", text.lower()) else 100
     with _lock:
         _q = {"kind": kind, "limit": limit, "n": 0, "score": 0, "seen": set(),
-              "asked": time.time(), "tries": 0}
+              "asked": time.time(), "tries": 0,
+              "total": RIDDLES if kind == "riddle" else QUESTIONS}
         if kind == "guess":
             _q.update(secret=random.randint(1, 100), lo=1, hi=100)
     with state.lock:
@@ -218,9 +272,13 @@ def start(kind, text, speak, play_sound_async):
         speak("Dobrze! Pomyślałam sobie liczbę od 1 do 100. Zgaduj!")
         _listen_longer()
         return
-    name = {"mul": "tabliczki mnożenia", "add": "dodawania", "sub": "odejmowania",
-            "mix": "rachunków", "words": "angielskich słówek"}[kind]
-    speak(f"Super, quiz z {name}! {QUESTIONS} pytań — zaczynamy!")
+    total = _q["total"]
+    if kind == "riddle":
+        speak(f"Uwielbiam zagadki! {total} zagadki — słuchaj uważnie.")
+    else:
+        name = {"mul": "tabliczki mnożenia", "add": "dodawania", "sub": "odejmowania",
+                "mix": "rachunków", "words": "angielskich słówek"}[kind]
+        speak(f"Super, quiz z {name}! {total} pytań — zaczynamy!")
     with _lock:
         if _q:
             _ask(speak)
@@ -228,19 +286,19 @@ def start(kind, text, speak, play_sound_async):
 
 def _finish(speak, play_sound_async):
     global _q
-    score = _q["score"]
+    score, total = _q["score"], _q["total"]
     _q = None
-    if score == QUESTIONS:
-        said, emo = f"Bezbłędnie! {score} na {QUESTIONS}! Mistrzowski wynik!", "Happy"
-    elif score >= QUESTIONS - 1:
-        said, emo = f"Pięknie! {score} na {QUESTIONS} punktów!", "Happy"
-    elif score >= QUESTIONS // 2:
-        said, emo = f"Nieźle! {score} na {QUESTIONS}. Jeszcze trochę ćwiczeń i będzie komplet.", "Happy"
+    if score == total:
+        said, emo = f"Bezbłędnie! {score} na {total}! Mistrzowski wynik!", "Happy"
+    elif score >= total - 1:
+        said, emo = f"Pięknie! {score} na {total} punktów!", "Happy"
+    elif score >= total // 2:
+        said, emo = f"Nieźle! {score} na {total}. Jeszcze trochę ćwiczeń i będzie komplet.", "Happy"
     else:
-        said, emo = (f"{score} na {QUESTIONS}. Nic nie szkodzi — ćwiczenie czyni mistrza. "
+        said, emo = (f"{score} na {total}. Nic nie szkodzi — ćwiczenie czyni mistrza. "
                      "Zagramy jeszcze raz?"), "Neutral"
-    print(f"[quiz] done: {score}/{QUESTIONS}", flush=True)
-    if score == QUESTIONS:                     # how many perfect rounds so far
+    print(f"[quiz] done: {score}/{total}", flush=True)
+    if score == total:                     # how many perfect rounds so far
         import settings
         with state.lock:
             who = state.person[0] if state.person else "_"
@@ -250,10 +308,10 @@ def _finish(speak, play_sound_async):
         settings.put("records", recs)
         if mine["perfect"] > 1:
             said += f" To już {mine['perfect']}. bezbłędna runda!"
-    _card(f"{score} / {QUESTIONS}", "wynik", "ok" if score >= QUESTIONS - 1 else None, secs=6)
+    _card(f"{score} / {total}", "wynik", "ok" if score >= total - 1 else None, secs=6)
     with state.lock:
         state.emotion = emo
-    if score >= QUESTIONS - 1:
+    if score >= total - 1:
         play_sound_async("chime")
     speak(said)
 
@@ -369,7 +427,9 @@ def answer(text, speak, play_sound_async):
                 q["tries"] = 1
                 q["asked"] = time.time()
                 _card(q["card"], "spróbuj jeszcze raz", "bad")
-                speak(f"Hmm, nie {q['last_try']}. Spróbuj jeszcze raz!")
+                hint = q.get("hint") if q["kind"] == "riddle" else None
+                speak(f"Hmm, nie {q['last_try']}. "
+                      + (f"Podpowiedź: {hint}" if hint else "Spróbuj jeszcze raz!"))
                 _listen_longer()
                 return True
             else:
@@ -377,7 +437,7 @@ def answer(text, speak, play_sound_async):
                 speak(f"Niestety nie. {q['right']}")
         with state.lock:
             state.emotion = "Neutral"
-        if q["n"] >= QUESTIONS:
+        if q["n"] >= q["total"]:
             _finish(speak, play_sound_async)
         else:
             _ask(speak)

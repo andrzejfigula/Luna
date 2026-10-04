@@ -26,6 +26,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Ile dni do… | „Ile dni do Wigilii?”, „do weekendu”, „do piątku”, „do 15 marca”, „do Wielkanocy” |
 | Quiz z matmy | „Przepytaj mnie z tabliczki mnożenia”, „Quiz z dodawania do dwudziestu”, „Pobawmy się w rachunki” — 5 pytań na ekranie, odpowiadasz liczbą; „nie wiem”, „koniec” |
 | Słówka angielskie | „Przepytaj mnie ze słówek angielskich” — „pies = ?” na ekranie, odpowiadasz po angielsku |
+| Zagadki | „Zadaj mi zagadkę”, „Pobawmy się w zagadki” — 3 zagadki, po złej odpowiedzi podpowiedź; „nie wiem”, „koniec” |
 | Zgadywanka | „Zagrajmy w zgadywankę” — Luna myśli o liczbie od 1 do 100, Ty zgadujesz, ona mówi „więcej” / „mniej” |
 | Chowany | „Policz do dwudziestu” — liczy na głos (do 30), cyfry na ekranie, na koniec „Kto się nie schował, ten kryje!”; „Odliczaj od dziesięciu” — jak przy starcie rakiety |
 | Mycie zębów | „Myjemy zęby” — 2 minuty odliczane na ekranie, co 30 s podpowiedź, którą stronę myć; stuknięcie przerywa |
