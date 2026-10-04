@@ -2384,7 +2384,7 @@ class RobotFace:
             rect = big.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 30))
             glow = big.copy()
             glow.fill((*GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
-            bloom(scr, glow, rect.topleft, radius=8, passes=1, max_alpha=70)
+            bloom(scr, glow, rect.topleft, radius=10, passes=1, max_alpha=110)
             scr.blit(big, rect)
             scr.blit(small, small.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 85)))
         # fade out in the last half second
