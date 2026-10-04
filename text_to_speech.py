@@ -23,6 +23,8 @@ import sounds
 from shared_state import state
 from config import (
     TTS_RATE,
+    TTS_EMOTION_STYLE,
+    TTS_LISTENER_STYLE,
     MIC_BLOCK_AFTER_SPEAK,
     LIPSYNC_LATENCY_MS,
     LIPSYNC_GAIN,
@@ -50,9 +52,16 @@ def _on_audio_start():
         state.audio_playing = True
 
 
-def _engine_speak(text):
+def _engine_speak(text, style=""):
 
-    tts.speak(text, on_audio_start=_on_audio_start)
+    tts.speak(text, on_audio_start=_on_audio_start, style=style)
+
+
+def _voice_style(emotion, user_mood):
+    """Delivery for this line: her emotion, softened for a tired/sad listener."""
+    parts = [TTS_EMOTION_STYLE.get((emotion or "").lower(), ""),
+             TTS_LISTENER_STYLE.get(user_mood or "", "")]
+    return " ".join(p for p in parts if p)
 
 # ============================================================================
 # Talking mouth energy animation
@@ -179,6 +188,7 @@ def speak(text, can_drop=False):
             state.speaking = True
             state.luna_mode = "speaking"
             state.frozen_emotion = state.emotion
+            style = _voice_style(state.emotion, state.user_mood)
 
 
 
@@ -194,7 +204,7 @@ def speak(text, can_drop=False):
 
         speech_start = time.time()
 
-        _engine_speak(text)
+        _engine_speak(text, style)
 
 
 

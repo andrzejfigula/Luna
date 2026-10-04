@@ -247,6 +247,29 @@ OPENAI_TTS_INSTRUCTIONS = (
     "Polish pronunciation; switch to natural English when the text is English."
 )
 OPENAI_TTS_TIMEOUT      = 20.0
+# The reply's emotion (the one her face shows) colours the voice too: this is
+# appended to the instructions for that one sentence. Same voice, different
+# mood — every line keeps the "high, light, girlish" identity above.
+TTS_EMOTION_STYLE = {
+    "happy":     "Right now you are cheerful: a bright smile in the voice, a "
+                 "little livelier than usual.",
+    "excited":   "Right now you are excited and enthusiastic: more energy, a "
+                 "slightly quicker pace and bigger intonation — still natural.",
+    "love":      "Right now you are tender and affectionate: warm, soft, a "
+                 "little slower, as if talking to someone you adore.",
+    "sad":       "Right now you are gentle and sympathetic: softer, a bit "
+                 "slower and quieter — but keep the same high, light voice.",
+    "surprised": "Right now you are genuinely surprised: a lively rise in the "
+                 "intonation, a touch of disbelief.",
+    "angry":     "Right now you are playfully grumpy, mock-annoyed with a "
+                 "pout — never actually aggressive or harsh.",
+}
+# How the listener seems on camera (brain.USER_MOODS) can soften the delivery.
+TTS_LISTENER_STYLE = {
+    "tired":    "The listener looks tired: keep it calm, unhurried and soft.",
+    "sad":      "The listener looks sad: be extra gentle and warm.",
+    "stressed": "The listener looks stressed: calm, steady and reassuring.",
+}
 TTS_PREBUFFER_SECS      = 0.6    # audio buffered before playback starts — avoids
                                  # crackle/underruns when the stream stutters
 TTS_LEADIN_SECS         = 0.25   # silence played before each reply so the Pi's

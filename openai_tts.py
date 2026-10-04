@@ -175,7 +175,9 @@ class OpenAITTS:
         return None
 
     # ── public ──────────────────────────────────────────────────────────────
-    def speak(self, text, on_audio_start=None):
+    def speak(self, text, on_audio_start=None, style=""):
+        """style: extra delivery instructions for this line only (the
+        reply's emotion — see TTS_EMOTION_STYLE)."""
         with self.lock:
             if self._client is None or self._raw_cmd is None:
                 # no voice available — keep the caller's state machine
@@ -183,7 +185,7 @@ class OpenAITTS:
                 if on_audio_start:
                     on_audio_start()
                 return
-            self._speak_streaming(text, on_audio_start)
+            self._speak_streaming(text, on_audio_start, style)
 
     def play_pcm(self, pcm, on_audio_start=None):
         """Play a ready 24 kHz s16 mono clip (non-verbal sounds) through the
@@ -213,14 +215,15 @@ class OpenAITTS:
                 envelope.reset()
 
     # ── streaming: OpenAI pcm → (python pump) → player(raw stdin) ───────────
-    def _speak_streaming(self, text, on_audio_start):
+    def _speak_streaming(self, text, on_audio_start, style=""):
         player  = None
         started = False
         try:
             kwargs = dict(model=OPENAI_TTS_MODEL, voice=OPENAI_TTS_VOICE,
                           input=text, response_format="pcm", speed=OPENAI_TTS_SPEED)
-            if OPENAI_TTS_INSTRUCTIONS:
-                kwargs["instructions"] = OPENAI_TTS_INSTRUCTIONS
+            instructions = "\n".join(x for x in (OPENAI_TTS_INSTRUCTIONS, style) if x)
+            if instructions:
+                kwargs["instructions"] = instructions
 
             # Prebuffer: hold back the first TTS_PREBUFFER_SECS of audio before
             # the player starts, so a network stutter drains the buffer instead
