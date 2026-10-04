@@ -16,6 +16,7 @@ commands.py — things Luna does herself, without asking the model.
   focus    "tryb skupienia" (optionally "na 50 minut"): no small talk,
            a countdown, then "czas na przerwę" and a break timer;
            "koniec skupienia" ends it
+  bedtime  "bajka na dobranoc": a calm story, then she falls asleep
   goodbye  "pa", "do zobaczenia", "dzięki, to wszystko": a wave, and the
            conversation window closes at once
   wake     anything you say to her while she sleeps wakes her up (so
@@ -319,6 +320,16 @@ def handle(text, speak, play_sound):
             brain.set_translator(None)
             speak("Koniec tłumaczenia.")
             return True
+
+    # "bajka na dobranoc" — a calm story, then she falls asleep herself
+    if (("dobranoc" in low or "do snu" in low or "na sen" in low)
+            and any(k in low for k in ("bajk", "historyjk", "opowieść", "opowiesc"))
+            and _short(text, 10)):
+        import brain
+        brain.process("Opowiedz mi spokojną, krótką bajkę na dobranoc — około 8 "
+                      "zdań, łagodnie i sennie — i zakończ życzeniem dobrej nocy.")
+        go_to_sleep()
+        return "recorded"            # process() already put it in the history
 
     # "jeszcze 5 minut" / "drzemka" right after an alarm or timer rang
     if any(k in low for k in _SNOOZE) and _short(text, 7):

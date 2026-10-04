@@ -42,6 +42,7 @@ LOCAL = {
     "Włącz tryb skupienia": "focus",
     "Minutnik na 10 minut": "timer",
     "Jeszcze 5 minut": "snooze",
+    "Opowiedz mi bajkę na dobranoc": "story",
     "Drzemka": "snooze",
     "Dodaj 5 minut do minutnika": "extend",
     "Tłumacz na angielski": "translate",
@@ -82,6 +83,7 @@ MODEL = [
     "Co to jest lustro?",
     "Powiedz dobranoc mojej córce",
     "Co było wczoraj na dobranockę?",
+    "Dlaczego bajki na dobranoc pomagają zasnąć?",
     "Czy zegar w kuchni się spieszy?",
 ]
 
@@ -129,6 +131,7 @@ class RoutingTest(unittest.TestCase):
         fake_brain = type(sys)("brain")
         fake_brain.set_translator = lambda lang: self._mark("translate")
         fake_brain.translator = lambda: None
+        fake_brain.process = lambda text: self._mark("story")
         stubs_dict = mock.patch.dict(sys.modules, {"text_to_speech": fake_tts,
                                                    "brain": fake_brain})
         stubs_dict.start()
