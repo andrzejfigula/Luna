@@ -413,6 +413,24 @@ class KidsTest(unittest.TestCase):
         self.assertFalse(quiz.answer("jaka jest pogoda?", lambda t, **k: None, lambda n: None))
         self.assertFalse(quiz.active())
 
+    def test_routine_walks_a_list(self):
+        import kids
+        lists.apply([{"type": "list_add", "label": "umyj zęby", "list": "poranek"},
+                     {"type": "list_add", "label": "ubierz się", "list": "poranek"}])
+        said = []
+        say = lambda t, **k: said.append(t)
+        self.assertEqual(kids.routine_name("Zacznij poranek"), "poranek")
+        self.assertEqual(kids.routine_name("włącz rutynę poranną"), "poranek")
+        self.assertIsNone(kids.routine_name("włącz lampkę"))
+        kids.start_routine("poranek", say)
+        self.assertIn("umyj zęby", said[-1])
+        self.assertTrue(kids.routine_answer("Gotowe!", say, lambda n: None))
+        self.assertIn("ubierz się", said[-1])
+        self.assertTrue(kids.routine_answer("już", say, lambda n: None))
+        self.assertFalse(kids.routine_active())
+        self.assertEqual(lists.get("poranek"), ["umyj zęby", "ubierz się"])   # kept
+        lists.apply([{"type": "list_clear", "list": "poranek"}])
+
     def test_remember_and_spell(self):
         import commands
         self.assertEqual(commands._remember("Zapamiętaj, że klucze są w szufladzie"),

@@ -198,3 +198,11 @@ the game's hand reading, photos, the mood read from a face.
 |---|------|-----|--------|
 | 71 | **Counting for hide and seek** — "policz do dwudziestu": "Chowajcie się!", the numbers in her own voice with each one big on the screen, then "Kto się nie schował, ten kryje! Szukam!"; "odliczaj od dziesięciu" counts down to "Start!" | The game every child plays, and a robot that counts fairly | ✅ numbers are made once and cached (`sounds.clip`), so the beat is steady and it works offline; up to 30; a tap stops it. Found: numbers above ten take 1–2 s to say, so the beat follows the voice instead of a fixed second |
 | 72 | **Stopwatch** — "włącz stoper", "ile na stoperze?", "zatrzymaj stoper" → "Stop! 2 minuty i 14 sekund." Counts up in the corner of the screen | Planks, eggs, races around the house | ✅ |
+
+## Batch 21
+
+| # | Item | Why | Status |
+|---|------|-----|--------|
+| 73 | **Tooth-brushing coach** — "myjemy zęby": 2:00 counting down on her screen, a nudge every 30 s (top left → top right → bottom right → bottom left), a chime and praise at the end | Two minutes is forever for a child; a friend who counts makes it a game | ✅ a tap stops it; the nudges are spoken while the clock keeps running |
+| 74 | **Routines step by step** — "zacznij poranek" walks through the list "poranek" ("dopisz umyj zęby do listy poranek"): one step big on the screen, "gotowe" → praise and the next one | Morning chaos, made into a checklist that talks back | ✅ the list stays as it is for tomorrow; "koniec" stops; anything else ends it and goes to the model |
+| 75 | **"Co potrafisz?" knows the games and helpers** | — | ✅ |

@@ -24,6 +24,8 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Słówka angielskie | „Przepytaj mnie ze słówek angielskich” — „pies = ?” na ekranie, odpowiadasz po angielsku |
 | Zgadywanka | „Zagrajmy w zgadywankę” — Luna myśli o liczbie od 1 do 100, Ty zgadujesz, ona mówi „więcej” / „mniej” |
 | Chowany | „Policz do dwudziestu” — liczy na głos (do 30), cyfry na ekranie, na koniec „Kto się nie schował, ten kryje!”; „Odliczaj od dziesięciu” — jak przy starcie rakiety |
+| Mycie zębów | „Myjemy zęby” — 2 minuty odliczane na ekranie, co 30 s podpowiedź, którą stronę myć; stuknięcie przerywa |
+| Poranek krok po kroku | „Zacznij poranek” — czyta listę „poranek” po jednym kroku i czeka na „gotowe” (listę układasz sam: „dopisz umyj zęby do listy poranek”); tak samo „zacznij wieczór” |
 | Jak się pisze | „Jak się pisze żółw?” — słowo wielkimi literami na ekranie i literowanie |
 | Zapamiętaj | „Zapamiętaj, że klucze są w szufladzie” — zapisuje od razu; potem „gdzie są klucze?” |
 | Tłumacz | „Tłumacz na angielski” (niemiecki, hiszpański, francuski, włoski, ukraiński…) — każde zdanie wraca przetłumaczone, w obie strony; „Koniec tłumaczenia” |

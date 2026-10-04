@@ -71,6 +71,9 @@ LOCAL = {
     "Policz do dwudziestu": "count",
     "Odliczaj od dziesięciu": "count",
     "Włącz stoper": "count",
+    "Myjemy zęby!": "kids",
+    "Zacznij poranek": "kids",
+    "Luna, włącz rutynę wieczorną": "kids",
 }
 MODEL = [
     "Co widzisz?",
@@ -117,6 +120,9 @@ MODEL = [
     "Policz do pięciu po angielsku",
     "Odlicz mi dni do wakacji",
     "Ile minęło lat od bitwy pod Grunwaldem?",
+    "Jak dobrze myć zęby?",
+    "Dlaczego trzeba myć zęby dwa razy dziennie?",
+    "Zacznij od początku",
 ]
 
 
@@ -127,6 +133,7 @@ class RoutingTest(unittest.TestCase):
         import calc
         import quiz
         import counting
+        import kids
         import fun
         import health
         import lists
@@ -160,6 +167,9 @@ class RoutingTest(unittest.TestCase):
             (calc, "answer", self._calc(calc.answer)),
             (quiz, "start", lambda *a: self._mark("quiz")),
             (counting, "count", lambda *a: self._mark("count")),
+            (kids, "_brush", lambda *a: self._mark("kids")),
+            (kids, "threading", self._sync_threads()),
+            (kids, "start_routine", lambda *a: self._mark("kids")),
             (counting, "_watch", {"t0": None}),
             (memory, "add_fact", lambda f: self._mark("remember")),
             (commands, "_spell", lambda *a: self._mark("spell")),
@@ -189,6 +199,17 @@ class RoutingTest(unittest.TestCase):
         d = tempfile.mkdtemp(prefix="luna-photos-")
         open(os.path.join(d, "20260101-120000.jpg"), "wb").close()
         return d
+
+    @staticmethod
+    def _sync_threads():
+        """threading for kids.py whose Thread runs at once (no race in tests)."""
+        class Now:
+            def __init__(self, target, args=(), **k):
+                self.go = lambda: target(*args)
+
+            def start(self):
+                self.go()
+        return type("SyncThreading", (), {"Thread": Now})
 
     def _calc(self, real):
         def answer(text):

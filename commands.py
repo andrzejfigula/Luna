@@ -23,6 +23,7 @@ commands.py — things Luna does herself, without asking the model.
   remember "zapamiętaj, że klucze są w szufladzie" (memory.add_fact)
   spell    "jak się pisze żółw?" — on the screen and letter by letter
   count    "policz do dwudziestu", "odliczaj od dziesięciu", "włącz stoper" (counting.py)
+  kids     "myjemy zęby" (2-minute coach), "zacznij poranek" (a list step by step)
   goodbye  "pa", "do zobaczenia", "dzięki, to wszystko": a wave, and the
            conversation window closes at once
   wake     anything you say to her while she sleeps wakes her up (so
@@ -347,6 +348,9 @@ def handle(text, speak, play_sound):
     import quiz
     if quiz.active() and quiz.answer(text, speak, _sound_async):
         return True
+    import kids                                    # a routine step: "gotowe"
+    if kids.routine_active() and kids.routine_answer(text, speak, _sound_async):
+        return True
 
     # goodbye — wave, and stop listening right away (otherwise the window
     # stays open and she may answer the next thing said in the room)
@@ -523,6 +527,9 @@ def handle(text, speak, play_sound):
 
     import counting                                # "policz do 20", stopwatch
     if counting.handle(text, speak, play_sound):
+        return True
+
+    if kids.handle(text, speak, _sound_async):     # tooth brushing, routines
         return True
 
     import fun                                     # lamp, high five, dice, coin

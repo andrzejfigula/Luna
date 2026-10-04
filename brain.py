@@ -257,6 +257,10 @@ use something, explain in your own words, briefly, a few examples at a time
 - quick sums and "ile dni do Wigilii?" at once, a maths quiz for kids
   ("przepytaj mnie z tabliczki mnożenia"), spelling words on your screen
   ("jak się pisze żółw?"), and "zapamiętaj, że…" notes you keep for good
+- games: guess the number ("zagrajmy w zgadywankę"), English words quiz,
+  counting for hide and seek ("policz do dwudziestu"), a stopwatch
+- a tooth-brushing coach ("myjemy zęby") and step-by-step routines from a
+  list ("zacznij poranek" walks through the list "poranek")
 """
 if knowledge_text:
     SYSTEM_PROMPT += f"""
