@@ -19,6 +19,8 @@ import subprocess
 import threading
 import time
 
+import numpy as np
+
 RATE = 24000                    # s16 mono, the TTS PCM rate
 BPS  = RATE * 2                 # bytes per second
 CHUNK = int(0.04 * RATE) * 2    # writer granularity: 40 ms
@@ -136,9 +138,22 @@ class AudioOut:
             self.on_start, self.started = on_start, False
             self.last_speech_end = 0
 
+    def _gain(self):
+        """Quieter at night (the quiet hours): NIGHT_VOICE_GAIN."""
+        from config import NIGHT_VOICE_GAIN, PROACTIVE_QUIET_FROM as a, PROACTIVE_QUIET_TO as b
+        if NIGHT_VOICE_GAIN >= 1.0:
+            return 1.0
+        h = time.localtime().tm_hour
+        night = a <= h < b if a <= b else (h >= a or h < b)
+        return NIGHT_VOICE_GAIN if night else 1.0
+
     def write(self, pcm):
         if not pcm:
             return
+        g = self._gain()
+        if g != 1.0 and len(pcm) >= 2:
+            pcm = pcm[:len(pcm) // 2 * 2]
+            pcm = (np.frombuffer(pcm, np.int16) * g).astype(np.int16).tobytes()
         with self.lock:
             self.q.append(pcm)
             self.q_bytes += len(pcm)

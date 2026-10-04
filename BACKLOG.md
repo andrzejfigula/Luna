@@ -43,9 +43,9 @@ Status: ✅ done · 🚧 in progress · ⏳ queued · 💤 parked (with the reas
 
 | # | Item | Why | Status |
 |---|------|-----|--------|
-| 20 | **"Co potrafisz?"** — the persona learns her own features (timers, alarm, game, volume, sleep, stories, hold-to-talk, tap-to-stop…) so she can explain them, in her own words | Features nobody knows about don't exist | ⏳ |
-| 21 | **"Pa!" ends the conversation** — goodbye phrases close the conversation window at once, with a wave | Otherwise she keeps listening for 10 s and may answer the next thing said in the room | ⏳ |
-| 22 | **Night voice** — during quiet hours she speaks at a lower volume | Full volume at midnight is rude | ⏳ |
+| 20 | **"Co potrafisz?"** — the persona learns her own features (timers, alarm, game, volume, sleep, stories, hold-to-talk, tap-to-stop…) so she can explain them, in her own words | Features nobody knows about don't exist | ✅ |
+| 21 | **"Pa!" ends the conversation** — goodbye phrases close the conversation window at once, with a wave | Otherwise she keeps listening for 10 s and may answer the next thing said in the room | ✅ |
+| 22 | **Night voice** — during quiet hours she speaks at a lower volume | Full volume at midnight is rude | ✅ half volume in the quiet hours (`NIGHT_VOICE_GAIN`) |
 | 23 | **Photo booth & mirror** — "zrób mi zdjęcie": 3-2-1, flash, the photo shown on her screen and saved to `photos/`; "pokaż lustro": the camera as a mirror for 15 s | Fun, and the camera is right there | ⏳ |
 | 24 | **"Pokaż zegar"** — a big clock on her screen for 10 s | Quick glance from across the room | ⏳ |
 
