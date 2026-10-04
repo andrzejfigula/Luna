@@ -14,6 +14,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Koniec rozmowy | „Pa!”, „Do zobaczenia”, „Dzięki, to wszystko” — pomacha i przestanie słuchać |
 | Czeka na odpowiedź | gdy zada pytanie, słucha dłużej (+8 s) |
 | Napisy | „Włącz napisy” — na dole ekranu to, co mówi, i to, co usłyszała od Ciebie („Ty: …”); „wyłącz napisy” |
+| Długość odpowiedzi | „Mów krócej” — jedno krótkie zdanie; „Odpowiadaj dłużej” — więcej szczegółów; „Normalne odpowiedzi” — z powrotem |
 | Powtórz | „Powtórz”, „Co powiedziałaś?” — odtwarza ostatnią odpowiedź od razu, bez pytania chmury |
 | Bajki i dłuższe wyjaśnienia | „Opowiedz mi bajkę o smoku”, „Wyjaśnij dokładnie, jak działa…” |
 | Co potrafi | „Luna, co potrafisz?” |

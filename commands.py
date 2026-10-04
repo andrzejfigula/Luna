@@ -19,6 +19,7 @@ commands.py — things Luna does herself, without asking the model.
   bedtime  "bajka na dobranoc": a calm story, then she falls asleep
   messages "nagraj wiadomość" / "odtwórz wiadomość" / "usuń wiadomości"
   calc     "ile to jest 17 razy 23?", "ile dni do Wigilii?" (calc.py)
+  length   "mów krócej" / "odpowiadaj dłużej" / "normalne odpowiedzi"
   quiz     "przepytaj mnie z tabliczki mnożenia" (quiz.py)
   remember "zapamiętaj, że klucze są w szufladzie" (memory.add_fact)
   spell    "jak się pisze żółw?" — on the screen and letter by letter
@@ -56,6 +57,15 @@ _QUIETER = ("ciszej", "quieter", "volume down")
 _VOLUME  = ("głośność", "glosnosc", "volume")
 _SLOWER  = ("wolniej", "slower")
 _FASTER  = ("szybciej", "faster")
+# how much she says: "mów krócej" / "odpowiadaj dłużej" / "normalne odpowiedzi"
+_SHORTER = ("mów krócej", "mow krocej", "odpowiadaj krócej", "odpowiadaj krocej",
+            "krótsze odpowiedzi", "krotsze odpowiedzi", "krócej proszę", "za długo mówisz",
+            "mówisz za długo", "gadasz za dużo", "mniej gadaj", "shorter answers")
+_LONGER = ("mów dłużej", "mow dluzej", "odpowiadaj dłużej", "odpowiadaj dluzej",
+           "dłuższe odpowiedzi", "dluzsze odpowiedzi", "odpowiadaj szerzej",
+           "mów więcej szczegółów", "longer answers")
+_NORMAL_LENGTH = ("normalne odpowiedzi", "normalna długość", "odpowiadaj normalnie",
+                  "zwykłe odpowiedzi")
 _NORMAL_SPEED = ("normalnym tempie", "normalne tempo", "normalnie mów", "mów normalnie")
 # goodbyes: the whole utterance must be one of these (after dropping "Luna")
 # — "na razie nie" or "pa, a jeszcze jedno…" are not goodbyes
@@ -586,6 +596,18 @@ def handle(text, speak, play_sound):
         else:
             speak("Dobrze, tak mówię teraz. Może być?")
         return True
+
+    if _short(text, 7):
+        length = ("short" if any(k in low for k in _SHORTER) else
+                  "long" if any(k in low for k in _LONGER) else
+                  "normal" if any(k in low for k in _NORMAL_LENGTH) else None)
+        if length:
+            settings.put("reply_length", length)
+            print(f"[cmd] reply length → {length}", flush=True)
+            speak({"short": "Dobrze, będę mówić krócej.",
+                   "long": "Dobrze, będę odpowiadać dłużej.",
+                   "normal": "Dobrze, wracam do zwykłych odpowiedzi."}[length])
+            return True
 
     vol = _volume_command(text)
     if vol is not None:

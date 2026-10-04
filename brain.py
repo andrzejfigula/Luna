@@ -369,6 +369,21 @@ def set_translator(lang):
     print(f"[brain] translator mode: {lang or 'off'}", flush=True)
 
 
+def _length_rule():
+    """"Mów krócej" / "odpowiadaj dłużej" (commands.py keeps it in settings)."""
+    import settings
+    n = settings.get("reply_length", "normal")
+    if n == "short":
+        return ("\nThe user asked for SHORT answers: \"reply\" is ONE sentence of at "
+                "most 12 words (this overrides the 1-3 sentence rule) — unless they "
+                "ask for a story or an explanation by name.\n")
+    if n == "long":
+        return ("\nThe user asked for LONGER answers: \"reply\" is 4-6 sentences, "
+                "60-100 words, with a detail or an example (this overrides the 1-3 "
+                "sentence rule); stories still about 12 sentences.\n")
+    return ""
+
+
 def translator():
     if _translate["lang"] and time.time() - _translate["last"] > TRANSLATE_IDLE_SECS:
         set_translator(None)
@@ -489,6 +504,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   f"asked the time or date, answer with exactly this local "
                   f"time — do not convert it to any other zone.\n"
                   + _translator_rule()
+                  + _length_rule()
                   + _mood_rule(image_b64 is not None)
                   + body.prompt_line()
                   + weather.prompt_line()

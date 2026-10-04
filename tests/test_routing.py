@@ -81,6 +81,9 @@ LOCAL = {
     "Wyłącz radio za 30 minut": "radio",
     "Włącz muzykę": "radio",
     "Budź mnie radiem": "radio",
+    "Mów krócej": "length",
+    "Luna, odpowiadaj dłużej": "length",
+    "Normalne odpowiedzi proszę": "length",
 }
 MODEL = [
     "Co widzisz?",
@@ -135,6 +138,8 @@ MODEL = [
     "Kto założył Radio ZET?",
     "Obudź mnie radiem o siódmej",
     "Budź mnie radiem jutro o 6:30",
+    "Dlaczego mówisz krócej niż wczoraj?",
+    "Mów mi więcej o kotach i psach",
 ]
 
 
@@ -156,7 +161,8 @@ class RoutingTest(unittest.TestCase):
             (commands, "set_volume", lambda v: self._mark("volume") or v),
             (commands, "get_volume", lambda: 0.5),
             (commands.settings, "put", lambda k, v: self._mark(
-                {"captions": "captions", "tts_speed": "speed"}.get(k, "radio"))),
+                {"captions": "captions", "tts_speed": "speed",
+                 "reply_length": "length"}.get(k, "radio"))),
             (commands, "go_to_sleep", lambda: self._mark("sleep")),
             (commands, "GOODBYE_REPLIES", ["<BYE>"]),
             (screens, "_take_photo", lambda *a: self._mark("screen")),
