@@ -54,6 +54,9 @@ start_weather()
 from health import start_health
 start_health()
 
+from watchdog import start_watchdog    # a freeze ends in a restart, with the stacks logged
+start_watchdog()
+
 import random
 import difflib
 
