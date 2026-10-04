@@ -10,11 +10,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import os, sys, time, threading, traceback, resource, random
 os.environ.update(XDG_RUNTIME_DIR="/run/user/1000", WAYLAND_DISPLAY="wayland-0",
                   SDL_VIDEODRIVER="wayland")
-import memory, timers, lists, settings
-memory.MEMORY_PATH = "/tmp/soak_mem.json"
-timers.TIMERS_PATH = "/tmp/soak_timers.json"
-lists.LISTS_PATH = "/tmp/soak_lists.json"
-settings.SETTINGS_PATH = "/tmp/soak_settings.json"
+import tempfile
+os.environ["LUNA_DATA_DIR"] = tempfile.mkdtemp(prefix="luna-soak-")  # never the real data
+import memory
 memory.consolidate = lambda: None                 # no extra API calls
 
 import sounds; sounds._warm()
@@ -98,9 +96,4 @@ print(f"utterances {len(U)}, errors {len(errors)}, avg {sum(times) / len(times):
       f"max {max(times):.1f}s, RSS {rss}", flush=True)
 for u, tb in errors[:5]:
     print("ERROR in", u, tb[-600:], flush=True)
-for f in ("/tmp/soak_mem.json", "/tmp/soak_timers.json", "/tmp/soak_lists.json", "/tmp/soak_settings.json"):
-    try:
-        os.remove(f)
-    except OSError:
-        pass
 print("SOAK DONE")

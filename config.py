@@ -14,6 +14,13 @@ if os.path.exists(_env_path):
                 _k, _v = _line.split("=", 1)
                 os.environ.setdefault(_k.strip(), _v.strip().strip('"').strip("'"))
 
+# ── Where the user's data lives (memory, timers, lists, settings) ─────────────
+# LUNA_DATA_DIR redirects it — tests set it so they never touch the real
+# memory, timers or shopping list.
+DATA_DIR = (os.environ.get("LUNA_DATA_DIR", "").strip()
+            or os.path.join(os.path.dirname(os.path.abspath(__file__)), "data"))
+os.makedirs(DATA_DIR, exist_ok=True)
+
 # ── Pi 4 fixed config ─────────────────────────────────────────────────────────
 PI_MODEL        = 4
 VISION_FPS      = 6      # Haar face detection rate (cheap, but it's a Pi 4)
@@ -351,8 +358,7 @@ VOLUME_MIN       = 0.10   # never fully silent by voice — she must answer you
 VOLUME_MAX       = 1.00
 SPEED_STEP       = 0.10   # "mów wolniej" / "mów szybciej"
 SPEED_MIN, SPEED_MAX = 0.75, 1.40
-SETTINGS_PATH    = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                "data", "settings.json")
+SETTINGS_PATH    = os.path.join(DATA_DIR, "settings.json")
 SLEEP_BRIGHTNESS = 3      # screen % while she sleeps ("dobranoc")
 # Night mode (display.py): during the quiet hours the screen dims by itself,
 # and comes up a bit while you talk to her. Never above LUNA_BRIGHTNESS.
@@ -393,11 +399,10 @@ WEATHER_REFRESH_SECS = 1800
 HEALTH_PROBE_SECS = 60     # while offline, check the API is reachable this often
 HEALTH_LOG_SECS   = 3600   # a "[health]" summary line in luna.log
 
-LISTS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "lists.json")
+LISTS_PATH = os.path.join(DATA_DIR, "lists.json")
 
 # ── Timers & reminders (timers.py) ───────────────────────────────────────────
-TIMERS_PATH       = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                 "data", "timers.json")
+TIMERS_PATH       = os.path.join(DATA_DIR, "timers.json")
 TIMERS_MAX        = 10
 TIMER_REPEAT_SECS = 60    # nobody reacted to the ring → once more after this
 SUNRISE_SECS      = 600   # a wake-up alarm brightens the screen this long before
@@ -451,8 +456,7 @@ TOUCH_SOUNDS = {
 # system prompt, so she can ask tomorrow how things went. Plain JSON on the
 # Pi — "Luna, zapomnij wszystko" wipes it. .env: LUNA_MEMORY=0 turns it off.
 MEMORY_ENABLED         = os.environ.get("LUNA_MEMORY", "1").strip().lower()                          not in ("0", "false", "no", "off")
-MEMORY_PATH            = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                      "data", "memory.json")
+MEMORY_PATH            = os.path.join(DATA_DIR, "memory.json")
 MEMORY_MODEL           = "gpt-4.1-mini"
 MEMORY_MAX_FACTS       = 40
 MEMORY_MAX_EPISODES    = 30    # kept in the file
