@@ -859,6 +859,7 @@ def draw_hair(surf, fcx, fcy, sway):
 #   fist       — all fingers curled
 #   point      — fist with the index finger up (drawing in the air)
 #   ok         — thumb and index make a ring, three fingers up
+#   scissors   — index and middle finger in a V (rock-paper-scissors)
 def hand_surface(pose, side):
     """Cached hand image for a pose; side 'L'/'R' mirrors it."""
     key = (pose, side)
@@ -885,6 +886,13 @@ def hand_surface(pose, side):
         block(66, 76, 22, 62, 106)                 # fist
         for i in range(3):                         # the other three, curled
             block(52, 15, 7, 68, 99 + i * 15)
+        block(18, 34, 8, 36, 104, 60)              # thumb folded across
+    elif pose == "scissors":
+        block(16, 60, 7, 42, 60, 14)               # index, leaning out
+        block(16, 62, 7, 62, 58, -14)              # middle, the other way
+        block(66, 76, 22, 62, 106)                 # fist
+        for i in range(2):                         # ring + pinky, curled
+            block(52, 15, 7, 68, 108 + i * 15)
         block(18, 34, 8, 36, 104, 60)              # thumb folded across
     elif pose == "ok":
         for dx, fh in ((12, 52), (28, 48), (42, 40)):   # middle, ring, pinky up
@@ -1321,6 +1329,7 @@ class RobotFace:
         self._scene = None
         self._pupil_converge = 0.0
         self._pupil_mul = 1.0            # scenes: 0 hides the pupils, 2 = huge
+        self._big_text = None            # (text, until) — game countdown
         self._mouth_drive = 0.0
         self._wink_side = "R"
         self._scene_prev = None
@@ -1392,6 +1401,8 @@ class RobotFace:
             g_start        = state.gesture_anim_start
             i_anim         = state.reply_scene
             i_start        = state.reply_scene_start
+            game_hand      = state.game_hand
+            self._big_text = state.big_text
             touch_kind     = state.touch_kind
             touch_t        = state.touch_time
             touch_pt       = (state.touch_x, state.touch_y)
@@ -1684,6 +1695,13 @@ class RobotFace:
             self._scene.hands(self, self._scene_p, h)
             tgt_L, tgt_R = h.l, h.r
             self.hand_pose["L"], self.hand_pose["R"] = h.pose_l, h.pose_r
+
+        # rock-paper-scissors: her throw, held up by her cheek
+        if game_hand and now_t < game_hand[1]:
+            pose = {"rock": "fist", "paper": "open", "scissors": "scissors"}.get(
+                game_hand[0], "open")
+            self.hand_pose["R"] = pose
+            tgt_R = (232, 50 + 5 * math.sin(now_t * 9.0), -6)
 
         self._pupil_converge = lerp(self._pupil_converge, 0.0, 0.25)
         self._pupil_mul = 1.0
@@ -2039,6 +2057,11 @@ class RobotFace:
                 sz = int(50 + 12 * self._heart_pulse)
                 draw_heart(base, fcx, fcy + 112, sz)
 
+        # ── a big glyph between the eyes (game countdown) ────────────────
+        big = self._big_text
+        if big and time.time() < big[1]:
+            self._draw_big(base, big[0], fcx, fcy, big[1] - time.time())
+
         # ── whatever the current scene draws on top ───────────────────────
         if self._scene:
             self._scene.draw(self, base, fcx, fcy, self._scene_p)
@@ -2100,6 +2123,22 @@ class RobotFace:
             self._draw_timer(timer_text)
 
         pygame.display.flip()
+
+    def _draw_big(self, surf, text, fcx, fcy, left):
+        """A glowing number between her eyes; it pops in and fades out."""
+        font = _get_font(150)
+        img = font.render(text, True, STAR_COL)
+        k = min(1.0, left / 0.25)                        # fade at the end
+        scale = 1.0 + 0.25 * max(0.0, (left - 0.5)) # pops in slightly large
+        if abs(scale - 1.0) > 0.02:
+            img = pygame.transform.smoothscale(
+                img, (int(img.get_width() * scale), int(img.get_height() * scale)))
+        img.set_alpha(int(255 * k))
+        rect = img.get_rect(center=(int(fcx), int(fcy - 30)))
+        glow = img.copy()
+        glow.fill((*GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
+        bloom(surf, glow, rect.topleft, radius=10, passes=1, max_alpha=int(120 * k))
+        surf.blit(img, rect)
 
     def _draw_timer(self, text):
         """A little clock and the time left, top-right. Cached per text."""

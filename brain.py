@@ -531,6 +531,42 @@ def confirm_wave():
         return False
 
 
+# ── Rock, paper, scissors: what is the hand on camera showing? ───────────────
+
+def classify_hand(img_b64):
+    """'rock' | 'paper' | 'scissors' | None (no clear hand). games.py."""
+    if _client is None or not img_b64:
+        return None
+    try:
+        r = _client.chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text":
+                     "Someone is playing rock-paper-scissors with this webcam. "
+                     "Which shape is their hand showing right now? rock = a "
+                     "closed fist; paper = a flat open hand; scissors = index "
+                     "and middle finger extended (a V). If no hand is clearly "
+                     "visible, answer none. Answer with exactly one word: rock, "
+                     "paper, scissors or none."},
+                    {"type": "image_url",
+                     "image_url": {"url": f"data:image/jpeg;base64,{img_b64}",
+                                   "detail": "high"}},
+                ]}],
+            max_tokens=3,
+            temperature=0.0,
+        )
+        ans = (r.choices[0].message.content or "").strip().lower()
+        for c in ("rock", "paper", "scissors"):
+            if ans.startswith(c):
+                return c
+        return None
+    except Exception as e:
+        print(f"[brain] hand check failed: {e}")
+        return None
+
+
 # ── Main process ──────────────────────────────────────────────────────────────
 
 def _show(emotion, gesture):

@@ -123,10 +123,22 @@ def _chime():
     return out.astype(np.int16).tobytes()
 
 
+def _tick():
+    """A short, soft wooden tick for countdowns (made here, no network)."""
+    t = np.arange(int(0.07 * RATE)) / RATE
+    tone = np.sin(2 * np.pi * 1760 * t) + 0.5 * np.sin(2 * np.pi * 2640 * t)
+    out = tone * np.exp(-t * 70.0) * 0.35 * 32767 / 1.5
+    return out.astype(np.int16).tobytes()
+
+
+_SYNTH = {"chime": _chime, "tick": _tick}
+
+
 def get(name):
-    """PCM for a sound, or None if it isn't ready (or sounds are off)."""
-    if name == "chime" and "chime" not in _cache:
-        _cache["chime"] = _chime()
+    """PCM for a sound, or None if it isn't ready (or sounds are off).
+    The synthesised ones (chime, tick) are always available."""
+    if name in _SYNTH and name not in _cache:
+        _cache[name] = _SYNTH[name]()
     return _cache.get(name)
 
 

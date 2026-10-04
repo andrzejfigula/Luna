@@ -5,6 +5,7 @@ commands.py — things Luna does herself, without asking the model.
   sleep    "dobranoc" / "idę spać": she says good night, the screen dims, her
            eyes close and she stays quiet (no greetings, no touch talk)
            until morning — or until you speak to her
+  game     "zagrajmy w kamień, papier, nożyce" (games.py)
   wake     anything you say to her while she sleeps wakes her up (so
            "dzień dobry, Luna" does); in the morning (PROACTIVE_QUIET_TO) she
            wakes on her own, silently
@@ -147,6 +148,12 @@ def handle(text, speak, play_sound):
 
     # anything else said to her wakes her up, then is handled as usual
     wake_up("spoken to")
+
+    import games                                   # rock, paper, scissors
+    if games.is_trigger(text) or games.is_rematch(text):
+        from text_to_speech import play_sound_async
+        games.play_match(speak, play_sound_async)
+        return True
 
     vol = _volume_command(text)
     if vol is not None:
