@@ -113,10 +113,14 @@ CONVO_QUESTION_BONUS = 8   # …plus this when her reply ended with a question:
                            # a thoughtful answer needs longer than 10 s
 CONVO_GRACE        = 4    # speech that STARTED up to this long after the window
                            # closed is still answered — you began in time
-POST_SPEAK_DELAY   = 0.8   # settle time after Luna speaks before listening again
+POST_SPEAK_DELAY   = 0.2   # settle time after Luna speaks before listening again
 DOUBLE_FLUSH       = True  # flush audio queue twice (before and after delay)
-MIC_BLOCK_AFTER_SPEAK = 0.6   # echo-guard after speech ends (speech itself already
-                              # blocks the mic via state.speaking)
+MIC_BLOCK_AFTER_SPEAK = 0.45  # echo-guard after speech ends (speech itself already
+                              # blocks the mic via state.speaking). Was 0.6 + 0.8:
+                              # 1.4 s deaf after every answer ate the first words of
+                              # a quick reply. The persistent player knows when her
+                              # last sample plays; 0.45 covers PipeWire's ~0.1 s and
+                              # the room's echo
 
 # Some TTS drivers (notably pyttsx3's macOS "nsss" backend on a reused engine)
 # can return from runAndWait() BEFORE the audio has actually finished playing
