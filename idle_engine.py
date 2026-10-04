@@ -142,7 +142,7 @@ def idle_loop():
     last_touch_t = 0.0
     last_touch_say = 0.0
     last_touch_sound = 0.0
-    greeted_day  = None                  # date of the last "first time today"
+    greeted_days = {}                    # who (None: unknown) → day of their first hello
 
     while True:
         try:
@@ -163,10 +163,20 @@ def idle_loop():
             if present and not was_present:
                 away = now - left_at
                 if away >= IDLE_ABSENCE_SECS and not _busy() and not _asleep():
+                    # give recognition a moment: the hello is by name
+                    who = None
+                    for _ in range(15):
+                        with state.lock:
+                            who = state.person[0] if state.person else None
+                        if who:
+                            break
+                        time.sleep(0.1)
                     today = time.strftime("%Y-%m-%d")
-                    first_today = greeted_day != today
-                    greeted_day = today
-                    print(f"[idle] welcome back (away {away / 60:.0f} min)")
+                    # everyone gets their own first hello of the day
+                    first_today = greeted_days.get(who) != today
+                    greeted_days[who] = today
+                    print(f"[idle] welcome back{' ' + who if who else ''} "
+                          f"(away {away / 60:.0f} min)")
                     _set_face("happy", GESTURE_DURATION["wave"] + 2.0)
                     _gesture("wave")
                     if _may_speak():
@@ -174,12 +184,15 @@ def idle_loop():
                         # the first hello of the day knows your day (weather,
                         # reminders, memory); later ones are short phrases
                         from brain import greeting
-                        speak(greeting(first_today) or _greeting(first_today),
+                        speak(greeting(first_today, who=who) or _greeting(first_today),
                               can_drop=True)
                         import messages
-                        if messages.unheard():
-                            speak("Masz nową wiadomość głosową. Powiedz: odtwórz "
-                                  "wiadomość.", can_drop=True)
+                        waiting = messages.unheard(who)
+                        if waiting:
+                            frm = {m.get("from") for m in waiting} - {None, who}
+                            speak("Masz wiadomość głosową" + (f" od: {', '.join(sorted(frm))}"
+                                  if frm else "") + ". Powiedz: odtwórz wiadomość.",
+                                  can_drop=True)
             elif was_present and not present:
                 left_at = now
             was_present = present

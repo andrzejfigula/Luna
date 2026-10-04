@@ -684,6 +684,13 @@ grammatical gender their name or your memory implies; if you don't know it,
 phrase it so it needs no gender."""
 
 
+_HELLO_AGAIN = """Someone you know just came back to the desk after a while
+(not the first time today). Write ONE very short spoken hello in Polish, 3-8
+words, using their name in the vocative ("Cześć, Maju!", "O, Emilka wróciła!"),
+warm, fitted to the time of day and to how you feel about them. No emoji.
+Feminine forms about yourself; THEIR gender from their name."""
+
+
 _WAKING = """Their wake-up alarm, which you set for them, has just gone off
 and you are waking them. ONE short spoken good-morning in Polish, 1-2
 sentences: gentle but cheerful, then what matters for their day — the
@@ -693,12 +700,14 @@ but talk to THEM in the grammatical gender their name or your memory
 implies; if you don't know it, phrase it so it needs no gender."""
 
 
-def greeting(first_today, waking=False):
+def greeting(first_today, waking=False, who=None):
     """A context-aware hello (weather, reminders, memory), or None when the
     model can't be reached — the caller then uses a fixed phrase.
-    waking=True: their wake-up alarm just rang — a good-morning instead."""
-    if _client is None or not first_today:
+    waking=True: their wake-up alarm just rang — a good-morning instead.
+    who: the recognised person — then later hellos are by name too."""
+    if _client is None or not (first_today or who):
         return None
+    prompt = _WAKING if waking else _BRIEFING if first_today else _HELLO_AGAIN
     try:
         context = (f"Local time: {_local_now_text()}.\n" + weather.prompt_line()
                    + faces.prompt_line() + relationship.prompt_line()
@@ -706,14 +715,13 @@ def greeting(first_today, waking=False):
                    + memory.prompt_block())
         r = _client.chat.completions.create(
             model=OPENAI_MODEL,
-            messages=[{"role": "system", "content": _PERSONA.strip() + "\n\n" + (
-                          _WAKING if waking else _BRIEFING)},
+            messages=[{"role": "system", "content": _PERSONA.strip() + "\n\n" + prompt},
                       {"role": "user", "content": context}],
             max_tokens=90,
             temperature=0.8,
         )
         text = _feminize((r.choices[0].message.content or "").strip().strip('"'))
-        print(f"[brain] morning greeting: {text}")
+        print(f"[brain] greeting{' for ' + who if who else ''}: {text}")
         return text or None
     except Exception as e:
         print(f"[brain] greeting failed: {e}")

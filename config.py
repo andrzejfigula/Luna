@@ -502,9 +502,10 @@ MUTE_PHRASES   = ["cicho", "bądź cicho", "badz cicho", "nie odzywaj się",
 UNMUTE_PHRASES = ["możesz mówić", "mozesz mowic", "odzywaj się", "odzywaj sie",
                   "you can talk", "unmute"]
 
-GREETINGS_MORNING = ["Dzień dobry!", "O, dzień dobry! Wyspałeś się?",
+# (without gender: these are for someone she doesn't recognise)
+GREETINGS_MORNING = ["Dzień dobry!", "O, dzień dobry! Jak się spało?",
                      "Dobry! Zaczynamy dzień?"]
-GREETINGS_DAY     = ["O, jesteś!", "Hej, wróciłeś!", "Cześć! Tęskniłam trochę."]
+GREETINGS_DAY     = ["O, jesteś!", "Hej, jesteś z powrotem!", "Cześć! Tęskniłam trochę."]
 GREETINGS_EVENING = ["Dobry wieczór!", "O, jesteś. Jak minął dzień?"]
 GREETINGS_NIGHT   = ["Jeszcze nie śpisz?", "O, cześć. Późno już."]
 GREETINGS_FIRST_TODAY = ["Dzień dobry! Pierwszy raz dziś cię widzę.",

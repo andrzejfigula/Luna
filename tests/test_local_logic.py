@@ -509,6 +509,31 @@ class FacesTest(unittest.TestCase):
         self.assertIsNone(commands._intro_name("To Luna"))
 
 
+class MessagesForPeopleTest(unittest.TestCase):
+
+    def test_message_waits_for_its_person(self):
+        import messages
+        messages.DIR = os.path.join(TMP, "messages")
+        messages.INDEX = os.path.join(messages.DIR, "index.json")
+        messages.delete_all()
+        with state.lock:
+            state.person = ("Andrzej", 0.9, time.time())
+        messages.arm(to="Emilka")
+        messages.store(b"\0\0" * 1600, "obiad w lodówce")
+        self.assertEqual(len(messages.unheard("Emilka")), 1)
+        self.assertEqual(messages.unheard("Andrzej"), [])        # his own message
+        self.assertEqual(messages.unheard("Maja"), [])           # not for her
+        played = []
+        with state.lock:
+            state.person = ("Emilka", 0.9, time.time())
+        messages.play(lambda t, **k: played.append(t), lambda pcm: None)
+        self.assertIn("od: Andrzej", played[0])
+        self.assertEqual(messages.unheard("Emilka"), [])
+        with state.lock:
+            state.person = None
+        messages.delete_all()
+
+
 class RadioTest(unittest.TestCase):
 
     def test_volume_while_playing_is_the_music(self):

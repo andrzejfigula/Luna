@@ -1,6 +1,8 @@
 """
 messages.py — voice messages left with Luna for someone at home.
 
+  "nagraj wiadomość dla Emilki" → the same, for one person: she tells Emilka
+                                  when she recognises her face (faces.py)
   "Luna, nagraj wiadomość"      → she says "mów", and your next sentence is
                                   recorded as it is (your own voice, up to
                                   CLOUD_STT_MAX_SECS, pauses allowed)
@@ -30,7 +32,7 @@ INDEX = os.path.join(DIR, "index.json")
 KEEP = 20
 
 _lock = threading.Lock()
-_waiting = [False, 0.0]          # recording armed, and when
+_waiting = [False, 0.0, None, None]   # recording armed, when, for whom, from whom
 
 
 def _load():
@@ -59,9 +61,11 @@ def refresh():
         state.messages_waiting = sum(1 for m in items if not m.get("heard"))
 
 
-def arm():
-    """The next utterance is a message (for 20 s)."""
-    _waiting[:] = [True, time.time()]
+def arm(to=None):
+    """The next utterance is a message (for 20 s), for `to` if given."""
+    with state.lock:
+        frm = state.person[0] if state.person else None
+    _waiting[:] = [True, time.time(), to, frm]
 
 
 def armed():
@@ -82,7 +86,8 @@ def store(pcm16k, transcript):
         w.writeframes(pcm16k)
     with _lock:
         items = _load()
-        items.append({"file": name, "t": time.time(), "text": transcript, "heard": False})
+        items.append({"file": name, "t": time.time(), "text": transcript, "heard": False,
+                      "to": _waiting[2], "from": _waiting[3]})
         for old in items[:-KEEP]:
             try:
                 os.remove(os.path.join(DIR, old["file"]))
@@ -94,9 +99,14 @@ def store(pcm16k, transcript):
     return secs
 
 
-def unheard():
+def unheard(who=None):
+    """Unheard messages — with `who`: those for them or for everyone (not
+    the ones they left themselves)."""
     with _lock:
-        return [m for m in _load() if not m.get("heard")]
+        items = [m for m in _load() if not m.get("heard")]
+    if who is None:
+        return items
+    return [m for m in items if m.get("to") in (None, who) and m.get("from") != who]
 
 
 def _when(t):
@@ -124,14 +134,18 @@ def play(speak, play_clip):
     """Play the unheard messages, or the latest one. Returns False if none."""
     with _lock:
         items = _load()
-    todo = [m for m in items if not m.get("heard")] or items[-1:]
+    with state.lock:
+        who = state.person[0] if state.person else None
+    todo = (unheard(who) if who else [m for m in items if not m.get("heard")]) or items[-1:]
     if not todo:
         return False
     for m in todo:
         path = os.path.join(DIR, m["file"])
         if not os.path.exists(path):
             continue
-        speak(f"Wiadomość z {_when(m['t'])}:")
+        frm = f" od: {m['from']}" if m.get("from") else ""
+        to = f" dla: {m['to']}" if m.get("to") else ""
+        speak(f"Wiadomość{frm}{to}, {_when(m['t'])}:")
         play_clip(_pcm24(path))
     with _lock:
         items = _load()

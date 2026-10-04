@@ -482,7 +482,14 @@ def handle(text, speak, play_sound):
     # voice messages — "nagraj wiadomość", "odtwórz wiadomość", "usuń wiadomości"
     import messages
     if any(k in low for k in _MSG_RECORD) and _short(text, 8):
-        messages.arm()
+        to = None
+        m = re.search(r"\bdla\s+(\w+)", text)
+        if m:                                       # "…dla Emilki" → Emilka
+            import faces
+            to = faces.nominative(m.group(1))
+            known = {n.lower(): n for n in faces.names()}
+            to = known.get(to.lower(), to)
+        messages.arm(to)
         with state.lock:
             state.conversation_active = True
             state.last_activity_time = time.time()
