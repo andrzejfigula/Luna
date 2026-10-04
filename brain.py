@@ -28,6 +28,8 @@ import cv2
 from openai import OpenAI
 
 import reply_scenes
+import faces
+import relationship
 from reply_stream import ReplyStream
 import body
 import health
@@ -147,6 +149,16 @@ Always answer as JSON with exactly these keys:
   "user_mood" — one of {USER_MOODS}: how the person in the camera picture
                 seems right now (face, eyes, posture). "no_person" when nobody
                 is visible or the picture is too dark or blurry to tell.
+  "user_tone" — one of {relationship.TONES}: how the user's LAST words
+                treat YOU, Luna — judge THIS utterance alone, not the topic and
+                not what they said before. "kind": explicit warmth TO you —
+                thanks, compliments, affection; "neutral": everything else,
+                including ordinary questions and plain short requests
+                ("nastaw minutnik", "która godzina?"); "rude": dismissive,
+                mocking or contemptuous words to you ("zamknij się", "nudzisz");
+                "insulting": insults or swearing at you ("głupia maszyna",
+                "jesteś beznadziejna"); "apologetic": they apologise to you.
+                Most utterances are "neutral".
   "reply"   — what you say out loud (plain text, no markdown, 1-3 short
               sentences; but when the user asks for a story, a fairy tale,
               a poem, or a detailed explanation, as long as it needs — up to
@@ -290,6 +302,7 @@ _RESPONSE_FORMAT = {
             # moment the first sentence can be spoken (brain streams it).
             "properties": {
                 "user_mood":    {"type": "string", "enum": USER_MOODS},
+                "user_tone":    {"type": "string", "enum": relationship.TONES},
                 "emotion":      {"type": "string", "enum": EMOTIONS},
                 "gesture":      {"type": "string", "enum": GESTURES},
                 "reply":        {"type": "string"},
@@ -312,7 +325,7 @@ _RESPONSE_FORMAT = {
                     "additionalProperties": False,
                 }},
             },
-            "required": ["user_mood", "emotion", "gesture", "reply",
+            "required": ["user_mood", "user_tone", "emotion", "gesture", "reply",
                          "mood_comment", "actions"],
             "additionalProperties": False,
         },
@@ -509,6 +522,8 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   f"time — do not convert it to any other zone.\n"
                   + _translator_rule()
                   + _length_rule()
+                  + faces.prompt_line()
+                  + relationship.prompt_line()
                   + _mood_rule(image_b64 is not None)
                   + body.prompt_line()
                   + weather.prompt_line()
@@ -574,6 +589,8 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
         mood = str(data.get("user_mood", "no_person")).lower()
         _note_mood(mood if mood in USER_MOODS else "no_person",
                    bool(data.get("mood_comment", False)))
+        if not translator():                 # interpreting: the words aren't for her
+            relationship.note(str(data.get("user_tone", "neutral")).lower(), text)
         timers.apply(data.get("actions") or [])
         lists.apply(data.get("actions") or [])
 
@@ -582,7 +599,10 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
         _history[-1] = {"role": "user", "content": text}
         _history.append({"role": "assistant", "content": reply})
         if not translator():                 # interpreting is not about the user
-            memory.record(text, reply)
+            with state.lock:
+                person = state.person
+            # "[Kasia] …": the memory can tell whose plans and likes these are
+            memory.record(f"[{person[0]}] {text}" if person else text, reply)
         body.note_conversation()
 
         print(f"[brain] OpenAI ({emotion}, {gesture}, you: {mood}"
@@ -681,6 +701,7 @@ def greeting(first_today, waking=False):
         return None
     try:
         context = (f"Local time: {_local_now_text()}.\n" + weather.prompt_line()
+                   + faces.prompt_line() + relationship.prompt_line()
                    + timers.prompt_block() + lists.prompt_block()
                    + memory.prompt_block())
         r = _client.chat.completions.create(

@@ -222,6 +222,9 @@ remember. Short sentences in Polish, most important first, at most {max_facts}.
 Once an event's date has passed, rewrite it in the past tense or drop it.
 Never store passwords, PINs, codes, card or account numbers, or addresses.
 Don't store facts about Luna herself or trivia she explained.
+A line starting "[Kasia]" was said by Kasia (Luna knows her face): write
+facts about that person with their name ("Kasia lubi koty"), never as
+"użytkownik".
 
 "threads": the COMPLETE updated list of open follow-ups — things whose
 outcome Luna does not know yet and a friend would ask about later: an

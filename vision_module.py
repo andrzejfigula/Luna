@@ -1,10 +1,12 @@
 """
 vision_module.py — face detection for eye-tracking + the addressed-speech gate.
 
-Haar-cascade face detection only (OpenCV, cheap on a Pi 4). It drives:
+YuNet face detection (faces.py, a small neural net) when its model is in
+data/models/, else the Haar cascade. It drives:
   • state.face_x / face_y      — the eyes follow the person in front of Luna
   • state.face_detected        — sleep/wake, curiosity idle drift
   • state.last_face_time       — "is someone actually talking TO me" gate
+  • state.person               — who it is (faces.py, SFace), once known
 
 Luna's own emotion is chosen by the LLM (see brain.py), so the old camera-side
 emotion classifiers (PyTorch MobileNet + DeepFace/TensorFlow) are gone —
@@ -50,6 +52,46 @@ face_cascade = cv2.CascadeClassifier(
 )
 
 
+def _who(frame, rows, last_seen):
+    """Recognise the biggest face now and then (and every frame while she is
+    learning someone). Returns when it last tried."""
+    import faces as faces_mod
+    if not faces_mod.can_recognise():
+        return last_seen
+    learning = faces_mod.enrolling()
+    if len(rows) == 0:
+        if learning:
+            faces_mod.offer(None, 0)
+        with state.lock:                     # gone for a while: forget who it was
+            if state.person and time.time() - state.last_face_time > FACE_HOLD_SECS + 5:
+                state.person = None
+        return last_seen
+    # known or not, at most every RECOGNISE_EVERY s (an unknown face was
+    # re-checked every frame: a whole core); every frame only while learning
+    if not learning and time.time() - last_seen < faces_mod.RECOGNISE_EVERY:
+        return last_seen
+    big = max(rows, key=lambda r: r[2] * r[3])
+    scale = frame.shape[1] / (frame.shape[1] // 2)     # found on the half-size frame
+    try:
+        feat = faces_mod.embed(frame, big, scale)
+    except Exception as e:
+        print(f"[faces] embed failed: {e}", flush=True)
+        return time.time()
+    if learning:
+        faces_mod.offer(feat, len(rows))
+        return time.time()
+    name, sim = faces_mod.identify(feat)
+    with state.lock:
+        prev = state.person
+        if name:
+            state.person = (name, sim, time.time())
+        elif prev and time.time() - prev[2] > 3 * faces_mod.RECOGNISE_EVERY:
+            state.person = None               # a different, unknown face now
+    if name and (not prev or prev[0] != name):
+        print(f"[faces] this is {name} ({sim:.2f})", flush=True)
+    return time.time()
+
+
 def vision_loop():
     import prio
     prio.background("vision")
@@ -90,6 +132,11 @@ def _search_near(gray, box):
 
 
 def _vision_iteration_loop():
+    import faces as faces_mod
+    yunet = faces_mod.available()
+    print(f"[vision] face detector: {'YuNet' if yunet else 'Haar cascade'}"
+          + (", recognition on" if yunet and faces_mod.can_recognise() else ""), flush=True)
+    last_seen = 0.0          # when the person was last recognised
     last_box = None          # where the face was last time (small-frame coords)
     misses = 0               # near searches in a row that found nothing
     n = 0
@@ -113,33 +160,51 @@ def _vision_iteration_loop():
         # detect on a half-size copy — Haar cost scales with pixel count and
         # the camera now runs at 640x480 so the LLM gets a usable picture
         small = cv2.resize(frame, (frame.shape[1] // 2, frame.shape[0] // 2))
-        gray  = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
-        if FACE_EQUALIZE:
-            # local contrast equalisation: a face in shadow against a bright
-            # window keeps its detail instead of being crushed to black
-            gray = _clahe.apply(gray)
+        if not yunet:
+            gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
+            if FACE_EQUALIZE:
+                # local contrast equalisation: a face in shadow against a
+                # bright window keeps its detail instead of being crushed
+                gray = _clahe.apply(gray)
         faces = []
         stats["frames"] += 1
-        near = last_box is not None and n % VISION_FULL_EVERY
-        if last_box is None and not slow and n % 2:
-            # nobody in view: searching everywhere 3× a second finds a face
-            # just as well — the search costs ~70 ms a time
+        if yunet and unseen > 2.0 and not slow and n % 2 and not faces_mod.enrolling():
+            # nobody in view: 3 looks a second find a face just as well (45 ms each)
             time.sleep(sleep_time)
             continue
-        if near:
+        if yunet:
             t = time.monotonic()
-            faces = _search_near(gray, last_box)
-            stats["near"] += 1
-            stats["t_near"] += time.monotonic() - t
-            misses = 0 if len(faces) else misses + 1
-        if len(faces) == 0 and (not near or misses > VISION_NEAR_MISSES):
-            t = time.monotonic()
-            faces = _detect(gray, FACE_MIN_SIZE, scale=FACE_SCALE_FULL)   # everywhere
+            rows = faces_mod.detect(small)
             stats["full"] += 1
             stats["t_full"] += time.monotonic() - t
-            misses = 0
-        if len(faces) > 0:
-            stats["face"] += 1
+            faces = [tuple(int(v) for v in r[:4]) for r in rows]
+            if len(faces):
+                stats["face"] += 1
+            last_seen = _who(frame, rows, last_seen)
+            near = False
+        else:
+            # the Haar cascade (no YuNet model): search near the last face,
+            # everywhere only now and then
+            near = last_box is not None and n % VISION_FULL_EVERY
+            if last_box is None and not slow and n % 2:
+                # nobody in view: searching everywhere 3× a second finds a
+                # face just as well — the search costs ~70 ms a time
+                time.sleep(sleep_time)
+                continue
+            if near:
+                t = time.monotonic()
+                faces = _search_near(gray, last_box)
+                stats["near"] += 1
+                stats["t_near"] += time.monotonic() - t
+                misses = 0 if len(faces) else misses + 1
+            if len(faces) == 0 and (not near or misses > VISION_NEAR_MISSES):
+                t = time.monotonic()
+                faces = _detect(gray, FACE_MIN_SIZE, scale=FACE_SCALE_FULL)  # everywhere
+                stats["full"] += 1
+                stats["t_full"] += time.monotonic() - t
+                misses = 0
+            if len(faces) > 0:
+                stats["face"] += 1
 
         if len(faces) > 0:
             # the biggest face is the person in front of Luna

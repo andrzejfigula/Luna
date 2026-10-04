@@ -23,6 +23,7 @@ commands.py — things Luna does herself, without asking the model.
   news     "jakie są wiadomości?" — headlines from RSS, summarised (news.py)
   quiz     "przepytaj mnie z tabliczki mnożenia" (quiz.py)
   remember "zapamiętaj, że klucze są w szufladzie" (memory.add_fact)
+  faces    "to jest Kasia", "jestem Andrzej", "zapomnij moją twarz" (faces.py)
   spell    "jak się pisze żółw?" — on the screen and letter by letter
   count    "policz do dwudziestu", "odliczaj od dziesięciu", "włącz stoper" (counting.py)
   kids     "myjemy zęby" (2-minute coach), "zacznij poranek" (a list step by step)
@@ -162,6 +163,61 @@ def _translator_language(low):
 _REMEMBER = re.compile(r"^(?:luna,? |luno,? |hej,? )?(?:proszę,? )?(?:zapamiętaj|zapamietaj|"
                        r"zanotuj|zapisz|pamiętaj|pamietaj|remember)(?: sobie)?(?: proszę)?"
                        r",? (?:że|ze|to,? że|to ze|that) (.+)$", re.I)
+
+
+# getting to know a face: "to jest Kasia", "poznaj Olę", "jestem Andrzej",
+# "mam na imię Ola", "zapamiętaj moją twarz, jestem Kasia". The name must be
+# capitalised as the cloud writes names — "to jest problem" is no one.
+_NAME = r"([A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]{1,15})"
+# (?i:…): the lead words in any case ("Jestem", "Poznaj"), the name capitalised
+_INTRO = [re.compile(r"^(?i:(?:a\s+)?(?:to jest|to|poznaj|przedstawiam ci|oto))\s+"
+                     + _NAME + r"[.!]?$"),
+          re.compile(r"^(?i:(?:a\s+)?(?:ja\s+)?(?:jestem|mam na imię|mam na imie|nazywam się))\s+"
+                     + _NAME + r"(?:\s+[A-ZĄĆĘŁŃÓŚŹŻ]\w+)?[.!]?$"),
+          re.compile(r"(?:zapamiętaj|zapamietaj|naucz się|poznaj)\s+(?:moją\s+|moja\s+)?twarz\w*"
+                     r"[,.]?\s+(?:jestem|mam na imię|nazywam się|to)\s+" + _NAME, re.I)]
+_FACE_BARE = ("zapamiętaj moją twarz", "zapamietaj moja twarz", "naucz się mojej twarzy",
+              "zapamiętaj mnie", "zapamiętaj jak wyglądam")
+_FACE_FORGET = re.compile(r"zapomnij\s+(?:moją\s+twarz|mnie|twarz\s+(\w+))", re.I)
+_NOT_NAMES = {"Luna", "Luno", "Polak", "Polką", "Tak", "Nie", "Ok", "Okej", "Dobrze", "Super",
+              "Gotowy", "Gotowa", "Głodny", "Zmęczony", "Zmęczona", "Tutaj", "Tu", "Ja"}
+
+
+def _intro_name(text):
+    """The name in an introduction, as said ("Kasię"), or None."""
+    t = re.sub(r"^(?:luna|luno|hej)[,!]?\s+", "", text.strip(), flags=re.I).strip()
+    for rx in _INTRO:
+        m = rx.search(t)
+        if m and m.group(1) not in _NOT_NAMES:
+            return m.group(1)
+    return None
+
+
+def _learn_face(name_as_said, text, speak):
+    """Collect the face in view for a few seconds and remember it."""
+    import faces
+    if not faces.can_recognise():
+        speak("Nie mam jeszcze modelu do rozpoznawania twarzy.")
+        return True
+    name = faces.nominative(name_as_said)
+    done = faces.start_enrolment(name)
+    speak("Dobrze, popatrz na mnie przez chwilę.")
+    done.wait(faces.ENROLL_SECS + 4)
+    status, name = faces.enrolment_result()
+    if status == "many":
+        speak("Widzę kilka osób naraz. Niech przede mną zostanie tylko jedna i powtórz.")
+        return True
+    if status != "ok":
+        speak("Nie widzę dobrze twarzy. Stań przodem do mnie, blisko, i powtórz.")
+        return True
+    with state.lock:
+        state.person = (name, 1.0, time.time())
+    import brain
+    brain.process(text, context=(f"\nYou have just learned to recognise {name}'s face "
+                                 f"(they introduced themselves or were introduced). Greet "
+                                 f"{name} warmly by name — the Polish vocative — in one or "
+                                 "two sentences; say you will recognise them from now on.\n"))
+    return "recorded"
 
 
 def _remember(text):
@@ -642,6 +698,30 @@ def handle(text, speak, play_sound):
     kind = quiz.trigger(text)                      # "przepytaj mnie z tabliczki"
     if kind:
         quiz.start(kind, text, speak, _sound_async)
+        return True
+
+    # faces: "to jest Kasia" / "jestem Andrzej" / "zapomnij moją twarz"
+    m = _FACE_FORGET.search(text)
+    if m and _short(text, 6):
+        import faces
+        if m.group(1):
+            who = faces.nominative(m.group(1))
+        else:
+            with state.lock:
+                who = state.person[0] if state.person else None
+        if who and faces.forget(who):
+            speak(f"Dobrze, zapomniałam twarz: {who}.")
+        else:
+            speak("Nie znam tej twarzy.")
+        return True
+    name = _intro_name(text)
+    if name:
+        return _learn_face(name, text, speak)
+    if any(k in low for k in _FACE_BARE) and _short(text, 6):
+        with state.lock:
+            known = state.person[0] if state.person else None
+        speak(f"Przecież cię znam — to ty, {known}!" if known else
+              "Powiedz: zapamiętaj moją twarz, jestem… i swoje imię.")
         return True
 
     note = _remember(text)                         # "zapamiętaj, że …"

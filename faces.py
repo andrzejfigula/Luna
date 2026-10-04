@@ -1,0 +1,236 @@
+"""
+faces.py — who is in front of her.
+
+Two small neural networks from the OpenCV Zoo, run by OpenCV itself:
+  YuNet  (232 KB)  finds faces — faster and far steadier than the old Haar
+                   cascade, and it gives five landmarks per face (eyes, nose,
+                   mouth corners) that the recogniser needs
+  SFace  (38.7 MB) turns a face into 128 numbers; two photos of the same
+                   person give similar numbers (cosine similarity)
+Both live in data/models/ (see SETUP.md); without them vision falls back to
+Haar and nobody is recognised.
+
+Getting to know someone ("Luna, to jest Kasia", "jestem Andrzej", "zapamiętaj
+moją twarz, mam na imię Ola"): for a few seconds every frame with exactly one
+face adds a sample; the samples (numbers only, never the picture) go to
+data/people.json. From then on the face is recognised (state.person) and
+the model is told who it is talking to. "Zapomnij moją twarz" / "zapomnij
+twarz Kasi" removes them.
+
+Nothing leaves the Pi: detection, recognition and the samples are local.
+"""
+
+import json
+import os
+import threading
+import time
+
+import numpy as np
+
+from config import DATA_DIR
+from shared_state import state
+
+MODELS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "models")
+YUNET = os.path.join(MODELS, "face_detection_yunet_2023mar.onnx")
+SFACE = os.path.join(MODELS, "face_recognition_sface_2021dec.onnx")
+PEOPLE_PATH = os.path.join(DATA_DIR, "people.json")
+
+DETECT_SCORE = 0.75        # YuNet confidence for a face
+MATCH_COSINE = 0.40        # SFace: same person above this (paper: 0.363; a bit
+                           # stricter — a wrong name is worse than none)
+SAMPLES_MAX = 12           # kept per person
+ENROLL_SECS = 4.0
+RECOGNISE_EVERY = 2.5      # seconds between recognitions of a face in view
+
+_lock = threading.Lock()
+_det = None
+_rec = None
+_people = None             # {name: {"samples": [[128 floats]], "added": t}}
+_enroll = None             # {"name", "until", "samples": [], "done": Event, "many": int}
+
+
+def available():
+    return os.path.exists(YUNET)
+
+
+def can_recognise():
+    return os.path.exists(SFACE)
+
+
+def _detector(w, h):
+    global _det
+    if _det is None:
+        import cv2
+        _det = cv2.FaceDetectorYN.create(YUNET, "", (w, h), DETECT_SCORE, 0.3, 20)
+        print("[faces] YuNet face detector ready", flush=True)
+    _det.setInputSize((w, h))
+    return _det
+
+
+def _recogniser():
+    global _rec
+    if _rec is None:
+        import cv2
+        _rec = cv2.FaceRecognizerSF.create(SFACE, "")
+        print("[faces] SFace recogniser ready", flush=True)
+    return _rec
+
+
+def detect(bgr):
+    """YuNet rows (x, y, w, h, 10 landmark coords, score) for a BGR frame."""
+    h, w = bgr.shape[:2]
+    _, faces = _detector(w, h).detect(bgr)
+    return faces if faces is not None else np.zeros((0, 15), np.float32)
+
+
+def embed(bgr_full, row_small, scale):
+    """128 numbers for the face `row_small` (found on a frame `scale` times
+    smaller than bgr_full) — aligned on the full-size frame, which has the
+    detail recognition needs."""
+    row = row_small.copy()
+    row[:14] *= scale
+    rec = _recogniser()
+    crop = rec.alignCrop(bgr_full, row)
+    return rec.feature(crop).flatten()
+
+
+# ── who is who ────────────────────────────────────────────────────────────────
+
+def _load():
+    global _people
+    if _people is None:
+        try:
+            with open(PEOPLE_PATH, encoding="utf-8") as f:
+                _people = json.load(f)
+        except (OSError, ValueError):
+            _people = {}
+    return _people
+
+
+def _save():
+    tmp = PEOPLE_PATH + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(_people, f, ensure_ascii=False)
+    os.replace(tmp, PEOPLE_PATH)
+
+
+def names():
+    with _lock:
+        return sorted(_load())
+
+
+def identify(feature):
+    """(name, similarity) of the best match above MATCH_COSINE, else (None, best)."""
+    with _lock:
+        people = {n: p["samples"] for n, p in _load().items()}
+    best, who = 0.0, None
+    f = feature / (np.linalg.norm(feature) + 1e-9)
+    for name, samples in people.items():
+        s = np.asarray(samples, np.float32)
+        s = s / (np.linalg.norm(s, axis=1, keepdims=True) + 1e-9)
+        sim = float(np.max(s @ f))
+        if sim > best:
+            best, who = sim, name
+    return (who, best) if best >= MATCH_COSINE else (None, best)
+
+
+def start_enrolment(name):
+    """Begin collecting samples of the face in view; returns an Event that is
+    set when done (see enrolment_result)."""
+    global _enroll
+    with _lock:
+        _enroll = {"name": name, "until": time.time() + ENROLL_SECS, "samples": [],
+                   "done": threading.Event(), "many": 0}
+        return _enroll["done"]
+
+
+def enrolling():
+    with _lock:
+        return _enroll is not None and not _enroll["done"].is_set()
+
+
+def offer(feature, n_faces):
+    """Vision calls this with every frame's feature while enrolling."""
+    global _enroll
+    with _lock:
+        e = _enroll
+        if e is None or e["done"].is_set():
+            return
+        if n_faces > 1:
+            e["many"] += 1
+        elif feature is not None:
+            e["samples"].append([round(float(v), 5) for v in feature])
+        if time.time() >= e["until"]:
+            if e["samples"]:
+                people = _load()
+                p = people.setdefault(e["name"], {"samples": [], "added": time.time()})
+                p["samples"] = (p["samples"] + e["samples"])[-SAMPLES_MAX:]
+                _save()
+                print(f"[faces] learned {e['name']}: {len(e['samples'])} samples", flush=True)
+            e["done"].set()
+
+
+def enrolment_result():
+    """("ok", name) / ("nobody", name) / ("many", name) once enrolment ended."""
+    with _lock:
+        e = _enroll
+    if e is None:
+        return ("nobody", "")
+    if e["samples"]:
+        return ("ok", e["name"])
+    return ("many" if e["many"] else "nobody", e["name"])
+
+
+def nominative(name):
+    """"Kasię" / "Kasi" → "Kasia" (one small model call; the name as said
+    when it fails)."""
+    try:
+        from openai import OpenAI
+        from config import OPENAI_API_KEY, OPENAI_MODEL
+        c = OpenAI(api_key=OPENAI_API_KEY, timeout=8, max_retries=1)
+        r = c.chat.completions.create(
+            model=OPENAI_MODEL, temperature=0, max_tokens=20,
+            response_format={"type": "json_object"},
+            messages=[{"role": "user", "content":
+                       "Return JSON {\"name\": ...}: this Polish first name in the "
+                       "nominative case, capitalised (\"Kasię\" -> \"Kasia\", "
+                       "\"Andrzeja\" -> \"Andrzej\", \"Oli\" -> \"Ola\"):\n" + name}])
+        out = json.loads(r.choices[0].message.content).get("name", "").strip()
+        return out or name
+    except Exception as e:
+        print(f"[faces] nominative failed ({e}) — using {name!r}", flush=True)
+        return name
+
+
+def forget(name):
+    """Remove someone. True if they were known."""
+    with _lock:
+        people = _load()
+        key = next((n for n in people if n.lower() == name.lower()), None)
+        if key is None:
+            return False
+        del people[key]
+        _save()
+    with state.lock:
+        if state.person and state.person[0] == key:
+            state.person = None
+    print(f"[faces] forgot {key}", flush=True)
+    return True
+
+
+def prompt_line():
+    """Who she knows and who is in front of her, for the system prompt."""
+    known = names()
+    with state.lock:
+        person = state.person
+        seen = state.face_detected
+    if not known:
+        return ("Nobody's face is known yet — if someone tells you their name, "
+                "they can say \"Luna, zapamiętaj moją twarz, jestem …\".\n")
+    now = (f"In front of you now: {person[0]} (recognised by face)."
+           if person else
+           "In front of you now: a face you don't recognise." if seen else
+           "Nobody is in front of the camera now.")
+    return (f"People you know by face: {', '.join(known)}. {now} Talk to the "
+            "recognised person by name now and then (in the right Polish case), "
+            "not in every sentence.\n")

@@ -55,6 +55,8 @@ class SharedState:
                                  # the screen brightens until end (timers.py)
         "messages_waiting",      # unheard voice messages (messages.py)
         "radio",                 # the station playing (radio.py), or None
+        "person",                # (name, similarity, time) — who is in front of her
+                                 # (faces.py), or None
         "convo_closed_hard",     # the window was closed on purpose ("pa!", radio):
                                  # no grace for speech that began just after
         "voice_mood",            # forces the TTS delivery ("sleepy" for the
@@ -124,6 +126,7 @@ class SharedState:
         self.voice_mood          = None
         self.messages_waiting    = 0
         self.radio               = None
+        self.person              = None
         self.convo_closed_hard   = False
         self.sunrise             = None
         self.overlay             = None

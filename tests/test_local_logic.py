@@ -445,6 +445,70 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(len(memory._load()["facts"]), 2)
 
 
+class RelationshipTest(unittest.TestCase):
+
+    def setUp(self):
+        import relationship
+        relationship.PATH = os.path.join(TMP, "relations.json")
+        relationship._data = {}
+        with state.lock:
+            state.person = ("Kasia", 0.9, time.time())
+
+    def tearDown(self):
+        with state.lock:
+            state.person = None
+
+    def test_reciprocity(self):
+        import relationship as r
+        for _ in range(4):
+            r.note("kind")
+        self.assertAlmostEqual(r.score(), 2.0, places=3)
+        self.assertIn("friendly", r.prompt_line())
+        r.note("insulting", "jesteś głupia")
+        r.note("insulting", "głupia maszyna")
+        self.assertLess(r.score(), -3)
+        line = r.prompt_line()
+        self.assertIn("offended", line)
+        self.assertIn("głupia maszyna", line)
+        self.assertIn("timers", line)                  # the limits are always there
+        r.note("apologetic")
+        self.assertGreater(r.score(), -3)
+        self.assertLessEqual(r.score(), 0)             # an apology heals, no more
+        self.assertEqual(r.score("Andrzej"), 0.0)      # per person
+
+    def test_time_heals(self):
+        import relationship as r
+        r.note("insulting")
+        r._data["Kasia"]["t"] -= 5 * 3600              # five hours ago
+        self.assertAlmostEqual(r.score(), -0.5, places=2)
+
+
+class FacesTest(unittest.TestCase):
+
+    def test_identify_by_cosine(self):
+        import numpy as np
+        import faces
+        faces.PEOPLE_PATH = os.path.join(TMP, "people.json")
+        rng = np.random.default_rng(1)
+        kasia, ola = rng.normal(size=128), rng.normal(size=128)
+        faces._people = {"Kasia": {"samples": [list(kasia)], "added": 0},
+                         "Ola": {"samples": [list(ola)], "added": 0}}
+        self.assertEqual(faces.identify(kasia + rng.normal(scale=0.3, size=128))[0], "Kasia")
+        self.assertEqual(faces.identify(ola * 2)[0], "Ola")
+        self.assertIsNone(faces.identify(rng.normal(size=128))[0])   # a stranger
+        self.assertTrue(faces.forget("kasia"))
+        self.assertEqual(faces.names(), ["Ola"])
+
+    def test_intro_names(self):
+        import commands
+        self.assertEqual(commands._intro_name("Luna, to jest Kasia."), "Kasia")
+        self.assertEqual(commands._intro_name("Poznaj Olę!"), "Olę")
+        self.assertEqual(commands._intro_name("Jestem Andrzej Figula"), "Andrzej")
+        self.assertIsNone(commands._intro_name("To jest problem"))
+        self.assertIsNone(commands._intro_name("Jestem zmęczony"))
+        self.assertIsNone(commands._intro_name("To Luna"))
+
+
 class RadioTest(unittest.TestCase):
 
     def test_volume_while_playing_is_the_music(self):

@@ -59,6 +59,16 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Wyczyść pamięć | „Luna, zapomnij wszystko” |
 | Nastrój z kamery | samo działa — dopasowuje ton; skomentuje najwyżej raz na 30 min |
 
+## Domownicy i charakter
+
+| Co | Jak |
+|---|---|
+| Poznaj kogoś | Stań przodem do Luny (sam, blisko) i powiedz: „Luna, jestem Andrzej” albo „to jest Kasia”, „poznaj Olę”, „zapamiętaj moją twarz, mam na imię Ola” — patrz na nią 4 sekundy; potem wita po imieniu i pamięta, czyje są plany i upodobania |
+| Kim jestem? | „Kim jestem?”, „Poznajesz mnie?” |
+| Zapomnij | „Zapomnij moją twarz”, „Zapomnij twarz Kasi” |
+| Charakter | ma swoje zdanie (ulubiony kolor fioletowy, lubi radio, burze i gwiazdy), poczucie humoru i godność robota |
+| Wzajemność | traktuje każdego tak, jak on ją: dla miłych ciepła i czuła; po niegrzeczności chłodniejsza i ironiczna; po obeldze obrażona — krótko, z godnością, bez drobnych przysług, aż usłyszy „przepraszam”. Z czasem wybacza sama. Nigdy wulgarnie ani okrutnie, a minutniki i budziki działają zawsze |
+
 ## Przydatne
 
 | Co | Jak |

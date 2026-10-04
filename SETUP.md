@@ -58,6 +58,22 @@ cp .env.example .env && nano .env      # OPENAI_API_KEY=sk-...
 Output volume follows the chosen PipeWire sink: `wpctl status` lists them,
 `wpctl set-volume <id> 1.0` sets it.
 
+### Face models (optional, recommended)
+
+YuNet finds faces (steadier and cheaper than the Haar cascade) and SFace
+recognises the people of the house ("Luna, to jest Kasia"). Both come from
+the official OpenCV Zoo and run in OpenCV itself (needs OpenCV 4.5.4+):
+
+```bash
+mkdir -p ~/luna/data/models && cd ~/luna/data/models
+curl -L -O https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
+curl -L -O https://github.com/opencv/opencv_zoo/raw/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx
+```
+
+(232 KB and 38.7 MB.) Without them she falls back to the Haar cascade and
+recognises nobody. The log says which: `[vision] face detector: YuNet,
+recognition on`.
+
 ## Run
 
 ```bash

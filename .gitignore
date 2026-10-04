@@ -44,3 +44,10 @@ photos/
 data/lists.json
 data/lists.json.tmp
 data/messages/
+# who she knows by face (numbers, not pictures) and how she feels about them
+data/people.json
+data/people.json.tmp
+data/relations.json
+data/relations.json.tmp
+# face models from the OpenCV Zoo (download, see SETUP.md)
+data/models/
