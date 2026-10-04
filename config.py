@@ -562,7 +562,10 @@ WAVE_WINDOW_SECS       = 2.4   # how long a stretch of movement is judged at
                                # once — longer means she needs to see you keep
                                # it up before she believes you
 WAVE_MIN_REVERSALS     = 7     # ~3.5 full back-and-forths inside that window
-WAVE_MIN_AMPLITUDE     = 0.35  # sideways travel ≥ this × the face width
+WAVE_MIN_AMPLITUDE     = 0.8   # (was 0.35: on 4 Oct a hand moving near the face at
+                               # the desk — 14–27 px of travel with a 40 px face —
+                               # "waved" seven times in minutes; real waves in the
+                               # same log travelled 107–151 px)  # sideways travel ≥ this × the face width
                                # (scale-free: works close up and far away)
 WAVE_MIN_SWING         = 0.15  # a half-swing must travel ≥ this × face width
                                # before a direction change counts (kills jitter)
@@ -606,7 +609,9 @@ WAVE_MAX_BELOW_FACE    = 1.3   # the hand's mean height: not lower than this
 # So a motion candidate is CONFIRMED by asking the vision model whether the
 # current frame shows an open, empty hand waving. ~1 s, a fraction of a cent.
 WAVE_CLOUD_CONFIRM     = False   # off: too slow (~1 s) and missed real waves
-WAVE_CONFIRM_MIN_GAP   = 3.0   # seconds between confirmation requests
+WAVE_CONFIRM_MIN_GAP   = 3.0
+WAVE_SPEAK_GAP         = 120   # she waves back every time, but SAYS hello at most
+                               # this often   # seconds between confirmation requests
 
 # Local wave-vs-object check: skin colour. The face gives the person's own
 # skin tone (Cr/Cb statistics, adapts to lighting); an open empty hand is

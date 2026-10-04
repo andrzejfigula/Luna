@@ -19,11 +19,14 @@ import time
 from shared_state import state
 from config import (GESTURE_REACT_COOLDOWN, FACE_OVERRIDE_SECS,
                     WAVE_REPLIES, GESTURE_DURATION, WAVE_CLOUD_CONFIRM,
-                    WAVE_CONFIRM_MIN_GAP)
+                    WAVE_CONFIRM_MIN_GAP, WAVE_SPEAK_GAP)
 
 _last_confirm = 0.0
 
 _last_react = {}   # gesture name → last reaction time
+
+
+_last_wave_said = 0.0
 
 
 def _cooled(gesture):
@@ -84,7 +87,9 @@ def _behavior_step(speak, confirm_wave):
         with state.lock:
             state.gesture_anim       = "wave"
             state.gesture_anim_start = time.time()
-        if not in_convo:
+        global _last_wave_said
+        if not in_convo and time.time() - _last_wave_said > WAVE_SPEAK_GAP:
+            _last_wave_said = time.time()
             speak(random.choice(WAVE_REPLIES), can_drop=True)
 
 

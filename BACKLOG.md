@@ -268,3 +268,9 @@ the game's hand reading, photos, the mood read from a face.
 | 105 | **Voice messages for a person** — "nagraj wiadomość dla Emilki": she tells Emilka when she sees her ("Masz wiadomość głosową od: Andrzej"); "odtwórz wiadomość" plays that person's messages, with who left them | A family message board that knows who is who | ✅ the sender's own messages don't nag them |
 | 106 | **Child-safe news** — when the person in front of her is marked as a child (Maja), only headlines without violence, crime, fires, accidents, war or death | An 8-year-old asking "jakie są wiadomości?" shouldn't get a warehouse fire and a vandalised memorial | ✅ found while testing: one extra sentence at the end lost to "pick the 3 most important" — for a child the whole instruction is replaced. Maja: a football match, a new footbridge, a diver found safe; Andrzej: the full news |
 | 107 | **Records per person** — guess-the-number: "Nowy rekord! Poprzedni: 9 prób."; maths quiz: "To już 3. bezbłędna runda!" | Something to beat, and it knows whose record it is | ✅ kept in settings by face |
+
+## Batch 28
+
+| # | Item | Why | Status |
+|---|------|-----|--------|
+| 108 | **Fewer phantom waves** — a wave must travel ≥ 0.8 face widths (was 0.35); she still waves back every time but says hello at most every 2 minutes | Tonight's log: "Hejka!", "Hej, hej!" seven times while Andrzej sat at the desk — hand movements of 14–27 px with a 40 px face; the real waves in the same log were 107–151 px | ✅ |
