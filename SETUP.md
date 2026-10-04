@@ -74,6 +74,15 @@ curl -L -O https://github.com/opencv/opencv_zoo/raw/main/models/face_recognition
 recognises nobody. The log says which: `[vision] face detector: YuNet,
 recognition on`.
 
+### Backups
+
+Once a day Luna copies what she has learned (memory, faces, lists, timers,
+settings, relations, her day, photo tags, message index) to
+`data/backups/YYYY-MM-DD/`, keeping 7 days. To restore: `./stop.sh`, copy the
+files of a day back into `data/` (`photos-people.json` goes to
+`photos/people.json`, `messages-index.json` to `data/messages/index.json`),
+`./restart.sh --now`.
+
 ## Run
 
 ```bash

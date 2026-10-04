@@ -3,6 +3,7 @@
 import datetime
 import os
 import sys
+import shutil
 import tempfile
 import time
 import unittest
@@ -561,6 +562,27 @@ class FacesTest(unittest.TestCase):
         self.assertIsNone(commands._bare_name("nie powiem"))
         self.assertIsNone(commands._bare_name("Ciszej"))
         commands._name_wanted[0] = 0.0
+
+
+class BackupTest(unittest.TestCase):
+
+    def test_a_copy_a_day(self):
+        import backup
+        d = tempfile.mkdtemp()
+        with mock.patch.object(backup, "DATA_DIR", d), \
+                mock.patch.object(backup, "DIR", os.path.join(d, "backups")), \
+                mock.patch.object(backup, "PHOTOS_DIR", os.path.join(d, "photos")):
+            with open(os.path.join(d, "memory.json"), "w") as f:
+                f.write('{"facts": ["Maja ma 8 lat"]}')
+            dest = backup.backup_now()
+            self.assertTrue(os.path.isfile(os.path.join(dest, "memory.json")))
+            self.assertIsNone(backup.backup_now())               # once a day
+            for day in ("2026-01-0%d" % i for i in range(1, 10)):
+                os.makedirs(os.path.join(d, "backups", day))
+            shutil.rmtree(dest)                                  # pretend it is a new day
+            shutil.rmtree(os.path.join(d, "backups", "2026-01-09"))
+            backup.backup_now()
+            self.assertEqual(len(os.listdir(os.path.join(d, "backups"))), backup.BACKUP_DAYS)
 
 
 class MoodTest(unittest.TestCase):
