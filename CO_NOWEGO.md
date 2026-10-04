@@ -72,6 +72,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Kim jestem? | „Kim jestem?”, „Poznajesz mnie?” |
 | Zapomnij | „Zapomnij moją twarz”, „Zapomnij twarz Kasi” |
 | Charakter | ma swoje zdanie (ulubiony kolor fioletowy, lubi radio, burze i gwiazdy), poczucie humoru i godność robota |
+| Jej dzień | „Jak minął ci dzień?”, „Jak się czujesz?” — opowie, z kim dziś rozmawiała i jak było; po długiej samotności ucieszy się z towarzystwa, późno jest senna |
 | Wzajemność | traktuje każdego tak, jak on ją: dla miłych ciepła i czuła; po niegrzeczności chłodniejsza i ironiczna; po obeldze obrażona — krótko, z godnością, bez drobnych przysług, aż usłyszy „przepraszam”. Z czasem wybacza sama. Nigdy wulgarnie ani okrutnie, a minutniki i budziki działają zawsze |
 
 ## Przydatne

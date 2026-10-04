@@ -24,5 +24,39 @@ class SyntaxTest(unittest.TestCase):
                 self.assertNotIn("\x08", src)
 
 
+class ShadowTest(unittest.TestCase):
+    """A local variable named like an imported module breaks the module in the
+    whole function ("cannot access local variable 'mood'") — it happened in
+    brain.py, which the tests can't import on a dev machine."""
+
+    def test_no_local_shadows_an_import(self):
+        import ast
+        for path in glob.glob(os.path.join(ROOT, "*.py")):
+            tree = ast.parse(open(path, encoding="utf-8").read())
+            imported = set()
+            for node in tree.body:
+                if isinstance(node, ast.Import):
+                    imported |= {(a.asname or a.name).split(".")[0] for a in node.names}
+            for fn in ast.walk(tree):
+                if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                local_imports = {(a.asname or a.name).split(".")[0]
+                                 for n in ast.walk(fn) if isinstance(n, ast.Import)
+                                 for a in n.names}
+                for n in ast.walk(fn):
+                    targets = []
+                    if isinstance(n, ast.Assign):
+                        targets = n.targets
+                    elif isinstance(n, (ast.AugAssign, ast.AnnAssign, ast.For)):
+                        targets = [n.target]
+                    for t in targets:
+                        for name in ast.walk(t):
+                            if (isinstance(name, ast.Name) and name.id in imported
+                                    and name.id not in local_imports):
+                                with self.subTest(file=os.path.basename(path), fn=fn.name):
+                                    self.fail(f"local '{name.id}' shadows the module "
+                                              f"in {fn.name}()")
+
+
 if __name__ == "__main__":
     unittest.main()

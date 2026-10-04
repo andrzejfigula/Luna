@@ -523,6 +523,26 @@ class FacesTest(unittest.TestCase):
         commands._name_wanted[0] = 0.0
 
 
+class MoodTest(unittest.TestCase):
+
+    def test_her_day(self):
+        import mood
+        mood.PATH = os.path.join(TMP, "day.json")
+        mood._day = None
+        self.assertIn("nobody has talked", mood.prompt_line())
+        for _ in range(3):
+            mood.note("Andrzej", "neutral")
+        mood.note("Maja", "kind")
+        mood.note(None, "rude")
+        line = mood.prompt_line()
+        self.assertIn("Andrzej (3 razy)", line)
+        self.assertIn("Maja (raz)", line)
+        self.assertIn("kind to you raz", line)
+        self.assertIn("rude to you raz", line)
+        mood._day["date"] = "2000-01-01"                  # a new day starts empty
+        self.assertIn("nobody has talked", mood.prompt_line())
+
+
 class MessagesForPeopleTest(unittest.TestCase):
 
     def test_message_waits_for_its_person(self):

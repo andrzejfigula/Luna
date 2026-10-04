@@ -29,6 +29,7 @@ from openai import OpenAI
 
 import reply_scenes
 import faces
+import mood as luna_mood     # ("mood" is the user's mood inside _ask_openai)
 import relationship
 from reply_stream import ReplyStream
 import body
@@ -524,6 +525,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   + _length_rule()
                   + faces.prompt_line()
                   + relationship.prompt_line()
+                  + luna_mood.prompt_line()
                   + _mood_rule(image_b64 is not None)
                   + body.prompt_line()
                   + weather.prompt_line()
@@ -590,7 +592,10 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
         _note_mood(mood if mood in USER_MOODS else "no_person",
                    bool(data.get("mood_comment", False)))
         if not translator():                 # interpreting: the words aren't for her
-            relationship.note(str(data.get("user_tone", "neutral")).lower(), text)
+            tone = str(data.get("user_tone", "neutral")).lower()
+            relationship.note(tone, text)
+            luna_mood.note(relationship.who() if relationship.who() != relationship.SOMEONE
+                      else None, tone)
         timers.apply(data.get("actions") or [])
         lists.apply(data.get("actions") or [])
 
