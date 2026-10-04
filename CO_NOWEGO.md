@@ -72,6 +72,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Radio każdego | „Włącz radio” włącza stację, której ta osoba słuchała ostatnio |
 | Zdjęcia z imionami | po „zrób nam zdjęcie” powie, kto jest na zdjęciu; „pokaż zdjęcia Mai” — tylko te z Mają; w galerii imiona pod zdjęciem |
 | Gość | nieznaną twarz Luna przywita i zapyta o imię — wystarczy odpowiedzieć „Jestem Ola” albo samo „Ola” |
+| Urodziny | „Maja ma urodziny 12 maja 2018”, „Moje urodziny są 14 lutego” — potem „Ile dni do urodzin Mai?”; w dniu urodzin Luna złoży życzenia przy powitaniu |
 | Kim jestem? | „Kim jestem?”, „Poznajesz mnie?” |
 | Zapomnij | „Zapomnij moją twarz”, „Zapomnij twarz Kasi” |
 | Charakter | ma swoje zdanie (ulubiony kolor fioletowy, lubi radio, burze i gwiazdy), poczucie humoru i godność robota |

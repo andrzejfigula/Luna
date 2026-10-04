@@ -1,0 +1,161 @@
+"""
+birthdays.py — the family's birthdays.
+
+  "Maja ma urodziny 12 maja", "moje urodziny są 3 marca",
+  "urodziny Emilki są 5 czerwca", "Andrzej urodził się 14 lutego 1988"
+        → kept with the person in data/people.json ("birthday": "MM-DD",
+          "born": year if said)
+  "Ile dni do urodzin Mai?", "ile dni do moich urodzin?"
+        → counted here, exactly (models are bad at calendar sums)
+  on the day: the model is told ("Today is Maja's birthday — she turns 9!"),
+  so the first hello is a birthday wish; a week before, it knows it's coming.
+
+Only for people she knows by face (faces.py) — a birthday belongs to someone.
+"""
+
+import re
+import time
+from datetime import date, datetime
+
+from shared_state import state
+
+_MONTHS_GEN = ["stycznia", "lutego", "marca", "kwietnia", "maja", "czerwca", "lipca",
+               "sierpnia", "września", "października", "listopada", "grudnia"]
+_SET = re.compile(r"\burodzin\w*|\burodził\w*\s+się|\burodzila\s+sie|\burodzil\s+sie")
+
+
+def _today():
+    return datetime.now().date()
+
+
+def _date_in(low):
+    """(month, day, year or None) for "12 maja", "dwunastego maja 2018", else None."""
+    import calc
+    for i, m in enumerate(_MONTHS_GEN):
+        k = re.search(r"(\w+)(?:\s+(\w+))?\s+" + m + r"\b(?:\s+(\d{4}))?", low)
+        if not k:
+            continue
+        a, b, year = k.group(1), k.group(2), k.group(3)
+        day = None
+        if b and b.isdigit():
+            day = int(b)
+        elif b in calc._ORD:
+            day = calc._ORD[b] + (calc._ORD.get(a, 0) if a in ("dwudziestego", "trzydziestego")
+                                  else 0)
+        elif a.isdigit():
+            day = int(a)
+        elif a in calc._ORD:
+            day = calc._ORD[a]
+        if day and 1 <= day <= 31:
+            return i + 1, day, int(year) if year else None
+    return None
+
+
+def _who(low, text):
+    """The person meant: "moje" → whoever is in front of her; else a known
+    name (any case form)."""
+    import faces
+    known = faces.names()
+    if re.search(r"\b(moje|moich|mój|moj|mi|ja|urodziłem|urodziłam)\b", low):
+        with state.lock:
+            if state.person:
+                return state.person[0]
+    import calc
+    words = re.findall(r"\w+", text)
+    for i, w in enumerate(words):
+        prev = words[i - 1].lower() if i else ""
+        if w.lower() in _MONTHS_GEN and (prev.isdigit() or prev in calc._ORD):
+            continue                                # "3 maja" is May, not Maja
+        hit = faces.match_name(w, known)            # any case form: "Mai" → Maja
+        if hit:
+            return hit
+    return None
+
+
+def set_from(text):
+    """A birthday being told → (name, "MM-DD", year) saved; None if it isn't one."""
+    import faces
+    low = text.lower()
+    if not _SET.search(low) or "ile" in low.split() or low.rstrip().endswith("?"):
+        return None
+    d = _date_in(low)
+    if not d:
+        return None
+    name = _who(low, text)
+    if not name:
+        return None
+    month, day, year = d
+    with faces._lock:
+        p = faces._load().get(name)
+        if p is None:
+            return None
+        p["birthday"] = f"{month:02d}-{day:02d}"
+        if year:
+            p["born"] = year
+        faces._save()
+    print(f"[birthdays] {name}: {day}.{month}" + (f".{year}" if year else ""), flush=True)
+    return name, p["birthday"], year
+
+
+def _next(md, today):
+    m, d = (int(x) for x in md.split("-"))
+    for y in (today.year, today.year + 1):
+        try:
+            when = date(y, m, d)
+        except ValueError:                         # 29 February
+            when = date(y, 3, 1)
+        if when >= today:
+            return when
+
+
+def _all():
+    import faces
+    with faces._lock:
+        return {n: (p.get("birthday"), p.get("born"))
+                for n, p in faces._load().items() if p.get("birthday")}
+
+
+def days_answer(text, today=None):
+    """"Ile dni do urodzin Mai?" → the answer, or None."""
+    low = text.lower()
+    if "urodzin" not in low or not re.search(r"\b(ile|kiedy)\b", low):
+        return None
+    today = today or _today()
+    name = _who(low, text)
+    if not name:
+        return None
+    md, born = _all().get(name, (None, None))
+    if not md:
+        return (f"Nie wiem jeszcze, kiedy {name} ma urodziny. Powiedz na przykład: "
+                f"{name} ma urodziny 12 maja.")
+    when = _next(md, today)
+    days = (when - today).days
+    import calc
+    if born:
+        n = when.year - born
+        age = f" Skończy {n} {calc._plural(n, 'rok', 'lata', 'lat')}."
+    else:
+        age = ""
+    if days == 0:
+        return f"To dzisiaj! Wszystkiego najlepszego!{age.replace('Skończy', 'Kończy dziś')}"
+    if days == 1:
+        return f"Już jutro!{age}"
+    phrase = re.search(r"urodzin\s+(\w+)", text, re.I)    # "Mai", as said
+    whose = f"urodzin {phrase.group(1)}" if phrase else "urodzin"
+    return calc._say_left(whose, days) + age
+
+
+def prompt_line(today=None):
+    """Birthdays today or within a week, for the system prompt."""
+    today = today or _today()
+    out = []
+    for name, (md, born) in _all().items():
+        when = _next(md, today)
+        days = (when - today).days
+        turns = f" — turns {when.year - born}" if born else ""
+        if days == 0:
+            out.append(f"TODAY is {name}'s birthday{turns}! Wish them a happy birthday "
+                       "warmly when you greet or talk to them.")
+        elif days <= 7:
+            out.append(f"{name}'s birthday is in {days} days ({when.day}.{when.month}){turns}.")
+    return (" ".join(out) + "\n") if out else ""

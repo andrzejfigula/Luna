@@ -28,6 +28,7 @@ import cv2
 from openai import OpenAI
 
 import reply_scenes
+import birthdays
 import faces
 import mood as luna_mood     # ("mood" is the user's mood inside _ask_openai)
 import relationship
@@ -530,6 +531,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   + faces.prompt_line()
                   + relationship.prompt_line()
                   + luna_mood.prompt_line()
+                  + birthdays.prompt_line()
                   + _mood_rule(image_b64 is not None)
                   + body.prompt_line()
                   + weather.prompt_line()
@@ -728,6 +730,7 @@ def greeting(first_today, waking=False, who=None, stranger=False):
     try:
         context = (f"Local time: {_local_now_text()}.\n" + weather.prompt_line()
                    + faces.prompt_line() + relationship.prompt_line()
+                   + birthdays.prompt_line()
                    + timers.prompt_block() + lists.prompt_block()
                    + memory.prompt_block())
         r = _client.chat.completions.create(

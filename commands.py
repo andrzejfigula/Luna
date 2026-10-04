@@ -595,6 +595,21 @@ def handle(text, speak, play_sound):
             brain.process(text, context=ctx)
         return "recorded"
 
+    # birthdays: "Maja ma urodziny 12 maja" / "ile dni do urodzin Mai?"
+    import birthdays
+    said = birthdays.days_answer(text)
+    if said:
+        speak(said)
+        return True
+    got = birthdays.set_from(text)
+    if got:
+        name, md, year = got
+        m, d = (int(x) for x in md.split("-"))
+        import calc
+        speak(f"Zapamiętałam: {name}, {d} {calc._MONTHS_GEN[m - 1]}"
+              + (f" {year}" if year else "") + ".")
+        return True
+
     # "ile to jest 17 razy 23?" / "ile dni do Wigilii?" — counted locally
     import calc
     said = calc.answer(text)

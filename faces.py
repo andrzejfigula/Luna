@@ -318,6 +318,32 @@ def vocative_of(name):
         return ""
 
 
+def forms(name):
+    """The case forms of a Polish first name: Maja → Mai, Maję, Mają, Maju…;
+    Emilka → Emilki, Emilce, Emilkę…; Andrzej → Andrzeja, Andrzejowi…"""
+    n = name.lower()
+    out = {n}
+    if n.endswith("a"):
+        stem = n[:-1]
+        out |= {stem + e for e in ("y", "i", "ę", "ą", "o", "u", "e")}
+        if stem.endswith("j"):                  # Maja → Mai
+            out.add(stem[:-1] + "i")
+        if stem.endswith("k"):                  # Emilka → Emilce
+            out.add(stem[:-1] + "ce")
+    else:
+        out |= {n + e for e in ("a", "owi", "em", "u", "e", "ie")}
+    return out
+
+
+def match_name(word, known=None):
+    """A known person's name for any case form of it ("Mai" → "Maja"), or None."""
+    w = word.lower()
+    for n in (known if known is not None else names()):
+        if w in forms(n):
+            return n
+    return None
+
+
 def forget(name):
     """Remove someone. True if they were known."""
     with _lock:

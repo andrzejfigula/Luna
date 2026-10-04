@@ -131,9 +131,9 @@ def _person_in(low):
     if not m or not known:
         return None
     word = m.group(1)
-    for n in known:                       # "Andrzeja", "Emilki": the stem is enough
-        if word.startswith(n.lower()[:-1]) or n.lower().startswith(word):
-            return n
+    hit = faces.match_name(word, known)   # "Andrzeja", "Emilki", "Mai"
+    if hit:
+        return hit
     if word in ("mi", "moje", "mnie", "nas", "nasze", "ostatnie", "wszystkie"):
         return None
     nom = faces.nominative(word)          # "Mai" → "Maja"

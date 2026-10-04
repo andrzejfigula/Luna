@@ -546,6 +546,16 @@ class FacesTest(unittest.TestCase):
         self.assertIn("Also in view: Maja, 1 unknown", line)
         self.assertIn('Maja (vocative "Maju"', line)
 
+    def test_name_forms(self):
+        import faces
+        known = ["Andrzej", "Emilka", "Maja"]
+        for word, who in (("Mai", "Maja"), ("Maję", "Maja"), ("Maju", "Maja"),
+                          ("Emilki", "Emilka"), ("Emilce", "Emilka"), ("Emilką", "Emilka"),
+                          ("Andrzeja", "Andrzej"), ("Andrzejowi", "Andrzej"),
+                          ("maj", None), ("Ola", None)):
+            with self.subTest(word=word):
+                self.assertEqual(faces.match_name(word, known), who)
+
     def test_intro_names(self):
         import commands
         self.assertEqual(commands._intro_name("Luna, to jest Kasia."), "Kasia")
@@ -562,6 +572,34 @@ class FacesTest(unittest.TestCase):
         self.assertIsNone(commands._bare_name("nie powiem"))
         self.assertIsNone(commands._bare_name("Ciszej"))
         commands._name_wanted[0] = 0.0
+
+
+class BirthdayTest(unittest.TestCase):
+
+    def test_birthdays(self):
+        import birthdays
+        import faces
+        faces.PEOPLE_PATH = os.path.join(TMP, "people-b.json")
+        faces._people = {"Andrzej": {"samples": [], "added": 0},
+                         "Maja": {"samples": [], "added": 0}}
+        with mock.patch.object(faces, "nominative", lambda w: w), \
+                mock.patch.object(birthdays, "_today", lambda: datetime.date(2026, 10, 4)):
+            self.assertEqual(birthdays.set_from("Maja ma urodziny 12 maja 2018"),
+                             ("Maja", "05-12", 2018))
+            with state.lock:
+                state.person = ("Andrzej", 0.9, time.time())
+            self.assertEqual(birthdays.set_from("Moje urodziny są czternastego lutego")[1],
+                             "02-14")
+            with state.lock:
+                state.person = None
+            self.assertIsNone(birthdays.set_from("Kiedy Maja ma urodziny?"))
+            self.assertIsNone(birthdays.set_from("Ola ma urodziny 3 maja"))   # unknown
+            self.assertEqual(birthdays.days_answer("Ile dni do urodzin Mai?"),
+                             "Do urodzin Mai zostało 220 dni, czyli około 31 tygodni. "
+                             "Skończy 9 lat.")
+            self.assertIn("in 3 days", birthdays.prompt_line(datetime.date(2026, 5, 9)))
+            self.assertIn("TODAY is Maja's birthday — turns 8",   # in May 2026
+                          birthdays.prompt_line(datetime.date(2026, 5, 12)))
 
 
 class BackupTest(unittest.TestCase):
