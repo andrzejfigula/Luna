@@ -84,6 +84,31 @@ def _parse_at(at):
     return due
 
 
+_REPEATS = {"none", "daily", "weekdays", "weekends"}
+
+
+def _matches(dt, repeat):
+    wd = dt.weekday()                       # Monday = 0
+    return (repeat == "daily" or (repeat == "weekdays" and wd < 5)
+            or (repeat == "weekends" and wd >= 5))
+
+
+def _next_matching(due, repeat, inclusive=False):
+    """The next time a repeating reminder rings: same wall-clock time on the
+    next matching day (computed on the calendar, so a DST change doesn't
+    shift it by an hour)."""
+    dt = datetime.fromtimestamp(due, _TZ) if _TZ else datetime.fromtimestamp(due)
+    if not inclusive:
+        dt += timedelta(days=1)
+    for _ in range(8):
+        if _matches(dt, repeat):
+            break
+        dt += timedelta(days=1)
+    if _TZ:                                  # re-resolve the offset for that day
+        dt = dt.replace(tzinfo=None).replace(tzinfo=_TZ)
+    return dt.timestamp()
+
+
 def apply(actions):
     """Carry out the model's timer actions. Returns a short log string."""
     done = []
@@ -99,10 +124,16 @@ def apply(actions):
                     done.append(f"timer {secs}s '{label}'")
             elif kind in ("reminder", "alarm"):
                 due = _parse_at(str(a.get("at", "")))
+                repeat = str(a.get("repeat", "none")).lower()
+                if repeat not in _REPEATS:
+                    repeat = "none"
                 if due:
+                    if repeat != "none":
+                        due = _next_matching(due, repeat, inclusive=True)
                     _timers.append({"due": due, "label": label, "kind": kind,
-                                    "set": time.time()})
-                    done.append(f"{kind} {time.strftime('%d.%m %H:%M', time.localtime(due))} '{label}'")
+                                    "repeat": repeat, "set": time.time()})
+                    done.append(f"{kind} {time.strftime('%d.%m %H:%M', time.localtime(due))} "
+                                f"'{label}'" + (f" ({repeat})" if repeat != "none" else ""))
             elif kind == "cancel":
                 before = len(_timers)
                 if label:
@@ -142,7 +173,9 @@ def prompt_block():
     for t in items:
         at = time.strftime("%H:%M", time.localtime(t["due"]))
         what = t["label"] or ("minutnik" if t["kind"] == "timer" else "przypomnienie")
-        lines.append(f"- {t['kind']} \"{what}\": rings at {at}, {_left(t['due'] - now)} left")
+        rep = t.get("repeat", "none")
+        lines.append(f"- {t['kind']} \"{what}\": rings at {at}, {_left(t['due'] - now)} left"
+                     + (f", repeats {rep}" if rep != "none" else ""))
     return "\n".join(lines) + "\n"
 
 
@@ -229,17 +262,27 @@ def _ring(t, missed=False):
                 time.sleep(0.5)
 
 
+def _take_due(now):
+    """Remove what is due now; a repeating one is put back for its next day."""
+    due = []
+    with _lock:
+        while _timers and _timers[0]["due"] <= now:
+            due.append(_timers.pop(0))
+        for t in due:
+            if t.get("repeat", "none") != "none":
+                _timers.append(dict(t, due=_next_matching(t["due"], t["repeat"])))
+        if due:
+            _timers.sort(key=lambda t: t["due"])
+            _save()
+    return due
+
+
 def _watch():
     first = True
     while True:
         try:
             now = time.time()
-            due = []
-            with _lock:
-                while _timers and _timers[0]["due"] <= now:
-                    due.append(_timers.pop(0))
-                if due:
-                    _save()
+            due = _take_due(now)
             for t in due:
                 if t["kind"] == "alarm":
                     from commands import wake_up     # before the dawn ends

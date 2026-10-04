@@ -168,6 +168,10 @@ Always answer as JSON with exactly these keys:
                 6:30" (the screen brightens like a sunrise before it);
                 {{"type":"cancel","seconds":0,"at":"","label":""}} to cancel
                 (label = which one, empty = all).
+                "repeat" is "none" unless they ask for it again and again:
+                "codziennie" → "daily", "w dni robocze / od poniedziałku do
+                piątku" → "weekdays", "w weekendy" → "weekends" (reminders
+                and alarms only).
                 Confirm briefly in "reply" ("Jasne, minutnik na 10 minut.").
                 The active ones are listed below the date.
 Let user_mood quietly shape HOW you answer — softer, calmer and shorter when
@@ -263,8 +267,10 @@ _RESPONSE_FORMAT = {
                         "seconds": {"type": "integer"},
                         "at":      {"type": "string"},
                         "label":   {"type": "string"},
+                        "repeat":  {"type": "string",
+                                    "enum": ["none", "daily", "weekdays", "weekends"]},
                     },
-                    "required": ["type", "seconds", "at", "label"],
+                    "required": ["type", "seconds", "at", "label", "repeat"],
                     "additionalProperties": False,
                 }},
             },

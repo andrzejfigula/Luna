@@ -54,6 +54,32 @@ class TimersTest(unittest.TestCase):
         timers.apply([{"type": "timer", "seconds": 125, "at": "", "label": ""}])
         self.assertIn(timers.countdown_text(), ("2:05", "2:04"))
 
+    def test_repeating_reminders(self):
+        # Friday 2026-10-09 07:00 local → next weekday is Monday the 12th
+        fri = datetime.datetime(2026, 10, 9, 7, 0).timestamp()
+        nxt = datetime.datetime.fromtimestamp(timers._next_matching(fri, "weekdays"))
+        self.assertEqual((nxt.weekday(), nxt.hour, nxt.minute), (0, 7, 0))
+        nxt = datetime.datetime.fromtimestamp(timers._next_matching(fri, "daily"))
+        self.assertEqual((nxt.day, nxt.hour), (10, 7))
+        nxt = datetime.datetime.fromtimestamp(timers._next_matching(fri, "weekends"))
+        self.assertEqual(nxt.weekday(), 5)
+        # set on a Saturday for weekdays → first ring Monday
+        sat = datetime.datetime(2026, 10, 10, 6, 30).timestamp()
+        first = datetime.datetime.fromtimestamp(timers._next_matching(sat, "weekdays", inclusive=True))
+        self.assertEqual(first.weekday(), 0)
+
+    def test_a_series_reschedules_itself_when_it_rings(self):
+        timers._timers.clear()
+        now = time.time()
+        timers._timers.append({"due": now - 1, "label": "tabletki", "kind": "reminder",
+                               "repeat": "daily", "set": now})
+        timers._timers.append({"due": now - 1, "label": "raz", "kind": "reminder",
+                               "repeat": "none", "set": now})
+        due = timers._take_due(now)
+        self.assertEqual(sorted(t["label"] for t in due), ["raz", "tabletki"])
+        self.assertEqual([t["label"] for t in timers._timers], ["tabletki"])
+        self.assertGreater(timers._timers[0]["due"], now + 23 * 3600)
+
     def test_polish_minutes(self):
         self.assertEqual([timers._minutes_pl(n) for n in (1, 2, 5, 12, 22, 25)],
                          ["minuta", "minuty", "minut", "minut", "minuty", "minut"])
