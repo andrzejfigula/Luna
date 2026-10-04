@@ -26,6 +26,7 @@ from config import (
     TTS_EMOTION_STYLE,
     TTS_LISTENER_STYLE,
     MIC_BLOCK_AFTER_SPEAK,
+    CONVO_QUESTION_BONUS,
     LIPSYNC_LATENCY_MS,
     LIPSYNC_GAIN,
     LIPSYNC_ATTACK,
@@ -226,9 +227,12 @@ def _speaking(run, spoken_text, can_drop):
             state.mic_unblock_time = time.time() + MIC_BLOCK_AFTER_SPEAK
             state.last_spoken_text = spoken_text().lower()
             state.last_spoken_time = time.time()
-            # Do not consume conversation timeout while Luna is speaking.
+            # Do not consume conversation timeout while Luna is speaking —
+            # and if she just asked something, give the answer more time.
             if state.conversation_active:
                 state.last_activity_time = time.time()
+                if spoken_text().rstrip().endswith("?"):
+                    state.last_activity_time += CONVO_QUESTION_BONUS
         print(f"[TTS] finished in {elapsed:.1f}s")
         _speak_lock.release()
 

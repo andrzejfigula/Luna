@@ -49,3 +49,13 @@ Status: ✅ done · 🚧 in progress · ⏳ queued · 💤 parked (with the reas
 | 23 | **Photo booth & mirror** — "zrób mi zdjęcie": 3-2-1, flash, the photo shown on her screen and saved to `photos/`; "pokaż lustro": the camera as a mirror for 15 s | Fun, and the camera is right there | ✅ photos stay on the Pi in `photos/` (last 50) |
 | 24 | **"Pokaż zegar"** — a big clock on her screen for 10 s | Quick glance from across the room | ✅ |
 
+## Batch 5
+
+| # | Item | Why | Status |
+|---|------|-----|--------|
+| 25 | **She waits for your answer** — when her reply ends with a question, the conversation window stays open longer | Otherwise a slow, thoughtful answer misses the 10 s window | ⏳ |
+| 26 | **Recurring alarms & reminders** — "budzik w dni robocze o 6:30", "codziennie o 21 przypomnij o tabletkach" | A wake-up alarm you have to set every evening isn't one | ⏳ |
+| 27 | **"Pokaż przypomnienia"** — the list of timers, reminders and alarms on her screen | See at a glance what's set | ⏳ |
+| 28 | **Focus mode (pomodoro)** — "tryb skupienia": 25 min of quiet (no small talk, a calm face), then a break reminder | A desk companion that helps you work | ⏳ |
+| 29 | **Breathing exercise** — "ćwiczenie oddechowe": a circle on her screen grows and shrinks, she guides "wdech… wydech" | Calm-down moment on request — only when asked | ⏳ |
+

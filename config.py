@@ -97,6 +97,8 @@ OFFLINE_REPLY = "Przepraszam, nie mogę teraz połączyć się z moim mózgiem."
 
 # ── Conversation mode ─────────────────────────────────────────────────────────
 CONVO_TIMEOUT      = 10    # seconds of silence before deactivating conversation
+CONVO_QUESTION_BONUS = 8   # …plus this when her reply ended with a question:
+                           # a thoughtful answer needs longer than 10 s
 POST_SPEAK_DELAY   = 0.8   # settle time after Luna speaks before listening again
 DOUBLE_FLUSH       = True  # flush audio queue twice (before and after delay)
 MIC_BLOCK_AFTER_SPEAK = 0.6   # echo-guard after speech ends (speech itself already
