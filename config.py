@@ -224,6 +224,7 @@ WAKE_FUZZY_RATIO          = 0.70   # difflib similarity for near-miss wake words
 # Costs one cheap transcription per spoken sentence heard while idle.
 CLOUD_WAKE_CHECK          = True
 CLOUD_WAKE_MIN_INTERVAL   = 2.0    # seconds between cloud wake checks
+CLOUD_WAKE_MAX_PER_HOUR   = 60     # and at most this many an hour (TV on…)
 
 # 3) Addressed-speech gate: people talking TO Luna face her; people talking to
 #    EACH OTHER in the room don't. Speech (wake words included — "hello"

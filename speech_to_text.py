@@ -65,6 +65,7 @@ from config import (
     STT_SAVE_UTTERANCES,
     CLOUD_WAKE_CHECK,
     CLOUD_WAKE_MIN_INTERVAL,
+    CLOUD_WAKE_MAX_PER_HOUR,
     OPENAI_API_KEY,
 )
 
@@ -441,15 +442,39 @@ def _strip_wake_from_cloud(cloud_text):
 _last_cloud_wake_check = 0.0
 
 
-def _cloud_wake_check(pcm16k):
+_wake_checks = []                      # times of recent cloud wake checks
+
+
+def _maybe_wake(words):
+    """Worth paying the cloud to look for "Luna" in this? Only when one of
+    the first three words sounds a bit like it (people call her at the start)
+    or the utterance is very short. On sample TV-like sentences this lets
+    2 of 9 through instead of all 9, and every Vosk mishearing of "Luna" we
+    tried ("luną", "lona", "una", "łuna")."""
+    singles = [w for w in WAKE_WORDS if " " not in w]
+    for w in words[:3]:
+        if len(w) >= 3 and max(difflib.SequenceMatcher(None, w, k).ratio()
+                               for k in singles) >= 0.5:
+            return True
+    return len(words) <= 2
+
+
+def _cloud_wake_check(pcm16k, words=None):
     """Vosk heard speech but no wake word: ask the cloud whether the wake
-    word is actually in there. Returns (found, cleaned_text)."""
+    word is actually in there. Returns (found, cleaned_text). Rationed: a
+    room with the TV on would otherwise send every sentence to the cloud."""
     global _last_cloud_wake_check
     if not CLOUD_WAKE_CHECK or _cloud is None:
+        return False, None
+    if words is not None and not _maybe_wake(words):
         return False, None
     now = time.time()
     if now - _last_cloud_wake_check < CLOUD_WAKE_MIN_INTERVAL:
         return False, None
+    _wake_checks[:] = [t for t in _wake_checks if now - t < 3600]
+    if len(_wake_checks) >= CLOUD_WAKE_MAX_PER_HOUR:
+        return False, None
+    _wake_checks.append(now)
     _last_cloud_wake_check = now
     cloud = _cloud_transcribe(pcm16k)
     if not cloud or not _cloud_has_wake(cloud):
@@ -775,7 +800,7 @@ def listen():
 
             # Passive mode and Vosk didn't spot the wake word — its small
             # model mishears "Luna" often, so let the cloud have a look.
-            found, cleaned = _cloud_wake_check(utt_pcm)
+            found, cleaned = _cloud_wake_check(utt_pcm, words)
             if found:
                 print("[STT] Wake word (cloud) — conversation active")
                 with state.lock:
