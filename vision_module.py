@@ -81,14 +81,24 @@ def _who(frame, rows, last_seen):
         faces_mod.offer(feat, len(rows))
         return time.time()
     name, sim = faces_mod.identify(feat)
+    # the others in view (up to two more): who else is here
+    others = []
+    for r in sorted(rows, key=lambda r: -r[2] * r[3])[1:3]:
+        try:
+            n, _ = faces_mod.identify(faces_mod.embed(frame, r, scale))
+        except Exception:
+            continue
+        others.append(n or "?")
     with state.lock:
         prev = state.person
         if name:
             state.person = (name, sim, time.time())
         elif prev and time.time() - prev[2] > 3 * faces_mod.RECOGNISE_EVERY:
             state.person = None               # a different, unknown face now
+        state.others = (others, time.time())
     if name and (not prev or prev[0] != name):
-        print(f"[faces] this is {name} ({sim:.2f})", flush=True)
+        print(f"[faces] this is {name} ({sim:.2f})"
+              + (f", with: {', '.join(others)}" if others else ""), flush=True)
     return time.time()
 
 

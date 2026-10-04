@@ -216,6 +216,8 @@ def _learn_face(name_as_said, text, speak):
         return True
     with state.lock:
         state.person = (name, 1.0, time.time())
+    if not faces.vocatives().get(name):          # "Ola" -> "Olu", for greetings
+        faces.set_vocative(name, faces.vocative_of(name))
     import brain
     brain.process(text, context=(f"\nYou have just learned to recognise {name}'s face "
                                  f"(they introduced themselves or were introduced). Greet "

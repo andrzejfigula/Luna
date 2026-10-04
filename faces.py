@@ -127,6 +127,22 @@ def names():
         return sorted(_load())
 
 
+def vocatives():
+    """{name: vocative} — "Maju", not "Majo" (the model got it wrong). Kept as
+    "voc" in data/people.json; set by hand, or by the model when someone is
+    introduced (_learn_face)."""
+    with _lock:
+        return {n: p.get("voc", "") for n, p in _load().items()}
+
+
+def set_vocative(name, voc):
+    with _lock:
+        p = _load().get(name)
+        if p is not None and voc:
+            p["voc"] = voc
+            _save()
+
+
 def notes():
     """{name: note} — who someone is ("córka, 8 lat — dziecko"), set by hand
     in data/people.json; goes into the prompt with the name."""
@@ -272,6 +288,26 @@ def nominative(name):
         return name
 
 
+def vocative_of(name):
+    """"Maja" -> "Maju" (one small model call); "" when it fails."""
+    try:
+        from openai import OpenAI
+        from config import OPENAI_API_KEY, OPENAI_MODEL
+        c = OpenAI(api_key=OPENAI_API_KEY, timeout=8, max_retries=1)
+        r = c.chat.completions.create(
+            model=OPENAI_MODEL, temperature=0, max_tokens=20,
+            response_format={"type": "json_object"},
+            messages=[{"role": "user", "content":
+                       "Return JSON {\"vocative\": ...}: the Polish vocative (wołacz) "
+                       "of this first name, the form used to call someone "
+                       "(\"Maja\" -> \"Maju\", \"Kasia\" -> \"Kasiu\", "
+                       "\"Andrzej\" -> \"Andrzeju\", \"Ola\" -> \"Olu\"): " + name}])
+        return json.loads(r.choices[0].message.content).get("vocative", "").strip()
+    except Exception as e:
+        print(f"[faces] vocative failed ({e})", flush=True)
+        return ""
+
+
 def forget(name):
     """Remove someone. True if they were known."""
     with _lock:
@@ -298,11 +334,26 @@ def prompt_line():
     if not known:
         return ("Nobody's face is known yet — if someone tells you their name, "
                 "they can say \"Luna, zapamiętaj moją twarz, jestem …\".\n")
-    who = ", ".join(f"{n} ({about[n]})" if about.get(n) else n for n in known)
+    voc = vocatives()
+
+    def one(n):
+        bits = ([f"vocative \"{voc[n]}\" only when calling them directly, other "
+                 "cases as Polish grammar needs"] if voc.get(n) else []) + \
+               ([about[n]] if about.get(n) else [])
+        return f"{n} ({'; '.join(bits)})" if bits else n
+    who = ", ".join(one(n) for n in known)
     now = (f"In front of you now: {person[0]} (recognised by face)."
            if person else
            "In front of you now: a face you don't recognise." if seen else
            "Nobody is in front of the camera now.")
+    with state.lock:
+        others, seen_at = state.others
+    if seen and others and time.time() - seen_at < 3 * RECOGNISE_EVERY:
+        known_others = [o for o in others if o != "?"]
+        strangers = len(others) - len(known_others)
+        also = known_others + ([f"{strangers} unknown"] if strangers else [])
+        now += (f" Also in view: {', '.join(also)} — when you greet or answer, you may "
+                "address them too.")
     if person and "dziecko" in about.get(person[0], "").lower():
         # the persona's general "with a child" rules lost to a plain question
         # (tested: 56 : 7 was answered "8" straight away) — said here, now

@@ -522,6 +522,23 @@ class FacesTest(unittest.TestCase):
         self.assertTrue(faces.forget("kasia"))
         self.assertEqual(faces.names(), ["Ola"])
 
+    def test_everyone_in_view(self):
+        import faces
+        with mock.patch.object(faces, "names", lambda: ["Andrzej", "Maja"]), \
+                mock.patch.object(faces, "notes", lambda: {}), \
+                mock.patch.object(faces, "vocatives", lambda: {"Maja": "Maju"}):
+            with state.lock:
+                state.person = ("Andrzej", 0.8, time.time())
+                state.face_detected = True
+                state.others = (["Maja", "?"], time.time())
+            line = faces.prompt_line()
+            with state.lock:
+                state.others = ([], 0.0)
+                state.person = None
+        self.assertIn("In front of you now: Andrzej", line)
+        self.assertIn("Also in view: Maja, 1 unknown", line)
+        self.assertIn('Maja (vocative "Maju"', line)
+
     def test_intro_names(self):
         import commands
         self.assertEqual(commands._intro_name("Luna, to jest Kasia."), "Kasia")
@@ -620,7 +637,8 @@ class RadioTest(unittest.TestCase):
     def test_song_title(self):
         import radio
         said = []
-        with mock.patch.object(radio, "playing", lambda: "Radio 357"),                 mock.patch.object(radio, "_player", {"title": "Beck - In the Night"}):
+        with mock.patch.object(radio, "playing", lambda: "Radio 357"), \
+                mock.patch.object(radio, "_player", {"title": "Beck - In the Night"}):
             self.assertTrue(radio.handle("Co teraz gra?", said.append))
         self.assertEqual(said[-1], "Teraz gra: Beck - In the Night.")
 

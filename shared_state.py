@@ -55,6 +55,8 @@ class SharedState:
                                  # the screen brightens until end (timers.py)
         "messages_waiting",      # unheard voice messages (messages.py)
         "radio",                 # the station playing (radio.py), or None
+        "others",                # ([names, "?" = unknown], time) — the other faces
+                                 # in view besides state.person (faces.py)
         "person",                # (name, similarity, time) — who is in front of her
                                  # (faces.py), or None
         "convo_closed_hard",     # the window was closed on purpose ("pa!", radio):
@@ -129,6 +131,7 @@ class SharedState:
         self.messages_waiting    = 0
         self.radio               = None
         self.person              = None
+        self.others              = ([], 0.0)
         self.convo_closed_hard   = False
         self.sunrise             = None
         self.overlay             = None
