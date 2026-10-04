@@ -47,6 +47,9 @@ FACE_EQUALIZE      = True    # CLAHE (local contrast) — handles a backlit face
 FACE_HOLD_SECS     = 0.6
 VISION_DEBUG       = False   # log detections (position, size, count) every ~2 s
 RENDER_FPS      = 30     # face animation; 30 is smooth on the 7" DSI panel
+RENDER_FPS_CALM = 20     # awake but calm (not speaking, no gesture, scene or touch):
+                         # slow eye moves and blinks look the same, and a frame
+                         # costs ~18 ms on the Pi — 30 fps was half a core
 RENDER_FPS_ASLEEP = 12   # while she sleeps (nobody around / "dobranoc"): the
                          # sleeping face barely moves, and drawing it at 30 fps
                          # was half a CPU core

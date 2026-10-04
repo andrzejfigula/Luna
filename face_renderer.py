@@ -1,7 +1,7 @@
 import time
 from shared_state import state
 from robot_face import RobotFace
-from config import SLEEP_AFTER_FRAMES, RENDER_FPS, RENDER_FPS_ASLEEP
+from config import SLEEP_AFTER_FRAMES, RENDER_FPS, RENDER_FPS_ASLEEP, RENDER_FPS_CALM
 
 # state.emotion (set by brain.py from the LLM's choice) → face state
 EMOTION_MAP = {
@@ -32,6 +32,10 @@ def renderer_loop():
             override      = state.face_override
             override_end  = state.face_override_until
             asleep        = state.sleep_mode
+            busy = (state.reply_scene is not None
+                    or now - state.gesture_anim_start < 3.0
+                    or now - state.touch_time < 2.0
+                    or bool(state.big_text and now < state.big_text[1]))
             # expire stale overrides
             if override and now > override_end:
                 state.face_override = None
@@ -70,7 +74,9 @@ def renderer_loop():
             ov = state.overlay
         still = bool(ov and ov[0] in ("lamp", "clock", "list", "photo", "gallery")
                      and now < ov[1] - 0.6)          # (full speed for the fade-out)
-        face.fps = 8 if still else RENDER_FPS_ASLEEP if sleepy else RENDER_FPS
+        calm = not (override or speaking or busy or face._gesture or face._scene)
+        face.fps = (8 if still else RENDER_FPS_ASLEEP if sleepy
+                    else RENDER_FPS_CALM if calm else RENDER_FPS)
 
         try:
             face.draw()

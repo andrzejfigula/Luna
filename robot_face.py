@@ -1239,6 +1239,11 @@ class MicroExpressions:
 
 
 # ── RobotFace ─────────────────────────────────────────────────────────────────
+# where a frame's time goes (main.py's SIGUSR1 dump)
+frame_stats = {"frames": 0, "update": 0.0, "face": 0.0, "compose": 0.0, "flip": 0.0,
+               "tilted": 0}
+
+
 class RobotFace:
 
     _WAKE_NONE   = 0
@@ -1980,6 +1985,7 @@ class RobotFace:
     _seen_events = set()
 
     def draw(self):
+        st = frame_stats
         for event in pygame.event.get():
             # log every kind of window event once, so an unexplained exit can
             # be traced to what actually caused it
@@ -2003,7 +2009,9 @@ class RobotFace:
                     apply_style(3)
 
         self.clock.tick(self.fps)
+        t0 = time.perf_counter()
         self.update()
+        t1 = time.perf_counter()
 
         base = self.base   # reused surface — no per-frame allocation
         base.fill(BG)
@@ -2117,8 +2125,10 @@ class RobotFace:
                                    (r + 2, r + 2), r, 6)
                 base.blit(s, (fcx - r - 2, fcy - r - 2))
 
+        t2 = time.perf_counter()
         # ── head tilt ─────────────────────────────────────────────────────
-        if abs(self.head_angle) > 0.1:
+        if abs(self.head_angle) > 0.4:      # below that the rotation can't be seen,
+            st["tilted"] += 1               # but it costs ~4 ms of a full-screen turn
             rotated = pygame.transform.rotate(base, self.head_angle)
             rect    = rotated.get_rect(center=(WIDTH // 2, HEIGHT // 2))
             self.screen.fill(BG)
@@ -2164,7 +2174,14 @@ class RobotFace:
         if self._overlay_on():
             self._draw_overlay()
 
+        t3 = time.perf_counter()
         pygame.display.flip()
+        t4 = time.perf_counter()
+        st["frames"] += 1
+        st["update"] += t1 - t0
+        st["face"] += t2 - t1
+        st["compose"] += t3 - t2
+        st["flip"] += t4 - t3
 
     def _draw_big(self, surf, text, fcx, fcy, left):
         """A glowing number between her eyes; it pops in and fades out."""

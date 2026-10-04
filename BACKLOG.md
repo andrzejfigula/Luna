@@ -240,3 +240,9 @@ the game's hand reading, photos, the mood read from a face.
 | 87 | **"Ciszej" / "głośniej" while music plays changes the music**, not her voice ("mów ciszej" still means her voice); remembered | Turning the music down shouldn't make her whisper | ✅ |
 | 88 | **"Następna stacja"** — through the built-in stations | — | ✅ |
 | 89 | **Backup addresses** — when a stream won't start, the next address, and as a last resort the directory | Trójka's MP3 stream died tonight (ICY 401) while its HLS stream worked | ✅ a refused address is skipped at once instead of waiting for ffmpeg's retries |
+
+## Batch 26
+
+| # | Item | Why | Status |
+|---|------|-----|--------|
+| 90 | **Calm frame rate** — the face is drawn at 20 fps while she is awake but calm (not speaking, no gesture, scene, touch or countdown), 30 fps otherwise | A frame costs ~18 ms on the Pi (face 9 ms, full-screen head-tilt rotation 6 ms, flip 3 ms): 30 fps was over half a core | ✅ renderer ~55 % → ~38 % of a core; tilts under 0.4° (invisible) skip the rotation. Frame timing is in the SIGUSR1 dump |

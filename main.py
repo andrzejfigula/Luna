@@ -222,6 +222,16 @@ def _dump_threads(*_):
               f"near {s['near']}× avg {1000 * s['t_near'] / max(1, s['near']):.0f} ms", flush=True)
     except Exception as e:
         print(f"[threads] vision stats: {e}", flush=True)
+    try:
+        import robot_face as rf
+        f = rf.frame_stats
+        n = max(1, f["frames"])
+        print(f"[threads] face: {f['frames']} frames ({f['tilted']} tilted), per frame "
+              f"update {1000 * f['update'] / n:.1f} ms, face {1000 * f['face'] / n:.1f} ms, "
+              f"compose {1000 * f['compose'] / n:.1f} ms, flip {1000 * f['flip'] / n:.1f} ms",
+              flush=True)
+    except Exception as e:
+        print(f"[threads] face stats: {e}", flush=True)
     print("[threads] cpu-s  tid  nice  name", flush=True)
     for cpu, tid, ni, name in sorted(rows, reverse=True):
         print(f"[threads] {cpu:7.1f} {tid} {ni:3d}  {name}", flush=True)
