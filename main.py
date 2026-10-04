@@ -42,6 +42,9 @@ commands.start_commands()
 from timers import start_timers
 start_timers()
 
+from weather import start_weather
+start_weather()
+
 import random
 import difflib
 

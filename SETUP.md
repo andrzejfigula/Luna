@@ -50,6 +50,7 @@ cp .env.example .env && nano .env      # OPENAI_API_KEY=sk-...
 | `LUNA_TIMEZONE` / `LUNA_LOCATION` | IANA zone + place name given to the model with the current local time | `Europe/Warsaw` / `Poland` |
 | `LUNA_CAMERA_PREVIEW` | live mirrored camera view bottom-right with the face box: `1` (160 px), a width in px, or empty = off | `1` |
 | `LUNA_STT_SAVE` | keep the last N utterances (WAV + both transcripts, `stt_log/index.tsv`) to review misrecognitions; empty = off | `40` |
+| `LUNA_LAT` / `LUNA_LON` | your location for the weather (open-meteo, no key); empty = off, nothing fetched | `52.23` / `21.01` |
 | `LUNA_MEMORY` | long-term memory in `data/memory.json` (`0` = off) | `1` |
 | `LUNA_SOUNDS` | non-verbal sounds — "mhm", "hm?", a giggle (`0` = off) | `1` |
 

@@ -31,6 +31,7 @@ import reply_scenes
 import body
 import memory
 import timers
+import weather
 
 from text_to_speech import speak, speak_stream, play_sound
 from shared_state import state
@@ -438,6 +439,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   f"time — do not convert it to any other zone.\n"
                   + _mood_rule(image_b64 is not None)
                   + body.prompt_line()
+                  + weather.prompt_line()
                   + timers.prompt_block()
                   + memory.prompt_block())
 

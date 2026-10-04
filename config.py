@@ -328,6 +328,18 @@ SLEEP_BRIGHTNESS = 3      # screen % while she sleeps ("dobranoc")
 GOODNIGHT_REPLIES = ["Dobranoc! Śpij dobrze.", "Dobranoc, słodkich snów!",
                      "Dobranoc. To ja też się zdrzemnę."]
 
+# ── Weather (weather.py) — opt-in ────────────────────────────────────────────
+# .env: LUNA_LAT=52.23  LUNA_LON=21.01  (decimal degrees). Unset = off, and
+# nothing is sent anywhere. open-meteo.com, free, no API key.
+def _coord(name):
+    try:
+        return float(os.environ.get(name, "").strip())
+    except ValueError:
+        return None
+WEATHER_LAT          = _coord("LUNA_LAT")
+WEATHER_LON          = _coord("LUNA_LON")
+WEATHER_REFRESH_SECS = 1800
+
 # ── Timers & reminders (timers.py) ───────────────────────────────────────────
 TIMERS_PATH       = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                  "data", "timers.json")
