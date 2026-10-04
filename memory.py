@@ -161,7 +161,11 @@ def prompt_block():
     facts    = mem["facts"]
     episodes = mem["episodes"][-MEMORY_PROMPT_EPISODES:]
     if not facts and not episodes and thread is None:
-        return ""
+        # a brand-new Luna: get to know the person
+        return ("\n--- YOUR MEMORY ---\nYou don't know anything about the person "
+                "you talk to yet. At a natural moment (not in the middle of "
+                "answering something else) ask their name, once.\n"
+                "--- END MEMORY ---")
     out = ["", "--- YOUR MEMORY (from earlier conversations) ---"]
     if facts:
         out.append("What you know about the people you talk to:")
