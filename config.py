@@ -361,6 +361,7 @@ AMBIENT_AUTO           = True
 AMBIENT_LOG_BRIGHT     = -0.8   # at or above: LUNA_BRIGHTNESS
 AMBIENT_LOG_DARK       = -2.2   # at or below: AMBIENT_MIN_BRIGHTNESS
 AMBIENT_MIN_BRIGHTNESS = 25
+LAMP_BRIGHTNESS       = 45     # "włącz lampkę": the night-light level
 NIGHT_MODE            = True
 NIGHT_BRIGHTNESS      = 12
 NIGHT_TALK_BRIGHTNESS = 40

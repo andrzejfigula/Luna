@@ -29,6 +29,11 @@ LOCAL = {
     "Pokaż przypomnienia": "screen",
     "Pokaż listę zakupów": "screen",
     "Pokaż zdjęcia": "screen",
+    "Włącz lampkę": "fun",
+    "Przybij piątkę!": "fun",
+    "Rzuć kostką": "fun",
+    "Rzuć dwiema kostkami": "fun",
+    "Orzeł czy reszka?": "fun",
     "Włącz tryb skupienia": "focus",
     "Pomodoro na 50 minut": "focus",
     "Luna, ćwiczenie oddechowe": "breath",
@@ -55,6 +60,8 @@ MODEL = [
     "Dopisz mleko do listy zakupów",
     "Co mam na liście?",
     "Powtórz mi tabliczkę mnożenia przez siedem",
+    "Ile ścian ma kostka do gry?",
+    "Kto wymyślił lampkę nocną?",
 ]
 
 
@@ -62,6 +69,7 @@ class RoutingTest(unittest.TestCase):
 
     def setUp(self):
         import breathing
+        import fun
         import lists
         import timers
         self.hit = None
@@ -82,6 +90,10 @@ class RoutingTest(unittest.TestCase):
             (lists, "get", lambda name=None: ["mleko"]),
             (breathing, "run", lambda *a: self._mark("breath")),
             (screens, "PHOTOS_DIR", self._photos_dir()),
+            (fun, "lamp_on", lambda: self._mark("fun")),
+            (fun, "high_five", lambda *a: self._mark("fun")),
+            (fun, "roll", lambda *a: self._mark("fun")),
+            (fun, "flip", lambda *a: self._mark("fun")),
         ]
         fake_tts = type(sys)("text_to_speech")
         fake_tts.replay_last = lambda: self._mark("repeat") or True

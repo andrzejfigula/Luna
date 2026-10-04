@@ -2218,6 +2218,54 @@ class RobotFace:
             if counter:
                 c = _get_font(28).render(counter, True, EYE_MID)
                 scr.blit(c, (WIDTH - c.get_width() - 16, HEIGHT - c.get_height() - 10))
+        elif kind == "lamp":
+            if getattr(self, "_lamp", None) is None:
+                lamp = pygame.Surface((WIDTH, HEIGHT))
+                cx, cy = WIDTH // 2, HEIGHT // 2
+                maxr = int(math.hypot(cx, cy))
+                for r in range(maxr, 0, -6):                 # warm radial glow
+                    k = r / maxr
+                    col = _lerp_col((255, 214, 150), (120, 50, 8), k ** 0.8)
+                    pygame.draw.circle(lamp, col, (cx, cy), r)
+                self._lamp = lamp
+            scr.blit(self._lamp, (0, 0))
+        elif kind == "dice":
+            scr.fill(BG)
+            t = time.time() - data["t0"]
+            n = len(data["results"])
+            rolling = t < 1.4
+            for j, res in enumerate(data["results"]):
+                face_n = random.randint(1, 6) if rolling else res
+                size = 150
+                d = pygame.Surface((size, size), pygame.SRCALPHA)
+                pygame.draw.rect(d, (250, 246, 236), d.get_rect(), border_radius=26)
+                pip = {1: [(2, 2)], 2: [(1, 1), (3, 3)], 3: [(1, 1), (2, 2), (3, 3)],
+                       4: [(1, 1), (1, 3), (3, 1), (3, 3)],
+                       5: [(1, 1), (1, 3), (2, 2), (3, 1), (3, 3)],
+                       6: [(1, 1), (1, 2), (1, 3), (3, 1), (3, 2), (3, 3)]}[face_n]
+                for px, py in pip:
+                    pygame.draw.circle(d, (40, 30, 20), (px * size // 4, py * size // 4), 14)
+                if rolling:
+                    d = pygame.transform.rotate(d, (t * 720 + j * 90) % 360)
+                x = WIDTH // 2 + (j - (n - 1) / 2) * 200
+                y = HEIGHT // 2 - (40 * abs(math.sin(t * 9)) if rolling else 0)
+                scr.blit(d, d.get_rect(center=(int(x), int(y))))
+        elif kind == "coin":
+            scr.fill(BG)
+            t = time.time() - data["t0"]
+            flipping = t < 1.5
+            squash = abs(math.cos(t * 14)) if flipping else 1.0
+            r = 110
+            w = max(6, int(2 * r * squash))
+            coin = pygame.Surface((2 * r, 2 * r), pygame.SRCALPHA)
+            pygame.draw.circle(coin, (232, 186, 70), (r, r), r)
+            pygame.draw.circle(coin, (190, 140, 40), (r, r), r, 8)
+            if not flipping:
+                txt = _get_font(42).render(data["side"], True, (110, 70, 10))
+                coin.blit(txt, txt.get_rect(center=(r, r)))
+            coin = pygame.transform.smoothscale(coin, (w, 2 * r))
+            y = HEIGHT // 2 - (120 * math.sin(min(1.0, t / 1.5) * math.pi) if flipping else 0)
+            scr.blit(coin, coin.get_rect(center=(WIDTH // 2, int(y))))
         elif kind == "breath":
             t0, t_in, t_hold, t_out = data
             u = (time.time() - t0) % (t_in + t_hold + t_out)

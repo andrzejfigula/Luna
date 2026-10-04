@@ -34,7 +34,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 |---|---|
 | Minutnik | „Minutnik na 10 minut”, „Nastaw minutnik na makaron, 8 minut” |
 | Przypomnienie | „Przypomnij mi o 18:30, żeby zadzwonić do mamy” |
-| Ile zostało | „Ile zostało na minutniku?” — odliczanie widać też w prawym górnym rogu |
+| Ile zostało | „Ile zostało na minutniku?” — odliczanie widać też w prawym górnym rogu, a ostatnie 5 sekund wielkimi cyframi |
 | Anuluj | „Wyłącz minutnik”, „Usuń przypomnienie o mamie” |
 | Budzik ze świtem | „Obudź mnie jutro o siódmej” — 10 min wcześniej ekran powoli się rozjaśnia |
 | Powtarzające się | „Budzik w dni robocze na 6:30”, „Codziennie o 21 przypominaj mi o tabletkach” (też „w weekendy”) |
@@ -52,6 +52,8 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 |---|---|
 | Kamień, papier, nożyce | „Zagrajmy w kamień, papier, nożyce!” — do dwóch wygranych, pokaż rękę do kamery na „!”; „tak” = rewanż |
 | Zdjęcie | „Zrób mi zdjęcie” — odliczanie, błysk, zdjęcie jak polaroid; zapisuje się w `~/luna/photos/` (tylko na Pi) |
+| Kostka i moneta | „Rzuć kostką”, „Rzuć dwiema kostkami”, „Orzeł czy reszka?” |
+| Piątka | „Przybij piątkę” — pokazuje rękę, stuknij w ekran w ciągu 4 s |
 | Galeria | „Pokaż zdjęcia” — zrobione zdjęcia, najnowsze pierwsze, co 6 s; stuknięcie = następne |
 | Lusterko | „Pokaż lustro” — kamera jako lustro przez 15 s |
 | Zegar | „Pokaż zegar” — duża godzina z datą przez 10 s |
@@ -63,6 +65,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 
 | Co | Jak |
 |---|---|
+| Lampka nocna | „Włącz lampkę” — cały ekran ciepło świeci (45 %); „wyłącz lampkę” albo stuknięcie gasi |
 | Dobranoc | „Dobranoc” — zamyka oczy, ekran prawie gaśnie, nie zagaduje do rana; obudzi się, gdy się do niej odezwiesz |
 | Tryb nocny | samo działa — w godzinach ciszy (22–8) ekran przygasa, a głos jest o połowę cichszy (budziki i minutniki dzwonią normalnie) |
 | Jasność od światła w pokoju | samo działa — kamera mierzy światło; w ciemnym pokoju ekran schodzi do 25 %. Próg ciemności jest na razie zgadnięty — wartość `light` jest co godzinę w `luna.log` (`[health]`) |

@@ -71,6 +71,11 @@ def target_percent():
         asleep  = state.sleep_mode
         talking = state.conversation_active or state.speaking
         dawn    = state.sunrise
+        lamp    = bool(state.overlay and state.overlay[0] == "lamp"
+                       and time.time() < state.overlay[1])
+    if lamp:
+        from config import LAMP_BRIGHTNESS
+        return min(base, LAMP_BRIGHTNESS)
     if dawn:
         start, end = dawn
         k = max(0.0, min(1.0, (time.time() - start) / max(1.0, end - start)))

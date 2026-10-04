@@ -342,12 +342,20 @@ def _watch():
             dawn = None
             if alarm and alarm["due"] - now <= SUNRISE_SECS:
                 dawn = (alarm["due"] - SUNRISE_SECS, alarm["due"])
+            with _lock:
+                first_timer = next((t for t in _timers if t["kind"] == "timer"), None)
             with state.lock:
                 state.timer_text = countdown_text()
                 state.sunrise = dawn
+                overlay_on = bool(state.overlay and now < state.overlay[1])
+                if first_timer and 0 < first_timer["due"] - now <= 5.0 \
+                        and not overlay_on:
+                    n = int(first_timer["due"] - now) + 1
+                    if not state.big_text or state.big_text[0] != str(n):
+                        state.big_text = (str(n), now + 0.95)
         except Exception as e:
             print(f"[timers] watch error (recovering): {e}")
-        time.sleep(0.5)
+        time.sleep(0.2)
 
 
 def start_timers():

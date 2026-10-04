@@ -74,3 +74,12 @@ Status: ✅ done · 🚧 in progress · ⏳ queued · 💤 parked (with the reas
 | 33 | **Photo gallery** — "pokaż zdjęcia": the photos she took, a tap shows the next one | Photos nobody can see again are lost | ✅ |
 | 34 | **Soak test** — 40 mixed conversations through the real pipeline (model, TTS, audio, renderer) in a row: memory growth, errors, audio underruns | Many features landed in one day; find what breaks only after a while | ✅ 40 utterances: 0 exceptions, RSS flat at ~270 MB, 0 audio underruns. Found: 2 empty streamed answers (not reproducible alone) → now retried plainly, or what was already said is kept (`tests/soak_pi.py`) |
 
+## Batch 8
+
+| # | Item | Why | Status |
+|---|------|-----|--------|
+| 35 | **Night light** — "włącz lampkę": her whole screen becomes a warm, dim glow until "wyłącz lampkę" (or a tap) | A glowing screen next to the bed is a lamp already | ✅ |
+| 36 | **The last seconds of a timer** — 5, 4, 3, 2, 1 counted big between her eyes | You see it coming from across the room | ✅ |
+| 37 | **High five** — "przybij piątkę": her hand comes up big; tap it within 4 s | A touch game a kid gets instantly | ✅ |
+| 38 | **Dice and coin** — "rzuć kostką", "rzuć monetą": rolled / flipped on her screen, result out loud | Settles who does the dishes | ✅ |
+

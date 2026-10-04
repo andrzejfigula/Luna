@@ -10,6 +10,8 @@ commands.py — things Luna does herself, without asking the model.
   screens  "zrób mi zdjęcie", "pokaż lustro", "pokaż zegar" (screens.py)
   breathe  "ćwiczenie oddechowe" — a guided breathing circle (breathing.py)
   repeat   "powtórz", "co powiedziałaś?" — the last answer again, instantly
+  fun      "włącz lampkę", "przybij piątkę", "rzuć kostką", "rzuć monetą"
+           (fun.py)
   focus    "tryb skupienia" (optionally "na 50 minut"): no small talk,
            a countdown, then "czas na przerwę" and a break timer;
            "koniec skupienia" ends it
@@ -253,6 +255,10 @@ def handle(text, speak, play_sound):
     import breathing                               # guided breathing
     if breathing.is_trigger(low) and not is_question:
         breathing.run(speak, play_sound)
+        return True
+
+    import fun                                     # lamp, high five, dice, coin
+    if fun.handle(text, speak, play_sound, _sound_async):
         return True
 
     import screens                                 # mirror, photo, clock
