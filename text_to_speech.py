@@ -229,7 +229,10 @@ def _speaking(run, spoken_text, can_drop):
             state.speaking = True
             state.luna_mode = "speaking"
             state.frozen_emotion = state.emotion
-            style = _voice_style(state.voice_mood or state.emotion, state.user_mood)
+            feel, listener = state.voice_mood or state.emotion, state.user_mood
+        # outside the lock: the style asks faces.py who is listening, which
+        # takes state.lock itself — inside it, it froze the whole of Luna
+        style = _voice_style(feel, listener)
 
         # ACTUAL SPEECH — streamed; playback starts on the first chunk. The
         # mouth animation is started from _on_audio_start() at the exact

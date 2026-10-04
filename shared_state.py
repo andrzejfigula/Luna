@@ -1,5 +1,5 @@
 # shared_state.py
-from threading import Lock
+from threading import Lock, RLock
 import time
 
 
@@ -77,7 +77,9 @@ class SharedState:
     )
 
     def __init__(self):
-        self.lock                = Lock()
+        # re-entrant: a helper that takes the lock, called by code already
+        # holding it, must not freeze every thread (it did on 4 Oct)
+        self.lock                = RLock()
         self.frame               = None
         self.face_detected       = False
         self.face_x              = 0.5

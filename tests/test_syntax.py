@@ -24,6 +24,17 @@ class SyntaxTest(unittest.TestCase):
                 self.assertNotIn("\x08", src)
 
 
+class LockTest(unittest.TestCase):
+
+    def test_state_lock_is_reentrant(self):
+        import sys
+        sys.path.insert(0, ROOT)
+        from shared_state import state
+        with state.lock:
+            self.assertTrue(state.lock.acquire(timeout=0.5))   # a plain Lock deadlocks
+            state.lock.release()
+
+
 class ShadowTest(unittest.TestCase):
     """A local variable named like an imported module breaks the module in the
     whole function ("cannot access local variable 'mood'") — it happened in
