@@ -25,6 +25,10 @@ RATE = 24000                    # s16 mono, the TTS PCM rate
 BPS  = RATE * 2                 # bytes per second
 CHUNK = int(0.04 * RATE) * 2    # writer granularity: 40 ms
 
+# A wake-up alarm must not be whispered just because 7:00 is still inside the
+# quiet hours: timers.py sets this while an alarm rings.
+full_volume_until = 0.0
+
 
 class AudioOut:
 
@@ -113,7 +117,13 @@ class AudioOut:
                     self.env.reset()
                     self.env.start_at(self.t_start + self.written / BPS)
                     if self.on_start:
-                        threading.Thread(target=self.on_start, daemon=True).start()
+                        # synchronously: it only sets a flag, and run late in
+                        # its own thread it could land after the utterance
+                        # ended and leave the mouth flapping
+                        try:
+                            self.on_start()
+                        except Exception as e:
+                            print(f"[audio] on_start: {e}")
             try:
                 self.proc.stdin.write(data)
                 self.proc.stdin.flush()
@@ -141,7 +151,7 @@ class AudioOut:
     def _gain(self):
         """Quieter at night (the quiet hours): NIGHT_VOICE_GAIN."""
         from config import NIGHT_VOICE_GAIN, PROACTIVE_QUIET_FROM as a, PROACTIVE_QUIET_TO as b
-        if NIGHT_VOICE_GAIN >= 1.0:
+        if NIGHT_VOICE_GAIN >= 1.0 or time.time() < full_volume_until:
             return 1.0
         h = time.localtime().tm_hour
         night = a <= h < b if a <= b else (h >= a or h < b)

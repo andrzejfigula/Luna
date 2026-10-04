@@ -204,7 +204,10 @@ def _interacted_since(t0):
 def _ring(t, missed=False):
     from text_to_speech import speak, play_sound
     from commands import wake_up
+    import audio_out
     wake_up("timer")
+    # a timer you set rings at full volume even in the quiet hours
+    audio_out.full_volume_until = time.time() + TIMER_REPEAT_SECS + 60
     text = _announcement(t, missed)
     for attempt in range(2):
         with state.lock:
