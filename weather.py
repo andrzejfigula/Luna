@@ -71,15 +71,9 @@ def _nominative(phrase):
     return json.loads(r.choices[0].message.content).get("place", "").strip()
 
 
-def set_place(phrase):
-    """Find the place said and switch the weather on for it. Returns its
-    name, or None when it can't be found."""
-    import settings
-    name = _nominative(phrase)
-    if not name:
-        return None
-    # Poland first — but only an exact name: the Polish search turns "Berlin"
-    # into "Barlinek"; then the whole world; then the nearest Polish guess
+def _geocode(name):
+    """Best match for a nominative place name: Poland first, but only an
+    exact name (the Polish search turns "Berlin" into "Barlinek")."""
     picks = []
     for country in ("&countryCode=PL", ""):
         url = ("https://geocoding-api.open-meteo.com/v1/search?count=3&language=pl"
@@ -87,9 +81,37 @@ def set_place(phrase):
         with urllib.request.urlopen(url, timeout=8) as r:
             picks += (json.loads(r.read().decode("utf-8")).get("results") or [])
     exact = [f for f in picks if f["name"].lower() == name.lower()]
-    if not (exact or picks):
+    return (exact or picks or [None])[0]
+
+
+def forecast_for(phrase):
+    """"Jaka jest pogoda w Berlinie?" — that place's forecast as a prompt
+    block for this one question (the home place stays), or None."""
+    name = _nominative(phrase)
+    if not name:
         return None
-    f = (exact or picks)[0]
+    here = _place()
+    if here and here[2].lower() == name.lower():
+        return None                           # home: already in every prompt
+    f = _geocode(name)
+    if not f:
+        return None
+    d = _fetch(f["latitude"], f["longitude"])
+    print(f"[weather] one-off forecast for {f['name']}", flush=True)
+    return ("\n" + _describe(d, f["name"] + (f", {f['country']}" if f.get("country") else ""))
+            + " The user asked about THIS place: answer from it.\n")
+
+
+def set_place(phrase):
+    """Find the place said and switch the weather on for it. Returns its
+    name, or None when it can't be found."""
+    import settings
+    name = _nominative(phrase)
+    if not name:
+        return None
+    f = _geocode(name)
+    if not f:
+        return None
     settings.put("weather_place", {"name": f["name"], "lat": f["latitude"],
                                    "lon": f["longitude"]})
     print(f"[weather] place set: {f['name']} ({f['latitude']:.2f}, "
@@ -119,8 +141,9 @@ def refresh():
     start_weather()
 
 
-def _fetch():
-    lat, lon, _ = _place()
+def _fetch(lat=None, lon=None):
+    if lat is None:
+        lat, lon, _ = _place()
     q = urllib.parse.urlencode({
         "latitude": lat, "longitude": lon,
         "current": "temperature_2m,apparent_temperature,weather_code,wind_speed_10m,precipitation",
@@ -133,7 +156,7 @@ def _fetch():
         return json.loads(r.read().decode("utf-8"))
 
 
-def _describe(d):
+def _describe(d, where=None):
     cur, day = d["current"], d["daily"]
     now = (f"{cur['temperature_2m']:.0f}°C (feels like {cur['apparent_temperature']:.0f}°C), "
            f"{_WMO.get(cur['weather_code'], 'kod ' + str(cur['weather_code']))}, "
@@ -146,7 +169,7 @@ def _describe(d):
                 + (f", rain chance {rain}%" if rain is not None else ""))
 
     sun = (f"sunrise {day['sunrise'][0][-5:]}, sunset {day['sunset'][0][-5:]}")
-    return (f"Weather in {_place()[2]} (open-meteo): now {now}. Today: {day_text(0)}; "
+    return (f"Weather in {where or _place()[2]} (open-meteo): now {now}. Today: {day_text(0)}; "
             f"{sun}. Tomorrow: {day_text(1)}.")
 
 

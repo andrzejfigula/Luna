@@ -20,6 +20,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Co potrafi | „Luna, co potrafisz?” |
 | Godzina i data | „Która godzina?”, „Jaki dziś dzień?” — odpowiedź od razu, bez chmury |
 | Pogoda | Raz: „Luna, pogoda dla Krakowa” (albo „mieszkam w Gdańsku”) — od tej pory „jaka jutro pogoda?” działa, a poranne powitanie ją zna; „wyłącz pogodę” |
+| Pogoda gdzie indziej | „Jaka jest pogoda w Berlinie?”, „Czy jutro pada w Zakopanem?” — sprawdza na to jedno pytanie |
 | Wiadomości | „Jakie są wiadomości?”, „Co słychać na świecie?”, „Co słychać w sporcie?” — 3 najważniejsze nagłówki z RMF24, jej słowami |
 | Kalkulator | „Ile to jest 17 razy 23?”, „15% z 80”, „pierwiastek z 144”, „dwa do potęgi dziesięć” — od razu, bez chmury |
 | Ile dni do… | „Ile dni do Wigilii?”, „do weekendu”, „do piątku”, „do 15 marca”, „do Wielkanocy” |

@@ -85,6 +85,9 @@ LOCAL = {
     "Luna, pogoda dla Krakowa": "weather",
     "Mieszkam w Zielonej Górze": "weather",
     "Ustaw pogodę na Gdańsk": "weather",
+    "Jaka jest pogoda w Berlinie?": "forecast",
+    "Czy jutro pada w Zakopanem?": "forecast",
+    "Jaka będzie jutro pogoda w Krakowie?": "forecast",
     "Jakie są wiadomości?": "news",
     "Luna, co słychać na świecie?": "news",
     "Co słychać w sporcie?": "news",
@@ -156,8 +159,7 @@ MODEL = [
     "Mów mi więcej o kotach i psach",
     "Jaki kolor ma niebo?",
     "Jaka jest pogoda?",
-    "Pogoda w Berlinie?",
-    "Jaka będzie jutro pogoda w Krakowie?",
+    "Jaka pogoda będzie na weekend?",
     "Mieszkam w Krakowie od dziesięciu lat i bardzo to lubię, a ty?",
     "Czy lubisz oglądać wiadomości?",
     "Co słychać u ciebie?",
@@ -215,6 +217,7 @@ class RoutingTest(unittest.TestCase):
             (calc, "answer", self._calc(calc.answer)),
             (news, "context", lambda: self._mark("news") or "headlines"),
             (weather, "set_place", lambda t: self._mark("weather") or "Kraków"),
+            (weather, "forecast_for", self._forecast),
             (quiz, "start", lambda *a: self._mark("quiz")),
             (counting, "count", lambda *a: self._mark("count")),
             (kids, "_brush", lambda *a: self._mark("kids")),
@@ -262,6 +265,14 @@ class RoutingTest(unittest.TestCase):
             def start(self):
                 self.go()
         return type("SyncThreading", (), {"Thread": Now})
+
+    def _forecast(self, text):
+        # a real place after "w"/"na": the test's stand-in for the geocoder
+        import re
+        if re.search(r"\b(berlinie|zakopanem|krakowie)\b", text.lower()):
+            self._mark("forecast")
+            return "forecast"
+        return None
 
     def _calc(self, real):
         def answer(text):

@@ -136,6 +136,9 @@ _WEATHER_SET = re.compile(r"^(?:luna,? |luno,? )?(?:(?:włącz|wlacz|ustaw|spraw
                           r"(?:pogod[aęy]|prognoz[aęy])(?: pogody)? (?:dla|w|na) \w|"
                           r"^(?:luna,? |luno,? )?(?:pogod[aęy]|prognoz[aęy]) dla \w|"
                           r"^(?:luna,? |luno,? )?(?:mieszkam|mieszkamy) (?:w|we|na) \w")
+_WEATHER_ELSEWHERE = re.compile(r"\b(?:pogod\w*|prognoz\w*|temperatur\w*|ciepło|zimno|"
+                                r"pada|deszcz\w*|śnieg\w*)\b.*\b(?:w|we|na)\s+[A-ZĄĆĘŁŃÓŚŹŻa-ząćęłńóśźż]{3,}",
+                                re.I)
 _WEATHER_OFF = ("wyłącz pogodę", "wylacz pogode", "nie sprawdzaj pogody")
 _RESTART = ("zrestartuj się", "zrestartuj sie", "uruchom się ponownie",
             "uruchom sie ponownie", "restart yourself")
@@ -468,6 +471,19 @@ def handle(text, speak, play_sound):
         weather.forget_place()
         speak("Dobrze, nie sprawdzam już pogody.")
         return True
+
+    # "jaka jest pogoda w Berlinie?" — that place's forecast, for this question
+    if _WEATHER_ELSEWHERE.search(low) and _short(text, 10):
+        import weather
+        try:
+            ctx = weather.forecast_for(text)
+        except Exception as e:
+            print(f"[cmd] one-off forecast failed: {e}", flush=True)
+            ctx = None
+        if ctx:
+            import brain
+            brain.process(text, context=ctx)
+            return "recorded"
 
     # "jakie są wiadomości?" — real headlines (RSS) for the model to summarise;
     # without them she used to make news up
