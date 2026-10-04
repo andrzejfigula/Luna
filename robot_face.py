@@ -2151,6 +2151,12 @@ class RobotFace:
         if waiting:
             self._draw_envelope(84 if not online else 14)
 
+        # ── the radio is on: a small note, top-left ───────────────────────
+        with state.lock:
+            radio_on = state.radio
+        if radio_on:
+            self._draw_note(14 + (70 if not online else 0) + (70 if waiting else 0))
+
         # ── whole-screen moments: mirror, photo, clock, flash ─────────────
         if self._overlay_on():
             self._draw_overlay()
@@ -2393,6 +2399,19 @@ class RobotFace:
             veil.fill(BG)
             veil.set_alpha(int(255 * (1 - left / 0.5)))
             scr.blit(veil, (0, 0))
+
+    def _draw_note(self, x):
+        if getattr(self, "_note", None) is None:
+            s = pygame.Surface((44, 44), pygame.SRCALPHA)
+            col = (*STAR_COL, 230)
+            pygame.draw.ellipse(s, col, pygame.Rect(4, 28, 15, 11))      # two heads
+            pygame.draw.ellipse(s, col, pygame.Rect(24, 24, 15, 11))
+            pygame.draw.line(s, col, (17, 33), (17, 6), 3)              # stems
+            pygame.draw.line(s, col, (37, 29), (37, 3), 3)
+            pygame.draw.polygon(s, col, [(17, 6), (37, 3), (37, 10), (17, 13)])   # beam
+            self._note = s
+        bob = 3 * math.sin(time.time() * 3.0)                           # a little sway
+        self.screen.blit(self._note, (x, 12 + int(bob)))
 
     def _draw_envelope(self, x):
         if getattr(self, "_envelope", None) is None:

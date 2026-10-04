@@ -180,6 +180,11 @@ def _shutdown(*args):
         pygame.quit()
     except Exception:
         pass
+    try:                       # the radio's ffmpeg / pw-play must not outlive her
+        import radio
+        radio.stop()
+    except Exception:
+        pass
     # hard exit: the daemon camera/mic threads hold native handles (OpenCV,
     # PortAudio) that don't like being torn down by interpreter shutdown
     os._exit(0)

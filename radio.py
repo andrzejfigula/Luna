@@ -1,0 +1,303 @@
+"""
+radio.py — internet radio.
+
+  "Włącz radio"                 → the last station (RMF FM the first time)
+  "Włącz Trójkę" / "puść radio Nowy Świat" / "włącz radio 357"
+  "Wyłącz radio" / "stop radio"
+  "Wyłącz radio za 30 minut"    → a sleep timer ("radio na 20 minut" too)
+  "Jakie to radio?"             → the station's name
+
+A few Polish stations are built in; any other name is looked up in the
+public radio-browser.info directory (Polish stations first) and remembered.
+ffmpeg decodes the stream; Python feeds the PCM to its own pw-play stream,
+so the music never mixes into her voice's stream. While she listens or
+speaks the music drops to RADIO_DUCK of its volume — you can always say
+"Luna" over it, and she can be heard — then comes back up.
+"""
+
+import json
+import re
+import subprocess
+import threading
+import time
+import urllib.parse
+import urllib.request
+
+import numpy as np
+
+from shared_state import state
+
+RATE, CHANNELS = 44100, 2
+CHUNK = RATE * CHANNELS * 2 // 10          # 0.1 s of s16 stereo
+RADIO_GAIN = 0.55                          # music under her voice's level
+RADIO_DUCK = 0.12                          # while she listens or speaks
+RETRIES = 3
+
+# name → (spoken name, stream). Checked from the Pi on 2026-10-04.
+STATIONS = {
+    "rmf fm":        ("RMF FM", "http://195.150.20.242:8000/rmf_fm"),
+    "radio zet":     ("Radio ZET", "http://zet-net-01.cdn.eurozet.pl:8400/"),
+    "trójka":        ("Trójka", "http://mp3.polskieradio.pl:8904/;.mp3"),
+    "jedynka":       ("Jedynka", "http://mp3.polskieradio.pl:8900/;.mp3"),
+    "dwójka":        ("Dwójka", "http://mp3.polskieradio.pl:8902/;.mp3"),
+    "radio 357":     ("Radio 357", "https://n-11-21.dcs.redcdn.pl/sc/o2/radio357/live/radio357_pr.livx?preroll=0"),
+    "nowy świat":    ("Radio Nowy Świat", "https://go-audio.toya.net.pl/63214"),
+}
+_ALIASES = {"rmf": "rmf fm", "rmfu": "rmf fm", "rmf-u": "rmf fm", "zet": "radio zet",
+            "zetkę": "radio zet", "zetka": "radio zet", "trójkę": "trójka", "trojke": "trójka",
+            "trojka": "trójka", "jedynkę": "jedynka", "jedynke": "jedynka",
+            "dwójkę": "dwójka", "dwojke": "dwójka", "357": "radio 357",
+            "trzysta pięćdziesiąt siedem": "radio 357", "nowy swiat": "nowy świat",
+            "nowego świata": "nowy świat"}
+
+_ON = re.compile(r"^(?:luna,? |luno,? )?(?:włącz|wlacz|puść|pusc|zagraj|odpal|graj)\s+"
+                 r"(?:(?:mi|nam)\s+)?(?:(?:radio|stację|stacje)\s*(.*)|(.+))$")
+_MUSIC = {"muzykę", "muzyke", "jakąś muzykę", "jakas muzyke", "muzyczkę", "coś do słuchania"}
+_OFF = ("wyłącz radio", "wylacz radio", "stop radio", "zatrzymaj radio", "wyłącz muzykę",
+        "wylacz muzyke", "zatrzymaj muzykę", "koniec radia", "radio stop", "ścisz radio do zera")
+_WHAT = ("jakie to radio", "jaka to stacja", "co to za radio", "co to za stacja",
+         "jakie radio gra", "jakie radio leci")
+_SLEEP = re.compile(r"(?:wyłącz|wylacz)\s+(?:radio|muzykę|muzyke)\s+za\s+(.+)$|"
+                    r"radio\s+(?:na|przez)\s+(.+)$")
+
+_lock = threading.Lock()
+_player = None             # {"name", "url", "stop": Event, "thread", "until"}
+_say = [None]              # speak(), for "the stream died" from the player thread
+
+
+# ── which station ─────────────────────────────────────────────────────────────
+
+def _lookup(name):
+    """radio-browser.info: the most voted working station by that name."""
+    q = urllib.parse.quote(name)
+    for country in ("&countrycode=PL", ""):
+        url = (f"https://de1.api.radio-browser.info/json/stations/search?name={q}"
+               f"{country}&order=votes&reverse=true&limit=5&hidebroken=true")
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Luna-robot/1.0"})
+            with urllib.request.urlopen(req, timeout=6) as r:
+                found = json.load(r)
+        except Exception as e:
+            print(f"[radio] lookup failed: {e}", flush=True)
+            return None
+        for s in found:
+            if s.get("url_resolved") and s.get("codec", "").upper() in ("MP3", "AAC", "AAC+", "OGG"):
+                return s["name"].strip(), s["url_resolved"]
+    return None
+
+
+def _station(words):
+    """(spoken name, url) for what was said after "włącz radio", or None."""
+    import settings
+    w = words.strip(" .!?").lower()
+    w = re.sub(r"^(?:radio|stację|stacje)\s+", "", w)
+    if not w:
+        last = settings.get("radio_last")
+        return tuple(last) if last else STATIONS["rmf fm"]
+    key = _ALIASES.get(w, w)
+    if key in STATIONS:
+        return STATIONS[key]
+    for k, v in STATIONS.items():
+        if key in k or k in key:
+            return v
+    saved = settings.get("radio_found", {})
+    if key in saved:
+        return tuple(saved[key])
+    found = _lookup(w)
+    if found:
+        saved[key] = list(found)
+        settings.put("radio_found", saved)
+    return found
+
+
+# ── playback ──────────────────────────────────────────────────────────────────
+
+def _die_with_parent():
+    """Children get SIGTERM when Luna's process dies — even killed -9 or
+    crashed — so the music can never keep playing without her."""
+    try:
+        import ctypes
+        import signal
+        ctypes.CDLL("libc.so.6", use_errno=True).prctl(1, signal.SIGTERM)   # PR_SET_PDEATHSIG
+    except Exception:
+        pass
+
+
+def _acc(name):
+    """"Włączam …": Trójka → Trójkę."""
+    return name[:-1] + "ę" if name.endswith("ka") else name
+
+
+def _sink():
+    try:
+        from openai_tts import tts
+        return tts._sink
+    except Exception:
+        return None
+
+
+def _ducked():
+    with state.lock:
+        return state.speaking or state.listening or state.conversation_active
+
+
+def _play(p):
+    """Decode → gain → pw-play, until p["stop"] is set. Reconnects a few times."""
+    out_cmd = ["pw-play", "--raw", f"--rate={RATE}", "--format=s16",
+               f"--channels={CHANNELS}", "--media-role=Music"]
+    if _sink():
+        out_cmd += ["--target", _sink()]
+    out = subprocess.Popen(out_cmd + ["-"], stdin=subprocess.PIPE,
+                           stderr=subprocess.DEVNULL, preexec_fn=_die_with_parent)
+    p["out"] = out
+    gain = 0.0
+    fails = 0
+    try:
+        while not p["stop"].is_set() and fails <= RETRIES:
+            dec = subprocess.Popen(
+                ["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error",
+                 "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "5",
+                 "-i", p["url"], "-f", "s16le", "-ac", str(CHANNELS), "-ar", str(RATE), "-"],
+                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                preexec_fn=_die_with_parent)
+            p["dec"] = dec
+            got = 0
+            while not p["stop"].is_set():
+                if p.get("until") and time.time() > p["until"]:
+                    print("[radio] sleep timer — off", flush=True)
+                    p["stop"].set()
+                    break
+                data = dec.stdout.read(CHUNK)
+                if not data:
+                    break
+                got += len(data)
+                a = np.frombuffer(data, np.int16).astype(np.float32)
+                target = RADIO_GAIN * (RADIO_DUCK if _ducked() else 1.0)
+                new = target if abs(target - gain) < 0.01 else gain + (target - gain) * 0.5
+                ramp = np.linspace(gain, new, a.size // CHANNELS).repeat(CHANNELS)
+                gain = new                           # ~0.3 s to duck, no clicks
+                out.stdin.write((a * ramp).clip(-32768, 32767).astype(np.int16).tobytes())
+            dec.kill()
+            dec.wait()
+            if p["stop"].is_set():
+                break
+            fails = 0 if got > RATE * 4 * 30 else fails + 1    # ran 30 s+ → fresh tries
+            print(f"[radio] stream ended — reconnecting ({fails}/{RETRIES})", flush=True)
+            time.sleep(2 * fails)
+    except (BrokenPipeError, OSError) as e:
+        print(f"[radio] player failed: {e}", flush=True)
+    finally:
+        try:
+            out.stdin.close()
+        except OSError:
+            pass
+        out.terminate()
+        global _player
+        with _lock:
+            if _player is p:
+                _player = None
+            idle = _player is None
+        if idle:
+            with state.lock:
+                state.radio = None
+        if not p["stop"].is_set():
+            print("[radio] gave up", flush=True)
+            if _say[0]:
+                _say[0]("Radio przestało grać — nie mogę się połączyć ze stacją.")
+
+
+def play(name, url, until=None):
+    stop()
+    p = {"name": name, "url": url, "stop": threading.Event(), "until": until}
+    p["thread"] = threading.Thread(target=_play, args=(p,), daemon=True, name="radio")
+    with _lock:
+        global _player
+        _player = p
+    with state.lock:
+        state.radio = name
+    p["thread"].start()
+    print(f"[radio] playing {name} ({url})", flush=True)
+
+
+def stop():
+    global _player
+    with _lock:
+        p, _player = _player, None
+    if p:
+        p["stop"].set()
+        for proc in (p.get("dec"), p.get("out")):
+            if proc:
+                try:
+                    proc.kill()
+                except OSError:
+                    pass
+        print(f"[radio] stopped {p['name']}", flush=True)
+    with state.lock:
+        state.radio = None
+    return p is not None
+
+
+def playing():
+    with _lock:
+        return _player["name"] if _player else None
+
+
+# ── commands ──────────────────────────────────────────────────────────────────
+
+def _minutes(text):
+    import timers
+    secs, _ = timers.parse_duration(text)
+    return secs if secs and secs <= 4 * 3600 else None
+
+
+def handle(text, speak):
+    """Radio commands. True when handled."""
+    import settings
+    _say[0] = speak
+    low = text.lower().strip(" .!?")
+    if any(k in low for k in _WHAT) and len(low.split()) <= 6:
+        now = playing()
+        speak(f"Gra {now}." if now else "Radio nie gra.")
+        return True
+    m = _SLEEP.search(low)
+    if m and ("radio" in low or "muzyk" in low):
+        secs = _minutes(m.group(1) or m.group(2))
+        if secs:
+            with _lock:
+                p = _player
+            if p:
+                p["until"] = time.time() + secs
+            else:
+                st = _station("")
+                play(st[0], st[1], until=time.time() + secs)
+            import timers
+            speak(f"Dobrze, radio wyłączy się za {timers.say_duration(secs)}.")
+            return True
+    if any(k in low for k in _OFF) and len(low.split()) <= 6:
+        if not stop():
+            speak("Radio nie gra.")
+        return True
+    m = _ON.match(low)
+    if not m:
+        return False
+    if m.group(1) is None:                 # "włącz trójkę" — only a known station
+        key = _ALIASES.get(m.group(2).strip(), m.group(2).strip())
+        if key in _MUSIC:
+            what = ""                      # "włącz muzykę" → the last station
+        elif key not in STATIONS:
+            return False
+        else:
+            what = key
+    else:
+        what = m.group(1)
+    if len(what.split()) > 4:
+        return False
+    st = _station(what)
+    if not st:
+        speak(f"Nie znalazłam stacji {what}.")
+        return True
+    name, url = st
+    speak(f"Włączam {_acc(name)}.")
+    play(name, url)
+    settings.put("radio_last", [name, url])
+    return True

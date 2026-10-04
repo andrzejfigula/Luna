@@ -206,3 +206,11 @@ the game's hand reading, photos, the mood read from a face.
 | 73 | **Tooth-brushing coach** — "myjemy zęby": 2:00 counting down on her screen, a nudge every 30 s (top left → top right → bottom right → bottom left), a chime and praise at the end | Two minutes is forever for a child; a friend who counts makes it a game | ✅ a tap stops it; the nudges are spoken while the clock keeps running |
 | 74 | **Routines step by step** — "zacznij poranek" walks through the list "poranek" ("dopisz umyj zęby do listy poranek"): one step big on the screen, "gotowe" → praise and the next one | Morning chaos, made into a checklist that talks back | ✅ the list stays as it is for tomorrow; "koniec" stops; anything else ends it and goes to the model |
 | 75 | **"Co potrafisz?" knows the games and helpers** | — | ✅ |
+
+## Batch 22
+
+| # | Item | Why | Status |
+|---|------|-----|--------|
+| 76 | **Internet radio** — "włącz radio", "włącz Trójkę", "puść radio Nowy Świat", "wyłącz radio", "jakie to radio?"; a little note sways on her screen while it plays | Every Loona-like robot plays music; Polish radio is the household default | ✅ 7 stations built in (RMF FM, ZET, Jedynka, Dwójka, Trójka, 357, Nowy Świat), any other name found in the radio-browser.info directory and remembered; music ducks ~10× while she listens or speaks; reconnects if the stream drops |
+| 77 | **Radio sleep timer** — "wyłącz radio za 30 minut", "radio na 20 minut" | Falling asleep to the radio | ✅ |
+| 78 | **The music can't outlive her** — ffmpeg and pw-play die with Luna's process (PR_SET_PDEATHSIG), even after kill -9 | Otherwise a restart or crash would leave the radio playing with no way to stop it by voice | ✅ tested with kill -9 |

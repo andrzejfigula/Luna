@@ -74,6 +74,12 @@ LOCAL = {
     "Myjemy zęby!": "kids",
     "Zacznij poranek": "kids",
     "Luna, włącz rutynę wieczorną": "kids",
+    "Włącz radio": "radio",
+    "Włącz Trójkę": "radio",
+    "Puść radio Nowy Świat": "radio",
+    "Wyłącz radio": "radio",
+    "Wyłącz radio za 30 minut": "radio",
+    "Włącz muzykę": "radio",
 }
 MODEL = [
     "Co widzisz?",
@@ -123,6 +129,9 @@ MODEL = [
     "Jak dobrze myć zęby?",
     "Dlaczego trzeba myć zęby dwa razy dziennie?",
     "Zacznij od początku",
+    "Jakie radio lubisz?",
+    "Włącz mi coś śmiesznego",
+    "Kto założył Radio ZET?",
 ]
 
 
@@ -134,6 +143,7 @@ class RoutingTest(unittest.TestCase):
         import quiz
         import counting
         import kids
+        import radio
         import fun
         import health
         import lists
@@ -170,6 +180,8 @@ class RoutingTest(unittest.TestCase):
             (kids, "_brush", lambda *a: self._mark("kids")),
             (kids, "threading", self._sync_threads()),
             (kids, "start_routine", lambda *a: self._mark("kids")),
+            (radio, "play", lambda *a, **k: self._mark("radio")),
+            (radio, "stop", lambda: self._mark("radio") or True),
             (counting, "_watch", {"t0": None}),
             (memory, "add_fact", lambda f: self._mark("remember")),
             (commands, "_spell", lambda *a: self._mark("spell")),

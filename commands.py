@@ -24,6 +24,7 @@ commands.py — things Luna does herself, without asking the model.
   spell    "jak się pisze żółw?" — on the screen and letter by letter
   count    "policz do dwudziestu", "odliczaj od dziesięciu", "włącz stoper" (counting.py)
   kids     "myjemy zęby" (2-minute coach), "zacznij poranek" (a list step by step)
+  radio    "włącz radio", "włącz Trójkę", "wyłącz radio za 30 minut" (radio.py)
   goodbye  "pa", "do zobaczenia", "dzięki, to wszystko": a wave, and the
            conversation window closes at once
   wake     anything you say to her while she sleeps wakes her up (so
@@ -530,6 +531,10 @@ def handle(text, speak, play_sound):
         return True
 
     if kids.handle(text, speak, _sound_async):     # tooth brushing, routines
+        return True
+
+    import radio                                   # "włącz radio", "wyłącz Trójkę"
+    if radio.handle(text, speak):
         return True
 
     import fun                                     # lamp, high five, dice, coin

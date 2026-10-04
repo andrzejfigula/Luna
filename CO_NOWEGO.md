@@ -31,6 +31,16 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Tłumacz | „Tłumacz na angielski” (niemiecki, hiszpański, francuski, włoski, ukraiński…) — każde zdanie wraca przetłumaczone, w obie strony; „Koniec tłumaczenia” |
 | Jak się czuje | „Jak się czujesz?” — zna temperaturę swojego procesora i czas pracy |
 
+## Radio
+
+| Co | Jak |
+|---|---|
+| Włącz | „Włącz radio” (ostatnia stacja), „Włącz Trójkę”, „Puść radio Nowy Świat”, „Włącz muzykę” — wbudowane: RMF FM, ZET, Jedynka, Dwójka, Trójka, 357, Nowy Świat; inne nazwy Luna znajdzie w internecie |
+| Wyłącz | „Wyłącz radio” |
+| Do snu | „Wyłącz radio za 30 minut”, „Radio na 20 minut” |
+| Co gra | „Jakie to radio?” |
+| Mówienie przy muzyce | gdy słucha albo mówi, muzyka sama ścisza się prawie do zera; nutka na ekranie = radio gra |
+
 ## Pamięć i nastrój
 
 | Co | Jak |
