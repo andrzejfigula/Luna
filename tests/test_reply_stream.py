@@ -69,6 +69,15 @@ class ReplyStreamTest(unittest.TestCase):
         rs.finish()
         self.assertEqual(out, ["Zażółć gęślą jaźń, to długie zdanie testowe.", "Drugie."])
 
+    def test_a_long_story_flows_in_pieces(self):
+        story = " ".join(f"To jest zdanie numer {i} w długiej bajce o smoku i rycerzu."
+                         for i in range(1, 13))
+        _, s = run(answer(story), piece=5)
+        self.assertGreaterEqual(len(s), 4)                  # not one huge chunk
+        self.assertEqual(" ".join(s), story)                # nothing lost
+        for piece in s:
+            self.assertTrue(piece.endswith("."), piece)     # whole sentences
+
     def test_nothing_before_the_reply_key(self):
         heads, s = run({"user_mood": "neutral", "emotion": "sad"})
         self.assertEqual((heads, s), ([], []))

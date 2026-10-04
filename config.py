@@ -312,7 +312,8 @@ LIPSYNC_RELEASE    = 0.30   # how fast it closes
 TTS_PLAYER = "pw-play"
 
 # ── Brain ─────────────────────────────────────────────────────────────────────
-OPENAI_MAX_TOKENS   = 200   # max tokens per response (keep short for speech)
+OPENAI_MAX_TOKENS   = 700   # room for a story when asked (the persona keeps
+                            # ordinary answers short; 200 could cut the JSON)
 OPENAI_TEMPERATURE  = 0.8   # creativity (0.0 = factual, 1.0 = creative)
 OPENAI_MAX_HISTORY  = 12    # max conversation history messages sent to the API
                             # (6 exchanges — riddles, follow-ups, "another one")

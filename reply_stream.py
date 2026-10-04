@@ -10,14 +10,18 @@ import re
 # A sentence ends at . ! ? … (maybe followed by a closing quote) and a space.
 _SENTENCE_END = re.compile(r"[.!?…]+[\"”»)]?\s")
 _FIRST_MIN_CHARS = 20          # don't send "Tak." alone — it sounds clipped
+_CHUNK_CHARS = 180             # after the first sentence, speak in pieces of
+                               # about this much (whole sentences) — a long
+                               # story must not wait for its last word
 
 
 class ReplyStream:
     """Pulls the "reply" string out of the model's JSON while it is still
     streaming. on_head(emotion, gesture) fires when the reply starts (both
     come before it in the schema); on_sentence(text) gets the first sentence
-    as soon as it is complete, and everything else in one piece at the end —
-    two TTS calls keep the intonation of the rest natural."""
+    as soon as it is complete, then whole sentences in pieces of about
+    _CHUNK_CHARS — a usual 2-3 sentence answer is just two TTS calls (keeps
+    the intonation natural), a story keeps flowing while it is written."""
 
     _ESC = {"n": " ", "t": " ", "r": "", "b": "", "f": "", "/": "/",
             '"': '"', "\\": "\\"}
@@ -47,6 +51,14 @@ class ReplyStream:
             m = _SENTENCE_END.search(self.text, _FIRST_MIN_CHARS)
             if m:
                 self._out(m.end())
+        elif len(self.text) - self.sent >= _CHUNK_CHARS:
+            # the last sentence end at least _CHUNK_CHARS into the pending text
+            last = None
+            for m in _SENTENCE_END.finditer(self.text, self.sent + _CHUNK_CHARS - 1):
+                last = m
+                break
+            if last:
+                self._out(last.end())
         if self.closed:
             self.finish()
 
