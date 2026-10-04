@@ -26,6 +26,8 @@ LOCAL = {
     "Pokaż lustro": "screen",
     "Pokaż zegar": "screen",
     "Pokaż przypomnienia": "screen",
+    "Włącz tryb skupienia": "focus",
+    "Pomodoro na 50 minut": "focus",
     "Zagrajmy w kamień, papier, nożyce": "game",
 }
 MODEL = [
@@ -40,6 +42,8 @@ MODEL = [
     "Dzień dobry!",
     "Dlaczego samoloty latają szybciej?",
     "Mów mi więcej o kotach",
+    "Co to jest pomodoro?",
+    "Jak działa tryb skupienia",
 ]
 
 
@@ -57,6 +61,8 @@ class RoutingTest(unittest.TestCase):
         games._rematch_until = 0
         import timers
         timers.screen_lines = lambda: [("1:00", "test")]  # independent of other tests
+        timers.add = lambda *a, **k: self._mark("focus")
+        timers.remove = lambda *a, **k: None
         commands.GOODBYE_REPLIES = ["<BYE>"]
 
     def _mark(self, what):

@@ -66,8 +66,9 @@ def _quiet_now():
 
 
 def _asleep():
+    """Asleep ("dobranoc") or focusing ("tryb skupienia"): no small talk."""
     with state.lock:
-        return state.sleep_mode
+        return state.sleep_mode or time.time() < state.focus_until
 
 
 def _may_speak():

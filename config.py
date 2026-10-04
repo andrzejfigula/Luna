@@ -355,6 +355,8 @@ SLEEP_BRIGHTNESS = 3      # screen % while she sleeps ("dobranoc")
 NIGHT_MODE            = True
 NIGHT_BRIGHTNESS      = 12
 NIGHT_TALK_BRIGHTNESS = 40
+FOCUS_MINUTES = 25        # "tryb skupienia" (pomodoro): quiet, then a break
+BREAK_MINUTES = 5
 GOODBYE_REPLIES = ["Pa pa!", "Do zobaczenia!", "Na razie!", "Papa, wracaj szybko!"]
 GOODNIGHT_REPLIES = ["Dobranoc! Śpij dobrze.", "Dobranoc, słodkich snów!",
                      "Dobranoc. To ja też się zdrzemnę."]

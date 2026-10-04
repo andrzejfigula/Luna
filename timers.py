@@ -265,7 +265,10 @@ def _ring(t, missed=False):
     wake_up("timer")
     # a timer you set rings at full volume even in the quiet hours
     audio_out.full_volume_until = time.time() + TIMER_REPEAT_SECS + 60
-    text = _announcement(t, missed)
+    text = t.get("say") or _announcement(t, missed)
+    if t.get("then"):                                # focus → break
+        secs, label, say = t["then"]
+        add(secs, label, say)
     for attempt in range(2):
         with state.lock:
             state.face_override = "surprised"
@@ -284,6 +287,24 @@ def _ring(t, missed=False):
                 if _interacted_since(rang):
                     return
                 time.sleep(0.5)
+
+
+def add(seconds, label, say=None, then=None):
+    """A timer set by Luna herself (focus mode): `say` replaces the usual
+    announcement; `then` = (seconds, label, say) is set when it rings."""
+    with _lock:
+        _timers.append({"due": time.time() + seconds, "label": label, "kind": "timer",
+                        "secs": seconds, "say": say, "then": then, "set": time.time()})
+        _timers.sort(key=lambda t: t["due"])
+        _save()
+
+
+def remove(labels):
+    with _lock:
+        before = len(_timers)
+        _timers[:] = [t for t in _timers if t["label"] not in labels]
+        if len(_timers) != before:
+            _save()
 
 
 def _take_due(now):

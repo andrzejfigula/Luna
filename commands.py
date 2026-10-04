@@ -8,6 +8,9 @@ commands.py — things Luna does herself, without asking the model.
            until morning — or until you speak to her
   game     "zagrajmy w kamień, papier, nożyce" (games.py)
   screens  "zrób mi zdjęcie", "pokaż lustro", "pokaż zegar" (screens.py)
+  focus    "tryb skupienia" (optionally "na 50 minut"): no small talk,
+           a countdown, then "czas na przerwę" and a break timer;
+           "koniec skupienia" ends it
   goodbye  "pa", "do zobaczenia", "dzięki, to wszystko": a wave, and the
            conversation window closes at once
   wake     anything you say to her while she sleeps wakes her up (so
@@ -31,6 +34,7 @@ import settings
 from config import (SPEED_STEP, SPEED_MIN, SPEED_MAX, OPENAI_TTS_SPEED,
                     VOLUME_STEP, VOLUME_MIN, VOLUME_MAX,
                     GOODNIGHT_REPLIES, GOODBYE_REPLIES, PROACTIVE_QUIET_TO,
+                    FOCUS_MINUTES, BREAK_MINUTES,
                     AUDIO_OUTPUT_DEVICE)
 
 _LOUDER  = ("głośniej", "glosniej", "louder", "volume up")
@@ -45,6 +49,11 @@ _BYE = {("pa",), ("pa", "pa"), ("papa",), ("do", "widzenia"), ("do", "zobaczenia
         ("na", "razie"), ("bye",), ("bye", "bye"), ("see", "you"), ("cześć", "pa"),
         ("to", "wszystko"), ("dzięki", "to", "wszystko"), ("dziękuję", "to", "wszystko"),
         ("dobra", "to", "wszystko"), ("trzymaj", "się")}
+_FOCUS     = ("tryb skupienia", "pomodoro", "pomóż mi się skupić", "chcę się skupić",
+              "chce sie skupic", "focus mode", "pomoz mi sie skupic")
+_FOCUS_END = ("koniec skupienia", "przerwij skupienie", "wyłącz tryb skupienia",
+              "wyłącz pomodoro", "stop pomodoro", "koniec pomodoro")
+_QUESTION  = {"co", "czym", "jak", "czy", "dlaczego", "kiedy", "what", "how", "why"}
 _NIGHT   = ("dobranoc", "dobranocka", "idę spać", "ide spac", "idę już spać",
             "good night", "goodnight")
 
@@ -199,6 +208,33 @@ def handle(text, speak, play_sound):
             state.convo_expired_time = time.time()
             state.listening = False
         print("[cmd] goodbye — conversation closed", flush=True)
+        return True
+
+    # focus mode (pomodoro) — a command, not a question about it
+    words = _words(text)
+    is_question = text.strip().endswith("?") or (words and words[0] in _QUESTION)
+    if any(k in low for k in _FOCUS_END) and not is_question:
+        import timers
+        timers.remove({"skupienie", "przerwa"})
+        with state.lock:
+            state.focus_until = 0.0
+        speak("Dobrze, koniec skupienia.")
+        return True
+    if any(k in low for k in _FOCUS) and not is_question and _short(text, 9):
+        import timers
+        m = re.search(r"(\d{1,3})\s*(min|minut)", low)
+        mins = int(m.group(1)) if m else FOCUS_MINUTES
+        mins = max(5, min(120, mins))
+        timers.remove({"skupienie", "przerwa"})
+        timers.add(mins * 60, "skupienie",
+                   say="Koniec skupienia! Czas na przerwę — wstań, rozprostuj się, napij się wody.",
+                   then=(BREAK_MINUTES * 60, "przerwa",
+                         "Koniec przerwy. Wracamy do pracy?"))
+        with state.lock:
+            state.focus_until = time.time() + mins * 60
+            state.conversation_active = False
+        print(f"[cmd] focus mode: {mins} min", flush=True)
+        speak(f"Dobrze, {mins} minut skupienia. Będę cicho — powodzenia!")
         return True
 
     import screens                                 # mirror, photo, clock
