@@ -5,6 +5,7 @@ screens.py — things Luna shows on her whole screen for a moment, on request.
   "zrób mi zdjęcie" / "zrób fotkę"   → 3-2-1, a flash, the photo saved to
                                        photos/ and shown for a few seconds
   "pokaż zegar" / "pokaż godzinę"    → a big clock with the date, CLOCK_SECS
+  "pokaż przypomnienia"              → timers, reminders and alarms, 10 s
 
 robot_face.py draws the overlay (state.overlay = (kind, until, data)); a tap
 on the screen closes it. Photos stay on the Pi (photos/, newest PHOTOS_KEEP
@@ -21,6 +22,8 @@ from config import MIRROR_SECS, CLOCK_SECS, PHOTO_SHOW_SECS, PHOTOS_DIR, PHOTOS_
 _MIRROR = ("lustro", "lusterko", "mirror", "pokaż mnie", "pokaz mnie")
 _PHOTO  = ("zrób mi zdjęcie", "zrób zdjęcie", "zrób nam zdjęcie", "zrób fotkę",
            "zrob mi zdjecie", "zrob zdjecie", "take a photo", "take a picture")
+_LIST   = ("pokaż przypomnienia", "pokaż minutniki", "pokaż budziki",
+           "pokaz przypomnienia", "pokaż mi przypomnienia", "show my reminders")
 _CLOCK  = ("pokaż zegar", "pokaż godzinę", "pokaz zegar", "pokaz godzine",
            "show the clock", "show me the time")
 
@@ -79,6 +82,14 @@ def handle(text, speak, play_sound_async):
     if any(k in low for k in _MIRROR):
         _show("mirror", MIRROR_SECS)
         speak("Proszę bardzo, oto lusterko.")
+        return True
+    if any(k in low for k in _LIST):
+        import timers
+        lines = timers.screen_lines()
+        if not lines:
+            speak("Nie masz teraz żadnych minutników ani przypomnień.")
+        else:
+            _show("list", 10, lines)
         return True
     if any(k in low for k in _CLOCK):
         _show("clock", CLOCK_SECS)

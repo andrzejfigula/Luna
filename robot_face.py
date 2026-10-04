@@ -2193,6 +2193,17 @@ class RobotFace:
             card = self._photo_cache[1]
             scr.fill(BG)
             scr.blit(card, card.get_rect(center=(WIDTH // 2, HEIGHT // 2)))
+        elif kind == "list":
+            scr.fill(BG)
+            title = _get_font(44).render("Przypomnienia", True, EYE_MID)
+            scr.blit(title, title.get_rect(center=(WIDTH // 2, 48)))
+            font = _get_font(34)
+            for i, (when, what) in enumerate(data[:7]):
+                y = 110 + i * 50
+                t_img = font.render(when, True, STAR_COL)
+                w_img = font.render(what[:34], True, EYE_INNER)
+                scr.blit(t_img, (70, y))
+                scr.blit(w_img, (250, y))
         elif kind == "clock":
             scr.fill(BG)
             big = _get_font(190).render(time.strftime("%H:%M"), True, EYE_MID)

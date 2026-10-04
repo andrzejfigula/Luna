@@ -179,6 +179,30 @@ def prompt_block():
     return "\n".join(lines) + "\n"
 
 
+_REPEAT_PL = {"daily": "codziennie", "weekdays": "pn–pt", "weekends": "weekendy"}
+_KIND_PL = {"timer": "minutnik", "reminder": "przypomnienie", "alarm": "budzik"}
+
+
+def screen_lines():
+    """What "pokaż przypomnienia" lists on her screen: (time, what) pairs."""
+    with _lock:
+        items = list(_timers)
+    out = []
+    now = time.time()
+    for t in items:
+        if t["kind"] == "timer":
+            left = int(t["due"] - now)
+            when = f"{left // 60}:{left % 60:02d}" if left < 3600 else                 time.strftime("%H:%M", time.localtime(t["due"]))
+        else:
+            when = time.strftime("%H:%M", time.localtime(t["due"]))
+            if t["due"] - now > 86400 and t.get("repeat", "none") == "none":
+                when = time.strftime("%d.%m %H:%M", time.localtime(t["due"]))
+        what = t["label"] or _KIND_PL.get(t["kind"], "")
+        rep = _REPEAT_PL.get(t.get("repeat", "none"))
+        out.append((when, what + (f"  ({rep})" if rep else "")))
+    return out
+
+
 def countdown_text():
     """What the corner of the screen shows: the nearest timer, or None."""
     with _lock:

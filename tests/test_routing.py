@@ -25,6 +25,7 @@ LOCAL = {
     "Zrób mi zdjęcie": "screen",
     "Pokaż lustro": "screen",
     "Pokaż zegar": "screen",
+    "Pokaż przypomnienia": "screen",
     "Zagrajmy w kamień, papier, nożyce": "game",
 }
 MODEL = [
@@ -54,7 +55,9 @@ class RoutingTest(unittest.TestCase):
         screens._show = lambda *a, **k: self._mark("screen")
         games.play_match = lambda *a: self._mark("game")
         games._rematch_until = 0
-        memory.check_forget = memory.check_forget          # real one, harmless here
+        import timers
+        timers.screen_lines = lambda: [("1:00", "test")]  # independent of other tests
+        commands.GOODBYE_REPLIES = ["<BYE>"]
 
     def _mark(self, what):
         if self.hit is None:
@@ -67,9 +70,11 @@ class RoutingTest(unittest.TestCase):
         said = []
         handled = commands.handle(text, lambda t, **k: said.append(t),
                                   lambda n, **k: True)
-        if handled and self.hit is None and said and "Pa" in said[0] + "Do zobaczenia Na razie":
-            self.hit = "bye"
-        return (self.hit or ("bye" if handled else "?")) if handled else "model"
+        if "<BYE>" in said:
+            self._mark("bye")
+        if not handled:
+            return "model"
+        return self.hit or "handled-but-unknown"
 
     def test_local_commands(self):
         for text, want in LOCAL.items():
