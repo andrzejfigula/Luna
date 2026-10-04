@@ -82,6 +82,10 @@ LOCAL = {
     "Włącz muzykę": "radio",
     "Budź mnie radiem": "radio",
     "Mów krócej": "length",
+    "Super, to na razie wszystko": "bye",
+    "Dobra, dzięki, to by było na tyle": "bye",
+    "To teraz idziemy spać": "sleep",
+    "Pora spać, Luna": "sleep",
     "Lampka na niebiesko": "fun",
     "Zmień kolor lampki na zielony": "fun",
     "Włącz lampkę na 20 minut": "fun",
@@ -144,6 +148,10 @@ MODEL = [
     "Dlaczego mówisz krócej niż wczoraj?",
     "Mów mi więcej o kotach i psach",
     "Jaki kolor ma niebo?",
+    "Na razie nie",
+    "Dlaczego dzieci idą spać wcześniej?",
+    "O której pora spać dla sześciolatka?",
+    "To wszystko co wiesz o kotach?",
     "Ile kosztuje lampka nocna?",
 ]
 

@@ -72,7 +72,14 @@ _NORMAL_SPEED = ("normalnym tempie", "normalne tempo", "normalnie mów", "mów n
 _BYE = {("pa",), ("pa", "pa"), ("papa",), ("do", "widzenia"), ("do", "zobaczenia"),
         ("na", "razie"), ("bye",), ("bye", "bye"), ("see", "you"), ("cześć", "pa"),
         ("to", "wszystko"), ("dzięki", "to", "wszystko"), ("dziękuję", "to", "wszystko"),
-        ("dobra", "to", "wszystko"), ("trzymaj", "się")}
+        ("dobra", "to", "wszystko"), ("trzymaj", "się"), ("na", "razie", "wszystko"),
+        ("to", "na", "razie", "wszystko"), ("to", "na", "razie"), ("to", "by", "było", "na", "tyle"),
+        ("to", "by", "było", "wszystko"), ("na", "tyle"), ("koniec", "rozmowy"),
+        ("do", "usłyszenia"), ("do", "później"), ("na", "razie", "dzięki")}
+# what may come before a goodbye: "super, to na razie wszystko", "dobra, pa"
+_BYE_LEAD = {"super", "dobra", "dobrze", "ok", "okej", "okay", "dzięki", "dziękuję",
+             "dzieki", "dziekuje", "no", "świetnie", "fajnie", "a", "to", "spoko", "wielkie",
+             "bardzo", "ekstra", "dobre"}
 _FOCUS     = ("tryb skupienia", "pomodoro", "pomóż mi się skupić", "chcę się skupić",
               "chce sie skupic", "focus mode", "pomoz mi sie skupic")
 _FOCUS_END = ("koniec skupienia", "przerwij skupienie", "wyłącz tryb skupienia",
@@ -88,12 +95,17 @@ _REPEAT  = ("co powiedziałaś", "co powiedzialas", "co mówiłaś", "co mowilas
             "możesz powtórzyć", "mozesz powtorzyc", "nie dosłyszałem", "nie dosłyszałam",
             "say that again", "can you repeat")
 _NIGHT   = ("dobranoc", "idę spać", "ide spac", "idę już spać", "idę już spać",
+            "idziemy spać", "idziemy spac", "pora spać", "pora spac", "czas spać",
+            "czas spac", "lecę spać", "lece spac", "kładę się spać", "kładziemy się spać",
             "good night", "goodnight")
 # "dobranoc" must be the whole point of the utterance — "powiedz dobranoc mojej
 # córce" or "co było na dobranockę?" are not her bedtime
 _NIGHT_OK = {"dobranoc", "luna", "luno", "idę", "ide", "spać", "spac", "już", "juz",
              "to", "ja", "no", "dobra", "dzięki", "dziękuję", "kochana", "pa", "papa",
-             "i", "good", "night", "goodnight", "słodkich", "snów", "kolorowych"}
+             "i", "good", "night", "goodnight", "słodkich", "snów", "kolorowych",
+             "idziemy", "pora", "czas", "lecę", "lece", "teraz", "my", "tutaj", "tu",
+             "chyba", "więc", "wiec", "kładę", "kładziemy", "się", "na", "mnie", "nas",
+             "super", "dobrze", "okej", "ok", "a"}
 
 
 _LANGS = {"angiel": ("English", "angielski"), "niemiec": ("German", "niemiecki"),
@@ -192,6 +204,14 @@ def _spell(word, speak):
         tip = " Uwaga: ch, czyli ce i ha."
     print(f"[cmd] spell: {word}", flush=True)
     speak(f"{word}: {names}.{tip}")
+
+
+def _is_goodbye(text):
+    """The whole utterance is a goodbye, perhaps after "super," / "dobra,"."""
+    words = [w for w in _words(text) if w not in ("luna", "luno")]
+    while words and tuple(words) not in _BYE and words[0] in _BYE_LEAD:
+        words = words[1:]
+    return tuple(words) in _BYE
 
 
 def _words(text):
@@ -368,7 +388,7 @@ def handle(text, speak, play_sound):
 
     # goodbye — wave, and stop listening right away (otherwise the window
     # stays open and she may answer the next thing said in the room)
-    if tuple(w for w in _words(text) if w not in ("luna", "luno")) in _BYE:
+    if _is_goodbye(text):
         with state.lock:
             state.gesture_anim = "wave"
             state.gesture_anim_start = time.time()
