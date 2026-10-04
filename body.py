@@ -36,7 +36,7 @@ def throttled():
 def load_percent():
     try:
         return round(100 * os.getloadavg()[0] / (os.cpu_count() or 4))
-    except OSError:
+    except (OSError, AttributeError):        # AttributeError: no loadavg on Windows
         return None
 
 

@@ -90,6 +90,36 @@ def _mem_used():
         return None
 
 
+def status_rows():
+    """"Pokaż status": (label, value) rows for her screen."""
+    rows = []
+    t = body.cpu_temp()
+    rows.append(("CPU", (f"{t:.0f}°C, " if t is not None else "")
+                 + f"obciążenie {body.load_percent()}%"
+                 + (", DŁAWI SIĘ" if body.throttled() else "")))
+    rows.append(("Działa", body._span(time.time() - body._STARTED)))
+    with state.lock:
+        online = state.online
+    rows.append(("Chmura", "połączona" if online else "BRAK POŁĄCZENIA"))
+    rows.append(("RAM", f"{_mem_used()}% zajęte"))
+    try:
+        import memory
+        m = memory._load()
+        rows.append(("Pamięć", f"{len(m['facts'])} faktów, {len(m['episodes'])} rozmów"))
+    except Exception:
+        pass
+    with _lock:
+        api = ", ".join(f"{k} {v}" for k, v in sorted(_api.items())) or "brak"
+    rows.append(("API/h", api))
+    try:
+        from openai_tts import tts
+        if tts._out:
+            rows.append(("Dźwięk", f"{tts._out.underruns} przerw w tej godzinie"))
+    except Exception:
+        pass
+    return rows
+
+
 def _log():
     with _lock:
         s = dict(_stats)

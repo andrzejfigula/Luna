@@ -33,6 +33,7 @@ LOCAL = {
     "Pokaż przypomnienia": "screen",
     "Pokaż listę zakupów": "screen",
     "Pokaż zdjęcia": "screen",
+    "Pokaż status": "screen",
     "Włącz lampkę": "fun",
     "Przybij piątkę!": "fun",
     "Rzuć kostką": "fun",
@@ -70,6 +71,7 @@ MODEL = [
     "Ile ścian ma kostka do gry?",
     "Nastaw minutnik na 10 minut na makaron",
     "Jak się mówi kot po angielsku?",
+    "Jak się zrestartować komputer?",
     "Kto wymyślił lampkę nocną?",
     "Ile trwa jedno pomodoro",
     "Co jest mocniejsze, papier czy kamień?",
@@ -85,6 +87,7 @@ class RoutingTest(unittest.TestCase):
     def setUp(self):
         import breathing
         import fun
+        import health
         import lists
         import timers
         self.hit = None
@@ -107,6 +110,7 @@ class RoutingTest(unittest.TestCase):
             (breathing, "run", lambda *a: self._mark("breath")),
             (screens, "PHOTOS_DIR", self._photos_dir()),
             (fun, "lamp_on", lambda: self._mark("fun")),
+            (health, "status_rows", lambda: [("CPU", "ok")]),
             (fun, "high_five", lambda *a: self._mark("fun")),
             (fun, "roll", lambda *a: self._mark("fun")),
             (fun, "flip", lambda *a: self._mark("fun")),

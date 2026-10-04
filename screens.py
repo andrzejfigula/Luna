@@ -7,6 +7,7 @@ screens.py — things Luna shows on her whole screen for a moment, on request.
   "pokaż zegar" / "pokaż godzinę"    → a big clock with the date, CLOCK_SECS
   "pokaż przypomnienia"              → timers, reminders and alarms, 10 s
   "pokaż listę zakupów"              → a list from lists.py, 12 s
+  "pokaż status"                     → temperature, uptime, cloud, API calls
   "pokaż zdjęcia"                    → her photos, newest first, 6 s each;
                                        a tap shows the next one
 
@@ -33,6 +34,8 @@ _GALLERY = ("pokaż zdjęcia", "pokaż ostatnie zdjęcie", "pokaż moje zdjęcia
 GALLERY_STEP = 6.0          # seconds per photo; a tap shows the next one
 _SHOW_LIST = ("pokaż listę", "pokaz liste", "pokaż mi listę", "show the list",
               "show my list")
+_STATUS = ("pokaż status", "pokaz status", "status systemu", "jaki masz status",
+           "show status", "show your status")
 _CLOCK  = ("pokaż zegar", "pokaż godzinę", "pokaz zegar", "pokaz godzine",
            "show the clock", "show me the time")
 
@@ -118,6 +121,10 @@ def handle(text, speak, play_sound_async):
             speak("Ta lista jest pusta." if name else "Nie masz jeszcze żadnej listy.")
         else:
             _show("list", 12, (f"Lista: {name}", [("•", i) for i in items]))
+        return True
+    if any(k in low for k in _STATUS):
+        import health
+        _show("list", 15, ("Status", health.status_rows()))
         return True
     if any(k in low for k in _CLOCK):
         _show("clock", CLOCK_SECS)

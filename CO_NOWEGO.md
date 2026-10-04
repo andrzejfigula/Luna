@@ -74,6 +74,10 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 
 ## Pod maską
 
+- „Pokaż status” — temperatura, obciążenie, czas pracy, połączenie z chmurą, pamięć, wywołania API w tej godzinie, przerwy w dźwięku.
+- „Luna, zrestartuj się” — wychodzi, a autostart uruchamia ją od nowa (np. po zmianie `.env`).
+- Mniejsze koszty w tle: słowo „Luna” sprawdzane w chmurze tylko, gdy coś brzmi podobnie (max 60/h); w `[health]` widać liczbę wywołań API.
+
 - Bez internetu: w lewym górnym rogu przekreślona chmurka, a Luna mówi nagrany wcześniej komunikat zamiast milczeć.
 - W pustym pokoju zużywa ~51 % CPU zamiast ~158 % i jest chłodniejsza (~63 °C zamiast ~70 °C).
 - Co godzinę w `luna.log` linia `[health]`: temperatura, obciążenie, liczba odpowiedzi i ich średni czas, ewentualne przerwy w dźwięku.

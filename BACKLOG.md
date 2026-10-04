@@ -117,3 +117,12 @@ Status: ✅ done · 🚧 in progress · ⏳ queued · 💤 parked (with the reas
 | 43 | **Instant kitchen timer** — "minutnik na 10 minut" / "nastaw minutnik na pół godziny" handled locally (digits and Polish number words): no model round trip, works offline | The most common timer phrase doesn't need a language model | ✅ digits, number words, "pół godziny", "kwadrans"; with a label ("na makaron") it still goes to the model |
 | 44 | **Translator mode** — "tłumacz na angielski" (or niemiecki, hiszpański…): every sentence comes back translated, spoken in that language, until "koniec tłumaczenia" | A desk robot that interprets for a visitor | ✅ the rule in the system prompt alone was ignored — the instruction now sits next to each utterance; ends itself after 10 idle minutes |
 
+## Batch 12 — for the maker
+
+| # | Item | Why | Status |
+|---|------|-----|--------|
+| 45 | **Cheaper idle listening** — the cloud check for a misheard "Luna" only runs when the first words sound like her name (or the utterance is 1–2 words), max 60/h | With a TV on, every sentence used to be a paid transcription | ✅ 2 of 9 TV-like sentences pass instead of 9; all tried mishearings still do |
+| 46 | **API calls in the health line** — chat / tts / stt counted at the HTTP layer | The day's cost at a glance | ✅ |
+| 47 | **"Pokaż status"** — temperature, load, uptime, network, memory size, API calls, audio health on her screen | A hobbyist's dashboard without SSH | ✅ |
+| 48 | **"Luna, zrestartuj się"** — she says so, exits, and the autostart watchdog brings her back | After changing `.env`, no SSH needed | ✅ |
+

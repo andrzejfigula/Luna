@@ -10,6 +10,7 @@ commands.py — things Luna does herself, without asking the model.
   screens  "zrób mi zdjęcie", "pokaż lustro", "pokaż zegar" (screens.py)
   breathe  "ćwiczenie oddechowe" — a guided breathing circle (breathing.py)
   repeat   "powtórz", "co powiedziałaś?" — the last answer again, instantly
+  restart  "zrestartuj się" — exits; the autostart watchdog restarts her
   fun      "włącz lampkę", "przybij piątkę", "rzuć kostką", "rzuć monetą"
            (fun.py)
   focus    "tryb skupienia" (optionally "na 50 minut"): no small talk,
@@ -84,6 +85,8 @@ _LANGS = {"angiel": ("English", "angielski"), "niemiec": ("German", "niemiecki")
           "japo": ("Japanese", "japoński"), "chiń": ("Chinese", "chiński"),
           "english": ("English", "angielski"), "german": ("German", "niemiecki"),
           "spanish": ("Spanish", "hiszpański"), "french": ("French", "francuski")}
+_RESTART = ("zrestartuj się", "zrestartuj sie", "uruchom się ponownie",
+            "uruchom sie ponownie", "restart yourself")
 _TRANSLATE_START = ("tłumacz na", "tlumacz na", "tłumaczyć na", "tlumaczyc na", "tryb tłumacza", "bądź tłumaczem",
                     "przetłumacz wszystko na", "tłumacz z polskiego na", "translate to",
                     "be my interpreter", "tłumacz mnie na", "tłumacz to co mówię na")
@@ -288,6 +291,16 @@ def handle(text, speak, play_sound):
     # everything below acts on a request — never on a question about it
     if question:
         return False
+
+    # "zrestartuj się" — exit; the autostart watchdog (lwrespawn) starts
+    # her again a second later. Handy after editing .env.
+    if any(k in low for k in _RESTART):
+        speak("Dobrze, restartuję się. Zaraz wracam!")
+        print("[cmd] restart requested by voice", flush=True)
+        import os
+        import signal
+        os.kill(os.getpid(), signal.SIGTERM)    # main._shutdown does the rest
+        return True
 
     # translator mode — "tłumacz na angielski" … "koniec tłumaczenia"
     lang = _translator_language(low)
