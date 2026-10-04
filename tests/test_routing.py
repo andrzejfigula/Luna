@@ -31,6 +31,8 @@ LOCAL = {
     "Włącz tryb skupienia": "focus",
     "Pomodoro na 50 minut": "focus",
     "Luna, ćwiczenie oddechowe": "breath",
+    "Powtórz": "repeat",
+    "Co powiedziałaś?": "repeat",
     "Pomóż mi się uspokoić": "breath",
     "Zagrajmy w kamień, papier, nożyce": "game",
 }
@@ -51,6 +53,7 @@ MODEL = [
     "Czy ćwiczenie oddechowe pomaga na stres?",
     "Dopisz mleko do listy zakupów",
     "Co mam na liście?",
+    "Powtórz mi tabliczkę mnożenia przez siedem",
 ]
 
 
@@ -78,6 +81,12 @@ class RoutingTest(unittest.TestCase):
             (lists, "get", lambda name=None: ["mleko"]),
             (breathing, "run", lambda *a: self._mark("breath")),
         ]
+        fake_tts = type(sys)("text_to_speech")
+        fake_tts.replay_last = lambda: self._mark("repeat") or True
+        fake_tts.play_sound_async = lambda name: None
+        stubs_dict = mock.patch.dict(sys.modules, {"text_to_speech": fake_tts})
+        stubs_dict.start()
+        self.addCleanup(stubs_dict.stop)
         # patched for this test only — other test modules see the real ones
         for obj, name, value in stubs:
             p = mock.patch.object(obj, name, value)

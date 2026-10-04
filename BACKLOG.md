@@ -64,5 +64,5 @@ Status: ✅ done · 🚧 in progress · ⏳ queued · 💤 parked (with the reas
 | # | Item | Why | Status |
 |---|------|-----|--------|
 | 30 | **Lists** — "dopisz mleko do listy zakupów", "co mam na liście?", "skreśl chleb", "pokaż listę zakupów" (on screen); kept in `data/lists.json` | The most common thing people ask a kitchen/desk assistant | ✅ |
-| 31 | **"Powtórz"** — replays her last answer instantly from the audio she already has (no new request) | Missed a word? Don't make her think again | ⏳ |
+| 31 | **"Powtórz"** — replays her last answer instantly from the audio she already has (no new request) | Missed a word? Don't make her think again | ✅ starts in 0.04 s |
 

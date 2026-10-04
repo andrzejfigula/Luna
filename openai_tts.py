@@ -222,7 +222,8 @@ class OpenAITTS:
         """speak() through the always-open player."""
         out = self._out
         self._cut.clear()
-        out.begin(on_start=on_audio_start, prebuffer=AUDIO_PREBUFFER_SECS)
+        out.begin(on_start=on_audio_start, prebuffer=AUDIO_PREBUFFER_SECS,
+                  record=True)
         try:
             with self._client.audio.speech.with_streaming_response.create(
                     input=text, **self._tts_kwargs(style)) as resp:
@@ -235,6 +236,19 @@ class OpenAITTS:
                 print(f"[TTS] streaming error: {e}")
         if not out.finish(self._cut) and on_audio_start:
             on_audio_start()             # never leave the caller waiting
+
+    def replay_last(self, on_audio_start=None):
+        """Play her last answer again from the audio already played. Returns
+        False when there is none (or no persistent player)."""
+        with self.lock:
+            if not self._out or not self._out.last_utterance:
+                return False
+            self._cut.clear()
+            pcm = self._out.last_utterance
+            self._out.begin(on_start=on_audio_start, prebuffer=0.0)
+            self._out.write(pcm)
+            self._out.finish(self._cut)
+            return True
 
     def stop(self):
         """Cut whatever is playing now (called from another thread — a tap on
@@ -424,7 +438,8 @@ class OpenAITTS:
             if self._out:
                 # the persistent player fills any wait with silence itself
                 out = self._out
-                out.begin(on_start=on_audio_start, prebuffer=AUDIO_PREBUFFER_SECS)
+                out.begin(on_start=on_audio_start, prebuffer=AUDIO_PREBUFFER_SECS,
+                          record=True)
                 while not self._cut.is_set():
                     q = parts.get()
                     if q is None:

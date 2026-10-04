@@ -9,6 +9,7 @@ commands.py — things Luna does herself, without asking the model.
   game     "zagrajmy w kamień, papier, nożyce" (games.py)
   screens  "zrób mi zdjęcie", "pokaż lustro", "pokaż zegar" (screens.py)
   breathe  "ćwiczenie oddechowe" — a guided breathing circle (breathing.py)
+  repeat   "powtórz", "co powiedziałaś?" — the last answer again, instantly
   focus    "tryb skupienia" (optionally "na 50 minut"): no small talk,
            a countdown, then "czas na przerwę" and a break timer;
            "koniec skupienia" ends it
@@ -55,6 +56,9 @@ _FOCUS     = ("tryb skupienia", "pomodoro", "pomóż mi się skupić", "chcę si
 _FOCUS_END = ("koniec skupienia", "przerwij skupienie", "wyłącz tryb skupienia",
               "wyłącz pomodoro", "stop pomodoro", "koniec pomodoro")
 _QUESTION  = {"co", "czym", "jak", "czy", "dlaczego", "kiedy", "what", "how", "why"}
+_REPEAT  = ("co powiedziałaś", "co powiedzialas", "co mówiłaś", "co mowilas",
+            "możesz powtórzyć", "mozesz powtorzyc", "nie dosłyszałem", "nie dosłyszałam",
+            "say that again", "can you repeat")
 _NIGHT   = ("dobranoc", "dobranocka", "idę spać", "ide spac", "idę już spać",
             "good night", "goodnight")
 
@@ -236,6 +240,14 @@ def handle(text, speak, play_sound):
             state.conversation_active = False
         print(f"[cmd] focus mode: {mins} min", flush=True)
         speak(f"Dobrze, {mins} minut skupienia. Będę cicho — powodzenia!")
+        return True
+
+    # "powtórz" — her last answer again, from its audio (no new request)
+    if (_bare(text, ("powtórz", "powtorz", "repeat")) or
+            (any(k in low for k in _REPEAT) and _short(text, 6))):
+        from text_to_speech import replay_last
+        if not replay_last():
+            speak("Jeszcze nic nie mówiłam.")
         return True
 
     import breathing                               # guided breathing

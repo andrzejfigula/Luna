@@ -50,6 +50,9 @@ class AudioOut:
         self.on_start = None
         self.started = False
         self.last_speech_end = 0           # stream byte where speech ends
+        self.recording = False             # keep this utterance for "powtórz"
+        self._rec = []
+        self.last_utterance = b""          # her last spoken answer, as played
         # health
         self.underruns = 0
         self.max_stall = 0.0
@@ -139,8 +142,11 @@ class AudioOut:
                 self.last_speech_end = self.written
 
     # ── an utterance ──────────────────────────────────────────────────────
-    def begin(self, on_start=None, prebuffer=0.15):
+    def begin(self, on_start=None, prebuffer=0.15, record=False):
+        """record=True: keep the audio of this utterance as last_utterance
+        (answers, not sounds) so "powtórz" can replay it without a request."""
         with self.lock:
+            self.recording, self._rec = record, []
             self.q.clear()
             self.q_bytes = 0
             self.active, self.holding, self.closed = True, True, False
@@ -160,6 +166,8 @@ class AudioOut:
     def write(self, pcm):
         if not pcm:
             return
+        if self.recording:
+            self._rec.append(pcm)
         g = self._gain()
         if g != 1.0 and len(pcm) >= 2:
             pcm = pcm[:len(pcm) // 2 * 2]
@@ -190,6 +198,9 @@ class AudioOut:
         with self.lock:
             played = self.started
             self.active = False
+            if self.recording and played and not (cut_event is not None and cut_event.is_set()):
+                self.last_utterance = b"".join(self._rec)
+            self.recording, self._rec = False, []
         self.env.reset()
         return played
 

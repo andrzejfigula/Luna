@@ -13,6 +13,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Przerwij jej | **stuknij w ekran**, kiedy mówi |
 | Koniec rozmowy | „Pa!”, „Do zobaczenia”, „Dzięki, to wszystko” — pomacha i przestanie słuchać |
 | Czeka na odpowiedź | gdy zada pytanie, słucha dłużej (+8 s) |
+| Powtórz | „Powtórz”, „Co powiedziałaś?” — odtwarza ostatnią odpowiedź od razu, bez pytania chmury |
 | Bajki i dłuższe wyjaśnienia | „Opowiedz mi bajkę o smoku”, „Wyjaśnij dokładnie, jak działa…” |
 | Co potrafi | „Luna, co potrafisz?” |
 | Jak się czuje | „Jak się czujesz?” — zna temperaturę swojego procesora i czas pracy |

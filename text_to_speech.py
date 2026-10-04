@@ -167,6 +167,7 @@ def speak(text, can_drop=False):
     def run(style):
         print(f"[Luna] {text}")
         _engine_speak(text, style)
+        _last_answer[0] = text
 
     _speaking(run, lambda: text, can_drop)
 
@@ -185,6 +186,7 @@ def speak_stream(sentences):
 
     def run(style):
         tts.speak_stream(collect(), on_audio_start=_on_audio_start, style=style)
+        _last_answer[0] = " ".join(said)
 
     _speaking(run, lambda: " ".join(said), False)
 
@@ -235,6 +237,22 @@ def _speaking(run, spoken_text, can_drop):
                     state.last_activity_time += CONVO_QUESTION_BONUS
         print(f"[TTS] finished in {elapsed:.1f}s")
         _speak_lock.release()
+
+
+_last_answer = [""]
+
+
+def replay_last():
+    """"Powtórz": her last answer again, instantly, from its audio."""
+    ok = [False]
+
+    def run(style):
+        ok[0] = tts.replay_last(on_audio_start=_on_audio_start)
+        if ok[0]:
+            print(f"[Luna] (again) {_last_answer[0]}")
+
+    _speaking(run, lambda: _last_answer[0], False)
+    return ok[0]
 
 
 def stop_speaking():
