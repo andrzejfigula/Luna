@@ -7,6 +7,7 @@ commands.py — things Luna does herself, without asking the model.
            eyes close and she stays quiet (no greetings, no touch talk)
            until morning — or until you speak to her
   game     "zagrajmy w kamień, papier, nożyce" (games.py)
+  screens  "zrób mi zdjęcie", "pokaż lustro", "pokaż zegar" (screens.py)
   goodbye  "pa", "do zobaczenia", "dzięki, to wszystko": a wave, and the
            conversation window closes at once
   wake     anything you say to her while she sleeps wakes her up (so
@@ -147,6 +148,11 @@ def _morning_watch():
 
 # ── entry point from the voice loop ───────────────────────────────────────────
 
+def _sound_async(name):
+    from text_to_speech import play_sound_async     # only when actually used
+    play_sound_async(name)
+
+
 def handle(text, speak, play_sound):
     """Handle a local command. Returns True when the utterance was one (and
     must not go to the model)."""
@@ -177,10 +183,13 @@ def handle(text, speak, play_sound):
         print("[cmd] goodbye — conversation closed", flush=True)
         return True
 
+    import screens                                 # mirror, photo, clock
+    if screens.handle(text, speak, _sound_async):
+        return True
+
     import games                                   # rock, paper, scissors
     if games.is_trigger(text) or games.is_rematch(text):
-        from text_to_speech import play_sound_async
-        games.play_match(speak, play_sound_async)
+        games.play_match(speak, _sound_async)
         return True
 
     if _short(text, 5) and any(k in low for k in _SLOWER + _FASTER + _NORMAL_SPEED):

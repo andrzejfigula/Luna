@@ -1612,6 +1612,10 @@ class RobotFace:
                     state.reply_scene = None
 
         # ── touch: instant visual answer, and tell the engine which zone ──
+        if touch_t > self._touch_t and self._overlay_on():
+            self._touch_t = touch_t                     # a tap closes it
+            with state.lock:
+                state.overlay = None
         if touch_t > self._touch_t:
             self._touch_t = touch_t
             self._touch_zone = self._zone_at(*touch_pt)
@@ -2128,6 +2132,10 @@ class RobotFace:
         if not online:
             self._draw_offline()
 
+        # ── whole-screen moments: mirror, photo, clock, flash ─────────────
+        if self._overlay_on():
+            self._draw_overlay()
+
         pygame.display.flip()
 
     def _draw_big(self, surf, text, fcx, fcy, left):
@@ -2145,6 +2153,69 @@ class RobotFace:
         glow.fill((*GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
         bloom(surf, glow, rect.topleft, radius=10, passes=1, max_alpha=int(120 * k))
         surf.blit(img, rect)
+
+    def _overlay_on(self):
+        with state.lock:
+            ov = state.overlay
+        return bool(ov) and time.time() < ov[1]
+
+    def _draw_overlay(self):
+        with state.lock:
+            kind, until, data = state.overlay
+            frame = state.frame if kind == "mirror" else None
+        left = until - time.time()
+        scr = self.screen
+        if kind == "flash":
+            scr.fill((255, 255, 255))
+            return
+        if kind == "mirror":
+            if frame is None:
+                return
+            h, w = frame.shape[:2]
+            img = pygame.image.frombuffer(frame.tobytes(), (w, h), "BGR")
+            img = pygame.transform.flip(img, True, False)
+            sw = int(w * HEIGHT / h)
+            img = pygame.transform.scale(img, (sw, HEIGHT))
+            scr.fill(BG)
+            scr.blit(img, ((WIDTH - sw) // 2, 0))
+        elif kind == "photo":
+            if getattr(self, "_photo_cache", (None,))[0] != data:
+                try:
+                    pic = pygame.image.load(data)
+                except Exception:
+                    return
+                ph = HEIGHT - 70
+                pw = int(pic.get_width() * ph / pic.get_height())
+                card = pygame.Surface((pw + 24, ph + 50))
+                card.fill((250, 246, 236))                       # a polaroid
+                card.blit(pygame.transform.smoothscale(pic, (pw, ph)), (12, 12))
+                self._photo_cache = (data, pygame.transform.rotate(card, -3))
+            card = self._photo_cache[1]
+            scr.fill(BG)
+            scr.blit(card, card.get_rect(center=(WIDTH // 2, HEIGHT // 2)))
+        elif kind == "clock":
+            scr.fill(BG)
+            big = _get_font(190).render(time.strftime("%H:%M"), True, EYE_MID)
+            days = ["poniedziałek", "wtorek", "środa", "czwartek", "piątek",
+                    "sobota", "niedziela"]
+            months = ["stycznia", "lutego", "marca", "kwietnia", "maja", "czerwca",
+                      "lipca", "sierpnia", "września", "października", "listopada",
+                      "grudnia"]
+            lt = time.localtime()
+            small = _get_font(42).render(
+                f"{days[lt.tm_wday]}, {lt.tm_mday} {months[lt.tm_mon - 1]}", True, EYE_INNER)
+            rect = big.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 30))
+            glow = big.copy()
+            glow.fill((*GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
+            bloom(scr, glow, rect.topleft, radius=10, passes=1, max_alpha=110)
+            scr.blit(big, rect)
+            scr.blit(small, small.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 85)))
+        # fade out in the last half second
+        if left < 0.5:
+            veil = pygame.Surface((WIDTH, HEIGHT))
+            veil.fill(BG)
+            veil.set_alpha(int(255 * (1 - left / 0.5)))
+            scr.blit(veil, (0, 0))
 
     def _draw_offline(self):
         if getattr(self, "_offline_icon", None) is None:

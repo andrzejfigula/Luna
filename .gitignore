@@ -38,3 +38,6 @@ data/timers.json
 data/timers.json.tmp
 data/settings.json
 data/settings.json.tmp
+
+# photos she took ("zrób mi zdjęcie") — personal, stay on the Pi
+photos/

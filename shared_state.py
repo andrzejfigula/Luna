@@ -46,6 +46,8 @@ class SharedState:
                                  # speech gate: people talking TO Luna face her)
         "last_spoken_text",      # Luna's most recent utterance (lowercased)
         "last_spoken_time",      # time.time() when that utterance finished
+        "overlay",               # (kind, until, data): mirror / photo / clock /
+                                 # flash over the whole screen (screens.py)
         "sunrise",               # (start, end) of a wake-up alarm's dawn:
                                  # the screen brightens until end (timers.py)
         "online",                # the cloud answered last time (health.py)
@@ -108,6 +110,7 @@ class SharedState:
         self.big_text            = None
         self.online              = True
         self.sunrise             = None
+        self.overlay             = None
         self.game_hand           = None
 
 
