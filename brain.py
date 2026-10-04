@@ -173,8 +173,10 @@ Always answer as JSON with exactly these keys:
                 they clearly want everything gone; empty = the kitchen timer).
                 "repeat" is "none" unless they ask for it again and again:
                 "codziennie" → "daily", "w dni robocze / od poniedziałku do
-                piątku" → "weekdays", "w weekendy" → "weekends" (reminders
-                and alarms only).
+                piątku" → "weekdays", "w weekendy" → "weekends", "w każdy
+                wtorek" → "weekly" (with "at" on the next Tuesday), "co
+                miesiąc" → "monthly", birthdays / "co roku" → "yearly"
+                (reminders and alarms only).
                 Lists: {{"type":"list_add","label":"mleko","list":"zakupy",
                 ...}} — one action per item ("dopisz mleko i chleb" = two);
                 "list_remove" to cross an item off, "list_clear" to empty a
@@ -279,7 +281,8 @@ _RESPONSE_FORMAT = {
                         "at":      {"type": "string"},
                         "label":   {"type": "string"},
                         "repeat":  {"type": "string",
-                                    "enum": ["none", "daily", "weekdays", "weekends"]},
+                                    "enum": ["none", "daily", "weekdays", "weekends",
+                                             "weekly", "monthly", "yearly"]},
                         "list":    {"type": "string"},
                     },
                     "required": ["type", "seconds", "at", "label", "repeat", "list"],

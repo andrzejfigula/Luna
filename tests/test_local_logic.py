@@ -118,6 +118,36 @@ class TimersTest(unittest.TestCase):
                          ["minutę", "5 minut", "2 minuty", "30 minut", "godzinę",
                           "półtorej godziny", "45 sekund"])
 
+    def test_weekly_monthly_yearly(self):
+        fri = datetime.datetime(2026, 10, 9, 18, 0).timestamp()
+        nxt = datetime.datetime.fromtimestamp(timers._next_matching(fri, "weekly"))
+        self.assertEqual((nxt.month, nxt.day, nxt.hour), (10, 16, 18))
+        jan31 = datetime.datetime(2027, 1, 31, 9, 0).timestamp()
+        nxt = datetime.datetime.fromtimestamp(timers._next_matching(jan31, "monthly"))
+        self.assertEqual((nxt.month, nxt.day), (2, 28))          # clamped
+        # a birthday in May, set in October: next May, not "tomorrow"
+        may = datetime.datetime(2026, 5, 12, 9, 0).timestamp()
+        nxt = datetime.datetime.fromtimestamp(timers._next_matching(may, "yearly", inclusive=True))
+        self.assertGreater(nxt.timestamp(), time.time())
+        self.assertEqual((nxt.month, nxt.day), (5, 12))
+
+    def test_one_off_in_the_past_is_ignored(self):
+        timers.apply([{"type": "reminder", "seconds": 0, "at": "2020-01-01 10:00",
+                       "label": "dawno", "repeat": "none"}])
+        self.assertEqual(timers._timers, [])
+
+    def test_snooze_and_extend(self):
+        timers._last_rang.update(t=time.time(), entry={"label": "", "kind": "alarm"})
+        self.assertTrue(timers.snooze(300))
+        self.assertEqual(timers._timers[0]["kind"], "alarm")
+        self.assertFalse(timers.snooze(300))                    # only once per ring
+        self.assertFalse(timers.extend(60))                     # no kitchen timer
+        timers.apply([{"type": "timer", "seconds": 60, "at": "", "label": ""}])
+        before = next(t for t in timers._timers if t["kind"] == "timer")["due"]
+        self.assertTrue(timers.extend(120))
+        after = next(t for t in timers._timers if t["kind"] == "timer")["due"]
+        self.assertAlmostEqual(after - before, 120, delta=1)
+
     def test_polish_minutes(self):
         self.assertEqual([timers._minutes_pl(n) for n in (1, 2, 5, 12, 22, 25)],
                          ["minuta", "minuty", "minut", "minut", "minuty", "minut"])

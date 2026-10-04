@@ -39,7 +39,7 @@ import settings
 from config import (SPEED_STEP, SPEED_MIN, SPEED_MAX, OPENAI_TTS_SPEED,
                     VOLUME_STEP, VOLUME_MIN, VOLUME_MAX,
                     GOODNIGHT_REPLIES, GOODBYE_REPLIES, PROACTIVE_QUIET_TO,
-                    FOCUS_MINUTES, BREAK_MINUTES,
+                    FOCUS_MINUTES, BREAK_MINUTES, SNOOZE_MINUTES,
                     AUDIO_OUTPUT_DEVICE)
 
 _LOUDER  = ("głośniej", "glosniej", "louder", "volume up")
@@ -85,6 +85,10 @@ _LANGS = {"angiel": ("English", "angielski"), "niemiec": ("German", "niemiecki")
           "japo": ("Japanese", "japoński"), "chiń": ("Chinese", "chiński"),
           "english": ("English", "angielski"), "german": ("German", "niemiecki"),
           "spanish": ("Spanish", "hiszpański"), "french": ("French", "francuski")}
+_SNOOZE = ("drzemka", "drzemkę", "jeszcze chwilę", "jeszcze chwile", "jeszcze 5",
+           "jeszcze pięć", "jeszcze 10", "jeszcze dziesięć", "jeszcze minut",
+           "snooze")
+_EXTEND = ("dodaj", "przedłuż", "przedluz", "add")
 _RESTART = ("zrestartuj się", "zrestartuj sie", "uruchom się ponownie",
             "uruchom sie ponownie", "restart yourself")
 _TRANSLATE_START = ("tłumacz na", "tlumacz na", "tłumaczyć na", "tlumaczyc na", "tryb tłumacza", "bądź tłumaczem",
@@ -314,6 +318,24 @@ def handle(text, speak, play_sound):
         if brain.translator():
             brain.set_translator(None)
             speak("Koniec tłumaczenia.")
+            return True
+
+    # "jeszcze 5 minut" / "drzemka" right after an alarm or timer rang
+    if any(k in low for k in _SNOOZE) and _short(text, 7):
+        import timers
+        secs, _ = timers.parse_duration(low)
+        secs = secs or SNOOZE_MINUTES * 60
+        if timers.snooze(secs):
+            speak(f"Dobrze, jeszcze {timers.say_duration(secs)}.")
+            return True
+
+    # "dodaj 5 minut do minutnika" / "przedłuż minutnik o minutę"
+    if any(k in low for k in _EXTEND) and ("minutnik" in low or "timer" in low
+                                          or "przedłuż o" in low):
+        import timers
+        secs, _ = timers.parse_duration(low)
+        if secs and timers.extend(secs):
+            speak(f"Dodałam {timers.say_duration(secs)}.")
             return True
 
     # "minutnik na 10 minut" — instant, and works without the cloud

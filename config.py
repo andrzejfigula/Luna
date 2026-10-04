@@ -406,6 +406,7 @@ LISTS_PATH = os.path.join(DATA_DIR, "lists.json")
 TIMERS_PATH       = os.path.join(DATA_DIR, "timers.json")
 TIMERS_MAX        = 10
 TIMER_REPEAT_SECS = 60    # nobody reacted to the ring → once more after this
+SNOOZE_MINUTES    = 9     # "drzemka" with no number
 SUNRISE_SECS      = 600   # a wake-up alarm brightens the screen this long before
 
 # ── Whole-screen moments (screens.py) ────────────────────────────────────────

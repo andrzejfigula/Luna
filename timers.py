@@ -85,7 +85,15 @@ def _parse_at(at):
     return due
 
 
-_REPEATS = {"none", "daily", "weekdays", "weekends"}
+_REPEATS = {"none", "daily", "weekdays", "weekends", "weekly", "monthly", "yearly"}
+
+
+def _add_months(dt, n):
+    """Same day n months later (the 31st → the month's last day)."""
+    import calendar
+    m = dt.month - 1 + n
+    y, m = dt.year + m // 12, m % 12 + 1
+    return dt.replace(year=y, month=m, day=min(dt.day, calendar.monthrange(y, m)[1]))
 
 
 def _matches(dt, repeat):
@@ -99,12 +107,23 @@ def _next_matching(due, repeat, inclusive=False):
     next matching day (computed on the calendar, so a DST change doesn't
     shift it by an hour)."""
     dt = datetime.fromtimestamp(due, _TZ) if _TZ else datetime.fromtimestamp(due)
-    if not inclusive:
-        dt += timedelta(days=1)
-    for _ in range(8):
-        if _matches(dt, repeat):
-            break
-        dt += timedelta(days=1)
+    step = {"weekly": lambda d: d + timedelta(days=7),
+            "monthly": lambda d: _add_months(d, 1),
+            "yearly": lambda d: _add_months(d, 12)}.get(repeat)
+    if step:
+        # the date they gave is the series' anchor: the next one not in the past
+        now = time.time() + 1
+        if not inclusive:
+            dt = step(dt)
+        while (dt.replace(tzinfo=None).replace(tzinfo=_TZ) if _TZ else dt).timestamp() < now:
+            dt = step(dt)
+    else:
+        if not inclusive:
+            dt += timedelta(days=1)
+        for _ in range(8):
+            if _matches(dt, repeat):
+                break
+            dt += timedelta(days=1)
     if _TZ:                                  # re-resolve the offset for that day
         dt = dt.replace(tzinfo=None).replace(tzinfo=_TZ)
     return dt.timestamp()
@@ -159,6 +178,9 @@ def apply(actions):
                 repeat = str(a.get("repeat", "none")).lower()
                 if repeat not in _REPEATS:
                     repeat = "none"
+                if due and repeat == "none" and due < time.time() - 60:
+                    print(f"[timers] {kind} at {a.get('at')!r} is in the past — ignored")
+                    due = None
                 if due:
                     if repeat != "none":
                         due = _next_matching(due, repeat, inclusive=True)
@@ -290,7 +312,8 @@ def prompt_block():
     return "\n".join(lines) + "\n"
 
 
-_REPEAT_PL = {"daily": "codziennie", "weekdays": "pn–pt", "weekends": "weekendy"}
+_REPEAT_PL = {"daily": "codziennie", "weekdays": "pn–pt", "weekends": "weekendy",
+              "weekly": "co tydzień", "monthly": "co miesiąc", "yearly": "co roku"}
 _KIND_PL = {"timer": "minutnik", "reminder": "przypomnienie", "alarm": "budzik"}
 
 
@@ -379,6 +402,7 @@ def _ring(t, missed=False):
     wake_up("timer")
     # a timer you set rings at full volume even in the quiet hours
     audio_out.full_volume_until = time.time() + TIMER_REPEAT_SECS + 60
+    _last_rang.update(t=time.time(), entry=t)
     text = t.get("say") or _announcement(t, missed)
     if t.get("then"):                                # focus → break
         secs, label, say = t["then"]
@@ -394,6 +418,9 @@ def _ring(t, missed=False):
             speak("Halo, śpiochu! Pora wstawać!")
         else:
             speak(text if attempt == 0 else "Halo! " + text)
+        with state.lock:                 # listen for "jeszcze 5 minut" / "dzięki"
+            state.conversation_active = True     # without the wake word
+            state.last_activity_time = time.time()
         rang = time.time()
         if attempt == 0:
             # once more in a minute, unless you touched her or talked to her
@@ -411,6 +438,41 @@ def add(seconds, label, say=None, then=None):
                         "secs": seconds, "say": say, "then": then, "set": time.time()})
         _timers.sort(key=lambda t: t["due"])
         _save()
+
+
+_last_rang = {"t": 0.0, "entry": None}
+
+
+def snooze(seconds):
+    """"Jeszcze 5 minut" right after something rang: ring it again later.
+    Returns False when nothing rang recently."""
+    t = _last_rang["entry"]
+    if t is None or time.time() - _last_rang["t"] > 600:
+        return False
+    with _lock:
+        _timers.append({"due": time.time() + seconds, "label": t["label"],
+                        "kind": t["kind"], "secs": seconds, "say": t.get("say"),
+                        "repeat": "none", "set": time.time()})
+        _timers.sort(key=lambda x: x["due"])
+        _save()
+    _last_rang["entry"] = None
+    print(f"[timers] snoozed {seconds}s: {t['kind']} '{t['label']}'", flush=True)
+    return True
+
+
+def extend(seconds):
+    """"Dodaj 5 minut do minutnika": the nearest kitchen timer runs longer.
+    Returns False when no timer is running."""
+    with _lock:
+        timer = next((t for t in _timers if t["kind"] == "timer"), None)
+        if timer is None:
+            return False
+        timer["due"] += seconds
+        timer["secs"] = timer.get("secs", 0) + seconds
+        _timers.sort(key=lambda x: x["due"])
+        _save()
+    print(f"[timers] extended by {seconds}s", flush=True)
+    return True
 
 
 def remove(labels):
