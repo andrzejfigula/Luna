@@ -519,6 +519,12 @@ class FacesTest(unittest.TestCase):
         self.assertEqual(len(faces._people["Kasia"].get("auto", [])), 1)   # …teaches
         faces.identify(kasia * 1.2)
         self.assertEqual(len(faces._people["Kasia"]["auto"]), 1)      # once a minute
+        faces._last_auto.clear()
+        faces.identify(kasia * 1.3)                                   # the same look
+        self.assertEqual(len(faces._people["Kasia"]["auto"]), 1)      # adds nothing
+        faces._last_auto.clear()
+        faces.identify(kasia + rng.normal(scale=0.45, size=128))      # other light
+        self.assertEqual(len(faces._people["Kasia"]["auto"]), 2)
         self.assertTrue(faces.forget("kasia"))
         self.assertEqual(faces.names(), ["Ola"])
 

@@ -43,7 +43,10 @@ ENROLL_SECS = 4.0
 AUTO_MIN = 0.50            # self-learning: only from a sure recognition…
 AUTO_MARGIN = 0.25         # …well ahead of the second-best person…
 AUTO_EVERY = 60            # …at most one sample a minute per person…
-AUTO_MAX = 15              # …and at most this many (the oldest go first)
+AUTO_MAX = 15              # …and at most this many (the oldest go first)…
+AUTO_NEW = 0.92            # …and only one that adds something: a near-copy of a
+                           # kept sample (same chair, same lamp) is skipped, so
+                           # the 15 cover different light and angles
 RECOGNISE_EVERY = 2.5      # seconds between recognitions of a face in view
 
 _lock = threading.Lock()
@@ -214,7 +217,14 @@ def learn(name, feature):
         p = _load().get(name)
         if p is None:
             return
-        p["auto"] = (p.get("auto", []) + [[round(float(v), 5) for v in feature]])[-AUTO_MAX:]
+        kept = p.get("auto", [])
+        if kept:
+            k = np.asarray(kept, np.float32)
+            k = k / (np.linalg.norm(k, axis=1, keepdims=True) + 1e-9)
+            f = feature / (np.linalg.norm(feature) + 1e-9)
+            if float(np.max(k @ f)) >= AUTO_NEW:
+                return                         # nothing new about this face
+        p["auto"] = (kept + [[round(float(v), 5) for v in feature]])[-AUTO_MAX:]
         _save()
     print(f"[faces] learned a little more of {name} ({len(p['auto'])} webcam samples)",
           flush=True)
