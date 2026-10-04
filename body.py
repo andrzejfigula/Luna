@@ -76,5 +76,7 @@ def prompt_line():
     parts.append(f"running for {_span(time.time() - _STARTED)} since your last start")
     parts.append(f"{_talks_today[1]} things said to you today")
     return ("Your body right now (Raspberry Pi 4): " + ", ".join(parts) + ". "
-            "Mention it only when asked how you are or about yourself — or, "
-            "once, if you are VERY hot or throttling.\n")
+            "Bring it up only when asked how you are or about yourself — then "
+            "weave in one such detail playfully, like a person mentioning "
+            "being sleepy or warm — or, once, if you are VERY hot or "
+            "throttling.\n")
