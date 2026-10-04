@@ -43,8 +43,9 @@ class ReplyStream:
             self.pos = m.end()
             emo = re.search(r'"emotion"\s*:\s*"(\w+)"', self.raw)
             ges = re.search(r'"gesture"\s*:\s*"(\w+)"', self.raw)
-            self.on_head(emo.group(1) if emo else "neutral",
-                         ges.group(1) if ges else "none")
+            self.emotion = emo.group(1) if emo else "neutral"
+            self.gesture = ges.group(1) if ges else "none"
+            self.on_head(self.emotion, self.gesture)
         if not self.closed:
             self._decode()
         if self.sent == 0:

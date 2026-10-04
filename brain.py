@@ -423,11 +423,35 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             raw = response.choices[0].message.content.strip()
         else:
             rs = ReplyStream(on_head, on_sentence)
+            finish, refusal = None, ""
             for chunk in _client.chat.completions.create(stream=True, **request):
-                if chunk.choices and chunk.choices[0].delta.content:
-                    rs.feed(chunk.choices[0].delta.content)
+                if not chunk.choices:
+                    continue
+                c = chunk.choices[0]
+                if c.delta.content:
+                    rs.feed(c.delta.content)
+                refusal += getattr(c.delta, "refusal", None) or ""
+                finish = c.finish_reason or finish
             rs.finish()
             raw = rs.raw.strip()
+            try:
+                json.loads(raw)
+            except ValueError:
+                # Seen twice in a 40-utterance soak test, not reproducible on
+                # its own: an empty / broken streamed answer. Log what came,
+                # and recover instead of going silent.
+                print(f"[brain] bad streamed answer (finish={finish}, "
+                      f"refusal={refusal!r}, raw={raw[:120]!r})", flush=True)
+                if rs.pos is None:
+                    # nothing said yet: ask once more, plainly
+                    response = _client.chat.completions.create(**request)
+                    raw = response.choices[0].message.content.strip()
+                else:
+                    # already speaking: keep what was said
+                    raw = json.dumps({"reply": rs.text, "emotion": rs.emotion,
+                                      "gesture": rs.gesture, "user_mood": "no_person",
+                                      "mood_comment": False, "actions": []},
+                                     ensure_ascii=False)
 
         data    = json.loads(raw)
         reply   = str(data.get("reply", "")).strip()
@@ -662,6 +686,8 @@ def process(text):
 
     if result:
         reply, emotion, gesture = result
+        if not speaker:                              # answered without streaming
+            _show(emotion, gesture)
     elif speaker:                                    # broke off mid-answer
         reply, emotion, gesture = "", head["emotion"], head["gesture"]
     else:
