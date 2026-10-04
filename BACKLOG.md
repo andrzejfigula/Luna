@@ -83,3 +83,16 @@ Status: ✅ done · 🚧 in progress · ⏳ queued · 💤 parked (with the reas
 | 37 | **High five** — "przybij piątkę": her hand comes up big; tap it within 4 s | A touch game a kid gets instantly | ✅ |
 | 38 | **Dice and coin** — "rzuć kostką", "rzuć monetą": rolled / flipped on her screen, result out loud | Settles who does the dishes | ✅ |
 
+## Found while reviewing / testing (fixed)
+
+| Problem | Effect it would have had | Fix |
+|---|---|---|
+| Questions matched local commands ("dlaczego w nocy jest ciszej?", "ile trwa pomodoro?", "co jest mocniejsze, papier czy kamień?", "co to jest lustro?", "powiedz dobranoc mojej córce") | volume down, focus mode on, a game started, the mirror shown, Luna asleep | volume/speed must be bare commands; one `is_question()` guard for all local commands; "dobranoc" must be the whole utterance — all in `tests/test_routing.py` |
+| A timer cancel with an unmatched or empty label cleared everything | "wyłącz minutnik" deleted the weekday alarm too | cancel by exact label → word stem → kind; empty = kitchen timers; nothing on no match |
+| Empty streamed model answer (2 of 40 in the soak test) | she would have played the offline apology | logged, retried without streaming, or what was said is kept |
+| pw-play dying mid-sentence | the speaking call could hang on the old stream's clock | resync on restart, back-off, quiet logs |
+| Wake-up alarm at 7:00 is inside the quiet hours | the night voice would have halved the alarm | timers ring at full volume |
+| The "you are female" rule leaked onto the user | "rozbudziłaś" to a male user | address the user by the gender their name/memory implies, else neutrally |
+| No weather data, yet asked | she invented sunshine | told explicitly she doesn't know |
+| Mouth flag set from a late thread | mouth could keep flapping after a very short clip | set synchronously |
+
