@@ -70,7 +70,7 @@ def worker():
         if i % 10 == 9:
             r = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss // 1024
             rss.append(r)
-            u_, m_ = tts._out.stats()
+            u_, m_, *_ = tts._out.stats()
             print(f"--- {i + 1} done, max RSS {r} MB, underruns {u_}, max stall {m_ * 1000:.0f} ms",
                   flush=True)
         time.sleep(0.5)

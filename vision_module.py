@@ -50,6 +50,8 @@ face_cascade = cv2.CascadeClassifier(
 
 
 def vision_loop():
+    import prio
+    prio.background("vision")
     while True:
         try:
             _vision_iteration_loop()

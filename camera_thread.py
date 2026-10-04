@@ -7,6 +7,10 @@ USE_ESP32_CAM = False → reads from local camera (USB or Pi cam)
 
 import cv2
 import threading
+
+# OpenCV's worker pool busy-waits: on the Pi 4 threads spun at ~20 % each,
+# starving the audio. One thread does the same work.
+cv2.setNumThreads(1)
 import time
 import numpy as np
 from config import (CAMERA_ID, FRAME_WIDTH, FRAME_HEIGHT,
@@ -93,6 +97,8 @@ def _measure_light(cap, frame):
 def _local_loop():
     """Read from local USB or Pi camera. Retries forever if no camera —
     Luna keeps running (voice + face) without vision."""
+    import prio
+    prio.background("camera")
     print(f"[camera] Starting local camera {CAMERA_ID}")
     help_printed = False
 

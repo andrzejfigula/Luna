@@ -106,6 +106,8 @@ OFFLINE_REPLY = "Przepraszam, nie mogę teraz połączyć się z moim mózgiem."
 CONVO_TIMEOUT      = 10    # seconds of silence before deactivating conversation
 CONVO_QUESTION_BONUS = 8   # …plus this when her reply ended with a question:
                            # a thoughtful answer needs longer than 10 s
+CONVO_GRACE        = 4    # speech that STARTED up to this long after the window
+                           # closed is still answered — you began in time
 POST_SPEAK_DELAY   = 0.8   # settle time after Luna speaks before listening again
 DOUBLE_FLUSH       = True  # flush audio queue twice (before and after delay)
 MIC_BLOCK_AFTER_SPEAK = 0.6   # echo-guard after speech ends (speech itself already
@@ -302,7 +304,10 @@ TTS_LISTENER_STYLE = {
 AUDIO_PERSISTENT  = True
 AUDIO_AHEAD_SECS  = 0.40    # audio kept queued in the player: the writer
                             # thread stalled up to 0.18 s under face rendering
-AUDIO_PREBUFFER_SECS = 0.15 # speech held back before it starts (net stutter)
+AUDIO_PREBUFFER_SECS = 0.35 # speech held back before it starts. The TTS API sends
+                            # a first burst, then pauses ~0.2–0.35 s: with 0.15
+                            # EVERY reply had a hole after its first syllables
+                            # (measured 2026-10-04); with 0.3 none did
 NIGHT_VOICE_GAIN  = 0.5     # during the quiet hours she speaks at half volume
                             # (and her mouth moves less) — 1.0 = off
 TTS_STREAM_PREBUFFER_SECS = 0.3  # streamed replies: an underrun there is filled with

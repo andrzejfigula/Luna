@@ -24,6 +24,9 @@ Neutral: eyes only, no mouth.
 All transitions smooth lerp — no snapping.
 """
 
+import os
+os.environ.setdefault("SDL_AUDIODRIVER", "dummy")   # pygame must not open an audio
+                                                   # stream: hers run through pw-play
 import pygame
 import math
 import random

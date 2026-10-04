@@ -299,6 +299,7 @@ def go_to_sleep():
     with state.lock:
         state.sleep_mode = True
         state.conversation_active = False
+        state.convo_closed_hard = True
     print("[cmd] good night — sleeping until morning", flush=True)
 
 
@@ -367,6 +368,7 @@ def handle(text, speak, play_sound):
             state.emotion = "Neutral"
             state.conversation_active = False
             state.convo_expired_time = time.time()
+            state.convo_closed_hard = True
             state.listening = False
         print("[cmd] goodbye — conversation closed", flush=True)
         return True

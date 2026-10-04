@@ -42,6 +42,7 @@ from config import (
     MIC_SAMPLE_RATE,
     VOSK_SAMPLE_RATE,
     CONVO_TIMEOUT,
+    CONVO_GRACE,
     POST_SPEAK_DELAY,
     DOUBLE_FLUSH,
     MIC_GAIN,
@@ -539,13 +540,32 @@ def _addressed_to_luna():
     return (time.time() - last_face) <= FACE_RECENT_SECS
 
 
+def _started_in_window(t):
+    """Did speech beginning at t start inside the last conversation window
+    (or just after it)? Never while the radio plays — then every command
+    needs "Luna"."""
+    with state.lock:
+        ended = state.convo_expired_time
+        hard = state.convo_closed_hard
+    if not ended or hard or time.time() - ended > 60:
+        return False
+    try:
+        import radio
+        if radio.playing():
+            return False
+    except Exception:
+        pass
+    return t <= ended + CONVO_GRACE
+
+
 def _expire_conversation():
     """Conversation window ran out — back to wake-word mode.
     Stamps convo_expired_time so the face can play its subtle 'rest' cue."""
-    print("[STT] Conversation timed out — waiting for wake word")
+    print(f"[STT] {time.strftime('%H:%M:%S')} Conversation timed out — waiting for wake word")
     with state.lock:
         state.conversation_active = False
         state.convo_expired_time  = time.time()
+        state.convo_closed_hard   = False      # timed out: a late start still counts
         state.listening           = False
 
 
@@ -611,6 +631,7 @@ def listen():
     utt_audio    = []    # raw (ungated) 16 kHz blocks of the current utterance
     utt_bytes    = 0
     utt_max      = int(CLOUD_STT_MAX_SECS * VOSK_SAMPLE_RATE * 2)
+    utt_t0       = None  # when the current utterance's speech began
 
     while True:
         try:
@@ -664,6 +685,8 @@ def listen():
             data = bytes(len(data))
             silent_run += len(data) / (VOSK_SAMPLE_RATE * 2)
         else:
+            if not voiced and utt_t0 is None:
+                utt_t0 = time.time() - len(data) / (VOSK_SAMPLE_RATE * 2)
             voiced, silent_run = True, 0.0
 
         # Vosk only calls the utterance finished after ~1.05 s of silence
@@ -689,6 +712,7 @@ def listen():
                 result = {"text": " ".join(msg_parts + [result.get("text", "")]).strip()}
                 msg_parts = []
             voiced, silent_run = False, 0.0
+            started, utt_t0 = utt_t0, None
             text     = result.get("text", "").strip()
             peak_rms = utt_peak_rms
             utt_peak_rms = 0.0   # reset for the next utterance
@@ -710,6 +734,16 @@ def listen():
                     state.luna_mode = "idle" if not active else "listening"
                     state.listening = active
                 continue   # keep listening — don't restart the whole cycle
+
+            # The window closed while you were thinking — but this sentence
+            # began inside it (or within CONVO_GRACE after): still for her.
+            if not active and started is not None and _started_in_window(started):
+                print(f"[STT] began {started - state.convo_expired_time:+.1f}s from the "
+                      "window's end — answering", flush=True)
+                active = True
+                with state.lock:
+                    state.conversation_active = True
+                    state.last_activity_time = time.time()
 
             words   = text.split()
             wake    = _find_wake_word(words)
@@ -760,7 +794,7 @@ def listen():
                         state.listening = active
                     continue
 
-            print(f"[Luna heard] {text}")
+            print(f"[Luna heard] {time.strftime('%H:%M:%S')} {text}")
 
             if cleaned is not None:
                 # Face gate applies to wake words too: "hello" said between

@@ -16,7 +16,7 @@ if [[ "$PCT" =~ ^[0-9]+$ ]]; then
     done
 fi
 
-# Lower priority than PipeWire / the audio player: without realtime scheduling
-# for PipeWire (needs rtkit or the "pipewire" group), Luna's render and Vosk
-# threads would otherwise preempt the audio thread and cause crackle.
-exec nice -n 10 ./venv/bin/python -u main.py
+# No "nice" for the whole process: the audio players (pw-play) inherit it and
+# then lose the CPU to her own renderer — clipped words. prio.py lowers only
+# the heavy threads (renderer, camera, vision) from inside.
+exec ./venv/bin/python -u main.py

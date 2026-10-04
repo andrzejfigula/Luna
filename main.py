@@ -153,6 +153,17 @@ def voice_loop():
                 with state.lock:
                     if not state.speaking and state.luna_mode == "processing":
                         state.luna_mode = "idle"
+                # radio on: no open window after an answer — the next thing
+                # she hears is the radio, so every command needs "Luna"
+                if text and text != WAKE_ACK:
+                    import radio
+                    if radio.playing():
+                        with state.lock:
+                            state.conversation_active = False
+                            state.convo_closed_hard = True
+                            state.listening = False
+                        print("[Luna] radio on — window closed, say \"Luna\" next time",
+                              flush=True)
         except Exception as e:
             # an unexpected error must never kill the voice thread — that
             # would leave Luna permanently deaf until restart

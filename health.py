@@ -125,6 +125,24 @@ def status_rows():
     return rows
 
 
+def _pw_xruns():
+    """PipeWire's own xrun counter for her players (pw-top's ERR column) —
+    the writer's "underruns" can't see the player itself being starved.
+    Cumulative since the stream started; None if pw-top isn't there."""
+    try:
+        import subprocess
+        out = subprocess.run(["pw-top", "-b", "-n", "2"], capture_output=True,
+                             text=True, timeout=8).stdout
+    except Exception:
+        return None
+    last = {}
+    for line in out.splitlines():
+        f = line.split()
+        if len(f) > 9 and f[-1] == "pw-play" and f[8].isdigit():
+            last[f[1]] = int(f[8])                 # node id → ERR (last sample wins)
+    return sum(last.values()) if last else None
+
+
 def _log():
     with _lock:
         s = dict(_stats)
@@ -137,10 +155,14 @@ def _log():
     try:
         from openai_tts import tts
         if tts._out:
-            u, m = tts._out.stats()
-            audio = f", audio: {u} underruns, max stall {m * 1000:.0f} ms"
+            u, m, r = tts._out.stats()
+            audio = (f", audio: {u} underruns, {r} rebuffers (late TTS), "
+                     f"max stall {m * 1000:.0f} ms")
     except Exception:
         pass
+    x = _pw_xruns()
+    if x is not None:
+        audio += f", PipeWire xruns {x} (since start)"
     with state.lock:
         light = state.light
     if light is not None:

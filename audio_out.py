@@ -30,6 +30,9 @@ CHUNK = int(0.04 * RATE) * 2    # writer granularity: 40 ms
 full_volume_until = 0.0
 
 IDLE_AHEAD = 0.08               # seconds of silence queued between utterances
+REBUFFER   = 0.25               # the network fell behind mid-utterance: wait for
+                                # this much before going on — one clean pause
+                                # instead of syllables chopped up by silence
 
 
 class AudioOut:
@@ -57,6 +60,7 @@ class AudioOut:
         self.last_utterance = b""          # her last spoken answer, as played
         # health
         self.underruns = 0
+        self.rebuffers = 0
         self.max_stall = 0.0
         threading.Thread(target=self._run, daemon=True, name="audio-out").start()
 
@@ -110,6 +114,12 @@ class AudioOut:
                 continue
             data, speech = silence, False
             with self.lock:
+                if (self.active and self.started and not self.holding
+                        and not self.q and not self.closed):
+                    # speech ran out but more is coming: the TTS stream is late
+                    self.holding, self.prebuf = True, int(REBUFFER * BPS)
+                    self.rebuffers += 1
+                    print("[audio] TTS stream late — rebuffering", flush=True)
                 if self.active and self.holding:
                     if self.q_bytes >= self.prebuf or self.closed:
                         self.holding = False
@@ -234,6 +244,6 @@ class AudioOut:
             self.last_speech_end = self.written
 
     def stats(self):
-        s = (self.underruns, self.max_stall)
-        self.underruns, self.max_stall = 0, 0.0
+        s = (self.underruns, self.max_stall, self.rebuffers)
+        self.underruns, self.max_stall, self.rebuffers = 0, 0.0, 0
         return s

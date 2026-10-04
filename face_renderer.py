@@ -17,6 +17,8 @@ EMOTION_MAP = {
 
 
 def renderer_loop():
+    import prio
+    prio.background("renderer")
     face = RobotFace()
 
     while True:

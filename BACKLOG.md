@@ -221,3 +221,12 @@ the game's hand reading, photos, the mood read from a face.
 |---|------|-----|--------|
 | 79 | **Wake up to the radio** — "budź mnie radiem": a wake-up alarm says good morning and starts your last station, fading in from a whisper over a minute ("budź mnie dzwonkiem" switches back) | Gentler than a chime, together with the sunrise on her screen | ✅ "jeszcze 5 minut" snoozes and stops the music; "obudź mnie radiem o siódmej" also goes to the model, which sets the alarm |
 | 80 | **"Dobranoc" turns the radio off** — unless you set a sleep timer on purpose ("radio na 30 minut") | Good night means quiet | ✅ |
+
+## Batch 24 — fixes from real use (4 Oct evening)
+
+| # | Item | What was wrong | Status |
+|---|------|----------------|--------|
+| 81 | **Radio: she no longer answers the radio** | After "włącz radio" the conversation window stayed open; she answered an IKEA ad and put "kawa, płyn do prania" from a radio voice on the shopping list | ✅ while the radio plays, the window closes after every answer — each command needs "Luna" (a bare "Luna" still opens it for one sentence); no "late start" grace with the radio on |
+| 82 | **Clipped words** | The TTS API sends a first burst, then pauses 0.2–0.35 s; with a 0.15 s prebuffer EVERY reply had a hole after its first syllables (measured: 179 ms of natural silence played as 441 ms) | ✅ prebuffer 0.35 s (played audio now matches the TTS exactly); if the network still falls behind mid-sentence: one clean 0.25 s rebuffer instead of chopped syllables, counted in the hourly health line |
+| 83 | **Her voice player had low priority** | `nice -n 10` on the whole process was inherited by pw-play: her own face renderer outranked her voice; pygame also kept an unused 3 ms audio stream open; OpenCV's 4 worker threads busy-waited at ~20 % each | ✅ only renderer, camera and vision are niced (prio.py), players run at normal priority; SDL audio off; OpenCV on 1 thread |
+| 84 | **"She just looks at me"** | The 10 s window counted from the end of her answer; you started speaking as it closed and the sentence was dropped as "no wake word" | ✅ a sentence that BEGAN inside the window, or up to 4 s after it closed, is still answered (not after "pa!", "dobranoc" or with the radio on); log lines now carry the time |
