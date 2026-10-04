@@ -2119,8 +2119,13 @@ class RobotFace:
         # ── a running timer: small countdown, top-right corner ───────────
         with state.lock:
             timer_text = state.timer_text
+            online     = state.online
         if timer_text:
             self._draw_timer(timer_text)
+
+        # ── no cloud: a small crossed-out cloud, top-left ─────────────────
+        if not online:
+            self._draw_offline()
 
         pygame.display.flip()
 
@@ -2139,6 +2144,17 @@ class RobotFace:
         glow.fill((*GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
         bloom(surf, glow, rect.topleft, radius=10, passes=1, max_alpha=int(120 * k))
         surf.blit(img, rect)
+
+    def _draw_offline(self):
+        if getattr(self, "_offline_icon", None) is None:
+            s = pygame.Surface((64, 44), pygame.SRCALPHA)
+            col = (*EYE_MID, 210)
+            for cx, cy, r in ((20, 26, 11), (32, 19, 14), (45, 26, 11)):
+                pygame.draw.circle(s, col, (cx, cy), r)
+            pygame.draw.rect(s, col, pygame.Rect(18, 26, 30, 11))
+            pygame.draw.line(s, (*ANGRY_COL, 235), (10, 40), (54, 4), 5)
+            self._offline_icon = s
+        self.screen.blit(self._offline_icon, (14, 10))
 
     def _draw_timer(self, text):
         """A little clock and the time left, top-right. Cached per text."""

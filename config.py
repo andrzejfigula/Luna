@@ -345,6 +345,10 @@ WEATHER_LAT          = _coord("LUNA_LAT")
 WEATHER_LON          = _coord("LUNA_LON")
 WEATHER_REFRESH_SECS = 1800
 
+# ── Health (health.py) ───────────────────────────────────────────────────────
+HEALTH_PROBE_SECS = 60     # while offline, check the API is reachable this often
+HEALTH_LOG_SECS   = 3600   # a "[health]" summary line in luna.log
+
 # ── Timers & reminders (timers.py) ───────────────────────────────────────────
 TIMERS_PATH       = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                  "data", "timers.json")

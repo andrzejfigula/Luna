@@ -53,6 +53,11 @@ SOUNDS = {
     "hey":    ("Ej!",
                "A short, playful protest 'hey!' — mildly annoyed at being poked, "
                "but not really angry."),
+    # not a sound but a sentence: recorded while online, played when the
+    # cloud is unreachable (TTS would fail too, leaving her silent)
+    "offline": ("Przepraszam, nie mogę teraz połączyć się z moim mózgiem w chmurze. "
+                "Sprawdź proszę internet.",
+                "Normal speech, apologetic and gentle, a little sad.", 7.0),
 }
 
 _cache = {}                    # name → PCM bytes, ready to play

@@ -29,6 +29,7 @@ from openai import OpenAI
 
 import reply_scenes
 import body
+import health
 import memory
 import timers
 import weather
@@ -639,6 +640,7 @@ def process(text):
     if speaker:
         print(f"[brain] reply started streaming after {head['_t']:.1f}s, "
               f"model done after {time.time() - t0:.1f}s")
+    health.note_reply(bool(result), time.time() - t0)
 
     if result:
         reply, emotion, gesture = result
@@ -652,6 +654,11 @@ def process(text):
     try:
         if speaker:
             speaker[0].join()
+        elif reply == OFFLINE_REPLY:
+            # the network is the likely culprit — and TTS needs it too, so
+            # say the apology that was recorded while the cloud was up
+            if not play_sound("offline", can_drop=False):
+                speak(reply)
         else:
             speak(reply)
     finally:

@@ -1,0 +1,92 @@
+"""
+health.py — is Luna's cloud reachable, and how is she doing?
+
+  • state.online goes False when a model call fails and back True after the
+    next success, or when a cheap TCP probe to the API succeeds (every
+    HEALTH_PROBE_SECS while offline). robot_face shows a small "no cloud"
+    icon while offline, and brain plays a pre-recorded apology instead of
+    going silent (TTS needs the network too).
+  • Once an hour a "[health]" line in the log: temperature, load, memory,
+    answers and their average time, failures.
+"""
+
+import socket
+import threading
+import time
+
+import body
+from shared_state import state
+from config import HEALTH_PROBE_SECS, HEALTH_LOG_SECS
+
+_lock = threading.Lock()
+_stats = {"replies": 0, "secs": 0.0, "failures": 0}
+
+
+def note_reply(ok, secs=0.0):
+    """brain.process reports every answer (ok) or failure."""
+    with _lock:
+        if ok:
+            _stats["replies"] += 1
+            _stats["secs"] += secs
+        else:
+            _stats["failures"] += 1
+    _set_online(ok)
+
+
+def _set_online(ok):
+    with state.lock:
+        was = state.online
+        state.online = ok
+    if was != ok:
+        print(f"[health] cloud {'reachable again' if ok else 'UNREACHABLE'}", flush=True)
+
+
+def _probe():
+    try:
+        with socket.create_connection(("api.openai.com", 443), timeout=4):
+            return True
+    except OSError:
+        return False
+
+
+def _mem_used():
+    try:
+        info = {}
+        with open("/proc/meminfo") as f:
+            for line in f:
+                k, v = line.split(":", 1)
+                info[k] = int(v.split()[0])
+        return round(100 * (1 - info["MemAvailable"] / info["MemTotal"]))
+    except (OSError, KeyError, ValueError):
+        return None
+
+
+def _log():
+    with _lock:
+        s = dict(_stats)
+        _stats.update(replies=0, secs=0.0, failures=0)
+    avg = f"{s['secs'] / s['replies']:.1f}s" if s["replies"] else "-"
+    t = body.cpu_temp()
+    print(f"[health] {time.strftime('%H:%M')} CPU {t:.0f}°C, load {body.load_percent()}%, "
+          f"RAM {_mem_used()}%, last hour: {s['replies']} answers (avg {avg}), "
+          f"{s['failures']} failures", flush=True)
+
+
+def _loop():
+    last_log = time.time()
+    while True:
+        try:
+            with state.lock:
+                online = state.online
+            if not online and _probe():
+                _set_online(True)
+            if time.time() - last_log >= HEALTH_LOG_SECS:
+                last_log = time.time()
+                _log()
+        except Exception as e:
+            print(f"[health] loop error: {e}")
+        time.sleep(HEALTH_PROBE_SECS)
+
+
+def start_health():
+    threading.Thread(target=_loop, daemon=True, name="health").start()

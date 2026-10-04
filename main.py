@@ -48,6 +48,9 @@ start_timers()
 from weather import start_weather
 start_weather()
 
+from health import start_health
+start_health()
+
 import random
 import difflib
 
