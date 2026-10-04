@@ -160,6 +160,32 @@ front of the camera for 30 s the face goes to sleep.
   (`THINK_SOUND_*`) and on touch (`TOUCH_SOUNDS`). Quiet hours and
   "Luna, cicho" apply to the unprompted ones.
 
+- Local commands (`commands.py`, no model round trip): volume ("głośniej",
+  "głośność na 40"), speech speed ("mów wolniej", kept in
+  `data/settings.json`), "dobranoc" (asleep until morning or until spoken
+  to), "pa" (closes the conversation), and whole-screen moments
+  (`screens.py`: "zrób mi zdjęcie" → `photos/`, "pokaż lustro", "pokaż
+  zegar"). Volume/speed commands must be bare — a question that merely
+  contains "ciszej" goes to the model (tests/test_routing.py).
+- Timers, reminders, alarms (`timers.py`, `data/timers.json`): set by the
+  model through the reply's `actions`; a countdown top-right; a wake-up
+  alarm brightens the screen like a sunrise for `SUNRISE_SECS` first.
+- Rock, paper, scissors (`games.py`): 3-2-1 between her eyes, her hand on
+  screen, yours read from the camera by one vision call.
+- Touch: hold a finger still ~0.7 s to talk without the wake word; tap
+  while she talks to stop her.
+- Screen brightness (`display.py`): one manager for day / night (quiet
+  hours, `NIGHT_BRIGHTNESS`) / sleep / sunrise. Night voice:
+  `NIGHT_VOICE_GAIN`.
+- Audio (`audio_out.py`): one long-lived pw-play fed with silence between
+  replies — no start-up delay or pop. `AUDIO_PERSISTENT = False` restores a
+  player per reply.
+- Health (`health.py`): an offline icon and a recorded apology when the
+  cloud is unreachable, a warm-up of the API clients at start, and an
+  hourly `[health]` line in the log.
+- CPU: face detection searches around the last face and slows down when
+  nobody is there; the sleeping face is drawn at `RENDER_FPS_ASLEEP`.
+
 Logic tests (stream parser, timers, memory, game, voice commands) run on
 any computer, no Pi or network needed:
 
