@@ -191,3 +191,10 @@ the game's hand reading, photos, the mood read from a face.
 | 68 | **Guess the number** — "zagrajmy w zgadywankę": she thinks of 1–100, you guess, "więcej!" / "mniej!", the remaining range on her screen | The classic car-trip game, and it teaches halving | ✅ |
 | 69 | **English words quiz** — "przepytaj mnie ze słówek angielskich": 70 first words (animals, colours, food, family…), "pies = ?" on the screen | Kids learn English early in Poland; the same quiz engine as the maths | ✅ "It's a dog!" counts, small mishearings too (fuzzy match) |
 | 70 | **The log never fills the SD card** — rotated to `luna.log.1` beyond 5 MB, and a reboot no longer erases it (autostart now appends) | She runs for months; after a crash the log is the only witness | ✅ the autostart line on the Pi was changed from `>` to `>>` (`install_autostart.sh` does it too) |
+
+## Batch 20
+
+| # | Item | Why | Status |
+|---|------|-----|--------|
+| 71 | **Counting for hide and seek** — "policz do dwudziestu": "Chowajcie się!", the numbers in her own voice with each one big on the screen, then "Kto się nie schował, ten kryje! Szukam!"; "odliczaj od dziesięciu" counts down to "Start!" | The game every child plays, and a robot that counts fairly | ✅ numbers are made once and cached (`sounds.clip`), so the beat is steady and it works offline; up to 30; a tap stops it. Found: numbers above ten take 1–2 s to say, so the beat follows the voice instead of a fixed second |
+| 72 | **Stopwatch** — "włącz stoper", "ile na stoperze?", "zatrzymaj stoper" → "Stop! 2 minuty i 14 sekund." Counts up in the corner of the screen | Planks, eggs, races around the house | ✅ |

@@ -22,6 +22,7 @@ commands.py — things Luna does herself, without asking the model.
   quiz     "przepytaj mnie z tabliczki mnożenia" (quiz.py)
   remember "zapamiętaj, że klucze są w szufladzie" (memory.add_fact)
   spell    "jak się pisze żółw?" — on the screen and letter by letter
+  count    "policz do dwudziestu", "odliczaj od dziesięciu", "włącz stoper" (counting.py)
   goodbye  "pa", "do zobaczenia", "dzięki, to wszystko": a wave, and the
            conversation window closes at once
   wake     anything you say to her while she sleeps wakes her up (so
@@ -518,6 +519,10 @@ def handle(text, speak, play_sound):
     import breathing                               # guided breathing
     if breathing.is_trigger(low):
         breathing.run(speak, play_sound)
+        return True
+
+    import counting                                # "policz do 20", stopwatch
+    if counting.handle(text, speak, play_sound):
         return True
 
     import fun                                     # lamp, high five, dice, coin

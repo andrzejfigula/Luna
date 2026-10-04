@@ -535,7 +535,8 @@ def _watch():
             with _lock:
                 first_timer = next((t for t in _timers if t["kind"] == "timer"), None)
             with state.lock:
-                state.timer_text = countdown_text()
+                import counting
+                state.timer_text = countdown_text() or counting.stopwatch_text()
                 state.sunrise = dawn
                 overlay_on = bool(state.overlay and now < state.overlay[1])
                 if first_timer and 0 < first_timer["due"] - now <= 5.0 \

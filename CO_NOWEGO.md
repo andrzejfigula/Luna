@@ -23,6 +23,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Quiz z matmy | „Przepytaj mnie z tabliczki mnożenia”, „Quiz z dodawania do dwudziestu”, „Pobawmy się w rachunki” — 5 pytań na ekranie, odpowiadasz liczbą; „nie wiem”, „koniec” |
 | Słówka angielskie | „Przepytaj mnie ze słówek angielskich” — „pies = ?” na ekranie, odpowiadasz po angielsku |
 | Zgadywanka | „Zagrajmy w zgadywankę” — Luna myśli o liczbie od 1 do 100, Ty zgadujesz, ona mówi „więcej” / „mniej” |
+| Chowany | „Policz do dwudziestu” — liczy na głos (do 30), cyfry na ekranie, na koniec „Kto się nie schował, ten kryje!”; „Odliczaj od dziesięciu” — jak przy starcie rakiety |
 | Jak się pisze | „Jak się pisze żółw?” — słowo wielkimi literami na ekranie i literowanie |
 | Zapamiętaj | „Zapamiętaj, że klucze są w szufladzie” — zapisuje od razu; potem „gdzie są klucze?” |
 | Tłumacz | „Tłumacz na angielski” (niemiecki, hiszpański, francuski, włoski, ukraiński…) — każde zdanie wraca przetłumaczone, w obie strony; „Koniec tłumaczenia” |
@@ -45,6 +46,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Minutnik | „Minutnik na 10 minut”, „na pół godziny”, „na kwadrans” — od razu, bez chmury (działa też bez internetu); „Nastaw minutnik na makaron, 8 minut” — z etykietą |
 | Przypomnienie | „Przypomnij mi o 18:30, żeby zadzwonić do mamy” |
 | Ile zostało | „Ile zostało na minutniku?” — odliczanie widać też w prawym górnym rogu, a ostatnie 5 sekund wielkimi cyframi |
+| Stoper | „Włącz stoper”, „Ile na stoperze?”, „Zatrzymaj stoper” — czas widać w prawym górnym rogu |
 | Anuluj | „Wyłącz minutnik”, „Usuń przypomnienie o mamie” |
 | Drzemka / dłużej | Po dzwonku: „Jeszcze 5 minut” albo „drzemka” (9 min); „Dodaj 5 minut do minutnika” |
 | Budzik ze świtem | „Obudź mnie jutro o siódmej” — 10 min wcześniej ekran powoli się rozjaśnia |

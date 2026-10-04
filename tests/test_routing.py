@@ -68,6 +68,9 @@ LOCAL = {
     "Przeliteruj chrząszcz": "spell",
     "Zagrajmy w zgadywankę": "quiz",
     "Przepytaj mnie ze słówek angielskich": "quiz",
+    "Policz do dwudziestu": "count",
+    "Odliczaj od dziesięciu": "count",
+    "Włącz stoper": "count",
 }
 MODEL = [
     "Co widzisz?",
@@ -111,6 +114,9 @@ MODEL = [
     "Zapamiętaj to",
     "Jak się pisze list motywacyjny do pracy w banku?",
     "Jak się pisze po angielsku pies?",
+    "Policz do pięciu po angielsku",
+    "Odlicz mi dni do wakacji",
+    "Ile minęło lat od bitwy pod Grunwaldem?",
 ]
 
 
@@ -120,6 +126,7 @@ class RoutingTest(unittest.TestCase):
         import breathing
         import calc
         import quiz
+        import counting
         import fun
         import health
         import lists
@@ -152,6 +159,8 @@ class RoutingTest(unittest.TestCase):
             (fun, "flip", lambda *a: self._mark("fun")),
             (calc, "answer", self._calc(calc.answer)),
             (quiz, "start", lambda *a: self._mark("quiz")),
+            (counting, "count", lambda *a: self._mark("count")),
+            (counting, "_watch", {"t0": None}),
             (memory, "add_fact", lambda f: self._mark("remember")),
             (commands, "_spell", lambda *a: self._mark("spell")),
         ]
@@ -202,6 +211,8 @@ class RoutingTest(unittest.TestCase):
                                   lambda n, **k: True)
         if "<BYE>" in said:
             self._mark("bye")
+        if any(t.startswith("Stoper") for t in said):
+            self._mark("count")
         if not handled:
             return "model"
         return self.hit or "handled-but-unknown"

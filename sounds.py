@@ -145,6 +145,46 @@ def _tick():
 
 _SYNTH = {"chime": _chime, "tick": _tick}
 
+_clips = {}                    # path → PCM: spoken words made once (counting)
+_CLIP_HOW = ("Counting out loud for children playing hide and seek: say just the "
+             "number, briskly and clearly, cheerful.")
+
+
+def _clip_path(text, how):
+    key = "|".join((OPENAI_TTS_MODEL, OPENAI_TTS_VOICE, text, how))
+    return os.path.join(SOUNDS_DIR, f"clip-{hashlib.sha1(key.encode('utf-8')).hexdigest()[:10]}.pcm")
+
+
+def clip(text, how=_CLIP_HOW):
+    """A word or two in her voice, made once and kept on disk — the numbers
+    she counts with. None when it can't be had (offline, first time)."""
+    path = _clip_path(text, how)
+    if path in _clips:
+        return _clips[path]
+    try:
+        if os.path.exists(path):
+            with open(path, "rb") as f:
+                pcm = f.read()
+        elif _client is not None:
+            instructions = ((OPENAI_TTS_INSTRUCTIONS or "") + "\n" + how).strip()
+            r = _client.audio.speech.create(model=OPENAI_TTS_MODEL, voice=OPENAI_TTS_VOICE,
+                                            input=text, response_format="pcm",
+                                            instructions=instructions)
+            pcm = _trim(r.content, 3.0)
+            if not pcm:
+                return None
+            os.makedirs(SOUNDS_DIR, exist_ok=True)
+            with open(path + ".tmp", "wb") as f:
+                f.write(pcm)
+            os.replace(path + ".tmp", path)
+        else:
+            return None
+    except Exception as e:
+        print(f"[sounds] clip {text!r}: {e}", flush=True)
+        return None
+    _clips[path] = pcm
+    return pcm
+
 
 def get(name):
     """PCM for a sound, or None if it isn't ready (or sounds are off).
@@ -171,7 +211,7 @@ def _warm():
     # drop files from older voices / definitions
     keep = {os.path.basename(_path(n)) for n in SOUNDS}
     for fn in os.listdir(SOUNDS_DIR):
-        if fn.endswith(".pcm") and fn not in keep:
+        if fn.endswith(".pcm") and fn not in keep and not fn.startswith("clip-"):
             try:
                 os.remove(os.path.join(SOUNDS_DIR, fn))
             except OSError:
