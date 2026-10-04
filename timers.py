@@ -421,6 +421,14 @@ def _ring(t, missed=False):
     if t.get("then"):                                # focus → break
         secs, label, say = t["then"]
         add(secs, label, say)
+    if t["kind"] == "alarm":
+        import radio
+        if radio.wake_up_radio():                    # "budź mnie radiem"
+            speak(text)
+            with state.lock:
+                state.conversation_active = True
+                state.last_activity_time = time.time()
+            return
     for attempt in range(2):
         with state.lock:
             state.face_override = "surprised"

@@ -39,6 +39,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Wyłącz | „Wyłącz radio” |
 | Do snu | „Wyłącz radio za 30 minut”, „Radio na 20 minut” |
 | Co gra | „Jakie to radio?” |
+| Budzenie radiem | „Budź mnie radiem” — budzik włącza ostatnią stację, najpierw cichutko, przez minutę coraz głośniej; „Budź mnie dzwonkiem” — z powrotem dzwonek. „Dobranoc” wyłącza radio (chyba że ustawiłeś „radio na 30 minut”) |
 | Mówienie przy muzyce | gdy słucha albo mówi, muzyka sama ścisza się prawie do zera; nutka na ekranie = radio gra |
 
 ## Pamięć i nastrój

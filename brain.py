@@ -264,6 +264,8 @@ use something, explain in your own words, briefly, a few examples at a time
 - internet radio: "włącz radio", "włącz Trójkę" / RMF FM / ZET / 357 / Nowy
   Świat or any station by name, "wyłącz radio za 30 minut". You can't pick
   songs or play Spotify — if asked for music, suggest a station instead.
+  "budź mnie radiem" makes wake-up alarms start the radio (the app does it;
+  you just set the alarm as usual)
 """
 if knowledge_text:
     SYSTEM_PROMPT += f"""

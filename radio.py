@@ -6,6 +6,9 @@ radio.py — internet radio.
   "Wyłącz radio" / "stop radio"
   "Wyłącz radio za 30 minut"    → a sleep timer ("radio na 20 minut" too)
   "Jakie to radio?"             → the station's name
+  "Budź mnie radiem"            → wake-up alarms start the radio, fading in
+                                  over a minute, instead of the chime
+                                  ("budź mnie dzwonkiem" switches back)
 
 A few Polish stations are built in; any other name is looked up in the
 public radio-browser.info directory (Polish stations first) and remembered.
@@ -52,6 +55,10 @@ _ALIASES = {"rmf": "rmf fm", "rmfu": "rmf fm", "rmf-u": "rmf fm", "zet": "radio 
 
 _ON = re.compile(r"^(?:luna,? |luno,? )?(?:włącz|wlacz|puść|pusc|zagraj|odpal|graj)\s+"
                  r"(?:(?:mi|nam)\s+)?(?:(?:radio|stację|stacje)\s*(.*)|(.+))$")
+_ALARM_ON = ("budź mnie radiem", "budz mnie radiem", "obudź mnie radiem",
+             "obudz mnie radiem", "budzik z radiem", "budzenie radiem", "budzik radiem")
+_ALARM_OFF = ("budź mnie dzwonkiem", "budz mnie dzwonkiem", "budzik bez radia",
+              "budzik z dzwonkiem", "budzenie dzwonkiem")
 _MUSIC = {"muzykę", "muzyke", "jakąś muzykę", "jakas muzyke", "muzyczkę", "coś do słuchania"}
 _OFF = ("wyłącz radio", "wylacz radio", "stop radio", "zatrzymaj radio", "wyłącz muzykę",
         "wylacz muzyke", "zatrzymaj muzykę", "koniec radia", "radio stop", "ścisz radio do zera")
@@ -173,6 +180,8 @@ def _play(p):
                 got += len(data)
                 a = np.frombuffer(data, np.int16).astype(np.float32)
                 target = RADIO_GAIN * (RADIO_DUCK if _ducked() else 1.0)
+                if p.get("fade"):                    # an alarm: from a whisper up
+                    target *= min(1.0, 0.05 + (time.time() - p["t0"]) / p["fade"])
                 new = target if abs(target - gain) < 0.01 else gain + (target - gain) * 0.5
                 ramp = np.linspace(gain, new, a.size // CHANNELS).repeat(CHANNELS)
                 gain = new                           # ~0.3 s to duck, no clicks
@@ -206,9 +215,10 @@ def _play(p):
                 _say[0]("Radio przestało grać — nie mogę się połączyć ze stacją.")
 
 
-def play(name, url, until=None):
+def play(name, url, until=None, fade=0, alarm=False):
     stop()
-    p = {"name": name, "url": url, "stop": threading.Event(), "until": until}
+    p = {"name": name, "url": url, "stop": threading.Event(), "until": until,
+         "fade": fade, "alarm": alarm, "t0": time.time()}
     p["thread"] = threading.Thread(target=_play, args=(p,), daemon=True, name="radio")
     with _lock:
         global _player
@@ -237,6 +247,32 @@ def stop():
     return p is not None
 
 
+def wake_up_radio():
+    """A wake-up alarm rings: the radio instead of the chime, if asked for.
+    True when the radio started."""
+    import settings
+    if not settings.get("alarm_radio", False) or playing():
+        return False
+    st = _station("")
+    play(st[0], st[1], fade=60, alarm=True)
+    return True
+
+
+def stop_alarm():
+    """"Jeszcze 5 minut" after a radio alarm: the music stops too."""
+    with _lock:
+        p = _player
+    return stop() if p and p.get("alarm") else False
+
+
+def stop_for_the_night():
+    """"Dobranoc": quiet — unless a sleep timer was set on purpose."""
+    with _lock:
+        p = _player
+    if p and not p.get("until"):
+        stop()
+
+
 def playing():
     with _lock:
         return _player["name"] if _player else None
@@ -255,6 +291,16 @@ def handle(text, speak):
     import settings
     _say[0] = speak
     low = text.lower().strip(" .!?")
+    if any(k in low for k in _ALARM_ON + _ALARM_OFF):
+        on = any(k in low for k in _ALARM_ON)
+        settings.put("alarm_radio", on)
+        print(f"[radio] alarm with radio: {on}", flush=True)
+        if len(low.split()) > 6 or re.search(r"\bo\s+(?:\d|\w+ej\b)|\bna\s+\d|godzin|jutro|rano",
+                                               low):
+            return False                   # "…o siódmej" — the model sets the alarm
+        speak("Dobrze, budzik obudzi cię radiem, po cichutku coraz głośniej." if on
+              else "Dobrze, budzik znowu będzie dzwonił.")
+        return True
     if any(k in low for k in _WHAT) and len(low.split()) <= 6:
         now = playing()
         speak(f"Gra {now}." if now else "Radio nie gra.")

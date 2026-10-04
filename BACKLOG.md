@@ -214,3 +214,10 @@ the game's hand reading, photos, the mood read from a face.
 | 76 | **Internet radio** — "włącz radio", "włącz Trójkę", "puść radio Nowy Świat", "wyłącz radio", "jakie to radio?"; a little note sways on her screen while it plays | Every Loona-like robot plays music; Polish radio is the household default | ✅ 7 stations built in (RMF FM, ZET, Jedynka, Dwójka, Trójka, 357, Nowy Świat), any other name found in the radio-browser.info directory and remembered; music ducks ~10× while she listens or speaks; reconnects if the stream drops |
 | 77 | **Radio sleep timer** — "wyłącz radio za 30 minut", "radio na 20 minut" | Falling asleep to the radio | ✅ |
 | 78 | **The music can't outlive her** — ffmpeg and pw-play die with Luna's process (PR_SET_PDEATHSIG), even after kill -9 | Otherwise a restart or crash would leave the radio playing with no way to stop it by voice | ✅ tested with kill -9 |
+
+## Batch 23
+
+| # | Item | Why | Status |
+|---|------|-----|--------|
+| 79 | **Wake up to the radio** — "budź mnie radiem": a wake-up alarm says good morning and starts your last station, fading in from a whisper over a minute ("budź mnie dzwonkiem" switches back) | Gentler than a chime, together with the sunrise on her screen | ✅ "jeszcze 5 minut" snoozes and stops the music; "obudź mnie radiem o siódmej" also goes to the model, which sets the alarm |
+| 80 | **"Dobranoc" turns the radio off** — unless you set a sleep timer on purpose ("radio na 30 minut") | Good night means quiet | ✅ |

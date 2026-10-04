@@ -294,6 +294,8 @@ def sleeping():
 
 
 def go_to_sleep():
+    import radio
+    radio.stop_for_the_night()
     with state.lock:
         state.sleep_mode = True
         state.conversation_active = False
@@ -475,6 +477,8 @@ def handle(text, speak, play_sound):
         secs, _ = timers.parse_duration(low)
         secs = secs or SNOOZE_MINUTES * 60
         if timers.snooze(secs):
+            import radio
+            radio.stop_alarm()                     # the radio alarm goes quiet too
             speak(f"Dobrze, jeszcze {timers.say_duration(secs)}.")
             return True
 
