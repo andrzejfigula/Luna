@@ -8,15 +8,20 @@ health.py — is Luna's cloud reachable, and how is she doing?
     going silent (TTS needs the network too).
   • Once an hour a "[health]" line in the log: temperature, load, memory,
     answers and their average time, failures.
+  • …and the log is kept under LOG_MAX_MB: the older half goes to
+    luna.log.1. She runs for months; the SD card must never fill up.
 """
 
+import os
+import shutil
 import socket
+import sys
 import threading
 import time
 
 import body
 from shared_state import state
-from config import HEALTH_PROBE_SECS, HEALTH_LOG_SECS
+from config import HEALTH_PROBE_SECS, HEALTH_LOG_SECS, LOG_MAX_MB
 
 _lock = threading.Lock()
 _stats = {"replies": 0, "secs": 0.0, "failures": 0}
@@ -145,6 +150,30 @@ def _log():
           f"{s['failures']} failures{audio}; API calls: {api}", flush=True)
 
 
+def _rotate_log():
+    """luna.log over LOG_MAX_MB → copied to luna.log.1 and emptied. Only
+    when stdout is that file opened for appending (">>" — restart.sh and the
+    autostart): with a plain ">" the writer would keep its old offset and
+    the emptied file would grow back full of zeros."""
+    try:
+        import fcntl
+        path = os.path.realpath(f"/proc/self/fd/{sys.stdout.fileno()}")
+        if not path.endswith(".log") or not os.path.isfile(path):
+            return
+        if os.path.getsize(path) < LOG_MAX_MB * 1024 * 1024:
+            return
+        if not fcntl.fcntl(sys.stdout.fileno(), fcntl.F_GETFL) & os.O_APPEND:
+            print("[health] log is large but not opened with >> — not rotating", flush=True)
+            return
+        sys.stdout.flush()
+        shutil.copyfile(path, path + ".1")
+        with open(path, "r+") as f:
+            f.truncate(0)
+        print(f"[health] log rotated (old part in {os.path.basename(path)}.1)", flush=True)
+    except Exception as e:
+        print(f"[health] log rotation failed: {e}", flush=True)
+
+
 def _loop():
     last_log = time.time()
     while True:
@@ -156,6 +185,7 @@ def _loop():
             if time.time() - last_log >= HEALTH_LOG_SECS:
                 last_log = time.time()
                 _log()
+                _rotate_log()
         except Exception as e:
             print(f"[health] loop error: {e}")
         time.sleep(HEALTH_PROBE_SECS)

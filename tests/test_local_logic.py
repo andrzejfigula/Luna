@@ -378,14 +378,33 @@ class KidsTest(unittest.TestCase):
         with mock.patch.object(quiz, "QUESTIONS", 3):
             quiz.start("mul", "przepytaj mnie z tabliczki", say, lambda n: None)
             self.assertTrue(quiz.active())
-            quiz.answer(str(quiz._q["res"]), say, lambda n: None)          # right
-            wrong = quiz._q["res"] + 1
+            quiz.answer(str(quiz._q["answer"]), say, lambda n: None)          # right
+            wrong = quiz._q["answer"] + 1
             quiz.answer(f"to będzie {wrong}", say, lambda n: None)          # wrong once
             self.assertIn("Spróbuj jeszcze raz", said[-1])
             quiz.answer("nie wiem", say, lambda n: None)                    # gives up
-            quiz.answer(str(quiz._q["res"]), say, lambda n: None)          # right
+            quiz.answer(str(quiz._q["answer"]), say, lambda n: None)          # right
         self.assertFalse(quiz.active())
         self.assertIn("2 na 3", said[-1])
+
+    def test_words_and_guessing(self):
+        import quiz
+        say = lambda t, **k: None
+        quiz.start("words", "słówka", say, lambda n: None)
+        en = quiz._q["answer"][0]
+        self.assertTrue(quiz.answer(f"It's {en.capitalize()}!", say, lambda n: None))
+        self.assertEqual(quiz._q["score"], 1)
+        self.assertFalse(quiz.answer("Opowiedz mi lepiej bajkę o smoku i rycerzu",
+                                     say, lambda n: None))
+        quiz.start("guess", "zgadywanka", say, lambda n: None)
+        lo, hi, tries = 1, 100, 0
+        while quiz.active():
+            g = (lo + hi) // 2
+            secret = quiz._q["secret"]
+            quiz.answer(str(g), say, lambda n: None)
+            lo, hi = (g + 1, hi) if g < secret else (lo, g - 1)
+            tries += 1
+        self.assertLessEqual(tries, 7)                     # binary search wins
 
     def test_quiz_ends_on_unrelated_talk(self):
         import quiz

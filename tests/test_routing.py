@@ -66,6 +66,8 @@ LOCAL = {
     "Luna, zapamiętaj sobie że mama ma urodziny 12 maja": "remember",
     "Jak się pisze żółw?": "spell",
     "Przeliteruj chrząszcz": "spell",
+    "Zagrajmy w zgadywankę": "quiz",
+    "Przepytaj mnie ze słówek angielskich": "quiz",
 }
 MODEL = [
     "Co widzisz?",

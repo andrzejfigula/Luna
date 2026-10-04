@@ -407,6 +407,7 @@ LISTS_PATH = os.path.join(DATA_DIR, "lists.json")
 
 # ── Timers & reminders (timers.py) ───────────────────────────────────────────
 TIMERS_PATH       = os.path.join(DATA_DIR, "timers.json")
+LOG_MAX_MB        = 5     # health.py rotates luna.log beyond this (once an hour)
 TIMERS_MAX        = 10
 TIMER_REPEAT_SECS = 60    # nobody reacted to the ring → once more after this
 SNOOZE_MINUTES    = 9     # "drzemka" with no number

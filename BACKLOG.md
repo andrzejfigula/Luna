@@ -183,3 +183,11 @@ the game's hand reading, photos, the mood read from a face.
 | 65 | **"Zapamiętaj, że…"** — stored at once as a fact, with a "remember" gesture | Facts used to wait for the end of the conversation, and the summariser could drop "klucze są w szufladzie" as trivia | ✅ "jestem uczulony…" is kept as a quote (not about Luna), "jutro…" keeps the date it was said; survives a consolidation running at the same time |
 | 66 | **Spelling** — "jak się pisze żółw?": the word big on the screen, then letter by letter, with a tip for ó / rz / ż / ch | Polish spelling is the classic kid question | ✅ "jak się pisze po angielsku pies" still goes to the model |
 | 67 | **"Co potrafisz?" is up to date** — the system prompt's list knew nothing of lists, photos, translator, messages… | She undersold herself | ✅ |
+
+## Batch 19
+
+| # | Item | Why | Status |
+|---|------|-----|--------|
+| 68 | **Guess the number** — "zagrajmy w zgadywankę": she thinks of 1–100, you guess, "więcej!" / "mniej!", the remaining range on her screen | The classic car-trip game, and it teaches halving | ✅ |
+| 69 | **English words quiz** — "przepytaj mnie ze słówek angielskich": 70 first words (animals, colours, food, family…), "pies = ?" on the screen | Kids learn English early in Poland; the same quiz engine as the maths | ✅ "It's a dog!" counts, small mishearings too (fuzzy match) |
+| 70 | **The log never fills the SD card** — rotated to `luna.log.1` beyond 5 MB, and a reboot no longer erases it (autostart now appends) | She runs for months; after a crash the log is the only witness | ✅ the autostart line on the Pi was changed from `>` to `>>` (`install_autostart.sh` does it too) |
