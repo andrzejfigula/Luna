@@ -67,9 +67,17 @@ def _log():
         _stats.update(replies=0, secs=0.0, failures=0)
     avg = f"{s['secs'] / s['replies']:.1f}s" if s["replies"] else "-"
     t = body.cpu_temp()
+    audio = ""
+    try:
+        from openai_tts import tts
+        if tts._out:
+            u, m = tts._out.stats()
+            audio = f", audio: {u} underruns, max stall {m * 1000:.0f} ms"
+    except Exception:
+        pass
     print(f"[health] {time.strftime('%H:%M')} CPU {t:.0f}°C, load {body.load_percent()}%, "
           f"RAM {_mem_used()}%, last hour: {s['replies']} answers (avg {avg}), "
-          f"{s['failures']} failures", flush=True)
+          f"{s['failures']} failures{audio}", flush=True)
 
 
 def _loop():

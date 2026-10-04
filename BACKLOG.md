@@ -28,5 +28,5 @@ Status: ✅ done · 🚧 in progress · ⏳ queued · 💤 parked (with the reas
 | 12 | **Talking props** — reply scenes the model can pick when it fits the topic: sun / rain / snow / cloud for the weather, a lightbulb for an idea, a question mark cloud, a musical note | She can *show* what she talks about, only while answering | ✅ |
 | 13 | **"Mów wolniej / szybciej"** and settings that survive a restart (`data/settings.json`: speech speed, volume) | Small comfort, very noticeable | ✅ (speed persisted; volume is already kept by WirePlumber) |
 | 14 | **Tests that run on any PC** — the streaming JSON parser, local commands, timers, memory dates — no Pi, no network | The parts most likely to break quietly | ✅ 25 tests, pass on Windows and on the Pi |
-| 15 | **Always-open audio stream** — one long-lived player fed with silence, so a reply starts without the 0.25 s pop-guard and player start-up | Another ~0.3 s off every answer, and no pop risk | ⏳ |
+| 15 | **Always-open audio stream** — one long-lived player fed with silence, so a reply starts without the 0.25 s pop-guard and player start-up | Another ~0.3 s off every answer, and no pop risk | ✅ sounds start at once; 0 underruns under load, max writer stall 205 ms vs 400 ms margin; CPU unchanged (158 % vs 161 %) |
 

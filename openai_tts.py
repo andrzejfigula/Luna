@@ -37,6 +37,9 @@ from config import (
     OPENAI_TTS_TIMEOUT,
     TTS_PREBUFFER_SECS,
     TTS_STREAM_PREBUFFER_SECS,
+    AUDIO_PERSISTENT,
+    AUDIO_AHEAD_SECS,
+    AUDIO_PREBUFFER_SECS,
     TTS_LEADIN_SECS,
     TTS_PLAYER,
     AUDIO_OUTPUT_DEVICE,
@@ -108,6 +111,12 @@ class Envelope:
         with self.lock:
             self.t0 = time.time()
 
+    def start_at(self, t):
+        """Byte 0 will be heard at wall-clock time t (the persistent player
+        knows this in advance)."""
+        with self.lock:
+            self.t0 = t
+
     def feed(self, pcm):
         data = self._carry + pcm
         n    = (len(data) // 2 // self.FRAME) * self.FRAME * 2
@@ -150,6 +159,10 @@ class OpenAITTS:
                         if OPENAI_API_KEY else None)
         self._sink    = _resolve_sink(AUDIO_OUTPUT_DEVICE)
         self._raw_cmd = self._build_raw_player_cmd()
+        self._out     = None
+        if AUDIO_PERSISTENT and self._raw_cmd:
+            from audio_out import AudioOut
+            self._out = AudioOut(self._raw_cmd, envelope, AUDIO_AHEAD_SECS)
         if self._client is None:
             print("[TTS] No OPENAI_API_KEY — replies will be printed, not spoken")
         elif self._raw_cmd is None:
@@ -191,12 +204,44 @@ class OpenAITTS:
                 if on_audio_start:
                     on_audio_start()
                 return
-            self._speak_streaming(text, on_audio_start, style)
+            if self._out:
+                self._speak_persistent(text, on_audio_start, style)
+            else:
+                self._speak_streaming(text, on_audio_start, style)
+
+    def _tts_kwargs(self, style):
+        kwargs = dict(model=OPENAI_TTS_MODEL, voice=OPENAI_TTS_VOICE,
+                      response_format="pcm",
+                      speed=settings.get("tts_speed", OPENAI_TTS_SPEED))
+        instructions = "\n".join(x for x in (OPENAI_TTS_INSTRUCTIONS, style) if x)
+        if instructions:
+            kwargs["instructions"] = instructions
+        return kwargs
+
+    def _speak_persistent(self, text, on_audio_start, style=""):
+        """speak() through the always-open player."""
+        out = self._out
+        self._cut.clear()
+        out.begin(on_start=on_audio_start, prebuffer=AUDIO_PREBUFFER_SECS)
+        try:
+            with self._client.audio.speech.with_streaming_response.create(
+                    input=text, **self._tts_kwargs(style)) as resp:
+                for chunk in resp.iter_bytes(chunk_size=16384):
+                    if self._cut.is_set():
+                        break
+                    out.write(chunk)
+        except Exception as e:
+            if not self._cut.is_set():
+                print(f"[TTS] streaming error: {e}")
+        if not out.finish(self._cut) and on_audio_start:
+            on_audio_start()             # never leave the caller waiting
 
     def stop(self):
         """Cut whatever is playing now (called from another thread — a tap on
         the screen). The speaking call then returns as if it had finished."""
         self._cut.set()
+        if self._out:
+            self._out.cut()
         p = self._player
         if p is not None and p.poll() is None:
             try:
@@ -209,6 +254,12 @@ class OpenAITTS:
         same player and sink as speech, with lip sync. Blocks until played."""
         with self.lock:
             if self._raw_cmd is None:
+                return
+            if self._out:
+                self._cut.clear()
+                self._out.begin(on_start=on_audio_start, prebuffer=0.0)
+                self._out.write(pcm)
+                self._out.finish(self._cut)
                 return
             self._cut.clear()
             leadin = bytes(int(TTS_LEADIN_SECS * PCM_RATE) * 2)   # the jack pops
@@ -369,6 +420,23 @@ class OpenAITTS:
                     parts.put(None)
 
             threading.Thread(target=feeder, daemon=True).start()
+
+            if self._out:
+                # the persistent player fills any wait with silence itself
+                out = self._out
+                out.begin(on_start=on_audio_start, prebuffer=AUDIO_PREBUFFER_SECS)
+                while not self._cut.is_set():
+                    q = parts.get()
+                    if q is None:
+                        break
+                    while not self._cut.is_set():
+                        chunk = q.get()
+                        if chunk is None:
+                            break
+                        out.write(chunk)
+                if not out.finish(self._cut) and on_audio_start:
+                    on_audio_start()
+                return
 
             leadin  = bytes(int(TTS_LEADIN_SECS * PCM_RATE) * 2)
             need    = int(TTS_STREAM_PREBUFFER_SECS * PCM_RATE * 2)

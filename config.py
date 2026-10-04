@@ -270,6 +270,13 @@ TTS_LISTENER_STYLE = {
     "sad":      "The listener looks sad: be extra gentle and warm.",
     "stressed": "The listener looks stressed: calm, steady and reassuring.",
 }
+# One long-lived player fed with silence between replies (audio_out.py):
+# no per-reply player start, no stream-open pop, no lead-in silence. False =
+# the old way (a pw-play per reply).
+AUDIO_PERSISTENT  = True
+AUDIO_AHEAD_SECS  = 0.40    # audio kept queued in the player: the writer
+                            # thread stalled up to 0.18 s under face rendering
+AUDIO_PREBUFFER_SECS = 0.15 # speech held back before it starts (net stutter)
 TTS_STREAM_PREBUFFER_SECS = 0.3  # streamed replies: an underrun there is filled with
                                   # silence (a pause, not crackle), so less is safe
 TTS_PREBUFFER_SECS      = 0.6    # audio buffered before playback starts — avoids
