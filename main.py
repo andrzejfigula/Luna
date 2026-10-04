@@ -96,6 +96,15 @@ def _is_self_echo(text):
     return run_ratio >= ECHO_RUN_THRESH and overlap >= ECHO_OVERLAP_THRESH
 
 
+def _stamp_activity():
+    """restart.sh waits until nobody has talked to her for a while."""
+    try:
+        with open("/tmp/luna_last_activity", "w") as f:
+            f.write(str(time.time()))
+    except OSError:
+        pass
+
+
 def _logged(said):
     """speak() that also remembers what was said (for note_local)."""
     def say(text, **kw):
@@ -119,6 +128,7 @@ def voice_loop():
                 elif text:
                     with state.lock:                     # subtitles: what she heard
                         state.caption = ("you", text, time.time() + 6.0)
+                    _stamp_activity()
                     if messages.armed():
                         # "nagraj wiadomość" — this sentence IS the message
                         import speech_to_text
