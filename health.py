@@ -8,6 +8,8 @@ health.py — is Luna's cloud reachable, and how is she doing?
     going silent (TTS needs the network too).
   • Once an hour a "[health]" line in the log: temperature, load, memory,
     answers and their average time, failures.
+  • API calls per day by kind (data/usage.json, 30 days) — "pokaż status"
+    shows today's and yesterday's.
   • …and the log is kept under LOG_MAX_MB: the older half goes to
     luna.log.1. She runs for months; the SD card must never fill up.
 """
@@ -26,6 +28,7 @@ from config import HEALTH_PROBE_SECS, HEALTH_LOG_SECS, LOG_MAX_MB
 _lock = threading.Lock()
 _stats = {"replies": 0, "secs": 0.0, "failures": 0}
 _api = {}                    # API calls this hour, by kind (cost at a glance)
+_day = {}                    # calls today, by kind — flushed to USAGE_PATH hourly
 _API_KINDS = (("/chat/completions", "chat"), ("/audio/speech", "tts"),
               ("/audio/transcriptions", "stt"), ("/models", "ping"))
 
@@ -50,10 +53,61 @@ def _count_api_calls():
             if kind and "openai" in str(request.url.host):
                 with _lock:
                     _api[kind] = _api.get(kind, 0) + 1
+                    _day[kind] = _day.get(kind, 0) + 1
             return _send(self, request, *a, **kw)
 
         counted._luna_counted = True
         lib.Client.send = counted
+
+
+def _usage_path():
+    from config import DATA_DIR
+    return os.path.join(DATA_DIR, "usage.json")
+
+
+def _read_usage():
+    import json
+    try:
+        with open(_usage_path(), encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def flush_usage(today=None):
+    """Add the calls counted since the last flush to today's line."""
+    import json
+    from datetime import date
+    today = today or date.today().isoformat()
+    with _lock:
+        new = dict(_day)
+        _day.clear()
+    if not new:
+        return
+    usage = _read_usage()
+    line = usage.setdefault(today, {})
+    for k, v in new.items():
+        line[k] = line.get(k, 0) + v
+    usage = dict(sorted(usage.items())[-30:])
+    try:
+        tmp = _usage_path() + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(usage, f, indent=1)
+        os.replace(tmp, _usage_path())
+    except OSError as e:
+        print(f"[health] usage not saved ({e})", flush=True)
+
+
+def usage_line(day):
+    """"chat 120, stt 300, tts 95" for that day (ISO date), counting the
+    calls not flushed yet when it is today."""
+    from datetime import date
+    line = dict(_read_usage().get(day, {}))
+    if day == date.today().isoformat():
+        with _lock:
+            for k, v in _day.items():
+                line[k] = line.get(k, 0) + v
+    return ", ".join(f"{k} {v}" for k, v in sorted(line.items()) if k != "ping") or "brak"
 
 
 def note_reply(ok, secs=0.0):
@@ -116,6 +170,9 @@ def status_rows():
     with _lock:
         api = ", ".join(f"{k} {v}" for k, v in sorted(_api.items())) or "brak"
     rows.append(("API/h", api))
+    from datetime import date, timedelta
+    rows.append(("API dziś", usage_line(date.today().isoformat())))
+    rows.append(("API wczoraj", usage_line((date.today() - timedelta(days=1)).isoformat())))
     try:
         from openai_tts import tts
         if tts._out:
@@ -207,6 +264,7 @@ def _loop():
             if time.time() - last_log >= HEALTH_LOG_SECS:
                 last_log = time.time()
                 _log()
+                flush_usage()
                 _rotate_log()
         except Exception as e:
             print(f"[health] loop error: {e}")

@@ -672,6 +672,16 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(lists.get("poranek"), ["umyj zęby", "ubierz się"])   # kept
         lists.apply([{"type": "list_clear", "list": "poranek"}])
 
+    def test_usage_per_day(self):
+        import health
+        health._day.clear()
+        health._day.update({"chat": 3, "stt": 5})
+        health.flush_usage("2026-10-01")
+        health._day.update({"chat": 2})
+        health.flush_usage("2026-10-01")
+        self.assertEqual(health.usage_line("2026-10-01"), "chat 5, stt 5")
+        self.assertEqual(health.usage_line("2026-09-01"), "brak")
+
     def test_where_is(self):
         import faces
         faces._seen = {}

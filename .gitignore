@@ -48,6 +48,7 @@ data/messages/
 data/people.json
 data/people.json.tmp
 data/seen.json
+data/usage.json
 data/seen.json.tmp
 data/relations.json
 data/relations.json.tmp

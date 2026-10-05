@@ -209,6 +209,11 @@ def _shutdown(*args):
     # here (a lock, after "Shutting down") lived on beside the new one and kept
     # the microphone — the new Luna came up deaf
     threading.Timer(2.0, lambda: os._exit(0)).start()
+    try:
+        import health
+        health.flush_usage()   # today's API count survives a restart
+    except Exception:
+        pass
     try:                       # the radio's ffmpeg / pw-play must not outlive her
         import radio
         import ambience
