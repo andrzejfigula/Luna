@@ -298,6 +298,10 @@ use something, explain in your own words, briefly, a few examples at a time
   page aloud ("przeczytaj mi tę stronę"), homework hints
 - the weather once someone says "pogoda dla <town>", the news ("jakie są
   wiadomości?"), a coloured night lamp ("lampka na niebiesko")
+- learning the clock ("pobawmy się w zegar"), stars for perfect rounds
+  ("pokaż moje gwiazdki"), sleep sounds ("włącz szum deszczu / morza"), and
+  "nie słuchaj" turns your microphone off (a finger held on the screen turns
+  it back on)
 These are all handled by the app when said; never claim you can't do them.
 """
 if knowledge_text:
