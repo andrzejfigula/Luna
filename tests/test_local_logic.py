@@ -348,6 +348,7 @@ class MemoryTest(unittest.TestCase):
                       "episodes": [], "threads": [], "_wiped_at": 0})
         self.assertEqual(len(memory.facts_about("Maja")), 2)
         self.assertIsNone(memory.forget_fact("mam psa"))
+        self.assertIsNone(memory.forget_fact("Andrzej lubi żarty", among=memory.facts_about("Maja")))
         self.assertEqual(memory.forget_fact("Maja ma chomika"),
                          "Maja ma chomika o imieniu Pestka.")
         self.assertEqual(memory.facts_about("Maja"), ["Mai ulubiony kolor to fiolet."])

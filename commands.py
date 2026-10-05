@@ -311,7 +311,8 @@ def _memory_talk(text):
         me = state.person[0] if state.person else None
     m = _FORGET_THAT.search(text)
     if m and not re.search(r"\bnie\s+zapomnij", low) and _short(text, 14):
-        gone = memory.forget_fact(m.group(1))
+        among = memory.facts_about(me) if me and _child_here() else None   # a child: hers only
+        gone = memory.forget_fact(m.group(1), among)
         return (f"Dobrze, zapomniałam: {gone.rstrip('.')}." if gone else
                 "Nie mam tego zapisanego.")
     m = _ABOUT.search(text)
@@ -651,7 +652,8 @@ def handle(text, speak, play_sound):
             speak("Nie ma żadnych wiadomości.")
         return True
     if any(k in low for k in _MSG_DELETE) and _short(text, 6):
-        gone, kept = messages.delete(everything="wszystk" in low)
+        # a child deletes only what was heard: unheard ones may be for her parents
+        gone, kept = messages.delete(everything="wszystk" in low and not _child_here())
         said = "Usunęłam wiadomości." if gone else "Nie ma odsłuchanych wiadomości."
         if kept:                                    # left for someone, not heard yet
             to = sorted({m["to"] for m in kept if m.get("to")})

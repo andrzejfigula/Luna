@@ -432,8 +432,9 @@ def facts_about(name):
     return [f for f in facts if forms & set(re.findall(r"\w+", f.lower()))]
 
 
-def forget_fact(what):
-    """"zapomnij, że mam chomika" → the fact removed (best word match), or None."""
+def forget_fact(what, among=None):
+    """"zapomnij, że mam chomika" → the fact removed (best word match), or None.
+    among: only these facts may go (a child: the ones about herself)."""
     want = _stems(what)
     if not want:
         return None
@@ -441,6 +442,8 @@ def forget_fact(what):
         mem = _load()
         best, score = None, 0.0
         for f in mem["facts"]:
+            if among is not None and f not in among:
+                continue
             s = len(want & _stems(f)) / len(want)
             if s > score:
                 best, score = f, s
