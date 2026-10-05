@@ -61,6 +61,23 @@ class UndefinedNameTest(unittest.TestCase):
             walk(top)
 
 
+class StateFieldTest(unittest.TestCase):
+    """shared_state has fixed slots: `state.radoi` or a field nobody added
+    raises AttributeError only when that line runs."""
+
+    def test_every_state_field_exists(self):
+        import re
+        import sys
+        sys.path.insert(0, ROOT)
+        from shared_state import state
+        fields = set(type(state).__slots__) | {"lock"} | set(dir(state))
+        for path in glob.glob(os.path.join(ROOT, "*.py")):
+            src = open(path, encoding="utf-8").read()
+            for name in sorted(set(re.findall(r"\bstate\.([a-zA-Z_]\w*)", src))):
+                with self.subTest(file=os.path.basename(path), field=name):
+                    self.assertIn(name, fields)
+
+
 class LockTest(unittest.TestCase):
 
     def test_state_lock_is_reentrant(self):
