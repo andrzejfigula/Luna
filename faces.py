@@ -389,10 +389,27 @@ def prompt_line():
                 "they can say \"Luna, zapamiętaj moją twarz, jestem …\".\n")
     voc = vocatives()
 
+    with _lock:
+        born = {n: (p.get("birthday"), p.get("born")) for n, p in _load().items()}
+
+    def age(n):
+        """"birthday 12.05, 8 years old" from what birthdays.py stored."""
+        md, year = born.get(n, (None, None))
+        if not md:
+            return None
+        m, d = (int(x) for x in md.split("-"))
+        out = f"birthday {d}.{m}"
+        if year:
+            t = time.localtime()
+            years = t.tm_year - year - ((t.tm_mon, t.tm_mday) < (m, d))
+            out += f", {years} years old"
+        return out
+
     def one(n):
         bits = ([f"vocative \"{voc[n]}\" only when calling them directly, other "
                  "cases as Polish grammar needs"] if voc.get(n) else []) + \
-               ([about[n]] if about.get(n) else [])
+               ([about[n]] if about.get(n) else []) + \
+               ([age(n)] if age(n) else [])
         return f"{n} ({'; '.join(bits)})" if bits else n
     who = ", ".join(one(n) for n in known)
     now = (f"In front of you now: {person[0]} (recognised by face)."

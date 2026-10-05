@@ -379,7 +379,7 @@ def _finish(speak, play_sound_async):
     if score == total:
         said, emo = f"Bezbłędnie! {score} na {total}! Mistrzowski wynik!", "Happy"
     elif score >= total - 1:
-        said, emo = f"Pięknie! {score} na {total} punktów!", "Happy"
+        said, emo = f"Pięknie! {score} na {total}!", "Happy"
     elif score >= total // 2:
         said, emo = f"Nieźle! {score} na {total}. Jeszcze trochę ćwiczeń i będzie komplet.", "Happy"
     else:
