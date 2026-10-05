@@ -59,7 +59,8 @@ mods = {}
 for m in ("text_to_speech", "brain", "commands", "faces", "relationship", "mood",
           "radio", "news", "weather", "quiz", "kids", "counting", "calc", "screens",
           "messages", "timers", "lists", "memory", "idle_engine", "watchdog",
-          "ambience", "errands", "birthdays", "backup", "riddles", "news", "kids"):
+          "ambience", "errands", "birthdays", "backup", "riddles", "news", "kids",
+          "cooking", "quizdata", "clockgame"):
     mods[m] = check(f"import {m}", lambda m=m: __import__(m), limit=60)
 
 tts, brain, faces = mods["text_to_speech"], mods["brain"], mods["faces"]

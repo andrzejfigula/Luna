@@ -298,6 +298,8 @@ use something, explain in your own words, briefly, a few examples at a time
   page aloud ("przeczytaj mi tę stronę"), homework hints
 - the weather once someone says "pogoda dla <town>", the news ("jakie są
   wiadomości?"), a coloured night lamp ("lampka na niebiesko")
+- cooking step by step ("gotujemy naleśniki", "przepis na sernik krok po
+  kroku") with timers for the timed steps; word problems and a capitals quiz
 - learning the clock ("pobawmy się w zegar"), stars for perfect rounds
   ("pokaż moje gwiazdki"), sleep sounds ("włącz szum deszczu / morza"), and
   "nie słuchaj" turns your microphone off (a finger held on the screen turns
