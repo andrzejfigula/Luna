@@ -172,7 +172,9 @@ def status_rows():
     try:
         from openai_tts import tts
         if tts._out:
-            rows.append(("Dźwięk", f"{tts._out.underruns} przerw w tej godzinie"))
+            import openai_tts
+            hit, miss = openai_tts.CACHE_STATS
+            rows.append(("Dźwięk", f"{tts._out.underruns} przerw/h, z pamięci {hit}/{hit + miss}"))
     except Exception:
         pass
     return rows[:7]                    # the list screen shows seven

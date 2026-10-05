@@ -55,6 +55,7 @@ from config import (
 PCM_RATE = 24000   # fixed by the API for response_format="pcm"
 
 CACHE_MAX_CHARS = 140
+CACHE_STATS = [0, 0]           # hits, misses since start
 CACHE_MAX_FILES = 400          # ~3 s each at 48 kB/s: about 60 MB at most
 
 
@@ -274,6 +275,8 @@ class OpenAITTS:
         kwargs = self._tts_kwargs(style)
         key = _cache_key(text, kwargs) if len(text) <= CACHE_MAX_CHARS else None
         cached = cache_get(key) if key else None
+        if key:
+            CACHE_STATS[0 if cached else 1] += 1     # hits, misses (status screen)
         out.begin(on_start=on_audio_start, prebuffer=0.0 if cached else AUDIO_PREBUFFER_SECS,
                   record=True)
         ok = wrote = False
