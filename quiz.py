@@ -46,6 +46,8 @@ _TRIGGERS = ("przepytaj", "quiz", "kwiz", "sprawdź mnie", "sprawdz mnie", "pyta
 _KINDS = [("mul", ("tabliczk", "mnożeni", "mnozeni", "mnożyć", "mnozyc")),
           ("add", ("dodawani", "dodawać", "dodawac")),
           ("sub", ("odejmowani", "odejmować", "odejmowac")),
+          ("story", ("z treścią", "z trescia", "tekstow", "zadań z", "zadan z")),
+          ("capitals", ("stolic", "stolica")),
           ("words", ("słówek", "słówka", "slowek", "slowka", "słówkach",
                      "angielskiego", "angielskich", "angielski", "english")),
           ("mix", ("rachunk", "matematyk", "matm", "liczeni", "liczyć", "liczyc",
@@ -253,6 +255,20 @@ def _new_question(q):
                  reveal=word, right=f"{word.capitalize()} piszemy tak: {letters}"
                  + (f" — {traps}." if traps else "."))
         return
+    if q["kind"] == "story":
+        import quizdata
+        problem, value, how = quizdata.word_problem(seen)
+        seen.add(problem[:40])
+        q.update(card="?", say=problem, answer=value, reveal=str(value),
+                 right=f"Odpowiedź to {value}, bo {how} to {value}.")
+        return
+    if q["kind"] == "capitals":
+        import quizdata
+        question, accept = quizdata.pick_capital(seen)
+        seen.add(question)
+        q.update(card="stolica?", say=question, answer=[a.lower() for a in accept],
+                 reveal=accept[0], right=f"To {accept[0]}.")
+        return
     if q["kind"] == "clock":
         import clockgame
         h, m = clockgame.question(seen, q.get("level", 1))
@@ -307,6 +323,18 @@ def _check(q, text):
         if q["streak"] >= 2 and q.get("level", 1) < 2:
             q["level"] = 2                     # two right in a row: five-minute steps
         return ok
+    if q["kind"] == "capitals":
+        said = _norm(text)
+        if not said:
+            return None
+        for a in q["answer"]:
+            stem = a[:max(3, len(a) - 2)]
+            if stem in said or difflib.SequenceMatcher(None, said.split()[-1], a).ratio() >= 0.8:
+                return True
+        if len(said.split()) > 6:
+            return None
+        q["last_try"] = said.split()[-1]
+        return False
     if q["kind"] == "riddle":
         said = _norm(text).split()
         if not said:
@@ -384,6 +412,10 @@ def start(kind, text, speak, play_sound_async):
         speak(f"Uwielbiam zagadki! {total} zagadki — słuchaj uważnie.")
     elif kind == "dictation":
         speak(f"Dyktando! Przygotuj kartkę i coś do pisania. {total} słów.")
+    elif kind == "story":
+        speak(f"Zadania z treścią! Słuchaj uważnie, {total} zadań.")
+    elif kind == "capitals":
+        speak(f"Quiz ze stolic! {total} pytań.")
     elif kind == "clock":
         speak(f"Uczymy się zegara! Krótka wskazówka to godziny, długa to minuty. "
               f"{total} pytań.")

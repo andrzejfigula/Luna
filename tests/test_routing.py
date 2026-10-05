@@ -73,6 +73,8 @@ LOCAL = {
     "Zagadka!": "quiz",
     "Pobawmy się w zegar": "quiz",
     "Naucz mnie zegara": "quiz",
+    "Przepytaj mnie z zadań z treścią": "quiz",
+    "Quiz ze stolic": "quiz",
     "Policz do dwudziestu": "count",
     "Odliczaj od dziesięciu": "count",
     "Włącz stoper": "count",

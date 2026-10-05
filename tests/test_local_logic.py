@@ -519,6 +519,22 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(quiz._q["score"], 1)
         quiz.answer("koniec", lambda t, **k: said.append(t), lambda n: None)
 
+    def test_capitals_and_checked_sums(self):
+        import quiz
+        import quizdata
+        self.assertEqual(quizdata._eval("3*4+2"), 14)
+        self.assertEqual(quizdata._eval("20 : 4"), 5)
+        with self.assertRaises(ValueError):
+            quizdata._eval("__import__('os')")
+        self.assertEqual(quiz.trigger("Quiz ze stolic"), "capitals")
+        self.assertEqual(quiz.trigger("Przepytaj mnie z zadań z treścią"), "story")
+        said = []
+        quiz.start("capitals", "stolice", lambda t, **k: said.append(t), lambda n: None)
+        right = quiz._q["answer"][0]
+        quiz.answer(f"To {right.capitalize()}!", lambda t, **k: said.append(t), lambda n: None)
+        self.assertEqual(quiz._q["score"], 1)
+        quiz.answer("koniec", lambda t, **k: said.append(t), lambda n: None)
+
     def test_quiz_ends_on_unrelated_talk(self):
         import quiz
         quiz.start("add", "quiz z dodawania do 20", lambda t, **k: None, lambda n: None)
