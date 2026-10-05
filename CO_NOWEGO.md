@@ -28,6 +28,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Słówka angielskie | „Przepytaj mnie ze słówek angielskich” — „pies = ?” na ekranie, odpowiadasz po angielsku |
 | Czytanie na głos | Pokaż kamerze stronę książki albo kartkę: „Przeczytaj mi tę stronę” — czyta całość, słowo w słowo |
 | Gwiazdki | za bezbłędną rundę (quiz, zagadki, dyktando) Luna daje gwiazdkę; „Pokaż moje gwiazdki”. Gry wracają też do słów i działań, w których ktoś się ostatnio pomylił |
+| Zegar | „Pobawmy się w zegar” — tarcza ze wskazówkami, powiedz, która godzina („wpół do ósmej”, „kwadrans po siódmej”, „7:30”…) |
 | Dyktando | „Zróbmy dyktando” — Luna mówi słowo (ó/u, rz/ż, ch/h), piszesz je na kartce, pokazujesz kamerze i mówisz „gotowe”; sprawdza i podpowiada |
 | Zagadki | „Zadaj mi zagadkę”, „Pobawmy się w zagadki” — 3 zagadki, po złej odpowiedzi podpowiedź; „nie wiem”, „koniec” |
 | Zgadywanka | „Zagrajmy w zgadywankę” — Luna myśli o liczbie od 1 do 100, Ty zgadujesz, ona mówi „więcej” / „mniej” |

@@ -495,6 +495,30 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(quiz._stars_pl(3), "gwiazdki")
         self.assertEqual(quiz._stars_pl(12), "gwiazdek")
 
+    def test_clock_game(self):
+        import clockgame
+        import quiz
+        cases = {"siódma trzydzieści": (7, 30), "wpół do ósmej": (7, 30),
+                 "kwadrans po siódmej": (7, 15), "za piętnaście ósma": (7, 45),
+                 "za kwadrans ósma": (7, 45), "dziesięć po siódmej": (7, 10),
+                 "dwadzieścia przed ósmą": (7, 40), "7:30": (7, 30), "siódma": (7, 0),
+                 "dziewiętnasta trzydzieści": (19, 30), "chyba siódma zero pięć": (7, 5),
+                 "dwudziesta pierwsza piętnaście": (21, 15), "wpół do dwunastej": (11, 30)}
+        for text, want in cases.items():
+            with self.subTest(text=text):
+                self.assertEqual(clockgame.parse(text), want)
+        self.assertIsNone(clockgame.parse("nie wiem"))
+        self.assertTrue(clockgame.same((19, 30), (7, 30)))
+        self.assertEqual(clockgame.say(7, 30), "wpół do ósmej, czyli siódma trzydzieści")
+        self.assertEqual(quiz.trigger("Pobawmy się w zegar"), "clock")
+        self.assertIsNone(quiz.trigger("Pokaż zegar"))
+        said = []
+        quiz.start("clock", "zegar", lambda t, **k: said.append(t), lambda n: None)
+        h, m = quiz._q["answer"]
+        quiz.answer(f"{h}:{m:02d}", lambda t, **k: said.append(t), lambda n: None)
+        self.assertEqual(quiz._q["score"], 1)
+        quiz.answer("koniec", lambda t, **k: said.append(t), lambda n: None)
+
     def test_quiz_ends_on_unrelated_talk(self):
         import quiz
         quiz.start("add", "quiz z dodawania do 20", lambda t, **k: None, lambda n: None)

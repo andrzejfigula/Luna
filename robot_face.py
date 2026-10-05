@@ -2327,6 +2327,35 @@ class RobotFace:
                     pygame.draw.circle(lamp, col, (cx, cy), r)
                 self._lamp = ((inner, outer), lamp)
             scr.blit(self._lamp[1], (0, 0))
+        elif kind == "clockface":
+            # an analogue clock to read (clockgame.py): numbers, ticks, two hands
+            scr.fill(BG)
+            cx, cy, R = WIDTH // 2, HEIGHT // 2 - 18, min(WIDTH, HEIGHT) // 2 - 50
+            pygame.draw.circle(scr, (30, 26, 40), (cx, cy), R)
+            pygame.draw.circle(scr, STAR_COL, (cx, cy), R, 5)
+            font = _get_font(30)
+            for i in range(60):
+                a = math.radians(i * 6 - 90)
+                r0 = R - (16 if i % 5 == 0 else 8)
+                pygame.draw.line(scr, EYE_MID, (cx + r0 * math.cos(a), cy + r0 * math.sin(a)),
+                                 (cx + (R - 4) * math.cos(a), cy + (R - 4) * math.sin(a)),
+                                 3 if i % 5 == 0 else 1)
+            for n in range(1, 13):
+                a = math.radians(n * 30 - 90)
+                img = font.render(str(n), True, STAR_COL)
+                scr.blit(img, img.get_rect(center=(cx + (R - 42) * math.cos(a),
+                                                   cy + (R - 42) * math.sin(a))))
+            h, m = data["h"], data["m"]
+            for ang, length, width, col in (
+                    ((h % 12 + m / 60) * 30, R * 0.5, 9, (255, 240, 200)),   # hour
+                    (m * 6, R * 0.78, 5, STAR_COL)):                           # minute
+                a = math.radians(ang - 90)
+                pygame.draw.line(scr, col, (cx, cy),
+                                 (cx + length * math.cos(a), cy + length * math.sin(a)), width)
+            pygame.draw.circle(scr, (255, 240, 200), (cx, cy), 9)
+            if data.get("sub"):
+                sub = _get_font(26).render(data["sub"], True, EYE_MID)
+                scr.blit(sub, sub.get_rect(center=(WIDTH // 2, HEIGHT - 22)))
         elif kind == "stars":
             # stars collected for perfect rounds (quiz.py): a grid of gold stars,
             # the newest one pops in; the name and the count below

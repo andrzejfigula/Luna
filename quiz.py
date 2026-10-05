@@ -102,6 +102,10 @@ def trigger(text):
         return "guess"
     if re.search(r"\bdyktand|\bortograf", low):
         return "dictation"
+    if re.search(r"\bzegar", low) and re.search(
+            r"\b(?:pobawmy|zagrajmy|naucz|ucz|uczyć|przepytaj|ćwicz\w*|cwicz\w*|gra\w*|"
+            r"odczytywa\w*|czytać|czytac)\b", low):
+        return "clock"                         # not "pokaż zegar" (screens.py)
     if _riddle_request(low):
         return "riddle"
     if not any(t in low for t in _TRIGGERS):
@@ -249,6 +253,13 @@ def _new_question(q):
                  reveal=word, right=f"{word.capitalize()} piszemy tak: {letters}"
                  + (f" — {traps}." if traps else "."))
         return
+    if q["kind"] == "clock":
+        import clockgame
+        h, m = clockgame.question(seen, q.get("level", 1))
+        seen.add((h, m))
+        q.update(card=f"{h}:{m:02d}", say="Która godzina jest na zegarze?", answer=(h, m),
+                 reveal=f"{h}:{m:02d}", right=f"To {clockgame.say(h, m)}.")
+        return
     if q["kind"] == "riddle":
         riddle, answer, accept, hint = _riddle(seen)
         seen.add(answer)
@@ -285,6 +296,17 @@ def _new_question(q):
 
 def _check(q, text):
     """True / False, or None when the utterance is no answer at all."""
+    if q["kind"] == "clock":
+        import clockgame
+        t = clockgame.parse(text)
+        if t is None:
+            return None
+        q["last_try"] = f"{t[0]}:{t[1]:02d}"
+        ok = clockgame.same(t, q["answer"])
+        q["streak"] = q.get("streak", 0) + 1 if ok else 0
+        if q["streak"] >= 2 and q.get("level", 1) < 2:
+            q["level"] = 2                     # two right in a row: five-minute steps
+        return ok
     if q["kind"] == "riddle":
         said = _norm(text).split()
         if not said:
@@ -326,7 +348,13 @@ def _ask(speak):
     sub = (f"zagadka {q['n']} z {total}" if q["kind"] == "riddle" else
            f"dyktando · słowo {q['n']} z {total} · pokaż kartkę i powiedz „gotowe”"
            if q["kind"] == "dictation" else f"pytanie {q['n']} z {total}")
-    _card(q["card"], ("po angielsku · " if q["kind"] == "words" else "") + sub)
+    if q["kind"] == "clock":                 # the clock face, not the answer
+        h, m = q["answer"]
+        with state.lock:
+            state.overlay = ("clockface", time.time() + EXPIRE_SECS,
+                             {"h": h, "m": m, "sub": f"zegar · {q['n']} z {q['total']}"})
+    else:
+        _card(q["card"], ("po angielsku · " if q["kind"] == "words" else "") + sub)
     speak(q["say"])
     _listen_longer()
 
@@ -356,6 +384,9 @@ def start(kind, text, speak, play_sound_async):
         speak(f"Uwielbiam zagadki! {total} zagadki — słuchaj uważnie.")
     elif kind == "dictation":
         speak(f"Dyktando! Przygotuj kartkę i coś do pisania. {total} słów.")
+    elif kind == "clock":
+        speak(f"Uczymy się zegara! Krótka wskazówka to godziny, długa to minuty. "
+              f"{total} pytań.")
     else:
         name = {"mul": "tabliczki mnożenia", "add": "dodawania", "sub": "odejmowania",
                 "mix": "rachunków", "words": "angielskich słówek"}[kind]
