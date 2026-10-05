@@ -45,6 +45,11 @@ def wants(text):
     m = _START.search(text.strip())
     if not m:
         return None
+    import intent                      # not "w sobotę gotujemy naleśniki u babci"
+    lead = re.sub(r"^(?:luna|luno|hej|dobra|ok|okej|to|a|no)\W*", "",
+                  text.strip()[:m.start()].lower()).strip(" ,")
+    if lead and not intent.asked(text, 4):
+        return None
     dish = re.split(r",|\s+(?:bo|żeby|zeby|a potem|i potem|dla gości)\b", m.group(1))[0]
     dish = dish.strip(" ,.")
     if not dish or len(dish.split()) > 5 or dish.lower() in (

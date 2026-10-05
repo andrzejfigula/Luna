@@ -43,6 +43,8 @@ goes to the model.
 import json
 import random
 import re
+
+import intent
 import subprocess
 import threading
 import time
@@ -789,7 +791,7 @@ def handle(text, speak, play_sound):
     # "bajka na dobranoc" — a calm story, then she falls asleep herself
     if (("dobranoc" in low or "do snu" in low or "na sen" in low)
             and any(k in low for k in ("bajk", "historyjk", "opowieść", "opowiesc"))
-            and _short(text, 10)):
+            and _short(text, 10) and intent.asked(low, 4)):
         import brain
         with state.lock:
             state.voice_mood = "sleepy"          # a lullaby voice, not a cheerful one
@@ -839,7 +841,7 @@ def handle(text, speak, play_sound):
             state.focus_until = 0.0
         speak("Dobrze, koniec skupienia.")
         return True
-    if any(k in low for k in _FOCUS) and _short(text, 9):
+    if any(k in low for k in _FOCUS) and _short(text, 9) and intent.asked(low, 4):
         import timers
         m = re.search(r"(\d{1,3})\s*(min|minut)", low)
         mins = int(m.group(1)) if m else FOCUS_MINUTES
@@ -857,7 +859,7 @@ def handle(text, speak, play_sound):
         return True
 
     import breathing                               # guided breathing
-    if breathing.is_trigger(low):
+    if breathing.is_trigger(low) and intent.asked(low, 3):
         breathing.run(speak, play_sound)
         return True
 

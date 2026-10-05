@@ -19,6 +19,8 @@ kept) and are never sent anywhere.
 import json
 import os
 import re
+
+import intent
 import time
 
 from shared_state import state
@@ -227,7 +229,7 @@ def handle(text, speak, play_sound_async):
     if any(k in low for k in _PHOTO):
         _take_photo(speak, play_sound_async)
         return True
-    if any(k in low for k in _MIRROR):
+    if any(k in low for k in _MIRROR) and intent.asked(low, 2):
         _show("mirror", MIRROR_SECS)
         speak("Proszę bardzo, oto lusterko.")
         return True

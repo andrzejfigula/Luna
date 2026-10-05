@@ -196,7 +196,9 @@ def handle(text, speak):
     if (len(words) > 8 or text.strip().endswith("?")
             or (words and words[0] in ("jak", "czy", "dlaczego", "co", "jaki", "kiedy"))):
         return False                            # "czy pada deszcz?" is a question
-    if not (_ON.search(low) or "szum" in words):
+    import intent                               # not "szum morza mnie uspokaja"
+    if not ((_ON.search(low) or "szum" in words) and (
+            intent.asked(low, 3) or re.search(r"\bna\s+\w+\s+(?:minut|godzin)", low))):
         return False
     kind = next((k for k, stems in KINDS.items() if any(s in low for s in stems)), None)
     if kind is None:
