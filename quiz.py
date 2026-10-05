@@ -207,13 +207,39 @@ def _riddle(seen):
     return riddle, accept[0], accept, hint
 
 
+def _past_misses(game):
+    """What the person in front of her got wrong lately in this game (her day
+    and diary, mood.py): ["rzeka", "7 × 8 = 56", …], most recent first."""
+    try:
+        import mood
+        with state.lock:
+            who = state.person[0] if state.person else None
+        if not who:
+            return []
+        with mood._lock:
+            today = list(mood._load().get("games", []))
+        past = [g for e in mood._diary() for g in (e.get("games") or [])]
+        out = []
+        for g in reversed(past + today):
+            if g.get("who") == who and g.get("game") == game:
+                out += [m for m in g.get("misses", []) if m not in out]
+        return out
+    except Exception:
+        return []
+
+
+REPEAT_MISSES = 0.5        # how often a question is one they got wrong lately
+
+
 def _new_question(q):
     """Fills q with the next question: card, spoken, answer, reveal."""
     seen = q["seen"]
     if q["kind"] == "dictation":
         import commands
         pool = [w for w in DICTATION if w not in seen] or DICTATION
-        word = random.choice(pool)
+        again = [w for w in _past_misses("dyktando") if w in pool]
+        word = (random.choice(again) if again and random.random() < REPEAT_MISSES
+                else random.choice(pool))
         seen.add(word)
         letters = ", ".join(commands._LETTERS.get(c, c) for c in word)
         traps = _traps(word)
@@ -239,6 +265,13 @@ def _new_question(q):
         return
     for _ in range(20):                                   # no repeats
         op, a, b, res = _math_problem(q["kind"], q["limit"])
+        if q["kind"] == "mul" and random.random() < REPEAT_MISSES:
+            again = [tuple(int(x) for x in re.findall(r"\d+", m)[:2])
+                     for m in _past_misses("tabliczka mnożenia")]
+            again = [p for p in again if len(p) == 2 and ("mul",) + p not in seen]
+            if again:                                     # one they got wrong lately
+                a, b = random.choice(again)
+                res = a * b
         if (op, a, b) not in seen and (op != "mul" or (b, a) not in seen):
             break
     seen.add((op, a, b))

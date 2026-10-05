@@ -458,6 +458,28 @@ class KidsTest(unittest.TestCase):
         self.assertIn("Nie widzę dobrze napisu", said[-1])
         quiz.answer("koniec", say, lambda n: None)
 
+    def test_practice_what_was_wrong(self):
+        import mood
+        import quiz
+        mood.PATH = os.path.join(TMP, "day-practice.json")
+        mood.DIARY = os.path.join(TMP, "diary-practice.json")
+        mood._day = None
+        mood.note_game("Maja", "dictation", 3, 5, ["rzeka"])
+        mood.note_game("Maja", "mul", 4, 5, ["7 × 8 = 56"])
+        with state.lock:
+            state.person = ("Maja", 0.9, time.time())
+        self.assertEqual(quiz._past_misses("dyktando"), ["rzeka"])
+        with mock.patch.object(quiz, "REPEAT_MISSES", 1.0):
+            q = {"kind": "dictation", "seen": set()}
+            quiz._new_question(q)
+            self.assertEqual(q["answer"], "rzeka")
+            q = {"kind": "mul", "seen": set(), "limit": 100}
+            quiz._new_question(q)
+            self.assertEqual(q["answer"], 56)
+        with state.lock:
+            state.person = None
+        self.assertEqual(quiz._past_misses("dyktando"), [])       # someone else
+
     def test_quiz_ends_on_unrelated_talk(self):
         import quiz
         quiz.start("add", "quiz z dodawania do 20", lambda t, **k: None, lambda n: None)
