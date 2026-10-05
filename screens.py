@@ -31,7 +31,8 @@ _LIST   = ("pokaż przypomnienia", "pokaż minutniki", "pokaż budziki",
            "pokaz przypomnienia", "pokaż mi przypomnienia", "show my reminders")
 _GALLERY = ("pokaż zdjęcia", "pokaż ostatnie zdjęcie", "pokaż moje zdjęcia",
             "pokaż fotki", "pokaz zdjecia", "pokaż zdjęcie", "show my photos",
-            "show the photos")
+            "show the photos", "pokaż dzisiejsze zdjęcia", "pokaż wczorajsze zdjęcia",
+            "pokaż zdjęcia z dzisiaj", "pokaż zdjęcia z wczoraj")
 # ("co mamy dzisiaj?" is left alone: it may mean "what day is it")
 _TODAY = ("plan dnia", "plan na dziś", "plan na dzisiaj", "co mamy w planie",
           "dzisiejszy plan", "plany na dziś", "plany na dzisiaj")
@@ -239,8 +240,16 @@ def handle(text, speak, play_sound_async):
         who = _person_in(low)
         if who:                               # "pokaż zdjęcia Mai"
             shots = [f for f in shots if who in tags.get(f, [])]
+        day = None                            # "dzisiejsze" / "z wczoraj"
+        if re.search(r"dzisiejsz|z dzisiaj|z dziś", low):
+            day = time.strftime("%Y%m%d")
+        elif re.search(r"wczorajsz|z wczoraj", low):
+            day = time.strftime("%Y%m%d", time.localtime(time.time() - 86400))
+        if day:
+            shots = [f for f in shots if f.startswith(day)]
         if not shots:
             speak(f"Nie mam zdjęć, na których jest {who}." if who else
+                  "Nie mam zdjęć z tego dnia." if day else
                   "Nie mam jeszcze żadnych zdjęć. Powiedz: zrób mi zdjęcie!")
         else:
             paths = [os.path.join(PHOTOS_DIR, f) for f in shots]
