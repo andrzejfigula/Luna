@@ -49,6 +49,7 @@ data/people.json
 data/people.json.tmp
 data/seen.json
 data/usage.json
+data/greeted.json
 data/tts_cache/
 data/seen.json.tmp
 data/relations.json

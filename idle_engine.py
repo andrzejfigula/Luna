@@ -16,6 +16,7 @@ She plays no animations of her own here: body-language scenes only run as
 part of a reply (reply_scenes.py, chosen by the model in brain.py).
 """
 
+import os
 import random
 import threading
 import time
@@ -126,6 +127,35 @@ def _greeting(first_today):
     return random.choice(GREETINGS_NIGHT)
 
 
+# ── who has had their first hello today (kept across restarts) ────────────────
+
+def _greeted_path():
+    from config import DATA_DIR
+    return os.path.join(DATA_DIR, "greeted.json")
+
+
+def load_greeted():
+    """{who or "?": "YYYY-MM-DD"} — a restart must not bring a second
+    morning briefing."""
+    import json
+    try:
+        with open(_greeted_path(), encoding="utf-8") as f:
+            return {(None if k == "?" else k): v for k, v in json.load(f).items()}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_greeted(days):
+    import json
+    try:
+        tmp = _greeted_path() + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({("?" if k is None else k): v for k, v in days.items()}, f)
+        os.replace(tmp, _greeted_path())
+    except OSError as e:
+        print(f"[idle] could not save greetings ({e})", flush=True)
+
+
 # ── main loop ─────────────────────────────────────────────────────────────────
 
 def idle_loop():
@@ -142,7 +172,7 @@ def idle_loop():
     last_touch_t = 0.0
     last_touch_say = 0.0
     last_touch_sound = 0.0
-    greeted_days = {}                    # who (None: unknown) → day of their first hello
+    greeted_days = load_greeted()        # who (None: unknown) → day of their first hello
     asked_name_at = 0.0                  # when she last asked a stranger their name
     errands_checked = 0.0                # notes to pass on (errands.py)
 
@@ -177,6 +207,8 @@ def idle_loop():
                     # everyone gets their own first hello of the day
                     first_today = greeted_days.get(who) != today
                     greeted_days[who] = today
+                    if first_today:
+                        save_greeted(greeted_days)
                     print(f"[idle] welcome back{' ' + who if who else ''} "
                           f"(away {away / 60:.0f} min)")
                     # her face follows how she feels about them (relationship.py):

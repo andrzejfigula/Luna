@@ -161,6 +161,12 @@ class TimersTest(unittest.TestCase):
         self.assertIsNone(clock.world_time("Która godzina w Pcimiu?", jan))     # unknown
         self.assertIsNone(clock.world_time("O której jest mecz w Tokio?", jan))
 
+    def test_greeted_survives_restart(self):
+        import idle_engine
+        idle_engine.save_greeted({"Maja": "2026-10-05", None: "2026-10-04"})
+        self.assertEqual(idle_engine.load_greeted(),
+                         {"Maja": "2026-10-05", None: "2026-10-04"})
+
     def test_tictac(self):
         import tictac
         b = ["X", "X", None, "O", "O", None, None, None, None]
