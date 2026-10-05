@@ -338,3 +338,4 @@ the game's hand reading, photos, the mood read from a face.
 | 150 | **Capitals quiz** — "quiz ze stolic": 34 countries written by hand, answers in any form ("Paryż", "paris") | For kids and grown-ups | ✅ |
 | 151 | **The conversation history knows who said what** — earlier turns are kept as "[Maja] …" | One history for the whole house: after Andrzej, Maja's "a ja?" was ambiguous to the model | ✅ |
 | 152 | **Fixed: "Brasília" and "Reykjavík" didn't count** in the capitals quiz — the answer normaliser kept only Polish letters | Found by a test that failed 1 run in ~4 (random country) | ✅ 30 runs in a row green; deploys are now gated on the tests' exit code, not on their output |
+| 153 | **"Dobranoc, Maju!"** — good night by name when she knows the face | — | ✅ |

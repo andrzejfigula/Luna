@@ -248,6 +248,19 @@ def _bare_name(text):
     return None
 
 
+def _goodnight():
+    """"Dobranoc, Maju! Kolorowych snów." — by name when she knows the face."""
+    with state.lock:
+        who = state.person[0] if state.person else None
+    if not who:
+        return random.choice(GOODNIGHT_REPLIES)
+    import faces
+    voc = faces.vocatives().get(who) or who
+    return random.choice((f"Dobranoc, {voc}! Kolorowych snów.",
+                          f"Dobranoc, {voc}. Śpij dobrze!",
+                          f"Słodkich snów, {voc}! Do jutra."))
+
+
 def _child_here():
     """Is the recognised person marked as a child (faces.py notes)?"""
     try:
@@ -477,7 +490,7 @@ def handle(text, speak, play_sound):
             and all(w in _NIGHT_OK for w in _words(text))):
         import timers
         note = timers.goodnight_note()
-        speak(random.choice(GOODNIGHT_REPLIES) + (" " + note if note else ""))
+        speak(_goodnight() + (" " + note if note else ""))
         go_to_sleep()
         return True
 
