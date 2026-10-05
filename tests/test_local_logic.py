@@ -611,6 +611,20 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(lists.get("poranek"), ["umyj zęby", "ubierz się"])   # kept
         lists.apply([{"type": "list_clear", "list": "poranek"}])
 
+    def test_local_alarm(self):
+        import commands
+        self.assertEqual(commands.local_alarm("Obudź mnie o 6:30"), ("06:30", "none"))
+        self.assertEqual(commands.local_alarm("Luna, budzik na siódmą"), ("07:00", "none"))
+        self.assertEqual(commands.local_alarm("budzik na wpół do ósmej w dni robocze"),
+                         ("07:30", "weekdays"))
+        self.assertEqual(commands.local_alarm("obudź mnie jutro o siódmej piętnaście"),
+                         ("07:15", "none"))
+        self.assertEqual(commands.local_alarm("codziennie budź mnie o szóstej"),
+                         ("06:00", "daily"))
+        self.assertIsNone(commands.local_alarm("Budź mnie radiem"))   # a mode, no time
+        self.assertIsNone(commands.local_alarm("obudź mnie za 20 minut"))
+        self.assertIsNone(commands.local_alarm("O której mam nastawić budzik?"))
+
     def test_remember_and_spell(self):
         import commands
         self.assertEqual(commands._remember("Zapamiętaj, że klucze są w szufladzie"),

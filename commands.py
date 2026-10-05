@@ -261,6 +261,33 @@ def _goodnight():
                           f"Słodkich snów, {voc}! Do jutra."))
 
 
+_ALARM = re.compile(r"\b(?:obudź|obudz|zbudź|zbudz|budź|budz|budzik|budzenie)\b(?:\s+\w+){0,3}?"
+                    r"\s+(?:o|na)\s+(.+?)[.!?]*$", re.I)
+
+
+def local_alarm(text):
+    """("HH:MM", repeat) for "obudź mnie o 6:30", "budzik na wpół do ósmej w dni
+    robocze" — set here, so an alarm works without the internet. None else."""
+    import clockgame
+    low = text.lower()
+    m = _ALARM.search(low)
+    if not m or is_question(text) or "za " in f" {low} ":   # "za 20 minut": a timer
+        return None
+    when = m.group(1)
+    when = re.sub(r"\b(codziennie|w dni robocze|w tygodniu|od poniedziałku do piątku|"
+                  r"w weekendy?|w soboty i niedziele|jutro|rano|proszę|prosze)\b", " ", when)
+    if len(when.split()) > 4:
+        return None
+    t = clockgame.parse(when)
+    if t is None:
+        return None
+    h, mi = t
+    repeat = ("daily" if "codziennie" in low else
+              "weekdays" if re.search(r"dni robocze|w tygodniu|od poniedziałku", low) else
+              "weekends" if re.search(r"weekend|soboty i niedziele", low) else "none")
+    return f"{h:02d}:{mi:02d}", repeat
+
+
 def _child_here():
     """Is the recognised person marked as a child (faces.py notes)?"""
     try:
@@ -795,6 +822,19 @@ def handle(text, speak, play_sound):
 
     import radio                                   # "włącz radio", "wyłącz Trójkę"
     if radio.handle(text, speak):
+        return True
+
+    alarm = local_alarm(text)                      # "obudź mnie o 6:30" — even offline
+    if alarm:
+        import clock
+        import timers
+        hm, repeat = alarm
+        timers.apply([{"type": "alarm", "seconds": 0, "at": hm, "label": "",
+                       "repeat": repeat, "list": ""}])
+        h, m = (int(x) for x in hm.split(":"))
+        when = {"daily": " codziennie", "weekdays": " w dni robocze",
+                "weekends": " w weekendy"}.get(repeat, "")
+        speak(f"Dobrze, budzik{when} na {clock.hour_accusative(h, m)}.")
         return True
 
     import fun                                     # lamp, high five, dice, coin
