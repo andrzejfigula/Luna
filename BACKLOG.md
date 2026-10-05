@@ -319,3 +319,9 @@ the game's hand reading, photos, the mood read from a face.
 | 136 | **Person reminders with a time** — "o 18 powiedz Emilce, żeby zadzwoniła do mamy" (said when she sees Emilka after six), "codziennie o 20:30 przypominaj Mai, że pora spać" (every evening, once, when Maja is around); "usuń przypomnienia dla Mai", "nie przypominaj już Mai" | A timer rings for whoever is in the room; this finds the right person | ✅ digits and spoken hours ("o dwudziestej trzydzieści"); daily ones don't expire |
 | 137 | **A test for names defined nowhere** — symtable checks every function's global names across all modules (a typo or a forgotten import fails only when that line runs, on the Pi) | After the freeze and the shadowed import, the Pi-only modules needed more than a compile check | ✅ none found in the code base; a planted one is caught |
 | 138 | **A test that every `state.X` exists** in shared_state's slots | A missing slot fails only when its line runs | ✅ all present |
+
+## Batch 32
+
+| # | Item | Why | Status |
+|---|------|-----|--------|
+| 139 | **Dictation with the camera** — "zróbmy dyktando": she says a word with a spelling trap (żółw, rzeka, chmura, herbata, książka… 30 of them), Maja writes it on paper, holds it up and says "gotowe"; Luna reads the handwriting (high-detail picture, mistakes kept) and praises, or says what she sees ("Na kartce widzę „gura”. Podpowiem: piszemy przez ó z kreską.") and finally spells it ("…piszemy tak: g, o z kreską, r, a") | Polish spelling is THE homework of an 8-year-old; the camera makes it a game | ✅ rendered papers: 7 of 8 read exactly with the mistakes kept; one missed dot ("żeka" → "zeka") — when only dots and strokes differ she takes a second look before calling it wrong |

@@ -431,6 +431,33 @@ class KidsTest(unittest.TestCase):
         quiz.answer("koniec", say, lambda n: None)
         self.assertFalse(quiz.active())
 
+    def test_dictation(self):
+        import quiz
+        said = []
+        say = lambda t, **k: said.append(t)
+        self.assertEqual(quiz.trigger("Zróbmy dyktando"), "dictation")
+        self.assertEqual(quiz._traps("żółw"), "przez ó z kreską, przez ż z kropką")
+        self.assertEqual(quiz._traps("chmura"), "przez ch")
+        quiz.start("dictation", "dyktando", say, lambda n: None)
+        q = quiz._q
+        word = q["answer"]
+        self.assertIn(word, said[-1])
+        quiz.answer("chwila", say, lambda n: None)                 # not ready yet
+        self.assertIn("gotowe", said[-1])
+        with mock.patch.object(quiz, "_read_paper", lambda: word.upper() + "."):
+            quiz.answer("Gotowe!", say, lambda n: None)          # right (case, dot)
+        self.assertEqual(q["score"], 1)
+        wrong = quiz._q["answer"].replace("ó", "u").replace("rz", "ż") + "x"
+        with mock.patch.object(quiz, "_read_paper", lambda: wrong):
+            quiz.answer("już", say, lambda n: None)              # wrong → what I see
+            self.assertIn(f"„{wrong}”", said[-1])
+            quiz.answer("gotowe", say, lambda n: None)           # wrong again → spelled
+        self.assertIn("piszemy tak", said[-2] if "Napisz" in said[-1] else said[-1])
+        with mock.patch.object(quiz, "_read_paper", lambda: None):
+            quiz.answer("gotowe", say, lambda n: None)           # nothing readable
+        self.assertIn("Nie widzę dobrze napisu", said[-1])
+        quiz.answer("koniec", say, lambda n: None)
+
     def test_quiz_ends_on_unrelated_talk(self):
         import quiz
         quiz.start("add", "quiz z dodawania do 20", lambda t, **k: None, lambda n: None)

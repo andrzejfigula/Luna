@@ -28,6 +28,14 @@ from shared_state import state
 
 QUESTIONS   = 5
 RIDDLES     = 3           # a round of riddles is shorter
+
+# dictation: words with a Polish spelling trap (ó/u, rz/ż, ch/h, ą/ę)
+DICTATION = ["żółw", "góra", "rzeka", "chmura", "herbata", "ogórek", "drzewo", "żaba",
+             "książka", "pszczoła", "morze", "chleb", "hulajnoga", "róża", "jeż",
+             "mróz", "brzoza", "łódka", "ręka", "wąż", "chomik", "ósemka", "wieża",
+             "rzodkiewka", "księżyc", "ołówek", "ptaszek", "góral", "huśtawka", "żółty"]
+_TRAPS = [("ó", "przez ó z kreską"), ("rz", "przez rz"), ("ż", "przez ż z kropką"),
+          ("ch", "przez ch"), ("h", "przez samo h"), ("ą", "z ą"), ("ę", "z ę")]
 THINK_SECS  = 15          # extra listening time after each question
 EXPIRE_SECS = 60          # no answer this long → the game is over
 
@@ -92,6 +100,8 @@ def trigger(text):
         return None
     if any(g in low for g in _GUESS):
         return "guess"
+    if re.search(r"\bdyktand|\bortograf", low):
+        return "dictation"
     if _riddle_request(low):
         return "riddle"
     if not any(t in low for t in _TRIGGERS):
@@ -100,6 +110,25 @@ def trigger(text):
         if any(s in low for s in stems):
             return kind
     return None
+
+
+def _same_word(written, want):
+    return re.sub(r"[^\wąćęłńóśźż]", "", written.lower()) == want
+
+
+def _plain(word):
+    """Without Polish diacritics: "żółw" → "zolw"."""
+    return word.lower().translate(str.maketrans("ąćęłńóśźż", "acelnoszz"))
+
+
+def _traps(word):
+    """"żółw" → "przez ż z kropką, przez ó z kreską" (the spelling traps in it)."""
+    found, rest = [], word
+    for t, say in _TRAPS:
+        if t in rest:
+            found.append(say)
+            rest = rest.replace(t, " ")
+    return ", ".join(found)
 
 
 def _riddle_request(low):
@@ -181,6 +210,19 @@ def _riddle(seen):
 def _new_question(q):
     """Fills q with the next question: card, spoken, answer, reveal."""
     seen = q["seen"]
+    if q["kind"] == "dictation":
+        import commands
+        pool = [w for w in DICTATION if w not in seen] or DICTATION
+        word = random.choice(pool)
+        seen.add(word)
+        letters = ", ".join(commands._LETTERS.get(c, c) for c in word)
+        traps = _traps(word)
+        q.update(card="pisz!", say=f"Napisz na kartce słowo: {word}. Kiedy skończysz, "
+                 "pokaż mi kartkę i powiedz: gotowe.", answer=word,
+                 hint=f"Podpowiem: piszemy {traps}." if traps else "",
+                 reveal=word, right=f"{word.capitalize()} piszemy tak: {letters}"
+                 + (f" — {traps}." if traps else "."))
+        return
     if q["kind"] == "riddle":
         riddle, answer, accept, hint = _riddle(seen)
         seen.add(answer)
@@ -245,8 +287,9 @@ def _ask(speak):
     q.update(tries=0, asked=time.time())
     q["n"] += 1
     total = q["total"]
-    sub = (f"zagadka {q['n']} z {total}" if q["kind"] == "riddle"
-           else f"pytanie {q['n']} z {total}")
+    sub = (f"zagadka {q['n']} z {total}" if q["kind"] == "riddle" else
+           f"dyktando · słowo {q['n']} z {total} · pokaż kartkę i powiedz „gotowe”"
+           if q["kind"] == "dictation" else f"pytanie {q['n']} z {total}")
     _card(q["card"], ("po angielsku · " if q["kind"] == "words" else "") + sub)
     speak(q["say"])
     _listen_longer()
@@ -275,6 +318,8 @@ def start(kind, text, speak, play_sound_async):
     total = _q["total"]
     if kind == "riddle":
         speak(f"Uwielbiam zagadki! {total} zagadki — słuchaj uważnie.")
+    elif kind == "dictation":
+        speak(f"Dyktando! Przygotuj kartkę i coś do pisania. {total} słów.")
     else:
         name = {"mul": "tabliczki mnożenia", "add": "dodawania", "sub": "odejmowania",
                 "mix": "rachunków", "words": "angielskich słówek"}[kind]
@@ -388,14 +433,25 @@ def _guess(text, speak, play_sound_async):
     return True
 
 
+_READY = ("gotowe", "gotowa", "gotowy", "już", "juz", "sprawdź", "sprawdz", "patrz",
+          "zobacz", "pokazuję", "pokazuje", "napisałam", "napisałem", "napisane", "jest")
+
+
+def _read_paper():
+    """The word on the paper held up to the camera (brain.read_written_word)."""
+    import brain
+    return brain.read_written_word(brain._camera_jpeg_b64())
+
+
 def answer(text, speak, play_sound_async):
     """An utterance while a game is on. True when it was part of the game."""
     global _q
     low = text.lower()
+    words = re.findall(r"\w+", low)
     with _lock:
         if _q is None:
             return False
-        if any(s in low for s in _STOP) and len(re.findall(r"\w+", low)) <= 5:
+        if any(s in low for s in _STOP) and len(words) <= 5:
             speak("Dobrze, kończymy.")
             if _q["kind"] == "guess":
                 _q = None
@@ -407,10 +463,38 @@ def answer(text, speak, play_sound_async):
         if q["kind"] == "guess":
             return _guess(text, speak, play_sound_async)
         if any(s in low for s in _DONT_KNOW):
-            _card(q["reveal"], "", None, secs=4)
+            _card(q["reveal"], "", None, secs=5)
             speak(f"Nic nie szkodzi. {q['right']}")
         else:
-            ok = _check(q, text)
+            if q["kind"] == "dictation":
+                # the answer is on paper: "gotowe" → read it from the camera
+                if not any(w in words for w in _READY):
+                    if len(words) <= 4:
+                        q["asked"] = time.time()
+                        speak("Kiedy napiszesz, pokaż mi kartkę i powiedz: gotowe.")
+                        _listen_longer()
+                        return True
+                    ok = None
+                else:
+                    written = _read_paper()
+                    print(f"[quiz] on the paper: {written!r} (want {q['answer']!r})", flush=True)
+                    if not written:
+                        q["asked"] = time.time()
+                        speak("Nie widzę dobrze napisu. Pokaż kartkę bliżej kamery "
+                              "i powiedz: gotowe.")
+                        _listen_longer()
+                        return True
+                    ok = _same_word(written, q["answer"])
+                    if not ok and _plain(written) == _plain(q["answer"]):
+                        # only dots and strokes differ — the webcam may have
+                        # missed them (it read "żeka" as "zeka"): look again
+                        again = _read_paper()
+                        print(f"[quiz] second look: {again!r}", flush=True)
+                        if again and _same_word(again, q["answer"]):
+                            ok, written = True, again
+                    q["last_try"] = f"„{written}”"
+            else:
+                ok = _check(q, text)
             if ok is None:
                 print("[quiz] not an answer — quiz over", flush=True)
                 _q = None
@@ -427,13 +511,17 @@ def answer(text, speak, play_sound_async):
                 q["tries"] = 1
                 q["asked"] = time.time()
                 _card(q["card"], "spróbuj jeszcze raz", "bad")
-                hint = q.get("hint") if q["kind"] == "riddle" else None
-                speak(f"Hmm, nie {q['last_try']}. "
-                      + (f"Podpowiedź: {hint}" if hint else "Spróbuj jeszcze raz!"))
+                if q["kind"] == "dictation":
+                    speak(f"Na kartce widzę {q['last_try']}. "
+                          + (q.get("hint") or "") + " Popraw i pokaż jeszcze raz.")
+                else:
+                    hint = q.get("hint") if q["kind"] == "riddle" else None
+                    speak(f"Hmm, nie {q['last_try']}. "
+                          + (f"Podpowiedź: {hint}" if hint else "Spróbuj jeszcze raz!"))
                 _listen_longer()
                 return True
             else:
-                _card(q["reveal"], "", "bad", secs=4)
+                _card(q["reveal"], "", "bad", secs=6)
                 speak(f"Niestety nie. {q['right']}")
         with state.lock:
             state.emotion = "Neutral"

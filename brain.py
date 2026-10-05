@@ -789,6 +789,38 @@ def classify_hand(img_b64):
         return None
 
 
+def read_written_word(img_b64):
+    """The word handwritten on a paper shown to the camera, letter by letter
+    as written (mistakes kept — it's a spelling test), or None. quiz.py."""
+    if _client is None or not img_b64:
+        return None
+    try:
+        r = _client.chat.completions.create(
+            model=OPENAI_MODEL,
+            response_format={"type": "json_object"},
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text":
+                     "A child is showing a handwritten Polish word on paper to this "
+                     "webcam for a spelling test. Transcribe EXACTLY the letters "
+                     "written, keeping any spelling mistakes (do not correct "
+                     "u/ó, rz/ż, h/ch, ą/ę, missing diacritics). Return JSON "
+                     "{\"word\": \"...\"} — word empty if no writing is readable."},
+                    {"type": "image_url",
+                     "image_url": {"url": f"data:image/jpeg;base64,{img_b64}",
+                                   "detail": "high"}},
+                ]}],
+            max_tokens=30,
+            temperature=0.0,
+        )
+        word = json.loads(r.choices[0].message.content).get("word", "").strip().lower()
+        return word.strip(" .!?,") or None
+    except Exception as e:
+        print(f"[brain] reading the paper failed: {e}")
+        return None
+
+
 # ── Main process ──────────────────────────────────────────────────────────────
 
 def _show(emotion, gesture):
