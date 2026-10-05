@@ -474,6 +474,32 @@ def facts_about(name):
     return [f for f in facts if forms & set(re.findall(r"\w+", f.lower()))]
 
 
+_WHERE_THING = re.compile(
+    r"\bgdzie\s+(?:jest|są|sa|leży|lezy|leżą|leza|położył\w*|polozyl\w*|zostawił\w*|"
+    r"zostawil\w*|schował\w*|schowal\w*|odłożył\w*|odlozyl\w*|mam|mamy)\s+"
+    r"(?:mój|moj|moja|moje|moi|nasz\w*|te|ten|ta)?\s*(.+?)[?.!]*$", re.I)
+_PLACE = re.compile(r"\b(?:w|we|na|pod|przy|obok|za|u|nad|między)\s+\w+", re.I)
+
+
+def where_is_thing(text):
+    """"Gdzie są klucze?" → "Zapisałam: Klucze są w szufladzie." from what she
+    was told to remember; None when no remembered fact says where it is."""
+    m = _WHERE_THING.search(text)
+    if not m:
+        return None
+    want = _stems(m.group(1))
+    if not want or len(m.group(1).split()) > 4:
+        return None
+    with _lock:
+        facts = _load()["facts"]
+    for f in reversed(facts):                     # the newest note wins
+        body = re.sub(r"^(?:\w+ mówi: |Powiedziano mi: )?[„\"]?", "", f)
+        head = _stems(" ".join(body.split()[:3]))
+        if want & head and _PLACE.search(body):
+            return f"Zapisałam: {body.strip('„”\" .')}."
+    return None
+
+
 def forget_fact(what, among=None):
     """"zapomnij, że mam chomika" → the fact removed (best word match), or None.
     among: only these facts may go (a child: the ones about herself)."""

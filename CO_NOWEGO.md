@@ -41,7 +41,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Mycie zębów | „Myjemy zęby” — 2 minuty odliczane na ekranie, co 30 s podpowiedź, którą stronę myć; stuknięcie przerywa |
 | Poranek krok po kroku | „Zacznij poranek” — czyta listę „poranek” po jednym kroku i czeka na „gotowe” (listę układasz sam: „dopisz umyj zęby do listy poranek”); tak samo „zacznij wieczór” |
 | Jak się pisze | „Jak się pisze żółw?” — słowo wielkimi literami na ekranie i literowanie |
-| Zapamiętaj | „Zapamiętaj, że klucze są w szufladzie” — zapisuje od razu; potem „gdzie są klucze?” |
+| Zapamiętaj | „Zapamiętaj, że klucze są w szufladzie” — zapisuje od razu; potem „gdzie są klucze?” — odpowiada od razu, także bez internetu |
 | Tłumacz | „Tłumacz na angielski” (niemiecki, hiszpański, francuski, włoski, ukraiński…) — każde zdanie wraca przetłumaczone, w obie strony; „Koniec tłumaczenia” |
 | Jak się czuje | „Jak się czujesz?” — zna temperaturę swojego procesora i czas pracy |
 

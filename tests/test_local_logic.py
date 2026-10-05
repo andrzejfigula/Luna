@@ -508,6 +508,18 @@ class MemoryTest(unittest.TestCase):
                          "Maja ma chomika o imieniu Pestka.")
         self.assertEqual(memory.facts_about("Maja"), ["Mai ulubiony kolor to fiolet."])
 
+    def test_where_is_thing(self):
+        memory._save({"facts": ["Andrzej lubi żarty.", "Klucze są w szufladzie w kuchni.",
+                                "Andrzej mówi: „mój paszport leży w szafie”."],
+                      "episodes": [], "threads": [], "_wiped_at": 0})
+        self.assertEqual(memory.where_is_thing("Gdzie są klucze?"),
+                         "Zapisałam: Klucze są w szufladzie w kuchni.")
+        self.assertEqual(memory.where_is_thing("Gdzie jest mój paszport?"),
+                         "Zapisałam: mój paszport leży w szafie.")
+        self.assertIsNone(memory.where_is_thing("Gdzie jest Polska?"))
+        self.assertIsNone(memory.where_is_thing("Gdzie są żarty?"))     # no place in it
+        memory._save(memory._empty())                  # other tests expect no notes
+
     def test_forget(self):
         memory._save({"facts": ["Ma kota."], "episodes": [], "threads": [], "_wiped_at": 0})
         self.assertFalse(memory.check_forget("Zapomnij o tym, nieważne"))

@@ -838,6 +838,9 @@ def handle(text, speak, play_sound, _polite=True):
     if not said:
         said = _memory_talk(text)                  # "co o mnie wiesz?", "zapomnij, że…"
     if not said:
+        import memory
+        said = memory.where_is_thing(text)         # "gdzie są klucze?" — as noted
+    if not said:
         import fun
         said = fun.random_answer(text)             # "kto zmywa: Maja czy tata?"
     if said:

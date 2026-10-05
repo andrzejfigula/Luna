@@ -104,6 +104,7 @@ CASES = [
     ("Pokaż listę zakupów", ""),
     ("Pokaż status", ""),
     ("Zapamiętaj, że klucze są w szufladzie", ""),
+    ("Gdzie są klucze?", "Zapisałam: Klucze są w szufladzie"),
     ("Zapomnij, że klucze są w szufladzie", "zapomniałam"),
     ("Maja ma imieniny 3 maja", "Zapamiętałam"),
     ("Kiedy Maja ma imieniny?", "3 maja"),
