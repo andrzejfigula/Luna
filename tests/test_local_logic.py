@@ -560,6 +560,19 @@ class KidsTest(unittest.TestCase):
             with self.subTest(dictation=w):
                 self.assertTrue(quiz._same_word(w.upper() + "!", w))
 
+    def test_no_cloud_no_crash(self):
+        import quiz
+        import quizdata
+        said = []
+
+        def offline(seen):
+            raise RuntimeError("no network")
+        with mock.patch.object(quizdata, "word_problem", offline):
+            quiz.start("story", "zadania z treścią", lambda t, **k: said.append(t),
+                       lambda n: None)
+        self.assertIn("nie mam internetu", said[-1])
+        self.assertFalse(quiz.active())
+
     def test_quiz_ends_on_unrelated_talk(self):
         import quiz
         quiz.start("add", "quiz z dodawania do 20", lambda t, **k: None, lambda n: None)

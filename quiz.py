@@ -370,8 +370,17 @@ def _check(q, text):
 
 
 def _ask(speak):
+    global _q
     q = _q
-    _new_question(q)
+    try:
+        _new_question(q)
+    except Exception as e:                   # word problems need the cloud
+        print(f"[quiz] no question ({e}) — game over", flush=True)
+        _q = None
+        _card(None)
+        speak("Nie mogę teraz wymyślić pytania — chyba nie mam internetu. "
+              "Spróbujmy później albo zagrajmy w zagadki.")
+        return
     q.update(tries=0, asked=time.time())
     q["n"] += 1
     total = q["total"]
