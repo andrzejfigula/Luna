@@ -19,6 +19,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Bajki i dłuższe wyjaśnienia | „Opowiedz mi bajkę o smoku”, „Wyjaśnij dokładnie, jak działa…” |
 | Co potrafi | „Luna, co potrafisz?” |
 | Godzina i data | „Która godzina?”, „Jaki dziś dzień?” — odpowiedź od razu, bez chmury |
+| Godzina na świecie | „Która godzina w Tokio?”, „…w Nowym Jorku?”, „…w Australii?” — dokładnie, z czasem letnim |
 | Pogoda | Raz: „Luna, pogoda dla Krakowa” (albo „mieszkam w Gdańsku”) — od tej pory „jaka jutro pogoda?” działa, a poranne powitanie ją zna; „wyłącz pogodę” |
 | Pogoda gdzie indziej | „Jaka jest pogoda w Berlinie?”, „Czy jutro pada w Zakopanem?” — sprawdza na to jedno pytanie |
 | Wiadomości | „Jakie są wiadomości?”, „Co słychać na świecie?”, „Co słychać w sporcie?” — 3 najważniejsze nagłówki z RMF24, jej słowami |
@@ -64,17 +65,8 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 |---|---|
 | Pamięta Cię między dniami | samo działa — imię, plany, ważne sprawy; po rozmowie o czymś ważnym zapyta później, jak poszło |
 | Poranne powitanie | pierwsze „cześć” danego dnia zna pogodę (jeśli włączona), przypomnienia i wczorajsze sprawy |
-| Co o mnie wiesz | „Co o mnie pamiętasz?” |
 | Nie słuchaj | „Luna, nie słuchaj” (albo „przestań słuchać na 30 minut”) — mikrofon naprawdę wyłączony, na ekranie przekreślony mikrofon; włącza się po czasie albo przytrzymaniem palca na ekranie |
 | Cofnij wyczyszczenie listy | „Luna, przywróć listę zakupów” (przez godzinę) |
-| Przypomnienie na dziś (bez internetu) | „Przypomnij mi za 20 minut o praniu”, „Przypomnij mi o 17, żeby zadzwonić do mamy” |
-| Kółko i krzyżyk | „Zagrajmy w kółko i krzyżyk” — dotykasz pola na ekranie; z Mają gra łagodniej; „koniec” kończy |
-| Imieniny | „Maja ma imieniny 3 maja”, „Kiedy Maja ma imieniny?” — w dniu imienin złoży życzenia |
-| Godzina na świecie | „Która godzina w Tokio?”, „…w Nowym Jorku?”, „…w Australii?” — dokładnie, z czasem letnim |
-| Minutnik z nazwą | „Minutnik na 10 minut na makaron”, „Ile zostało na minutniku?” |
-| Wiek | „Ile lat ma Maja?” — dokładnie, z daty urodzenia |
-| Memory | „Zagrajmy w memory” — 12 kart na ekranie, szukasz par; pamięta rekord każdego |
-| Kiedy ktoś był | „Gdzie jest Maja?”, „Widziałaś dziś Emilkę?” — kiedy ostatnio widziała tę osobę |
 | Co Luna o mnie wie | „Co o mnie wiesz?”, „Co wiesz o Mai?” — mówi, co ma zapisane; „Zapomnij, że …” usuwa jedną rzecz |
 | Wyczyść pamięć | „Luna, zapomnij wszystko” → zapyta „Na pewno?” → „tak, zapomnij” (dziecko nie może) |
 | Nastrój z kamery | samo działa — dopasowuje ton; skomentuje najwyżej raz na 30 min |
@@ -93,6 +85,9 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Przekaż komuś | „Przekaż Mai, żeby posprzątała pokój”, „Jak zobaczysz Emilkę, powiedz jej, że dzwoniła babcia” — Luna powie to tej osobie, gdy ją rozpozna |
 | Przypomnienie dla kogoś | „O 18 powiedz Emilce, żeby zadzwoniła do mamy”, „Codziennie o 20:30 przypominaj Mai, że pora spać” — powie tej osobie po tej godzinie, gdy ją zobaczy; „Usuń przypomnienia dla Mai” |
 | Urodziny | „Maja ma urodziny 12 maja 2018”, „Moje urodziny są 14 lutego” — potem „Ile dni do urodzin Mai?”; w dniu urodzin Luna złoży życzenia przy powitaniu |
+| Imieniny | „Maja ma imieniny 3 maja”, „Kiedy Maja ma imieniny?” — w dniu imienin złoży życzenia |
+| Wiek | „Ile lat ma Maja?” — dokładnie, z daty urodzenia |
+| Kiedy ktoś był | „Gdzie jest Maja?”, „Widziałaś dziś Emilkę?” — kiedy ostatnio widziała tę osobę |
 | Kim jestem? | „Kim jestem?”, „Poznajesz mnie?” |
 | Zapomnij | „Zapomnij moją twarz”, „Zapomnij twarz Kasi” |
 | Charakter | ma swoje zdanie (ulubiony kolor fioletowy, lubi radio, burze i gwiazdy), poczucie humoru i godność robota |
@@ -105,9 +100,9 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 |---|---|
 | Gotowanie | „Gotujemy naleśniki”, „Przepis na sernik krok po kroku” — składniki, potem krok po kroku na ekranie; „dalej”, „powtórz”, „wróć”, „koniec”; przy krokach z czasem zaproponuje minutnik |
 | Plan dnia | „Pokaż plan dnia”, „Jaki jest plan na dziś?” — przypomnienia, sprawy do przekazania, urodziny, pogoda i listy na jednym ekranie |
-| Minutnik | „Minutnik na 10 minut”, „na pół godziny”, „na kwadrans” — od razu, bez chmury (działa też bez internetu); „Nastaw minutnik na makaron, 8 minut” — z etykietą |
+| Minutnik | „Minutnik na 10 minut”, „na pół godziny”, „na kwadrans” — od razu, bez chmury (działa też bez internetu); „Minutnik na 10 minut na makaron” — z nazwą; „Ile zostało na minutniku?” — dokładnie |
 | Lampka | „Włącz lampkę”, „Lampka na niebiesko” (czerwony, zielony, fioletowy, różowy, żółty, pomarańczowy, biały), „Lampka na 20 minut” — sama zgaśnie; „Wyłącz lampkę” albo stuknięcie |
-| Przypomnienie | „Przypomnij mi o 18:30, żeby zadzwonić do mamy” |
+| Przypomnienie | „Przypomnij mi za 20 minut o praniu”, „Przypomnij mi o 17, żeby zadzwonić do mamy” — na dziś działa też bez internetu; „Przypomnij mi jutro o dentyście” |
 | Ile zostało | „Ile zostało na minutniku?” — odliczanie widać też w prawym górnym rogu, a ostatnie 5 sekund wielkimi cyframi |
 | Stoper | „Włącz stoper”, „Ile na stoperze?”, „Zatrzymaj stoper” — czas widać w prawym górnym rogu |
 | Anuluj | „Wyłącz minutnik”, „Usuń przypomnienie o mamie” |
@@ -121,13 +116,15 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Oddech | „Ćwiczenie oddechowe” / „Pomóż mi się uspokoić” — okrąg na ekranie i jej głos: wdech 4 s, pauza 2 s, wydech 6 s |
 | Głośność | „Głośniej”, „Ciszej”, „Głośność na 40” |
 | Tempo mowy | „Mów wolniej”, „Szybciej”, „Mów normalnie” (zapamiętuje) |
-| Pogoda | „Jaka będzie jutro pogoda?” — **trzeba włączyć**: w `.env` wpisz `LUNA_LAT=` i `LUNA_LON=` (np. 52.23 / 21.01) |
+| Pogoda | „Jaka będzie jutro pogoda?” — **trzeba raz włączyć**: „Luna, pogoda dla Krakowa” (Twoje miasto) |
 
 ## Zabawa
 
 | Co | Jak |
 |---|---|
 | Kamień, papier, nożyce | „Zagrajmy w kamień, papier, nożyce!” — do dwóch wygranych, pokaż rękę do kamery na „!”; „tak” = rewanż |
+| Kółko i krzyżyk | „Zagrajmy w kółko i krzyżyk” — dotykasz pola na ekranie; z Mają gra łagodniej; „koniec” kończy |
+| Memory | „Zagrajmy w memory” — 12 kart na ekranie, szukasz par; pamięta rekord każdego |
 | Zdjęcie | „Zrób mi zdjęcie” — odliczanie, błysk, zdjęcie jak polaroid; zapisuje się w `~/luna/photos/` (tylko na Pi) |
 | Kostka i moneta | „Rzuć kostką”, „Rzuć dwiema kostkami”, „Orzeł czy reszka?” |
 | Piątka | „Przybij piątkę” — pokazuje rękę, stuknij w ekran w ciągu 4 s |
