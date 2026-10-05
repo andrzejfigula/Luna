@@ -89,6 +89,8 @@ LOCAL = {
     "Włącz muzykę": "radio",
     "Budź mnie radiem": "radio",
     "Mów krócej": "length",
+    "Zagrajmy w 20 pytań": "twenty",
+    "Zgadnij, o jakim zwierzęciu myślę": "twenty",
     "Gotujemy naleśniki": "cooking",
     "Przepis na sernik krok po kroku": "cooking",
     "Luna, nie słuchaj": "mic",
@@ -213,6 +215,7 @@ class RoutingTest(unittest.TestCase):
         import counting
         import kids
         import cooking
+        import twenty
         import radio
         import ambience
         import fun
@@ -258,6 +261,7 @@ class RoutingTest(unittest.TestCase):
             (kids, "threading", self._sync_threads()),
             (kids, "start_routine", lambda *a: self._mark("kids")),
             (cooking, "start", lambda *a: self._mark("cooking")),
+            (twenty, "start", lambda *a: self._mark("twenty")),
             (radio, "play", lambda *a, **k: self._mark("radio")),
             (ambience, "play", lambda *a, **k: self._mark("ambience")),
             (ambience, "stop", lambda: self._mark("ambience") or True),

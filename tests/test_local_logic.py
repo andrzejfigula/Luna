@@ -909,6 +909,27 @@ class CookingTest(unittest.TestCase):
             self.assertFalse(cooking.active())
 
 
+class TwentyQuestionsTest(unittest.TestCase):
+
+    def test_twenty_questions(self):
+        import twenty
+        said = []
+        say = lambda t, **k: said.append(t)
+        self.assertTrue(twenty.wants("Zagrajmy w 20 pytań"))
+        with mock.patch.object(twenty.random, "choice", lambda seq: ("kot", ["kot", "kotek", "kota"])):
+            twenty.start(say)
+        with mock.patch.object(twenty, "_yes_no", lambda animal, q: "tak"):
+            self.assertTrue(twenty.answer("Czy ma futro?", say))
+            self.assertIn(said[-1], ("Tak!", "Tak.", "Zgadza się!"))
+            self.assertTrue(twenty.answer("Czy jest większy od psa?", say))   # not a guess
+            self.assertTrue(said[-1].startswith(("Tak", "Zgadza")))
+        self.assertTrue(twenty.answer("Czy to pies?", say))
+        self.assertEqual(said[-1], "Nie, to nie pies. Pytaj dalej!")
+        self.assertTrue(twenty.answer("To kot!", say))
+        self.assertIn("To kot! Udało się w 4 pytaniach", said[-1])
+        self.assertFalse(twenty.active())
+
+
 class MessagesForPeopleTest(unittest.TestCase):
 
     def test_message_waits_for_its_person(self):

@@ -521,6 +521,9 @@ def handle(text, speak, play_sound):
     import cooking                                 # a recipe step: "dalej"
     if cooking.active() and cooking.answer(text, speak):
         return True
+    import twenty                                  # "czy ma futro?"
+    if twenty.active() and twenty.answer(text, speak):
+        return True
 
     # goodbye — wave, and stop listening right away (otherwise the window
     # stays open and she may answer the next thing said in the room)
@@ -769,6 +772,10 @@ def handle(text, speak, play_sound):
         return True
 
     if kids.handle(text, speak, _sound_async):     # tooth brushing, routines
+        return True
+
+    if twenty.wants(text):                         # "zgadnij, o czym myślę"
+        twenty.start(speak)
         return True
 
     dish = cooking.wants(text)                     # "gotujemy naleśniki"

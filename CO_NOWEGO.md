@@ -32,6 +32,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Stolice | „Quiz ze stolic” — 34 państwa |
 | Zegar | „Pobawmy się w zegar” — tarcza ze wskazówkami, powiedz, która godzina („wpół do ósmej”, „kwadrans po siódmej”, „7:30”…) |
 | Dyktando | „Zróbmy dyktando” — Luna mówi słowo (ó/u, rz/ż, ch/h), piszesz je na kartce, pokazujesz kamerze i mówisz „gotowe”; sprawdza i podpowiada |
+| 20 pytań | „Zagrajmy w 20 pytań” — Luna myśli o zwierzęciu, pytasz „czy ma futro?”, zgadujesz „czy to kot?”; „poddaję się” |
 | Zagadki | „Zadaj mi zagadkę”, „Pobawmy się w zagadki” — 3 zagadki, po złej odpowiedzi podpowiedź; „nie wiem”, „koniec” |
 | Zgadywanka | „Zagrajmy w zgadywankę” — Luna myśli o liczbie od 1 do 100, Ty zgadujesz, ona mówi „więcej” / „mniej” |
 | Chowany | „Policz do dwudziestu” — liczy na głos (do 30), cyfry na ekranie, na koniec „Kto się nie schował, ten kryje!”; „Odliczaj od dziesięciu” — jak przy starcie rakiety |
