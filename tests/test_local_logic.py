@@ -748,6 +748,9 @@ class MoodTest(unittest.TestCase):
         self.assertIn("Maja (raz)", line)
         self.assertIn("kind to you raz", line)
         self.assertIn("rude to you raz", line)
+        mood.note_game("Maja", "dictation", 3, 5, ["rzeka", "góra"])
+        self.assertIn("Maja: dyktando 3/5", mood.prompt_line())
+        self.assertIn("wrong: rzeka, góra", mood.prompt_line())
         mood.DIARY = os.path.join(TMP, "diary.json")
         mood._day["date"] = "2000-01-01"                  # a new day starts empty…
         self.assertIn("nobody has talked", mood.prompt_line())

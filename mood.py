@@ -43,7 +43,8 @@ def _load():
     if _day.get("date") != _today():
         if _day.get("date") and _day.get("talks"):
             _to_diary(_day)                   # yesterday goes into her diary
-        _day = {"date": _today(), "talks": {}, "kind": 0, "rude": 0, "last": _day.get("last", 0)}
+        _day = {"date": _today(), "talks": {}, "kind": 0, "rude": 0, "games": [],
+                "last": _day.get("last", 0)}
     return _day
 
 
@@ -57,12 +58,19 @@ def _diary():
 
 def _to_diary(day):
     entries = [e for e in _diary() if e.get("date") != day["date"]]
-    entries.append({k: day.get(k) for k in ("date", "talks", "kind", "rude")})
+    entries.append({k: day.get(k) for k in ("date", "talks", "kind", "rude", "games")})
     entries = sorted(entries, key=lambda e: e["date"])[-DIARY_DAYS:]
     tmp = DIARY + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(entries, f, ensure_ascii=False)
     os.replace(tmp, DIARY)
+
+
+def _games(games):
+    """"Maja: dyktando 3/5 at 18:10 (mistakes: rzeka, góra)" …"""
+    return "; ".join(f"{g['who']}: {g['game']} {g['score']}/{g['total']} at {g['at']}"
+                     + (f" (wrong: {', '.join(g['misses'])})" if g.get("misses") else "")
+                     for g in games[-6:])
 
 
 def _past_line():
@@ -80,7 +88,8 @@ def _past_line():
         if e.get("rude"):
             extra.append(f"{e['rude']} rude ones")
         parts.append(f"{e['date']}: talked with {who or 'nobody'}"
-                     + (f", {', '.join(extra)}" if extra else ""))
+                     + (f", {', '.join(extra)}" if extra else "")
+                     + (f", games: {_games(e.get('games'))}" if e.get("games") else ""))
     return " Your diary of the last days: " + "; ".join(parts) + "."
 
 
@@ -102,6 +111,22 @@ def note(who, tone):
         elif tone in ("rude", "insulting"):
             d["rude"] += 1
         d["last"] = time.time()
+        _save()
+
+
+_GAME_PL = {"mul": "tabliczka mnożenia", "add": "dodawanie", "sub": "odejmowanie",
+            "mix": "rachunki", "words": "angielskie słówka", "riddle": "zagadki",
+            "dictation": "dyktando"}
+
+
+def note_game(who, kind, score, total, misses):
+    """A finished quiz round (quiz.py), for the parents' "jak jej poszło?"."""
+    with _lock:
+        d = _load()
+        d.setdefault("games", []).append({
+            "who": who or "ktoś", "game": _GAME_PL.get(kind, kind), "score": score,
+            "total": total, "misses": misses[:10], "at": time.strftime("%H:%M")})
+        d["games"] = d["games"][-20:]
         _save()
 
 
@@ -128,6 +153,8 @@ def prompt_line():
         feel.append(f"people were kind to you {_times(d['kind'])}")
     if d["rude"]:
         feel.append(f"someone was rude to you {_times(d['rude'])}")
+    if d.get("games"):
+        feel.append(f"games played: {_games(d['games'])}")
     gap = ""
     if d.get("last"):
         mins = (time.time() - d["last"]) / 60

@@ -332,6 +332,13 @@ def start(kind, text, speak, play_sound_async):
 def _finish(speak, play_sound_async):
     global _q
     score, total = _q["score"], _q["total"]
+    try:                                    # for "jak Mai poszło dyktando?"
+        import mood
+        with state.lock:
+            who = state.person[0] if state.person else None
+        mood.note_game(who, _q["kind"], score, total, _q.get("misses", []))
+    except Exception as e:
+        print(f"[quiz] result not noted: {e}", flush=True)
     _q = None
     if score == total:
         said, emo = f"Bezbłędnie! {score} na {total}! Mistrzowski wynik!", "Happy"
@@ -464,6 +471,7 @@ def answer(text, speak, play_sound_async):
             return _guess(text, speak, play_sound_async)
         if any(s in low for s in _DONT_KNOW):
             _card(q["reveal"], "", None, secs=5)
+            q.setdefault("misses", []).append(q["reveal"])
             speak(f"Nic nie szkodzi. {q['right']}")
         else:
             if q["kind"] == "dictation":
@@ -522,6 +530,7 @@ def answer(text, speak, play_sound_async):
                 return True
             else:
                 _card(q["reveal"], "", "bad", secs=6)
+                q.setdefault("misses", []).append(q["reveal"])
                 speak(f"Niestety nie. {q['right']}")
         with state.lock:
             state.emotion = "Neutral"
