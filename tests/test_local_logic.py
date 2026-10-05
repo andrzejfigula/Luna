@@ -242,6 +242,14 @@ class TimersTest(unittest.TestCase):
         self.assertIn("tylko bez błędu", quiz.race_result("mul", False, 30, "Maja"))
         self.assertIn("pierwszy rekord", quiz.race_result("add", True, 70, "Maja"))  # per game
 
+    def test_quiz_limit(self):
+        import quiz
+        self.assertEqual(quiz.quiz_limit("Quiz z dodawania do 20"), 20)
+        self.assertEqual(quiz.quiz_limit("odejmowanie w zakresie 50"), 50)
+        self.assertEqual(quiz.quiz_limit("dodawanie do tysiąca"), 1000)
+        self.assertEqual(quiz.quiz_limit("przepytaj mnie z dodawania"), 100)
+        self.assertEqual(quiz.quiz_limit("dodawanie do dziesięciu"), 10)
+
     def test_table_row(self):
         import quiz
         self.assertEqual(quiz.table_row("Przepytaj mnie z tabliczki mnożenia przez 7"), 7)

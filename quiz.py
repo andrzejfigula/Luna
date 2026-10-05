@@ -102,6 +102,23 @@ _WORDS_SET = re.compile(r"\b(?:słowa|slowa|słówka|slowka)\s+(?:do|na)\s+dykta
 _WORDS_CLEAR = re.compile(r"\b(?:wyczyść|wyczysc|usuń|usun|zapomnij)\s+słowa\s+do\s+dyktand", re.I)
 
 
+_LIMITS = {"dziesięciu": 10, "dziesieciu": 10, "dwudziestu": 20, "trzydziestu": 30,
+           "pięćdziesięciu": 50, "piecdziesieciu": 50, "stu": 100, "tysiąca": 1000,
+           "tysiaca": 1000}
+
+
+def quiz_limit(text):
+    """"dodawanie do 20", "w zakresie 50", "do tysiąca" → the range (10–1000);
+    100 when not said."""
+    m = re.search(r"\b(?:do|zakresie|zakres)\s+(\d{2,4}|\w+)\b", text.lower())
+    if m:
+        w = m.group(1)
+        n = int(w) if w.isdigit() else _LIMITS.get(w)
+        if n and 10 <= n <= 1000:
+            return n
+    return 100
+
+
 def table_row(text):
     """"…tabliczki przez 7", "…mnożenia przez siedem" → 7 (2–10), else None."""
     import calc
@@ -495,7 +512,7 @@ def _ask(speak):
 
 def start(kind, text, speak, play_sound_async):
     global _q
-    limit = 20 if re.search(r"\b(20|dwudziestu|dwadzieścia)\b", text.lower()) else 100
+    limit = quiz_limit(text)
     with _lock:
         _q = {"kind": kind, "limit": limit, "n": 0, "score": 0, "seen": set(),
               "asked": time.time(), "tries": 0,
