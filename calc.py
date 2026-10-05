@@ -453,6 +453,91 @@ def days_since(text, today=None):
             f"{_plural(days, 'dzień', 'dni', 'dni')}{weeks}.")
 
 
+# unit stem → (kind, factor to the base unit, forms: 1 / 2–4 / 5+ / a fraction)
+_UNITS = [
+    ("milimetr", "len", 0.001, ("milimetr", "milimetry", "milimetrów", "milimetra")),
+    ("centymetr", "len", 0.01, ("centymetr", "centymetry", "centymetrów", "centymetra")),
+    ("kilometr", "len", 1000.0, ("kilometr", "kilometry", "kilometrów", "kilometra")),
+    ("metr", "len", 1.0, ("metr", "metry", "metrów", "metra")),
+    ("cal", "len", 0.0254, ("cal", "cale", "cali", "cala")),
+    ("stopa", "len", 0.3048, ("stopa", "stopy", "stóp", "stopy")),
+    ("stopy", "len", 0.3048, ("stopa", "stopy", "stóp", "stopy")),
+    ("stóp", "len", 0.3048, ("stopa", "stopy", "stóp", "stopy")),
+    ("jard", "len", 0.9144, ("jard", "jardy", "jardów", "jarda")),
+    ("mil", "len", 1609.344, ("mila", "mile", "mil", "mili")),
+    ("kilogram", "mass", 1000.0, ("kilogram", "kilogramy", "kilogramów", "kilograma")),
+    ("dekagram", "mass", 10.0, ("dekagram", "dekagramy", "dekagramów", "dekagrama")),
+    ("deko", "mass", 10.0, ("dekagram", "dekagramy", "dekagramów", "dekagrama")),
+    ("gram", "mass", 1.0, ("gram", "gramy", "gramów", "grama")),
+    ("funt", "mass", 453.59237, ("funt", "funty", "funtów", "funta")),
+    ("uncj", "mass", 28.349523, ("uncja", "uncje", "uncji", "uncji")),
+    ("mililitr", "vol", 0.001, ("mililitr", "mililitry", "mililitrów", "mililitra")),
+    ("litr", "vol", 1.0, ("litr", "litry", "litrów", "litra")),
+    ("galon", "vol", 3.785411784, ("galon", "galony", "galonów", "galona")),
+    ("celsjusz", "temp", None, ("stopień Celsjusza", "stopnie Celsjusza", "stopni Celsjusza",
+                                "stopnia Celsjusza")),
+    ("fahrenheit", "temp", None, ("stopień Fahrenheita", "stopnie Fahrenheita",
+                                  "stopni Fahrenheita", "stopnia Fahrenheita")),
+]
+_UNITS_BY_LEN = sorted(_UNITS, key=lambda u: -len(u[0]))   # "mililitr" before "mil"
+
+
+def _unit_form(x, forms):
+    if abs(x - round(x)) > 1e-9:
+        return forms[3]                                    # "2,5 kilograma"
+    return _plural(int(abs(round(x))), forms[0], forms[1], forms[2])
+
+
+_CONVERT_Q = re.compile(r"\b(?:ile\s+(?:to\s+)?(?:jest\s+)?|zamień\s+|zamien\s+|przelicz\s+)(.+?)[?.!]*$",
+                        re.I)
+
+
+def _unit(word):
+    w = word.lower()
+    for stem, kind, factor, forms in _UNITS_BY_LEN:
+        if w.startswith(stem):
+            return stem, kind, factor, forms
+    return None
+
+
+def convert(text):
+    """"Ile to cali 30 centymetrów?", "zamień 5 mil na kilometry", "ile to 20
+    stopni Celsjusza w Fahrenheitach?" → exact; None for anything else."""
+    m = _CONVERT_Q.search(text)
+    if not m:
+        return None
+    words = re.findall(r"[\w,.]+", m.group(1).lower())
+    num, src, dst = None, None, None
+    for i, w in enumerate(words):
+        n = w.replace(",", ".")
+        if num is None and re.fullmatch(r"-?\d+(?:\.\d+)?", n):
+            num = float(n)
+            # the unit right after the number is the source ("30 centymetrów",
+            # "20 stopni Celsjusza")
+            for w2 in words[i + 1:i + 3]:
+                u = _unit(w2)
+                if u:
+                    src = u
+                    break
+    if num is None or src is None:
+        return None
+    for w in words:
+        u = _unit(w)
+        if u and u[3] != src[3] and u[1] == src[1]:
+            dst = u
+            break
+    if dst is None:
+        return None
+    if src[1] == "temp":
+        value = num * 9 / 5 + 32 if src[0] == "celsjusz" else (num - 32) * 5 / 9
+    else:
+        value = num * src[2] / dst[2]
+    shown = round(value, 2) if abs(value) >= 1 else round(value, 3)
+    about = "około " if abs(shown - value) > 1e-9 else ""
+    return (f"{_fmt(num)} {_unit_form(num, src[3])} to {about}{_fmt(shown)} "
+            f"{_unit_form(shown, dst[3])}.")
+
+
 def holiday_when(text, today=None):
     """"Kiedy jest Wielkanoc?", "kiedy wypada tłusty czwartek?" → the date,
     the weekday and how far; None for anything else. (Movable feasts are
@@ -568,4 +653,4 @@ def time_until(text, now=None):
 
 def answer(text):
     return (arithmetic(text) or days_until(text) or time_until(text) or weekday_of(text)
-            or holiday_when(text) or days_since(text))
+            or holiday_when(text) or days_since(text) or convert(text))

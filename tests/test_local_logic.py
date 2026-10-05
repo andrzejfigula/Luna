@@ -183,6 +183,22 @@ class TimersTest(unittest.TestCase):
                          "Od 3 października minęły 2 dni.")
         self.assertIsNone(calc.days_since("Ile minęło od kiedy się poznaliśmy?", today))
 
+    def test_convert(self):
+        import calc
+        self.assertEqual(calc.convert("Ile to cali 30 centymetrów?"),
+                         "30 centymetrów to około 11,81 cala.")
+        self.assertEqual(calc.convert("Zamień 5 mil na kilometry"),
+                         "5 mil to około 8,05 kilometra.")
+        self.assertEqual(calc.convert("Ile to jest 20 stopni Celsjusza w Fahrenheitach?"),
+                         "20 stopni Celsjusza to 68 stopni Fahrenheita.")
+        self.assertEqual(calc.convert("ile to 2,5 kilograma w gramach"),
+                         "2,5 kilograma to 2500 gramów.")
+        self.assertEqual(calc.convert("Ile to 1 litr w mililitrach?"), "1 litr to 1000 mililitrów.")
+        self.assertEqual(calc.convert("ile to 3 stopy w centymetrach"),
+                         "3 stopy to 91,44 centymetra.")
+        self.assertIsNone(calc.convert("Ile to kosztuje?"))
+        self.assertIsNone(calc.convert("Ile to jest 5 metrów?"))           # into what?
+
     def test_holidays(self):
         import calc
         today = datetime.date(2026, 10, 5)

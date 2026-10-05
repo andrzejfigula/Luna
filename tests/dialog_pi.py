@@ -60,6 +60,7 @@ CASES = [
     ("Ile dni do Wigilii?", "Wigilii"),
     ("Kiedy jest Wielkanoc?", "Wielkanoc wypada"),
     ("Ile dni minęło od 1 września?", "Od 1 września"),
+    ("Ile to cali 30 centymetrów?", "11,81 cala"),
     ("Ile dni do tłustego czwartku?", "tłustego czwartku"),
     ("Która godzina?", "Jest "),
     ("Ile to jest 17 razy 23?", "391"),
