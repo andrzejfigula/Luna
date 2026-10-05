@@ -444,7 +444,7 @@ def days_since(text, today=None):
     since = f"od {gen}"
     if days == 0:
         return "To dzisiaj!"
-    weeks = f", czyli około {round(days / 7)} {_plural(round(days / 7), 'tydzień', 'tygodnie', 'tygodni')}" \
+    weeks = f", czyli około {round(days / 7)} {_plural(round(days / 7), 'tygodnia', 'tygodni', 'tygodni')}" \
         if days >= 14 else ""
     verb = _plural(days, "minął", "minęły", "minęło")
     return (f"{since[0].upper()}{since[1:]} {verb} {days} "
