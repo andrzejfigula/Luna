@@ -25,7 +25,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Wiadomości | „Jakie są wiadomości?”, „Co słychać na świecie?”, „Co słychać w sporcie?” — 3 najważniejsze nagłówki z RMF24, jej słowami |
 | Kalkulator | „Ile to jest 17 razy 23?”, „15% z 80”, „pierwiastek z 144”, „dwa do potęgi dziesięć” — od razu, bez chmury; „Ile to cali 30 centymetrów?”, „Zamień 5 mil na kilometry”, „20 stopni Celsjusza w Fahrenheitach” |
 | Ile dni do… | „Ile dni do Wigilii?”, „do weekendu”, „do piątku”, „do 15 marca”, „do Wielkanocy”; „Jaki dzień tygodnia będzie 24 grudnia?”; „Kiedy jest Wielkanoc?”, „…tłusty czwartek?” |
-| Quiz z matmy | „Przepytaj mnie z tabliczki mnożenia”, „Quiz z dodawania do dwudziestu”, „Pobawmy się w rachunki” — 5 pytań na ekranie, odpowiadasz liczbą; „nie wiem”, „koniec”; „Tabliczka mnożenia na czas” — liczy sekundy i pamięta rekord |
+| Quiz z matmy | „Przepytaj mnie z tabliczki mnożenia”, „Quiz z dodawania do dwudziestu”, „Pobawmy się w rachunki” — 5 pytań na ekranie, odpowiadasz liczbą; „nie wiem”, „koniec”; „Tabliczka mnożenia na czas” — liczy sekundy i pamięta rekord; „Tabliczka mnożenia przez 7” — tylko ten rząd |
 | Słówka angielskie | „Przepytaj mnie ze słówek angielskich” — „pies = ?” na ekranie, odpowiadasz po angielsku |
 | Czytanie na głos | Pokaż kamerze stronę książki albo kartkę: „Przeczytaj mi tę stronę” — czyta całość, słowo w słowo |
 | Gwiazdki | za bezbłędną rundę (quiz, zagadki, dyktando) Luna daje gwiazdkę; „Pokaż moje gwiazdki”. Gry wracają też do słów i działań, w których ktoś się ostatnio pomylił |

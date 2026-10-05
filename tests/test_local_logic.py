@@ -242,6 +242,16 @@ class TimersTest(unittest.TestCase):
         self.assertIn("tylko bez błędu", quiz.race_result("mul", False, 30, "Maja"))
         self.assertIn("pierwszy rekord", quiz.race_result("add", True, 70, "Maja"))  # per game
 
+    def test_table_row(self):
+        import quiz
+        self.assertEqual(quiz.table_row("Przepytaj mnie z tabliczki mnożenia przez 7"), 7)
+        self.assertEqual(quiz.table_row("tabliczka mnożenia przez siedem"), 7)
+        self.assertIsNone(quiz.table_row("Przepytaj mnie z tabliczki mnożenia"))
+        for _ in range(30):
+            op, a, b, res = quiz._math_problem("mul", 100, 7)
+            self.assertIn(7, (a, b))
+            self.assertEqual(res, a * b)
+
     def test_custom_dictation_words(self):
         import quiz
         import settings

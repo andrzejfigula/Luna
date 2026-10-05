@@ -102,6 +102,17 @@ _WORDS_SET = re.compile(r"\b(?:słowa|slowa|słówka|slowka)\s+(?:do|na)\s+dykta
 _WORDS_CLEAR = re.compile(r"\b(?:wyczyść|wyczysc|usuń|usun|zapomnij)\s+słowa\s+do\s+dyktand", re.I)
 
 
+def table_row(text):
+    """"…tabliczki przez 7", "…mnożenia przez siedem" → 7 (2–10), else None."""
+    import calc
+    m = re.search(r"\bprzez\s+(\d{1,2}|\w+)\b", text.lower())
+    if not m:
+        return None
+    w = m.group(1)
+    n = int(w) if w.isdigit() else calc._ONES.get(w)
+    return n if n and 2 <= n <= 10 else None
+
+
 def custom_words(text):
     """"…słowa do dyktanda: rzeka, góra i żaba" → ["rzeka", "góra", "żaba"],
     or None."""
@@ -156,6 +167,10 @@ def trigger(text):
         return "clock"                         # not "pokaż zegar" (screens.py)
     if _riddle_request(low):
         return "riddle"
+    if ("tabliczk" in low and table_row(text) and len(re.findall(r"\w+", low)) <= 6
+            and not re.search(r"\b(?:powtórz|powtorz|wyrecytuj|powiedz|przeczytaj|pokaż|"
+                              r"pokaz)\b", low)):        # "powtórz mi tabliczkę": recite it
+        return "mul"                           # "tabliczka przez 7" — a request already
     if not any(t in low for t in _TRIGGERS):
         return None
     # "quiz"/"test z" alone is often just told ("w szkole robili quiz ze
@@ -239,9 +254,14 @@ def _norm(s):
 
 # ── one question ──────────────────────────────────────────────────────────────
 
-def _math_problem(kind, limit):
+def _math_problem(kind, limit, row=None):
     op = random.choice(["mul", "add", "sub"]) if kind == "mix" else kind
     if op == "mul":
+        if row:                                       # "tabliczka przez 7": that row only
+            a, b = row, random.randint(1, 10)
+            if random.random() < 0.5:
+                a, b = b, a
+            return op, a, b, a * b
         a, b = random.randint(2, 9), random.randint(2, 9)
         return op, a, b, a * b
     if op == "add":
@@ -365,8 +385,8 @@ def _new_question(q):
                  right=f"{pl[0].upper()}{pl[1:]} to po angielsku {en[0]}.")
         return
     for _ in range(20):                                   # no repeats
-        op, a, b, res = _math_problem(q["kind"], q["limit"])
-        if q["kind"] == "mul" and random.random() < REPEAT_MISSES:
+        op, a, b, res = _math_problem(q["kind"], q["limit"], q.get("row"))
+        if q["kind"] == "mul" and not q.get("row") and random.random() < REPEAT_MISSES:
             again = [tuple(int(x) for x in re.findall(r"\d+", m)[:2])
                      for m in _past_misses("tabliczka mnożenia")]
             again = [p for p in again if len(p) == 2 and ("mul",) + p not in seen]
@@ -482,6 +502,10 @@ def start(kind, text, speak, play_sound_async):
               "total": RIDDLES if kind == "riddle" else QUESTIONS}
         if kind == "guess":
             _q.update(secret=random.randint(1, 100), lo=1, hi=100)
+        if kind == "mul":
+            row = table_row(text)                    # "tabliczka mnożenia przez 7"
+            if row:
+                _q["row"] = row
         if kind == "dictation":
             words = custom_words(text)               # "dyktando ze słów: …" — just these
             if words:
