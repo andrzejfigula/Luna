@@ -45,6 +45,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 |---|---|
 | Włącz | „Włącz radio” (ostatnia stacja), „Włącz Trójkę”, „Puść radio Nowy Świat”, „Włącz muzykę” — wbudowane: RMF FM, ZET, Jedynka, Dwójka, Trójka, 357, Nowy Świat; inne nazwy Luna znajdzie w internecie |
 | Wyłącz | „Wyłącz radio” |
+| Szum do snu | „Włącz szum deszczu”, „Szum morza”, „Biały szum” (+ „na 30 minut”), sam gaśnie po 45 minutach; „Wyłącz szum” |
 | Do snu | „Wyłącz radio za 30 minut”, „Radio na 20 minut” |
 | Co gra | „Jakie to radio?”, „Co teraz gra?” — tytuł piosenki (RMF FM, 357, Nowy Świat go podają) |
 | Głośność muzyki | gdy gra radio, „ciszej” / „głośniej” zmienia muzykę, nie głos Luny („mów ciszej” — jej głos) |

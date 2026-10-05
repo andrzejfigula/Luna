@@ -738,6 +738,10 @@ def handle(text, speak, play_sound):
     if kids.handle(text, speak, _sound_async):     # tooth brushing, routines
         return True
 
+    import ambience                                # "włącz szum deszczu"
+    if ambience.handle(text, speak):
+        return True
+
     import radio                                   # "włącz radio", "wyłącz Trójkę"
     if radio.handle(text, speak):
         return True

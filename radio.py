@@ -340,6 +340,11 @@ def _play(p):
 
 def play(name, url, until=None, fade=0, alarm=False):
     stop()
+    try:
+        import ambience                          # one sound at a time
+        ambience.stop()
+    except Exception:
+        pass
     p = {"name": name, "url": url, "stop": threading.Event(), "until": until,
          "fade": fade, "alarm": alarm, "t0": time.time()}
     p["thread"] = threading.Thread(target=_play, args=(p,), daemon=True, name="radio")
@@ -366,7 +371,8 @@ def stop():
                     pass
         print(f"[radio] stopped {p['name']}", flush=True)
     with state.lock:
-        state.radio = None
+        if not (state.radio or "").startswith("♪"):   # sleep sounds keep their note
+            state.radio = None
     return p is not None
 
 

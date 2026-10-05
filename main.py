@@ -198,7 +198,9 @@ def _shutdown(*args):
     threading.Timer(2.0, lambda: os._exit(0)).start()
     try:                       # the radio's ffmpeg / pw-play must not outlive her
         import radio
+        import ambience
         radio.stop()
+        ambience.stop()
     except Exception:
         pass
     try:

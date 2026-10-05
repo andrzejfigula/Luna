@@ -85,6 +85,10 @@ LOCAL = {
     "Włącz muzykę": "radio",
     "Budź mnie radiem": "radio",
     "Mów krócej": "length",
+    "Włącz szum deszczu": "ambience",
+    "Szum morza na 30 minut": "ambience",
+    "Biały szum": "ambience",
+    "Wyłącz szum": "ambience",
     "Luna, to jest Kasia": "face",
     "Jestem Andrzej": "face",
     "Poznaj Olę!": "face",
@@ -165,6 +169,8 @@ MODEL = [
     "Dlaczego mówisz krócej niż wczoraj?",
     "Mów mi więcej o kotach i psach",
     "Jaki kolor ma niebo?",
+    "Czy jutro będzie padał deszcz?",
+    "Dlaczego morze jest słone?",
     "To jest problem",
     "Jestem zmęczony",
     "Jestem Polakiem i mieszkam w Krakowie od lat",
@@ -195,6 +201,7 @@ class RoutingTest(unittest.TestCase):
         import counting
         import kids
         import radio
+        import ambience
         import fun
         import health
         import lists
@@ -238,6 +245,8 @@ class RoutingTest(unittest.TestCase):
             (kids, "threading", self._sync_threads()),
             (kids, "start_routine", lambda *a: self._mark("kids")),
             (radio, "play", lambda *a, **k: self._mark("radio")),
+            (ambience, "play", lambda *a, **k: self._mark("ambience")),
+            (ambience, "stop", lambda: self._mark("ambience") or True),
             (radio, "stop", lambda: self._mark("radio") or True),
             (counting, "_watch", {"t0": None}),
             (memory, "add_fact", lambda f: self._mark("remember")),
