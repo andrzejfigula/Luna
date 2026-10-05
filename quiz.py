@@ -44,7 +44,8 @@ _TRIGGERS = ("przepytaj", "quiz", "kwiz", "sprawdź mnie", "sprawdz mnie", "pyta
              "zagrajmy w", "pytania z", "ćwiczyć", "cwiczyc", "poćwiczyć",
              "pocwiczyc", "poćwiczmy", "pocwiczmy", "test z", "na czas", "szybka tabliczk",
              "wyścig", "wyscig")
-_KINDS = [("mul", ("tabliczk", "mnożeni", "mnozeni", "mnożyć", "mnozyc")),
+_KINDS = [("div", ("dzieleni", "dzielić", "dzielic")),
+          ("mul", ("tabliczk", "mnożeni", "mnozeni", "mnożyć", "mnozyc")),
           ("add", ("dodawani", "dodawać", "dodawac")),
           ("sub", ("odejmowani", "odejmować", "odejmowac")),
           ("story", ("z treścią", "z trescia", "tekstow", "zadań z", "zadan z")),
@@ -62,8 +63,8 @@ _DONT_KNOW = ("nie wiem", "poddaję się", "poddaje sie", "pomiń", "pomin", "na
               "nastepne", "dalej", "nie mam pojęcia", "nie mam pojecia", "i don't know")
 _PRAISE = ["Brawo!", "Dobrze!", "Super!", "Tak jest!", "Świetnie!", "Zgadza się!",
            "Bingo!"]
-_SYM = {"mul": "×", "add": "+", "sub": "−"}
-_WORD = {"mul": "razy", "add": "plus", "sub": "minus"}
+_SYM = {"mul": "×", "add": "+", "sub": "−", "div": ":"}
+_WORD = {"mul": "razy", "add": "plus", "sub": "minus", "div": "podzielić przez"}
 
 # Polish → English (alternatives accepted). Everyday words a child learns first.
 WORDS = [
@@ -273,6 +274,10 @@ def _norm(s):
 
 def _math_problem(kind, limit, row=None):
     op = random.choice(["mul", "add", "sub"]) if kind == "mix" else kind
+    if op == "div":                                    # always a whole answer: 56 : 7
+        b = row or random.randint(2, 9)
+        c = random.randint(1, 10)
+        return op, b * c, b, c
     if op == "mul":
         if row:                                       # "tabliczka przez 7": that row only
             a, b = row, random.randint(1, 10)
@@ -519,7 +524,7 @@ def start(kind, text, speak, play_sound_async):
               "total": RIDDLES if kind == "riddle" else QUESTIONS}
         if kind == "guess":
             _q.update(secret=random.randint(1, 100), lo=1, hi=100)
-        if kind == "mul":
+        if kind in ("mul", "div"):
             row = table_row(text)                    # "tabliczka mnożenia przez 7"
             if row:
                 _q["row"] = row
@@ -528,7 +533,7 @@ def start(kind, text, speak, play_sound_async):
             if words:
                 _q["words"] = words
                 _q["total"] = min(len(words), 10)
-        if kind in ("mul", "add", "sub", "mix", "words", "capitals") and re.search(
+        if kind in ("mul", "div", "add", "sub", "mix", "words", "capitals") and re.search(
                 r"\b(na\s+czas|szybk\w*|wyścig\w*|wyscig\w*|na\s+wyścigi)\b", text.lower()):
             _q["race"] = True                  # a race: the time counts, records kept
     with state.lock:
@@ -557,6 +562,7 @@ def start(kind, text, speak, play_sound_async):
               f"{total} pytań.")
     else:
         name = {"mul": "tabliczki mnożenia", "add": "dodawania", "sub": "odejmowania",
+                "div": "dzielenia",
                 "mix": "rachunków", "words": "angielskich słówek"}[kind]
         speak(f"Super, quiz z {name}! {total} pytań"
               + (" na czas — liczę sekundy!" if _q.get("race") else " — zaczynamy!"))

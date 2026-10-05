@@ -242,6 +242,19 @@ class TimersTest(unittest.TestCase):
         self.assertIn("tylko bez błędu", quiz.race_result("mul", False, 30, "Maja"))
         self.assertIn("pierwszy rekord", quiz.race_result("add", True, 70, "Maja"))  # per game
 
+    def test_division_quiz(self):
+        import quiz
+        self.assertEqual(quiz.trigger("Przepytaj mnie z dzielenia"), "div")
+        self.assertEqual(quiz.trigger("Przepytaj mnie z tabliczki mnożenia"), "mul")
+        for _ in range(30):
+            op, a, b, res = quiz._math_problem("div", 100, None)
+            self.assertEqual(a, b * res)
+        op, a, b, res = quiz._math_problem("div", 100, 7)
+        self.assertEqual(b, 7)
+        q = {"kind": "div", "seen": set(), "limit": 100}
+        quiz._new_question(q)
+        self.assertIn("podzielić przez", q["say"])
+
     def test_quiz_limit(self):
         import quiz
         self.assertEqual(quiz.quiz_limit("Quiz z dodawania do 20"), 20)
