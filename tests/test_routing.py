@@ -102,6 +102,8 @@ LOCAL = {
     "Ile zostało na minutniku?": "asked",
     "Ile zostało do końca minutnika?": "asked",
     "Ile mam gwiazdek?": "asked",
+    "Co mam na liście?": "asked",
+    "Co mam na liście zakupów?": "asked",
     "Jakie to radio?": "asked",
     "Co o mnie wiesz?": "asked",
     "Kto dziś zmywa: Maja, tata czy mama?": "asked",
@@ -166,7 +168,6 @@ MODEL = [
     "Jak działa tryb skupienia",
     "Czy ćwiczenie oddechowe pomaga na stres?",
     "Dopisz mleko do listy zakupów",
-    "Co mam na liście?",
     "Powtórz mi tabliczkę mnożenia przez siedem",
     "Ile ścian ma kostka do gry?",
     "Jak się mówi kot po angielsku?",
@@ -332,7 +333,7 @@ class RoutingTest(unittest.TestCase):
             (timers, "snooze", lambda s: self._mark("snooze") or True),
             (timers, "extend", lambda s: self._mark("extend") or True),
             (lists, "find", lambda text: "zakupy"),
-            (lists, "get", lambda name=None: ["mleko"]),
+            (lists, "get", lambda name=None: ["mleko"] if name else {"zakupy": ["mleko"]}),
             (breathing, "run", lambda *a: self._mark("breath")),
             (screens, "PHOTOS_DIR", self._photos_dir()),
             (fun, "lamp_on", lambda *a: self._mark("fun")),
@@ -429,7 +430,7 @@ class RoutingTest(unittest.TestCase):
         if any(t.startswith(("Nie mam teraz żadnego minutnika", "Zostało", "Zostały",
                              "Nie poznaję cię", "Losuję", "Wybieram", "W Tokio",
                              "24 grudnia wypada", "Jeszcze niczego o tobie", "Emilka",
-                             "Nie wiem, kim jesteś", "Radio nie gra", "Gra ",
+                             "Nie wiem, kim jesteś", "Radio nie gra", "Gra ", "Na liście",
                              "Maja"))
                for t in said):
             self._mark("asked")

@@ -82,6 +82,7 @@ CASES = [
     ("Nie", "niczego nie zapominam"),
     ("Usuń wiadomości", "wiadomości"),
     ("Przywróć listę zakupów", "Nie mam czego przywrócić"),
+    ("Co mam na liście zakupów?", "Na liście zakupów"),
     ("Pokaż plan dnia", "plan"),
     ("Zmień mój głos jak robot", "głos: robot"),
     ("Zrób mi zdjęcie", ""),

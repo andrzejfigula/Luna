@@ -841,6 +841,9 @@ def handle(text, speak, play_sound, _polite=True):
         import memory
         said = memory.where_is_thing(text)         # "gdzie są klucze?" — as noted
     if not said:
+        import lists
+        said = lists.read_answer(text)             # "co mam na liście zakupów?"
+    if not said:
         import fun
         said = fun.random_answer(text)             # "kto zmywa: Maja czy tata?"
     if said:

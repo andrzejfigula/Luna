@@ -543,6 +543,20 @@ class ListsTest(unittest.TestCase):
         lists._lists = {}
         lists._undo = None
 
+    def test_read_answer(self):
+        self.assertEqual(lists.read_answer("Co mam na liście zakupów?"),
+                         "Na liście zakupów nic nie ma.")
+        self.act("list_add", "mleko")
+        self.act("list_add", "chleb")
+        self.act("list_add", "umyć auto", "rzeczy do zrobienia")
+        self.assertEqual(lists.read_answer("Co mam na liście zakupów?"),
+                         "Na liście zakupów (2): mleko, chleb.")
+        self.assertEqual(lists.read_answer("Co mam jeszcze kupić?"),
+                         "Na liście zakupów (2): mleko, chleb.")
+        self.assertEqual(lists.read_answer("Co mam zrobić?"),
+                         "Na liście „rzeczy do zrobienia” (1): umyć auto.")
+        self.assertIsNone(lists.read_answer("Co mam dziś na obiad?"))
+
     def test_restore(self):
         self.assertIsNone(lists.restore("Kup chleb"))
         self.assertIn("Nie mam czego", lists.restore("Przywróć listę"))

@@ -109,6 +109,33 @@ def restore(text, now=None):
     return f"Przywróciłam na listę {lst}: {', '.join(back)}."
 
 
+_READ = re.compile(r"\b(?:co\s+(?:mam|mamy|jest|jeszcze\s+jest|zostało)\s+na\s+liście|"
+                   r"co\s+(?:mam|mamy)\s+(?:jeszcze\s+)?(?:kupić|kupic|zrobić|zrobic)|"
+                   r"przeczytaj\s+(?:mi\s+)?listę|przeczytaj\s+(?:mi\s+)?liste)\b(.*)$", re.I)
+
+
+def read_answer(text):
+    """"Co mam na liście zakupów?", "co mam kupić?" → the list read out, here
+    and offline; None for anything else."""
+    m = _READ.search(text)
+    if not m or len(text.split()) > 9:
+        return None
+    low = text.lower()
+    lists = get()
+    if "zrobi" in low:
+        name = next((k for k in lists if "zrobi" in k or "zada" in k), None)
+    elif "kupi" in low:
+        name = "zakupy" if "zakupy" in lists else None
+    else:
+        name = find(text) if lists else None
+    if not name or not lists.get(name):
+        what = "zakupów" if ("kupi" in low or "zakup" in low) else "tej liście"
+        return f"Na liście {what} nic nie ma." if what == "zakupów" else "Ta lista jest pusta."
+    items = lists[name]
+    title = "zakupów" if name == "zakupy" else f"„{name}”"
+    return f"Na liście {title} ({len(items)}): " + ", ".join(items) + "."
+
+
 def get(name=None):
     with _lock:
         if _lists is None:
