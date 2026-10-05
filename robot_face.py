@@ -1635,11 +1635,12 @@ class RobotFace:
         # ── touch: instant visual answer, and tell the engine which zone ──
         with state.lock:
             ov_kind = state.overlay[0] if state.overlay else None
-        if touch_t > self._touch_t and self._overlay_on() and ov_kind == "ttt":
-            self._touch_t = touch_t                     # a move in the game
+        if touch_t > self._touch_t and self._overlay_on() and ov_kind in ("ttt", "memo"):
+            self._touch_t = touch_t                     # a move in a game
             if touch_kind in ("tap", "stop"):
-                import tictac                           # outside state.lock: it takes it
-                tictac.tap(touch_pt[0], touch_pt[1], WIDTH, HEIGHT)
+                import importlib                        # outside state.lock: it takes it
+                game = importlib.import_module("tictac" if ov_kind == "ttt" else "memo")
+                game.tap(touch_pt[0], touch_pt[1], WIDTH, HEIGHT)
         elif touch_t > self._touch_t and self._overlay_on():
             self._touch_t = touch_t                     # a tap closes it…
             with state.lock:
@@ -2486,6 +2487,49 @@ class RobotFace:
             if pages > 1:
                 p_img = _get_font(26).render(f"{page + 1}/{pages}", True, EYE_MID)
                 scr.blit(p_img, p_img.get_rect(bottomright=(WIDTH - 24, HEIGHT - 16)))
+        elif kind == "memo":
+            # the memory game (memo.py): 4 × 3 cards
+            scr.fill(BG)
+            cw, ch, gap = 150, 130, 14
+            left = (WIDTH - (4 * cw + 3 * gap)) // 2
+            top = (HEIGHT - (3 * ch + 2 * gap)) // 2
+            cols = {"circle": (255, 90, 90), "square": (90, 160, 255),
+                    "triangle": (110, 220, 120), "star": (255, 215, 70),
+                    "heart": (255, 120, 200), "diamond": (180, 120, 255)}
+            for i, shape in enumerate(data["cards"]):
+                x = left + (i % 4) * (cw + gap)
+                y = top + (i // 4) * (ch + gap)
+                rect = pygame.Rect(x, y, cw, ch)
+                if i not in data["up"]:
+                    pygame.draw.rect(scr, EYE_MID, rect, border_radius=16)
+                    pygame.draw.rect(scr, STAR_COL, rect.inflate(-18, -18), 3,
+                                     border_radius=12)
+                    continue
+                pygame.draw.rect(scr, (40, 40, 52), rect, border_radius=16)
+                if i in data["found"]:
+                    pygame.draw.rect(scr, (120, 230, 140), rect, 4, border_radius=16)
+                cx, cy, r = x + cw // 2, y + ch // 2, 42
+                col = cols[shape]
+                if shape == "circle":
+                    pygame.draw.circle(scr, col, (cx, cy), r)
+                elif shape == "square":
+                    pygame.draw.rect(scr, col, pygame.Rect(cx - r + 6, cy - r + 6,
+                                                           2 * r - 12, 2 * r - 12))
+                elif shape == "triangle":
+                    pygame.draw.polygon(scr, col, [(cx, cy - r), (cx - r, cy + r - 8),
+                                                   (cx + r, cy + r - 8)])
+                elif shape == "star":
+                    _draw_star(scr, cx, cy, r + 4, col, (255, 255, 255))
+                elif shape == "heart":
+                    pygame.draw.circle(scr, col, (cx - 19, cy - 10), 22)
+                    pygame.draw.circle(scr, col, (cx + 19, cy - 10), 22)
+                    pygame.draw.polygon(scr, col, [(cx - 41, cy - 7), (cx + 41, cy - 7),
+                                                   (cx, cy + 40)])
+                else:
+                    pygame.draw.polygon(scr, col, [(cx, cy - r), (cx + r - 6, cy),
+                                                   (cx, cy + r), (cx - r + 6, cy)])
+            msg = _get_font(24).render(data.get("msg", ""), True, EYE_MID)
+            scr.blit(msg, msg.get_rect(midbottom=(WIDTH // 2, HEIGHT - 2)))
         elif kind == "ttt":
             # noughts and crosses (tictac.py): a 420 px board in the middle
             scr.fill(BG)

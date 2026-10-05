@@ -945,6 +945,20 @@ def handle(text, speak, play_sound):
         quiz.show_stars(speak)                     # "pokaż moje gwiazdki"
         return True
 
+    import memo                                    # "zagrajmy w memory"
+    if memo.wants(text):
+        memo.start(speak)
+        return True
+    if memo.active() and _short(text, 5) and re.search(
+            r"\b(jeszcze raz|nowa gra|od nowa|potasuj|zagrajmy jeszcze)\b", low):
+        memo.again(speak)
+        return True
+    if memo.active() and _short(text, 4) and re.search(
+            r"\b(koniec|wystarczy|kończymy|konczymy|stop)\b", low):
+        memo.stop()
+        speak("Dobrze, koniec gry.")
+        return True
+
     import tictac                                  # "zagrajmy w kółko i krzyżyk"
     if tictac.wants(text):
         tictac.start(speak)

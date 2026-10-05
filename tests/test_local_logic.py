@@ -167,6 +167,27 @@ class TimersTest(unittest.TestCase):
         self.assertEqual(idle_engine.load_greeted(),
                          {"Maja": "2026-10-05", None: "2026-10-04"})
 
+    def test_memo(self):
+        import memo
+        self.assertTrue(memo.wants("Zagrajmy w memory"))
+        self.assertTrue(memo.wants("Luna, zagrajmy w pary"))
+        self.assertFalse(memo.wants("W szkole graliśmy w memory na przerwie"))
+        self.assertEqual(memo.card_at(0.5, 0.5), None)                 # in a gap
+        self.assertEqual(memo.card_at((79 + 10) / 800, (31 + 10) / 480), 0)
+        self.assertEqual(memo.card_at((79 + 3 * 164 + 10) / 800, (31 + 2 * 144 + 10) / 480), 11)
+        # a whole game, tapped with perfect memory: 6 moves
+        memo.start(lambda t: None)
+        memo._say = lambda t: None
+        pos = lambda i: ((79 + (i % 4) * 164 + 70) / 800, (31 + (i // 4) * 144 + 60) / 480)
+        cards = memo._g["cards"]
+        for shape in memo.SHAPES:
+            a, b = [i for i, c in enumerate(cards) if c == shape]
+            memo.tap(*pos(a))
+            memo.tap(*pos(b))
+        self.assertTrue(memo._g["end"])
+        self.assertEqual(memo._g["moves"], 6)
+        memo.stop()
+
     def test_tictac(self):
         import tictac
         b = ["X", "X", None, "O", "O", None, None, None, None]

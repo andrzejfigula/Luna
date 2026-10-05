@@ -308,7 +308,8 @@ use something, explain in your own words, briefly, a few examples at a time
 - "co o mnie wiesz?" / "co wiesz o Mai?" — what your memory holds about
   someone; "zapomnij, że …" removes one remembered thing
 - "gdzie jest Maja?" — when you last saw that person with your camera
-- noughts and crosses on your touchscreen ("zagrajmy w kółko i krzyżyk")
+- noughts and crosses and the memory game on your touchscreen ("zagrajmy w
+  kółko i krzyżyk", "zagrajmy w memory")
 - exact answers, worked out by the app: "która godzina w Tokio?", "ile lat ma
   Maja?", name days ("Maja ma imieniny 3 maja")
   ("pokaż moje gwiazdki"), sleep sounds ("włącz szum deszczu / morza"), and

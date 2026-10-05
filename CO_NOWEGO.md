@@ -73,6 +73,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Godzina na świecie | „Która godzina w Tokio?”, „…w Nowym Jorku?”, „…w Australii?” — dokładnie, z czasem letnim |
 | Minutnik z nazwą | „Minutnik na 10 minut na makaron”, „Ile zostało na minutniku?” |
 | Wiek | „Ile lat ma Maja?” — dokładnie, z daty urodzenia |
+| Memory | „Zagrajmy w memory” — 12 kart na ekranie, szukasz par; pamięta rekord każdego |
 | Kiedy ktoś był | „Gdzie jest Maja?”, „Widziałaś dziś Emilkę?” — kiedy ostatnio widziała tę osobę |
 | Co Luna o mnie wie | „Co o mnie wiesz?”, „Co wiesz o Mai?” — mówi, co ma zapisane; „Zapomnij, że …” usuwa jedną rzecz |
 | Wyczyść pamięć | „Luna, zapomnij wszystko” → zapyta „Na pewno?” → „tak, zapomnij” (dziecko nie może) |
