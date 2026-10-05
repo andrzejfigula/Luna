@@ -2418,8 +2418,23 @@ class RobotFace:
                 for i in imgs:
                     img.blit(i, ((w - i.get_width()) // 2, y))
                     y += i.get_height()
-                sub = (_get_font(30).render(data["sub"], True, EYE_MID)
-                       if data.get("sub") else None)
+                sub = None
+                if data.get("sub"):                # the hint line fits the screen too
+                    st, ss = data["sub"], 30
+                    while _get_font(ss).size(st)[0] > WIDTH - 40 and ss > 22:
+                        ss -= 2
+                    sf = _get_font(ss)
+                    parts = [st]
+                    if sf.size(st)[0] > WIDTH - 40 and " · " in st:
+                        cut = st.rfind(" · ", 0, len(st) // 2 + 10) or st.find(" · ")
+                        parts = [st[:cut], st[cut + 3:]]
+                    rendered = [sf.render(x, True, EYE_MID) for x in parts]
+                    sub = pygame.Surface((max(r.get_width() for r in rendered),
+                                          sum(r.get_height() for r in rendered)), pygame.SRCALPHA)
+                    yy = 0
+                    for r in rendered:
+                        sub.blit(r, ((sub.get_width() - r.get_width()) // 2, yy))
+                        yy += r.get_height()
                 self._card_cache = (key, img, sub, len(lines))
             _, img, sub, nlines = self._card_cache
             scr.fill(BG)
