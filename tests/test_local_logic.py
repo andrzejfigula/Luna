@@ -535,6 +535,31 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(quiz._q["score"], 1)
         quiz.answer("koniec", lambda t, **k: said.append(t), lambda n: None)
 
+    def test_every_right_answer_counts(self):
+        """All the quiz data, not one random item: a right answer in every
+        accepted form must count (a random capital once didn't)."""
+        import quiz
+        import quizdata
+        import riddles
+        for question, accept in quizdata.CAPITALS:
+            for a in accept:
+                with self.subTest(capital=a):
+                    q = {"kind": "capitals", "answer": [x.lower() for x in accept]}
+                    self.assertTrue(quiz._check(q, f"To {a}!"))
+        for riddle, accept, hint in riddles.RIDDLES:
+            for a in accept:
+                with self.subTest(riddle=a):
+                    q = {"kind": "riddle", "answer": accept}
+                    self.assertTrue(quiz._check(q, f"to chyba {a}"))
+        for pl, en in quiz.WORDS:
+            for a in en:
+                with self.subTest(word=a):
+                    q = {"kind": "words", "answer": en}
+                    self.assertTrue(quiz._check(q, f"It's {a}."))
+        for w in quiz.DICTATION:
+            with self.subTest(dictation=w):
+                self.assertTrue(quiz._same_word(w.upper() + "!", w))
+
     def test_quiz_ends_on_unrelated_talk(self):
         import quiz
         quiz.start("add", "quiz z dodawania do 20", lambda t, **k: None, lambda n: None)
