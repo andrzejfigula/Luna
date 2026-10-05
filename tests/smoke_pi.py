@@ -98,8 +98,11 @@ with state.lock:
     state.person = None
 said = []
 speak = lambda t, **k: said.append(t)                        # noqa: E731
-for utterance in ("Która godzina?", "Ile to jest 17 razy 23?", "Ile dni do Wigilii?",
-                  "Jak się pisze żółw?"):
+for utterance in (("Która godzina?", "Ile to jest 17 razy 23?", "Ile dni do Wigilii?",
+                  "Jak się pisze żółw?", "Ile zostało do siedemnastej?",
+                  "Obudź mnie o 6:30", "Przywróć listę zakupów", "Co o mnie wiesz?",
+                  "Pokaż plan dnia", "Usuń wiadomości")
+                 + ((f"Gdzie jest {known[0]}?", f"Co wiesz o {known[0]}?") if known else ())):
     check(f"command {utterance!r}",
           lambda u=utterance: mods["commands"].handle(u, speak, lambda *a, **k: True))
 if not any("391" in s for s in said):
