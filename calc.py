@@ -402,5 +402,40 @@ def days_until(text, today=None):
     return _say_left(gen, days)
 
 
+def time_until(text, now=None):
+    """"Ile zostało do siedemnastej?", "ile czasu do 17:30?" → the answer, or None."""
+    import clockgame
+    low = text.lower()
+    m = re.search(r"\bile\b(?:\s+\w+){0,3}?\s+do\s+(?:godziny\s+)?(.+?)[?.!]*$", low)
+    if not m or re.search(r"\b(dni|dnia|tygodni|urodzin|świąt|swiat|wigilii|końca|konca)\b",
+                          low):
+        return None
+    target = m.group(1)
+    if len(target.split()) > 4 or not re.match(r"[\dpdtcśsjoóg]", target):
+        return None
+    t = clockgame.parse(target)
+    if t is None:
+        return None
+    h, mi = t
+    now = now or datetime.now()
+    goal = now.replace(hour=h % 24, minute=mi, second=0, microsecond=0)
+    if goal <= now and h < 12:                       # "do ósmej" in the evening: 20:00
+        later = goal.replace(hour=h + 12)
+        goal = later if later > now else goal
+    if goal <= now:
+        goal = goal + timedelta(days=1)
+    mins = math.ceil((goal - now).total_seconds() / 60)    # a part of a minute is one
+    hh, mm = divmod(mins, 60)
+    parts = []
+    if hh:
+        parts.append(f"{hh} {_plural(hh, 'godzina', 'godziny', 'godzin')}")
+    if mm or not parts:
+        parts.append(f"{mm} {_plural(mm, 'minuta', 'minuty', 'minut')}")
+    verb = _plural(hh if hh else mm, "został", "zostały", "zostało")
+    if hh and mm:
+        verb = _plural(hh, "została", "zostały", "zostało")
+    return f"Do {goal.hour}:{goal.minute:02d} {verb} {' i '.join(parts)}."
+
+
 def answer(text):
-    return arithmetic(text) or days_until(text)
+    return arithmetic(text) or days_until(text) or time_until(text)

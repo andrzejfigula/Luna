@@ -366,6 +366,19 @@ class CalcTest(unittest.TestCase):
         self.assertEqual(calc._easter(2027), datetime.date(2027, 3, 28))
         self.assertEqual(calc._easter(2026), datetime.date(2026, 4, 5))
 
+    def test_time_until(self):
+        import calc
+        now = datetime.datetime(2026, 10, 5, 15, 15)
+        self.assertEqual(calc.time_until("Ile zostało do siedemnastej?", now),
+                         "Do 17:00 została 1 godzina i 45 minut.")
+        self.assertEqual(calc.time_until("ile czasu do 17:30", now),
+                         "Do 17:30 zostały 2 godziny i 15 minut.")
+        self.assertEqual(calc.time_until("ile jeszcze do ósmej?", now),
+                         "Do 20:00 zostały 4 godziny i 45 minut.")
+        self.assertEqual(calc.time_until("ile do 15:20?", now), "Do 15:20 zostało 5 minut.")
+        self.assertIsNone(calc.time_until("ile dni do Wigilii?", now))
+        self.assertIsNone(calc.time_until("ile kosztuje bilet do Krakowa?", now))
+
     def test_goodnight_mentions_the_alarm(self):
         timers._timers.clear()
         self.assertIsNone(timers.goodnight_note())
