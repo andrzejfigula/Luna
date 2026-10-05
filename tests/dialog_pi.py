@@ -129,6 +129,7 @@ CASES = [
     ("Co mam na liście zakupów?", "mleko, chleb"),
     ("Nastaw minutnik na 3 minuty", "minutnik na 3 minuty"),
     ("Przypomnij mi o 23:59, żeby zamknąć okno", "przypomnę o"),
+    ("Przypomnij mi jutro o 8 o dentyście", "jutro o ósmej"),
     ("Która godzina?", "Jest "),
     ("Jak się masz?", MODEL),                 # brain then says its recorded apology
     ("<online>", None),

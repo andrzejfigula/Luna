@@ -273,11 +273,14 @@ def local_timer(text):
 
 _REMIND = re.compile(r"^(?:luna,?\s+)?przypomnij\s+(?:mi|nam)\s*,?\s+(.+?)[.!?]*$", re.I)
 # a day, a date or a repeat: the model works those out
-_REMIND_LATER = re.compile(r"\b(jutro|pojutrze|codziennie|co\s+\w+|w\s+(?:poniedziałek|wtorek|"
-                           r"środę|czwartek|piątek|sobotę|niedzielę|weekend)|"
+_REMIND_LATER = re.compile(r"\b(codziennie|co\s+\w+|w\s+weekend|"
                            r"rano|wieczorem|po\s+południu|stycznia|lutego|marca|kwietnia|maja|"
                            r"czerwca|lipca|sierpnia|września|października|listopada|grudnia)\b",
                            re.I)
+# a day said with it: "jutro", "pojutrze", "w piątek" (→ days ahead)
+_REMIND_DAY = re.compile(r"\b(jutro|pojutrze|w\s+(poniedziałek|wtorek|środę|czwartek|piątek|"
+                         r"sobotę|niedzielę))\b\s*,?\s*", re.I)
+_WD_ACC = ["poniedziałek", "wtorek", "środę", "czwartek", "piątek", "sobotę", "niedzielę"]
 # "żebym zadzwonił", "że mam…": would need turning round ("zadzwoń") — the model
 _FIRST_PERSON = re.compile(r"\b(żebym|zebym|mam|muszę|musze|mój|moja|moje|mojej|mnie|"
                            r"mi|bym|jestem|będę)\b", re.I)
@@ -303,9 +306,25 @@ def local_reminder(text, now=None):
     if not m or _REMIND_LATER.search(text):
         return None
     rest = m.group(1)
+    now_dt = datetime.fromtimestamp(now or time.time())
+    day, day_said = 0, ""
+    d = _REMIND_DAY.search(rest)
+    if d:                                          # "jutro o 8", "w piątek o 17"
+        word = d.group(1).lower()
+        if word == "jutro":
+            day, day_said = 1, "jutro"
+        elif word == "pojutrze":
+            day, day_said = 2, "pojutrze"
+        else:
+            wd = _WD_ACC.index(d.group(2).lower())
+            day = (wd - now_dt.weekday()) % 7 or 7
+            day_said = f"w {d.group(2).lower()}"
+        rest = (rest[:d.start()] + rest[d.end():]).strip(" ,")
     span, action, said = None, None, None
     z = re.search(r"\bza\s+((?:\w+\s+){0,3}?(?:sekund\w*|minut\w*|godzin\w*|kwadrans))\b",
                   rest, re.I)
+    if z and day:
+        return None                                # "jutro za 20 minut": the model
     if z:
         secs, _ = parse_duration(z.group(1))
         if secs and secs <= 86400:
@@ -327,13 +346,19 @@ def local_reminder(text, now=None):
                     continue                           # "o 5 rzeczach" is no time
                 if t and all(_time_word(w) for w in cand.replace(",", " ").split()):
                     h, mi = t
-                    now_dt = datetime.fromtimestamp(now or time.time())
-                    if (h, mi) < (now_dt.hour, now_dt.minute) and h < 12 and \
-                            (h + 12, mi) > (now_dt.hour, now_dt.minute):
-                        h += 12                        # "o piątej" in the afternoon: 17:00
+                    if day:
+                        if h <= 6:                     # "jutro o piątej": 17:00, not 5 am
+                            h += 12
+                        when = (now_dt + timedelta(days=day)).strftime("%Y-%m-%d")
+                        at = f"{when} {h:02d}:{mi:02d}"
+                    else:
+                        if (h, mi) < (now_dt.hour, now_dt.minute) and h < 12 and \
+                                (h + 12, mi) > (now_dt.hour, now_dt.minute):
+                            h += 12                    # "o piątej" in the afternoon: 17:00
+                        at = f"{h:02d}:{mi:02d}"
                     span = (o.start(), o.end() + len(" ".join(tail[:n])))
-                    action = {"type": "reminder", "at": f"{h:02d}:{mi:02d}", "repeat": "none"}
-                    said = f"o {clock.hour_locative(h, mi)}"
+                    action = {"type": "reminder", "at": at, "repeat": "none"}
+                    said = (f"{day_said} " if day_said else "") + f"o {clock.hour_locative(h, mi)}"
                     break
             if span:
                 break

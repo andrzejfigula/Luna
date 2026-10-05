@@ -435,7 +435,15 @@ class TimersTest(unittest.TestCase):
                           "label": "o praniu"})
         self.assertEqual(r("Przypomnij mi o wpół do ósmej o bajce", at15)[0]["at"], "19:30")
         self.assertEqual(r("przypomnij mi o praniu za pół godziny", at15)[0]["seconds"], 1800)
-        for text in ("Przypomnij mi jutro o dentyście",          # a day: the model
+        mon = datetime.datetime(2026, 10, 5, 15, 0).timestamp()      # a Monday
+        self.assertEqual(r("Przypomnij mi jutro o 8 o dentyście", mon),
+                         ({"type": "reminder", "at": "2026-10-06 08:00", "repeat": "none",
+                           "label": "o dentyście"}, "Dobrze, przypomnę jutro o ósmej."))
+        self.assertEqual(r("przypomnij mi w piątek o 17, żeby kupić bilety", mon)[0]["at"],
+                         "2026-10-09 17:00")
+        self.assertEqual(r("przypomnij mi pojutrze o piątej o basenie", mon)[0]["at"],
+                         "2026-10-07 17:00")
+        for text in ("Przypomnij mi jutro o dentyście",          # no time: the model
                      "Przypomnij mi o 17, żebym zadzwonił do mamy",   # to turn round
                      "Przypomnij mi codziennie o 8 o tabletkach",
                      "Przypomnij mi o praniu",                    # no time
