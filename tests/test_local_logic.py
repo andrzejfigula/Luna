@@ -121,6 +121,20 @@ class TimersTest(unittest.TestCase):
         self.assertIsNone(calc.arithmetic("6:30 3"))          # found by the fuzz test
         self.assertIsNone(calc.arithmetic("3 6:30 !"))
 
+    def test_weekday_of(self):
+        import calc
+        today = datetime.date(2026, 10, 5)                      # a Monday
+        self.assertEqual(calc.weekday_of("Jaki dzień tygodnia będzie 24 grudnia?", today),
+                         "Wigilia wypada w czwartek.".replace("Wigilia", "24 grudnia"))
+        self.assertEqual(calc.weekday_of("W jaki dzień wypada Wigilia?", today),
+                         "Wigilia wypada w czwartek.")
+        self.assertEqual(calc.weekday_of("jaki dzień będzie 1 maja", today),
+                         "1 maja 2027 wypada w sobotę.")
+        self.assertEqual(calc.weekday_of("Jaki dzień tygodnia jest piątego października?",
+                                         today), "5 października to dzisiaj — poniedziałek.")
+        self.assertIsNone(calc.weekday_of("Jaki dzień będzie w piątek?", today))
+        self.assertIsNone(calc.weekday_of("Jaki dzień był wczoraj?", today))
+
     def test_random_answer(self):
         import fun
         import random as _r

@@ -24,7 +24,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Pogoda gdzie indziej | „Jaka jest pogoda w Berlinie?”, „Czy jutro pada w Zakopanem?” — sprawdza na to jedno pytanie |
 | Wiadomości | „Jakie są wiadomości?”, „Co słychać na świecie?”, „Co słychać w sporcie?” — 3 najważniejsze nagłówki z RMF24, jej słowami |
 | Kalkulator | „Ile to jest 17 razy 23?”, „15% z 80”, „pierwiastek z 144”, „dwa do potęgi dziesięć” — od razu, bez chmury |
-| Ile dni do… | „Ile dni do Wigilii?”, „do weekendu”, „do piątku”, „do 15 marca”, „do Wielkanocy” |
+| Ile dni do… | „Ile dni do Wigilii?”, „do weekendu”, „do piątku”, „do 15 marca”, „do Wielkanocy”; „Jaki dzień tygodnia będzie 24 grudnia?” |
 | Quiz z matmy | „Przepytaj mnie z tabliczki mnożenia”, „Quiz z dodawania do dwudziestu”, „Pobawmy się w rachunki” — 5 pytań na ekranie, odpowiadasz liczbą; „nie wiem”, „koniec”; „Tabliczka mnożenia na czas” — liczy sekundy i pamięta rekord |
 | Słówka angielskie | „Przepytaj mnie ze słówek angielskich” — „pies = ?” na ekranie, odpowiadasz po angielsku |
 | Czytanie na głos | Pokaż kamerze stronę książki albo kartkę: „Przeczytaj mi tę stronę” — czyta całość, słowo w słowo |

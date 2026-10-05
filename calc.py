@@ -378,6 +378,44 @@ def _target(low, today):
     return None
 
 
+_WEEKDAY_Q = re.compile(
+    r"\b(?:jaki\s+dzień\s+(?:tygodnia\s+)?|w\s+jakim\s+dniu\s+(?:tygodnia\s+)?|"
+    r"w\s+jaki\s+dzień\s+(?:tygodnia\s+)?|"
+    r"jaki\s+to\s+dzień\s+(?:tygodnia\s+)?)"
+    r"(?:będzie|bedzie|jest|wypada|wypadnie|przypada|przypadnie)\s+(?:w\s+)?(.+?)[?.!]*$",
+    re.I)
+_WD_ACC = ["poniedziałek", "wtorek", "środę", "czwartek", "piątek", "sobotę", "niedzielę"]
+
+
+def weekday_of(text, today=None):
+    """"Jaki dzień tygodnia będzie 24 grudnia?", "w jaki dzień wypada Wigilia?"
+    → "24 grudnia 2026 to czwartek." None when it isn't that."""
+    m = _WEEKDAY_Q.search(text.lower())
+    if not m:
+        return None
+    today = today or _today()
+    what = m.group(1).strip()
+    hit = _target("do " + what, today)
+    if hit is None:                        # a holiday said in the nominative
+        for stems, when, gen, nom in _DAYS_OF:
+            if what.startswith(nom.lower()):
+                d = when(today.year)
+                hit = (d if d >= today else when(today.year + 1), gen, nom, nom.lower())
+                break
+    if hit is None or hit[0] == "weekend" or hit[2] in _WEEKDAY_NOM:
+        return None                        # "jaki dzień będzie w piątek?" — no question
+    d, gen, nom, used = hit
+    rest = what.replace(used, " ", 1)
+    if re.search(r"[^\W\d_]", rest.replace("roku", "").replace(str(d.year), "")):
+        return None                        # more than a date: the model
+    label = nom or f"{d.day} {_MONTHS_GEN[d.month - 1]}"
+    year = f" {d.year}" if d.year != today.year else ""
+    day = _WEEKDAY_NOM[d.weekday()]
+    if d == today:
+        return f"{label[0].upper()}{label[1:]} to dzisiaj — {day}."
+    return f"{label[0].upper()}{label[1:]}{year} wypada w {_WD_ACC[d.weekday()]}."
+
+
 def days_until(text, today=None):
     """The spoken answer to "ile dni do …?", or None."""
     low = " ".join(re.findall(r"[\w.]+", text.lower()))
@@ -440,4 +478,4 @@ def time_until(text, now=None):
 
 
 def answer(text):
-    return arithmetic(text) or days_until(text) or time_until(text)
+    return arithmetic(text) or days_until(text) or time_until(text) or weekday_of(text)
