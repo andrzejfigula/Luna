@@ -207,6 +207,8 @@ MODEL = [
     "Ile zostało do końca minutnika?",
     "Ile mamy czasu do wyjścia?",
     "Co wiesz o dinozaurach?",
+    "Wybierz mi dobry film na wieczór",
+    "Czy pizza czy makaron jest zdrowszy?",
     "Jutro mamy dyktando w szkole",
     "Maja lubi zagadki o zwierzętach",
     "Babcia ma w kuchni stary zegar",

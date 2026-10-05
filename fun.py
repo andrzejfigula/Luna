@@ -130,7 +130,61 @@ def flip(speak, play_sound_async):
     speak(side.capitalize() + "!")
 
 
+_NUMBER = re.compile(r"\b(?:wylosuj|losuj|wybierz|podaj|daj)\s+(?:mi\s+)?(?:jakąś\s+|losową\s+)?"
+                     r"liczbę\s+od\s+(.+?)\s+do\s+(.+?)[.!?]*$", re.I)
+_PICK = re.compile(r"\b(?:wylosuj|losuj|wybierz|zdecyduj)\b(?:\s+(?:za\s+mnie|losowo|mi|"
+                   r"coś))*\s*[:,]?\s*(.+?)[.!?]*$", re.I)
+_WHO_DOES = re.compile(r"^(?:luna,?\s+)?kto\s+(?:dziś\s+|dzisiaj\s+)?(?:ma\s+)?(\w+(?:\s+\w+)?)"
+                       r"\s*[:,]\s*(.+?)[?.!]*$", re.I)
+
+
+def _number(word_or_digits):
+    import calc
+    s = word_or_digits.strip(" ,.")
+    if re.fullmatch(r"-?\d+", s):
+        return int(s)
+    words = s.lower().split()
+    if words and all(w in calc._ONES for w in words):
+        return calc._words_number(words)
+    return None
+
+
+def _options(s):
+    parts = [p.strip(" ,.?!") for p in re.split(r",|\s+(?:czy|albo|lub)\s+", s) if p.strip(" ,.?!")]
+    return parts if 2 <= len(parts) <= 8 and all(len(p.split()) <= 4 for p in parts) else None
+
+
+def random_answer(text, rng=random):
+    """"Wylosuj liczbę od 1 do 100", "wybierz: pizza czy makaron", "kto zmywa:
+    Maja, tata czy mama?" → her pick, really at random (a model isn't)."""
+    m = _NUMBER.search(text)
+    if m:
+        lo, hi = _number(m.group(1)), _number(m.group(2))
+        if lo is not None and hi is not None and lo < hi <= 1_000_000:
+            return f"Losuję… {rng.randint(lo, hi)}!"
+        return None
+    m = _WHO_DOES.match(text.strip())
+    if m and (re.search(r"\b(?:losuj|wylosuj|losowo)\b", text, re.I) or re.search(
+            r"(?:zmyw|sprząt|sprzat|wynos|zaczyn|pierwsz|wybier|idzie|myje|odkurz|karmi|"
+            r"gotuj|wyprowadz|podlew|nakryw|rozpak)", m.group(1).lower())):
+        # chores and turns only — "kto jest lepszy, Messi czy Ronaldo?" is no draw
+        opts = _options(m.group(2))
+        if opts:
+            return f"Losuję… {rng.choice(opts)}!"
+        return None
+    m = _PICK.search(text)
+    if m and re.search(r"\b(czy|albo|lub)\b|,", m.group(1)):
+        opts = _options(m.group(1))
+        if opts:
+            return f"Wybieram: {rng.choice(opts)}!"
+    return None
+
+
 def handle(text, speak, play_sound, play_sound_async):
+    said = random_answer(text)
+    if said:
+        speak(said)
+        return True
     low = text.lower()
     words = re.findall(r"\w+", low)
     if len(words) > 8 or low.strip().endswith("?") and not any(k in low for k in COIN):

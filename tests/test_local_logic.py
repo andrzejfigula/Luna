@@ -121,6 +121,23 @@ class TimersTest(unittest.TestCase):
         self.assertIsNone(calc.arithmetic("6:30 3"))          # found by the fuzz test
         self.assertIsNone(calc.arithmetic("3 6:30 !"))
 
+    def test_random_answer(self):
+        import fun
+        import random as _r
+        rng = _r.Random(3)
+        for _ in range(20):
+            said = fun.random_answer("Wylosuj liczbę od 1 do 10", rng)
+            self.assertTrue(said.startswith("Losuję… ") and 1 <= int(said[8:-1]) <= 10)
+        self.assertIn(fun.random_answer("Luna, wybierz: pizza czy makaron?", rng),
+                      ("Wybieram: pizza!", "Wybieram: makaron!"))
+        self.assertIn(fun.random_answer("Kto dziś zmywa: Maja, tata czy mama?", rng),
+                      ("Losuję… Maja!", "Losuję… tata!", "Losuję… mama!"))
+        self.assertIn("Losuję…", fun.random_answer("losuj liczbę od jeden do sześć", rng))
+        self.assertIsNone(fun.random_answer("Wybierz mi dobry film", rng))     # the model
+        self.assertIsNone(fun.random_answer("Kto wygrał mecz?", rng))
+        self.assertIsNone(fun.random_answer("Kto jest lepszy, Messi czy Ronaldo?", rng))
+        self.assertIn("Losuję", fun.random_answer("Kto zaczyna, ja czy ty?", rng))
+
     def test_race_records(self):
         import quiz
         import settings
