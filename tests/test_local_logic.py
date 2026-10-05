@@ -134,6 +134,10 @@ class TimersTest(unittest.TestCase):
         self.assertEqual(p("Włączysz lampkę?"), "włącz lampkę")
         self.assertEqual(p("Luna, nastawisz minutnik na 5 minut?"), "nastaw minutnik na 5 minut")
         self.assertIsNone(p("Wiesz, co dziś robiłam?"))
+        self.assertEqual(p("No to nastaw minutnik na 5 minut"), "nastaw minutnik na 5 minut")
+        self.assertEqual(p("Luna, a teraz włącz radio"), "włącz radio")
+        self.assertIsNone(p("To jest Kasia"))
+        self.assertIsNone(p("No to dobranoc"))
 
     def test_weekday_of(self):
         import calc

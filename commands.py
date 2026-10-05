@@ -462,6 +462,14 @@ _FUTURE = {"włączysz": "włącz", "wyłączysz": "wyłącz", "nastawisz": "nas
 _FUTURE_ASK = re.compile(r"^(?:luna,?\s+|hej,?\s+)*(?:a\s+)?(\w+)(.*?)[?.!]*$", re.I)
 
 
+_FILLER_LEAD = re.compile(r"^(?:(?:luna|luno|hej|ej|no|to|a|teraz|dobra|dobrze|okej|ok|"
+                          r"słuchaj|sluchaj|proszę|prosze|dzięki|dzieki|więc|wiec)\b[\s,]*)+",
+                          re.I)
+_COMMAND_VERBS = set(_IMPERATIVE.values()) | {
+    "zagrajmy", "pobawmy", "zróbmy", "zrobmy", "przepytaj", "nastaw", "wlacz", "wylacz",
+    "minutnik", "budzik", "stoper", "ciszej", "głośniej", "glosniej", "pokaz"}
+
+
 def polite_to_command(text):
     """"Czy możesz włączyć lampkę?" / "włączysz lampkę?" → "włącz lampkę";
     None when it isn't a polite request with a verb we know."""
@@ -469,7 +477,15 @@ def polite_to_command(text):
     if not m:
         f = _FUTURE_ASK.match(text.strip())
         verb = _FUTURE.get(f.group(1).lower()) if f else None
-        return f"{verb} {f.group(2).strip()}".strip() if verb else None
+        if verb:
+            return f"{verb} {f.group(2).strip()}".strip()
+        # "no to nastaw minutnik…", "Luna, a teraz włącz radio": the filler goes,
+        # but only before a command verb ("to jest Kasia" stays as it is)
+        rest = _FILLER_LEAD.sub("", text.strip())
+        first = rest.split()[0].lower().strip(",.") if rest.split() else ""
+        if rest != text.strip() and first in _COMMAND_VERBS:
+            return rest
+        return None
     verb = _IMPERATIVE.get(m.group(2).lower())
     if not verb:
         return None
