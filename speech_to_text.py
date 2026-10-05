@@ -406,6 +406,34 @@ def stt_prompt():
     return CLOUD_STT_PROMPT + (f" Domownicy: {', '.join(names)}." if names else "")
 
 
+# Short commands Vosk hears reliably: when it is sure (FAST_CONF), the cloud
+# round trip (~0.8 s) is skipped — "ciszej" acts at once. Only exact phrases:
+# anything else, or a less sure Vosk, goes through the cloud as before.
+FAST_CONF = 0.95
+FAST_COMMANDS = {
+    "ciszej", "głośniej", "która godzina", "która jest godzina", "jaki dziś dzień",
+    "powtórz", "dalej", "koniec", "stop", "wyłącz radio", "włącz radio",
+    "następna stacja", "zmień stację", "pokaż zegar", "dobranoc", "wyłącz lampkę",
+    "włącz lampkę", "wyłącz szum", "mów wolniej", "mów szybciej", "mów ciszej",
+    "mów głośniej", "drzemka", "jeszcze pięć minut", "wyłącz minutnik", "jeszcze raz",
+    "pokaż plan dnia", "pokaż listę zakupów", "gotowe", "wyłącz napisy", "włącz napisy",
+}
+
+
+def fast_command(text, conf):
+    """The text itself when it is a short command Vosk was sure of, else None."""
+    t = " ".join(text.lower().split())
+    if conf < FAST_CONF or t not in FAST_COMMANDS:
+        return None
+    try:
+        import messages
+        if messages.armed():           # this sentence IS a voice message: its audio counts
+            return None
+    except Exception:
+        pass
+    return t
+
+
 def foreign_script(text):
     """Letters outside the Latin script (Cyrillic, Greek, CJK…) — nobody here
     speaks those; it is the transcriber guessing the language wrong."""
@@ -852,6 +880,9 @@ def listen():
                 with state.lock:
                     state.conversation_active = True
                     state.last_activity_time  = time.time()
+                if cleaned and fast_command(cleaned, _avg_confidence(result)):
+                    print(f"[STT] sure of \"{cleaned}\" — no cloud", flush=True)
+                    return cleaned
                 if cleaned:
                     cloud = _cloud_transcribe(utt_pcm)
                     if cloud:
@@ -874,6 +905,12 @@ def listen():
                         state.luna_mode = "listening"
                         state.listening = True
                     continue
+                fast = fast_command(text, conf)
+                if fast:
+                    print(f"[STT] sure of \"{fast}\" — no cloud", flush=True)
+                    with state.lock:
+                        state.last_activity_time = time.time()
+                    return fast
                 cloud = _cloud_transcribe(utt_pcm)
                 if cloud == "":
                     # The cloud heard no words. Vosk's text is its guess at

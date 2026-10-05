@@ -862,6 +862,17 @@ class KidsTest(unittest.TestCase):
         self.assertIn("Andrzej był tu", faces.where_is("Andrzej", t0 + 7200))
         self.assertNotIn("?", faces._seen)
 
+    def test_fast_command(self):
+        from unittest import mock
+        with mock.patch.dict(sys.modules, {"sounddevice": mock.MagicMock(),
+                                           "vosk": mock.MagicMock()}):
+            import speech_to_text as s
+        self.assertEqual(s.fast_command("Ciszej", 0.99), "ciszej")
+        self.assertEqual(s.fast_command("która  godzina", 1.0), "która godzina")
+        self.assertIsNone(s.fast_command("ciszej", 0.8))              # not sure: cloud
+        self.assertIsNone(s.fast_command("ciszej proszę bo", 1.0))    # not exact: cloud
+        self.assertIsNone(s.fast_command("tak", 1.0))                 # answers: cloud
+
     def test_foreign_script(self):
         from unittest import mock
         with mock.patch.dict(sys.modules, {"sounddevice": mock.MagicMock(),
