@@ -105,6 +105,7 @@ def high_five(speak, play_sound):
 
 
 _PL_DICE = {1: "jeden", 2: "dwa", 3: "trzy", 4: "cztery", 5: "pięć", 6: "sześć"}
+_PIPS = {1: "jedynka", 2: "dwójka", 3: "trójka", 4: "czwórka", 5: "piątka", 6: "szóstka"}
 
 
 def roll(speak, play_sound_async, low):
@@ -116,10 +117,10 @@ def roll(speak, play_sound_async, low):
         time.sleep(0.28)
     time.sleep(0.2)
     if two:
-        speak(f"{_PL_DICE[results[0]].capitalize()} i {_PL_DICE[results[1]]} — "
+        speak(f"{_PIPS[results[0]].capitalize()} i {_PIPS[results[1]]} — "
               f"razem {sum(results)}!")
     else:
-        speak(f"Wypadło {_PL_DICE[results[0]]}!")
+        speak(f"Wypadła {_PIPS[results[0]]}!")          # what the die shows
 
 
 def flip(speak, play_sound_async):

@@ -44,6 +44,8 @@ import screens             # noqa: E402
 from shared_state import state   # noqa: E402
 
 radio.play = lambda *a, **k: None
+commands.set_volume = lambda v: v          # the real speaker's volume stays as it is
+commands.get_volume = lambda: 0.5
 ambience.play = lambda *a, **k: True
 screens._take_photo = lambda *a: None
 
@@ -80,6 +82,28 @@ CASES = [
     ("Pokaż plan dnia", "plan"),
     ("Zmień mój głos jak robot", "głos: robot"),
     ("Zrób mi zdjęcie", ""),
+    ("Włącz lampkę", ""),
+    ("Lampka na niebiesko", ""),
+    ("Wyłącz lampkę", ""),
+    ("Ciszej", ""),
+    ("Mów wolniej", ""),
+    ("Mów normalnie", ""),
+    ("Włącz napisy", "napisy"),
+    ("Wyłącz napisy", "napisy"),
+    ("Włącz tryb skupienia", "skupi"),
+    ("Koniec skupienia", ""),
+    ("Tłumacz na angielski", "angielski"),
+    ("Koniec tłumaczenia", "Koniec tłumaczenia"),
+    ("Rzuć kostką", "Wypadła"),
+    ("Orzeł czy reszka?", ""),
+    ("Powtórz", ""),
+    ("Pokaż zegar", ""),
+    ("Pokaż listę zakupów", ""),
+    ("Pokaż status", ""),
+    ("Zapamiętaj, że klucze są w szufladzie", ""),
+    ("Zapomnij, że klucze są w szufladzie", "zapomniałam"),
+    ("Maja ma imieniny 3 maja", "Zapamiętałam"),
+    ("Kiedy Maja ma imieniny?", "3 maja"),
     # ordinary talk: the model, never a command
     ("Jutro mamy dyktando w szkole", MODEL),
     ("Szum morza mnie uspokaja", MODEL),
@@ -89,6 +113,7 @@ CASES = [
     ("Gdzie jest pilot?", MODEL),
     ("Czy możesz mi wytłumaczyć fotosyntezę?", MODEL),
     ("Moja koleżanka gra w kółko i krzyżyk na lekcjach", MODEL),
+    ("Pa!", ""),                             # last: she goes to sleep
 ]
 
 failures = []
