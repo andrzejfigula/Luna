@@ -163,7 +163,10 @@ def status_rows():
     try:
         import memory
         m = memory._load()
-        rows.append(("Pamięć", f"{len(m['facts'])} faktów, {len(m['episodes'])} rozmów"))
+        import calc
+        nf, ne = len(m["facts"]), len(m["episodes"])
+        rows.append(("Pamięć", f"{nf} {calc._plural(nf, 'fakt', 'fakty', 'faktów')}, "
+                               f"{ne} {calc._plural(ne, 'rozmowa', 'rozmowy', 'rozmów')}"))
     except Exception:
         pass
     from datetime import date, timedelta

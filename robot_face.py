@@ -2355,8 +2355,8 @@ class RobotFace:
                                                    cy + (R - 42) * math.sin(a))))
             h, m = data["h"], data["m"]
             for ang, length, width, col in (
-                    ((h % 12 + m / 60) * 30, R * 0.5, 9, (255, 240, 200)),   # hour
-                    (m * 6, R * 0.78, 5, STAR_COL)):                           # minute
+                    ((h % 12 + m / 60) * 30, R * 0.45, 10, (255, 240, 200)),   # hour
+                    (m * 6, R - 66, 6, STAR_COL)):                           # minute
                 a = math.radians(ang - 90)
                 pygame.draw.line(scr, col, (cx, cy),
                                  (cx + length * math.cos(a), cy + length * math.sin(a)), width)
@@ -2495,9 +2495,18 @@ class RobotFace:
             font = _get_font(34)
             pages = max(1, -(-len(rows) // 7))       # more than 7: a page every 6 s
             page = int(time.time() // 6) % pages
+            # the values start after the longest label ("API wczoraj" ran into its
+            # value); a smaller font when the values wouldn't fit otherwise
+            for fs in (34, 30, 27):
+                font = _get_font(fs)
+                label_w = max((font.size(w)[0] for w, _ in rows if w != "•"), default=0)
+                value_x = max(250, min(70 + label_w + 24, WIDTH // 2))
+                if all(font.size(v)[0] <= WIDTH - (110 if w == "•" else value_x) - 30
+                       for w, v in rows):
+                    break
             for i, (when, what) in enumerate(rows[page * 7:page * 7 + 7]):
                 y = 110 + i * 50
-                x = 110 if when == "•" else 250
+                x = 110 if when == "•" else value_x
                 if font.size(what)[0] > WIDTH - x - 30:   # cut to the screen, not to 34
                     while what and font.size(what + "…")[0] > WIDTH - x - 30:
                         what = what[:-1]
