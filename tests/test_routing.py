@@ -179,6 +179,27 @@ MODEL = [
     "Dlaczego mówisz krócej niż wczoraj?",
     "Mów mi więcej o kotach i psach",
     "Jaki kolor ma niebo?",
+    # ordinary conversation — no local command may grab these
+    "Opowiedz mi o dinozaurach",
+    "Co jadłaś na śniadanie?",
+    "Lubisz muzykę?",
+    "Jaka jest najwyższa góra świata?",
+    "Czy możesz mi pomóc wybrać prezent dla mamy?",
+    "Gdzie są moje klucze?",
+    "Jak się czujesz?",
+    "Co dzisiaj robimy?",
+    "Kim jesteś?",
+    "Ile masz lat?",
+    "Czy umiesz śpiewać?",
+    "Powiedz coś śmiesznego",
+    "Dziękuję ci bardzo",
+    "Jestem głodny",
+    "Mam dzisiaj urodziny",
+    "Wiesz co, miałam dziś ciężki dzień w pracy",
+    "Przypomnij mi jutro o dentyście",
+    "Co to jest fotosynteza?",
+    "Maja dostała piątkę z matematyki",
+    "Emilka pojechała do sklepu po mleko",
     "Zróbmy coś fajnego",
     "Pomóż mi przygotować prezentację",
     "Ile kalorii mają naleśniki?",
@@ -359,6 +380,18 @@ class RoutingTest(unittest.TestCase):
                 with state.lock:
                     state.sleep_mode = False
                 self.assertEqual(self.route(text), "model")
+
+    def test_questions_go_to_the_model_with_the_family_known(self):
+        """The same with Andrzej, Emilka and Maja known by face — the
+        person-aware commands (birthdays, notes, photos) must still leave
+        ordinary sentences alone."""
+        import faces
+        with mock.patch.object(faces, "names", lambda: ["Andrzej", "Emilka", "Maja"]),                 mock.patch.object(faces, "nominative", lambda w: w):
+            for text in MODEL:
+                with self.subTest(text=text):
+                    with state.lock:
+                        state.sleep_mode = False
+                    self.assertEqual(self.route(text), "model")
 
     def test_mute(self):
         self.assertEqual(self.route("Luna, cicho"), "mute")
