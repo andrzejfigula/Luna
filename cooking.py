@@ -163,7 +163,7 @@ def answer(text, speak):
             import timers
             mins = c["offer"]
             c["offer"] = None
-            timers.add(mins * 60, c["steps"][c["i"]]["text"][:40])
+            timers.add(mins * 60, f"{c['title'].lower()}, krok {c['i'] + 1}")
             speak(f"Minutnik na {timers.say_duration(mins * 60)} ustawiony.")
             _keep_listening()
             return True
