@@ -923,6 +923,16 @@ def handle(text, speak, play_sound):
         quiz.show_stars(speak)                     # "pokaż moje gwiazdki"
         return True
 
+    import tictac                                  # "zagrajmy w kółko i krzyżyk"
+    if tictac.wants(text):
+        tictac.start(speak)
+        return True
+    if tictac.active() and _short(text, 4) and re.search(
+            r"\b(koniec|wystarczy|kończymy|konczymy|stop)\b", low):
+        tictac.stop()
+        speak("Dobrze, koniec gry. Dzięki za partyjkę!")
+        return True
+
     kind = quiz.trigger(text)                      # "przepytaj mnie z tabliczki"
     if kind:
         quiz.start(kind, text, speak, _sound_async)

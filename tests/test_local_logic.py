@@ -116,6 +116,27 @@ class TimersTest(unittest.TestCase):
                      "Przypomnij mi za 10 minut o praniu"):
             self.assertIsNone(timers.local_timer(text), text)
 
+    def test_tictac(self):
+        import tictac
+        b = ["X", "X", None, "O", "O", None, None, None, None]
+        self.assertEqual(tictac.best_move(b), 5)            # win beats blocking
+        b = ["X", "X", None, None, "O", None, None, None, None]
+        self.assertEqual(tictac.best_move(b), 2)            # block
+        self.assertEqual(tictac._winner(["X"] * 3 + [None] * 6), ("X", (0, 1, 2)))
+        self.assertEqual(tictac._winner(list("XOXXOOOXX")), ("draw", None))
+        self.assertEqual(tictac.cell_at(0.5, 0.5), 4)        # the middle
+        self.assertEqual(tictac.cell_at(0.01, 0.5), None)    # beside the board
+        self.assertEqual(tictac.cell_at((190 + 10) / 800, (30 + 10) / 480), 0)
+        self.assertTrue(tictac.wants("Zagrajmy w kółko i krzyżyk"))
+        # optimal play from both sides is always a draw
+        for _ in range(5):
+            b = [None] * 9
+            turn = "X"
+            while not tictac._winner(b)[0]:
+                b[tictac.best_move(b, turn)] = turn
+                turn = "O" if turn == "X" else "X"
+            self.assertEqual(tictac._winner(b)[0], "draw")
+
     def test_local_reminder(self):
         at15 = datetime.datetime(2026, 10, 5, 15, 0).timestamp()
         r = timers.local_reminder

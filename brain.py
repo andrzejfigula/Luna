@@ -308,6 +308,7 @@ use something, explain in your own words, briefly, a few examples at a time
 - "co o mnie wiesz?" / "co wiesz o Mai?" — what your memory holds about
   someone; "zapomnij, że …" removes one remembered thing
 - "gdzie jest Maja?" — when you last saw that person with your camera
+- noughts and crosses on your touchscreen ("zagrajmy w kółko i krzyżyk")
   ("pokaż moje gwiazdki"), sleep sounds ("włącz szum deszczu / morza"), and
   "nie słuchaj" turns your microphone off (a finger held on the screen turns
   it back on)

@@ -1633,7 +1633,14 @@ class RobotFace:
                     state.reply_scene = None
 
         # ── touch: instant visual answer, and tell the engine which zone ──
-        if touch_t > self._touch_t and self._overlay_on():
+        with state.lock:
+            ov_kind = state.overlay[0] if state.overlay else None
+        if touch_t > self._touch_t and self._overlay_on() and ov_kind == "ttt":
+            self._touch_t = touch_t                     # a move in the game
+            if touch_kind in ("tap", "stop"):
+                import tictac                           # outside state.lock: it takes it
+                tictac.tap(touch_pt[0], touch_pt[1], WIDTH, HEIGHT)
+        elif touch_t > self._touch_t and self._overlay_on():
             self._touch_t = touch_t                     # a tap closes it…
             with state.lock:
                 ov = state.overlay
@@ -2479,6 +2486,38 @@ class RobotFace:
             if pages > 1:
                 p_img = _get_font(26).render(f"{page + 1}/{pages}", True, EYE_MID)
                 scr.blit(p_img, p_img.get_rect(bottomright=(WIDTH - 24, HEIGHT - 16)))
+        elif kind == "ttt":
+            # noughts and crosses (tictac.py): a 420 px board in the middle
+            scr.fill(BG)
+            size = 420
+            left, top = (WIDTH - size) // 2, (HEIGHT - size) // 2
+            for k in (1, 2):
+                pygame.draw.line(scr, EYE_MID, (left + k * 140, top + 12),
+                                 (left + k * 140, top + size - 12), 5)
+                pygame.draw.line(scr, EYE_MID, (left + 12, top + k * 140),
+                                 (left + size - 12, top + k * 140), 5)
+            for i, v in enumerate(data["b"]):
+                cx = left + (i % 3) * 140 + 70
+                cy = top + (i // 3) * 140 + 70
+                if v == "X":
+                    for d in (1, -1):
+                        pygame.draw.line(scr, (110, 200, 255), (cx - 40, cy - 40 * d),
+                                         (cx + 40, cy + 40 * d), 12)
+                elif v == "O":
+                    pygame.draw.circle(scr, EYE_INNER, (cx, cy), 44, 10)
+            if data.get("line"):
+                a, b = data["line"][0], data["line"][2]
+                pa = (left + (a % 3) * 140 + 70, top + (a // 3) * 140 + 70)
+                pb = (left + (b % 3) * 140 + 70, top + (b // 3) * 140 + 70)
+                pygame.draw.line(scr, (255, 255, 255), pa, pb, 8)
+            words = data.get("msg", "").split(" · ")
+            for j, w in enumerate(words):
+                img = _get_font(30 if j == 0 else 22).render(w, True, EYE_MID if j else STAR_COL)
+                scr.blit(img, img.get_rect(midleft=(left + size + 18, HEIGHT // 2 - 20 + j * 40)))
+            for j, (mark, who) in enumerate((("X", "ty"), ("O", "Luna"))):
+                img = _get_font(26).render(f"{mark} — {who}", True,
+                                           (110, 200, 255) if mark == "X" else EYE_INNER)
+                scr.blit(img, img.get_rect(midright=(left - 18, HEIGHT // 2 - 20 + j * 40)))
         elif kind == "clock":
             scr.fill(BG)
             big = _get_font(190).render(time.strftime("%H:%M"), True, EYE_MID)
