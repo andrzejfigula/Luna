@@ -187,8 +187,10 @@ def handle(text, speak, play_sound, play_sound_async):
         return True
     low = text.lower()
     words = re.findall(r"\w+", low)
-    if len(words) > 8 or low.strip().endswith("?") and not any(k in low for k in COIN):
-        return False
+    polite = re.search(r"\b(?:możesz|mozesz|mogłabyś|moglabys|mogłabys)\b", low)
+    if len(words) > 8 or (low.strip().endswith("?") and not polite
+                          and not any(k in low for k in COIN)):
+        return False                       # "czy możesz rzucić kostką?" is a request
     if any(k in low for k in LAMP_OFF):
         lamp_off()
         return True

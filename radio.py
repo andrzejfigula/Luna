@@ -415,6 +415,23 @@ def _minutes(text):
     return secs if secs and secs <= 4 * 3600 else None
 
 
+def answer_question(text, speak):
+    """"Jakie to radio?", "co teraz gra?" — questions, so commands.py asks
+    here before its question guard. True when answered."""
+    low = text.lower().strip(" .!?")
+    if any(k in low for k in _WHAT) and len(low.split()) <= 6:
+        now = playing()
+        speak(f"Gra {now}." if now else "Radio nie gra.")
+        return True
+    if playing() and any(k in low for k in _SONG) and len(re.findall(r"\w+", low)) <= 7:
+        with _lock:
+            title = _player.get("title") if _player else None
+        speak(f"Teraz gra: {title.rstrip('.!?')}." if title else
+              f"Gra {playing()}, ale stacja nie podaje tytułu piosenki.")
+        return True
+    return False
+
+
 def handle(text, speak):
     """Radio commands. True when handled."""
     import settings
@@ -430,17 +447,9 @@ def handle(text, speak):
         speak("Dobrze, budzik obudzi cię radiem, po cichutku coraz głośniej." if on
               else "Dobrze, budzik znowu będzie dzwonił.")
         return True
-    if any(k in low for k in _WHAT) and len(low.split()) <= 6:
-        now = playing()
-        speak(f"Gra {now}." if now else "Radio nie gra.")
+    if answer_question(text, speak):
         return True
     words = re.findall(r"\w+", low)
-    if playing() and any(k in low for k in _SONG) and len(words) <= 7:
-        with _lock:
-            title = _player.get("title") if _player else None
-        speak(f"Teraz gra: {title.rstrip('.!?')}." if title else
-              f"Gra {playing()}, ale stacja nie podaje tytułu piosenki.")
-        return True
     if any(k in low for k in _NEXT) and len(words) <= 5:
         names = list(STATIONS.values())
         now = playing()

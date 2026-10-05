@@ -38,6 +38,7 @@ LOCAL = {
     "Przybij piątkę!": "fun",
     "Rzuć kostką": "fun",
     "Rzuć dwiema kostkami": "fun",
+    "Czy możesz rzucić kostką?": "fun",
     "Orzeł czy reszka?": "fun",
     "Włącz tryb skupienia": "focus",
     "Minutnik na 10 minut": "timer",
@@ -94,6 +95,8 @@ LOCAL = {
     "Przywróć listę zakupów": "lists",
     "Ile zostało na minutniku?": "asked",
     "Ile zostało do końca minutnika?": "asked",
+    "Ile mam gwiazdek?": "asked",
+    "Jakie to radio?": "asked",
     "Co o mnie wiesz?": "asked",
     "Kto dziś zmywa: Maja, tata czy mama?": "asked",
     "Wylosuj liczbę od 1 do 6": "asked",
@@ -420,6 +423,7 @@ class RoutingTest(unittest.TestCase):
         if any(t.startswith(("Nie mam teraz żadnego minutnika", "Zostało", "Zostały",
                              "Nie poznaję cię", "Losuję", "Wybieram", "W Tokio",
                              "24 grudnia wypada", "Jeszcze niczego o tobie", "Emilka",
+                             "Nie wiem, kim jesteś", "Radio nie gra", "Gra ",
                              "Maja"))
                for t in said):
             self._mark("asked")

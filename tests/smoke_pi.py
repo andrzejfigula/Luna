@@ -110,6 +110,7 @@ for utterance in (("Która godzina?", "Ile to jest 17 razy 23?", "Ile dni do Wig
 # questions she answers herself must not slip to the model (a guard once
 # sent "ile zostało na minutniku?" and "gdzie jest Emilka?" there)
 for utterance in (["Ile zostało na minutniku?", "Co o mnie wiesz?", "Która godzina w Tokio?",
+                   "Ile mam gwiazdek?", "Jakie to radio?",
                    "Kto dziś zmywa: Maja, tata czy mama?", "Jaki dzień tygodnia będzie 24 grudnia?"]
                   + ([f"Gdzie jest {known[0]}?"] if known else [])):
     if not mods["commands"].handle(utterance, speak, lambda *a, **k: True):

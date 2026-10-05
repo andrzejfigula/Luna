@@ -167,6 +167,17 @@ def stopwatch_text():
     return f"+{h}:{m:02d}:{s:02d}" if h else f"+{m}:{s:02d}"
 
 
+def ask_stopwatch(text, speak):
+    """"Ile na stoperze?" — a question, so commands.py asks here before its
+    question guard. True when answered."""
+    low = text.lower()
+    if (any(k in low for k in _STOPWATCH_ASK) and _watch["t0"] is not None
+            and len(re.findall(r"\w+", low)) <= 6):
+        speak(f"Na stoperze: {say_elapsed(time.time() - _watch['t0'])}.")
+        return True
+    return False
+
+
 def handle(text, speak, play_sound):
     """Counting and stopwatch commands. True when handled."""
     low = text.lower()
@@ -185,9 +196,7 @@ def handle(text, speak, play_sound):
         print(f"[count] stopwatch stopped at {secs:.1f}s", flush=True)
         speak(f"Stop! {say_elapsed(secs)}.")
         return True
-    if (any(k in low for k in _STOPWATCH_ASK) and _watch["t0"] is not None
-            and len(re.findall(r"\w+", low)) <= 6):
-        speak(f"Na stoperze: {say_elapsed(time.time() - _watch['t0'])}.")
+    if ask_stopwatch(text, speak):
         return True
     c = parse_count(text)
     if c:

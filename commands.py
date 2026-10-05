@@ -773,6 +773,17 @@ def handle(text, speak, play_sound):
     if said:
         speak(said)
         return True
+    if re.search(r"\b(?:moje|moich|ile mam)\s+gwiazd|\bpokaż\s+gwiazdki\b", low) \
+            and _short(text, 6):
+        import quiz
+        quiz.show_stars(speak)                     # "pokaż moje gwiazdki", "ile mam…?"
+        return True
+    import radio
+    if radio.answer_question(text, speak):         # "jakie to radio?", "co teraz gra?"
+        return True
+    import counting
+    if counting.ask_stopwatch(text, speak):        # "ile na stoperze?"
+        return True
 
     # everything below acts on a request — never on a question about it
     if question:
@@ -952,11 +963,6 @@ def handle(text, speak, play_sound):
     import games                                   # rock, paper, scissors
     if games.is_trigger(text) or games.is_rematch(text):
         games.play_match(speak, _sound_async)
-        return True
-
-    if re.search(r"\b(?:moje|moich|ile mam)\s+gwiazd|\bpokaż\s+gwiazdki\b", low) \
-            and _short(text, 6):
-        quiz.show_stars(speak)                     # "pokaż moje gwiazdki"
         return True
 
     import memo                                    # "zagrajmy w memory"
