@@ -755,6 +755,11 @@ def handle(text, speak, play_sound):
         games.play_match(speak, _sound_async)
         return True
 
+    if re.search(r"\b(?:moje|moich|ile mam)\s+gwiazd|\bpokaż\s+gwiazdki\b", low) \
+            and _short(text, 6):
+        quiz.show_stars(speak)                     # "pokaż moje gwiazdki"
+        return True
+
     kind = quiz.trigger(text)                      # "przepytaj mnie z tabliczki"
     if kind:
         quiz.start(kind, text, speak, _sound_async)

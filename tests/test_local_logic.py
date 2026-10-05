@@ -480,6 +480,21 @@ class KidsTest(unittest.TestCase):
             state.person = None
         self.assertEqual(quiz._past_misses("dyktando"), [])       # someone else
 
+    def test_stars(self):
+        import quiz
+        settings.put("stars", {})
+        self.assertIsNone(quiz.award_star())                     # nobody known
+        with state.lock:
+            state.person = ("Maja", 0.9, time.time())
+        self.assertEqual(quiz.award_star(), 1)
+        self.assertEqual(quiz.award_star(), 2)
+        with state.lock:
+            self.assertEqual(state.overlay[0], "stars")
+            state.person, state.overlay = None, None
+        self.assertEqual(quiz._stars_pl(1), "gwiazdkę")
+        self.assertEqual(quiz._stars_pl(3), "gwiazdki")
+        self.assertEqual(quiz._stars_pl(12), "gwiazdek")
+
     def test_quiz_ends_on_unrelated_talk(self):
         import quiz
         quiz.start("add", "quiz z dodawania do 20", lambda t, **k: None, lambda n: None)

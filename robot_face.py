@@ -350,6 +350,19 @@ apply_style(FACE_STYLE if FACE_STYLE in STYLES else 1)
 _FONT_CACHE = {}
 
 
+def _draw_star(surf, cx, cy, r, col, shine):
+    """A five-pointed star (no font has one we can trust)."""
+    if r < 2:
+        return
+    pts = []
+    for i in range(10):
+        a = -math.pi / 2 + i * math.pi / 5
+        rr = r if i % 2 == 0 else r * 0.45
+        pts.append((cx + rr * math.cos(a), cy + rr * math.sin(a)))
+    pygame.draw.polygon(surf, col, pts)
+    pygame.draw.polygon(surf, shine, pts, max(1, int(r / 10)))
+
+
 def _get_font(size):
     f = _FONT_CACHE.get(size)
     if f is None:
@@ -2308,6 +2321,27 @@ class RobotFace:
                     pygame.draw.circle(lamp, col, (cx, cy), r)
                 self._lamp = ((inner, outer), lamp)
             scr.blit(self._lamp[1], (0, 0))
+        elif kind == "stars":
+            # stars collected for perfect rounds (quiz.py): a grid of gold stars,
+            # the newest one pops in; the name and the count below
+            scr.fill(BG)
+            n, t = data["n"], time.time() - data["t0"]
+            shown = min(n, 24)
+            cols = min(shown, 8) or 1
+            rows = (shown + cols - 1) // cols if shown else 0
+            size = 34 if shown > 8 else 44 if shown > 3 else 70
+            gap = size * 2.4
+            for i in range(shown):
+                r, c = divmod(i, cols)
+                x = WIDTH / 2 + (c - (cols - 1) / 2) * gap
+                y = HEIGHT / 2 - 40 + (r - (rows - 1) / 2) * gap
+                k = 1.0
+                if data.get("new") and i == shown - 1:   # the new one: pops in
+                    k = min(1.0, t / 0.6) * (1 + 0.35 * math.sin(min(1.0, t / 0.6) * math.pi))
+                _draw_star(scr, x, y, size * k, (255, 205, 60), (255, 240, 170))
+            label = f"{data['name']}: {n}"
+            img = _get_font(40).render(label, True, STAR_COL)
+            scr.blit(img, img.get_rect(center=(WIDTH // 2, HEIGHT - 60)))
         elif kind == "card":
             # a quiz question or a spelled word — big, in the middle (quiz.py,
             # commands.py); "ok" glows green, "bad" warm red

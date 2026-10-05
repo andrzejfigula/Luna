@@ -257,7 +257,10 @@ def _new_question(q):
         return
     if q["kind"] == "words":
         pool = [w for w in WORDS if w[0] not in seen] or WORDS
-        pl, en = random.choice(pool)
+        missed = {m.split(" = ")[0] for m in _past_misses("angielskie słówka")}
+        again = [w for w in pool if w[0] in missed]
+        pl, en = (random.choice(again) if again and random.random() < REPEAT_MISSES
+                  else random.choice(pool))
         seen.add(pl)
         q.update(card=f"{pl} = ?", say=f"Jak jest po angielsku: {pl}?", answer=en,
                  reveal=f"{pl} = {en[0]}",
@@ -383,7 +386,10 @@ def _finish(speak, play_sound_async):
         said, emo = (f"{score} na {total}. Nic nie szkodzi — ćwiczenie czyni mistrza. "
                      "Zagramy jeszcze raz?"), "Neutral"
     print(f"[quiz] done: {score}/{total}", flush=True)
-    if score == total:                     # how many perfect rounds so far
+    stars = award_star() if score == total else None
+    if stars:                                    # a perfect round: a star
+        said += f" Dostajesz gwiazdkę! Masz już {stars}."
+    if score == total and not stars:       # (stars count perfect rounds already)
         import settings
         with state.lock:
             who = state.person[0] if state.person else "_"
@@ -393,7 +399,8 @@ def _finish(speak, play_sound_async):
         settings.put("records", recs)
         if mine["perfect"] > 1:
             said += f" To już {mine['perfect']}. bezbłędna runda!"
-    _card(f"{score} / {total}", "wynik", "ok" if score >= total - 1 else None, secs=6)
+    if not stars:                          # the star is on the screen instead
+        _card(f"{score} / {total}", "wynik", "ok" if score >= total - 1 else None, secs=6)
     with state.lock:
         state.emotion = emo
     if score >= total - 1:
@@ -417,6 +424,53 @@ def _record(field, value, better):
         print(f"[quiz] record for {who}: {field} = {value} (was {old})", flush=True)
         return old if old is not None else True
     return None
+
+
+def award_star():
+    """+1 star for the person in front of her (by face) — None for someone
+    unknown. Shown big on the screen; "pokaż moje gwiazdki" shows them all."""
+    import settings
+    with state.lock:
+        who = state.person[0] if state.person else None
+    if not who:
+        return None
+    stars = settings.get("stars", {}) or {}
+    stars[who] = stars.get(who, 0) + 1
+    settings.put("stars", stars)
+    with state.lock:
+        state.overlay = ("stars", time.time() + 5,
+                         {"n": stars[who], "name": who, "new": True, "t0": time.time()})
+    print(f"[quiz] a star for {who}: {stars[who]}", flush=True)
+    return stars[who]
+
+
+def show_stars(speak):
+    """"Pokaż moje gwiazdki" / "ile mam gwiazdek?"."""
+    import settings
+    import faces
+    with state.lock:
+        who = state.person[0] if state.person else None
+    if not who:
+        speak("Nie wiem, kim jesteś — gwiazdki zbiera każdy osobno. Powiedz: jestem…")
+        return
+    n = (settings.get("stars", {}) or {}).get(who, 0)
+    voc = faces.vocatives().get(who) or who
+    with state.lock:
+        state.overlay = ("stars", time.time() + 8,
+                         {"n": n, "name": who, "new": False, "t0": time.time()})
+    if n:
+        speak(f"Masz {n} {_stars_pl(n)}, {voc}! Każda za bezbłędną rundę.")
+    else:
+        speak(f"Jeszcze nie masz gwiazdek, {voc}. Bezbłędna runda w quizie, zagadkach "
+              "albo dyktandzie daje gwiazdkę!")
+
+
+def _stars_pl(n):
+    if n == 1:
+        return "gwiazdkę"
+    if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
+        return "gwiazdki"
+    return "gwiazdek"
 
 
 def _tries_pl(n):

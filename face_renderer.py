@@ -72,7 +72,9 @@ def renderer_loop():
                   and (asleep or face.idle_frames > SLEEP_AFTER_FRAMES))
         with state.lock:
             ov = state.overlay
-        still = bool(ov and ov[0] in ("lamp", "clock", "list", "photo", "gallery")
+        still = bool(ov and ov[0] in ("lamp", "clock", "list", "photo", "gallery", "stars")
+                     and not (ov[0] == "stars" and ov[2].get("new")
+                              and now - ov[2]["t0"] < 1.0)    # (the pop-in)
                      and now < ov[1] - 0.6)          # (full speed for the fade-out)
         calm = not (override or speaking or busy or face._gesture or face._scene)
         face.fps = (8 if still else RENDER_FPS_ASLEEP if sleepy

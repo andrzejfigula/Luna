@@ -328,3 +328,5 @@ the game's hand reading, photos, the mood read from a face.
 | 140 | **"Co potrafisz?" knows the newest things** — faces, birthdays, notes for a person, riddles, dictation, reading aloud, weather and news | The list stopped at the radio | ✅ |
 | 141 | **Game results for the parents** — every quiz round (who, which game, score, the words or sums missed) goes into her day and diary; "jak Mai poszło dyktando?" → "3 na 5, pomyliła się w słowach rzeka i góra" | Parents want to know what to practise | ✅ |
 | 142 | **Practice what went wrong** — in dictation and the multiplication table about half of the questions are ones this person missed lately (today and the 14-day diary) | Learning sticks where the mistakes were | ✅ per person, by face |
+| 143 | **English words come back too** — words missed lately are asked again | — | ✅ |
+| 144 | **Stars** — a perfect round (quiz, riddles, dictation) earns a gold star, shown popping in on her screen ("Dostajesz gwiazdkę! Masz już 4."); "pokaż moje gwiazdki" shows the collection; per person | Something to collect makes practice a game | ✅ drawn as polygons (the screen font has no ★) |
