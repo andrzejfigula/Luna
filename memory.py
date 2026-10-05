@@ -359,6 +359,8 @@ def consolidate():
 
     facts = [str(f).strip() for f in data.get("facts", []) if str(f).strip()]
     facts = facts[:MEMORY_MAX_FACTS]
+    if tidy and len(facts) > MERGE_ABOVE:
+        facts = merge_topics(facts)
     with _lock:
         facts += [f for t, f in _added if t >= t0 and f not in facts]
     episode = str(data.get("episode", "")).strip()
@@ -391,6 +393,46 @@ def consolidate():
           f"{len(facts)} facts, "
           f"{len(mem['threads'])} open threads"
           + (f", episode: {episode}" if episode else ", no episode"), flush=True)
+
+
+MERGE_ABOVE = 10
+_MERGE_SCHEMA = {
+    "type": "json_schema",
+    "json_schema": {"name": "merged", "strict": True, "schema": {
+        "type": "object",
+        "properties": {"facts": {"type": "array", "items": {"type": "string"}}},
+        "required": ["facts"], "additionalProperties": False}},
+}
+
+
+def merge_topics(facts):
+    """The daily tidy's second step, one job only: facts on the same topic
+    (ten details of one work project) become one or two. The list as it was
+    if anything looks wrong."""
+    if _client is None:
+        return facts
+    try:
+        r = _client.chat.completions.create(
+            model=MEMORY_TIDY_MODEL, temperature=0.1, max_tokens=1500,
+            response_format=_MERGE_SCHEMA,
+            messages=[{"role": "user", "content":
+                       "These are the lasting facts a home robot remembers about a "
+                       "family. Group them by topic and rewrite each group as ONE short "
+                       "Polish sentence (two only if the topic really needs it): keep "
+                       "names, dates and anything specific that matters; drop chatty "
+                       "details. Facts that stand alone stay as they are. Return JSON "
+                       "{\"facts\": [...]}, most important first.\n\n"
+                       + "\n".join(f"- {f}" for f in facts)}])
+        new = [str(f).strip() for f in json.loads(r.choices[0].message.content)["facts"]
+               if str(f).strip()]
+    except Exception as e:
+        print(f"[memory] merging failed ({e}) — kept as is", flush=True)
+        return facts
+    if not new or len(new) < max(3, len(facts) // 5) or len(new) > len(facts):
+        print(f"[memory] merge gave {len(new)} of {len(facts)} — kept as is", flush=True)
+        return facts
+    print(f"[memory] merged by topic: {len(facts)} → {len(new)} facts", flush=True)
+    return new
 
 
 def facts_ok(new, old, dropped=()):
