@@ -41,6 +41,7 @@ goes to the model.
 """
 
 import json
+import os
 import random
 import re
 
@@ -338,6 +339,60 @@ def _memory_talk(text):
     if len(facts) > 5:
         said += f" I jeszcze {len(facts) - 5} innych rzeczy."
     return said + " Jeśli coś się nie zgadza, powiedz: zapomnij, że…"
+
+
+_CONTINUE = re.compile(r"\b(?:dalszy\s+ciąg|dalszy\s+ciag|ciąg\s+dalszy|ciag\s+dalszy|"
+                       r"co\s+było\s+dalej|co\s+bylo\s+dalej|opowiedz\s+dalej|"
+                       r"kontynuuj|następną\s+część|nastepna\s+czesc|następna\s+część)\b", re.I)
+
+
+def _story_path():
+    from config import DATA_DIR
+    return os.path.join(DATA_DIR, "story.json")
+
+
+def last_story(max_days=14):
+    """The last bedtime story told (text), if not older than max_days."""
+    import json
+    try:
+        with open(_story_path(), encoding="utf-8") as f:
+            s = json.load(f)
+        if time.time() - s.get("t", 0) > max_days * 86400:
+            return None
+        return s.get("text") or None
+    except (OSError, ValueError):
+        return None
+
+
+def _save_story(text):
+    import json
+    try:
+        tmp = _story_path() + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({"t": time.time(), "text": text}, f, ensure_ascii=False)
+        os.replace(tmp, _story_path())
+    except OSError as e:
+        print(f"[cmd] story not saved ({e})", flush=True)
+
+
+def _tell_story(prompt, bedtime):
+    """A story through the model; it is kept, so "dalszy ciąg" can follow."""
+    import brain
+    if bedtime:
+        with state.lock:
+            state.voice_mood = "sleepy"          # a lullaby voice, not a cheerful one
+    try:
+        brain.process(prompt)
+        hist = getattr(brain, "_history", None) or []
+        last = hist[-1] if hist else {}
+        if last.get("role") == "assistant" and len(last.get("content", "")) > 120:
+            _save_story(last["content"])
+    finally:
+        if bedtime:
+            with state.lock:
+                state.voice_mood = None
+    if bedtime:
+        go_to_sleep()
 
 
 def _child_here():
@@ -693,8 +748,12 @@ def handle(text, speak, play_sound, _polite=True):
 
     # "powtórz" / "co powiedziałaś?" — a question that IS a request: her last
     # answer again, from its audio (no new request)
+    hit = next((k for k in _REPEAT if k in low), None)
+    after = re.findall(r"\w+", low.split(hit, 1)[1]) if hit else []
     if (_bare(text, ("powtórz", "powtorz", "repeat")) or
-            (any(k in low for k in _REPEAT) and _short(text, 6))):
+            (hit and _short(text, 6)
+             and all(w in ("teraz", "przed", "chwilą", "chwila", "właśnie", "wlasnie", "luna")
+                     for w in after))):            # not "co mówiłaś o planetach"
         from text_to_speech import replay_last
         if not replay_last():
             speak("Jeszcze nic nie mówiłam.")
@@ -905,20 +964,26 @@ def handle(text, speak, play_sound, _polite=True):
             speak("Koniec tłumaczenia.")
             return True
 
+    # "opowiedz dalszy ciąg bajki" — last night's story goes on
+    if _CONTINUE.search(low) and any(k in low for k in ("bajk", "historyjk", "opowieś",
+                                                         "opowies")) and _short(text, 10):
+        story = last_story()
+        if not story:
+            speak("Nie pamiętam żadnej bajki do kontynuowania. Mogę opowiedzieć nową!")
+            return True
+        bedtime = "dobranoc" in low or time.localtime().tm_hour >= 19
+        _tell_story("Opowiedz dalszy ciąg tej bajki — te same postacie, co dalej się "
+                    f"wydarzyło (około 8 zdań). Poprzednia część: «{story[:1200]}»"
+                    + (" Spokojnie i sennie, zakończ życzeniem dobrej nocy." if bedtime else ""),
+                    bedtime)
+        return "recorded"
+
     # "bajka na dobranoc" — a calm story, then she falls asleep herself
     if (("dobranoc" in low or "do snu" in low or "na sen" in low)
             and any(k in low for k in ("bajk", "historyjk", "opowieść", "opowiesc"))
             and _short(text, 10) and intent.asked(low, 4)):
-        import brain
-        with state.lock:
-            state.voice_mood = "sleepy"          # a lullaby voice, not a cheerful one
-        try:
-            brain.process("Opowiedz mi spokojną, krótką bajkę na dobranoc — około 8 "
-                          "zdań, łagodnie i sennie — i zakończ życzeniem dobrej nocy.")
-        finally:
-            with state.lock:
-                state.voice_mood = None
-        go_to_sleep()
+        _tell_story("Opowiedz mi spokojną, krótką bajkę na dobranoc — około 8 "
+                    "zdań, łagodnie i sennie — i zakończ życzeniem dobrej nocy.", True)
         return "recorded"            # process() already put it in the history
 
     # "jeszcze 5 minut" / "drzemka" right after an alarm or timer rang

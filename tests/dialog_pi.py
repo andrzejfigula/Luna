@@ -102,6 +102,7 @@ CASES = [
     ("Rzuć kostką", "Wypadła"),
     ("Orzeł czy reszka?", ""),
     ("Powtórz", ""),
+    ("Opowiedz dalszy ciąg bajki", "Nie pamiętam żadnej bajki"),
     ("Pokaż zegar", ""),
     ("Pokaż listę zakupów", ""),
     ("Pokaż status", ""),
@@ -117,6 +118,7 @@ CASES = [
     ("Gotujemy obiad, bo zaraz przyjdą goście", MODEL),
     ("Kto jest lepszy, Messi czy Ronaldo?", MODEL),
     ("Gdzie jest pilot?", MODEL),
+    ("Co mówiłaś o planetach?", MODEL),
     ("Czy możesz mi wytłumaczyć fotosyntezę?", MODEL),
     ("Moja koleżanka gra w kółko i krzyżyk na lekcjach", MODEL),
     # the internet is down: what still works

@@ -223,6 +223,7 @@ MODEL = [
     "Co mamy dzisiaj?",
     "Ile mamy czasu do wyjścia?",
     "Co wiesz o dinozaurach?",
+    "Kontynuuj, proszę, co mówiłaś o planetach",
     "Wybierz mi dobry film na wieczór",
     "Czy pizza czy makaron jest zdrowszy?",
     "Jutro mamy dyktando w szkole",
