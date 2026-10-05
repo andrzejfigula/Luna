@@ -324,7 +324,9 @@ def _check(q, text):
             q["level"] = 2                     # two right in a row: five-minute steps
         return ok
     if q["kind"] == "capitals":
-        said = _norm(text)
+        # every letter, not only Polish ones: "Brasília", "Reykjavík" (_norm
+        # dropped the í and a right answer didn't count)
+        said = " ".join(w for w in re.findall(r"\w+", text.lower()) if w not in _EN_FILL)
         if not said:
             return None
         for a in q["answer"]:
