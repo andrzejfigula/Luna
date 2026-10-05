@@ -111,7 +111,7 @@ def _finish():
     g["end"] = True
     moves, who = g["moves"], g["who"]
     best = settings.get("memo_best", {}) or {}
-    key = who or "?"
+    key = f"{who or '?'}:{len(g['cards'])}"          # 12 and 16 cards apart
     record = key in best and moves < best[key]
     if key not in best or moves < best[key]:
         best[key] = moves
