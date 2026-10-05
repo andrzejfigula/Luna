@@ -2463,12 +2463,22 @@ class RobotFace:
             title = _get_font(44).render(heading, True, EYE_MID)
             scr.blit(title, title.get_rect(center=(WIDTH // 2, 48)))
             font = _get_font(34)
-            for i, (when, what) in enumerate(rows[:7]):
+            pages = max(1, -(-len(rows) // 7))       # more than 7: a page every 6 s
+            page = int(time.time() // 6) % pages
+            for i, (when, what) in enumerate(rows[page * 7:page * 7 + 7]):
                 y = 110 + i * 50
+                x = 110 if when == "•" else 250
+                if font.size(what)[0] > WIDTH - x - 30:   # cut to the screen, not to 34
+                    while what and font.size(what + "…")[0] > WIDTH - x - 30:
+                        what = what[:-1]
+                    what += "…"
                 t_img = font.render(when, True, STAR_COL)
-                w_img = font.render(what[:34], True, EYE_INNER)
+                w_img = font.render(what, True, EYE_INNER)
                 scr.blit(t_img, (70, y))
-                scr.blit(w_img, (110 if when == "•" else 250, y))
+                scr.blit(w_img, (x, y))
+            if pages > 1:
+                p_img = _get_font(26).render(f"{page + 1}/{pages}", True, EYE_MID)
+                scr.blit(p_img, p_img.get_rect(bottomright=(WIDTH - 24, HEIGHT - 16)))
         elif kind == "clock":
             scr.fill(BG)
             big = _get_font(190).render(time.strftime("%H:%M"), True, EYE_MID)

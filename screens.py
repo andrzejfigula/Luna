@@ -46,6 +46,8 @@ _CLOCK  = ("pokaż zegar", "pokaż godzinę", "pokaz zegar", "pokaz godzine",
 
 
 def _show(kind, secs, data=None):
+    if kind == "list" and data and len(data[1]) > 7:   # paged: long enough for all
+        secs = max(secs, 6 * -(-len(data[1]) // 7) + 2)
     with state.lock:
         state.overlay = (kind, time.time() + secs, data)
 
@@ -211,7 +213,7 @@ def today_rows():
             rows.append(("lista", f"{name}: {len(items)}"))
     except Exception:
         pass
-    return rows[:9]
+    return rows[:14]                   # two pages on her screen
 
 
 def handle(text, speak, play_sound_async):
