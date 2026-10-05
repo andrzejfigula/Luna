@@ -482,7 +482,9 @@ def race_result(kind, perfect, secs, who=None):
     person (by face) and game in settings "race_best"."""
     import settings
     secs = int(round(secs))
-    said = f"Czas: {secs} sekund."
+    import calc
+    sek = lambda n: f"{n} {calc._plural(n, 'sekunda', 'sekundy', 'sekund')}"   # noqa: E731
+    said = f"Czas: {sek(secs)}."
     if not perfect:
         return said + " Rekord liczy się tylko bez błędu."
     if who is None:
@@ -494,9 +496,9 @@ def race_result(kind, perfect, secs, who=None):
     if old is None or secs < old:
         best[key] = secs
         settings.put("race_best", best)
-        return said + (f" Nowy rekord! Poprzedni: {old} sekund." if old else
+        return said + (f" Nowy rekord! Poprzedni: {sek(old)}." if old else
                        " To twój pierwszy rekord!")
-    return said + f" Rekord to {old} sekund."
+    return said + f" Rekord to {sek(old)}."
 
 
 def _finish(speak, play_sound_async):

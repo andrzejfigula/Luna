@@ -979,7 +979,9 @@ def handle(text, speak, play_sound, _polite=True):
             state.focus_until = time.time() + mins * 60
             state.conversation_active = False
         print(f"[cmd] focus mode: {mins} min", flush=True)
-        speak(f"Dobrze, {mins} minut skupienia. Będę cicho — powodzenia!")
+        import calc
+        speak(f"Dobrze, {mins} {calc._plural(mins, 'minuta', 'minuty', 'minut')} skupienia. "
+              "Będę cicho — powodzenia!")
         return True
 
     import breathing                               # guided breathing

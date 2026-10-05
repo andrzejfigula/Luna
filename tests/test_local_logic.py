@@ -407,6 +407,11 @@ class TimersTest(unittest.TestCase):
             with timers._lock:
                 timers._timers[:] = saved
 
+    def test_duration_agreement(self):
+        self.assertEqual(timers.say_duration(22), "22 sekundy")
+        self.assertEqual(timers.say_duration(22 * 3600), "22 godziny")
+        self.assertEqual(timers.say_duration(25 * 3600), "25 godzin")
+
     def test_labelled_timer(self):
         t = timers.local_labelled_timer
         self.assertEqual(t("Nastaw minutnik na 10 minut na makaron"), (600, "makaron"))

@@ -121,7 +121,8 @@ def _finish():
         said += " Nowy rekord!"
     elif key in best and best[key] < moves:
         said += f" Twój rekord to {best[key]}."
-    g["msg"] = f"{moves} ruchów · dotknij = nowa gra"
+    import calc
+    g["msg"] = f"{moves} {calc._plural(moves, 'ruch', 'ruchy', 'ruchów')} · dotknij = nowa gra"
     print(f"[memo] done in {moves} moves ({key})", flush=True)
     threading.Thread(target=_say, args=(said,), daemon=True).start()
     with state.lock:                          # "jeszcze raz" needs no "Luna"

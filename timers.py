@@ -371,13 +371,13 @@ def say_duration(secs):
     """Polish words for a duration, for her confirmation."""
     if secs % 3600 == 0:
         h = secs // 3600
-        return "godzinę" if h == 1 else f"{h} godziny" if h in (2, 3, 4) else f"{h} godzin"
+        return "godzinę" if h == 1 else f"{h} {_pl(h, 'godzinę', 'godziny', 'godzin')}"
     if secs == 5400:
         return "półtorej godziny"
     if secs % 60 == 0:
         m = secs // 60
         return "minutę" if m == 1 else f"{m} {_minutes_pl(m) if m != 1 else 'minuta'}"
-    return f"{secs} sekund"
+    return f"{secs} {_pl(secs, 'sekundę', 'sekundy', 'sekund')}"
 
 
 def _left(secs):
@@ -467,6 +467,14 @@ def countdown_text():
 
 # ── ringing ──────────────────────────────────────────────────────────────────
 
+def _pl(n, one, few, many):
+    if n == 1:
+        return one
+    if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
+        return few
+    return many
+
+
 def _minutes_pl(n):
     if n == 1:
         return "minuta"
@@ -485,7 +493,7 @@ def _say_left(secs):
     h, m = divmod(m, 60)
     parts = []
     if h:
-        parts.append("godzina" if h == 1 else f"{h} godziny" if h in (2, 3, 4) else f"{h} godzin")
+        parts.append("godzina" if h == 1 else f"{h} {_pl(h, 'godzina', 'godziny', 'godzin')}")
     if m:
         parts.append("minuta" if m == 1 else f"{m} {_minutes_pl(m)}")
     if s and not h and m < 5:                       # seconds only when it is close

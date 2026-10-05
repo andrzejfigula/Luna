@@ -198,10 +198,13 @@ def days_alive(text, today=None):
         me = state.person[0] if state.person else None
     who = "Żyjesz" if name == me and re.search(r"\b(żyję|zyje|mam)\b", low) else f"{name} żyje"
     unit = low.split("ile")[1].split()[0]
-    if unit.startswith("godzin"):
-        return f"{who} już około {days * 24} godzin!"     # plain digits read best
+    import calc
+    if unit.startswith("godzin"):                    # plain digits read best
+        h = days * 24
+        return f"{who} już około {h} {calc._plural(h, 'godzinę', 'godziny', 'godzin')}!"
     if unit.startswith("tygodni"):
-        return f"{who} już {days // 7} tygodni!"
+        w = days // 7
+        return f"{who} już {w} {calc._plural(w, 'tydzień', 'tygodnie', 'tygodni')}!"
     return f"{who} już {days} dni!"
 
 
