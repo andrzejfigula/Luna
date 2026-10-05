@@ -131,6 +131,9 @@ class TimersTest(unittest.TestCase):
                          "zagraj ze mną w kółko i krzyżyk")
         self.assertIsNone(p("Czy możesz mi wytłumaczyć fotosyntezę?"))   # unknown verb
         self.assertIsNone(p("Włącz lampkę"))
+        self.assertEqual(p("Włączysz lampkę?"), "włącz lampkę")
+        self.assertEqual(p("Luna, nastawisz minutnik na 5 minut?"), "nastaw minutnik na 5 minut")
+        self.assertIsNone(p("Wiesz, co dziś robiłam?"))
 
     def test_weekday_of(self):
         import calc

@@ -449,12 +449,27 @@ _POLITE_ASK = re.compile(r"^(?:luna,?\s+|hej,?\s+)*(?:czy\s+)?(?:możesz|mozesz|
                          r"(\w+)(.*?)[?.!]*$", re.I)
 
 
+# "Włączysz lampkę?", "nastawisz minutnik na 5 minut?" — a request too
+_FUTURE = {"włączysz": "włącz", "wyłączysz": "wyłącz", "nastawisz": "nastaw",
+           "ustawisz": "ustaw", "przypomnisz": "przypomnij", "obudzisz": "obudź",
+           "zrobisz": "zrób", "pokażesz": "pokaż", "zagrasz": "zagraj", "puścisz": "puść",
+           "policzysz": "policz", "wylosujesz": "wylosuj", "opowiesz": "opowiedz",
+           "przeczytasz": "przeczytaj", "zgasisz": "zgaś", "rzucisz": "rzuć",
+           "powtórzysz": "powtórz", "dopiszesz": "dopisz", "zapamiętasz": "zapamiętaj",
+           "przywrócisz": "przywróć", "nagrasz": "nagraj", "odtworzysz": "odtwórz",
+           "zatrzymasz": "zatrzymaj", "zmienisz": "zmień", "ściszysz": "ścisz",
+           "przepytasz": "przepytaj", "zadasz": "zadaj"}
+_FUTURE_ASK = re.compile(r"^(?:luna,?\s+|hej,?\s+)*(?:a\s+)?(\w+)(.*?)[?.!]*$", re.I)
+
+
 def polite_to_command(text):
-    """"Czy możesz włączyć lampkę?" → "włącz lampkę"; None when it isn't a
-    polite request with a verb we know."""
+    """"Czy możesz włączyć lampkę?" / "włączysz lampkę?" → "włącz lampkę";
+    None when it isn't a polite request with a verb we know."""
     m = _POLITE_ASK.match(text.strip())
     if not m:
-        return None
+        f = _FUTURE_ASK.match(text.strip())
+        verb = _FUTURE.get(f.group(1).lower()) if f else None
+        return f"{verb} {f.group(2).strip()}".strip() if verb else None
     verb = _IMPERATIVE.get(m.group(2).lower())
     if not verb:
         return None
