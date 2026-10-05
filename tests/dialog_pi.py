@@ -58,6 +58,8 @@ CASES = [
     ("Która godzina w Nowym Jorku?", "W Nowym Jorku jest teraz"),
     ("Jaki dzień tygodnia będzie 24 grudnia?", "24 grudnia wypada w"),
     ("Ile dni do Wigilii?", "Wigilii"),
+    ("Kiedy jest Wielkanoc?", "Wielkanoc wypada"),
+    ("Ile dni do tłustego czwartku?", "tłustego czwartku"),
     ("Która godzina?", "Jest "),
     ("Ile to jest 17 razy 23?", "391"),
     ("Jak się pisze żółw?", "żółw"),

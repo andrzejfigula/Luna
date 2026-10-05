@@ -172,6 +172,22 @@ class TimersTest(unittest.TestCase):
         self.assertIsNone(calc.weekday_of("Jaki dzień będzie w piątek?", today))
         self.assertIsNone(calc.weekday_of("Jaki dzień był wczoraj?", today))
 
+    def test_holidays(self):
+        import calc
+        today = datetime.date(2026, 10, 5)
+        self.assertEqual(calc.holiday_when("Kiedy jest Wielkanoc?", today),
+                         "Wielkanoc wypada 28 marca 2027, w niedzielę — za 174 dni.")
+        self.assertEqual(calc.holiday_when("Kiedy wypada tłusty czwartek?", today),
+                         "Tłusty czwartek wypada 4 lutego 2027, w czwartek — za 122 dni.")
+        self.assertIn("Boże Ciało wypada 27 maja 2027, w czwartek",
+                      calc.holiday_when("kiedy jest Boże Ciało", today))
+        self.assertIn("14 października", calc.holiday_when("Kiedy jest Dzień Nauczyciela?", today))
+        self.assertIsNone(calc.holiday_when("Kiedy jest mecz?", today))
+        # "świąt wielkanocnych" is Easter, "świąt" alone still Christmas
+        self.assertIn("Wielkanocy", calc.days_until("Ile dni do świąt wielkanocnych?", today))
+        self.assertIn("Wigilii", calc.days_until("Ile dni do świąt?", today))
+        self.assertIn("tłustego czwartku", calc.days_until("Ile dni do tłustego czwartku?", today))
+
     def test_random_answer(self):
         import fun
         import random as _r

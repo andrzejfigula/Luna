@@ -271,11 +271,28 @@ def _easter(y):
 
 # stem in "do …" → (date for a year, genitive "do X", nominative "dziś jest X")
 _DAYS_OF = [
+    # Easter first: "świąt wielkanocnych" must not be taken for Christmas
+    (("wielkanocy", "wielkiej nocy", "świąt wielkanocnych", "swiat wielkanocnych"), _easter,
+     "Wielkanocy", "Wielkanoc"),
+    (("tłustego czwartku", "tlustego czwartku"), lambda y: _easter(y) - timedelta(52),
+     "tłustego czwartku", "tłusty czwartek"),
+    (("popielca", "środy popielcowej", "srody popielcowej"),
+     lambda y: _easter(y) - timedelta(46), "Popielca", "Popielec"),
+    (("zielonych świątek", "zielonych swiatek"), lambda y: _easter(y) + timedelta(49),
+     "Zielonych Świątek", "Zielone Świątki"),
+    (("bożego ciała", "bozego ciala"), lambda y: _easter(y) + timedelta(60),
+     "Bożego Ciała", "Boże Ciało"),
+    (("dnia babci",), lambda y: date(y, 1, 21), "Dnia Babci", "Dzień Babci"),
+    (("dnia dziadka",), lambda y: date(y, 1, 22), "Dnia Dziadka", "Dzień Dziadka"),
+    (("dnia nauczyciela",), lambda y: date(y, 10, 14), "Dnia Nauczyciela", "Dzień Nauczyciela"),
+    (("dnia chłopaka", "dnia chlopaka"), lambda y: date(y, 9, 30), "Dnia Chłopaka",
+     "Dzień Chłopaka"),
+    (("święta niepodległości", "swieta niepodleglosci"), lambda y: date(y, 11, 11),
+     "Święta Niepodległości", "Święto Niepodległości"),
     (("wigilii", "świąt", "swiat", "bożego narodzenia", "gwiazdki"),
      lambda y: date(y, 12, 24), "Wigilii", "Wigilia"),
     (("sylwestra",), lambda y: date(y, 12, 31), "Sylwestra", "Sylwester"),
     (("nowego roku",), lambda y: date(y, 1, 1), "Nowego Roku", "Nowy Rok"),
-    (("wielkanocy", "wielkiej nocy"), _easter, "Wielkanocy", "Wielkanoc"),
     (("walentynek",), lambda y: date(y, 2, 14), "Walentynek", "Walentynki"),
     (("dnia kobiet",), lambda y: date(y, 3, 8), "Dnia Kobiet", "Dzień Kobiet"),
     (("wiosny",), lambda y: date(y, 3, 21), "pierwszego dnia wiosny",
@@ -387,6 +404,34 @@ _WEEKDAY_Q = re.compile(
 _WD_ACC = ["poniedziałek", "wtorek", "środę", "czwartek", "piątek", "sobotę", "niedzielę"]
 
 
+_WHEN_Q = re.compile(r"\bkiedy\s+(?:w\s+tym\s+roku\s+)?(?:jest|będzie|bedzie|wypada|"
+                     r"wypadnie|są|sa|przypada|mamy|będą|beda)\s+(?:w\s+tym\s+roku\s+)?"
+                     r"(.+?)(?:\s+w\s+tym\s+roku)?[?.!]*$", re.I)
+
+
+def holiday_when(text, today=None):
+    """"Kiedy jest Wielkanoc?", "kiedy wypada tłusty czwartek?" → the date,
+    the weekday and how far; None for anything else. (Movable feasts are
+    where a model guesses.)"""
+    m = _WHEN_Q.search(text.lower())
+    if not m:
+        return None
+    what = m.group(1).strip()
+    today = today or _today()
+    for stems, when, gen, nom in _DAYS_OF:
+        if what == nom.lower() or what.startswith(nom.lower() + " "):
+            d = when(today.year)
+            if d < today:
+                d = when(today.year + 1)
+            days = (d - today).days
+            year = f" {d.year}" if d.year != today.year else ""
+            far = ("— to dzisiaj!" if days == 0 else "— już jutro." if days == 1 else
+                   f"— za {days} dni.")
+            return (f"{nom[0].upper()}{nom[1:]} wypada {d.day} {_MONTHS_GEN[d.month - 1]}"
+                    f"{year}, w {_WD_ACC[d.weekday()]} {far}")
+    return None
+
+
 def weekday_of(text, today=None):
     """"Jaki dzień tygodnia będzie 24 grudnia?", "w jaki dzień wypada Wigilia?"
     → "24 grudnia 2026 to czwartek." None when it isn't that."""
@@ -478,4 +523,5 @@ def time_until(text, now=None):
 
 
 def answer(text):
-    return arithmetic(text) or days_until(text) or time_until(text) or weekday_of(text)
+    return (arithmetic(text) or days_until(text) or time_until(text) or weekday_of(text)
+            or holiday_when(text))
