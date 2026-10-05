@@ -156,20 +156,16 @@ def status_rows():
     rows.append(("CPU", (f"{t:.0f}°C, " if t is not None else "")
                  + f"obciążenie {body.load_percent()}%"
                  + (", DŁAWI SIĘ" if body.throttled() else "")))
-    rows.append(("Działa", body._span(time.time() - body._STARTED)))
+    rows.append(("Działa", f"{body._span(time.time() - body._STARTED)}, RAM {_mem_used()}%"))
     with state.lock:
         online = state.online
     rows.append(("Chmura", "połączona" if online else "BRAK POŁĄCZENIA"))
-    rows.append(("RAM", f"{_mem_used()}% zajęte"))
     try:
         import memory
         m = memory._load()
         rows.append(("Pamięć", f"{len(m['facts'])} faktów, {len(m['episodes'])} rozmów"))
     except Exception:
         pass
-    with _lock:
-        api = ", ".join(f"{k} {v}" for k, v in sorted(_api.items())) or "brak"
-    rows.append(("API/h", api))
     from datetime import date, timedelta
     rows.append(("API dziś", usage_line(date.today().isoformat())))
     rows.append(("API wczoraj", usage_line((date.today() - timedelta(days=1)).isoformat())))
@@ -179,7 +175,7 @@ def status_rows():
             rows.append(("Dźwięk", f"{tts._out.underruns} przerw w tej godzinie"))
     except Exception:
         pass
-    return rows
+    return rows[:7]                    # the list screen shows seven
 
 
 def _pw_xruns():
