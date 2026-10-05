@@ -13,6 +13,11 @@ Playback starts on the first streamed chunk, and on_audio_start fires at that
 exact moment so the mouth animation begins in sync with the sound. The player
 subprocess blocks until the audio has actually finished, which is what keeps
 the mic-blocking / echo protection in text_to_speech.py correct.
+
+Short lines she has said before ("Dobrze, budzik na siódmą.", "Proszę bardzo,
+oto lusterko.") are kept as audio in DATA_DIR/tts_cache (the newest
+CACHE_MAX_FILES) and played from there: no network round trip, no cost — and
+the local commands can still answer out loud when the internet is down.
 """
 
 import json
@@ -48,6 +53,49 @@ from config import (
 )
 
 PCM_RATE = 24000   # fixed by the API for response_format="pcm"
+
+CACHE_MAX_CHARS = 140
+CACHE_MAX_FILES = 400          # ~3 s each at 48 kB/s: about 60 MB at most
+
+
+def _cache_dir():
+    from config import DATA_DIR
+    return os.path.join(DATA_DIR, "tts_cache")
+
+
+def _cache_key(text, kwargs):
+    import hashlib
+    blob = json.dumps([text, kwargs.get("model"), kwargs.get("voice"), kwargs.get("speed"),
+                       kwargs.get("instructions", "")], ensure_ascii=False)
+    return hashlib.sha1(blob.encode("utf-8")).hexdigest()
+
+
+def cache_get(key):
+    path = os.path.join(_cache_dir(), key + ".pcm")
+    try:
+        with open(path, "rb") as f:
+            pcm = f.read()
+        os.utime(path)                               # recently used: kept longer
+        return pcm or None
+    except OSError:
+        return None
+
+
+def cache_put(key, pcm):
+    d = _cache_dir()
+    try:
+        os.makedirs(d, exist_ok=True)
+        tmp = os.path.join(d, key + ".tmp")
+        with open(tmp, "wb") as f:
+            f.write(pcm)
+        os.replace(tmp, os.path.join(d, key + ".pcm"))
+        files = [os.path.join(d, n) for n in os.listdir(d) if n.endswith(".pcm")]
+        if len(files) > CACHE_MAX_FILES:
+            files.sort(key=os.path.getmtime)
+            for old in files[:len(files) - CACHE_MAX_FILES]:
+                os.remove(old)
+    except OSError as e:
+        print(f"[TTS] cache write failed ({e})", flush=True)
 
 # LUNA_SPEAKER aliases → substrings of the PipeWire sink's node.name
 _SINK_ALIASES = {
@@ -219,23 +267,37 @@ class OpenAITTS:
         return kwargs
 
     def _speak_persistent(self, text, on_audio_start, style=""):
-        """speak() through the always-open player."""
+        """speak() through the always-open player (a short line said before
+        comes from the cache instead of the cloud)."""
         out = self._out
         self._cut.clear()
-        out.begin(on_start=on_audio_start, prebuffer=AUDIO_PREBUFFER_SECS,
+        kwargs = self._tts_kwargs(style)
+        key = _cache_key(text, kwargs) if len(text) <= CACHE_MAX_CHARS else None
+        cached = cache_get(key) if key else None
+        out.begin(on_start=on_audio_start, prebuffer=0.0 if cached else AUDIO_PREBUFFER_SECS,
                   record=True)
-        try:
-            with self._client.audio.speech.with_streaming_response.create(
-                    input=text, **self._tts_kwargs(style)) as resp:
-                for chunk in resp.iter_bytes(chunk_size=16384):
-                    if self._cut.is_set():
-                        break
-                    out.write(chunk)
-        except Exception as e:
-            if not self._cut.is_set():
-                print(f"[TTS] streaming error: {e}")
-        if not out.finish(self._cut) and on_audio_start:
+        ok = False
+        if cached:
+            out.write(cached)
+        else:
+            try:
+                with self._client.audio.speech.with_streaming_response.create(
+                        input=text, **kwargs) as resp:
+                    for chunk in resp.iter_bytes(chunk_size=16384):
+                        if self._cut.is_set():
+                            break
+                        out.write(chunk)
+                    ok = not self._cut.is_set()
+            except Exception as e:
+                if not self._cut.is_set():
+                    print(f"[TTS] streaming error: {e}")
+        played = out.finish(self._cut)
+        if not played and on_audio_start:
             on_audio_start()             # never leave the caller waiting
+        # (a stream that ended early without an error must not be kept: at
+        # least ~0.03 s of audio per character)
+        if ok and key and played and len(out.last_utterance) >= len(text) * 1500:
+            cache_put(key, out.last_utterance)
 
     def replay_last(self, on_audio_start=None):
         """Play her last answer again from the audio already played. Returns
