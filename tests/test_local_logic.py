@@ -139,6 +139,28 @@ class TimersTest(unittest.TestCase):
         self.assertTrue(tictac.wants("Luna, zagrajmy w kółko i krzyżyk"))
         self.assertEqual(cooking.wants("Upieczmy ciasto czekoladowe"), "ciasto czekoladowe")
 
+    def test_world_time(self):
+        import clock
+        from zoneinfo import ZoneInfo
+        waw = ZoneInfo("Europe/Warsaw")
+        oct5 = datetime.datetime(2026, 10, 5, 14, 15, tzinfo=waw)      # summer time
+        self.assertEqual(clock.world_time("Która godzina w Tokio?", oct5),
+                         "W Tokio jest teraz dwudziesta pierwsza piętnaście — "
+                         "7 godzin później niż u nas.")
+        self.assertEqual(clock.world_time("Luna, która jest godzina w Nowym Jorku?", oct5),
+                         "W Nowym Jorku jest teraz ósma piętnaście — "
+                         "6 godzin wcześniej niż u nas.")
+        self.assertIn("3,5 godziny później", clock.world_time("ile jest godzin w Indiach", oct5))
+        late = datetime.datetime(2026, 10, 5, 23, 30, tzinfo=waw)
+        self.assertTrue(clock.world_time("Która godzina w Australii?", late).endswith(
+            "już jutro."))
+        self.assertIn("Na Hawajach jest", clock.world_time("a jaka godzina na Hawajach?", oct5))
+        jan = datetime.datetime(2027, 1, 10, 12, 0, tzinfo=waw)          # winter time
+        self.assertIn("8 godzin później", clock.world_time("Która godzina w Tokio?", jan))
+        self.assertIn("tak samo jak u nas", clock.world_time("Która godzina w Berlinie?", jan))
+        self.assertIsNone(clock.world_time("Która godzina w Pcimiu?", jan))     # unknown
+        self.assertIsNone(clock.world_time("O której jest mecz w Tokio?", jan))
+
     def test_tictac(self):
         import tictac
         b = ["X", "X", None, "O", "O", None, None, None, None]
@@ -361,7 +383,7 @@ class ClockTest(unittest.TestCase):
         import clock
         self.assertTrue(clock.answer("Cześć, która godzina?").startswith("Jest "))
         self.assertTrue(clock.answer("Dzień dobry, jaki dziś dzień?").startswith("Dziś jest"))
-        self.assertIsNone(clock.answer("Która godzina w Tokio?"))
+        self.assertIn("W Tokio", clock.answer("Która godzina w Tokio?"))   # world time
 
     def test_spoken_time_and_date(self):
         import clock
@@ -380,7 +402,7 @@ class ClockTest(unittest.TestCase):
         import clock
         self.assertIsNotNone(clock.answer("Luna, która jest godzina?"))
         self.assertIsNotNone(clock.answer("Powiedz mi, jaki dziś dzień"))
-        self.assertIsNone(clock.answer("Która godzina jest teraz w Tokio?"))
+        self.assertIn("W Tokio", clock.answer("Która godzina jest teraz w Tokio?"))
         self.assertIsNone(clock.answer("O której godzinie zaczyna się mecz?"))
 
 

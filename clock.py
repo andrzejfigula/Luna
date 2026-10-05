@@ -111,8 +111,128 @@ def _bare(low, phrases):
     return all(w in _FILL for w in rest)
 
 
+# "która godzina w Tokio?" — the place as said after "w" (locative), with the
+# zone; exact, where a model guesses the offset and forgets summer time
+_PLACES = {
+    "nowym jorku": ("Nowym Jorku", "America/New_York"),
+    "ameryce": ("Ameryce (w Nowym Jorku)", "America/New_York"),
+    "stanach": ("Stanach (w Nowym Jorku)", "America/New_York"),
+    "usa": ("USA (w Nowym Jorku)", "America/New_York"),
+    "waszyngtonie": ("Waszyngtonie", "America/New_York"),
+    "chicago": ("Chicago", "America/Chicago"),
+    "los angeles": ("Los Angeles", "America/Los_Angeles"),
+    "kalifornii": ("Kalifornii", "America/Los_Angeles"),
+    "san francisco": ("San Francisco", "America/Los_Angeles"),
+    "toronto": ("Toronto", "America/Toronto"),
+    "kanadzie": ("Kanadzie (w Toronto)", "America/Toronto"),
+    "meksyku": ("Meksyku", "America/Mexico_City"),
+    "brazylii": ("Brazylii (w São Paulo)", "America/Sao_Paulo"),
+    "rio": ("Rio de Janeiro", "America/Sao_Paulo"),
+    "argentynie": ("Argentynie", "America/Argentina/Buenos_Aires"),
+    "hawajach": ("na Hawajach", "Pacific/Honolulu"),
+    "alasce": ("na Alasce", "America/Anchorage"),
+    "londynie": ("Londynie", "Europe/London"),
+    "anglii": ("Anglii", "Europe/London"),
+    "wielkiej brytanii": ("Wielkiej Brytanii", "Europe/London"),
+    "szkocji": ("Szkocji", "Europe/London"),
+    "irlandii": ("Irlandii", "Europe/Dublin"),
+    "dublinie": ("Dublinie", "Europe/Dublin"),
+    "lizbonie": ("Lizbonie", "Europe/Lisbon"),
+    "portugalii": ("Portugalii", "Europe/Lisbon"),
+    "islandii": ("Islandii", "Atlantic/Reykjavik"),
+    "paryżu": ("Paryżu", "Europe/Paris"),
+    "francji": ("Francji", "Europe/Paris"),
+    "berlinie": ("Berlinie", "Europe/Berlin"),
+    "niemczech": ("Niemczech", "Europe/Berlin"),
+    "hiszpanii": ("Hiszpanii", "Europe/Madrid"),
+    "madrycie": ("Madrycie", "Europe/Madrid"),
+    "włoszech": ("we Włoszech", "Europe/Rome"),
+    "rzymie": ("Rzymie", "Europe/Rome"),
+    "norwegii": ("Norwegii", "Europe/Oslo"),
+    "szwecji": ("Szwecji", "Europe/Stockholm"),
+    "grecji": ("Grecji", "Europe/Athens"),
+    "atenach": ("Atenach", "Europe/Athens"),
+    "turcji": ("Turcji", "Europe/Istanbul"),
+    "stambule": ("Stambule", "Europe/Istanbul"),
+    "ukrainie": ("na Ukrainie", "Europe/Kyiv"),
+    "kijowie": ("Kijowie", "Europe/Kyiv"),
+    "moskwie": ("Moskwie", "Europe/Moscow"),
+    "rosji": ("Rosji (w Moskwie)", "Europe/Moscow"),
+    "egipcie": ("Egipcie", "Africa/Cairo"),
+    "kairze": ("Kairze", "Africa/Cairo"),
+    "izraelu": ("Izraelu", "Asia/Jerusalem"),
+    "dubaju": ("Dubaju", "Asia/Dubai"),
+    "indiach": ("Indiach", "Asia/Kolkata"),
+    "delhi": ("Delhi", "Asia/Kolkata"),
+    "tajlandii": ("Tajlandii", "Asia/Bangkok"),
+    "bangkoku": ("Bangkoku", "Asia/Bangkok"),
+    "wietnamie": ("Wietnamie", "Asia/Ho_Chi_Minh"),
+    "singapurze": ("Singapurze", "Asia/Singapore"),
+    "chinach": ("Chinach", "Asia/Shanghai"),
+    "pekinie": ("Pekinie", "Asia/Shanghai"),
+    "hongkongu": ("Hongkongu", "Asia/Hong_Kong"),
+    "filipinach": ("na Filipinach", "Asia/Manila"),
+    "korei": ("Korei", "Asia/Seoul"),
+    "seulu": ("Seulu", "Asia/Seoul"),
+    "japonii": ("Japonii", "Asia/Tokyo"),
+    "tokio": ("Tokio", "Asia/Tokyo"),
+    "australii": ("Australii (w Sydney)", "Australia/Sydney"),
+    "sydney": ("Sydney", "Australia/Sydney"),
+    "nowej zelandii": ("Nowej Zelandii", "Pacific/Auckland"),
+    "kenii": ("Kenii", "Africa/Nairobi"),
+}
+_WORLD_Q = re.compile(r"\b(?:któr\w*|ktor\w*|jak\w*|ile)\b.*\bgodzin\w*\b.*?\b(?:w|we|na)\s+"
+                      r"(\w+(?:\s+\w+)?)", re.I)
+
+
+def _hours_pl(x):
+    if x != int(x):
+        return f"{str(x).replace('.', ',')} godziny"
+    x = int(x)
+    return "godzinę" if x == 1 else f"{x} godziny" if x % 10 in (2, 3, 4) and \
+        x % 100 not in (12, 13, 14) else f"{x} godzin"
+
+
+def world_time(text, now=None):
+    """"Która godzina w Tokio?" → "W Tokio jest teraz dwudziesta pierwsza
+    piętnaście — 7 godzin później niż u nas." None when it isn't that."""
+    m = _WORLD_Q.search(text.lower())
+    if not m:
+        return None
+    words = m.group(1).split()
+    hit = _PLACES.get(" ".join(words)) or _PLACES.get(words[0])
+    if not hit:
+        return None
+    where, zone = hit
+    try:
+        tz = ZoneInfo(zone)
+    except Exception:
+        return None
+    here = now or (datetime.now(_TZ) if _TZ else datetime.now().astimezone())
+    there = here.astimezone(tz)
+    diff = (there.utcoffset() - here.utcoffset()).total_seconds() / 3600
+    h, mi = there.hour, there.minute
+    said = _HOURS[h] if mi == 0 else f"{_HOURS[h]} {_minutes(mi)}"
+    if h == 0 and mi == 0:
+        said = "północ"
+    prep = "" if where.startswith(("na ", "we ")) else "w "
+    out = f"{(prep + where)[0].upper()}{(prep + where)[1:]} jest teraz {said}"
+    if diff == 0:
+        out += " — tak samo jak u nas."
+    else:
+        out += f" — {_hours_pl(abs(diff))} {'później' if diff > 0 else 'wcześniej'} niż u nas."
+    if there.date() > here.date():
+        out = out[:-1] + ", już jutro."
+    elif there.date() < here.date():
+        out = out[:-1] + ", jeszcze wczoraj."
+    return out
+
+
 def answer(text):
     """The spoken answer to a bare time/date question, or None."""
+    said = world_time(text)
+    if said:
+        return said
     low = text.lower()
     english = "what" in low
     if _bare(low, _TIME_Q):
