@@ -906,6 +906,7 @@ def process(text, context=None):
         speaker.append(t)
 
     def on_sentence(sentence):
+        sentence = re.sub(r"^\[[^\]]{1,20}\]\s*", "", sentence)    # no "[Luna] " spoken
         sentences.put(_feminize(sentence))
 
     t0 = time.time()
