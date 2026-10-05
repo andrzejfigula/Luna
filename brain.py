@@ -627,7 +627,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
 
         # keep history text-only: images are large and only matter for the
         # turn they were asked in
-        _history[-1] = {"role": "user", "content": text}
+        _history[-1] = {"role": "user", "content": _who_said(text)}
         _history.append({"role": "assistant", "content": reply})
         if not translator():                 # interpreting is not about the user
             with state.lock:
@@ -649,12 +649,21 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
 
 # ── Things she did herself, without the model ─────────────────────────────────
 
+def _who_said(text):
+    """"[Maja] …" in the history: one history for the whole house, and the
+    model must know whose words came before (the current message isn't
+    tagged — the prompt says who is in front of her)."""
+    with state.lock:
+        person = state.person
+    return f"[{person[0]}] {text}" if person else text
+
+
 def note_local(user_text, said):
     """A local command (dice, volume, a photo…) was handled without the model.
     Put the exchange into the chat history and memory anyway, so "co
     wypadło?" or "a teraz?" make sense to the model afterwards."""
     reply = " ".join(said).strip() or f"(zrobione: {user_text})"
-    _history.append({"role": "user", "content": user_text})
+    _history.append({"role": "user", "content": _who_said(user_text)})
     _history.append({"role": "assistant", "content": reply})
     while len(_history) > OPENAI_MAX_HISTORY:
         _history.pop(0)
