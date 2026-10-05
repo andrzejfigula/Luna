@@ -116,7 +116,8 @@ def note(who, tone):
 
 _GAME_PL = {"mul": "tabliczka mnożenia", "add": "dodawanie", "sub": "odejmowanie",
             "mix": "rachunki", "words": "angielskie słówka", "riddle": "zagadki",
-            "dictation": "dyktando", "dictation_en": "dyktando angielskie", "div": "dzielenie", "clock": "zegar", "story": "zadania z treścią",
+            "dictation": "dyktando", "dictation_en": "dyktando angielskie", "div": "dzielenie",
+            "read": "czytanie", "clock": "zegar", "story": "zadania z treścią",
             "capitals": "stolice"}
 
 

@@ -27,6 +27,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Ile dni do… | „Ile dni do Wigilii?”, „do weekendu”, „do piątku”, „do 15 marca”, „do Wielkanocy”; „Jaki dzień tygodnia będzie 24 grudnia?”; „Kiedy jest Wielkanoc?”, „…tłusty czwartek?” |
 | Quiz z matmy | „Przepytaj mnie z tabliczki mnożenia”, „Quiz z dodawania do dwudziestu”, „Pobawmy się w rachunki” — 5 pytań na ekranie, odpowiadasz liczbą; „nie wiem”, „koniec”; „Tabliczka mnożenia na czas” — liczy sekundy i pamięta rekord; „Tabliczka mnożenia przez 7” — tylko ten rząd; „Przepytaj mnie z dzielenia” |
 | Słówka angielskie | „Przepytaj mnie ze słówek angielskich” — „pies = ?” na ekranie, odpowiadasz po angielsku |
+| Czytanie | „Poćwiczmy czytanie” — zdanie na ekranie, czytasz na głos, Luna sprawdza słowo po słowie |
 | Czytanie na głos | Pokaż kamerze stronę książki albo kartkę: „Przeczytaj mi tę stronę” — czyta całość, słowo w słowo |
 | Gwiazdki | za bezbłędną rundę (quiz, zagadki, dyktando) Luna daje gwiazdkę; „Pokaż moje gwiazdki”. Gry wracają też do słów i działań, w których ktoś się ostatnio pomylił |
 | Zadania z treścią | „Przepytaj mnie z zadań z treścią” — krótkie zadania, odpowiadasz liczbą |

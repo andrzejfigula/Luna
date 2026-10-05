@@ -66,6 +66,20 @@ _PRAISE = ["Brawo!", "Dobrze!", "Super!", "Tak jest!", "Świetnie!", "Zgadza si�
 _SYM = {"mul": "×", "add": "+", "sub": "−", "div": ":"}
 _WORD = {"mul": "razy", "add": "plus", "sub": "minus", "div": "podzielić przez"}
 
+# reading practice: short sentences for a second-grader, written for Luna
+READING = [
+    "Kot śpi na kanapie.", "Pies biega po łące.", "Mama piecze ciasto.",
+    "Na drzewie siedzi ptak.", "Lubię lody truskawkowe.", "Słońce świeci jasno.",
+    "Żaba skacze do stawu.", "Wiewiórka zbiera orzechy.", "Tata czyta gazetę.",
+    "W ogrodzie rosną róże.", "Rybka pływa w akwarium.", "Jutro jedziemy nad morze.",
+    "Mój rower jest czerwony.", "Zima jest biała i zimna.", "Babcia robi pierogi.",
+    "Chomik je ziarenka.", "Księżyc świeci w nocy.", "Lubię rysować kredkami.",
+    "Pada deszcz, weź parasol.", "Dzieci bawią się w chowanego.", "Krowa daje mleko.",
+    "Biedronka ma kropki.", "W lesie mieszka jeż.", "Po burzy pojawiła się tęcza.",
+    "Pszczoły zbierają miód.", "Nasz dom ma zielone drzwi.", "Konik je marchewkę.",
+    "W szkole uczymy się pisać.", "Wieczorem gasimy światło.", "Luna jest małym robotem.",
+]
+
 # Polish → English (alternatives accepted). Everyday words a child learns first.
 WORDS = [
     ("pies", ["dog"]), ("kot", ["cat"]), ("koń", ["horse"]), ("krowa", ["cow"]),
@@ -171,6 +185,10 @@ def trigger(text):
         return None
     if any(g in low for g in _GUESS):
         return "guess"
+    if re.search(r"\b(?:czytani\w*|poczytaj\w*|czytać|czytac)\b", low) and re.search(
+            r"\b(?:poćwiczmy|pocwiczmy|ćwicz\w*|cwicz\w*|uczmy|nauka|naucz|pobawmy|zagrajmy|"
+            r"przepytaj|sprawdź|sprawdz)\b", low) and len(re.findall(r"\w+", low)) <= 8:
+        return "read"                          # "poćwiczmy czytanie" — she listens to you
     if re.search(r"\bdyktand|\bortograf", low) and (
             len(re.findall(r"\w+", low)) <= 2 and "?" not in low or re.search(
                 r"\b(?:zróbmy|zrobmy|zrób|zrob|pobawmy|zagrajmy|przepytaj|poćwicz\w*|"
@@ -337,6 +355,13 @@ REPEAT_MISSES = 0.5        # how often a question is one they got wrong lately
 def _new_question(q):
     """Fills q with the next question: card, spoken, answer, reveal."""
     seen = q["seen"]
+    if q["kind"] == "read":
+        pool = [s for s in READING if s not in seen] or READING
+        sentence = random.choice(pool)
+        seen.add(sentence)
+        q.update(card=sentence, say="Przeczytaj na głos, co jest na ekranie.",
+                 answer=sentence, reveal=sentence, right=f"Tu jest napisane: {sentence}")
+        return
     if q["kind"] == "dictation_en":
         pool = [w for w in WORDS if w[0] not in seen] or WORDS
         again = [w for w in pool if w[1][0] in _past_misses("dyktando angielskie")]
@@ -450,6 +475,18 @@ def _check(q, text):
             return None
         q["last_try"] = said.split()[-1]
         return False
+    if q["kind"] == "read":
+        want = re.findall(r"\w+", q["answer"].lower())
+        got = re.findall(r"\w+", text.lower())
+        if not got:
+            return None
+        hits = sum(1 for w in want if any(
+            difflib.SequenceMatcher(None, w, g).ratio() >= 0.8 for g in got))
+        missing = [w for w in want if not any(
+            difflib.SequenceMatcher(None, w, g).ratio() >= 0.8 for g in got)]
+        q["last_try"] = "„" + text.strip(" .") + "”"
+        q["hint"] = (f"Spójrz jeszcze raz na słowo: {missing[0]}." if missing else "")
+        return hits >= max(1, round(0.8 * len(want)))
     if q["kind"] == "riddle":
         said = _norm(text).split()
         if not said:
@@ -550,6 +587,9 @@ def start(kind, text, speak, play_sound_async):
         speak(f"Uwielbiam zagadki! {total} zagadki — słuchaj uważnie.")
     elif kind == "dictation":
         speak(f"Dyktando! Przygotuj kartkę i coś do pisania. {total} słów.")
+    elif kind == "read":
+        speak(f"Ćwiczymy czytanie! Na ekranie pojawi się zdanie — przeczytaj je na głos. "
+              f"{total} zdań.")
     elif kind == "dictation_en":
         speak(f"Dyktando z angielskiego! Powiem słowo po polsku, a ty napisz je "
               f"po angielsku. Przygotuj kartkę. {total} słów.")
@@ -847,7 +887,7 @@ def answer(text, speak, play_sound_async):
                     speak(f"Na kartce widzę {q['last_try']}. "
                           + (q.get("hint") or "") + " Popraw i pokaż jeszcze raz.")
                 else:
-                    hint = q.get("hint") if q["kind"] == "riddle" else None
+                    hint = q.get("hint") if q["kind"] in ("riddle", "read") else None
                     speak(f"Hmm, nie {q['last_try']}. "
                           + (f"Podpowiedź: {hint}" if hint else "Spróbuj jeszcze raz!"))
                 _listen_longer()

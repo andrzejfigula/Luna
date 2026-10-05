@@ -242,6 +242,19 @@ class TimersTest(unittest.TestCase):
         self.assertIn("tylko bez błędu", quiz.race_result("mul", False, 30, "Maja"))
         self.assertIn("pierwszy rekord", quiz.race_result("add", True, 70, "Maja"))  # per game
 
+    def test_reading_practice(self):
+        import quiz
+        self.assertEqual(quiz.trigger("Poćwiczmy czytanie"), "read")
+        self.assertIsNone(quiz.trigger("Lubię czytanie książek"))
+        q = {"kind": "read", "seen": set()}
+        quiz._new_question(q)
+        self.assertIn(q["answer"], quiz.READING)
+        q["answer"] = "Żaba skacze do stawu."
+        self.assertTrue(quiz._check(q, "Żaba skacze do stawu"))
+        self.assertTrue(quiz._check(q, "żaba skacze do stawy"))           # close enough
+        self.assertFalse(quiz._check(q, "Żaba śpi"))
+        self.assertIn("skacze", q["hint"])
+
     def test_division_quiz(self):
         import quiz
         self.assertEqual(quiz.trigger("Przepytaj mnie z dzielenia"), "div")

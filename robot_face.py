@@ -307,7 +307,7 @@ def gradient_block(w, h, radius, top, bottom):
     return surf
 
 
-def bloom(surf, layer, pos, radius=10, passes=2, max_alpha=110):
+def bloom(surf, layer, pos, radius=10, passes=2, max_alpha=110, grow=0.10):
     """Soft glow that follows an arbitrary SRCALPHA shape. Cheap blur:
     pad, shrink, enlarge (smoothscale both ways) — then blit behind."""
     lw, lh = layer.get_size()
@@ -317,7 +317,7 @@ def bloom(surf, layer, pos, radius=10, passes=2, max_alpha=110):
     bw, bh = big.get_size()
     small = pygame.transform.smoothscale(big, (max(2, bw // radius), max(2, bh // radius)))
     for i in range(passes, 0, -1):
-        k = 1.0 + 0.10 * i
+        k = 1.0 + grow * i         # a halo for round shapes; 0 for text (no ghost letters)
         g = pygame.transform.smoothscale(small, (int(bw * k), int(bh * k)))
         g.set_alpha(int(max_alpha * (1.0 - (i - 1) / passes) ** 1.5))
         surf.blit(g, (pos[0] - pad - (g.get_width() - bw) // 2,
@@ -2392,24 +2392,46 @@ class RobotFace:
                                                                        STAR_COL)
             key = (data["text"], data.get("sub"), col)
             if getattr(self, "_card_cache", (None,))[0] != key:
+                text = data["text"]
                 size = 130
                 font = _get_font(size)
-                while font.size(data["text"])[0] > WIDTH - 60 and size > 40:
+                while font.size(text)[0] > WIDTH - 60 and size > 40:
                     size -= 10
                     font = _get_font(size)
-                img = font.render(data["text"], True, col)
+                lines = [text]
+                if size < 70 and " " in text:
+                    # a sentence (reading practice): two lines, bigger letters
+                    words = text.split()
+                    cut = min(range(1, len(words)), key=lambda k: abs(
+                        len(" ".join(words[:k])) - len(" ".join(words[k:]))))
+                    lines = [" ".join(words[:cut]), " ".join(words[cut:])]
+                    size = 110
+                    font = _get_font(size)
+                    while max(font.size(x)[0] for x in lines) > WIDTH - 60 and size > 40:
+                        size -= 10
+                        font = _get_font(size)
+                imgs = [font.render(x, True, col) for x in lines]
+                w = max(i.get_width() for i in imgs)
+                h = sum(i.get_height() for i in imgs)
+                img = pygame.Surface((w, h), pygame.SRCALPHA)
+                y = 0
+                for i in imgs:
+                    img.blit(i, ((w - i.get_width()) // 2, y))
+                    y += i.get_height()
                 sub = (_get_font(30).render(data["sub"], True, EYE_MID)
                        if data.get("sub") else None)
-                self._card_cache = (key, img, sub)
-            _, img, sub = self._card_cache
+                self._card_cache = (key, img, sub, len(lines))
+            _, img, sub, nlines = self._card_cache
             scr.fill(BG)
-            rect = img.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 20))
-            glow = img.copy()
-            glow.fill((*GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
-            bloom(scr, glow, rect.topleft, radius=8, passes=1, max_alpha=70)
+            rect = img.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 20 - 30 * (nlines - 1)))
+            if nlines == 1:                    # the glow smears a wide two-line block
+                glow = img.copy()
+                glow.fill((*GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
+                bloom(scr, glow, rect.topleft, radius=8, passes=1, max_alpha=70, grow=0.0)
             scr.blit(img, rect)
             if sub:
-                scr.blit(sub, sub.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 90)))
+                scr.blit(sub, sub.get_rect(center=(WIDTH // 2,
+                                                   max(HEIGHT // 2 + 90, rect.bottom + 30))))
         elif kind == "dice":
             scr.fill(BG)
             t = time.time() - data["t0"]
