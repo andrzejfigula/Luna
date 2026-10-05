@@ -91,6 +91,7 @@ LOCAL = {
     "Włącz muzykę": "radio",
     "Budź mnie radiem": "radio",
     "Mów krócej": "length",
+    "Przywróć listę zakupów": "lists",
     "Obudź mnie o 6:30": "timer",
     "Obudź mnie radiem o siódmej": "radio",     # the radio mode, and the alarm locally
     "Budź mnie radiem jutro o 6:30": "radio",
@@ -368,6 +369,8 @@ class RoutingTest(unittest.TestCase):
                                   lambda n, **k: True)
         if "<BYE>" in said:
             self._mark("bye")
+        if any(t.startswith(("Przywróciłam", "Nie mam czego przywrócić")) for t in said):
+            self._mark("lists")
         if any(t.startswith("Stoper") for t in said):
             self._mark("count")
         if any(t.startswith("Dobrze, nie słucham") for t in said):

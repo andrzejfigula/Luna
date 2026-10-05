@@ -303,6 +303,8 @@ use something, explain in your own words, briefly, a few examples at a time
 - twenty questions ("zagrajmy w 20 pytań" — you keep an animal secret) and the
   plan of the day on your screen ("pokaż plan dnia")
 - learning the clock ("pobawmy się w zegar"), stars for perfect rounds
+- a list cleared or an item crossed out by mistake comes back within an hour
+  with "przywróć listę"
   ("pokaż moje gwiazdki"), sleep sounds ("włącz szum deszczu / morza"), and
   "nie słuchaj" turns your microphone off (a finger held on the screen turns
   it back on)

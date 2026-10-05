@@ -205,6 +205,21 @@ class ListsTest(unittest.TestCase):
 
     def setUp(self):
         lists._lists = {}
+        lists._undo = None
+
+    def test_restore(self):
+        self.assertIsNone(lists.restore("Kup chleb"))
+        self.assertIn("Nie mam czego", lists.restore("Przywróć listę"))
+        self.act("list_add", "mleko")
+        self.act("list_add", "chleb")
+        self.act("list_clear")
+        self.act("list_add", "masło")
+        self.assertEqual(lists.restore("Luna, przywróć listę zakupów"),
+                         "Przywróciłam na listę zakupy: mleko, chleb.")
+        self.assertEqual(lists.get("zakupy"), ["masło", "mleko", "chleb"])
+        self.act("list_remove", "mleko")
+        self.assertIn("Nie mam czego",
+                      lists.restore("cofnij skreślenie", now=time.time() + 4000))
 
     def act(self, kind, label="", lst="zakupy"):
         return lists.apply([{"type": kind, "label": label, "list": lst,

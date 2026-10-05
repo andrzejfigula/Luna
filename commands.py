@@ -820,6 +820,12 @@ def handle(text, speak, play_sound):
     if ambience.handle(text, speak):
         return True
 
+    import lists                                   # "przywróć listę" — undo
+    said = lists.restore(text)
+    if said:
+        speak(said)
+        return True
+
     import radio                                   # "włącz radio", "wyłącz Trójkę"
     if radio.handle(text, speak):
         return True
