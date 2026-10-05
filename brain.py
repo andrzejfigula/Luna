@@ -378,6 +378,42 @@ else:
     print("[brain] No OPENAI_API_KEY set — Luna can only say the offline reply. "
           "Put the key in .env (see .env.example).")
 _history = []
+HISTORY_KEEP_SECS = 30 * 60     # after a restart, a conversation this fresh goes on
+
+
+def _history_path():
+    from config import DATA_DIR
+    import os
+    return os.path.join(DATA_DIR, "history.json")
+
+
+def save_history():
+    """The recent turns (text only) — so a restart in the middle of a
+    conversation doesn't make "a ja?" meaningless."""
+    import os
+    try:
+        tmp = _history_path() + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump([h for h in _history if isinstance(h.get("content"), str)], f,
+                      ensure_ascii=False)
+        os.replace(tmp, _history_path())
+    except OSError as e:
+        print(f"[brain] history not saved ({e})", flush=True)
+
+
+def load_history(now=None):
+    import os
+    import time as _t
+    try:
+        if (now or _t.time()) - os.path.getmtime(_history_path()) > HISTORY_KEEP_SECS:
+            return 0
+        with open(_history_path(), encoding="utf-8") as f:
+            turns = [h for h in json.load(f)
+                     if h.get("role") in ("user", "assistant") and isinstance(h.get("content"), str)]
+    except (OSError, ValueError):
+        return 0
+    _history[:] = turns[-OPENAI_MAX_HISTORY:]
+    return len(_history)
 
 
 # ── Camera → image attachment ─────────────────────────────────────────────────
@@ -646,6 +682,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
         # turn they were asked in
         _history[-1] = {"role": "user", "content": _who_said(text)}
         _history.append({"role": "assistant", "content": reply})
+        save_history()
         if not translator():                 # interpreting is not about the user
             with state.lock:
                 person = state.person
@@ -685,6 +722,7 @@ def note_local(user_text, said):
     _history.append({"role": "assistant", "content": reply})
     while len(_history) > OPENAI_MAX_HISTORY:
         _history.pop(0)
+    save_history()
     memory.record(tagged, reply, local=True)
 
 

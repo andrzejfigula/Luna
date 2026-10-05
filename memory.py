@@ -557,6 +557,13 @@ def check_forget(text, now=None):
             with _lock:
                 _session.clear()
                 _save(_empty(wiped_at=now))
+            try:                               # the recent conversation goes too
+                import sys
+                os.remove(os.path.join(os.path.dirname(MEMORY_PATH), "history.json"))
+                if "brain" in sys.modules:
+                    sys.modules["brain"]._history.clear()
+            except (OSError, AttributeError):
+                pass
             print("[memory] wiped on request (confirmed)", flush=True)
             return FORGET_REPLY
         if len(words) <= 4 and re.search(r"\b(nie|jednak|anuluj|stop)\b", low):

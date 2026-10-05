@@ -33,6 +33,11 @@ start_idle()
 from memory import start_memory, check_forget
 start_memory()
 
+import brain as _brain               # a conversation cut by a restart goes on
+if _brain.load_history():
+    print(f"[brain] {len(_brain._history)} recent turns back from before the restart",
+          flush=True)
+
 from sounds import start_sounds
 start_sounds()
 
