@@ -276,7 +276,7 @@ class OpenAITTS:
         cached = cache_get(key) if key else None
         out.begin(on_start=on_audio_start, prebuffer=0.0 if cached else AUDIO_PREBUFFER_SECS,
                   record=True)
-        ok = False
+        ok = wrote = False
         if cached:
             out.write(cached)
         else:
@@ -287,10 +287,13 @@ class OpenAITTS:
                         if self._cut.is_set():
                             break
                         out.write(chunk)
+                        wrote = True
                     ok = not self._cut.is_set()
             except Exception as e:
                 if not self._cut.is_set():
                     print(f"[TTS] streaming error: {e}")
+                    if not wrote:
+                        self._say_offline(out)
         played = out.finish(self._cut)
         if not played and on_audio_start:
             on_audio_start()             # never leave the caller waiting
@@ -298,6 +301,22 @@ class OpenAITTS:
         # least ~0.03 s of audio per character)
         if ok and key and played and len(out.last_utterance) >= len(text) * 1500:
             cache_put(key, out.last_utterance)
+
+    _offline_said = 0.0
+
+    def _say_offline(self, out):
+        """The cloud voice failed before a word: a recorded line instead of
+        silence (at most once a minute — not after every sentence)."""
+        if time.time() - OpenAITTS._offline_said < 60:
+            return
+        try:
+            import sounds
+            pcm = sounds.get("offline_done")
+        except Exception:
+            pcm = None
+        if pcm:
+            OpenAITTS._offline_said = time.time()
+            out.write(pcm)
 
     def replay_last(self, on_audio_start=None):
         """Play her last answer again from the audio already played. Returns

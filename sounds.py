@@ -65,6 +65,10 @@ SOUNDS = {
     "offline": ("Przepraszam, nie mogę teraz połączyć się z moim mózgiem w chmurze. "
                 "Sprawdź proszę internet.",
                 "Normal speech, apologetic and gentle, a little sad.", 7.0),
+    # a local command did its job, but its spoken confirmation can't be made
+    # (TTS needs the cloud): said instead of silence (openai_tts.py)
+    "offline_done": ("Zrobione! Tylko nie mam teraz internetu, więc mówię krótko.",
+                     "Normal speech, friendly, a little apologetic.", 5.0),
 }
 
 _cache = {}                    # name → PCM bytes, ready to play
