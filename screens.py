@@ -151,7 +151,8 @@ def wants_today(text):
 
 def show_today(speak):
     rows = today_rows()
-    if not rows:
+    if not rows:                        # asked to show it: the screen says so too
+        _show("list", 10, ("Plan na dziś", [("—", "nic zapisanego")]))
         speak("Na dziś nic nie mam zapisanego — żadnych przypomnień ani spraw.")
         return
     _show("list", 20, ("Plan na dziś", rows))
