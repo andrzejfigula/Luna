@@ -119,6 +119,9 @@ def _logged(said):
     return say
 
 
+_last_oops = 0.0      # when she last said something went wrong
+
+
 def voice_loop():
     while True:
         try:
@@ -173,11 +176,21 @@ def voice_loop():
         except Exception as e:
             # an unexpected error must never kill the voice thread — that
             # would leave Luna permanently deaf until restart
-            print(f"[Luna] voice loop error (recovering): {e}")
+            import traceback
+            print(f"[Luna] voice loop error (recovering): {e}", flush=True)
+            traceback.print_exc()
             with state.lock:
                 state.speaking  = False
                 state.listening = False
                 state.luna_mode = "idle"
+            # say so (at most once a minute) — silence looked like she hadn't heard
+            global _last_oops
+            if time.time() - _last_oops > 60:
+                _last_oops = time.time()
+                try:
+                    speak("Ups, coś mi się pomieszało. Spróbuj jeszcze raz.")
+                except Exception:
+                    pass
             time.sleep(1.0)
         time.sleep(0.05)
 
