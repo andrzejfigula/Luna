@@ -29,7 +29,10 @@ CHUNK = int(0.04 * RATE) * 2    # writer granularity: 40 ms
 # quiet hours: timers.py sets this while an alarm rings.
 full_volume_until = 0.0
 
-IDLE_AHEAD = 0.08               # seconds of silence queued between utterances
+IDLE_AHEAD = 0.15               # seconds of silence queued between utterances. pw-play
+                                # keeps ~100 ms itself plus one graph cycle; with the
+                                # graph at 2048 samples (43 ms, since pygame's own
+                                # stream is gone) 0.08 s starved it ~10 times a second
 REBUFFER   = 0.25               # the network fell behind mid-utterance: wait for
                                 # this much before going on — one clean pause
                                 # instead of syllables chopped up by silence
