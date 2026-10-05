@@ -429,6 +429,38 @@ _FILLER = {"luna", "luno", "mów", "mow", "mówić", "mowic", "trochę", "troche
            "speak", "talk", "more", "be", "can", "you", "volume", "turn", "it"}
 
 
+# "Czy możesz włączyć lampkę?" is a request: as "włącz lampkę" it reaches the
+# command it means (the model can't switch her lamp on — it would only say so)
+_IMPERATIVE = {
+    "włączyć": "włącz", "wlaczyc": "włącz", "wyłączyć": "wyłącz", "wylaczyc": "wyłącz",
+    "nastawić": "nastaw", "ustawić": "ustaw", "przypomnieć": "przypomnij",
+    "obudzić": "obudź", "zrobić": "zrób", "pokazać": "pokaż", "wylosować": "wylosuj",
+    "policzyć": "policz", "przywrócić": "przywróć", "zagrać": "zagraj", "puścić": "puść",
+    "zgasić": "zgaś", "rzucić": "rzuć", "opowiedzieć": "opowiedz", "przeczytać": "przeczytaj",
+    "powtórzyć": "powtórz", "wybrać": "wybierz", "zapamiętać": "zapamiętaj",
+    "zapomnieć": "zapomnij", "dodać": "dodaj", "dopisać": "dopisz", "skreślić": "skreśl",
+    "usunąć": "usuń", "nagrać": "nagraj", "odtworzyć": "odtwórz", "zatrzymać": "zatrzymaj",
+    "mówić": "mów", "zmienić": "zmień", "przełączyć": "przełącz", "ściszyć": "ścisz",
+    "przestać": "przestań", "przepytać": "przepytaj", "zadać": "zadaj", "odliczyć": "odliczaj",
+    "uruchomić": "uruchom", "zmniejszyć": "zmniejsz", "zwiększyć": "zwiększ",
+}
+_POLITE_ASK = re.compile(r"^(?:luna,?\s+|hej,?\s+)*(?:czy\s+)?(?:możesz|mozesz|mogłabyś|"
+                         r"moglabys|mogłabys)\s+(?:proszę\s+|prosze\s+)?((?:mi\s+|nam\s+)?)"
+                         r"(\w+)(.*?)[?.!]*$", re.I)
+
+
+def polite_to_command(text):
+    """"Czy możesz włączyć lampkę?" → "włącz lampkę"; None when it isn't a
+    polite request with a verb we know."""
+    m = _POLITE_ASK.match(text.strip())
+    if not m:
+        return None
+    verb = _IMPERATIVE.get(m.group(2).lower())
+    if not verb:
+        return None
+    return f"{verb} {m.group(1)}{m.group(3).strip()}".strip()
+
+
 def is_question(text):
     """A question about something (not a request to do it)."""
     words = [w for w in _words(text) if w not in ("luna", "luno", "hej", "a")]
@@ -558,9 +590,16 @@ def _sound_async(name):
     play_sound_async(name)
 
 
-def handle(text, speak, play_sound):
+def handle(text, speak, play_sound, _polite=True):
     """Handle a local command. Returns True when the utterance was one (and
     must not go to the model)."""
+    if _polite:
+        cmd = polite_to_command(text)
+        if cmd:
+            handled = handle(cmd, speak, play_sound, _polite=False)
+            if handled:
+                print(f"[cmd] polite request → \"{cmd}\"", flush=True)
+                return handled
     low = text.lower()
     question = is_question(text)
 

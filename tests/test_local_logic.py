@@ -121,6 +121,17 @@ class TimersTest(unittest.TestCase):
         self.assertIsNone(calc.arithmetic("6:30 3"))          # found by the fuzz test
         self.assertIsNone(calc.arithmetic("3 6:30 !"))
 
+    def test_polite_to_command(self):
+        import commands
+        p = commands.polite_to_command
+        self.assertEqual(p("Czy możesz włączyć lampkę?"), "włącz lampkę")
+        self.assertEqual(p("Luna, możesz mi przypomnieć za 20 minut o praniu?"),
+                         "przypomnij mi za 20 minut o praniu")
+        self.assertEqual(p("Mogłabyś zagrać ze mną w kółko i krzyżyk?"),
+                         "zagraj ze mną w kółko i krzyżyk")
+        self.assertIsNone(p("Czy możesz mi wytłumaczyć fotosyntezę?"))   # unknown verb
+        self.assertIsNone(p("Włącz lampkę"))
+
     def test_weekday_of(self):
         import calc
         today = datetime.date(2026, 10, 5)                      # a Monday
