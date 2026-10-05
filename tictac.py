@@ -111,6 +111,17 @@ def start(speak):
     speak("Gramy! Ty jesteś krzyżyk — dotknij pola na ekranie.")
 
 
+def again(speak):
+    """"Jeszcze raz" / "rewanż": the next game, the other side starting."""
+    with _lock:
+        if not _g:
+            return False
+        first = "O" if _g["first"] == "X" else "X"
+        _new_game(first)
+    speak("Rewanż! Zaczynam ja." if first == "O" else "Nowa gra — zaczynasz ty!")
+    return True
+
+
 def stop():
     global _g
     with _lock:
@@ -147,6 +158,9 @@ def _finish(w, line):
         said = "Remis! Dotknij ekranu, zagramy jeszcze raz."
     _g["msg"] += " · dotknij = nowa gra"
     print(f"[tictac] game over: {w}", flush=True)
+    with state.lock:                         # "jeszcze raz" needs no "Luna"
+        state.conversation_active = True
+        state.last_activity_time = time.time() + 5
     threading.Thread(target=_say, args=(said,), daemon=True).start()
 
 

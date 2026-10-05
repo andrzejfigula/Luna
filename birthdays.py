@@ -148,6 +148,34 @@ def days_answer(text, today=None):
     return calc._say_left(whose, days) + age
 
 
+_AGE = re.compile(r"\bile\s+(?:lat\s+)?(?:ma|mam|masz|skończy|skonczy|kończy|konczy)"
+                  r"(?:\s+lat)?\b", re.I)
+
+
+def age_answer(text, today=None):
+    """"Ile lat ma Maja?", "ile mam lat?" → "Maja ma 8 lat, a 12 maja skończy 9."
+    None unless the year of birth is known (the model can still try)."""
+    low = text.lower()
+    if not _AGE.search(low) or "lat" not in low:
+        return None
+    name = _who(low, text)
+    md, born = _all().get(name, (None, None)) if name else (None, None)
+    if not born:
+        return None
+    import calc
+    today = today or _today()
+    nxt = _next(md, today)
+    age = nxt.year - born - (0 if nxt == today else 1)
+    with state.lock:
+        me = state.person[0] if state.person else None
+    who = "Masz" if name == me and re.search(r"\b(mam|ja)\b", low) else f"{name} ma"
+    out = f"{who} {age} {calc._plural(age, 'rok', 'lata', 'lat')}"
+    if nxt == today:
+        return out + " — od dzisiaj! Wszystkiego najlepszego!"
+    when = f"{nxt.day} {_MONTHS_GEN[nxt.month - 1]}"
+    return out + f", a {when} {'skończysz' if who == 'Masz' else 'skończy'} {age + 1}."
+
+
 _NAMEDAY = re.compile(r"\bimienin\w*", re.I)
 
 

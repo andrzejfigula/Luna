@@ -718,7 +718,8 @@ def handle(text, speak, play_sound):
 
     # birthdays: "Maja ma urodziny 12 maja" / "ile dni do urodzin Mai?"
     import birthdays
-    said = birthdays.days_answer(text) or birthdays.nameday_answer(text)
+    said = (birthdays.days_answer(text) or birthdays.nameday_answer(text)
+            or birthdays.age_answer(text))
     if said:
         speak(said)
         return True
@@ -934,6 +935,10 @@ def handle(text, speak, play_sound):
     import tictac                                  # "zagrajmy w kółko i krzyżyk"
     if tictac.wants(text):
         tictac.start(speak)
+        return True
+    if tictac.active() and _short(text, 5) and re.search(
+            r"\b(jeszcze raz|rewanż|rewanz|nowa gra|od nowa|zagrajmy jeszcze)\b", low):
+        tictac.again(speak)
         return True
     if tictac.active() and _short(text, 4) and re.search(
             r"\b(koniec|wystarczy|kończymy|konczymy|stop)\b", low):

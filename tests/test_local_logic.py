@@ -969,6 +969,12 @@ class BirthdayTest(unittest.TestCase):
             self.assertIn("in 3 days", birthdays.prompt_line(datetime.date(2026, 5, 9)))
             self.assertIn("TODAY is Maja's birthday — turns 8",   # in May 2026
                           birthdays.prompt_line(datetime.date(2026, 5, 12)))
+            # age, exactly
+            self.assertEqual(birthdays.age_answer("Ile lat ma Maja?"),
+                             "Maja ma 8 lat, a 12 maja skończy 9.")
+            self.assertEqual(birthdays.age_answer("Ile lat ma Maja?", datetime.date(2026, 5, 12)),
+                             "Maja ma 8 lat — od dzisiaj! Wszystkiego najlepszego!")
+            self.assertIsNone(birthdays.age_answer("Ile lat ma Andrzej?"))   # no year known
             # name days
             self.assertIsNone(birthdays.set_nameday_from("Kiedy Maja ma imieniny?"))
             self.assertIn("Nie wiem", birthdays.nameday_answer("Kiedy Maja ma imieniny?"))
