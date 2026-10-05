@@ -87,7 +87,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Przypomnienie dla kogoś | „O 18 powiedz Emilce, żeby zadzwoniła do mamy”, „Codziennie o 20:30 przypominaj Mai, że pora spać” — powie tej osobie po tej godzinie, gdy ją zobaczy; „Usuń przypomnienia dla Mai” |
 | Urodziny | „Maja ma urodziny 12 maja 2018”, „Moje urodziny są 14 lutego” — potem „Ile dni do urodzin Mai?”; w dniu urodzin Luna złoży życzenia przy powitaniu |
 | Imieniny | „Maja ma imieniny 3 maja”, „Kiedy Maja ma imieniny?” — w dniu imienin złoży życzenia |
-| Wiek | „Ile lat ma Maja?” — dokładnie, z daty urodzenia |
+| Wiek | „Ile lat ma Maja?” — dokładnie, z daty urodzenia; „Ile dni żyje Maja?” |
 | Kiedy ktoś był | „Gdzie jest Maja?”, „Widziałaś dziś Emilkę?” — kiedy ostatnio widziała tę osobę |
 | Kim jestem? | „Kim jestem?”, „Poznajesz mnie?” |
 | Zapomnij | „Zapomnij moją twarz”, „Zapomnij twarz Kasi” |

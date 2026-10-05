@@ -1210,6 +1210,11 @@ class BirthdayTest(unittest.TestCase):
             self.assertEqual(birthdays.age_answer("Ile lat ma Maja?", datetime.date(2026, 5, 12)),
                              "Maja ma 8 lat — od dzisiaj! Wszystkiego najlepszego!")
             self.assertIsNone(birthdays.age_answer("Ile lat ma Andrzej?"))   # no year known
+            # days alive (Maja: 12 May 2018; today 4 Oct 2026)
+            self.assertEqual(birthdays.days_alive("Ile dni ma Maja?"), "Maja żyje już 3067 dni!")
+            self.assertEqual(birthdays.days_alive("Ile godzin żyje Maja?"),
+                             "Maja żyje już około 73608 godzin!")
+            self.assertIsNone(birthdays.days_alive("Ile dni ma Andrzej?"))   # no year known
             # name days
             self.assertIsNone(birthdays.set_nameday_from("Kiedy Maja ma imieniny?"))
             self.assertIn("Nie wiem", birthdays.nameday_answer("Kiedy Maja ma imieniny?"))

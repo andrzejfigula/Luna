@@ -176,6 +176,35 @@ def age_answer(text, today=None):
     return out + f", a {when} {'skończysz' if who == 'Masz' else 'skończy'} {age + 1}."
 
 
+_DAYS_ALIVE = re.compile(r"\bile\s+(?:dni|godzin|tygodni)\s+(?:już\s+)?(?:żyję|zyje|żyje|ma|mam|"
+                         r"żyjesz|przeżył\w*|przezyl\w*)\b", re.I)
+
+
+def days_alive(text, today=None):
+    """"Ile dni żyję?", "ile dni ma Maja?" → "Maja żyje już 3068 dni!" — from
+    the full birth date; None unless it is known."""
+    from datetime import date as _date
+    low = text.lower()
+    if not _DAYS_ALIVE.search(low):
+        return None
+    name = _who(low, text)
+    md, born = _all().get(name, (None, None)) if name else (None, None)
+    if not (md and born):
+        return None
+    m, d = (int(x) for x in md.split("-"))
+    today = today or _today()
+    days = (today - _date(born, m, d)).days
+    with state.lock:
+        me = state.person[0] if state.person else None
+    who = "Żyjesz" if name == me and re.search(r"\b(żyję|zyje|mam)\b", low) else f"{name} żyje"
+    unit = low.split("ile")[1].split()[0]
+    if unit.startswith("godzin"):
+        return f"{who} już około {days * 24} godzin!"     # plain digits read best
+    if unit.startswith("tygodni"):
+        return f"{who} już {days // 7} tygodni!"
+    return f"{who} już {days} dni!"
+
+
 _NAMEDAY = re.compile(r"\bimienin\w*", re.I)
 
 

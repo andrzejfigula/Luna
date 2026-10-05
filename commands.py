@@ -791,7 +791,7 @@ def handle(text, speak, play_sound, _polite=True):
     # birthdays: "Maja ma urodziny 12 maja" / "ile dni do urodzin Mai?"
     import birthdays
     said = (birthdays.days_answer(text) or birthdays.nameday_answer(text)
-            or birthdays.age_answer(text))
+            or birthdays.age_answer(text) or birthdays.days_alive(text))
     if said:
         speak(said)
         return True
