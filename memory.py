@@ -83,6 +83,7 @@ _SCHEMA = {
                 "dropped": {"type": "array", "items": {"type": "string"}},
                 "facts":   {"type": "array", "items": {"type": "string"}},
                 "episode": {"type": "string"},
+                "routine_episodes": {"type": "array", "items": {"type": "string"}},
                 "threads": {"type": "array", "items": {
                     "type": "object",
                     "properties": {
@@ -93,7 +94,7 @@ _SCHEMA = {
                     "additionalProperties": False,
                 }},
             },
-            "required": ["dropped", "facts", "episode", "threads"],
+            "required": ["dropped", "facts", "episode", "routine_episodes", "threads"],
             "additionalProperties": False,
         },
     },
@@ -285,7 +286,11 @@ _TIDY = """
 TODAY'S TIDY-UP (once a day): besides this conversation, rewrite CURRENT FACTS
 into a short, clean list. Every group of facts on one topic becomes one or two
 facts — list each merged one in "dropped" with the reason "merged". Write
-"użytkownik" as the person's name only where the facts make it certain."""
+"użytkownik" as the person's name only where the facts make it certain.
+Also copy into "routine_episodes", word for word, every one of the RECENT
+EPISODES below that was routine (a command, the time, the radio, a lamp, a
+quick fact, a greeting) — they will be removed. On other days that list is
+empty."""
 
 
 _WEEKDAYS = ["poniedziałek", "wtorek", "środa", "czwartek", "piątek",
@@ -329,7 +334,9 @@ def consolidate():
                 {"role": "user", "content":
                     f"CURRENT FACTS:\n{current}\n\nCURRENT THREADS:\n{threads}"
                     f"\n\nCONVERSATION:\n{_transcript(session)}"
-                    + (_TIDY if tidy else "")},
+                    + (_TIDY + "\n\nRECENT EPISODES:\n" + "\n".join(
+                        f"- {e.get('text', '')}" for e in mem["episodes"])
+                       if tidy else "")},
             ],
             temperature=0.2,
             max_tokens=3000,                 # the COMPLETE fact list comes back
@@ -370,6 +377,12 @@ def consolidate():
             # asked as often as it may be: done with, not carried on forever
             and old.get(str(t["question"]).strip(), 0) < MEMORY_THREAD_ASKS
         ][:MEMORY_MAX_THREADS]
+        routine = {str(e).strip(" -") for e in data.get("routine_episodes", [])} if tidy else set()
+        if routine:
+            before = len(mem["episodes"])
+            mem["episodes"] = [e for e in mem["episodes"] if e.get("text") not in routine]
+            print(f"[memory] {before - len(mem['episodes'])} routine episode(s) let go",
+                  flush=True)
         if episode:
             mem["episodes"].append({"date": _today().isoformat(), "text": episode})
             mem["episodes"] = mem["episodes"][-MEMORY_MAX_EPISODES:]
