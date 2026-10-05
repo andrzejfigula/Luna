@@ -68,7 +68,7 @@ from text_to_speech import speak, play_sound
 from brain import process, note_local
 from shared_state import state
 from config import (WAKE_REPLIES, ECHO_GUARD_WINDOW,
-                    ECHO_RUN_THRESH, ECHO_OVERLAP_THRESH, FORGET_REPLY,
+                    ECHO_RUN_THRESH, ECHO_OVERLAP_THRESH,
                     WAKE_SOUND_CHANCE)
 
 

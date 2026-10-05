@@ -18,7 +18,6 @@ Only for people she knows by face (faces.py) — a birthday belongs to someone.
 """
 
 import re
-import time
 from datetime import date, datetime
 
 from shared_state import state
