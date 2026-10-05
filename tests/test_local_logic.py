@@ -187,7 +187,17 @@ class MemoryTest(unittest.TestCase):
     def test_forget(self):
         memory._save({"facts": ["Ma kota."], "episodes": [], "threads": [], "_wiped_at": 0})
         self.assertFalse(memory.check_forget("Zapomnij o tym, nieważne"))
-        self.assertTrue(memory.check_forget("Luna, zapomnij wszystko"))
+        self.assertFalse(memory.check_forget("Luna, nie zapomnij o mnie jutro"))
+        self.assertIn("Na pewno", memory.check_forget("Luna, zapomnij wszystko"))
+        self.assertEqual(memory._load()["facts"], ["Ma kota."])     # not yet
+        self.assertEqual(memory.check_forget("Nie, jednak nie"),
+                         "Dobrze, niczego nie zapominam.")
+        self.assertEqual(memory._load()["facts"], ["Ma kota."])
+        memory.check_forget("Zapomnij wszystko")
+        self.assertFalse(memory.check_forget("tak", now=time.time() + 60))  # too late
+        self.assertEqual(memory._load()["facts"], ["Ma kota."])
+        memory.check_forget("Zapomnij wszystko")
+        self.assertTrue(memory.check_forget("Tak, zapomnij"))
         self.assertEqual(memory._load()["facts"], [])
 
 

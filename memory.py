@@ -50,6 +50,7 @@ from config import (
     MEMORY_MAX_THREADS,
     MEMORY_THREAD_ASKS,
     FORGET_PHRASES,
+    FORGET_REPLY,
     OPENAI_API_KEY,
     OPENAI_TIMEOUT,
     LUNA_TIMEZONE,
@@ -355,16 +356,54 @@ def add_fact(fact):
     return fact
 
 
-def check_forget(text):
-    """True when the utterance asks her to wipe her memory (and it was)."""
-    low = text.lower()
-    if not any(p in low for p in FORGET_PHRASES):
+_confirm_until = 0.0              # "na pewno?" asked — the answer is awaited till then
+_CONFIRM_SECS  = 25
+
+
+def _child_in_view():
+    try:
+        import faces
+        from shared_state import state
+        with state.lock:
+            who = state.person[0] if state.person else None
+        return bool(who) and "dziecko" in faces.notes().get(who, "").lower()
+    except Exception:
         return False
-    with _lock:
-        _session.clear()
-        _save(_empty(wiped_at=time.time()))
-    print("[memory] wiped on request", flush=True)
-    return True
+
+
+def check_forget(text, now=None):
+    """The reply when the utterance is about wiping her memory, else None.
+
+    Wiping is asked back first ("Na pewno…?"), and only a "tak" within
+    _CONFIRM_SECS does it: "nie zapomnij o mnie" or a sentence from the radio
+    must never erase the family's memories. A child can't wipe it."""
+    global _confirm_until
+    now = time.time() if now is None else now
+    low = re.sub(r"[^\w\s]", " ", text.lower())
+    words = low.split()
+    if _confirm_until and now < _confirm_until:
+        _confirm_until = 0.0
+        if re.search(r"\b(tak|zapomnij|potwierdzam|na pewno|yes)\b", low) and \
+                not re.search(r"\b(nie|jednak|stop)\b", low):
+            with _lock:
+                _session.clear()
+                _save(_empty(wiped_at=now))
+            print("[memory] wiped on request (confirmed)", flush=True)
+            return FORGET_REPLY
+        if len(words) <= 4 and re.search(r"\b(nie|jednak|anuluj|stop)\b", low):
+            return "Dobrze, niczego nie zapominam."
+        # anything else: the question lapses and the sentence goes on as usual
+    _confirm_until = 0.0
+    if not any(p in low for p in FORGET_PHRASES):
+        return None
+    if re.search(r"\bnie\s+(zapomnij|zapominaj|wymaż|wymaz|czyść|czysc)", low) or \
+            len(words) > 8 or "?" in text:
+        return None                    # "nie zapomnij o mnie", a story, a question
+    if _child_in_view():
+        return "Tego może mnie poprosić tylko dorosły."
+    _confirm_until = now + _CONFIRM_SECS
+    return ("Na pewno mam zapomnieć wszystko, co o was wiem? "
+            "Powiedz: tak, zapomnij — albo nie.")
 
 
 # ── watcher: consolidate when a conversation window closes ────────────────────

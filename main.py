@@ -146,8 +146,8 @@ def voice_loop():
                         continue
                     if check_mute(text):
                         pass          # "Luna, cicho" — handled, nothing to ask
-                    elif check_forget(text):
-                        speak(FORGET_REPLY)   # never goes near the model
+                    elif forget_reply := check_forget(text):
+                        speak(forget_reply)   # never goes near the model
                     elif handled := commands.handle(text, _logged(said := []), play_sound):
                         if handled != "recorded":
                             note_local(text, said)   # the model learns what happened
