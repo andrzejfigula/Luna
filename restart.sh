@@ -25,6 +25,14 @@ if [ "$1" != "--force" ] && [ -f tests/smoke_pi.py ]; then
         echo "restart: smoke test failed, kept the running Luna" >> luna.log
         exit 1
     fi
+    # …and the everyday sentences must still get the right answers
+    if [ -f tests/dialog_pi.py ] && \
+       ! timeout 120 ./venv/bin/python -X utf8 tests/dialog_pi.py > /tmp/luna_dialog.out 2>&1; then
+        echo "restart: DIALOG TEST FAILED — not restarting:"
+        grep -E "FAIL" /tmp/luna_dialog.out
+        echo "restart: dialog test failed, kept the running Luna" >> luna.log
+        exit 1
+    fi
 fi
 ./stop.sh >/dev/null 2>&1
 # a Luna that doesn't go within 5 s is killed — two of them fight over the mic
