@@ -96,6 +96,45 @@ _lock = threading.Lock()
 _q = None                 # the game going on, or None
 
 
+_WORDS_SET = re.compile(r"\b(?:słowa|slowa|słówka|slowka)\s+(?:do|na)\s+dyktand\w*\s*:?\s*(.+)$|"
+                        r"\bdyktand\w*\s+(?:ze|z)\s+(?:słów|slow|wyrazów|wyrazow)\s*:?\s*(.+)$",
+                        re.I)
+_WORDS_CLEAR = re.compile(r"\b(?:wyczyść|wyczysc|usuń|usun|zapomnij)\s+słowa\s+do\s+dyktand", re.I)
+
+
+def custom_words(text):
+    """"…słowa do dyktanda: rzeka, góra i żaba" → ["rzeka", "góra", "żaba"],
+    or None."""
+    m = _WORDS_SET.search(text)
+    if not m:
+        return None
+    raw = re.split(r",|\s+i\s+|\s+oraz\s+|;", m.group(1) or m.group(2))
+    words = [w.strip(" .!?").lower() for w in raw if w.strip(" .!?")]
+    words = [w for w in words if 1 <= len(w.split()) <= 2 and len(w) <= 25]
+    return words or None
+
+
+def dictation_words(text, speak):
+    """"Zapamiętaj słowa do dyktanda: …" / "wyczyść słowa do dyktanda" —
+    handled (True) or not."""
+    import settings
+    if _WORDS_CLEAR.search(text):
+        settings.put("dictation_words", [])
+        speak("Dobrze, w dyktandzie znowu będą moje słowa.")
+        return True
+    words = custom_words(text)
+    if words and not re.search(r"\b(?:zróbmy|zrobmy|zrób|zrob|zagrajmy|przepytaj|"
+                               r"podyktuj|daj)\b", text, re.I):
+        settings.put("dictation_words", words)
+        import calc
+        n = len(words)
+        speak(f"Zapamiętałam {n} {calc._plural(n, 'słowo', 'słowa', 'słów')} do dyktanda: "
+              f"{', '.join(words)}. "
+              "Powiedz: zróbmy dyktando.")
+        return True
+    return False
+
+
 def trigger(text):
     """The game asked for: "mul", "add", "sub", "mix", "words", "guess", or None."""
     low = text.lower()
@@ -271,7 +310,10 @@ def _new_question(q):
         return
     if q["kind"] == "dictation":
         import commands
-        pool = [w for w in DICTATION if w not in seen] or DICTATION
+        import settings
+        mine = q.get("words") or settings.get("dictation_words") or []
+        source = mine or DICTATION                  # the teacher's list, if given
+        pool = [w for w in source if w not in seen] or source
         again = [w for w in _past_misses("dyktando") if w in pool]
         word = (random.choice(again) if again and random.random() < REPEAT_MISSES
                 else random.choice(pool))
@@ -440,6 +482,11 @@ def start(kind, text, speak, play_sound_async):
               "total": RIDDLES if kind == "riddle" else QUESTIONS}
         if kind == "guess":
             _q.update(secret=random.randint(1, 100), lo=1, hi=100)
+        if kind == "dictation":
+            words = custom_words(text)               # "dyktando ze słów: …" — just these
+            if words:
+                _q["words"] = words
+                _q["total"] = min(len(words), 10)
         if kind in ("mul", "add", "sub", "mix", "words", "capitals") and re.search(
                 r"\b(na\s+czas|szybk\w*|wyścig\w*|wyscig\w*|na\s+wyścigi)\b", text.lower()):
             _q["race"] = True                  # a race: the time counts, records kept

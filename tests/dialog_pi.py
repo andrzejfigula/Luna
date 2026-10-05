@@ -101,6 +101,8 @@ CASES = [
     ("Koniec tłumaczenia", "Koniec tłumaczenia"),
     ("Rzuć kostką", "Wypadła"),
     ("Orzeł czy reszka?", ""),
+    ("Zapamiętaj słowa do dyktanda: rzeka, góra i żaba", "3 słowa do dyktanda"),
+    ("Wyczyść słowa do dyktanda", "moje słowa"),
     ("Powtórz", ""),
     ("Opowiedz dalszy ciąg bajki", "Nie pamiętam żadnej bajki"),
     ("Pokaż zegar", ""),

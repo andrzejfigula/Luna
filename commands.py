@@ -1157,6 +1157,8 @@ def handle(text, speak, play_sound, _polite=True):
         speak("Dobrze, koniec gry. Dzięki za partyjkę!")
         return True
 
+    if quiz.dictation_words(text, speak):           # "słowa do dyktanda: …"
+        return True
     kind = quiz.trigger(text)                      # "przepytaj mnie z tabliczki"
     if kind:
         quiz.start(kind, text, speak, _sound_async)

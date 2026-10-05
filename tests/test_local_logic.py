@@ -242,6 +242,22 @@ class TimersTest(unittest.TestCase):
         self.assertIn("tylko bez błędu", quiz.race_result("mul", False, 30, "Maja"))
         self.assertIn("pierwszy rekord", quiz.race_result("add", True, 70, "Maja"))  # per game
 
+    def test_custom_dictation_words(self):
+        import quiz
+        import settings
+        self.assertEqual(quiz.custom_words("Zapamiętaj słowa do dyktanda: rzeka, góra i żaba"),
+                         ["rzeka", "góra", "żaba"])
+        said = []
+        self.assertTrue(quiz.dictation_words("Słowa do dyktanda: chleb, hamak", said.append))
+        self.assertEqual(settings.get("dictation_words"), ["chleb", "hamak"])
+        q = {"kind": "dictation", "seen": set()}
+        quiz._new_question(q)
+        self.assertIn(q["answer"], ("chleb", "hamak"))
+        self.assertTrue(quiz.dictation_words("Wyczyść słowa do dyktanda", said.append))
+        self.assertEqual(settings.get("dictation_words"), [])
+        self.assertEqual(quiz.custom_words("Zróbmy dyktando ze słów: ołówek, ćma"),
+                         ["ołówek", "ćma"])
+
     def test_english_dictation(self):
         import quiz
         self.assertEqual(quiz.trigger("Zróbmy dyktando z angielskiego"), "dictation_en")
