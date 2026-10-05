@@ -114,6 +114,29 @@ _READ = re.compile(r"\b(?:co\s+(?:mam|mamy|jest|jeszcze\s+jest|zostało)\s+na\s+
                    r"przeczytaj\s+(?:mi\s+)?listę|przeczytaj\s+(?:mi\s+)?liste)\b(.*)$", re.I)
 
 
+_ADD = re.compile(r"^(?:luna,?\s+)?(?:dopisz|dodaj|wpisz|zapisz)\s+(?:mi\s+)?(.+?)\s+(?:do|na)\s+"
+                  r"(?:listy|listę|liste)(?:\s+(.+?))?[.!]*$", re.I)
+
+
+def local_add(text):
+    """"Dopisz mleko i chleb do listy zakupów" without the model (used when
+    the cloud is down: the words are kept as said, "kawę" not "kawa").
+    The reply, or None."""
+    m = _ADD.match(text.strip())
+    if not m:
+        return None
+    raw = re.split(r",|\s+i\s+|\s+oraz\s+", m.group(1))
+    items = [i.strip(" .") for i in raw if i.strip(" .")]
+    if not items or any(len(i.split()) > 4 for i in items):
+        return None
+    which = (m.group(2) or "zakupów").lower()
+    name = "zakupy" if which.startswith("zakup") else which
+    done = apply([{"type": "list_add", "label": i, "list": name} for i in items])
+    if not done:
+        return "To już jest na liście."
+    return f"Dopisałam: {', '.join(items)}."
+
+
 def read_answer(text):
     """"Co mam na liście zakupów?", "co mam kupić?" → the list read out, here
     and offline; None for anything else."""

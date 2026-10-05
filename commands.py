@@ -865,6 +865,15 @@ def handle(text, speak, play_sound, _polite=True):
     if question:
         return False
 
+    with state.lock:
+        online = state.online
+    if not online:                                 # the model can't do it now:
+        import lists                               # "dopisz mleko do listy" here
+        said = lists.local_add(text)
+        if said:
+            speak(said)
+            return True
+
     # "zrestartuj się" — exit; the autostart watchdog (lwrespawn) starts
     # her again a second later. Handy after editing .env.
     if any(k in low for k in _RESTART):

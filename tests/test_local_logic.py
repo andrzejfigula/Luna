@@ -543,6 +543,15 @@ class ListsTest(unittest.TestCase):
         lists._lists = {}
         lists._undo = None
 
+    def test_local_add(self):
+        self.assertEqual(lists.local_add("Dopisz mleko i chleb do listy zakupów"),
+                         "Dopisałam: mleko, chleb.")
+        self.assertEqual(lists.get("zakupy"), ["mleko", "chleb"])
+        self.assertEqual(lists.local_add("dodaj umyć auto do listy rzeczy do zrobienia"),
+                         "Dopisałam: umyć auto.")
+        self.assertEqual(lists.local_add("Dopisz mleko do listy"), "To już jest na liście.")
+        self.assertIsNone(lists.local_add("Dopisz, że jutro przyjdzie babcia"))
+
     def test_read_answer(self):
         self.assertEqual(lists.read_answer("Co mam na liście zakupów?"),
                          "Na liście zakupów nic nie ma.")
