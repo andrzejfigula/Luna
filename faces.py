@@ -289,6 +289,11 @@ def identify(feature, learn_ok=True):
     who, best = ranked[0]
     second = ranked[1][1] if len(ranked) > 1 else 0.0
     if best < MATCH_COSINE:
+        global _last_miss
+        if best >= 0.25 and time.time() - _last_miss > 60:   # who is it nearly?
+            _last_miss = time.time()
+            print(f"[faces] not sure who this is — closest {who} {best:.2f}"
+                  f" (needs {MATCH_COSINE:.2f})", flush=True)
         return None, best
     if learn_ok and best >= AUTO_MIN and best - second >= AUTO_MARGIN:
         learn(who, feature)
@@ -296,6 +301,7 @@ def identify(feature, learn_ok=True):
 
 
 _last_auto = {}
+_last_miss = 0.0
 
 
 def learn(name, feature):
