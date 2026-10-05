@@ -604,6 +604,8 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
 
         data    = json.loads(raw)
         reply   = str(data.get("reply", "")).strip()
+        # the history tags speakers ("[Maja] …"); a reply must never copy that
+        reply   = re.sub(r"^\[[^\]]{1,20}\]\s*", "", reply)
         fixed   = _feminize(reply)
         if fixed != reply:
             print(f"[brain] feminized: {reply!r} → {fixed!r}")
