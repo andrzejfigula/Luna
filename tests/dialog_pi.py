@@ -26,6 +26,16 @@ if os.path.exists(os.path.join(HERE, "data", "people.json")):
     shutil.copy(os.path.join(HERE, "data", "people.json"), DATA)
 os.environ["LUNA_DATA_DIR"] = DATA
 
+# silent BY CONSTRUCTION: some handlers play audio themselves (counting plays
+# its number clips through text_to_speech.play_clip, the games speak from a
+# thread) — on 5 Oct an ad-hoc run counted to ten out loud on the live
+# speaker. A stand-in text_to_speech makes every such path a no-op.
+_fake_tts = type(sys)("text_to_speech")
+for _name in ("speak", "speak_stream", "play_clip", "play_sound", "play_sound_async",
+              "replay_last", "stop_speaking"):
+    setattr(_fake_tts, _name, lambda *a, **k: None)
+sys.modules["text_to_speech"] = _fake_tts
+
 import ambience            # noqa: E402
 import commands            # noqa: E402
 import memory              # noqa: E402
