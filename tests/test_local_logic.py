@@ -672,6 +672,16 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(lists.get("poranek"), ["umyj zęby", "ubierz się"])   # kept
         lists.apply([{"type": "list_clear", "list": "poranek"}])
 
+    def test_foreign_script(self):
+        from unittest import mock
+        with mock.patch.dict(sys.modules, {"sounddevice": mock.MagicMock(),
+                                           "vosk": mock.MagicMock()}):
+            import speech_to_text            # no audio stack on a dev PC
+        self.assertTrue(speech_to_text.foreign_script("Лунавон шламка."))
+        self.assertFalse(speech_to_text.foreign_script("Zażółć gęślą jaźń, Luna!"))
+        self.assertFalse(speech_to_text.foreign_script("Can you do me a favor?"))
+        self.assertFalse(speech_to_text.foreign_script(""))
+
     def test_local_alarm(self):
         import commands
         self.assertEqual(commands.local_alarm("Obudź mnie o 6:30"), ("06:30", "none"))

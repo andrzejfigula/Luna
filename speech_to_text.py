@@ -377,6 +377,15 @@ def _cloud_transcribe(pcm16k):
         text = (r if isinstance(r, str) else getattr(r, "text", "")).strip()
         if STT_DEBUG_AUDIO:
             print(f"[STT] cloud ({time.time() - t0:.1f}s): \"{text}\"")
+        if foreign_script(text) and "language" not in kwargs:
+            # auto-detect heard Russian in mumbled Polish ("Лунавон шламка.")
+            kwargs["language"] = "pl"
+            kwargs["file"] = _wav_bytes(pcm16k)
+            r = _cloud.audio.transcriptions.create(**kwargs)
+            text = (r if isinstance(r, str) else getattr(r, "text", "")).strip()
+            print(f"[STT] cloud again as Polish: \"{text}\"", flush=True)
+            if foreign_script(text):
+                return None                  # Vosk's guess is the best we have
         if _is_prompt_echo(text):
             print("[STT] cloud echoed its prompt — treating as no speech")
             return ""
@@ -384,6 +393,12 @@ def _cloud_transcribe(pcm16k):
     except Exception as e:
         print(f"[STT] cloud transcription failed ({e}) — using Vosk text")
         return None
+
+
+def foreign_script(text):
+    """Letters outside the Latin script (Cyrillic, Greek, CJK…) — nobody here
+    speaks those; it is the transcriber guessing the language wrong."""
+    return any(c.isalpha() and ord(c) > 0x24F for c in text or "")
 
 
 def _words(s):
