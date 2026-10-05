@@ -877,6 +877,38 @@ class PhotoPeopleTest(unittest.TestCase):
         self.assertEqual(screens._and(["Andrzej", "Maja"]), "Andrzej i Maja")
 
 
+class CookingTest(unittest.TestCase):
+
+    def test_step_by_step(self):
+        import cooking
+        import timers
+        self.assertEqual(cooking.wants("Gotujemy naleśniki"), "naleśniki")
+        self.assertEqual(cooking.wants("przepis na sernik krok po kroku"), "sernik")
+        self.assertIsNone(cooking.wants("Zróbmy dyktando"))
+        recipe = {"title": "Naleśniki", "ingredients": ["2 jajka", "szklanka mleka"],
+                  "steps": [{"text": "Wymieszaj wszystko.", "minutes": 0},
+                            {"text": "Smaż 2 minuty z każdej strony.", "minutes": 2}]}
+        said = []
+        say = lambda t, **k: said.append(t)
+        added = []
+        with mock.patch.object(cooking, "_recipe", lambda dish: recipe), \
+                mock.patch.object(timers, "add", lambda secs, label, **k: added.append(secs)):
+            cooking.start("naleśniki", say)
+            self.assertIn("2 jajka", said[-1])
+            self.assertTrue(cooking.answer("dalej", say))
+            self.assertIn("Krok 1", said[-1])
+            self.assertTrue(cooking.answer("następny", say))
+            self.assertIn("Nastawić minutnik na 2 minuty?", said[-1])
+            self.assertTrue(cooking.answer("tak", say))
+            self.assertEqual(added, [120])
+            self.assertTrue(cooking.answer("powtórz", say))
+            self.assertIn("Ostatni krok", said[-1])
+            self.assertFalse(cooking.answer("Jaka jest pogoda w Paryżu w maju?", say))
+            self.assertTrue(cooking.answer("dalej", say))
+            self.assertIn("Smacznego", said[-1])
+            self.assertFalse(cooking.active())
+
+
 class MessagesForPeopleTest(unittest.TestCase):
 
     def test_message_waits_for_its_person(self):

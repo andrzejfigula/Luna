@@ -518,6 +518,9 @@ def handle(text, speak, play_sound):
     import kids                                    # a routine step: "gotowe"
     if kids.routine_active() and kids.routine_answer(text, speak, _sound_async):
         return True
+    import cooking                                 # a recipe step: "dalej"
+    if cooking.active() and cooking.answer(text, speak):
+        return True
 
     # goodbye — wave, and stop listening right away (otherwise the window
     # stays open and she may answer the next thing said in the room)
@@ -766,6 +769,11 @@ def handle(text, speak, play_sound):
         return True
 
     if kids.handle(text, speak, _sound_async):     # tooth brushing, routines
+        return True
+
+    dish = cooking.wants(text)                     # "gotujemy naleśniki"
+    if dish:
+        cooking.start(dish, speak)
         return True
 
     import ambience                                # "włącz szum deszczu"

@@ -92,6 +92,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 
 | Co | Jak |
 |---|---|
+| Gotowanie | „Gotujemy naleśniki”, „Przepis na sernik krok po kroku” — składniki, potem krok po kroku na ekranie; „dalej”, „powtórz”, „wróć”, „koniec”; przy krokach z czasem zaproponuje minutnik |
 | Minutnik | „Minutnik na 10 minut”, „na pół godziny”, „na kwadrans” — od razu, bez chmury (działa też bez internetu); „Nastaw minutnik na makaron, 8 minut” — z etykietą |
 | Lampka | „Włącz lampkę”, „Lampka na niebiesko” (czerwony, zielony, fioletowy, różowy, żółty, pomarańczowy, biały), „Lampka na 20 minut” — sama zgaśnie; „Wyłącz lampkę” albo stuknięcie |
 | Przypomnienie | „Przypomnij mi o 18:30, żeby zadzwonić do mamy” |
