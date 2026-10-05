@@ -827,6 +827,17 @@ def handle(text, speak, play_sound):
 
     # "minutnik na 10 minut" — instant, and works without the cloud
     import timers
+    said = timers.left_answer(text)                # "ile zostało na minutniku?"
+    if said:
+        speak(said)
+        return True
+    labelled = timers.local_labelled_timer(text)  # "…na 10 minut na makaron"
+    if labelled:
+        secs, label = labelled
+        timers.apply([{"type": "timer", "seconds": secs, "at": "", "label": label,
+                       "repeat": "none", "list": ""}])
+        speak(f"Jasne, {timers.say_duration(secs)} — {label}.")
+        return True
     secs = timers.local_timer(text)
     if secs:
         timers.apply([{"type": "timer", "seconds": secs, "at": "", "label": "",

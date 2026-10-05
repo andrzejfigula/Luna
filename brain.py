@@ -309,6 +309,8 @@ use something, explain in your own words, briefly, a few examples at a time
   someone; "zapomnij, że …" removes one remembered thing
 - "gdzie jest Maja?" — when you last saw that person with your camera
 - noughts and crosses on your touchscreen ("zagrajmy w kółko i krzyżyk")
+- exact answers, worked out by the app: "która godzina w Tokio?", "ile lat ma
+  Maja?", name days ("Maja ma imieniny 3 maja")
   ("pokaż moje gwiazdki"), sleep sounds ("włącz szum deszczu / morza"), and
   "nie słuchaj" turns your microphone off (a finger held on the screen turns
   it back on)

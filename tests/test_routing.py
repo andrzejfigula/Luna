@@ -93,6 +93,7 @@ LOCAL = {
     "Mów krócej": "length",
     "Przywróć listę zakupów": "lists",
     "Obudź mnie o 6:30": "timer",
+    "Nastaw minutnik na 10 minut na makaron": "timer",
     "Przypomnij mi za 20 minut o praniu": "timer",
     "Obudź mnie radiem o siódmej": "radio",     # the radio mode, and the alarm locally
     "Budź mnie radiem jutro o 6:30": "radio",
@@ -152,7 +153,6 @@ MODEL = [
     "Co mam na liście?",
     "Powtórz mi tabliczkę mnożenia przez siedem",
     "Ile ścian ma kostka do gry?",
-    "Nastaw minutnik na 10 minut na makaron",
     "Jak się mówi kot po angielsku?",
     "Jak się zrestartować komputer?",
     "Dodaj mleko do listy zakupów",

@@ -372,3 +372,5 @@ the game's hand reading, photos, the mood read from a face.
 | 184 | **"First hello of the day" survives a restart** (data/greeted.json) — after a restart the next hello was a second morning briefing | Found while restarting her during the morning | ✅ |
 | 185 | **"Ile lat ma Maja?"** — exact from the year of birth: "Maja ma 8 lat, a 12 maja skończy 9." ("ile mam lat?" by face → "Masz…") | Calendar sums are where models slip | ✅ |
 | 186 | **Noughts and crosses: "jeszcze raz" / "rewanż" by voice**, no "Luna" needed right after a game | Hands busy, or the tap missed | ✅ |
+| 187 | **Kitchen timers with a name, locally** — "minutnik na 10 minut na makaron" ("Jasne, 10 minut — makaron." … "Minął czas: makaron!"), "timer na 8 minut do jajek" ("Dzyń! Minutnik do jajek!") | Instant and offline, in the kitchen where it matters | ✅ "na pół godziny" is still the time, not a name |
+| 188 | **"Ile zostało na minutniku?"** — exact, from the running timers: "Zostały 4 minuty i 22 sekundy.", several: "Minutniki — 4 minuty i 22 sekundy; makaron: 25 minut."; seconds only under 5 minutes | The model rounded and sometimes mixed the timers up | ✅ |

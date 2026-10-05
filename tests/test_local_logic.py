@@ -215,6 +215,39 @@ class TimersTest(unittest.TestCase):
         self.assertEqual([clock.hour_locative(*t) for t in ((2, 0), (21, 0), (7, 5), (0, 0))],
                          ["drugiej", "dwudziestej pierwszej", "siódmej zero pięć", "północy"])
 
+    def test_left_answer(self):
+        now = 1_000_000.0
+        with timers._lock:
+            saved = list(timers._timers)
+            timers._timers[:] = []
+        try:
+            self.assertEqual(timers.left_answer("Ile zostało na minutniku?", now),
+                             "Nie mam teraz żadnego minutnika.")
+            with timers._lock:
+                timers._timers.append({"due": now + 262, "label": "", "kind": "timer"})
+            self.assertEqual(timers.left_answer("Ile zostało na minutniku?", now),
+                             "Zostały 4 minuty i 22 sekundy.")
+            with timers._lock:
+                timers._timers.append({"due": now + 1500, "label": "makaron", "kind": "timer"})
+            self.assertEqual(timers.left_answer("ile jeszcze do końca minutnika", now),
+                             "Minutniki — 4 minuty i 22 sekundy; makaron: 25 minut.")
+            self.assertIsNone(timers.left_answer("Ile kosztuje minutnik?", now))
+        finally:
+            with timers._lock:
+                timers._timers[:] = saved
+
+    def test_labelled_timer(self):
+        t = timers.local_labelled_timer
+        self.assertEqual(t("Nastaw minutnik na 10 minut na makaron"), (600, "makaron"))
+        self.assertEqual(t("minutnik na 8 minut do jajek"), (480, "do jajek"))
+        self.assertEqual(timers._announcement({"kind": "timer", "label": "do jajek", "secs": 480}),
+                         "Dzyń! Minutnik do jajek!")
+        self.assertEqual(t("Luna, timer na pół godziny na ciasto drożdżowe"),
+                         (1800, "ciasto drożdżowe"))
+        self.assertIsNone(t("minutnik na pół godziny"))            # no label
+        self.assertIsNone(t("minutnik na 10 minut"))
+        self.assertIsNone(t("Ile zostało na minutniku na makaron?"))
+
     def test_say_duration(self):
         self.assertEqual([timers.say_duration(s) for s in (60, 300, 120, 1800, 3600, 5400, 45)],
                          ["minutę", "5 minut", "2 minuty", "30 minut", "godzinę",

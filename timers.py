@@ -347,6 +347,26 @@ def local_reminder(text, now=None):
     return action, f"Dobrze, przypomnę {said}."
 
 
+_LABEL = re.compile(r"^(.*?\b(?:minutnik\w*|timer|odlicz\w*)\b.*?)\s+(na|do|dla)\s+"
+                    r"([a-ząćęłńóśźż]+(?:\s+[a-ząćęłńóśźż]+){0,2})[.!]*$", re.I)
+
+
+def local_labelled_timer(text):
+    """(seconds, label) for "minutnik na 10 minut na makaron", "nastaw timer
+    na 8 minut do jajek"; None otherwise (no label, or anything more)."""
+    m = _LABEL.match(text.strip())
+    if not m:
+        return None
+    label = m.group(3).lower()
+    if parse_duration(label)[0] or set(label.split()) & {"minut", "minuty", "minutę",
+                                                         "godzin", "godzinę", "sekund"}:
+        return None                                  # "na pół godziny" is the time
+    if m.group(2).lower() != "na":                   # "do jajek": the word stays as said
+        label = f"{m.group(2).lower()} {label}"
+    secs = local_timer(m.group(1))
+    return (secs, label) if secs else None
+
+
 def say_duration(secs):
     """Polish words for a duration, for her confirmation."""
     if secs % 3600 == 0:
@@ -455,6 +475,51 @@ def _minutes_pl(n):
     return "minut"
 
 
+_LEFT_Q = re.compile(r"\b(?:ile|jak\s+długo)\b.*\b(?:zostało|zostalo|jeszcze|do\s+końca|"
+                     r"do\s+konca)\b.*\b(?:minutnik\w*|timer\w*)\b", re.I)
+
+
+def _say_left(secs):
+    secs = max(0, int(round(secs)))
+    m, s = divmod(secs, 60)
+    h, m = divmod(m, 60)
+    parts = []
+    if h:
+        parts.append("godzina" if h == 1 else f"{h} godziny" if h in (2, 3, 4) else f"{h} godzin")
+    if m:
+        parts.append("minuta" if m == 1 else f"{m} {_minutes_pl(m)}")
+    if s and not h and m < 5:                       # seconds only when it is close
+        parts.append("sekunda" if s == 1 else f"{s} sekundy" if s % 10 in (2, 3, 4)
+                     and s % 100 not in (12, 13, 14) else f"{s} sekund")
+    return " i ".join(parts) or "chwila"
+
+
+def left_answer(text, now=None):
+    """"Ile zostało na minutniku?" → exact, from the running timers; None if
+    it isn't that question."""
+    if not _LEFT_Q.search(text):
+        return None
+    now = now or time.time()
+    with _lock:
+        running = [t for t in _timers if t["kind"] == "timer" and t["due"] > now]
+    if not running:
+        return "Nie mam teraz żadnego minutnika."
+    running.sort(key=lambda t: t["due"])
+    out = []
+    for t in running[:3]:
+        left = _say_left(t["due"] - now)
+        out.append(f"{t['label']}: {left}" if t["label"] else left)
+    if len(running) == 1:
+        if running[0]["label"]:
+            return f"Na minutniku — {out[0]}."
+        first = out[0].split()[0]                    # the verb agrees with it
+        verb = ("Została" if not first.isdigit() else
+                "Zostały" if int(first) % 10 in (2, 3, 4) and int(first) % 100 not in (12, 13, 14)
+                else "Zostało")
+        return f"{verb} {out[0]}."
+    return "Minutniki — " + "; ".join(out) + "."
+
+
 def _announcement(t, missed=False):
     label = t["label"]
     if t["kind"] == "alarm":
@@ -468,6 +533,8 @@ def _announcement(t, missed=False):
         mins = round(t.get("secs", 0) / 60)
         if label.lower().startswith("o "):           # a reminder "za 20 minut o praniu"
             text = f"Przypominam {label}!"
+        elif label.lower().startswith(("do ", "dla ")):   # "minutnik do jajek"
+            text = f"Dzyń! Minutnik {label}!"
         elif label:
             text = f"Minął czas: {label}!"
         elif mins >= 1:
