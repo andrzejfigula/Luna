@@ -98,6 +98,39 @@ Start with the desktop and auto-restart on crash:
 
 Log: `~/luna/luna.log`. ESC on an attached keyboard quits; keys 1/2 switch face style.
 
+### Updating — and the tests that guard it
+
+```bash
+./restart.sh        # waits until she has been idle 3 min, then restarts
+./restart.sh --now  # restart right away
+```
+
+Before stopping the running Luna, `restart.sh` runs two silent tests on the
+new code; if either fails, the running Luna is kept and the failures are
+printed (and noted in `luna.log`):
+
+- `tests/smoke_pi.py` — imports every module, starts speaking (silently),
+  builds the prompt, walks the newest local commands under a time limit.
+- `tests/dialog_pi.py` — ~70 everyday sentences through the real
+  `commands.handle`, each checked for what she says, or that it goes to the
+  model; with an offline section. Scratch data, no sound (a stand-in
+  `text_to_speech`), no model calls.
+
+On a development PC: `python -X utf8 -m unittest discover -s tests` (the
+unit, routing and fuzz tests; no Pi hardware or OpenAI SDK needed).
+
+### Data she keeps (`data/`, never in git)
+
+`memory.json` (facts, episodes; tidied daily), `people.json` (faces, notes,
+birthdays, name days), `lists.json`, `timers.json`, `settings.json` (incl.
+stars, records, dictation words), `relations.json`, `day.json` / `diary.json`
+(her day, game results), `errands.json`, `messages/`, `seen.json` (when each
+person was last seen), `history.json` (the last 30 min of conversation, so a
+restart doesn't cut it), `story.json` (the last bedtime story),
+`greeted.json`, `usage.json` (API calls per day), `tts_cache/` (short lines
+she has said, played offline), `backups/`. "Luna, zapomnij wszystko" wipes the
+memory and the conversation history.
+
 ## How a conversation flows
 
 ```
