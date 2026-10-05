@@ -121,6 +121,16 @@ class TimersTest(unittest.TestCase):
         self.assertIsNone(calc.arithmetic("6:30 3"))          # found by the fuzz test
         self.assertIsNone(calc.arithmetic("3 6:30 !"))
 
+    def test_english_dictation(self):
+        import quiz
+        self.assertEqual(quiz.trigger("Zróbmy dyktando z angielskiego"), "dictation_en")
+        self.assertEqual(quiz.trigger("Zróbmy dyktando"), "dictation")
+        q = {"kind": "dictation_en", "seen": set()}
+        quiz._new_question(q)
+        self.assertIn(q["answer"], q["accept"])
+        self.assertTrue(q["say"].startswith("Napisz po angielsku: "))
+        self.assertTrue(any(quiz._same_word(w.upper(), q["answer"]) for w in q["accept"]))
+
     def test_mentions_dont_start_games(self):
         import cooking
         import quiz
