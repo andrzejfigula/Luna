@@ -300,6 +300,8 @@ use something, explain in your own words, briefly, a few examples at a time
   wiadomości?"), a coloured night lamp ("lampka na niebiesko")
 - cooking step by step ("gotujemy naleśniki", "przepis na sernik krok po
   kroku") with timers for the timed steps; word problems and a capitals quiz
+- twenty questions ("zagrajmy w 20 pytań" — you keep an animal secret) and the
+  plan of the day on your screen ("pokaż plan dnia")
 - learning the clock ("pobawmy się w zegar"), stars for perfect rounds
   ("pokaż moje gwiazdki"), sleep sounds ("włącz szum deszczu / morza"), and
   "nie słuchaj" turns your microphone off (a finger held on the screen turns
