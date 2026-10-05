@@ -32,6 +32,9 @@ _LIST   = ("pokaż przypomnienia", "pokaż minutniki", "pokaż budziki",
 _GALLERY = ("pokaż zdjęcia", "pokaż ostatnie zdjęcie", "pokaż moje zdjęcia",
             "pokaż fotki", "pokaz zdjecia", "pokaż zdjęcie", "show my photos",
             "show the photos")
+# ("co mamy dzisiaj?" is left alone: it may mean "what day is it")
+_TODAY = ("plan dnia", "plan na dziś", "plan na dzisiaj", "co mamy w planie",
+          "dzisiejszy plan", "plany na dziś", "plany na dzisiaj")
 GALLERY_STEP = 6.0          # seconds per photo; a tap shows the next one
 _SHOW_LIST = ("pokaż listę", "pokaz liste", "pokaż mi listę", "show the list",
               "show my list")
@@ -138,6 +141,75 @@ def _person_in(low):
         return None
     nom = faces.nominative(word)          # "Mai" → "Maja"
     return next((n for n in known if n.lower() == nom.lower()), None)
+
+
+def wants_today(text):
+    low = text.lower()
+    return any(k in low for k in _TODAY) and len(re.findall(r"\w+", low)) <= 8
+
+
+def show_today(speak):
+    rows = today_rows()
+    if not rows:
+        speak("Na dziś nic nie mam zapisanego — żadnych przypomnień ani spraw.")
+        return
+    _show("list", 20, ("Plan na dziś", rows))
+    n = len(rows)
+    speak(f"Oto plan na dziś — {n} {'rzecz' if n == 1 else 'rzeczy'}.")
+
+
+def today_rows():
+    """"Plan na dziś": today's timers and reminders, notes waiting to be
+    passed on, birthdays this week, the weather, the lists — (left, right) rows."""
+    import time as _t
+    rows = []
+    try:
+        import timers
+        with timers._lock:
+            items = list(timers._timers)
+        end = _t.mktime(_t.localtime()[:3] + (23, 59, 59, 0, 0, -1))
+        for e in sorted(items, key=lambda e: e["due"]):
+            if e["due"] <= end:
+                what = e["label"] or timers._KIND_PL.get(e["kind"], "")
+                rows.append((_t.strftime("%H:%M", _t.localtime(e["due"])), what))
+    except Exception:
+        pass
+    try:
+        import errands
+        with errands._lock:
+            notes = errands._load()
+        for e in notes:
+            if errands._due(e) or e.get("at"):
+                when = f"po {e['at']}" if e.get("at") else "przekazać"
+                rows.append((when, f"{e['to']}: {e['words']}"))
+    except Exception:
+        pass
+    try:
+        import birthdays
+        from datetime import datetime
+        today = datetime.now().date()
+        for name, (md, born) in birthdays._all().items():
+            days = (birthdays._next(md, today) - today).days
+            if days == 0:
+                rows.append(("dziś!", f"urodziny: {name}"))
+            elif days <= 7:
+                rows.append((f"za {days} dni", f"urodziny: {name}"))
+    except Exception:
+        pass
+    try:
+        import weather
+        if weather.enabled() and weather._summary:
+            s = weather._summary.split("Today:")[-1].split(";")[0].strip()
+            rows.append(("pogoda", s[:40]))
+    except Exception:
+        pass
+    try:
+        import lists
+        for name, items in lists.get().items():
+            rows.append(("lista", f"{name}: {len(items)}"))
+    except Exception:
+        pass
+    return rows[:9]
 
 
 def handle(text, speak, play_sound_async):

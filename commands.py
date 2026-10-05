@@ -647,6 +647,12 @@ def handle(text, speak, play_sound):
               + (f" {year}" if year else "") + ".")
         return True
 
+    # "jaki jest plan na dziś?" — a question, answered on the screen
+    import screens
+    if screens.wants_today(text):
+        screens.show_today(speak)
+        return True
+
     # "ile to jest 17 razy 23?" / "ile dni do Wigilii?" — counted locally
     import calc
     said = calc.answer(text)
