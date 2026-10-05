@@ -42,7 +42,8 @@ EXPIRE_SECS = 60          # no answer this long → the game is over
 _TRIGGERS = ("przepytaj", "quiz", "kwiz", "sprawdź mnie", "sprawdz mnie", "pytaj mnie",
              "zadawaj mi", "zagadki z", "pobawmy się w", "pobawmy sie w",
              "zagrajmy w", "pytania z", "ćwiczyć", "cwiczyc", "poćwiczyć",
-             "pocwiczyc", "poćwiczmy", "pocwiczmy", "test z")
+             "pocwiczyc", "poćwiczmy", "pocwiczmy", "test z", "na czas", "szybka tabliczk",
+             "wyścig", "wyscig")
 _KINDS = [("mul", ("tabliczk", "mnożeni", "mnozeni", "mnożyć", "mnozyc")),
           ("add", ("dodawani", "dodawać", "dodawac")),
           ("sub", ("odejmowani", "odejmować", "odejmowac")),
@@ -121,7 +122,8 @@ def trigger(text):
     # "quiz"/"test z" alone is often just told ("w szkole robili quiz ze
     # stolic"): then a request word, or a few words only, is needed
     if not any(t in low for t in _TRIGGERS if t not in ("quiz", "kwiz", "test z",
-                                                         "pytania z")) and \
+                                                         "pytania z", "na czas", "wyścig",
+                                                         "wyscig", "szybka tabliczk")) and \
             len(re.findall(r"\w+", low)) > 4 and not re.search(
                 r"\b(?:zróbmy|zrobmy|zrób|zrob|zagrajmy|pobawmy|daj|chcę|chce|możemy|"
                 r"mozemy|zacznijmy|poproszę|poprosze|zadaj|włącz|wlacz)\b", low):
@@ -409,6 +411,8 @@ def _ask(speak):
               "Spróbujmy później albo zagrajmy w zagadki.")
         return
     q.update(tries=0, asked=time.time())
+    if q.get("race") and not q.get("timed"):
+        q["timed"] = time.time()             # the clock starts at the first question
     q["n"] += 1
     total = q["total"]
     sub = (f"zagadka {q['n']} z {total}" if q["kind"] == "riddle" else
@@ -436,6 +440,9 @@ def start(kind, text, speak, play_sound_async):
               "total": RIDDLES if kind == "riddle" else QUESTIONS}
         if kind == "guess":
             _q.update(secret=random.randint(1, 100), lo=1, hi=100)
+        if kind in ("mul", "add", "sub", "mix", "words", "capitals") and re.search(
+                r"\b(na\s+czas|szybk\w*|wyścig\w*|wyscig\w*|na\s+wyścigi)\b", text.lower()):
+            _q["race"] = True                  # a race: the time counts, records kept
     with state.lock:
         state.emotion = "Happy"
     print(f"[quiz] start: {kind}" + (f" up to {limit}" if kind not in ("guess", "words") else ""),
@@ -463,10 +470,33 @@ def start(kind, text, speak, play_sound_async):
     else:
         name = {"mul": "tabliczki mnożenia", "add": "dodawania", "sub": "odejmowania",
                 "mix": "rachunków", "words": "angielskich słówek"}[kind]
-        speak(f"Super, quiz z {name}! {total} pytań — zaczynamy!")
+        speak(f"Super, quiz z {name}! {total} pytań"
+              + (" na czas — liczę sekundy!" if _q.get("race") else " — zaczynamy!"))
     with _lock:
         if _q:
             _ask(speak)
+
+
+def race_result(kind, perfect, secs, who=None):
+    """"Czas: 48 sekund — nowy rekord!" A record needs a perfect round; kept per
+    person (by face) and game in settings "race_best"."""
+    import settings
+    secs = int(round(secs))
+    said = f"Czas: {secs} sekund."
+    if not perfect:
+        return said + " Rekord liczy się tylko bez błędu."
+    if who is None:
+        with state.lock:
+            who = state.person[0] if state.person else "?"
+    best = settings.get("race_best", {}) or {}
+    key = f"{who}:{kind}"
+    old = best.get(key)
+    if old is None or secs < old:
+        best[key] = secs
+        settings.put("race_best", best)
+        return said + (f" Nowy rekord! Poprzedni: {old} sekund." if old else
+                       " To twój pierwszy rekord!")
+    return said + f" Rekord to {old} sekund."
 
 
 def _finish(speak, play_sound_async):
@@ -479,6 +509,8 @@ def _finish(speak, play_sound_async):
         mood.note_game(who, _q["kind"], score, total, _q.get("misses", []))
     except Exception as e:
         print(f"[quiz] result not noted: {e}", flush=True)
+    timed = _q.get("timed")
+    kind = _q["kind"]
     _q = None
     if score == total:
         said, emo = f"Bezbłędnie! {score} na {total}! Mistrzowski wynik!", "Happy"
@@ -489,6 +521,8 @@ def _finish(speak, play_sound_async):
     else:
         said, emo = (f"{score} na {total}. Nic nie szkodzi — ćwiczenie czyni mistrza. "
                      "Zagramy jeszcze raz?"), "Neutral"
+    if timed:
+        said += " " + race_result(kind, score == total, time.time() - timed)
     print(f"[quiz] done: {score}/{total}", flush=True)
     stars = award_star() if score == total else None
     if stars:                                    # a perfect round: a star

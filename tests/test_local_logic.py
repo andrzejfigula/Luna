@@ -121,6 +121,16 @@ class TimersTest(unittest.TestCase):
         self.assertIsNone(calc.arithmetic("6:30 3"))          # found by the fuzz test
         self.assertIsNone(calc.arithmetic("3 6:30 !"))
 
+    def test_race_records(self):
+        import quiz
+        import settings
+        settings.put("race_best", {})
+        self.assertIn("pierwszy rekord", quiz.race_result("mul", True, 61.2, "Maja"))
+        self.assertIn("Nowy rekord! Poprzedni: 61", quiz.race_result("mul", True, 48, "Maja"))
+        self.assertIn("Rekord to 48", quiz.race_result("mul", True, 55, "Maja"))
+        self.assertIn("tylko bez błędu", quiz.race_result("mul", False, 30, "Maja"))
+        self.assertIn("pierwszy rekord", quiz.race_result("add", True, 70, "Maja"))  # per game
+
     def test_english_dictation(self):
         import quiz
         self.assertEqual(quiz.trigger("Zróbmy dyktando z angielskiego"), "dictation_en")
