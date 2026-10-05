@@ -168,6 +168,8 @@ def _evaluate(toks):
             spoken.append(f"pierwiastek z {_fmt(toks[i + 1])}")
             i += 2
         elif isinstance(t, float):
+            if flat and isinstance(flat[-1], float):
+                raise _Bad                          # "6:30 3": two numbers, no operator
             if i + 1 < len(toks) and toks[i + 1] in ("²", "³"):
                 n = 2 if toks[i + 1] == "²" else 3
                 flat.append(t ** n)

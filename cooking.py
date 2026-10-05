@@ -45,7 +45,12 @@ def wants(text):
     m = _START.search(text.strip())
     if not m:
         return None
-    dish = m.group(1).strip(" ,.")
+    dish = re.split(r",|\s+(?:bo|żeby|zeby|a potem|i potem|dla gości)\b", m.group(1))[0]
+    dish = dish.strip(" ,.")
+    if not dish or len(dish.split()) > 5 or dish.lower() in (
+            "obiad", "kolację", "kolacje", "śniadanie", "sniadanie", "coś", "cos",
+            "coś dobrego", "coś fajnego", "razem", "dzisiaj", "dziś"):
+        return None                            # "gotujemy obiad, bo…" is just talk
     if re.search(r"\b(dyktand|quiz|zdjęci|zdjeci|zagad|przerw|porządek|porzadek|"
                  r"lekcj|zadani|pranie|zakupy)", dish.lower()):
         return None

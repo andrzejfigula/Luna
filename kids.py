@@ -195,7 +195,10 @@ def routine_answer(text, speak, play_sound):
 
 def handle(text, speak, play_sound):
     low = text.lower()
-    if any(k in low for k in _BRUSH) and len(re.findall(r"\w+", low)) <= 7:
+    if any(k in low for k in _BRUSH) and "?" not in low and (
+            len(re.findall(r"\w+", low)) <= 4 or re.search(
+                r"\b(teraz|idę|ide|idziemy|chodź|chodz|czas|pora|już|juz)\b", low)):
+        # (not "myjemy zęby dwa razy dziennie" — that is just said)
         if not _brushing[0]:
             threading.Thread(target=_brush, args=(speak, play_sound), daemon=True,
                              name="brushing").start()

@@ -116,6 +116,29 @@ class TimersTest(unittest.TestCase):
                      "Przypomnij mi za 10 minut o praniu"):
             self.assertIsNone(timers.local_timer(text), text)
 
+    def test_calc_two_numbers_in_a_row(self):
+        import calc
+        self.assertIsNone(calc.arithmetic("6:30 3"))          # found by the fuzz test
+        self.assertIsNone(calc.arithmetic("3 6:30 !"))
+
+    def test_mentions_dont_start_games(self):
+        import cooking
+        import quiz
+        for s in ("Jutro mamy dyktando w szkole", "Kiedy będzie dyktando?"):
+            self.assertIsNone(quiz.trigger(s), s)
+        for s in ("Zróbmy dyktando", "Dyktando!", "Luna, przepytaj mnie z dyktanda",
+                  "Poćwiczmy ortografię"):
+            self.assertEqual(quiz.trigger(s), "dictation", s)
+        self.assertIsNone(cooking.wants("Gotujemy obiad, bo zaraz przyjdą goście"))
+        self.assertIsNone(cooking.wants("Gotujemy obiad"))
+        self.assertIsNone(quiz.trigger("W szkole robili quiz ze stolic"))
+        self.assertEqual(quiz.trigger("Zróbmy quiz ze stolic"), "capitals")
+        self.assertEqual(quiz.trigger("quiz ze stolic"), "capitals")
+        import tictac
+        self.assertFalse(tictac.wants("Moja koleżanka gra w kółko i krzyżyk na lekcjach"))
+        self.assertTrue(tictac.wants("Luna, zagrajmy w kółko i krzyżyk"))
+        self.assertEqual(cooking.wants("Upieczmy ciasto czekoladowe"), "ciasto czekoladowe")
+
     def test_tictac(self):
         import tictac
         b = ["X", "X", None, "O", "O", None, None, None, None]

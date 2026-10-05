@@ -207,6 +207,11 @@ MODEL = [
     "Ile zostało do końca minutnika?",
     "Ile mamy czasu do wyjścia?",
     "Co wiesz o dinozaurach?",
+    "Jutro mamy dyktando w szkole",
+    "W szkole robili quiz ze stolic",
+    "Myjemy zęby dwa razy dziennie",
+    "Moja koleżanka gra w kółko i krzyżyk na lekcjach",
+    "Gotujemy obiad, bo zaraz przyjdą goście",
     "Gdzie jest pilot?",
     "Gdzie jest najbliższa apteka?",
     "Widziałaś mój telefon?",
@@ -386,6 +391,35 @@ class RoutingTest(unittest.TestCase):
         if not handled:
             return "model"
         return self.hit or "handled-but-unknown"
+
+    # words from the local triggers, glued at random: no sentence may make a
+    # handler throw (a crash there used to look like "she didn't hear me")
+    _FUZZ = ("luna przypomnij mi obudź budzik o za na do w z że żeby nie co ile gdzie jest "
+             "kiedy wiesz pamiętasz zapomnij wszystko tak przywróć listę zakupów usuń "
+             "wiadomości wszystkie pokaż plan dnia zdjęcia minutnik 20 minut 17 6:30 "
+             "wpół ósmej piątej Maja Mai Andrzej Emilka mnie mi imieniny urodziny maja "
+             "3 12 kółko i krzyżyk koniec radio włącz wyłącz szum deszczu ciszej głośniej "
+             "dobranoc pa jestem to zagadka dyktando quiz tabliczka gotujemy naleśniki "
+             "dalej ? , . ! jutro codziennie godzin pół kwadrans dni robocze").split()
+
+    def test_random_sentences_never_crash(self):
+        import random as _r
+        import faces
+        rng = _r.Random(1234)
+        with mock.patch.object(faces, "nominative", lambda w: w.capitalize()):
+            for _ in range(400):
+                text = " ".join(rng.choice(self._FUZZ) for _ in range(rng.randint(1, 9)))
+                with state.lock:
+                    state.overlay = None
+                    state.person = rng.choice((None, ("Maja", 0.9, 0), ("Andrzej", 0.9, 0)))
+                try:
+                    self.route(text)
+                except Exception as e:                     # noqa: BLE001
+                    self.fail(f"{text!r} → {type(e).__name__}: {e}")
+        import tictac
+        tictac.stop()
+        with state.lock:
+            state.person = None
 
     def test_local_commands(self):
         for text, want in LOCAL.items():

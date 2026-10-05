@@ -102,8 +102,12 @@ def trigger(text):
         return None
     if any(g in low for g in _GUESS):
         return "guess"
-    if re.search(r"\bdyktand|\bortograf", low):
-        return "dictation"
+    if re.search(r"\bdyktand|\bortograf", low) and (
+            len(re.findall(r"\w+", low)) <= 2 and "?" not in low or re.search(
+                r"\b(?:zróbmy|zrobmy|zrób|zrob|pobawmy|zagrajmy|przepytaj|poćwicz\w*|"
+                r"pocwicz\w*|ćwicz\w*|cwicz\w*|podyktuj|dyktuj|napiszmy|daj|chcę|chce|"
+                r"możemy|mozemy|piszemy|zacznijmy)\b", low)):
+        return "dictation"                     # not "jutro mamy dyktando w szkole"
     if re.search(r"\bzegar", low) and re.search(
             r"\b(?:pobawmy|zagrajmy|naucz|ucz|uczyć|przepytaj|ćwicz\w*|cwicz\w*|gra\w*|"
             r"odczytywa\w*|czytać|czytac)\b", low):
@@ -111,6 +115,14 @@ def trigger(text):
     if _riddle_request(low):
         return "riddle"
     if not any(t in low for t in _TRIGGERS):
+        return None
+    # "quiz"/"test z" alone is often just told ("w szkole robili quiz ze
+    # stolic"): then a request word, or a few words only, is needed
+    if not any(t in low for t in _TRIGGERS if t not in ("quiz", "kwiz", "test z",
+                                                         "pytania z")) and \
+            len(re.findall(r"\w+", low)) > 4 and not re.search(
+                r"\b(?:zróbmy|zrobmy|zrób|zrob|zagrajmy|pobawmy|daj|chcę|chce|możemy|"
+                r"mozemy|zacznijmy|poproszę|poprosze|zadaj|włącz|wlacz)\b", low):
         return None
     for kind, stems in _KINDS:
         if any(s in low for s in stems):

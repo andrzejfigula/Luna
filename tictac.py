@@ -27,7 +27,12 @@ _g = None        # {"b": [None|"X"|"O"]*9, "turn", "end", "line", "first", "loos
 
 
 def wants(text):
-    return bool(_START.search(text)) and len(text.split()) <= 9
+    """Asked for — not "koleżanka gra w kółko i krzyżyk na lekcjach"."""
+    if not _START.search(text) or len(text.split()) > 9:
+        return False
+    return len(re.findall(r"\w+", text)) <= 5 or bool(re.search(
+        r"\b(?:zagrajmy|zagramy|pograjmy|zagraj|gramy|chcę|chce|możemy|mozemy|"
+        r"pobawmy|włącz|wlacz)\b", text, re.I))
 
 
 def active():
