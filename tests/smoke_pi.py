@@ -58,7 +58,8 @@ print("[smoke] imports", flush=True)
 mods = {}
 for m in ("text_to_speech", "brain", "commands", "faces", "relationship", "mood",
           "radio", "news", "weather", "quiz", "kids", "counting", "calc", "screens",
-          "messages", "timers", "lists", "memory", "idle_engine", "watchdog"):
+          "messages", "timers", "lists", "memory", "idle_engine", "watchdog",
+          "ambience", "errands", "birthdays", "backup", "riddles", "news", "kids"):
     mods[m] = check(f"import {m}", lambda m=m: __import__(m), limit=60)
 
 tts, brain, faces = mods["text_to_speech"], mods["brain"], mods["faces"]
@@ -86,6 +87,10 @@ def prompt():
 text = check("prompt lines", prompt)
 if text is not None and len(text) < 200:
     failures.append("prompt suspiciously short")
+
+print("[smoke] sleep sounds (made, not played)", flush=True)
+check("rain, sea and noise blocks",
+      lambda: [mods["ambience"]._Gen(k).block() for k in ("rain", "sea", "noise")])
 
 print("[smoke] local commands", flush=True)
 with state.lock:
