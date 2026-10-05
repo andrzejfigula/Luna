@@ -184,6 +184,32 @@ class MemoryTest(unittest.TestCase):
         self.assertNotIn("Jak poszło?", memory.prompt_block())
         memory._session.clear()
 
+    def test_transcript_names_the_speaker(self):
+        t = memory._transcript([("[Maja] Lubię konie", "Super!", False),
+                                ("włącz radio", "Włączam RMF.", True)])
+        self.assertEqual(t, "[Maja] Lubię konie\nLuna: Super!\n"
+                            "[Ktoś] włącz radio\nLuna (command): Włączam RMF.")
+
+    def test_commands_only_are_not_consolidated(self):
+        calls = []
+        old = memory._client
+        memory._client = type("C", (), {"chat": property(lambda s: calls.append(1))})()
+        try:
+            memory._session[:] = [("[Andrzej] włącz lampkę", "Włączam.", True)]
+            memory.consolidate()
+        finally:
+            memory._client = old
+        self.assertEqual(calls, [])
+        self.assertEqual(memory._session, [])
+
+    def test_facts_sanity(self):
+        old = [f"fakt {i}" for i in range(12)]
+        self.assertTrue(memory.facts_ok(old[:6], old))     # a cleanup
+        self.assertFalse(memory.facts_ok(old[:2], old))    # lost most of it
+        self.assertTrue(memory.facts_ok(old[:2], old, old[2:]))   # …and said why
+        self.assertFalse(memory.facts_ok(None, old))
+        self.assertTrue(memory.facts_ok([], ["a", "b"]))   # tiny memory: trust it
+
     def test_forget(self):
         memory._save({"facts": ["Ma kota."], "episodes": [], "threads": [], "_wiped_at": 0})
         self.assertFalse(memory.check_forget("Zapomnij o tym, nieważne"))

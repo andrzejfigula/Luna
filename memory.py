@@ -47,6 +47,7 @@ from config import (
     MEMORY_MAX_EPISODES,
     MEMORY_PROMPT_EPISODES,
     MEMORY_MODEL,
+    MEMORY_TIDY_MODEL,
     MEMORY_MAX_THREADS,
     MEMORY_THREAD_ASKS,
     FORGET_PHRASES,
@@ -62,7 +63,8 @@ except Exception:
     _TZ = None
 
 _lock    = threading.Lock()      # guards the file and _session
-_session = []                    # [(user_text, luna_reply)] not yet consolidated
+_session = []                    # [(user_text, luna_reply, local)] not yet consolidated
+_SESSION_MAX = 30                # turns kept for a retry after a failed consolidation
 _added   = []                    # [(time, fact)] from "zapamiętaj, że…" — kept
                                  # even if a consolidation running meanwhile
                                  # rewrites the facts without them
@@ -77,6 +79,8 @@ _SCHEMA = {
         "schema": {
             "type": "object",
             "properties": {
+                # written first, so the old facts are judged before the list is
+                "dropped": {"type": "array", "items": {"type": "string"}},
                 "facts":   {"type": "array", "items": {"type": "string"}},
                 "episode": {"type": "string"},
                 "threads": {"type": "array", "items": {
@@ -89,7 +93,7 @@ _SCHEMA = {
                     "additionalProperties": False,
                 }},
             },
-            "required": ["facts", "episode", "threads"],
+            "required": ["dropped", "facts", "episode", "threads"],
             "additionalProperties": False,
         },
     },
@@ -109,7 +113,8 @@ def _load():
         return {"facts": list(mem.get("facts", [])),
                 "episodes": list(mem.get("episodes", [])),
                 "threads": list(mem.get("threads", [])),
-                "_wiped_at": mem.get("_wiped_at", 0)}
+                "_wiped_at": mem.get("_wiped_at", 0),
+                "_tidied": mem.get("_tidied", "")}
     except FileNotFoundError:
         return _empty()
     except (OSError, ValueError) as e:
@@ -200,12 +205,14 @@ def prompt_block():
     return "\n".join(out)
 
 
-def record(user_text, reply):
-    """Called by brain after every answered utterance."""
+def record(user_text, reply, local=False):
+    """Called by brain after every answered utterance. local: a command
+    handled without the model (radio, lamp, dice…) — kept as context, but a
+    conversation of only those has nothing to remember."""
     if not MEMORY_ENABLED:
         return
     with _lock:
-        _session.append((user_text, reply))
+        _session.append((user_text, reply, local))
 
 
 # ── consolidation: one model call per conversation ────────────────────────────
@@ -214,18 +221,40 @@ _INSTRUCTIONS = """You maintain the long-term memory of Luna, a small desktop
 robot who talks with the people in one home. You get her current memory and
 the conversation that just ended. Reply with JSON:
 
-"facts": the COMPLETE updated list of lasting facts. Keep every old fact that
-is still true, merge duplicates, update facts that changed, and drop facts the
-user corrected or asked Luna to forget. Add what is worth knowing next time:
-names (who is who), work or school, family, pets, likes and dislikes, plans
-and upcoming events, running jokes, anything the user explicitly asked Luna to
-remember. Short sentences in Polish, most important first, at most {max_facts}.
-Once an event's date has passed, rewrite it in the past tense or drop it.
-Never store passwords, PINs, codes, card or account numbers, or addresses.
-Don't store facts about Luna herself or trivia she explained.
+A FACT is something lasting about the people of this home that a friend
+would still want to know in a month: names (who is who), work or school,
+family, pets, health, likes and dislikes, plans and upcoming events with their
+date, running jokes, anything someone explicitly asked Luna to remember.
+NOT a fact:
+- what Luna did when asked (radio, lamp, timers, the time, a photo, dice),
+  and list contents — the lists are kept elsewhere
+- what can be seen in the room or on the camera
+- trivia or advice Luna explained (how to water a cactus), facts about Luna
+- words that sound like a radio, TV or someone else's phone call in the
+  background rather than said to Luna (an advert, a news item, a stranger)
+- passing states ("is tired", "went shopping") unless they matter later
+- details of a discussion: at most TWO facts per topic — ten facts about
+  one work project become one ("Andrzej pracuje nad systemem do certyfikatów
+  i transakcji")
+
+"dropped": FIRST go through CURRENT FACTS one by one and list here every one
+that is NOT a fact by the rules above, was corrected, was asked to be
+forgotten, or is merged into another — each with a 2-4 word reason
+("trivia", "room view", "merged", "radio"). Be strict: an old fact that
+breaks the rules must go even though it is already stored.
+
+"facts": the COMPLETE updated list: the old facts that were not dropped
+(merged and updated where the conversation changed them), plus what this
+conversation adds. Short sentences in Polish, most important first, at most
+{max_facts}. Once an event's date has passed, rewrite it in the past tense or
+drop it. Never store passwords, PINs, codes, card or account numbers, or
+addresses. Read carefully who is who: "Maja w sobotę ma urodziny koleżanki"
+means a friend's birthday party Maja goes to, not Maja's birthday.
 A line starting "[Kasia]" was said by Kasia (Luna knows her face): write
-facts about that person with their name ("Kasia lubi koty"), never as
-"użytkownik".
+facts about that person with their name ("Kasia lubi koty"). An untagged line
+is from someone Luna didn't recognise: write "ktoś w domu", never
+"użytkownik". Old facts saying "Użytkownik" may be rewritten with the right
+name only when the facts make it certain who it was.
 
 "threads": the COMPLETE updated list of open follow-ups — things whose
 outcome Luna does not know yet and a friend would ask about later: an
@@ -239,8 +268,9 @@ made pointless, at most {max_threads}.
 "episode": one or two Polish sentences about THIS conversation that would be
 worth coming back to later — something the person is going through, planning
 or looking forward to (e.g. "Andrzej ma jutro rozmowę o pracę i się
-stresuje."). Use an empty string when the conversation was routine (the time,
-a quick fact, small talk).
+stresuje."). Use an empty string when the conversation was routine: commands
+(radio, lamp, timers, lists, the time, dice, status), a quick fact, small
+talk, a greeting and goodbye.
 
 DATES: this memory is read on later days, so NEVER write relative time words
 ("jutro", "dzisiaj", "wczoraj", "w przyszły piątek", "za tydzień") in facts or
@@ -250,12 +280,25 @@ the episode. Work out the calendar date from today's date and write it, e.g.
 Today's date: {today} ({weekday})."""
 
 
+_TIDY = """
+
+TODAY'S TIDY-UP (once a day): besides this conversation, rewrite CURRENT FACTS
+into a short, clean list. Every group of facts on one topic becomes one or two
+facts — list each merged one in "dropped" with the reason "merged". Write
+"użytkownik" as the person's name only where the facts make it certain."""
+
+
 _WEEKDAYS = ["poniedziałek", "wtorek", "środa", "czwartek", "piątek",
              "sobota", "niedziela"]
 
 
 def _transcript(session):
-    return "\n".join(f"Użytkownik: {u}\nLuna: {r}" for u, r in session)
+    out = []
+    for u, r, local in session:
+        m = re.match(r"\[([^\]]+)\]\s*(.*)", u, re.S)
+        who, u = (m.group(1), m.group(2)) if m else ("Ktoś", u)
+        out.append(f"[{who}] {u}\nLuna{' (command)' if local else ''}: {r}")
+    return "\n".join(out)
 
 
 def consolidate():
@@ -265,15 +308,19 @@ def consolidate():
         _session.clear()
     if not session or _client is None:
         return
+    if all(local for _, _, local in session):
+        print(f"[memory] {len(session)} command(s) only — nothing to remember", flush=True)
+        return
     with _lock:
         mem = _load()
     current = "\n".join(f"- {f}" for f in mem["facts"]) or "(nothing yet)"
     threads = "\n".join(f"- {t.get('question', '')} (due {t.get('due', '')}, "
                         f"asked {t.get('asked', 0)}x)" for t in mem["threads"]) or "(none)"
     t0 = time.time()
+    tidy = mem.get("_tidied") != _today().isoformat()     # once a day, the better model
     try:
         r = _client.chat.completions.create(
-            model=MEMORY_MODEL,
+            model=MEMORY_TIDY_MODEL if tidy else MEMORY_MODEL,
             messages=[
                 {"role": "system", "content": _INSTRUCTIONS.format(
                     max_facts=MEMORY_MAX_FACTS, max_threads=MEMORY_MAX_THREADS,
@@ -281,18 +328,27 @@ def consolidate():
                     weekday=_WEEKDAYS[_today().weekday()])},
                 {"role": "user", "content":
                     f"CURRENT FACTS:\n{current}\n\nCURRENT THREADS:\n{threads}"
-                    f"\n\nCONVERSATION:\n{_transcript(session)}"},
+                    f"\n\nCONVERSATION:\n{_transcript(session)}"
+                    + (_TIDY if tidy else "")},
             ],
             temperature=0.2,
-            max_tokens=900,
+            max_tokens=3000,                 # the COMPLETE fact list comes back
             response_format=_SCHEMA,
         )
+        if r.choices[0].finish_reason == "length":
+            raise ValueError("reply cut off at max_tokens")
         data = json.loads(r.choices[0].message.content)
     except Exception as e:
         print(f"[memory] consolidation failed ({e}) — keeping it for next time")
         with _lock:
             _session[:0] = session           # retry with the next conversation
+            del _session[:-_SESSION_MAX]     # …but never a growing pile
         return
+    if not facts_ok(data.get("facts"), mem["facts"], data.get("dropped")):
+        print("[memory] the new fact list lost most old facts — not saved", flush=True)
+        return
+    for d in data.get("dropped", [])[:20]:
+        print(f"[memory] dropped: {d}", flush=True)
 
     facts = [str(f).strip() for f in data.get("facts", []) if str(f).strip()]
     facts = facts[:MEMORY_MAX_FACTS]
@@ -304,19 +360,35 @@ def consolidate():
         if mem.get("_wiped_at", 0) > t0:
             return
         mem["facts"] = facts
+        if tidy:
+            mem["_tidied"] = _today().isoformat()
         old = {t.get("question"): t.get("asked", 0) for t in mem["threads"]}
         mem["threads"] = [
             {"question": str(t["question"]).strip(), "due": str(t["due"]).strip(),
              "asked": old.get(str(t["question"]).strip(), 0)}
             for t in data.get("threads", []) if str(t.get("question", "")).strip()
+            # asked as often as it may be: done with, not carried on forever
+            and old.get(str(t["question"]).strip(), 0) < MEMORY_THREAD_ASKS
         ][:MEMORY_MAX_THREADS]
         if episode:
             mem["episodes"].append({"date": _today().isoformat(), "text": episode})
             mem["episodes"] = mem["episodes"][-MEMORY_MAX_EPISODES:]
         _save(mem)
-    print(f"[memory] saved ({time.time() - t0:.1f}s): {len(facts)} facts, "
+    print(f"[memory] saved ({time.time() - t0:.1f}s{', tidied' if tidy else ''}): "
+          f"{len(facts)} facts, "
           f"{len(mem['threads'])} open threads"
           + (f", episode: {episode}" if episode else ", no episode"), flush=True)
+
+
+def facts_ok(new, old, dropped=()):
+    """A sanity check on the model's COMPLETE list: it may drop junk and merge,
+    but only when it says so — a reply that silently lost most of the memory
+    is a mistake, not a cleanup."""
+    if not isinstance(new, list):
+        return False
+    if len(old) < 6 or len(new) >= len(old) // 3:
+        return True
+    return len(new) + len(dropped or ()) >= 0.8 * len(old)   # every loss accounted for
 
 
 # ── "Luna, zapomnij wszystko" ─────────────────────────────────────────────────
@@ -336,7 +408,9 @@ def add_fact(fact):
     fact = fact.strip().rstrip(".")
     words = set(re.findall(r"\w+", fact.lower()))
     if words & _FIRST_PERSON or any(w.endswith(("łem", "łam")) for w in words):
-        fact = f"Powiedziano mi: „{fact}”"          # "jestem uczulony…" — not Luna
+        with state.lock:                           # "jestem uczulony…" — not Luna
+            who = state.person[0] if state.person else None
+        fact = f"{who} mówi: „{fact}”" if who else f"Powiedziano mi: „{fact}”"
     else:
         fact = fact[0].upper() + fact[1:]
     if words & _RELATIVE:                          # "jutro" must keep its day

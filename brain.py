@@ -671,11 +671,12 @@ def note_local(user_text, said):
     Put the exchange into the chat history and memory anyway, so "co
     wypadło?" or "a teraz?" make sense to the model afterwards."""
     reply = " ".join(said).strip() or f"(zrobione: {user_text})"
-    _history.append({"role": "user", "content": _who_said(user_text)})
+    tagged = _who_said(user_text)
+    _history.append({"role": "user", "content": tagged})
     _history.append({"role": "assistant", "content": reply})
     while len(_history) > OPENAI_MAX_HISTORY:
         _history.pop(0)
-    memory.record(user_text, reply)
+    memory.record(tagged, reply, local=True)
 
 
 # ── Yes/no question about the current camera frame (used by behavior_engine) ─

@@ -484,6 +484,8 @@ TOUCH_SOUNDS = {
 MEMORY_ENABLED         = os.environ.get("LUNA_MEMORY", "1").strip().lower()                          not in ("0", "false", "no", "off")
 MEMORY_PATH            = os.path.join(DATA_DIR, "memory.json")
 MEMORY_MODEL           = "gpt-4.1-mini"
+MEMORY_TIDY_MODEL      = "gpt-4.1"   # the first one each day: it also weeds out
+                                     # junk facts, which the mini model won't
 MEMORY_MAX_FACTS       = 40
 MEMORY_MAX_EPISODES    = 30    # kept in the file
 MEMORY_PROMPT_EPISODES = 6     # the most recent ones go into the prompt
