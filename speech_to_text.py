@@ -372,7 +372,7 @@ def _cloud_transcribe(pcm16k):
         if CLOUD_STT_LANGUAGE:
             kwargs["language"] = CLOUD_STT_LANGUAGE
         if CLOUD_STT_PROMPT:
-            kwargs["prompt"] = CLOUD_STT_PROMPT
+            kwargs["prompt"] = stt_prompt()
         r = _cloud.audio.transcriptions.create(**kwargs)
         text = (r if isinstance(r, str) else getattr(r, "text", "")).strip()
         if STT_DEBUG_AUDIO:
@@ -395,6 +395,17 @@ def _cloud_transcribe(pcm16k):
         return None
 
 
+def stt_prompt():
+    """The transcriber's hint, with the household's names (faces.py), so
+    "Mai", "Emilko" come out spelled as they are."""
+    try:
+        import faces
+        names = faces.names()
+    except Exception:
+        names = []
+    return CLOUD_STT_PROMPT + (f" Domownicy: {', '.join(names)}." if names else "")
+
+
 def foreign_script(text):
     """Letters outside the Latin script (Cyrillic, Greek, CJK…) — nobody here
     speaks those; it is the transcriber guessing the language wrong."""
@@ -412,7 +423,7 @@ def _is_prompt_echo(text):
     "Luna" is kept."""
     if not CLOUD_STT_PROMPT or not text:
         return False
-    heard, prompt = _words(text), _words(CLOUD_STT_PROMPT)
+    heard, prompt = _words(text), _words(stt_prompt())
     if len(heard) < 3:
         return False
     sm = difflib.SequenceMatcher(None, heard, prompt, autojunk=False)
