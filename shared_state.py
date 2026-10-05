@@ -55,6 +55,8 @@ class SharedState:
                                  # the screen brightens until end (timers.py)
         "messages_waiting",      # unheard voice messages (messages.py)
         "radio",                 # the station playing (radio.py), or None
+        "mic_muted_until",       # "nie słuchaj": no audio is processed until then
+                                 # (a finger held on the screen ends it)
         "others",                # ([names, "?" = unknown], time) — the other faces
                                  # in view besides state.person (faces.py)
         "person",                # (name, similarity, time) — who is in front of her
@@ -130,6 +132,7 @@ class SharedState:
         self.voice_mood          = None
         self.messages_waiting    = 0
         self.radio               = None
+        self.mic_muted_until     = 0.0
         self.person              = None
         self.others              = ([], 0.0)
         self.convo_closed_hard   = False

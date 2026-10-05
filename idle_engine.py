@@ -237,6 +237,12 @@ def idle_loop():
             if touch_t > last_touch_t and touch_kind == "hold":
                 last_touch_t = touch_t
                 with state.lock:
+                    was_muted = now < state.mic_muted_until
+                    state.mic_muted_until = 0.0          # the finger turns the mic on
+                if was_muted:
+                    print("[idle] finger held — microphone on again", flush=True)
+                    speak("Znowu słucham!", can_drop=True)
+                with state.lock:
                     already = state.conversation_active
                     state.conversation_active = True
                     state.last_activity_time  = now

@@ -2180,8 +2180,14 @@ class RobotFace:
         # ── the radio is on: a small note, top-left ───────────────────────
         with state.lock:
             radio_on = state.radio
+            muted = time.time() < state.mic_muted_until
         if radio_on:
             self._draw_note(14 + (70 if not online else 0) + (70 if waiting else 0))
+
+        # ── "nie słuchaj": a crossed-out microphone, top-left ─────────────
+        if muted:
+            self._draw_mic_off(14 + (70 if not online else 0) + (70 if waiting else 0)
+                               + (60 if radio_on else 0))
 
         # ── whole-screen moments: mirror, photo, clock, flash ─────────────
         if self._overlay_on():
@@ -2457,6 +2463,17 @@ class RobotFace:
             veil.fill(BG)
             veil.set_alpha(int(255 * (1 - left / 0.5)))
             scr.blit(veil, (0, 0))
+
+    def _draw_mic_off(self, x):
+        if getattr(self, "_micoff", None) is None:
+            s = pygame.Surface((44, 46), pygame.SRCALPHA)
+            col = (*STAR_COL, 230)
+            pygame.draw.rect(s, col, pygame.Rect(15, 3, 14, 24), 3, border_radius=7)
+            pygame.draw.arc(s, col, pygame.Rect(8, 12, 28, 24), math.pi, 2 * math.pi, 3)
+            pygame.draw.line(s, col, (22, 36), (22, 43), 3)
+            pygame.draw.line(s, (255, 110, 90, 240), (6, 4), (38, 42), 4)   # crossed out
+            self._micoff = s
+        self.screen.blit(self._micoff, (x, 12))
 
     def _draw_note(self, x):
         if getattr(self, "_note", None) is None:

@@ -142,6 +142,9 @@ _WEATHER_ELSEWHERE = re.compile(r"\b(?:pogod\w*|prognoz\w*|temperatur\w*|ciepło
                                 r"pada|deszcz\w*|śnieg\w*)\b.*\b(?:w|we|na)\s+[A-ZĄĆĘŁŃÓŚŹŻa-ząćęłńóśźż]{3,}",
                                 re.I)
 _WEATHER_OFF = ("wyłącz pogodę", "wylacz pogode", "nie sprawdzaj pogody")
+_MIC_OFF = ("nie słuchaj", "nie sluchaj", "przestań słuchać", "przestan sluchac",
+            "wyłącz mikrofon", "wylacz mikrofon", "nie podsłuchuj", "nie podsluchuj",
+            "wycisz mikrofon", "stop listening")
 _RESTART = ("zrestartuj się", "zrestartuj sie", "uruchom się ponownie",
             "uruchom sie ponownie", "restart yourself")
 _TRANSLATE_START = ("tłumacz na", "tlumacz na", "tłumaczyć na", "tlumaczyc na", "tryb tłumacza", "bądź tłumaczem",
@@ -480,6 +483,20 @@ def handle(text, speak, play_sound):
 
     # anything else said to her wakes her up, then is handled as usual
     wake_up("spoken to")
+
+    # "Luna, nie słuchaj" — privacy: the microphone is off (a finger held on
+    # the screen turns it back on; she can't hear "słuchaj" any more)
+    if any(k in low for k in _MIC_OFF) and _short(text, 8) and not question:
+        import timers
+        secs, _ = timers.parse_duration(low)
+        secs = secs or 3600
+        speak(f"Dobrze, nie słucham przez {timers.say_duration(secs)}. Żeby mnie "
+              "obudzić, przytrzymaj palec na ekranie.")
+        with state.lock:
+            state.mic_muted_until = time.time() + secs
+            state.conversation_active = False
+        print(f"[cmd] microphone off for {secs} s", flush=True)
+        return True
 
     # a maths quiz is on: this utterance is probably the answer
     import quiz

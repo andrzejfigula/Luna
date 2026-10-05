@@ -85,6 +85,8 @@ LOCAL = {
     "Włącz muzykę": "radio",
     "Budź mnie radiem": "radio",
     "Mów krócej": "length",
+    "Luna, nie słuchaj": "mic",
+    "Przestań słuchać na 30 minut": "mic",
     "Włącz szum deszczu": "ambience",
     "Szum morza na 30 minut": "ambience",
     "Biały szum": "ambience",
@@ -169,6 +171,7 @@ MODEL = [
     "Dlaczego mówisz krócej niż wczoraj?",
     "Mów mi więcej o kotach i psach",
     "Jaki kolor ma niebo?",
+    "Dlaczego Maja nie słucha mamy?",
     "Czy jutro będzie padał deszcz?",
     "Dlaczego morze jest słone?",
     "To jest problem",
@@ -320,6 +323,10 @@ class RoutingTest(unittest.TestCase):
             self._mark("bye")
         if any(t.startswith("Stoper") for t in said):
             self._mark("count")
+        if any(t.startswith("Dobrze, nie słucham") for t in said):
+            self._mark("mic")
+            with state.lock:
+                state.mic_muted_until = 0.0
         if not handled:
             return "model"
         return self.hit or "handled-but-unknown"

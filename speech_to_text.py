@@ -558,6 +558,11 @@ def _started_in_window(t):
     return t <= ended + CONVO_GRACE
 
 
+def _muted():
+    with state.lock:
+        return time.time() < state.mic_muted_until
+
+
 def _expire_conversation():
     """Conversation window ran out — back to wake-word mode.
     Stamps convo_expired_time so the face can play its subtle 'rest' cue."""
@@ -582,6 +587,14 @@ def listen():
     # no mic? — don't spin, just idle politely (keeper thread is retrying)
     if not _mic_ok:
         time.sleep(1.0)
+        return ""
+
+    # "Luna, nie słuchaj": the audio is thrown away unheard — no Vosk, no cloud
+    if _muted():
+        _flush_queue()
+        with state.lock:
+            state.listening = False
+        time.sleep(0.5)
         return ""
 
     # ── Wait until mic is allowed ─────────────────────────────────────────────
@@ -662,6 +675,8 @@ def listen():
             if state.conversation_active and not active:
                 return ""
 
+        if _muted():                       # muted in the middle of a listen
+            return ""
         data = _resample_to_16k(data)
         if not data:
             continue

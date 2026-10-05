@@ -61,6 +61,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Pamięta Cię między dniami | samo działa — imię, plany, ważne sprawy; po rozmowie o czymś ważnym zapyta później, jak poszło |
 | Poranne powitanie | pierwsze „cześć” danego dnia zna pogodę (jeśli włączona), przypomnienia i wczorajsze sprawy |
 | Co o mnie wiesz | „Co o mnie pamiętasz?” |
+| Nie słuchaj | „Luna, nie słuchaj” (albo „przestań słuchać na 30 minut”) — mikrofon naprawdę wyłączony, na ekranie przekreślony mikrofon; włącza się po czasie albo przytrzymaniem palca na ekranie |
 | Wyczyść pamięć | „Luna, zapomnij wszystko” |
 | Nastrój z kamery | samo działa — dopasowuje ton; skomentuje najwyżej raz na 30 min |
 
