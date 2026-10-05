@@ -47,6 +47,8 @@ data/messages/
 # who she knows by face (numbers, not pictures) and how she feels about them
 data/people.json
 data/people.json.tmp
+data/seen.json
+data/seen.json.tmp
 data/relations.json
 data/relations.json.tmp
 data/day.json

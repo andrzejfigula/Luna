@@ -96,6 +96,7 @@ def _who(frame, rows, last_seen):
         elif prev and time.time() - prev[2] > 3 * faces_mod.RECOGNISE_EVERY:
             state.person = None               # a different, unknown face now
         state.others = (others, time.time())
+    faces_mod.saw([name] + others)
     if name and (not prev or prev[0] != name):
         print(f"[faces] this is {name} ({sim:.2f})"
               + (f", with: {', '.join(others)}" if others else ""), flush=True)

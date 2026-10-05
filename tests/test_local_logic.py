@@ -672,6 +672,19 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(lists.get("poranek"), ["umyj zęby", "ubierz się"])   # kept
         lists.apply([{"type": "list_clear", "list": "poranek"}])
 
+    def test_where_is(self):
+        import faces
+        faces._seen = {}
+        t0 = 1_760_000_000.0
+        self.assertIn("jeszcze nie była", faces.where_is("Maja", t0))
+        faces.saw(["Maja", "?"], t0)
+        self.assertEqual(faces.where_is("Maja", t0 + 5), "Maja jest tutaj, przy mnie!")
+        self.assertEqual(faces.where_is("Maja", t0 + 12 * 60), "Maja była tu 12 minut temu.")
+        self.assertEqual(faces.where_is("Maja", t0 + 3 * 60), "Maja była tu 3 minuty temu.")
+        faces.saw(["Andrzej"], t0)
+        self.assertIn("Andrzej był tu", faces.where_is("Andrzej", t0 + 7200))
+        self.assertNotIn("?", faces._seen)
+
     def test_foreign_script(self):
         from unittest import mock
         with mock.patch.dict(sys.modules, {"sounddevice": mock.MagicMock(),

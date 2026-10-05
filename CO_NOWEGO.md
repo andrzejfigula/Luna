@@ -67,6 +67,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Co o mnie wiesz | „Co o mnie pamiętasz?” |
 | Nie słuchaj | „Luna, nie słuchaj” (albo „przestań słuchać na 30 minut”) — mikrofon naprawdę wyłączony, na ekranie przekreślony mikrofon; włącza się po czasie albo przytrzymaniem palca na ekranie |
 | Cofnij wyczyszczenie listy | „Luna, przywróć listę zakupów” (przez godzinę) |
+| Kiedy ktoś był | „Gdzie jest Maja?”, „Widziałaś dziś Emilkę?” — kiedy ostatnio widziała tę osobę |
 | Co Luna o mnie wie | „Co o mnie wiesz?”, „Co wiesz o Mai?” — mówi, co ma zapisane; „Zapomnij, że …” usuwa jedną rzecz |
 | Wyczyść pamięć | „Luna, zapomnij wszystko” → zapyta „Na pewno?” → „tak, zapomnij” (dziecko nie może) |
 | Nastrój z kamery | samo działa — dopasowuje ton; skomentuje najwyżej raz na 30 min |

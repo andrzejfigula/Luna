@@ -142,6 +142,82 @@ def _save():
     _mtime[0] = _file_mtime()
 
 
+# ── when was someone last here ("gdzie jest Maja?") ───────────────────────────
+
+SEEN_PATH = os.path.join(DATA_DIR, "seen.json")
+_seen = None                 # {name: unix time}
+_seen_saved = 0.0
+
+
+def saw(names_now, now=None):
+    """The camera recognised these people just now. Written to disk at most
+    once a minute — a restart must not forget that Maja was here."""
+    global _seen, _seen_saved
+    now = time.time() if now is None else now
+    with _lock:
+        if _seen is None:
+            _seen = _read_seen()
+        for n in names_now:
+            if n and n != "?":
+                _seen[n] = now
+        if now - _seen_saved < 60:
+            return
+        _seen_saved = now
+        data = dict(_seen)
+    try:
+        tmp = SEEN_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+        os.replace(tmp, SEEN_PATH)
+    except OSError:
+        pass
+
+
+def _read_seen():
+    try:
+        with open(SEEN_PATH, encoding="utf-8") as f:
+            return {k: float(v) for k, v in json.load(f).items()}
+    except (OSError, ValueError):
+        return {}
+
+
+def last_seen(name):
+    global _seen
+    with _lock:
+        if _seen is None:
+            _seen = _read_seen()
+        return _seen.get(name)
+
+
+def _female(name):
+    return name.lower().endswith("a") and name.lower() not in ("kuba", "barnaba", "kosma")
+
+
+def where_is(name, now=None):
+    """"Maja jest tutaj!" / "Maja była tu 12 minut temu." / "…wczoraj o 20:15"."""
+    from datetime import datetime
+    now = time.time() if now is None else now
+    t = last_seen(name)
+    was = "była" if _female(name) else "był"
+    if t is None:
+        return f"{name} jeszcze nie {was} przy mnie, odkąd pamiętam."
+    ago = now - t
+    if ago < 15:
+        return f"{name} jest tutaj, przy mnie!"
+    if ago < 60 * 60:
+        m = max(1, int(ago // 60))
+        unit = ("minutę" if m == 1 else
+                "minuty" if m % 10 in (2, 3, 4) and m % 100 not in (12, 13, 14) else "minut")
+        return f"{name} {was} tu {m} {unit} temu."
+    d, today = datetime.fromtimestamp(t), datetime.fromtimestamp(now).date()
+    hm = d.strftime("%H:%M")
+    if d.date() == today:
+        return f"{name} {was} tu dziś o {hm}."
+    if (today - d.date()).days == 1:
+        return f"Dziś jeszcze nie widziałam. {name} {was} tu wczoraj o {hm}."
+    return f"{name} {was} tu ostatnio {d.strftime('%d.%m')} o {hm}."
+
+
 def names():
     with _lock:
         return sorted(_load())

@@ -290,6 +290,10 @@ def local_alarm(text):
     return f"{h:02d}:{mi:02d}", repeat
 
 
+_WHERE = re.compile(r"\b(?:gdzie\s+(?:jest|się\s+podziała?|podziała?\s+się)|"
+                    r"(?:kiedy\s+)?(?:ostatnio\s+)?widziała[sś]\s+(?:dziś\s+|dzisiaj\s+|"
+                    r"ostatnio\s+)?|czy\s+(?:był[aoy]?|przyszedł|przyszła)\s+(?:już\s+)?)"
+                    r"(\w+)", re.I)
 _ABOUT = re.compile(r"\bco\s+(?:(?:wiesz|pamiętasz|pamietasz)\s+o\s+(\w+)|"
                     r"o\s+(\w+)\s+(?:wiesz|pamiętasz|pamietasz))\b", re.I)
 _FORGET_THAT = re.compile(r"\bzapomnij,?\s+(?:o\s+tym,?\s+)?(?:że|ze)\s+(.+)", re.I)
@@ -918,6 +922,14 @@ def handle(text, speak, play_sound):
         return True
 
     # faces: "to jest Kasia" / "jestem Andrzej" / "zapomnij moją twarz"
+    m = _WHERE.search(text)                        # "gdzie jest Maja?"
+    if m and _short(text, 8):
+        import faces
+        who = faces.match_name(m.group(1))
+        if who:
+            speak(faces.where_is(who))
+            return True
+
     said = _memory_talk(text)                      # "co o mnie wiesz?", "zapomnij, że…"
     if said:
         speak(said)
