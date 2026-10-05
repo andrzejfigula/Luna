@@ -247,10 +247,12 @@ def arithmetic(text):
         exp = int(math.floor(math.log10(abs(value))))
         return (f"To ogromna liczba: około {_fmt(round(value / 10 ** exp, 2))} "
                 f"razy dziesięć do potęgi {exp}.")
-    result = _fmt(value)
+    shown = round(value, 2) if abs(value) >= 1 else round(value, 3)
+    result = _fmt(shown)                    # "3,33", not "3,3333" — easier to hear
+    about = "około " if abs(shown - value) > 1e-9 else ""
     if result.startswith("-"):
         result = "minus " + result[1:]
-    return f"{spoken[0].upper()}{spoken[1:]} to {result}."
+    return f"{spoken[0].upper()}{spoken[1:]} to {about}{result}."
 
 
 # ── days until ────────────────────────────────────────────────────────────────
