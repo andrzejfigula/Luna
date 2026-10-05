@@ -2558,7 +2558,9 @@ class RobotFace:
             for j, w in enumerate(words):
                 img = _get_font(30 if j == 0 else 22).render(w, True, EYE_MID if j else STAR_COL)
                 scr.blit(img, img.get_rect(midleft=(left + size + 18, HEIGHT // 2 - 20 + j * 40)))
-            for j, (mark, who) in enumerate((("X", "ty"), ("O", "Luna"))):
+            sides = ((("X", "gracz 1"), ("O", "gracz 2")) if data.get("duo") else
+                     (("X", "ty"), ("O", "Luna")))
+            for j, (mark, who) in enumerate(sides):
                 img = _get_font(26).render(f"{mark} — {who}", True,
                                            (110, 200, 255) if mark == "X" else EYE_INNER)
                 scr.blit(img, img.get_rect(midright=(left - 18, HEIGHT // 2 - 20 + j * 40)))

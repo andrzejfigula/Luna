@@ -95,20 +95,34 @@ def _child():
         return False, None
 
 
-def _new_game(first):
+_DUO = re.compile(r"\b(?:we\s+dwoje|we\s+dwójkę|we\s+dwojke|dla\s+dwóch|dla\s+dwojga|"
+                  r"z\s+mamą|z\s+tatą|z\s+mama|z\s+tata|z\s+siostrą|z\s+bratem|"
+                  r"z\s+koleżanką|z\s+kolegą|dwóch\s+graczy|2\s+graczy)\b", re.I)
+
+
+def duo_wanted(text):
+    """"…we dwoje", "…z mamą": two people on the board, Luna only referees."""
+    return bool(_DUO.search(text))
+
+
+def _new_game(first, duo=None):
     global _g
     loose, _ = _child()
+    duo = _g.get("duo", False) if duo is None and _g else bool(duo)
     _g = {"b": [None] * 9, "turn": first, "end": None, "line": None, "first": first,
-          "loose": 0.5 if loose else 0.1, "msg": "Twój ruch" if first == "X" else "Myślę…"}
+          "loose": 0.5 if loose else 0.1, "duo": duo,
+          "msg": (f"Ruch: {'krzyżyk' if first == 'X' else 'kółko'}" if duo else
+                  "Twój ruch" if first == "X" else "Myślę…")}
     _publish()
-    if first == "O":
+    if first == "O" and not duo:
         threading.Timer(0.9, _luna_moves).start()
 
 
-def start(speak):
+def start(speak, duo=False):
     with _lock:
-        _new_game("X")
-    speak("Gramy! Ty jesteś krzyżyk — dotknij pola na ekranie.")
+        _new_game("X", duo)
+    speak("Gramy we dwoje! Zaczyna krzyżyk — dotykajcie pól po kolei." if duo else
+          "Gramy! Ty jesteś krzyżyk — dotknij pola na ekranie.")
 
 
 def again(speak):
@@ -118,7 +132,11 @@ def again(speak):
             return False
         first = "O" if _g["first"] == "X" else "X"
         _new_game(first)
-    speak("Rewanż! Zaczynam ja." if first == "O" else "Nowa gra — zaczynasz ty!")
+        duo = _g["duo"]
+    if duo:
+        speak(f"Rewanż! Zaczyna {'kółko' if first == 'O' else 'krzyżyk'}.")
+    else:
+        speak("Rewanż! Zaczynam ja." if first == "O" else "Nowa gra — zaczynasz ty!")
     return True
 
 
@@ -142,7 +160,11 @@ def _say(text):
 def _finish(w, line):
     _g["end"], _g["line"] = w, line
     _, who = _child()
-    if w == "X":
+    if _g.get("duo"):                         # she only referees
+        _g["msg"] = {"X": "Wygrywa krzyżyk!", "O": "Wygrywa kółko!"}.get(w, "Remis")
+        said = {"X": "Wygrywa krzyżyk! Brawo!", "O": "Wygrywa kółko! Brawo!"}.get(
+            w, "Remis! Jesteście równi.")
+    elif w == "X":
         try:
             import faces
             won = "wygrałaś" if who and faces._female(who) else "wygrałeś" if who else "wygrana"
@@ -198,15 +220,19 @@ def tap(nx, ny, width=800, height=480):
         if _g["end"]:
             _new_game("O" if _g["first"] == "X" else "X")      # take turns starting
             return True
-        if _g["turn"] != "X":
+        if _g["turn"] != "X" and not _g["duo"]:
             return True                                         # she is thinking
         i = cell_at(nx, ny, width, height)
         if i is None or _g["b"][i]:
             return True
-        _g["b"][i] = "X"
+        mark = _g["turn"]
+        _g["b"][i] = mark
         w, line = _winner(_g["b"])
         if w:
             _finish(w, line)
+        elif _g["duo"]:
+            _g["turn"] = "O" if mark == "X" else "X"
+            _g["msg"] = f"Ruch: {'krzyżyk' if _g['turn'] == 'X' else 'kółko'}"
         else:
             _g["turn"], _g["msg"] = "O", "Myślę…"
             threading.Timer(0.8, _luna_moves).start()

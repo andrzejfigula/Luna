@@ -123,7 +123,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Co | Jak |
 |---|---|
 | Kamień, papier, nożyce | „Zagrajmy w kamień, papier, nożyce!” — do dwóch wygranych, pokaż rękę do kamery na „!”; „tak” = rewanż |
-| Kółko i krzyżyk | „Zagrajmy w kółko i krzyżyk” — dotykasz pola na ekranie; z Mają gra łagodniej; „koniec” kończy |
+| Kółko i krzyżyk | „Zagrajmy w kółko i krzyżyk” — dotykasz pola na ekranie; z Mają gra łagodniej; „jeszcze raz”, „koniec”; „…we dwoje” / „…z mamą” — dwie osoby, Luna sędziuje |
 | Memory | „Zagrajmy w memory” — 12 kart na ekranie, szukasz par; pamięta rekord każdego |
 | Zdjęcie | „Zrób mi zdjęcie” — odliczanie, błysk, zdjęcie jak polaroid; zapisuje się w `~/luna/photos/` (tylko na Pi) |
 | Kostka i moneta | „Rzuć kostką”, „Rzuć dwiema kostkami”, „Orzeł czy reszka?” |

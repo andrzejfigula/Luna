@@ -167,6 +167,19 @@ class TimersTest(unittest.TestCase):
         self.assertEqual(idle_engine.load_greeted(),
                          {"Maja": "2026-10-05", None: "2026-10-04"})
 
+    def test_tictac_duo(self):
+        import tictac
+        self.assertTrue(tictac.duo_wanted("Zagrajmy we dwoje w kółko i krzyżyk"))
+        self.assertTrue(tictac.wants("Chcę zagrać w kółko i krzyżyk z mamą"))
+        tictac._say = lambda t: None
+        tictac.start(lambda t: None, duo=True)
+        cell = lambda i: ((190 + (i % 3) * 140 + 70) / 800, (30 + (i // 3) * 140 + 70) / 480)
+        for i in (0, 3, 1, 4, 2):                    # X takes the top row
+            tictac.tap(*cell(i))
+        self.assertEqual(tictac._g["b"][:6], ["X", "X", "X", "O", "O", None])
+        self.assertEqual(tictac._g["end"], "X")
+        tictac.stop()
+
     def test_memo(self):
         import memo
         self.assertTrue(memo.wants("Zagrajmy w memory"))

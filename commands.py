@@ -961,7 +961,7 @@ def handle(text, speak, play_sound):
 
     import tictac                                  # "zagrajmy w kółko i krzyżyk"
     if tictac.wants(text):
-        tictac.start(speak)
+        tictac.start(speak, duo=tictac.duo_wanted(text))
         return True
     if tictac.active() and _short(text, 5) and re.search(
             r"\b(jeszcze raz|rewanż|rewanz|nowa gra|od nowa|zagrajmy jeszcze)\b", low):
