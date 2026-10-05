@@ -2223,7 +2223,7 @@ class RobotFace:
         rect = img.get_rect(center=(int(fcx), int(fcy - 30)))
         glow = img.copy()
         glow.fill((*GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
-        bloom(surf, glow, rect.topleft, radius=10, passes=1, max_alpha=int(120 * k))
+        bloom(surf, glow, rect.topleft, radius=10, passes=1, max_alpha=int(120 * k), grow=0.0)
         surf.blit(img, rect)
 
     def _draw_caption(self):
@@ -2610,7 +2610,7 @@ class RobotFace:
             rect = big.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 30))
             glow = big.copy()
             glow.fill((*GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
-            bloom(scr, glow, rect.topleft, radius=10, passes=1, max_alpha=110)
+            bloom(scr, glow, rect.topleft, radius=10, passes=1, max_alpha=110, grow=0.0)
             scr.blit(big, rect)
             scr.blit(small, small.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 85)))
         # fade out in the last half second
