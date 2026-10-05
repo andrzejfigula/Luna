@@ -10,6 +10,10 @@ birthdays.py — the family's birthdays.
   on the day: the model is told ("Today is Maja's birthday — she turns 9!"),
   so the first hello is a birthday wish; a week before, it knows it's coming.
 
+Name days the same way: "Maja ma imieniny 3 maja" ("nameday": "MM-DD"),
+"kiedy Maja ma imieniny?", and on the day the model knows to wish her.
+(Not filled in from a calendar: the family says which day they celebrate.)
+
 Only for people she knows by face (faces.py) — a birthday belongs to someone.
 """
 
@@ -145,10 +149,73 @@ def days_answer(text, today=None):
     return calc._say_left(whose, days) + age
 
 
+_NAMEDAY = re.compile(r"\bimienin\w*", re.I)
+
+
+def set_nameday_from(text):
+    """"Maja ma imieniny 3 maja" → (name, "MM-DD") saved; None if it isn't one."""
+    import faces
+    low = text.lower()
+    if not _NAMEDAY.search(low) or re.search(r"\b(ile|kiedy)\b", low) or \
+            low.rstrip().endswith("?"):
+        return None
+    d = _date_in(low)
+    name = _who(low, text) if d else None
+    if not name:
+        return None
+    month, day, _ = d
+    with faces._lock:
+        p = faces._load().get(name)
+        if p is None:
+            return None
+        p["nameday"] = f"{month:02d}-{day:02d}"
+        faces._save()
+    print(f"[birthdays] {name}: name day {day}.{month}", flush=True)
+    return name, p["nameday"]
+
+
+def namedays():
+    import faces
+    with faces._lock:
+        return {n: p["nameday"] for n, p in faces._load().items() if p.get("nameday")}
+
+
+def nameday_answer(text, today=None):
+    """"Kiedy Maja ma imieniny?", "ile dni do imienin Mai?" → the answer, or None."""
+    low = text.lower()
+    if not _NAMEDAY.search(low) or not re.search(r"\b(ile|kiedy)\b", low):
+        return None
+    name = _who(low, text)
+    if not name:
+        return None
+    md = namedays().get(name)
+    if not md:
+        return (f"Nie wiem, kiedy {name} obchodzi imieniny. Powiedz na przykład: "
+                f"{name} ma imieniny 3 maja.")
+    today = today or _today()
+    when = _next(md, today)
+    days = (when - today).days
+    on = f"{when.day} {_MONTHS_GEN[when.month - 1]}"
+    if days == 0:
+        return f"Dzisiaj! {name} ma dziś imieniny — wszystkiego najlepszego!"
+    if days == 1:
+        return f"Już jutro, {on}."
+    import calc
+    return f"{on.capitalize()} — za {days} {calc._plural(days, 'dzień', 'dni', 'dni')}."
+
+
 def prompt_line(today=None):
-    """Birthdays today or within a week, for the system prompt."""
+    """Birthdays and name days today or within a week, for the system prompt."""
     today = today or _today()
     out = []
+    for name, md in namedays().items():
+        when = _next(md, today)
+        days = (when - today).days
+        if days == 0:
+            out.append(f"TODAY is {name}'s name day (imieniny)! Wish them all the best "
+                       "when you greet or talk to them.")
+        elif days <= 3:
+            out.append(f"{name}'s name day (imieniny) is in {days} days.")
     for name, (md, born) in _all().items():
         when = _next(md, today)
         days = (when - today).days

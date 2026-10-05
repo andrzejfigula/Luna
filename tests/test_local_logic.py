@@ -918,6 +918,16 @@ class BirthdayTest(unittest.TestCase):
             self.assertIn("in 3 days", birthdays.prompt_line(datetime.date(2026, 5, 9)))
             self.assertIn("TODAY is Maja's birthday — turns 8",   # in May 2026
                           birthdays.prompt_line(datetime.date(2026, 5, 12)))
+            # name days
+            self.assertIsNone(birthdays.set_nameday_from("Kiedy Maja ma imieniny?"))
+            self.assertIn("Nie wiem", birthdays.nameday_answer("Kiedy Maja ma imieniny?"))
+            self.assertEqual(birthdays.set_nameday_from("Maja ma imieniny 3 maja"),
+                             ("Maja", "05-03"))
+            self.assertEqual(birthdays.nameday_answer("Kiedy Maja ma imieniny?"),
+                             "3 maja — za 211 dni.")
+            self.assertIn("TODAY is Maja's name day",
+                          birthdays.prompt_line(datetime.date(2027, 5, 3)))
+            self.assertIsNone(birthdays.set_from("Maja ma imieniny 3 maja"))   # not a birthday
 
 
 class FileReloadTest(unittest.TestCase):

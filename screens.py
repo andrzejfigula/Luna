@@ -198,6 +198,9 @@ def today_rows():
                 rows.append(("dziś!", f"urodziny: {name}"))
             elif days <= 7:
                 rows.append((f"za {days} dni", f"urodziny: {name}"))
+        for name, md in birthdays.namedays().items():
+            if birthdays._next(md, today) == today:
+                rows.append(("dziś!", f"imieniny: {name}"))
     except Exception:
         pass
     try:

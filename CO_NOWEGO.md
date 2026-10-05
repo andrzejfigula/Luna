@@ -69,6 +69,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Cofnij wyczyszczenie listy | „Luna, przywróć listę zakupów” (przez godzinę) |
 | Przypomnienie na dziś (bez internetu) | „Przypomnij mi za 20 minut o praniu”, „Przypomnij mi o 17, żeby zadzwonić do mamy” |
 | Kółko i krzyżyk | „Zagrajmy w kółko i krzyżyk” — dotykasz pola na ekranie; z Mają gra łagodniej; „koniec” kończy |
+| Imieniny | „Maja ma imieniny 3 maja”, „Kiedy Maja ma imieniny?” — w dniu imienin złoży życzenia |
 | Kiedy ktoś był | „Gdzie jest Maja?”, „Widziałaś dziś Emilkę?” — kiedy ostatnio widziała tę osobę |
 | Co Luna o mnie wie | „Co o mnie wiesz?”, „Co wiesz o Mai?” — mówi, co ma zapisane; „Zapomnij, że …” usuwa jedną rzecz |
 | Wyczyść pamięć | „Luna, zapomnij wszystko” → zapyta „Na pewno?” → „tak, zapomnij” (dziecko nie może) |
