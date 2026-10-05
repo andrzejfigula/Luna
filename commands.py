@@ -1049,7 +1049,7 @@ def handle(text, speak, play_sound, _polite=True):
 
     import memo                                    # "zagrajmy w memory"
     if memo.wants(text):
-        memo.start(speak)
+        memo.start(speak, hard=memo.hard_wanted(text))
         return True
     if memo.active() and _short(text, 5) and re.search(
             r"\b(jeszcze raz|nowa gra|od nowa|potasuj|zagrajmy jeszcze)\b", low):

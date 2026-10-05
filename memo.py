@@ -19,7 +19,10 @@ from shared_state import state
 IDLE_SECS = 120
 COLS, ROWS = 4, 3
 CARD_W, CARD_H, GAP = 150, 130, 14
-SHAPES = ("circle", "square", "triangle", "star", "heart", "diamond")
+SHAPES = ("circle", "square", "triangle", "star", "heart", "diamond", "moon", "cross")
+LAYOUTS = {12: (4, 3, 150, 130, 14), 16: (4, 4, 150, 104, 10)}   # cols, rows, w, h, gap
+_HARD = re.compile(r"\b(?:trudn\w*|duż\w*|duz\w*|16|szesnaście|dla\s+dorosłych|większ\w*)\b",
+                   re.I)
 _START = re.compile(r"\b(?:memory|memo|pary|parki|w\s+pamięć|gr[ęa]\s+pamięciow\w*)\b", re.I)
 _ASK = re.compile(r"\b(?:zagrajmy|zagramy|pograjmy|zagraj|gramy|chcę|chce|możemy|mozemy|"
                   r"pobawmy|włącz|wlacz)\b", re.I)
@@ -42,26 +45,34 @@ def active():
 
 def _publish():
     data = {"cards": list(_g["cards"]), "up": set(_g["up"]) | set(_g["found"]),
-            "found": set(_g["found"]), "msg": _g["msg"]}
+            "found": set(_g["found"]), "msg": _g["msg"],
+            "layout": LAYOUTS[len(_g["cards"])]}
     with state.lock:
         state.overlay = ("memo", time.time() + IDLE_SECS, data)
 
 
-def _deal():
+def _deal(hard=None):
     global _g
     with state.lock:
         who = state.person[0] if state.person else None
-    cards = list(SHAPES) * 2
+    hard = bool(_g and _g.get("n") == 16) if hard is None else hard
+    n = 16 if hard else 12
+    cards = list(SHAPES[:n // 2]) * 2
     random.shuffle(cards)
-    _g = {"cards": cards, "up": [], "found": set(), "moves": 0, "end": False,
+    _g = {"cards": cards, "up": [], "found": set(), "moves": 0, "end": False, "n": n,
           "msg": "Znajdź pary!", "who": who, "busy": False}
     _publish()
 
 
-def start(speak):
+def start(speak, hard=False):
     with _lock:
-        _deal()
-    speak("Gramy w memory! Dotknij dwóch kart — szukamy par.")
+        _deal(hard)
+    speak("Trudne memory — szesnaście kart! Dotknij dwóch, szukamy par." if hard else
+          "Gramy w memory! Dotknij dwóch kart — szukamy par.")
+
+
+def hard_wanted(text):
+    return bool(_HARD.search(text))
 
 
 def stop():
@@ -81,16 +92,17 @@ def _say(text):
         print(f"[memo] could not speak ({e})", flush=True)
 
 
-def card_at(nx, ny, width=800, height=480):
+def card_at(nx, ny, width=800, height=480, n=12):
     """The card under a tap (normalised coords), or None."""
+    cols, rows, cw, ch, gap = LAYOUTS[n]
     x, y = nx * width, ny * height
-    left = (width - (COLS * CARD_W + (COLS - 1) * GAP)) // 2
-    top = (height - (ROWS * CARD_H + (ROWS - 1) * GAP)) // 2
-    col, cx = divmod(int(x - left), CARD_W + GAP)
-    row, cy = divmod(int(y - top), CARD_H + GAP)
-    if x < left or y < top or col >= COLS or row >= ROWS or cx >= CARD_W or cy >= CARD_H:
+    left = (width - (cols * cw + (cols - 1) * gap)) // 2
+    top = (height - (rows * ch + (rows - 1) * gap)) // 2
+    col, cx = divmod(int(x - left), cw + gap)
+    row, cy = divmod(int(y - top), ch + gap)
+    if x < left or y < top or col >= cols or row >= rows or cx >= cw or cy >= ch:
         return None
-    return row * COLS + col
+    return row * cols + col
 
 
 def _finish():
@@ -136,7 +148,7 @@ def tap(nx, ny, width=800, height=480):
             return True
         if _g["busy"]:
             return True                         # two cards are showing — wait
-        i = card_at(nx, ny, width, height)
+        i = card_at(nx, ny, width, height, len(_g["cards"]))
         if i is None or i in _g["found"] or i in _g["up"]:
             return True
         _g["up"].append(i)

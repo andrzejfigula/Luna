@@ -2490,15 +2490,16 @@ class RobotFace:
         elif kind == "memo":
             # the memory game (memo.py): 4 × 3 cards
             scr.fill(BG)
-            cw, ch, gap = 150, 130, 14
-            left = (WIDTH - (4 * cw + 3 * gap)) // 2
-            top = (HEIGHT - (3 * ch + 2 * gap)) // 2
+            ncol, nrow, cw, ch, gap = data.get("layout", (4, 3, 150, 130, 14))
+            left = (WIDTH - (ncol * cw + (ncol - 1) * gap)) // 2
+            top = (HEIGHT - (nrow * ch + (nrow - 1) * gap)) // 2
             cols = {"circle": (255, 90, 90), "square": (90, 160, 255),
                     "triangle": (110, 220, 120), "star": (255, 215, 70),
-                    "heart": (255, 120, 200), "diamond": (180, 120, 255)}
+                    "heart": (255, 120, 200), "diamond": (180, 120, 255),
+                    "moon": (240, 240, 255), "cross": (255, 150, 60)}
             for i, shape in enumerate(data["cards"]):
-                x = left + (i % 4) * (cw + gap)
-                y = top + (i // 4) * (ch + gap)
+                x = left + (i % ncol) * (cw + gap)
+                y = top + (i // ncol) * (ch + gap)
                 rect = pygame.Rect(x, y, cw, ch)
                 if i not in data["up"]:
                     pygame.draw.rect(scr, EYE_MID, rect, border_radius=16)
@@ -2508,7 +2509,7 @@ class RobotFace:
                 pygame.draw.rect(scr, (40, 40, 52), rect, border_radius=16)
                 if i in data["found"]:
                     pygame.draw.rect(scr, (120, 230, 140), rect, 4, border_radius=16)
-                cx, cy, r = x + cw // 2, y + ch // 2, 42
+                cx, cy, r = x + cw // 2, y + ch // 2, int(min(cw, ch) * 0.32)
                 col = cols[shape]
                 if shape == "circle":
                     pygame.draw.circle(scr, col, (cx, cy), r)
@@ -2521,10 +2522,19 @@ class RobotFace:
                 elif shape == "star":
                     _draw_star(scr, cx, cy, r + 4, col, (255, 255, 255))
                 elif shape == "heart":
-                    pygame.draw.circle(scr, col, (cx - 19, cy - 10), 22)
-                    pygame.draw.circle(scr, col, (cx + 19, cy - 10), 22)
-                    pygame.draw.polygon(scr, col, [(cx - 41, cy - 7), (cx + 41, cy - 7),
-                                                   (cx, cy + 40)])
+                    k = r / 42
+                    pygame.draw.circle(scr, col, (cx - int(19 * k), cy - int(10 * k)), int(22 * k))
+                    pygame.draw.circle(scr, col, (cx + int(19 * k), cy - int(10 * k)), int(22 * k))
+                    pygame.draw.polygon(scr, col, [(cx - int(41 * k), cy - int(7 * k)),
+                                                   (cx + int(41 * k), cy - int(7 * k)),
+                                                   (cx, cy + int(40 * k))])
+                elif shape == "moon":
+                    pygame.draw.circle(scr, col, (cx, cy), r)
+                    pygame.draw.circle(scr, (40, 40, 52), (cx + r // 2, cy - r // 4), r)
+                elif shape == "cross":
+                    t = max(8, r // 3)
+                    pygame.draw.rect(scr, col, pygame.Rect(cx - t, cy - r, 2 * t, 2 * r))
+                    pygame.draw.rect(scr, col, pygame.Rect(cx - r, cy - t, 2 * r, 2 * t))
                 else:
                     pygame.draw.polygon(scr, col, [(cx, cy - r), (cx + r - 6, cy),
                                                    (cx, cy + r), (cx - r + 6, cy)])

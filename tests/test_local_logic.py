@@ -308,12 +308,18 @@ class TimersTest(unittest.TestCase):
         memo._say = lambda t: None
         pos = lambda i: ((79 + (i % 4) * 164 + 70) / 800, (31 + (i // 4) * 144 + 60) / 480)
         cards = memo._g["cards"]
-        for shape in memo.SHAPES:
+        for shape in sorted(set(cards)):
             a, b = [i for i, c in enumerate(cards) if c == shape]
             memo.tap(*pos(a))
             memo.tap(*pos(b))
         self.assertTrue(memo._g["end"])
         self.assertEqual(memo._g["moves"], 6)
+        memo.stop()
+        # the hard one: 16 cards, 8 pairs, a 4 × 4 board
+        self.assertTrue(memo.hard_wanted("Zagrajmy w trudne memory"))
+        memo.start(lambda t: None, hard=True)
+        self.assertEqual(len(memo._g["cards"]), 16)
+        self.assertEqual(memo.card_at((85 + 3 * 160 + 5) / 800, (17 + 3 * 114 + 5) / 480, n=16), 15)
         memo.stop()
 
     def test_tictac(self):
