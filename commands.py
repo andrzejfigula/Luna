@@ -785,11 +785,23 @@ def handle(text, speak, play_sound):
         return True
 
     import errands                                 # "przekaż Mai, żeby…"
+    gone = errands.cancel(text)
+    if gone:
+        who, n = gone
+        speak(f"Dobrze, usunęłam przypomnienia dla: {who}." if n else
+              f"Nie mam nic do przekazania dla: {who}.")
+        return True
     got = errands.take(text)
     if got:
         to, _ = got
-        speak(random.choice((f"Dobrze, przekażę, kiedy {to} się pojawi.",
-                             f"Jasne. Powiem, jak tylko zobaczę: {to}.")))
+        at, daily = errands._when(text)
+        if at and daily:
+            speak(f"Dobrze. Codziennie po {at} powiem to, kiedy {to} się pojawi.")
+        elif at:
+            speak(f"Dobrze. Po {at} powiem to, kiedy {to} się pojawi.")
+        else:
+            speak(random.choice((f"Dobrze, przekażę, kiedy {to} się pojawi.",
+                                 f"Jasne. Powiem, jak tylko zobaczę: {to}.")))
         return True
 
     note = _remember(text)                         # "zapamiętaj, że …"

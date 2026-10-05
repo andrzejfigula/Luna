@@ -665,6 +665,23 @@ class ErrandsTest(unittest.TestCase):
             self.assertEqual(said, ["Maju, tata prosi…"])
             self.assertEqual(errands.waiting("Maja"), [])              # said once
             self.assertEqual(len(errands.waiting("Emilka")), 1)
+            # with a time, every day
+            self.assertEqual(errands._when("codziennie o 20:30 przypominaj Mai, że pora spać"),
+                             ("20:30", True))
+            self.assertEqual(errands._when("o dwudziestej trzydzieści powiedz Mai"),
+                             ("20:30", False))
+            self.assertEqual(errands._when("o dwudziestej pierwszej"), ("21:00", False))
+            errands.take("Codziennie o 20:30 przypominaj Mai, że pora spać")
+            e = [x for x in errands._load() if x.get("daily")][0]
+            evening = time.mktime((2026, 10, 5, 20, 45, 0, 0, 0, -1))
+            morning = time.mktime((2026, 10, 5, 9, 0, 0, 0, 0, -1))
+            self.assertTrue(errands._due(e, evening))
+            self.assertFalse(errands._due(e, morning))                 # not before 20:30
+            e["done"] = "2026-10-05"
+            self.assertFalse(errands._due(e, evening))                 # once a day
+            self.assertEqual(errands.take("Przypomnij Mai o 19, żeby się wykąpała"),
+                             ("Maja", "żeby się wykąpała"))
+            self.assertEqual(errands.cancel("Usuń przypomnienia dla Mai"), ("Maja", 2))
 
 
 class BackupTest(unittest.TestCase):
