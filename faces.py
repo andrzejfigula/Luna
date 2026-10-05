@@ -498,6 +498,10 @@ def prompt_line():
            if person else
            "In front of you now: a face you don't recognise." if seen else
            "Nobody is in front of the camera now.")
+    if not person:              # "Chciałabyś…?" guesses who it is — "Chcesz…?" doesn't
+        now += (" You don't know who is speaking: address them without gendered "
+                "forms (\"Chcesz…?\", \"Możesz…\", not \"Chciałabyś/Chciałbyś\", "
+                "\"zrobiłaś/zrobiłeś\").")
     with state.lock:
         others, seen_at = state.others
     if seen and others and time.time() - seen_at < 3 * RECOGNISE_EVERY:
