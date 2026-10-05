@@ -1035,6 +1035,18 @@ def handle(text, speak, play_sound, _polite=True):
         games.play_match(speak, _sound_async)
         return True
 
+    import voicefx                                 # "zmień mój głos"
+    effect = voicefx.wants(text)
+    if effect:
+        voicefx.arm(effect)
+        with state.lock:                           # the next sentence needs no "Luna"
+            state.conversation_active = True
+            state.last_activity_time = time.time() + 5
+        speak("Powiedz coś — a ja zmienię twój głos!" if effect == "?" else
+              f"Powiedz coś — zrobię z tego głos: {effect}!" if effect != "od tyłu" else
+              "Powiedz coś — puszczę to od tyłu!")
+        return True
+
     import memo                                    # "zagrajmy w memory"
     if memo.wants(text):
         memo.start(speak)

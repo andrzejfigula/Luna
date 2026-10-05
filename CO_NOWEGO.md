@@ -129,6 +129,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Zdjęcie | „Zrób mi zdjęcie” — odliczanie, błysk, zdjęcie jak polaroid; zapisuje się w `~/luna/photos/` (tylko na Pi) |
 | Kostka i moneta | „Rzuć kostką”, „Rzuć dwiema kostkami”, „Orzeł czy reszka?” |
 | Losowanie | „Wylosuj liczbę od 1 do 100”, „Wybierz: pizza czy makaron?”, „Kto dziś zmywa: Maja, tata czy mama?” |
+| Zabawa głosem | „Zmień mój głos”, „…jak wiewiórka”, „…jak olbrzym”, „…jak robot”, „Odwróć mój głos” — powiedz coś, a Luna odtworzy to zmienione |
 | Piątka | „Przybij piątkę” — pokazuje rękę, stuknij w ekran w ciągu 4 s |
 | Galeria | „Pokaż zdjęcia” — zrobione zdjęcia, najnowsze pierwsze, co 6 s; stuknięcie = następne |
 | Lusterko | „Pokaż lustro” — kamera jako lustro przez 15 s |

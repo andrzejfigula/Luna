@@ -427,7 +427,8 @@ def fast_command(text, conf):
         return None
     try:
         import messages
-        if messages.armed():           # this sentence IS a voice message: its audio counts
+        import voicefx
+        if messages.armed() or voicefx.armed():   # its audio is what counts
             return None
     except Exception:
         pass

@@ -78,6 +78,8 @@ CASES = [
     ("Usuń wiadomości", "wiadomości"),
     ("Przywróć listę zakupów", "Nie mam czego przywrócić"),
     ("Pokaż plan dnia", "plan"),
+    ("Zmień mój głos jak robot", "głos: robot"),
+    ("Zrób mi zdjęcie", ""),
     # ordinary talk: the model, never a command
     ("Jutro mamy dyktando w szkole", MODEL),
     ("Szum morza mnie uspokaja", MODEL),

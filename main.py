@@ -144,6 +144,13 @@ def voice_loop():
                         messages.store(speech_to_text.last_utterance_pcm, text)
                         speak("Zapisałam wiadomość.")
                         continue
+                    import voicefx
+                    if voicefx.armed():
+                        # "zmień mój głos" — this sentence comes back changed
+                        import speech_to_text
+                        from text_to_speech import play_clip
+                        voicefx.play(speech_to_text.last_utterance_pcm, speak, play_clip)
+                        continue
                     if check_mute(text):
                         pass          # "Luna, cicho" — handled, nothing to ask
                     elif forget_reply := check_forget(text):

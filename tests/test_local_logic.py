@@ -121,6 +121,25 @@ class TimersTest(unittest.TestCase):
         self.assertIsNone(calc.arithmetic("6:30 3"))          # found by the fuzz test
         self.assertIsNone(calc.arithmetic("3 6:30 !"))
 
+    def test_voicefx(self):
+        import voicefx
+        import numpy as np
+        self.assertEqual(voicefx.wants("Luna, zmień mój głos"), "?")
+        self.assertEqual(voicefx.wants("Zmień mój głos jak wiewiórka"), "wiewiórka")
+        self.assertEqual(voicefx.wants("Odwróć mój głos"), "od tyłu")
+        self.assertEqual(voicefx.wants("Zrób mi głos jak robot"), "robot")
+        self.assertIsNone(voicefx.wants("Mam dziś zachrypnięty głos"))
+        self.assertIsNone(voicefx.wants("Zrób mi herbatę"))
+        self.assertIsNone(voicefx.wants("Zrób mi zdjęcie"))
+        tone = (np.sin(np.arange(16000) / 16000 * 2 * np.pi * 220) * 8000).astype(np.int16)
+        pcm = tone.tobytes()
+        self.assertEqual(len(voicefx.apply(pcm, "od tyłu")), 24000 * 2)        # 1 s at 24 kHz
+        self.assertEqual(len(voicefx.apply(pcm, "wiewiórka")), int(24000 / 1.6) * 2)
+        self.assertEqual(len(voicefx.apply(pcm, "olbrzym")), int(24000 / 0.7) * 2)
+        self.assertEqual(voicefx.apply(b"\0\0" * 100, "robot"), b"")       # too short
+        self.assertIn(voicefx.arm("?"), voicefx.EFFECTS)
+        self.assertTrue(voicefx.armed())
+
     def test_polite_to_command(self):
         import commands
         p = commands.polite_to_command
