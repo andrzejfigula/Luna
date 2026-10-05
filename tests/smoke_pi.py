@@ -60,7 +60,7 @@ for m in ("text_to_speech", "brain", "commands", "faces", "relationship", "mood"
           "radio", "news", "weather", "quiz", "kids", "counting", "calc", "screens",
           "messages", "timers", "lists", "memory", "idle_engine", "watchdog",
           "ambience", "errands", "birthdays", "backup", "riddles", "news", "kids",
-          "cooking", "quizdata", "clockgame", "twenty"):
+          "cooking", "quizdata", "clockgame", "twenty", "tictac", "memo", "intent"):
     mods[m] = check(f"import {m}", lambda m=m: __import__(m), limit=60)
 
 tts, brain, faces = mods["text_to_speech"], mods["brain"], mods["faces"]
@@ -101,7 +101,8 @@ speak = lambda t, **k: said.append(t)                        # noqa: E731
 for utterance in (("Która godzina?", "Ile to jest 17 razy 23?", "Ile dni do Wigilii?",
                   "Jak się pisze żółw?", "Ile zostało do siedemnastej?",
                   "Obudź mnie o 6:30", "Przywróć listę zakupów", "Co o mnie wiesz?",
-                  "Przypomnij mi za 20 minut o praniu",
+                  "Przypomnij mi za 20 minut o praniu", "Która godzina w Tokio?",
+                  "Ile zostało na minutniku?", "Zagrajmy w memory", "Koniec",
                   "Pokaż plan dnia", "Usuń wiadomości")
                  + ((f"Gdzie jest {known[0]}?", f"Co wiesz o {known[0]}?") if known else ())):
     check(f"command {utterance!r}",
