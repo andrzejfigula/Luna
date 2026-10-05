@@ -1017,6 +1017,17 @@ class MessagesForPeopleTest(unittest.TestCase):
         self.assertEqual(messages.unheard("Emilka"), [])
         with state.lock:
             state.person = None
+        messages.arm(to="Maja")
+        messages.store(b"\0\0" * 1600, "kocham cię")
+        self.assertEqual(messages.delete()[0], 1)            # the heard one only
+        self.assertEqual(len(messages.unheard("Maja")), 1)   # Maja's still waits
+        import commands
+        said = []
+        commands.handle("Usuń wiadomości", lambda t, **k: said.append(t), lambda n, **k: True)
+        self.assertIn("dla: Maja", said[0])
+        commands.handle("Usuń wszystkie wiadomości", lambda t, **k: said.append(t),
+                        lambda n, **k: True)
+        self.assertEqual(messages.unheard("Maja"), [])
         messages.delete_all()
 
 

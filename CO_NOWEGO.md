@@ -105,7 +105,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Drzemka / dłużej | Po dzwonku: „Jeszcze 5 minut” albo „drzemka” (9 min); „Dodaj 5 minut do minutnika” |
 | Budzik ze świtem | „Obudź mnie jutro o siódmej” — 10 min wcześniej ekran powoli się rozjaśnia |
 | Powtarzające się | „Budzik w dni robocze na 6:30”, „Codziennie o 21 przypominaj mi o tabletkach”, „W każdy wtorek o 18 trening”, „Co roku 12 maja urodziny mamy” |
-| Wiadomości głosowe | „Nagraj wiadomość” → mówisz (pauzy są OK); następna osoba usłyszy „masz wiadomość”, a na ekranie świeci koperta; „Odtwórz wiadomość”, „Usuń wiadomości” |
+| Wiadomości głosowe | „Nagraj wiadomość” → mówisz (pauzy są OK); następna osoba usłyszy „masz wiadomość”, a na ekranie świeci koperta; „Odtwórz wiadomość”, „Usuń wiadomości” (nieodsłuchane zostają; „Usuń wszystkie wiadomości” — wszystkie) |
 | Lista | „Pokaż przypomnienia” — wszystko, co ustawione, na ekranie |
 | Listy zakupów / zadań | „Dopisz mleko i chleb do listy zakupów”, „Skreśl chleb”, „Co mam na liście?”, „Dodaj do listy rzeczy do zrobienia: …”, „Pokaż listę zakupów” (na ekranie) |
 | Tryb skupienia | „Włącz tryb skupienia” (albo „pomodoro na 50 minut”) — 25 min ciszy, potem „czas na przerwę” i 5 min przerwy; „koniec skupienia” wyłącza |

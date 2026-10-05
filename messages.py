@@ -10,7 +10,9 @@ messages.py — voice messages left with Luna for someone at home.
                                   a small envelope on her screen meanwhile
   "odtwórz wiadomość"           → plays the new ones (or the last one), with
                                   when it was left
-  "usuń wiadomości"             → deletes them all
+  "usuń wiadomości"             → deletes the ones already heard; one still
+                                  waiting for someone stays ("usuń wszystkie
+                                  wiadomości" deletes those too)
 
 Stored on the Pi only: DATA_DIR/messages/*.wav (16 kHz mono) and index.json
 with the time, the transcript and whether it was heard.
@@ -156,11 +158,21 @@ def play(speak, play_clip):
     return True
 
 
-def delete_all():
+def delete(everything=False):
+    """Delete the heard messages (all with everything=True).
+    → (deleted, kept): kept are the unheard ones left for someone."""
     with _lock:
-        for m in _load():
+        items = _load()
+        gone = [m for m in items if everything or m.get("heard")]
+        keep = [m for m in items if m not in gone]
+        for m in gone:
             try:
                 os.remove(os.path.join(DIR, m["file"]))
             except OSError:
                 pass
-        _save([])
+        _save(keep)
+    return len(gone), keep
+
+
+def delete_all():
+    delete(everything=True)

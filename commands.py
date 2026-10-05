@@ -131,7 +131,9 @@ _MSG_RECORD = ("nagraj wiadomość", "nagraj wiadomosc", "zostaw wiadomość",
 _MSG_PLAY   = ("odtwórz wiadomość", "odtwórz wiadomości", "odtworz wiadomosc",
                "jakie mam wiadomości", "mam jakieś wiadomości", "puść wiadomość",
                "posłuchaj wiadomości", "play the message", "any messages")
-_MSG_DELETE = ("usuń wiadomości", "usuń wiadomość", "skasuj wiadomości", "usun wiadomosci")
+_MSG_DELETE = ("usuń wiadomości", "usuń wiadomość", "skasuj wiadomości", "usun wiadomosci",
+               "usuń wszystkie wiadomości", "skasuj wszystkie wiadomości",
+               "usun wszystkie wiadomosci")
 # "pogoda dla Krakowa", "ustaw pogodę na Gdańsk", "mieszkam w Zakopanem"
 # ("pogoda w Berlinie?" is a question, not where you live — it goes to the model)
 _WEATHER_SET = re.compile(r"^(?:luna,? |luno,? )?(?:(?:włącz|wlacz|ustaw|sprawdzaj) )"
@@ -600,8 +602,14 @@ def handle(text, speak, play_sound):
             speak("Nie ma żadnych wiadomości.")
         return True
     if any(k in low for k in _MSG_DELETE) and _short(text, 6):
-        messages.delete_all()
-        speak("Usunęłam wiadomości.")
+        gone, kept = messages.delete(everything="wszystk" in low)
+        said = "Usunęłam wiadomości." if gone else "Nie ma odsłuchanych wiadomości."
+        if kept:                                    # left for someone, not heard yet
+            to = sorted({m["to"] for m in kept if m.get("to")})
+            whom = f" dla: {', '.join(to)}" if to else ""
+            said += (f" Nieodsłuchane{whom} zostawiłam — żeby je usunąć, "
+                     "powiedz: usuń wszystkie wiadomości.")
+        speak(said)
         return True
 
     # "która godzina?" / "jaki dziś dzień?" — answered at once, locally
