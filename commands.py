@@ -290,6 +290,49 @@ def local_alarm(text):
     return f"{h:02d}:{mi:02d}", repeat
 
 
+_ABOUT = re.compile(r"\bco\s+(?:(?:wiesz|pamiętasz|pamietasz)\s+o\s+(\w+)|"
+                    r"o\s+(\w+)\s+(?:wiesz|pamiętasz|pamietasz))\b", re.I)
+_FORGET_THAT = re.compile(r"\bzapomnij,?\s+(?:o\s+tym,?\s+)?(?:że|ze)\s+(.+)", re.I)
+
+
+def _memory_talk(text):
+    """What she remembers about someone, or one fact forgotten — the reply,
+    or None when the words aren't about her memory."""
+    import faces
+    import memory
+    low = text.lower()
+    with state.lock:
+        me = state.person[0] if state.person else None
+    m = _FORGET_THAT.search(text)
+    if m and not re.search(r"\bnie\s+zapomnij", low) and _short(text, 14):
+        gone = memory.forget_fact(m.group(1))
+        return (f"Dobrze, zapomniałam: {gone.rstrip('.')}." if gone else
+                "Nie mam tego zapisanego.")
+    m = _ABOUT.search(text)
+    if not m or not _short(text, 8):
+        return None
+    word = (m.group(1) or m.group(2)).lower()
+    if word in ("mnie", "nas"):
+        who = me
+        if not who:
+            return "Nie poznaję cię teraz — stań przed kamerą albo powiedz: jestem…"
+    else:
+        who = faces.match_name(word)
+        if not who:
+            return None                    # "co wiesz o dinozaurach?" — the model
+        if _child_here() and who != me:
+            return "O innych opowiem dorosłym. Mogę ci powiedzieć, co wiem o tobie!"
+    facts = memory.facts_about(who)
+    if not facts:
+        return ("Jeszcze niczego o tobie nie zapisałam." if who == me else
+                f"Nie mam nic zapisanego o: {who}.")
+    head = "O tobie pamiętam" if who == me else f"O: {who} pamiętam"
+    said = f"{head}: " + " ".join(f.rstrip(".") + "." for f in facts[:5])
+    if len(facts) > 5:
+        said += f" I jeszcze {len(facts) - 5} innych rzeczy."
+    return said + " Jeśli coś się nie zgadza, powiedz: zapomnij, że…"
+
+
 def _child_here():
     """Is the recognised person marked as a child (faces.py notes)?"""
     try:
@@ -875,6 +918,11 @@ def handle(text, speak, play_sound):
         return True
 
     # faces: "to jest Kasia" / "jestem Andrzej" / "zapomnij moją twarz"
+    said = _memory_talk(text)                      # "co o mnie wiesz?", "zapomnij, że…"
+    if said:
+        speak(said)
+        return True
+
     m = _FACE_FORGET.search(text)
     if m and _short(text, 6):
         import faces

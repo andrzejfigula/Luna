@@ -205,6 +205,8 @@ MODEL = [
     "Co mamy dzisiaj?",
     "Ile zostało do końca minutnika?",
     "Ile mamy czasu do wyjścia?",
+    "Co wiesz o dinozaurach?",
+    "Nie zapomnij, że jutro idziemy do dentysty",
     "Obudź mnie za 20 minut, dobrze?",
     "O której mam nastawić budzik?",
     "Wiesz co, miałam dziś ciężki dzień w pracy",

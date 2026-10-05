@@ -210,6 +210,16 @@ class MemoryTest(unittest.TestCase):
         self.assertFalse(memory.facts_ok(None, old))
         self.assertTrue(memory.facts_ok([], ["a", "b"]))   # tiny memory: trust it
 
+    def test_facts_about_and_forget_one(self):
+        memory._save({"facts": ["Maja ma chomika o imieniu Pestka.",
+                                "Andrzej lubi żarty.", "Mai ulubiony kolor to fiolet."],
+                      "episodes": [], "threads": [], "_wiped_at": 0})
+        self.assertEqual(len(memory.facts_about("Maja")), 2)
+        self.assertIsNone(memory.forget_fact("mam psa"))
+        self.assertEqual(memory.forget_fact("Maja ma chomika"),
+                         "Maja ma chomika o imieniu Pestka.")
+        self.assertEqual(memory.facts_about("Maja"), ["Mai ulubiony kolor to fiolet."])
+
     def test_forget(self):
         memory._save({"facts": ["Ma kota."], "episodes": [], "threads": [], "_wiped_at": 0})
         self.assertFalse(memory.check_forget("Zapomnij o tym, nieważne"))

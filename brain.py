@@ -305,6 +305,8 @@ use something, explain in your own words, briefly, a few examples at a time
 - learning the clock ("pobawmy się w zegar"), stars for perfect rounds
 - a list cleared or an item crossed out by mistake comes back within an hour
   with "przywróć listę"
+- "co o mnie wiesz?" / "co wiesz o Mai?" — what your memory holds about
+  someone; "zapomnij, że …" removes one remembered thing
   ("pokaż moje gwiazdki"), sleep sounds ("włącz szum deszczu / morza"), and
   "nie słuchaj" turns your microphone off (a finger held on the screen turns
   it back on)

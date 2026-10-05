@@ -415,6 +415,43 @@ _RELATIVE = {"jutro", "pojutrze", "dziś", "dzisiaj", "wczoraj", "przedwczoraj",
              "weekend", "weekendzie", "miesiąc", "miesiącu", "wieczorem", "rano"}
 
 
+_STOP = {"jest", "mają", "mamy", "masz", "który", "która", "które", "bardzo", "tego",
+         "takie", "także", "oraz", "bardziej", "mnie", "moja", "moje", "mój", "mojego"}
+
+
+def _stems(text):
+    return {w[:5] for w in re.findall(r"\w+", text.lower()) if len(w) >= 4 and w not in _STOP}
+
+
+def facts_about(name):
+    """The facts that mention this person in any case form ("Mai", "Maję")."""
+    import faces
+    forms = faces.forms(name)
+    with _lock:
+        facts = _load()["facts"]
+    return [f for f in facts if forms & set(re.findall(r"\w+", f.lower()))]
+
+
+def forget_fact(what):
+    """"zapomnij, że mam chomika" → the fact removed (best word match), or None."""
+    want = _stems(what)
+    if not want:
+        return None
+    with _lock:
+        mem = _load()
+        best, score = None, 0.0
+        for f in mem["facts"]:
+            s = len(want & _stems(f)) / len(want)
+            if s > score:
+                best, score = f, s
+        if best is None or score < 0.5:
+            return None
+        mem["facts"].remove(best)
+        _save(mem)
+    print(f"[memory] forgot on request: {best}", flush=True)
+    return best
+
+
 def add_fact(fact):
     """"Zapamiętaj, że klucze są w szufladzie" — written at once, not at the
     end of the conversation, and never judged as trivia."""
