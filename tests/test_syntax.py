@@ -24,6 +24,43 @@ class SyntaxTest(unittest.TestCase):
                 self.assertNotIn("\x08", src)
 
 
+class UndefinedNameTest(unittest.TestCase):
+    """A name used in a function that nothing defines — a typo or a missing
+    import — only fails when that line runs, often on the Pi, often at night.
+    symtable knows each function's globals; they must exist at module level
+    or be built in."""
+
+    def test_every_global_name_is_defined(self):
+        import builtins
+        import symtable
+        known_builtins = set(dir(builtins)) | {"__file__", "__name__", "__doc__"}
+        for path in glob.glob(os.path.join(ROOT, "*.py")):
+            src = open(path, encoding="utf-8").read()
+            top = symtable.symtable(src, path, "exec")
+            module_names = {s.get_name() for s in top.get_symbols()
+                            if s.is_assigned() or s.is_imported() or s.is_namespace()}
+
+            def declared(table):              # `global X` + `X = …` inside a function
+                for child in table.get_children():
+                    module_names.update(s.get_name() for s in child.get_symbols()
+                                        if s.is_declared_global() and s.is_assigned())
+                    declared(child)
+            declared(top)
+
+            def walk(table):
+                for child in table.get_children():
+                    for s in child.get_symbols():
+                        if (s.is_global() and s.is_referenced()
+                                and s.get_name() not in module_names
+                                and s.get_name() not in known_builtins):
+                            with self.subTest(file=os.path.basename(path),
+                                              scope=child.get_name()):
+                                self.fail(f"'{s.get_name()}' is used in "
+                                          f"{child.get_name()}() but defined nowhere")
+                    walk(child)
+            walk(top)
+
+
 class LockTest(unittest.TestCase):
 
     def test_state_lock_is_reentrant(self):
