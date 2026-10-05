@@ -271,6 +271,82 @@ def local_timer(text):
     return secs if words <= (_TIMER_WORDS | used) else None
 
 
+_REMIND = re.compile(r"^(?:luna,?\s+)?przypomnij\s+(?:mi|nam)\s*,?\s+(.+?)[.!?]*$", re.I)
+# a day, a date or a repeat: the model works those out
+_REMIND_LATER = re.compile(r"\b(jutro|pojutrze|codziennie|co\s+\w+|w\s+(?:poniedziałek|wtorek|"
+                           r"środę|czwartek|piątek|sobotę|niedzielę|weekend)|"
+                           r"rano|wieczorem|po\s+południu|stycznia|lutego|marca|kwietnia|maja|"
+                           r"czerwca|lipca|sierpnia|września|października|listopada|grudnia)\b",
+                           re.I)
+# "żebym zadzwonił", "że mam…": would need turning round ("zadzwoń") — the model
+_FIRST_PERSON = re.compile(r"\b(żebym|zebym|mam|muszę|musze|mój|moja|moje|mojej|mnie|"
+                           r"mi|bym|jestem|będę)\b", re.I)
+
+
+def _time_word(w):
+    """Can this word be part of a spoken clock time ("wpół do ósmej", "17:30")?"""
+    import clockgame
+    w = w.strip(".")
+    return (bool(re.fullmatch(r"\d{1,2}(?:[:.]\d{2})?", w))
+            or w in ("wpół", "wpol", "do", "po", "za", "przed", "zero")
+            or clockgame._hour_at([w], 0)[0] is not None
+            or clockgame._minutes_at([w], 0)[0] is not None)
+
+
+def local_reminder(text, now=None):
+    """"przypomnij mi za 20 minut o praniu", "przypomnij mi o 17, żeby
+    zadzwonić do mamy" → (action for apply(), confirmation); None for
+    anything with a day, a repeat or a sentence to turn round."""
+    import clock
+    import clockgame
+    m = _REMIND.match(text.strip())
+    if not m or _REMIND_LATER.search(text):
+        return None
+    rest = m.group(1)
+    span, action, said = None, None, None
+    z = re.search(r"\bza\s+((?:\w+\s+){0,3}?(?:sekund\w*|minut\w*|godzin\w*|kwadrans))\b",
+                  rest, re.I)
+    if z:
+        secs, _ = parse_duration(z.group(1))
+        if secs and secs <= 86400:
+            span = z.span()
+            action = {"type": "timer", "seconds": secs}
+            said = f"za {say_duration(secs)}"
+    else:
+        for o in re.finditer(r"\bo\s+", rest, re.I):
+            tail = rest[o.end():].split()
+            for n in (4, 3, 2, 1):                     # the longest clock time there
+                words = tail[:n]
+                if len(words) < n:
+                    continue
+                cand = " ".join(words).rstrip(",").lower()
+                t = clockgame.parse(cand)
+                after = tail[n].lower() if len(tail) > n else ""
+                if re.fullmatch(r"\d+", cand) and after and not words[-1].endswith(",") \
+                        and after not in ("że", "żeby", "zeby", "aby", "o", "to"):
+                    continue                           # "o 5 rzeczach" is no time
+                if t and all(_time_word(w) for w in cand.replace(",", " ").split()):
+                    h, mi = t
+                    now_dt = datetime.fromtimestamp(now or time.time())
+                    if (h, mi) < (now_dt.hour, now_dt.minute) and h < 12 and \
+                            (h + 12, mi) > (now_dt.hour, now_dt.minute):
+                        h += 12                        # "o piątej" in the afternoon: 17:00
+                    span = (o.start(), o.end() + len(" ".join(tail[:n])))
+                    action = {"type": "reminder", "at": f"{h:02d}:{mi:02d}", "repeat": "none"}
+                    said = f"o {clock.hour_locative(h, mi)}"
+                    break
+            if span:
+                break
+    if not span:
+        return None
+    what = (rest[:span[0]] + " " + rest[span[1]:]).strip(" ,")
+    what = re.sub(r"^(?:że|żeby|zeby|aby|to)\s+", "", what, flags=re.I).strip(" ,")
+    if not what or len(what.split()) > 8 or _FIRST_PERSON.search(what):
+        return None
+    action["label"] = what
+    return action, f"Dobrze, przypomnę {said}."
+
+
 def say_duration(secs):
     """Polish words for a duration, for her confirmation."""
     if secs % 3600 == 0:
@@ -390,7 +466,9 @@ def _announcement(t, missed=False):
         return text or "Dzień dobry! Pora wstawać."
     if t["kind"] == "timer":
         mins = round(t.get("secs", 0) / 60)
-        if label:
+        if label.lower().startswith("o "):           # a reminder "za 20 minut o praniu"
+            text = f"Przypominam {label}!"
+        elif label:
             text = f"Minął czas: {label}!"
         elif mins >= 1:
             verb = "Minęła" if mins == 1 else ("Minęły" if _minutes_pl(mins) == "minuty" else "Minęło")
@@ -398,7 +476,8 @@ def _announcement(t, missed=False):
         else:
             text = "Dzyń! Minutnik!"
     else:
-        text = f"Przypominam: {label}!" if label else "Przypominam o czymś!"
+        text = (f"Przypominam {label}!" if label.lower().startswith("o ") else   # o praniu
+                f"Przypominam: {label}!" if label else "Przypominam o czymś!")
     if missed:
         text = "Byłam wyłączona i przegapiłam przypomnienie. " + text
     return text

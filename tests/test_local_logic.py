@@ -116,6 +116,33 @@ class TimersTest(unittest.TestCase):
                      "Przypomnij mi za 10 minut o praniu"):
             self.assertIsNone(timers.local_timer(text), text)
 
+    def test_local_reminder(self):
+        at15 = datetime.datetime(2026, 10, 5, 15, 0).timestamp()
+        r = timers.local_reminder
+        self.assertEqual(r("Przypomnij mi za 20 minut o praniu", at15),
+                         ({"type": "timer", "seconds": 1200, "label": "o praniu"},
+                          "Dobrze, przypomnę za 20 minut."))
+        self.assertEqual(r("Luna, przypomnij mi o 17, żeby zadzwonić do mamy", at15),
+                         ({"type": "reminder", "at": "17:00", "repeat": "none",
+                           "label": "zadzwonić do mamy"},
+                          "Dobrze, przypomnę o siedemnastej."))
+        self.assertEqual(r("przypomnij mi o piątej o wyjęciu ciasta", at15)[0]["at"], "17:00")
+        self.assertEqual(r("przypomnij mi o praniu o 18", at15)[0],
+                         {"type": "reminder", "at": "18:00", "repeat": "none",
+                          "label": "o praniu"})
+        self.assertEqual(r("Przypomnij mi o wpół do ósmej o bajce", at15)[0]["at"], "19:30")
+        self.assertEqual(r("przypomnij mi o praniu za pół godziny", at15)[0]["seconds"], 1800)
+        for text in ("Przypomnij mi jutro o dentyście",          # a day: the model
+                     "Przypomnij mi o 17, żebym zadzwonił do mamy",   # to turn round
+                     "Przypomnij mi codziennie o 8 o tabletkach",
+                     "Przypomnij mi o praniu",                    # no time
+                     "Przypomnij mi za 10 minut",                 # nothing to remind
+                     "Przypomnij mi o 5 rzeczach na zakupy"):
+            self.assertIsNone(r(text, at15), text)
+        import clock
+        self.assertEqual([clock.hour_locative(*t) for t in ((2, 0), (21, 0), (7, 5), (0, 0))],
+                         ["drugiej", "dwudziestej pierwszej", "siódmej zero pięć", "północy"])
+
     def test_say_duration(self):
         self.assertEqual([timers.say_duration(s) for s in (60, 300, 120, 1800, 3600, 5400, 45)],
                          ["minutę", "5 minut", "2 minuty", "30 minut", "godzinę",

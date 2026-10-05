@@ -885,6 +885,13 @@ def handle(text, speak, play_sound):
     if radio.handle(text, speak):
         return True
 
+    import timers
+    rem = timers.local_reminder(text)              # "przypomnij mi za 20 minut o praniu"
+    if rem:
+        timers.apply([rem[0]])
+        speak(rem[1])
+        return True
+
     alarm = local_alarm(text)                      # "obudź mnie o 6:30" — even offline
     if alarm:
         import clock

@@ -101,6 +101,7 @@ speak = lambda t, **k: said.append(t)                        # noqa: E731
 for utterance in (("Która godzina?", "Ile to jest 17 razy 23?", "Ile dni do Wigilii?",
                   "Jak się pisze żółw?", "Ile zostało do siedemnastej?",
                   "Obudź mnie o 6:30", "Przywróć listę zakupów", "Co o mnie wiesz?",
+                  "Przypomnij mi za 20 minut o praniu",
                   "Pokaż plan dnia", "Usuń wiadomości")
                  + ((f"Gdzie jest {known[0]}?", f"Co wiesz o {known[0]}?") if known else ())):
     check(f"command {utterance!r}",

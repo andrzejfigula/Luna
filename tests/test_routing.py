@@ -93,6 +93,7 @@ LOCAL = {
     "Mów krócej": "length",
     "Przywróć listę zakupów": "lists",
     "Obudź mnie o 6:30": "timer",
+    "Przypomnij mi za 20 minut o praniu": "timer",
     "Obudź mnie radiem o siódmej": "radio",     # the radio mode, and the alarm locally
     "Budź mnie radiem jutro o 6:30": "radio",
     "Budzik na wpół do ósmej w dni robocze": "timer",

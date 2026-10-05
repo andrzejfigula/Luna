@@ -86,6 +86,17 @@ def hour_accusative(h, m):
     return f"{hour} {'zero ' if m < 10 else ''}{_minutes(m)}"
 
 
+def hour_locative(h, m):
+    """17:00 → "siedemnastej", 7:30 → "siódmej trzydzieści" ("o …")."""
+    if h == 0 and m == 0:
+        return "północy"
+    hour = " ".join(w[:-2] + "giej" if w.endswith("ga") else
+                    w[:-1] + "ej" if w.endswith("a") else w for w in _HOURS[h].split())
+    if m == 0:
+        return hour
+    return f"{hour} {'zero ' if m < 10 else ''}{_minutes(m)}"
+
+
 def spoken_date(now=None):
     now = now or (datetime.now(_TZ) if _TZ else datetime.now())
     return (f"Dziś jest {_DAYS[now.weekday()]}, {_ordinal_day(now.day)} "
