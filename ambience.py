@@ -111,6 +111,7 @@ def _play(p):
                            preexec_fn=_die_with_parent)
     p["proc"] = out
     gen, gain, t0 = _Gen(p["kind"]), 0.0, time.time()
+    written = 0.0
     try:
         while not p["stop"].is_set():
             now = time.time()
@@ -125,6 +126,10 @@ def _play(p):
             x = gen.block() * np.linspace(gain, new, BLOCK)
             gain = new
             out.stdin.write((np.clip(x, -1, 1) * 32767).astype(np.int16).tobytes())
+            written += BLOCK / RATE
+            ahead = written - (time.time() - t0)
+            if ahead > 0.5:                        # real-time pace: the ducking and
+                time.sleep(ahead - 0.5)            # the fades follow the clock
     except (BrokenPipeError, OSError):
         pass
     finally:
