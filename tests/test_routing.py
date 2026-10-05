@@ -92,6 +92,13 @@ LOCAL = {
     "Budź mnie radiem": "radio",
     "Mów krócej": "length",
     "Przywróć listę zakupów": "lists",
+    "Ile zostało na minutniku?": "asked",
+    "Ile zostało do końca minutnika?": "asked",
+    "Co o mnie wiesz?": "asked",
+    "Kto dziś zmywa: Maja, tata czy mama?": "asked",
+    "Wylosuj liczbę od 1 do 6": "asked",
+    "Która godzina w Tokio?": "asked",
+    "Jaki dzień tygodnia będzie 24 grudnia?": "calc",
     "Obudź mnie o 6:30": "timer",
     "Nastaw minutnik na 10 minut na makaron": "timer",
     "Przypomnij mi za 20 minut o praniu": "timer",
@@ -204,7 +211,6 @@ MODEL = [
     "Jestem głodny",
     "Mam dzisiaj urodziny",
     "Co mamy dzisiaj?",
-    "Ile zostało do końca minutnika?",
     "Ile mamy czasu do wyjścia?",
     "Co wiesz o dinozaurach?",
     "Wybierz mi dobry film na wieczór",
@@ -411,6 +417,12 @@ class RoutingTest(unittest.TestCase):
                                   lambda n, **k: True)
         if "<BYE>" in said:
             self._mark("bye")
+        if any(t.startswith(("Nie mam teraz żadnego minutnika", "Zostało", "Zostały",
+                             "Nie poznaję cię", "Losuję", "Wybieram", "W Tokio",
+                             "24 grudnia wypada", "Jeszcze niczego o tobie", "Emilka",
+                             "Maja"))
+               for t in said):
+            self._mark("asked")
         if any(t.startswith(("Przywróciłam", "Nie mam czego przywrócić")) for t in said):
             self._mark("lists")
         if any(t.startswith("Stoper") for t in said):
@@ -479,6 +491,17 @@ class RoutingTest(unittest.TestCase):
                     with state.lock:
                         state.sleep_mode = False
                     self.assertEqual(self.route(text), "model")
+
+    def test_family_questions_answered_locally(self):
+        """"Gdzie jest Emilka?" with the family known: answered here, before
+        the question guard (it once sent these to the model)."""
+        import faces
+        with mock.patch.object(faces, "names", lambda: ["Andrzej", "Emilka", "Maja"]):
+            for text in ("Gdzie jest Emilka?", "Widziałaś dziś Maję?",
+                         "Czy była już Maja?"):
+                with self.subTest(text=text):
+                    self.assertEqual(self.route(text), "asked")
+            self.assertEqual(self.route("Gdzie jest pilot?"), "model")
 
     def test_mute(self):
         self.assertEqual(self.route("Luna, cicho"), "mute")

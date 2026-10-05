@@ -292,7 +292,7 @@ def local_alarm(text):
     return f"{h:02d}:{mi:02d}", repeat
 
 
-_WHERE = re.compile(r"\b(?:gdzie\s+(?:jest|się\s+podziała?|podziała?\s+się)|"
+_WHERE = re.compile(r"\b(?:gdzie\s+(?:jest|się\s+podziała?|podziała?\s+się)\s+|"
                     r"(?:kiedy\s+)?(?:ostatnio\s+)?widziała[sś]\s+(?:dziś\s+|dzisiaj\s+|"
                     r"ostatnio\s+)?|czy\s+(?:był[aoy]?|przyszedł|przyszła)\s+(?:już\s+)?)"
                     r"(\w+)", re.I)
@@ -756,6 +756,24 @@ def handle(text, speak, play_sound):
         speak(said)
         return True
 
+    # questions she answers herself, exactly (they must come before the guard)
+    import timers
+    said = timers.left_answer(text)                # "ile zostało na minutniku?"
+    if not said:
+        m = _WHERE.search(text)                    # "gdzie jest Maja?"
+        if m and _short(text, 8):
+            import faces
+            who = faces.match_name(m.group(1))
+            said = faces.where_is(who) if who else None
+    if not said:
+        said = _memory_talk(text)                  # "co o mnie wiesz?", "zapomnij, że…"
+    if not said:
+        import fun
+        said = fun.random_answer(text)             # "kto zmywa: Maja czy tata?"
+    if said:
+        speak(said)
+        return True
+
     # everything below acts on a request — never on a question about it
     if question:
         return False
@@ -829,10 +847,6 @@ def handle(text, speak, play_sound):
 
     # "minutnik na 10 minut" — instant, and works without the cloud
     import timers
-    said = timers.left_answer(text)                # "ile zostało na minutniku?"
-    if said:
-        speak(said)
-        return True
     labelled = timers.local_labelled_timer(text)  # "…na 10 minut na makaron"
     if labelled:
         secs, label = labelled
@@ -979,19 +993,6 @@ def handle(text, speak, play_sound):
         return True
 
     # faces: "to jest Kasia" / "jestem Andrzej" / "zapomnij moją twarz"
-    m = _WHERE.search(text)                        # "gdzie jest Maja?"
-    if m and _short(text, 8):
-        import faces
-        who = faces.match_name(m.group(1))
-        if who:
-            speak(faces.where_is(who))
-            return True
-
-    said = _memory_talk(text)                      # "co o mnie wiesz?", "zapomnij, że…"
-    if said:
-        speak(said)
-        return True
-
     m = _FACE_FORGET.search(text)
     if m and _short(text, 6):
         import faces
