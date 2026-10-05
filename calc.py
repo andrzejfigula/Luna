@@ -409,6 +409,48 @@ _WHEN_Q = re.compile(r"\bkiedy\s+(?:w\s+tym\s+roku\s+)?(?:jest|będzie|bedzie|wy
                      r"(.+?)(?:\s+w\s+tym\s+roku)?[?.!]*$", re.I)
 
 
+_SINCE_Q = re.compile(r"\bile\s+(?:dni\s+|już\s+|juz\s+)*(?:minęło|minelo|upłynęło|uplynelo|"
+                      r"jest|mamy)\s+(?:dni\s+)?od\s+(.+?)[?.!]*$", re.I)
+
+
+def days_since(text, today=None):
+    """"Ile dni minęło od 1 września?", "…od Wigilii?" → the count back to the
+    last time that date was; None for anything else."""
+    m = _SINCE_Q.search(text.lower())
+    if not m:
+        return None
+    today = today or _today()
+    what = m.group(1).strip()
+    year_ago = date(today.year - 1, today.month, min(today.day, 28))
+    hit = _target("do " + what, year_ago)       # the next one after a year ago…
+    if hit is None or hit[0] == "weekend" or hit[2] in _WEEKDAY_NOM:
+        return None
+    d, gen, nom, used = hit
+    if what.replace(used, "").strip():
+        return None
+    for stems, when, g, n in _DAYS_OF:           # …a holiday: its own date this year
+        if g == gen:
+            d = when(today.year)
+            if d > today:
+                d = when(today.year - 1)
+            break
+    else:
+        try:
+            d2 = d.replace(year=today.year)
+        except ValueError:                       # 29 February
+            d2 = d
+        d = d2 if d2 <= today else d2.replace(year=today.year - 1)
+    days = (today - d).days
+    since = f"od {gen}"
+    if days == 0:
+        return "To dzisiaj!"
+    weeks = f", czyli około {round(days / 7)} {_plural(round(days / 7), 'tydzień', 'tygodnie', 'tygodni')}" \
+        if days >= 14 else ""
+    verb = _plural(days, "minął", "minęły", "minęło")
+    return (f"{since[0].upper()}{since[1:]} {verb} {days} "
+            f"{_plural(days, 'dzień', 'dni', 'dni')}{weeks}.")
+
+
 def holiday_when(text, today=None):
     """"Kiedy jest Wielkanoc?", "kiedy wypada tłusty czwartek?" → the date,
     the weekday and how far; None for anything else. (Movable feasts are
@@ -524,4 +566,4 @@ def time_until(text, now=None):
 
 def answer(text):
     return (arithmetic(text) or days_until(text) or time_until(text) or weekday_of(text)
-            or holiday_when(text))
+            or holiday_when(text) or days_since(text))

@@ -172,6 +172,17 @@ class TimersTest(unittest.TestCase):
         self.assertIsNone(calc.weekday_of("Jaki dzień będzie w piątek?", today))
         self.assertIsNone(calc.weekday_of("Jaki dzień był wczoraj?", today))
 
+    def test_days_since(self):
+        import calc
+        today = datetime.date(2026, 10, 5)
+        self.assertEqual(calc.days_since("Ile dni minęło od 1 września?", today),
+                         "Od 1 września minęły 34 dni, czyli około 5 tygodni.")
+        self.assertEqual(calc.days_since("Ile dni minęło od Wigilii?", today),
+                         "Od Wigilii minęło 285 dni, czyli około 41 tygodni.")
+        self.assertEqual(calc.days_since("ile minęło od trzeciego października", today),
+                         "Od 3 października minęły 2 dni.")
+        self.assertIsNone(calc.days_since("Ile minęło od kiedy się poznaliśmy?", today))
+
     def test_holidays(self):
         import calc
         today = datetime.date(2026, 10, 5)
