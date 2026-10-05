@@ -1,6 +1,7 @@
 """The parts of Luna that are pure logic — no Pi, no network, no audio."""
 
 import datetime
+import json
 import os
 import sys
 import shutil
@@ -606,6 +607,64 @@ class BirthdayTest(unittest.TestCase):
             self.assertIn("in 3 days", birthdays.prompt_line(datetime.date(2026, 5, 9)))
             self.assertIn("TODAY is Maja's birthday — turns 8",   # in May 2026
                           birthdays.prompt_line(datetime.date(2026, 5, 12)))
+
+
+class FileReloadTest(unittest.TestCase):
+
+    def test_settings_see_changes_made_by_others(self):
+        settings.put("a", 1)
+        with open(settings.SETTINGS_PATH, encoding="utf-8") as f:
+            data = json.load(f)
+        data["b"] = 2                                   # someone else edits the file
+        time.sleep(0.02)
+        with open(settings.SETTINGS_PATH, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+        settings.put("c", 3)                            # …and is not overwritten
+        self.assertEqual(settings.get("b"), 2)
+        self.assertEqual(settings.get("c"), 3)
+
+
+class FacesReloadTest(unittest.TestCase):
+
+    def test_people_file_changed_by_someone_else(self):
+        import faces
+        faces.PEOPLE_PATH = os.path.join(TMP, "people-reload.json")
+        faces._people, faces._mtime[0] = None, None
+        with open(faces.PEOPLE_PATH, "w", encoding="utf-8") as f:
+            json.dump({"Maja": {"samples": [], "added": 0}}, f)
+        faces._load()                                   # Luna has it cached…
+        time.sleep(0.02)
+        with open(faces.PEOPLE_PATH, "w", encoding="utf-8") as f:   # …a script adds a field
+            json.dump({"Maja": {"samples": [], "added": 0, "voc": "Maju"}}, f)
+        faces.set_vocative("Maja", faces.vocatives()["Maja"])        # a write by Luna
+        with open(faces.PEOPLE_PATH, encoding="utf-8") as f:
+            self.assertEqual(json.load(f)["Maja"]["voc"], "Maju")    # not lost
+
+
+class ErrandsTest(unittest.TestCase):
+
+    def test_tell_maja_when_you_see_her(self):
+        import errands
+        import faces
+        errands.PATH = os.path.join(TMP, "errands.json")
+        with mock.patch.object(faces, "names", lambda: ["Andrzej", "Emilka", "Maja"]):
+            with state.lock:
+                state.person = ("Andrzej", 0.9, time.time())
+            self.assertEqual(errands.take("Luna, przekaż Mai, żeby posprzątała pokój."),
+                             ("Maja", "żeby posprzątała pokój"))
+            self.assertEqual(errands.take("Jak zobaczysz Emilkę, powiedz jej, że dzwoniła "
+                                          "babcia")[0], "Emilka")
+            self.assertIsNone(errands.take("Powiedz mi, że wszystko będzie dobrze"))
+            self.assertIsNone(errands.take("Przekaż Oli, że…"))       # unknown person
+            with state.lock:
+                state.person = None
+            self.assertEqual(len(errands.waiting("Maja")), 1)
+            said = []
+            with mock.patch.object(errands, "_phrase", lambda e: "Maju, tata prosi…"):
+                self.assertTrue(errands.deliver("Maja", said.append))
+            self.assertEqual(said, ["Maju, tata prosi…"])
+            self.assertEqual(errands.waiting("Maja"), [])              # said once
+            self.assertEqual(len(errands.waiting("Emilka")), 1)
 
 
 class BackupTest(unittest.TestCase):

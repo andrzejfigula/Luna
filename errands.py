@@ -51,10 +51,13 @@ def _save(items):
 def take(text):
     """An errand being given → (to, words) saved; None if it isn't one."""
     import faces
-    m = _ASK.search(text) or _WHEN.search(text)
-    if not m:
-        return None
-    to = faces.match_name(m.group(1))
+    # both shapes; the one whose name is someone she knows ("powiedz jej" is no one)
+    m = to = None
+    for rx in (_WHEN, _ASK):
+        m = rx.search(text)
+        to = faces.match_name(m.group(1)) if m else None
+        if to:
+            break
     if not to:
         return None
     with state.lock:
@@ -93,13 +96,15 @@ def _phrase(e):
             model=OPENAI_MODEL, temperature=0.3, max_tokens=80,
             messages=[{"role": "user", "content":
                        f"Jesteś Luną, małym robotem (mów o sobie w rodzaju żeńskim). "
-                       f"{frm or 'Ktoś z domu'} ({notes.get(frm, '') if frm else ''}) "
-                       f"poprosił cię, żebyś przekazała osobie {e['to']} "
+                       + (f"{frm} ({notes.get(frm, '')}) poprosił cię, " if frm else
+                          "Ktoś z domu (NIE wiesz kto — nie zgaduj i nie mów kto) poprosił cię, ")
+                       + f"żebyś przekazała osobie {e['to']} "
                        f"({notes.get(e['to'], '')}) to: \"{e['words']}\". Powiedz to "
                        f"teraz bezpośrednio do tej osoby, zaczynając od \"{voc}\", jednym "
                        "lub dwoma krótkimi zdaniami, w formie zwracania się do niej "
-                       "(np. \"żebyś posprzątała\"), mówiąc kto prosił (dla dziecka "
-                       "rodzic to tata/mama). Tylko te słowa, bez cudzysłowu."}])
+                       "(np. \"żebyś posprzątała\")" + (", mówiąc kto prosił (dla dziecka "
+                       "rodzic to tata/mama)" if frm else "") +
+                       ". Tylko te słowa, bez cudzysłowu."}])
         out = (r.choices[0].message.content or "").strip().strip('"')
         return out or plain
     except Exception as e2:

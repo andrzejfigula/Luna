@@ -144,6 +144,7 @@ def idle_loop():
     last_touch_sound = 0.0
     greeted_days = {}                    # who (None: unknown) → day of their first hello
     asked_name_at = 0.0                  # when she last asked a stranger their name
+    errands_checked = 0.0                # notes to pass on (errands.py)
 
     while True:
         try:
@@ -221,6 +222,16 @@ def idle_loop():
             elif was_present and not present:
                 left_at = now
             was_present = present
+
+            # ── a note to pass on, and its person is right here ──────────
+            if now - errands_checked > 5:
+                errands_checked = now
+                with state.lock:
+                    p = state.person
+                if (p and now - p[2] < 6 and not _busy() and _voice_allowed(now)):
+                    import errands
+                    if errands.waiting(p[0]):
+                        errands.deliver(p[0], lambda t: speak(t, can_drop=False))
 
             # ── finger held on the screen: "I want to talk to you" ───────
             if touch_t > last_touch_t and touch_kind == "hold":

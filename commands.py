@@ -24,6 +24,7 @@ commands.py — things Luna does herself, without asking the model.
   quiz     "przepytaj mnie z tabliczki mnożenia" (quiz.py)
   remember "zapamiętaj, że klucze są w szufladzie" (memory.add_fact)
   faces    "to jest Kasia", "jestem Andrzej", "zapomnij moją twarz" (faces.py)
+  errands  "przekaż Mai, żeby posprzątała pokój" — said when she sees Maja
   spell    "jak się pisze żółw?" — on the screen and letter by letter
   count    "policz do dwudziestu", "odliczaj od dziesięciu", "włącz stoper" (counting.py)
   kids     "myjemy zęby" (2-minute coach), "zacznij poranek" (a list step by step)
@@ -781,6 +782,14 @@ def handle(text, speak, play_sound):
             known = state.person[0] if state.person else None
         speak(f"Przecież cię znam — to ty, {known}!" if known else
               "Powiedz: zapamiętaj moją twarz, jestem… i swoje imię.")
+        return True
+
+    import errands                                 # "przekaż Mai, żeby…"
+    got = errands.take(text)
+    if got:
+        to, _ = got
+        speak(random.choice((f"Dobrze, przekażę, kiedy {to} się pojawi.",
+                             f"Jasne. Powiem, jak tylko zobaczę: {to}.")))
         return True
 
     note = _remember(text)                         # "zapamiętaj, że …"

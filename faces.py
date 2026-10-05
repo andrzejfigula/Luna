@@ -107,14 +107,30 @@ def embed(bgr_full, row_small, scale):
 
 # ── who is who ────────────────────────────────────────────────────────────────
 
+_mtime = [None]            # people.json as last read or written by THIS process
+
+
+def _file_mtime():
+    try:
+        return os.stat(PEOPLE_PATH).st_mtime_ns
+    except OSError:
+        return None
+
+
 def _load():
+    """The people, re-read when the file was changed by someone else (a
+    script, a hand edit): this cached copy used to be written back over it —
+    the vocatives set on 4 Oct were lost at the next self-learned sample."""
     global _people
-    if _people is None:
+    m = _file_mtime()
+    if _people is None or m != _mtime[0]:
         try:
             with open(PEOPLE_PATH, encoding="utf-8") as f:
                 _people = json.load(f)
         except (OSError, ValueError):
-            _people = {}
+            if _people is None:
+                _people = {}
+        _mtime[0] = m
     return _people
 
 
@@ -123,6 +139,7 @@ def _save():
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(_people, f, ensure_ascii=False)
     os.replace(tmp, PEOPLE_PATH)
+    _mtime[0] = _file_mtime()
 
 
 def names():

@@ -29,6 +29,7 @@ from openai import OpenAI
 
 import reply_scenes
 import birthdays
+import errands
 import faces
 import mood as luna_mood     # ("mood" is the user's mood inside _ask_openai)
 import relationship
@@ -535,6 +536,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   + relationship.prompt_line()
                   + luna_mood.prompt_line()
                   + birthdays.prompt_line()
+                  + errands.prompt_line()
                   + _mood_rule(image_b64 is not None)
                   + body.prompt_line()
                   + weather.prompt_line()
