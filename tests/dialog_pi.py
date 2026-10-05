@@ -118,6 +118,15 @@ CASES = [
     ("Gdzie jest pilot?", MODEL),
     ("Czy możesz mi wytłumaczyć fotosyntezę?", MODEL),
     ("Moja koleżanka gra w kółko i krzyżyk na lekcjach", MODEL),
+    # the internet is down: what still works
+    ("<offline>", None),
+    ("Dopisz mleko i chleb do listy zakupów", "Dopisałam: mleko, chleb"),
+    ("Co mam na liście zakupów?", "mleko, chleb"),
+    ("Nastaw minutnik na 3 minuty", "minutnik na 3 minuty"),
+    ("Przypomnij mi o 23:59, żeby zamknąć okno", "przypomnę o"),
+    ("Która godzina?", "Jest "),
+    ("Jak się masz?", MODEL),                 # brain then says its recorded apology
+    ("<online>", None),
     ("Pa!", ""),                             # last: she goes to sleep
 ]
 
@@ -126,6 +135,10 @@ said = []
 with state.lock:
     state.person = None
 for text, want in CASES:
+    if text in ("<offline>", "<online>"):
+        with state.lock:
+            state.online = text == "<online>"
+        continue
     said.clear()
     reply = memory.check_forget(text)
     if reply:
