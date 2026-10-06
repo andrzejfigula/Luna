@@ -1244,14 +1244,24 @@ def handle(text, speak, play_sound, _polite=True):
         return True
 
     if _bare(text, _SLOWER + _FASTER) or any(k in low for k in _NORMAL_SPEED):
-        cur = settings.get("tts_speed", OPENAI_TTS_SPEED)
+        with state.lock:                       # per person, like the reply length
+            who = state.person[0] if state.person else None
+        by = settings.get("tts_speed_by", {}) or {}
+        cur = by.get(who) or settings.get("tts_speed", OPENAI_TTS_SPEED)
         if any(k in low for k in _NORMAL_SPEED):
             new = OPENAI_TTS_SPEED
         else:
             step = SPEED_STEP if any(k in low for k in _FASTER) else -SPEED_STEP
             new = round(max(SPEED_MIN, min(SPEED_MAX, cur + step)), 2)
-        settings.put("tts_speed", new)
-        print(f"[cmd] speech speed {cur} → {new}", flush=True)
+        if who:
+            if new == OPENAI_TTS_SPEED:
+                by.pop(who, None)
+            else:
+                by[who] = new
+            settings.put("tts_speed_by", by)
+        else:
+            settings.put("tts_speed", new)
+        print(f"[cmd] speech speed{' for ' + who if who else ''} {cur} → {new}", flush=True)
         if new == cur:
             speak("Szybciej już nie umiem." if new >= SPEED_MAX else
                   "Wolniej już nie umiem." if new <= SPEED_MIN else "Mówię normalnie.")

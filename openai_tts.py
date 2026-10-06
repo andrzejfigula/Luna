@@ -54,6 +54,19 @@ from config import (
 
 PCM_RATE = 24000   # fixed by the API for response_format="pcm"
 
+
+def speech_speed():
+    """Her speech rate for whoever is in front of her: "mów szybciej" said by
+    Emilka is Emilka's (settings "tts_speed_by"), else the house setting."""
+    try:
+        from shared_state import state
+        with state.lock:
+            who = state.person[0] if state.person else None
+    except Exception:
+        who = None
+    by = settings.get("tts_speed_by", {}) or {}
+    return by.get(who) or settings.get("tts_speed", OPENAI_TTS_SPEED)
+
 CACHE_MAX_CHARS = 140
 CACHE_STATS = [0, 0]           # hits, misses since start
 CACHE_MAX_FILES = 400          # ~3 s each at 48 kB/s: about 60 MB at most
@@ -261,7 +274,7 @@ class OpenAITTS:
     def _tts_kwargs(self, style):
         kwargs = dict(model=OPENAI_TTS_MODEL, voice=OPENAI_TTS_VOICE,
                       response_format="pcm",
-                      speed=settings.get("tts_speed", OPENAI_TTS_SPEED))
+                      speed=speech_speed())
         instructions = "\n".join(x for x in (OPENAI_TTS_INSTRUCTIONS, style) if x)
         if instructions:
             kwargs["instructions"] = instructions
@@ -392,7 +405,7 @@ class OpenAITTS:
         try:
             kwargs = dict(model=OPENAI_TTS_MODEL, voice=OPENAI_TTS_VOICE,
                           input=text, response_format="pcm",
-                          speed=settings.get("tts_speed", OPENAI_TTS_SPEED))
+                          speed=speech_speed())
             instructions = "\n".join(x for x in (OPENAI_TTS_INSTRUCTIONS, style) if x)
             if instructions:
                 kwargs["instructions"] = instructions
@@ -483,7 +496,7 @@ class OpenAITTS:
             self._cut.clear()
             kwargs = dict(model=OPENAI_TTS_MODEL, voice=OPENAI_TTS_VOICE,
                           response_format="pcm",
-                          speed=settings.get("tts_speed", OPENAI_TTS_SPEED))
+                          speed=speech_speed())
             instructions = "\n".join(x for x in (OPENAI_TTS_INSTRUCTIONS, style) if x)
             if instructions:
                 kwargs["instructions"] = instructions
