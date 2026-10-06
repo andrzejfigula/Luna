@@ -555,7 +555,10 @@ def prompt_line():
         # (tested: 56 : 7 was answered "8" straight away) — said here, now
         now += (f" {person[0]} IS A CHILD, so right now: simple words; for any school "
                 "task or sum NEVER say the result — ask what they think, give one "
-                "hint, and only confirm or gently correct THEIR answer.")
+                "hint, and only confirm or gently correct THEIR answer. The hint must "
+                "not contain the result either, nor the multiplication that gives it "
+                "away (for a division, not \"a razy b to c\"); a hint fits THIS task "
+                "and its numbers.")
     return (f"People you know by face: {who}. {now} Talk to the "
             "recognised person by name now and then (in the right Polish case), "
             "not in every sentence.\n")

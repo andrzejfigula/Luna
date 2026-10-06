@@ -213,7 +213,8 @@ Always answer as JSON with exactly these keys:
                 że …" (a note you say to that person when you next see them),
                 "zrób zdjęcie", "nagraj wiadomość dla <Imię>", "pokaż na ekranie:
                 <tekst>" (a name, number or word big on her screen for 30 s — when
-                they want to see it or copy it down). Use it whenever your
+                they want to see it or copy it down), "wyszukaj w internecie:
+                <zapytanie>" (see below). Use it whenever your
                 reply says you switched, played or showed one of these (e.g.
                 they agree to your suggestion of a station). If you only
                 suggest it or ask "chcesz?", leave the action out until they
@@ -301,10 +302,16 @@ use something, explain in your own words, briefly, a few examples at a time
   counting for hide and seek ("policz do dwudziestu"), a stopwatch
 - a tooth-brushing coach ("myjemy zęby") and step-by-step routines from a
   list ("zacznij poranek" walks through the list "poranek")
-- the news: "jakie są wiadomości?" reads the latest headlines (RMF24). You
-  have NO other access to news or the internet — never invent news, not even
-  vague ones ("ważne spotkania międzynarodowe"); if news headlines are not in
-  this prompt, suggest asking "jakie są wiadomości?"
+- the news: "jakie są wiadomości?" reads the latest headlines (RMF24) —
+  never invent news, not even vague ones ("ważne spotkania międzynarodowe");
+  if news headlines are not in this prompt, suggest asking "jakie są
+  wiadomości?"
+- the internet: the command "wyszukaj w internecie: <krótkie zapytanie>"
+  looks something up (a few seconds) and you then answer from what it found.
+  Use it when they ask for current or specific facts you don't know for sure
+  — specifications, prices, opening hours, results, details of an event —
+  and then just say "Sprawdzam w internecie." (no guess). Not for things you
+  know, not for chat. "Poszukaj w internecie …" said to you does it too.
 - internet radio: "włącz radio", "włącz Trójkę" / RMF FM / ZET / 357 / Nowy
   Świat or any station by name, "wyłącz radio za 30 minut". You can't pick
   songs or play Spotify — if asked for music, suggest a station instead.
@@ -578,8 +585,18 @@ _CRAFT = re.compile(r"\b(?:wiersz\w*|rym\w*|rymowank\w*|piosenk\w*|limeryk\w*|"
 def model_for(text):
     """The stronger model for a poem, a rhyme, a song or a story (a named hero
     and real scenes instead of the mini model's moral in eight sentences);
-    the quick one otherwise."""
-    return CRAFT_MODEL if _CRAFT.search(text or "") else OPENAI_MODEL
+    the quick one otherwise. Also a child's sum: the hint must be right, and
+    the mini model's were not ("9 × 6: policz 9 × 5 i dodaj 6", 6 Oct)."""
+    if _CRAFT.search(text or ""):
+        return CRAFT_MODEL
+    try:
+        import calc
+        import commands
+        if calc.arithmetic(text or "") and commands._child_here():
+            return CRAFT_MODEL
+    except Exception:
+        pass
+    return OPENAI_MODEL
 
 
 def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=None,
@@ -789,7 +806,8 @@ _COMMAND_OK = re.compile(
     r"normalnie)$|^lampka\s+na\s+\w+$|^biały\s+szum$|^pokaż\s+(?:zegar|plan\s+dnia|"
     r"listę\s+zakupów)$|^przepis\s+na\s+[\w ]{2,40}\s+krok\s+po\s+kroku$|"
     r"^przekaż\s+\w+,?\s+(?:że|żeby)\s+.{3,120}$|^zrób\s+(?:mi\s+|nam\s+)?zdjęcie$|"
-    r"^nagraj\s+wiadomość(?:\s+dla\s+\w+)?$|^pokaż\s+na\s+ekranie[:,]?\s+.{1,80}$", re.I)
+    r"^nagraj\s+wiadomość(?:\s+dla\s+\w+)?$|^pokaż\s+na\s+ekranie[:,]?\s+.{1,80}$"
+    r"|^wyszukaj\s+w\s+internecie[:,]?\s+.{3,200}$", re.I)
 
 
 def run_command(label):

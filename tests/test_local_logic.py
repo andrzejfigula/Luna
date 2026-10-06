@@ -172,6 +172,18 @@ class TimersTest(unittest.TestCase):
             self.assertEqual(timers.apply([{"type": "reminder", "seconds": 0, "at": "",
                                             "label": "x"}]), [])
 
+    def test_websearch_parsing(self):
+        import websearch
+        self.assertEqual(websearch.request("Luna, poszukaj w internecie jaki zasięg ma Rode NT-USB?"),
+                         "jaki zasięg ma Rode NT-USB")
+        self.assertEqual(websearch.request("sprawdź w internecie: godziny otwarcia Biedronki"),
+                         "godziny otwarcia Biedronki")
+        self.assertIsNone(websearch.request("poszukaj kluczy"))
+        self.assertIsNone(websearch.request("czy masz internet?"))
+        self.assertEqual(websearch.clean("## [Biedronka](https://x.pl/a) jest **czynna** do 23. "
+                                         "([maps.google.com](https://maps.google.com))"),
+                         "Biedronka jest czynna do 23.")
+
     def test_show_text_on_screen(self):
         import commands
         from shared_state import state

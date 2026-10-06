@@ -191,6 +191,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Szybkość | mówi o 20% szybciej (Emilka: jeszcze trochę szybciej, jak sobie życzyła) i odpowiada szybciej — krócej czeka na koniec zdania i zaczyna mówić od pierwszego przecinka. „Mów normalnie” wraca do nowego tempa |
 | „Zawieszanie się” w rozmowie | gdy usługa w chmurze (rozpoznawanie mowy, model, głos) odpowiada za wolno, Luna po chwili wysyła to samo zapytanie drugi raz i bierze szybszą odpowiedź — koniec długich cisz |
 | **Nowe: napis na ekranie** — „Pokaż mi to na ekranie”, „napisz na ekranie Shure MV7”, „wyświetl mi tę nazwę” | duży napis na 30 sekund (stuknięcie zamyka) — do przepisania nazwy, numeru, słowa |
+| **Nowe: wyszukiwanie w internecie** — „Poszukaj w internecie, jaki zasięg ma Rode NT-USB”, „sprawdź w internecie godziny otwarcia Biedronki”; Luna też sama sprawdza, gdy pytasz o konkretne fakty, których nie zna | mówi „Sprawdzam w internecie…” i po kilku sekundach odpowiada z tego, co znalazła |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 

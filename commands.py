@@ -906,6 +906,14 @@ def handle(text, speak, play_sound, _polite=True):
     # "jak się pisze żółw?" — a question, but one she answers on the screen
     if show_text(text, speak):                  # "napisz na ekranie …"
         return True
+    import websearch                            # "poszukaj w internecie …"
+    query = websearch.request(text)
+    if query is None:
+        m = re.match(r"^wyszukaj\s+w\s+internecie[:,]?\s+(.{3,200})$", text.strip(), re.I)
+        if m:                                   # the model's command: it said "sprawdzam"
+            return websearch.start(m.group(1), speak, announce=False)
+    else:
+        return websearch.start(query, speak)
     word = _spell_word(text)
     if word:
         _spell(word, speak)
