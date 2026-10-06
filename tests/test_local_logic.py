@@ -1142,6 +1142,19 @@ class KidsTest(unittest.TestCase):
         self.assertIn("Andrzej był tu", faces.where_is("Andrzej", t0 + 7200))
         self.assertNotIn("?", faces._seen)
 
+    def test_english_side_talk(self):
+        from unittest import mock
+        with mock.patch.dict(sys.modules, {"sounddevice": mock.MagicMock(),
+                                           "vosk": mock.MagicMock(),
+                                           "brain": mock.MagicMock(translator=lambda: None)}):
+            import speech_to_text as s
+            self.assertTrue(s.english_side_talk(
+                "upload kind of attachment and then download it directly to this."))
+            self.assertTrue(s.english_side_talk("We are more worried about the computations."))
+            self.assertFalse(s.english_side_talk("Luna, what time is it?"))
+            self.assertFalse(s.english_side_talk("Włącz radio."))
+            self.assertFalse(s.english_side_talk("OK."))
+
     def test_fast_command(self):
         from unittest import mock
         with mock.patch.dict(sys.modules, {"sounddevice": mock.MagicMock(),

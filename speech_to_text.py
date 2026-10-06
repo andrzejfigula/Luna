@@ -435,6 +435,28 @@ def fast_command(text, conf):
     return t
 
 
+_EN_WORDS = {"the", "and", "is", "are", "it", "to", "of", "we", "you", "that", "this", "if",
+             "so", "do", "be", "on", "in", "for", "with", "there", "they", "what", "have",
+             "just", "then", "need", "want", "can", "will", "not", "yeah", "basically", "like"}
+
+
+def english_side_talk(text):
+    """An English sentence with no "Luna" in it, while she isn't translating:
+    the family speaks Polish to her, so it is someone's call or a video."""
+    words = re.findall(r"[a-ząćęłńóśźż']+", text.lower())
+    if len(words) < 3 or any(w in ("luna", "luno") for w in words):
+        return False
+    if re.search(r"[ąćęłńóśźż]", text.lower()):
+        return False
+    try:
+        import brain
+        if brain.translator():
+            return False                       # interpreting: English is expected
+    except Exception:
+        pass
+    return sum(w in _EN_WORDS for w in words) >= max(2, len(words) // 4)
+
+
 def foreign_script(text):
     """Letters outside the Latin script (Cyrillic, Greek, CJK…) — nobody here
     speaks those; it is the transcriber guessing the language wrong."""
@@ -919,6 +941,14 @@ def listen():
                     # nobody said. Keep listening instead.
                     print(f"[STT] cloud heard no speech — dropping Vosk's \"{text}\"")
                     _save_utterance(utt_pcm, text, cloud, "(dropped)")
+                    with state.lock:
+                        state.luna_mode = "listening"
+                        state.listening = True
+                    continue
+                if cloud and english_side_talk(cloud):
+                    # a work call in English next to her ("upload it and then
+                    # download it…" got an answer on 5 Oct): not said to her
+                    print(f"[STT] English side talk — ignored: \"{cloud}\"", flush=True)
                     with state.lock:
                         state.luna_mode = "listening"
                         state.listening = True
