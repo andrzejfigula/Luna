@@ -66,6 +66,23 @@ def feminize(text):
 
 
 
+# "Co chciałbyś przeczytać?" to someone she doesn't recognise (6 Oct: most
+# likely Maja) — the conditional "you" forms guess a gender; the plain present
+# says the same without guessing
+_NEUTRAL_YOU = {"chciałbyś": "chcesz", "chciałabyś": "chcesz", "mógłbyś": "możesz",
+                "mogłabyś": "możesz", "wolałbyś": "wolisz", "wolałabyś": "wolisz"}
+_NEUTRAL_YOU_RE = re.compile(r"\b(" + "|".join(_NEUTRAL_YOU) + r")\b", re.I)
+
+
+def neutral_you(text):
+    """Gender-free "you" for an unrecognised listener (only forms that map
+    cleanly onto the present tense)."""
+    def swap(m):
+        w = _NEUTRAL_YOU[m.group(1).lower()]
+        return w.capitalize() if m.group(1)[0].isupper() else w
+    return _NEUTRAL_YOU_RE.sub(swap, text or "")
+
+
 _OFFER = re.compile(r"(?:chcesz|może|moze|czy|mam)\b[^.!?]*\b(?:dopis|doda|włącz|wlacz|nastaw|"
                     r"przypomn|zapis|ustaw|puści|pusci|skreśl|skresl|usun)\w*[^.!?]*\?", re.I)
 _DONE = re.compile(r"\b(?:dodałam|dopisałam|włączam|wlaczam|nastawiam|nastawiłam|ustawiam|"

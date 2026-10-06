@@ -172,6 +172,13 @@ class TimersTest(unittest.TestCase):
             self.assertEqual(timers.apply([{"type": "reminder", "seconds": 0, "at": "",
                                             "label": "x"}]), [])
 
+    def test_neutral_you(self):
+        from polish import neutral_you
+        self.assertEqual(neutral_you("Co chciałbyś przeczytać?"), "Co chcesz przeczytać?")
+        self.assertEqual(neutral_you("Chciałabyś posłuchać?"), "Chcesz posłuchać?")
+        self.assertEqual(neutral_you("Mógłbyś powtórzyć?"), "Możesz powtórzyć?")
+        self.assertEqual(neutral_you("Chciałabym zaśpiewać."), "Chciałabym zaśpiewać.")
+
     def test_empty_promise(self):
         from polish import empty_promise
         self.assertTrue(empty_promise("Dobrze, przypomnę ci o tym, jeśli chcesz.", []))

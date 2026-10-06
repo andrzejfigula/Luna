@@ -82,7 +82,16 @@ def _local_now_text():
             f"({LUNA_TIMEZONE if _TZ else 'system'}, {now.strftime('%Z')}, "
             f"UTC{off[:3]}:{off[3:]})")
 
-from polish import feminize as _feminize, offer_only, empty_promise   # (polish.py)
+from polish import feminize, offer_only, empty_promise, neutral_you   # (polish.py)
+
+
+def _feminize(text):
+    """Her own forms feminine; and with nobody recognised in front of her, no
+    guessed gender for "you" either."""
+    text = feminize(text)
+    with state.lock:
+        known = state.person is not None
+    return text if known else neutral_you(text)
 
 
 # Face states robot_face.py knows how to draw. The model must pick one.
