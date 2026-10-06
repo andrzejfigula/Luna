@@ -539,13 +539,59 @@ class OpenAITTS:
                 on_audio_start()   # never leave the caller waiting for sync
 
     # ── a reply that arrives sentence by sentence ───────────────────────────
-    def speak_stream(self, sentences, on_audio_start=None, style=""):
+    def start_stream(self, sentences, style=""):
+        """Start fetching the audio of sentences as they come — no lock, so it
+        can begin while something else is still playing (a "hmm" filler held
+        the answer's voice request back ~0.5 s, 6 Oct). Returns the queue of
+        per-sentence chunk queues for speak_stream(parts=…), or None when
+        there is no voice."""
+        if self._client is None or self._raw_cmd is None:
+            return None
+        self._cut.clear()
+        kwargs = dict(model=OPENAI_TTS_MODEL, voice=OPENAI_TTS_VOICE,
+                      response_format="pcm",
+                      speed=speech_speed())
+        instructions = "\n".join(x for x in (OPENAI_TTS_INSTRUCTIONS, style) if x)
+        if instructions:
+            kwargs["instructions"] = instructions
+
+        parts = queue.Queue()        # one chunk queue per sentence, in order
+
+        def fetch(text, q):
+            try:
+                for chunk in self._hedged(text, kwargs):
+                    if self._cut.is_set():
+                        break
+                    q.put(chunk)
+            except Exception as e:
+                if not self._cut.is_set():
+                    print(f"[TTS] streaming error: {e}")
+            finally:
+                q.put(None)
+
+        def feeder():
+            try:
+                for text in sentences:
+                    if self._cut.is_set():
+                        continue             # drain the producer quietly
+                    q = queue.Queue()
+                    parts.put(q)
+                    threading.Thread(target=fetch, args=(text, q),
+                                     daemon=True).start()
+            finally:
+                parts.put(None)
+
+        threading.Thread(target=feeder, daemon=True).start()
+        return parts
+
+    def speak_stream(self, sentences, on_audio_start=None, style="", parts=None):
         """Speak sentences as they come (an iterator that blocks until the
         next one is ready). ONE player for the whole reply; each sentence's
         audio is fetched in its own thread the moment the sentence exists, so
         sentence 2 downloads while sentence 1 plays. If the next audio is not
         there yet, short silence keeps the player fed — an underrun would
-        crackle — and that shows up as a natural pause."""
+        crackle — and that shows up as a natural pause. parts: already
+        started with start_stream()."""
         with self.lock:
             if self._client is None or self._raw_cmd is None:
                 for _ in sentences:
@@ -553,41 +599,8 @@ class OpenAITTS:
                 if on_audio_start:
                     on_audio_start()
                 return
-            self._cut.clear()
-            kwargs = dict(model=OPENAI_TTS_MODEL, voice=OPENAI_TTS_VOICE,
-                          response_format="pcm",
-                          speed=speech_speed())
-            instructions = "\n".join(x for x in (OPENAI_TTS_INSTRUCTIONS, style) if x)
-            if instructions:
-                kwargs["instructions"] = instructions
-
-            parts = queue.Queue()        # one chunk queue per sentence, in order
-
-            def fetch(text, q):
-                try:
-                    for chunk in self._hedged(text, kwargs):
-                        if self._cut.is_set():
-                            break
-                        q.put(chunk)
-                except Exception as e:
-                    if not self._cut.is_set():
-                        print(f"[TTS] streaming error: {e}")
-                finally:
-                    q.put(None)
-
-            def feeder():
-                try:
-                    for text in sentences:
-                        if self._cut.is_set():
-                            continue             # drain the producer quietly
-                        q = queue.Queue()
-                        parts.put(q)
-                        threading.Thread(target=fetch, args=(text, q),
-                                         daemon=True).start()
-                finally:
-                    parts.put(None)
-
-            threading.Thread(target=feeder, daemon=True).start()
+            if parts is None:
+                parts = self.start_stream(sentences, style)
 
             if self._out:
                 # the persistent player fills any wait with silence itself

@@ -1088,6 +1088,16 @@ def listen():
                             with state.lock:
                                 state.conversation_active = True
                                 state.last_activity_time  = time.time()
+                            if cleaned and cut_off(cleaned) and not messages_armed():
+                                # "Hej Luna, jaki jest najlepszy sposób..." — wait for the rest
+                                # (6 Oct 21:44: answered at once, "Chyba nie dokończyłeś pytania")
+                                _held, active = (cleaned, time.time()), True
+                                print(f"[STT] cut off mid-sentence — waiting for the rest: \"{cleaned}\"",
+                                      flush=True)
+                                with state.lock:
+                                    state.luna_mode = "listening"
+                                    state.listening = True
+                                continue
                             return cleaned if cleaned else WAKE_ACK
                     print(f"[STT] Dropped (noise): \"{text}\" conf={conf:.2f}")
                     with state.lock:
@@ -1232,6 +1242,16 @@ def listen():
                 with state.lock:
                     state.conversation_active = True
                     state.last_activity_time  = time.time()
+                if cleaned and cut_off(cleaned) and not messages_armed():
+                    # "Hej Luna, jaki jest najlepszy sposób..." — wait for the rest
+                    # (6 Oct 21:44: answered at once, "Chyba nie dokończyłeś pytania")
+                    _held, active = (cleaned, time.time()), True
+                    print(f"[STT] cut off mid-sentence — waiting for the rest: \"{cleaned}\"",
+                          flush=True)
+                    with state.lock:
+                        state.luna_mode = "listening"
+                        state.listening = True
+                    continue
                 return cleaned if cleaned else WAKE_ACK
 
             note_side_speech()                     # people talking, not to her

@@ -216,11 +216,24 @@ def speak_stream(sentences):
             _caption(sentence)
             yield sentence
 
+    # the voice requests start NOW — before the speaking lock, which a "hmm"
+    # filler may still hold; only the playback waits for it
+    sentences_iter = collect()
+    parts = tts.start_stream(sentences_iter, style=_current_style())
+
     def run(style):
-        tts.speak_stream(collect(), on_audio_start=_on_audio_start, style=style)
+        tts.speak_stream(sentences_iter, on_audio_start=_on_audio_start, style=style,
+                         parts=parts)
         _last_answer[0] = " ".join(said)
 
     _speaking(run, lambda: " ".join(said), False)
+
+
+def _current_style():
+    """The delivery for what she says now (her emotion, who listens)."""
+    with state.lock:
+        feel, listener = state.voice_mood or state.emotion, state.user_mood
+    return _voice_style(feel, listener)
 
 
 def _speaking(run, spoken_text, can_drop):
