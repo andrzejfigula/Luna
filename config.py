@@ -615,7 +615,7 @@ WAVE_MAX_BELOW_FACE    = 1.3   # the hand's mean height: not lower than this
 # current frame shows an open, empty hand waving. ~1 s, a fraction of a cent.
 WAVE_CLOUD_CONFIRM     = False   # off: too slow (~1 s) and missed real waves
 WAVE_CONFIRM_MIN_GAP   = 3.0
-WAVE_SPEAK_GAP         = 120   # she waves back every time, but SAYS hello at most
+WAVE_SPEAK_GAP         = 900   # she waves back every time, but SAYS hello at most
                                # this often   # seconds between confirmation requests
 
 # Local wave-vs-object check: skin colour. The face gives the person's own
