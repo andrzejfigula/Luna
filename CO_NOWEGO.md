@@ -186,6 +186,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | „Co dzisiaj ważnego się stało na świecie?” | czyta prawdziwe nagłówki z RMF24; gdy sama zaproponuje wiadomości, wystarczy „chcę” (wcześniej potrafiła je zmyślić) |
 | „Wymyśl wierszyk o kotku”, „bajka na dobranoc” | wierszyki (dwie zwrotki, prawdziwe rymy) i bajki pisze mocniejszy model — bajka ma bohatera z imieniem i prawdziwe przygody; wierszyk nie urywa się na „chcesz, żebym dokończyła?” |
 | **Nowe: czytanie na głos** — „Posłuchaj, jak czytam” / „Czy mogę ci poczytać?” | Luna mówi „Słucham!” i cicho słucha (przerwy nie przeszkadzają); po „koniec” albo chwili ciszy chwali konkretnie to, co przeczytane, i może zadać jedno pytanie o historyjkę. „Przestań” kończy bez komentarza |
+| „Który wierszyk jest ładniejszy?” (gdy Luna nie słyszała) | mówi uczciwie, że słyszała tylko kawałek, i prosi „przeczytaj mi oba” — wtedy sama słucha do „koniec” i dopiero potem porównuje |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 

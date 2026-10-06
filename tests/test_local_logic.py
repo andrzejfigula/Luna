@@ -200,6 +200,16 @@ class TimersTest(unittest.TestCase):
         self.assertEqual(reading.add("Przestań"), "stop")
         self.assertFalse(reading.armed())
 
+    def test_she_asks_to_be_read(self):
+        import reading
+        self.assertTrue(reading.she_asks("Słyszałam tylko kawałek. Przeczytaj mi proszę oba!"))
+        self.assertTrue(reading.she_asks("Przeczytajcie mi je, to powiem."))
+        self.assertFalse(reading.she_asks("Przeczytałam to już."))
+        self.assertFalse(reading.she_asks("Mogę ci przeczytać wiadomości."))
+        self.assertTrue(reading.she_asks("Przeczytaj proszę oba."))
+        self.assertIn("«Który ładniejszy?»",
+                      reading.feedback_context("Wiersz.", "Emilka", "Który ładniejszy?"))
+
     def test_model_for_poems(self):
         import re
         import ast

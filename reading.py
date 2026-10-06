@@ -39,11 +39,21 @@ _STOP = re.compile(r"^(?:luna,?\s+)?(?:przestań|przestan|stop|nie\s+chcę\s+ju�
                    r"nie\s+chce\s+juz)(?:\s+czytać)?\b", re.I)
 
 _lock = threading.Lock()
-_s = {"on": False, "parts": [], "t0": 0.0, "last": 0.0, "who": None}
+_s = {"on": False, "parts": [], "t0": 0.0, "last": 0.0, "who": None, "question": None}
 
 
 def is_request(text):
     return bool(_START.search(text or ""))
+
+
+# her own reply asks to be read something: "Przeczytaj mi proszę oba" (6 Oct:
+# she had heard one line of Maja's two poems and was asked which is nicer)
+_SHE_ASKS = re.compile(r"\b(?:prze|po)czytaj(?:cie)?\b", re.I)    # "przeczytaj (mi) proszę oba"
+HINT = "Słucham — a jak skończysz, powiedz: koniec."
+
+
+def she_asks(reply):
+    return bool(_SHE_ASKS.search(reply or ""))
 
 
 def armed():
@@ -68,14 +78,18 @@ def _clear_card():
             state.overlay = None
 
 
-def start(speak, finish):
-    """Begin listening. finish(text, who) is called once with what was read
-    (None: nothing was read). Returns True."""
+def start(speak, finish, intro="Słucham! Czytaj, a jak skończysz, powiedz: koniec.",
+          question=None):
+    """Begin listening. finish(text, who, question) is called once with what
+    was read ("" — nothing was read). question: what they had asked her that
+    made her ask for the reading ("który wierszyk ładniejszy?"). Returns True."""
     with state.lock:
         who = state.person[0] if state.person else None
     with _lock:
-        _s.update(on=True, parts=[], t0=time.time(), last=time.time(), who=who)
-    speak("Słucham! Czytaj, a jak skończysz, powiedz: koniec.")
+        _s.update(on=True, parts=[], t0=time.time(), last=time.time(), who=who,
+                  question=question)
+    if intro:
+        speak(intro)
     _keep_window(READING_END_SECS)
     threading.Thread(target=_watch, args=(finish,), daemon=True, name="reading").start()
     print("[reading] listening", flush=True)
@@ -110,7 +124,7 @@ def take():
         _s["on"] = False
         text = " ".join(p for p in _s["parts"] if p).strip()
         _s["parts"] = []
-        return text, _s["who"]
+        return text, _s["who"], _s["question"]
 
 
 def _watch(finish):
@@ -129,9 +143,9 @@ def _watch(finish):
         if busy:
             continue
         if (some and quiet > READING_END_SECS) or too_long:
-            text, who = take()
+            text, who, question = take()
             print(f"[reading] done after a pause ({len(text.split())} words)", flush=True)
-            finish(text, who)
+            finish(text, who, question)
             return
         if not some and quiet > READING_IDLE_SECS:
             take()
@@ -139,12 +153,21 @@ def _watch(finish):
             return
 
 
-def feedback_context(text, who):
+def feedback_context(text, who, question=None):
     """For the model: what was read, and how to answer it."""
     name = f"{who} " if who else "Ktoś "
-    return ("\nREADING ALOUD: " + name + "just read this aloud to you, for practice. It "
-            "came through speech recognition, so odd or broken words are the recogniser's "
-            "mistakes, not theirs — never correct the reading. Answer in 2–3 short "
-            "sentences: warm, SPECIFIC praise (name one thing from what they read), and "
-            "if it was a story, at most one simple question about it. The text: «"
-            + text[:3000] + "»\n")
+    if question:
+        return ("\nREADING ALOUD: " + name + "just read this aloud to you because you asked "
+                "for it, to answer their question «" + question + "». Answer THAT question "
+                "now, from what was read (2–4 sentences, be specific; if there were several "
+                "texts, compare them). Don't praise the reading itself. It came through "
+                "speech recognition, so odd words are the recogniser's mistakes. The text: «"
+                + text[:3000] + "»\n")
+    return ("\nREADING ALOUD: " + name + "just read this aloud to you. It came through "
+            "speech recognition, so odd or broken words are the recogniser's mistakes, not "
+            "theirs — never correct the reading. If you asked them to read it so you could "
+            "answer something (see the conversation just before: \"który ładniejszy?\"), "
+            "answer THAT now, from what was read. Otherwise it is reading practice (often a "
+            "child): 2–3 short sentences of warm, SPECIFIC praise (name one thing from what "
+            "they read), and if it was a story, at most one simple question about it. "
+            "The text: «" + text[:3000] + "»\n")

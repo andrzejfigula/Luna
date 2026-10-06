@@ -284,14 +284,15 @@ def weather_setup(text, speak):
     return True
 
 
-def reading_done(text, who):
+def reading_done(text, who, question=None):
     """The reading is over: one answer about it (or nothing, if nothing came)."""
     import reading
     if not text:
         return
     import brain
-    brain.process("(Skończyłam czytać na głos — co powiesz?)",
-                  context=reading.feedback_context(text, who))
+    brain.process("(Przeczytane — " + ("odpowiedz na moje pytanie.)" if question
+                                       else "co powiesz?)"),
+                  context=reading.feedback_context(text, who, question))
 
 
 def expect_name(secs=20):

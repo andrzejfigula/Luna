@@ -735,6 +735,15 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             if on_sentence:
                 on_sentence(extra)
             reply = f"{reply} {extra}"
+        import reading
+        if reading.she_asks(reply) and not reading.armed() and not translator():
+            # "Przeczytaj mi oba" — then she listens to the whole reading
+            # (reading.py) instead of answering it line by line
+            if on_sentence:
+                on_sentence(reading.HINT)
+            reply = f"{reply} {reading.HINT}"
+            import commands
+            reading.start(lambda s: None, commands.reading_done, intro=None, question=text)
         for a in data.get("actions") or []:
             if a.get("type") == "command":
                 run_command(str(a.get("label", "")))
