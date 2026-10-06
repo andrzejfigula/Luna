@@ -215,7 +215,8 @@ def _log():
         if tts._out:
             u, m, r = tts._out.stats()
             audio = (f", audio: {u} underruns, {r} rebuffers (late TTS), "
-                     f"max stall {m * 1000:.0f} ms")
+                     f"max stall {m * 1000:.0f} ms, "
+                     f"clock nudges {getattr(tts._out, 'drift_fixes', 0)}")
     except Exception:
         pass
     x = _pw_xruns()

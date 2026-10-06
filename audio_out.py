@@ -12,7 +12,18 @@ Timing: the writer keeps `target` seconds of audio ahead of the playback
 position (wall clock since the player started, corrected after any
 underrun), so it knows when each byte will be heard — that is what lines
 the lip-sync envelope up with the sound.
+
+The wall clock and the sound card's clock differ by a few ppm, so an estimate
+from the wall clock alone drifts: on 5 Oct, after ~8 h the real buffer had
+run dry and PipeWire counted ~50 000 xruns an hour (a crackle the moment she
+speaks). So the real fill is measured too — the bytes still unread in the
+pipe (FIONREAD) — and every few seconds the clock is nudged by 20 ms: more
+audio if the pipe ran empty, less if it stays far fuller than it should.
 """
+
+import fcntl
+import struct
+import termios
 
 import collections
 import subprocess
@@ -33,6 +44,8 @@ IDLE_AHEAD = 0.15               # seconds of silence queued between utterances. 
                                 # keeps ~100 ms itself plus one graph cycle; with the
                                 # graph at 2048 samples (43 ms, since pygame's own
                                 # stream is gone) 0.08 s starved it ~10 times a second
+DRIFT_CHECK = 4.0              # seconds between corrections of the clock drift
+DRIFT_STEP  = 0.02             # how far one correction moves it
 REBUFFER   = 0.25               # the network fell behind mid-utterance: wait for
                                 # this much before going on — one clean pause
                                 # instead of syllables chopped up by silence
@@ -65,6 +78,9 @@ class AudioOut:
         self.underruns = 0
         self.rebuffers = 0
         self.max_stall = 0.0
+        self.drift_fixes = 0               # nudges of the clock (health log)
+        self._fill_min = None              # the pipe's lowest fill in this window
+        self._fill_t = time.time()
         threading.Thread(target=self._run, daemon=True, name="audio-out").start()
 
     # ── player process ────────────────────────────────────────────────────
@@ -84,6 +100,33 @@ class AudioOut:
     def _ahead(self):
         return self.written / BPS - (time.time() - self.t_start)
 
+    def _pipe_fill(self):
+        """Bytes written but not yet read by the player — the real margin."""
+        try:
+            return struct.unpack("i", fcntl.ioctl(self.proc.stdin.fileno(), termios.FIONREAD,
+                                                  b"\0\0\0\0"))[0]
+        except Exception:
+            return None
+
+    def _track_drift(self, now):
+        """Every DRIFT_CHECK s: did the pipe run empty (the card is faster than
+        the wall clock) or never come close (slower)? Nudge t_start."""
+        fill = self._pipe_fill()
+        if fill is None:
+            return
+        self._fill_min = fill if self._fill_min is None else min(self._fill_min, fill)
+        if now - self._fill_t < DRIFT_CHECK:
+            return
+        low = self._fill_min
+        self._fill_min, self._fill_t = None, now
+        target = self.target if (self.active and self.started) else IDLE_AHEAD
+        if low == 0:
+            self.t_start -= DRIFT_STEP           # we are later than we think: write more
+            self.drift_fixes += 1
+        elif low > (target + 0.15) * BPS:
+            self.t_start += DRIFT_STEP           # far ahead: let the pipe drain a little
+            self.drift_fixes += 1
+
     # ── writer: real-time pace, speech if there is any, else silence ─────
     def _run(self):
         self._spawn()
@@ -94,6 +137,7 @@ class AudioOut:
             stall = now - last
             last = now
             self.max_stall = max(self.max_stall, stall)
+            self._track_drift(now)
             ahead = self._ahead()
             if ahead < 0:
                 # the player ran dry (we were late): it played everything
