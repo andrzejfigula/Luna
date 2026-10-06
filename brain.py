@@ -246,13 +246,16 @@ Always answer as JSON with exactly these keys:
                 normalnie", "włącz lampkę", "wyłącz lampkę", "lampka na
                 <kolor>", "włącz szum deszczu / morza", "biały szum",
                 "wyłącz szum", "włącz napisy", "wyłącz napisy", "pokaż zegar",
-                "pokaż plan dnia", "pokaż listę zakupów". Use it whenever your
+                "pokaż plan dnia", "pokaż listę zakupów", "przepis na <danie>
+                krok po kroku" (cooking along on the screen). Use it whenever your
                 reply says you switched, played or showed one of these (e.g.
                 they agree to your suggestion of a station). If you only
                 suggest it or ask "chcesz?", leave the action out until they
                 say yes. NEVER say you
                 turned something on or changed something without the action
-                that does it — if there is none, say you can't.
+                that does it — if there is none, say you can't. The same for
+                promises: "przypomnę ci…" only together with a reminder or
+                timer action (ask "o której?" if you don't know when).
 Let user_mood quietly shape HOW you answer — softer, calmer and shorter when
 they seem tired, sad or stressed; livelier when they seem happy — without
 mentioning it. Whether you may actually SAY something about it is stated
@@ -769,7 +772,7 @@ _COMMAND_OK = re.compile(
     r"dwójkę|dwojke|radio\s+357|nowy\s+świat|nowy\s+swiat|lampkę|lampke|szum\w*|napisy|"
     r"biały\s+szum)\b|^następna\s+stacja$|^(?:ciszej|głośniej)$|^mów\s+(?:wolniej|szybciej|"
     r"normalnie)$|^lampka\s+na\s+\w+$|^biały\s+szum$|^pokaż\s+(?:zegar|plan\s+dnia|"
-    r"listę\s+zakupów)$", re.I)
+    r"listę\s+zakupów)$|^przepis\s+na\s+[\w ]{2,40}\s+krok\s+po\s+kroku$", re.I)
 
 
 def run_command(label):

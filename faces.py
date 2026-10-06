@@ -524,8 +524,10 @@ def prompt_line():
         known_others = [o for o in others if o != "?"]
         strangers = len(others) - len(known_others)
         also = known_others + ([f"{strangers} unknown"] if strangers else [])
-        now += (f" Also in view: {', '.join(also)} — when you greet or answer, you may "
-                "address them too.")
+        now += (f" Also in view: {', '.join(also)}. With more than one person there you "
+                "can't tell who is speaking — don't address anyone by name in this "
+                "answer (on 5 Oct Emilka asked for the radio and heard "
+                "\"Miłego słuchania, Andrzeju!\").")
     if person and "dziecko" in about.get(person[0], "").lower():
         # the persona's general "with a child" rules lost to a plain question
         # (tested: 56 : 7 was answered "8" straight away) — said here, now
