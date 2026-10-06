@@ -163,6 +163,8 @@ CRAFT_MODEL    = "gpt-4.1"          # poems, rhymes, songs: the mini model's Pol
                                     # rhymes were weak (6 Oct, Maja's "wierszyk");
                                     # rare requests, so the cost and +~0.5 s are fine
 OPENAI_TIMEOUT = 15.0               # seconds — a stall must never freeze Luna
+CHAT_HEDGE_AFTER = 2.0             # the reply stream hasn't started by then (the first
+                                   # token normally comes in 0.65–0.9 s): a second request
 
 # ── Audio devices ─────────────────────────────────────────────────────────────
 # Microphone — .env: LUNA_MIC=<index>  or  LUNA_MIC=<part of the device name>

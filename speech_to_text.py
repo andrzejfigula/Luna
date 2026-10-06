@@ -411,6 +411,53 @@ def _cloud_transcribe(pcm16k):
     return _cloud_transcribe_now(pcm16k)
 
 
+STT_HEDGE_AFTER = 1.8    # no transcript yet: the same request again
+
+
+def _stt_request(pcm16k, kwargs):
+    """One transcription, hedged: 89 % come back within 1.5 s, but one in
+    twenty took 2–5 s (6 Oct) — and with a slow model on top, that is the
+    "she hangs mid-conversation" silence. Not back after STT_HEDGE_AFTER (or
+    failed at once) → the same request again; the first answer wins. Raises
+    when no request succeeded."""
+    q = queue.Queue()
+
+    def attempt():
+        try:
+            q.put((True, _cloud.audio.transcriptions.create(
+                **dict(kwargs, file=_wav_bytes(pcm16k)))))
+        except Exception as e:
+            q.put((False, e))
+
+    def start():
+        threading.Thread(target=attempt, daemon=True, name="stt-req").start()
+
+    start()
+    started, failed, last_err = 1, 0, None
+    hedge_at = time.time() + STT_HEDGE_AFTER
+    deadline = time.time() + CLOUD_STT_TIMEOUT + 1
+    while True:
+        wait = (hedge_at if started == 1 else deadline) - time.time()
+        try:
+            ok, val = q.get(timeout=max(0.0, wait))
+        except queue.Empty:
+            if started == 1:
+                print(f"[STT] no transcript after {STT_HEDGE_AFTER:.1f}s — asking again",
+                      flush=True)
+                start()
+                started = 2
+                continue
+            raise TimeoutError("no transcript") from last_err
+        if ok:
+            return val
+        failed, last_err = failed + 1, val
+        if started == 1:                  # failed at once: one more try
+            start()
+            started = 2
+        elif failed >= started:
+            raise last_err
+
+
 def _cloud_transcribe_now(pcm16k):
     """Transcribe an utterance (16 kHz int16 mono bytes).
 
@@ -428,7 +475,7 @@ def _cloud_transcribe_now(pcm16k):
             kwargs["language"] = CLOUD_STT_LANGUAGE
         if CLOUD_STT_PROMPT:
             kwargs["prompt"] = stt_prompt()
-        r = _cloud.audio.transcriptions.create(**kwargs)
+        r = _stt_request(pcm16k, kwargs)
         text = (r if isinstance(r, str) else getattr(r, "text", "")).strip()
         if STT_DEBUG_AUDIO:
             print(f"[STT] cloud ({time.time() - t0:.1f}s): \"{text}\"")
@@ -955,6 +1002,8 @@ def listen():
         if (final or early) and voiced:
             with state.lock:                 # the speech itself ended this long ago
                 state.heard_at = time.time() - silent_run
+            import timing
+            timing.reset()                   # a new utterance: new stage marks
         if final or early:
             result   = json.loads(rec.FinalResult() if early else rec.Result())
             if msg_parts:                # a recorded message: all its parts

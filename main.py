@@ -111,6 +111,9 @@ def voice_loop():
     while True:
         try:
             text = listen()
+            if text:
+                import timing
+                timing.mark("text")             # (the "[latency]" breakdown)
             try:
                 if text == WAKE_ACK:
                     commands.wake_up("wake word")

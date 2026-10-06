@@ -31,6 +31,7 @@ import reply_scenes
 import birthdays
 import errands
 import faces
+import hedge
 import mood as luna_mood     # ("mood" is the user's mood inside _ask_openai)
 import relationship
 from reply_stream import ReplyStream
@@ -48,7 +49,7 @@ from config import (
     GESTURE_DURATION,
     KNOWLEDGE_PATH,
     OPENAI_API_KEY,
-    OPENAI_MODEL, CRAFT_MODEL,
+    OPENAI_MODEL, CRAFT_MODEL, CHAT_HEDGE_AFTER,
     OPENAI_MAX_TOKENS,
     OPENAI_TEMPERATURE,
     OPENAI_MAX_HISTORY,
@@ -648,6 +649,8 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   + memory.prompt_block()
                   + (context or ""))          # e.g. news headlines, this question only
 
+        import timing
+        timing.mark("model")
         request = dict(model=model_for(text),
                        messages=[{"role": "system", "content": system}, *_history],
                        max_tokens=OPENAI_MAX_TOKENS,
@@ -659,7 +662,9 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
         else:
             rs = ReplyStream(on_head, on_sentence)
             finish, refusal = None, ""
-            for chunk in _client.chat.completions.create(stream=True, **request):
+            for chunk in hedge.hedged(    # a slow start gets a second request (hedge.py)
+                    lambda: _client.chat.completions.create(stream=True, **request),
+                    CHAT_HEDGE_AFTER, "model"):
                 if not chunk.choices:
                     continue
                 c = chunk.choices[0]
@@ -1082,6 +1087,8 @@ def _process(text, context=None):
         speaker.append(t)
 
     def on_sentence(sentence):
+        import timing
+        timing.mark("sentence")
         sentence = re.sub(r"^\[[^\]]{1,20}\]\s*", "", sentence)    # no "[Luna] " spoken
         sentences.put(_feminize(sentence))
 

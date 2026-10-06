@@ -53,8 +53,12 @@ def _on_audio_start():
         state.audio_playing = True
         heard, state.heard_at = state.heard_at, 0.0
     if heard and time.time() - heard < 15:
-        # end of their speech → her voice: what "snappy" means (tools/log_report.py)
-        print(f"[latency] end of speech → her voice {time.time() - heard:.2f}s", flush=True)
+        # end of their speech → her voice: what "snappy" means (tools/log_report.py),
+        # with the stages in between (timing.py)
+        import timing
+        stages = timing.report(heard)
+        print(f"[latency] end of speech → her voice {time.time() - heard:.2f}s"
+              + (f" ({stages})" if stages else ""), flush=True)
 
 
 def _engine_speak(text, style=""):

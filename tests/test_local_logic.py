@@ -1368,6 +1368,81 @@ class KidsTest(unittest.TestCase):
         self.assertFalse(news.accepts_offer("Nie, dzięki.", offer))
         self.assertFalse(news.accepts_offer("Chcę.", "Chcesz wierszyk o jesieni?"))
 
+    def test_hedge_generic(self):
+        import hedge
+        calls = []
+
+        def plan(*attempts):
+            def open_stream():
+                n = len(calls)
+                calls.append(n)
+                delay, items, fail_at = attempts[min(n, len(attempts) - 1)]
+                time.sleep(delay)
+                for i, x in enumerate(items):
+                    if i == fail_at:
+                        raise RuntimeError("broke")
+                    yield x
+                if fail_at == len(items):
+                    raise RuntimeError("failed")
+            return open_stream
+
+        calls.clear()
+        self.assertEqual(list(hedge.hedged(plan((0.0, "abc", -1)), 0.2)), list("abc"))
+        self.assertEqual(len(calls), 1)                                  # fast: alone
+        calls.clear()
+        t0 = time.time()
+        self.assertEqual(list(hedge.hedged(plan((1.0, "abc", -1), (0.0, "xyz", -1)), 0.2)),
+                         list("xyz"))                                    # slow: second wins
+        self.assertLess(time.time() - t0, 0.6)
+        calls.clear()
+        self.assertEqual(list(hedge.hedged(plan((0.0, "", 0), (0.0, "ok", -1)), 5)),
+                         list("ok"))                                     # failed at once: retried
+        calls.clear()
+        with self.assertRaises(RuntimeError):
+            list(hedge.hedged(plan((0.0, "", 0)), 0.2))                  # both fail
+        calls.clear()
+        with self.assertRaises(RuntimeError):
+            list(hedge.hedged(plan((0.0, "abc", 1)), 5))                 # the winner broke off
+
+    def test_hedged_transcription(self):
+        from unittest import mock
+        with mock.patch.dict(sys.modules, {"sounddevice": mock.MagicMock(),
+                                           "vosk": mock.MagicMock()}):
+            import speech_to_text as s
+
+        def client(plan):
+            calls = []
+
+            def create(**kw):
+                delay, result = plan[min(len(calls), len(plan) - 1)]
+                calls.append(1)
+                time.sleep(delay)
+                if isinstance(result, Exception):
+                    raise result
+                return result
+            c = mock.MagicMock()
+            c.audio.transcriptions.create.side_effect = create
+            return c, calls
+
+        with mock.patch.object(s, "STT_HEDGE_AFTER", 0.2), \
+                mock.patch.object(s, "_wav_bytes", lambda pcm: b"wav"):
+            c, calls = client([(0.0, "szybko")])
+            with mock.patch.object(s, "_cloud", c):
+                self.assertEqual(s._stt_request(b"x", {}), "szybko")
+                self.assertEqual(len(calls), 1)                     # no second request
+            c, calls = client([(1.0, "wolno"), (0.0, "drugi")])
+            with mock.patch.object(s, "_cloud", c):
+                t0 = time.time()
+                self.assertEqual(s._stt_request(b"x", {}), "drugi")
+                self.assertLess(time.time() - t0, 0.6)
+            c, calls = client([(0.0, RuntimeError("net")), (0.0, "ponownie")])
+            with mock.patch.object(s, "_cloud", c):
+                self.assertEqual(s._stt_request(b"x", {}), "ponownie")
+            c, calls = client([(0.0, RuntimeError("net"))])
+            with mock.patch.object(s, "_cloud", c):
+                with self.assertRaises(RuntimeError):
+                    s._stt_request(b"x", {})
+
     def test_speculative_transcript(self):
         from unittest import mock
         with mock.patch.dict(sys.modules, {"sounddevice": mock.MagicMock(),

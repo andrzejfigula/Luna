@@ -189,6 +189,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | „Który wierszyk jest ładniejszy?” (gdy Luna nie słyszała) | mówi uczciwie, że słyszała tylko kawałek, i prosi „przeczytaj mi oba” — wtedy sama słucha do „koniec” i dopiero potem porównuje |
 | Oczy | wyraźniej podążają za tym, co się rusza przed kamerą (ręka, kot, ktoś przechodzi); gdy nikogo nie ma — patrzą tam, gdzie coś się dzieje |
 | Szybkość | mówi o 20% szybciej (Emilka: jeszcze trochę szybciej, jak sobie życzyła) i odpowiada szybciej — krócej czeka na koniec zdania i zaczyna mówić od pierwszego przecinka. „Mów normalnie” wraca do nowego tempa |
+| „Zawieszanie się” w rozmowie | gdy usługa w chmurze (rozpoznawanie mowy, model, głos) odpowiada za wolno, Luna po chwili wysyła to samo zapytanie drugi raz i bierze szybszą odpowiedź — koniec długich cisz |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 
