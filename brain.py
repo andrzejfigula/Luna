@@ -211,7 +211,9 @@ Always answer as JSON with exactly these keys:
                 "pokaż plan dnia", "pokaż listę zakupów", "przepis na <danie>
                 krok po kroku" (cooking along on the screen), "przekaż <Imię>,
                 że …" (a note you say to that person when you next see them),
-                "zrób zdjęcie", "nagraj wiadomość dla <Imię>". Use it whenever your
+                "zrób zdjęcie", "nagraj wiadomość dla <Imię>", "pokaż na ekranie:
+                <tekst>" (a name, number or word big on her screen for 30 s — when
+                they want to see it or copy it down). Use it whenever your
                 reply says you switched, played or showed one of these (e.g.
                 they agree to your suggestion of a station). If you only
                 suggest it or ask "chcesz?", leave the action out until they
@@ -787,7 +789,7 @@ _COMMAND_OK = re.compile(
     r"normalnie)$|^lampka\s+na\s+\w+$|^biały\s+szum$|^pokaż\s+(?:zegar|plan\s+dnia|"
     r"listę\s+zakupów)$|^przepis\s+na\s+[\w ]{2,40}\s+krok\s+po\s+kroku$|"
     r"^przekaż\s+\w+,?\s+(?:że|żeby)\s+.{3,120}$|^zrób\s+(?:mi\s+|nam\s+)?zdjęcie$|"
-    r"^nagraj\s+wiadomość(?:\s+dla\s+\w+)?$", re.I)
+    r"^nagraj\s+wiadomość(?:\s+dla\s+\w+)?$|^pokaż\s+na\s+ekranie[:,]?\s+.{1,80}$", re.I)
 
 
 def run_command(label):

@@ -172,6 +172,19 @@ class TimersTest(unittest.TestCase):
             self.assertEqual(timers.apply([{"type": "reminder", "seconds": 0, "at": "",
                                             "label": "x"}]), [])
 
+    def test_show_text_on_screen(self):
+        import commands
+        from shared_state import state
+        said = []
+        self.assertTrue(commands.show_text("pokaż na ekranie: Rode NT-USB", said.append))
+        self.assertEqual(state.overlay[2]["text"], "Rode NT-USB")
+        self.assertTrue(commands.show_text("Luna, napisz na ekranie Shure MV7.", said.append))
+        self.assertEqual(state.overlay[2]["text"], "Shure MV7")
+        self.assertFalse(commands.show_text("pokaż zegar", said.append))
+        self.assertFalse(commands.show_text("co jest na ekranie?", said.append))
+        with state.lock:
+            state.overlay = None
+
     def test_reading_aloud(self):
         import reading
         for t in ("Posłuchaj, jak czytam.", "Luna, poczytam ci", "Chcę ci przeczytać bajkę",

@@ -496,6 +496,28 @@ def _spell_word(text):
     return word
 
 
+_SHOW_TEXT = re.compile(r"^(?:luna,?\s+)?(?:pokaż|pokaz|wyświetl|wyswietl|napisz)"
+                        r"(?:\s+mi)?\s+na\s+ekranie[:,]?\s+(.{1,80}?)[.!]?$", re.I)
+SHOW_TEXT_SECS = 30
+
+
+def show_text(text, speak):
+    """"napisz na ekranie Rode NT-USB" / the model's "pokaż na ekranie: …":
+    the text big on her screen for SHOW_TEXT_SECS (a tap closes it) — a name
+    or a number to copy down (6 Oct: Andrzej asked her to show a microphone's
+    name "żebym mógł ją przepisać", and she could only say it)."""
+    m = _SHOW_TEXT.match(text.strip())
+    if not m:
+        return False
+    shown = m.group(1).strip().strip('"„”')
+    with state.lock:
+        state.overlay = ("card", time.time() + SHOW_TEXT_SECS,
+                         {"text": shown, "sub": "", "tone": None})
+    print(f"[cmd] on the screen: {shown!r}", flush=True)
+    speak("Proszę, masz na ekranie.")
+    return True
+
+
 def _spell(word, speak):
     """The word big on her screen, then letter by letter."""
     with state.lock:
@@ -882,6 +904,8 @@ def handle(text, speak, play_sound, _polite=True):
         return True
 
     # "jak się pisze żółw?" — a question, but one she answers on the screen
+    if show_text(text, speak):                  # "napisz na ekranie …"
+        return True
     word = _spell_word(text)
     if word:
         _spell(word, speak)
