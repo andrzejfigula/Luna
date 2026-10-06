@@ -62,6 +62,23 @@ def main():
         n = re.search(r"clock nudges (\d+)", last)
         print(f"  xruns (since the last start): {m.group(1) if m else '?'}, "
               f"clock nudges: {n.group(1) if n else '?'}")
+    # replies that say she did something, with no line showing it was done
+    # (the commonest real bug: "Włączam radio" — and nothing played)
+    claim = re.compile(r"\b(włączam|wyłączam|nastawiam|ustawiam|przypomnę|dodałam|dopisałam|"
+                       r"zapisałam|skreśliłam|usunęłam|puszczam|zaczynam)\b", re.I)
+    done = re.compile(r"^\[(timers|lists|radio|ambience|fun|cmd|cooking|tictac|memo|quiz)\]|"
+                      r"\[brain\] command '.*': done")
+    flagged = []
+    for i, l in enumerate(lines):
+        m = re.match(r"^\[brain\] OpenAI \([^)]*\): (.*)", l)
+        if m and claim.search(m.group(1)):
+            near = lines[max(0, i - 8):i + 4]
+            if not any(done.search(x) for x in near):
+                flagged.append(m.group(1))
+    print(f"\n── replies claiming an action with nothing done ({len(flagged)}) ──")
+    for r in flagged[-15:]:
+        print(f"  ! {r[:120]}")
+
     print("\n── exchanges (what was asked → what she said) ──")
     asked = None
     for l in lines:
