@@ -57,6 +57,8 @@ class SharedState:
         "radio",                 # the station playing (radio.py), or None
         "mic_muted_until",       # "nie słuchaj": no audio is processed until then
                                  # (a finger held on the screen ends it)
+        "layout",                # ([(name or "?", x 0..1 across the frame)], time):
+                                 # who is where in the camera picture (vision_module)
         "others",                # ([names, "?" = unknown], time) — the other faces
                                  # in view besides state.person (faces.py)
         "person",                # (name, similarity, time) — who is in front of her
@@ -135,6 +137,7 @@ class SharedState:
         self.mic_muted_until     = 0.0
         self.person              = None
         self.others              = ([], 0.0)
+        self.layout              = ([], 0.0)
         self.convo_closed_hard   = False
         self.sunrise             = None
         self.overlay             = None

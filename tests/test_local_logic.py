@@ -161,6 +161,28 @@ class TimersTest(unittest.TestCase):
             radio.play = old
         self.assertEqual(played[0], "Dwójka")
 
+    def test_picture_note_names_left_to_right(self):
+        import faces
+        from shared_state import state
+        with state.lock:
+            old = state.layout
+            state.layout = ([("Andrzej", 0.7), ("Maja", 0.2)], time.time())
+        try:
+            note = faces.picture_note()
+            self.assertIn("od lewej: Maja, Andrzej", note)
+            with state.lock:
+                state.layout = ([("?", 0.5)], time.time())
+            self.assertEqual(faces.picture_note(), "")
+            with state.lock:
+                state.layout = ([("Maja", 0.5), ("?", 0.9)], time.time())
+            self.assertIn("Maja, ktoś, kogo nie znasz", faces.picture_note())
+            with state.lock:
+                state.layout = ([("Maja", 0.5)], time.time() - 60)
+            self.assertEqual(faces.picture_note(), "")
+        finally:
+            with state.lock:
+                state.layout = old
+
     def test_weather_setup_asks_once(self):
         import commands
         import weather

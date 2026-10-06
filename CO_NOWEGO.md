@@ -180,6 +180,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Obietnice | „przypomnę ci” tylko z prawdziwym przypomnieniem — inaczej zapyta, o której |
 | Pytanie w powitaniu | gdy Luna o coś zapyta przy powitaniu, możesz odpowiedzieć bez „Luna” |
 | Rozmowa / telefon przy Lunie | nie wita się i nie mówi „Hejka”, gdy ludzie rozmawiają między sobą |
+| „Kto to jest?” przy kamerze | mówi, kogo rozpoznała i gdzie: „Po lewej jest Maja, a po prawej Andrzej” (wcześniej: „nie wiem, kto to”) |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 

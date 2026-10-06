@@ -475,6 +475,24 @@ def forget(name):
     return True
 
 
+def picture_note():
+    """Who is where in the camera picture, for a question about what she sees:
+    "Na zdjęciu, od lewej: Maja, Andrzej." — the model can't recognise faces
+    itself (5 Oct: Andrzej and Maja in view, "Kto to jest?" → "Nie wiem, kto
+    to jest na tym zdjęciu"). Empty when nobody was recognised just now."""
+    with state.lock:
+        layout, at = state.layout
+    if not layout or time.time() - at > 3 * RECOGNISE_EVERY:
+        return ""
+    if all(n == "?" for n, _ in layout):
+        return ""
+    names = [n if n != "?" else "ktoś, kogo nie znasz" for n, _ in sorted(layout, key=lambda p: p[1])]
+    if len(names) == 1:
+        return f" Osoba na zdjęciu to {names[0]} (rozpoznana po twarzy)."
+    return (f" Twarze na zdjęciu, od lewej: {', '.join(names)} (rozpoznane po twarzy; "
+            "inne postacie, np. w telewizorze albo na obrazku, nie są z tej listy).")
+
+
 def prompt_line():
     """Who she knows and who is in front of her, for the system prompt."""
     known = names()

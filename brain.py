@@ -578,7 +578,8 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                         "zdjęciu.)")
             else:
                 note = ("(Załączone zdjęcie to aktualny obraz z Twojej kamery — "
-                        "moja wiadomość dotyczy tego, co na nim widać.)")
+                        "moja wiadomość dotyczy tego, co na nim widać."
+                        + faces.picture_note() + ")")
             content = [
                 {"type": "text", "text": f"{text}" + chr(10) + chr(10) + note},
                 {"type": "image_url",
