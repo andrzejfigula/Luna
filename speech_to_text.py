@@ -919,8 +919,11 @@ def listen():
                 if STT_DEBUG_AUDIO:
                     print(f"[STT] heard=\"{text}\" conf={conf:.2f} "
                           f"peak_rms={peak_rms:.0f} gate={_energy_gate():.0f}")
+                capture = messages_armed() and peak_rms >= 1.5 * _energy_gate()
                 if (conf < STT_CONFIDENCE_THRESHOLD
-                        or len(text) < STT_MIN_UTTERANCE_CHARS):
+                        or len(text) < STT_MIN_UTTERANCE_CHARS) and not capture:
+                    # (a child reading aloud, slowly, scores low with Vosk —
+                    # while she listens to reading, loud speech goes to the cloud)
                     # A garbled low-confidence result can still be "Luna!" —
                     # if it was clearly loud speech, let the cloud check it.
                     if not active and peak_rms >= 2.0 * _energy_gate():
