@@ -676,6 +676,14 @@ class MemoryTest(unittest.TestCase):
 
 class PolishTest(unittest.TestCase):
 
+    def test_offer_only(self):
+        from polish import offer_only
+        self.assertTrue(offer_only("Może dopiszmy świeże warzywa i owoce?"))
+        self.assertTrue(offer_only("Może chleb i masło? Chcesz, żebym dodała je do listy?"))
+        self.assertFalse(offer_only("Dodałam mleko. Coś jeszcze?"))
+        self.assertFalse(offer_only("Jasne, minutnik na 10 minut."))
+        self.assertFalse(offer_only("Włączam Trójkę."))
+
     def test_feminize(self):
         from polish import feminize as f
         self.assertEqual(f("Zrobiłem to, czytałem i byłem gotowy."),

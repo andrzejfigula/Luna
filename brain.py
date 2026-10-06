@@ -82,7 +82,7 @@ def _local_now_text():
             f"({LUNA_TIMEZONE if _TZ else 'system'}, {now.strftime('%Z')}, "
             f"UTC{off[:3]}:{off[3:]})")
 
-from polish import feminize as _feminize   # masculine slips → feminine (polish.py)
+from polish import feminize as _feminize, offer_only   # (polish.py)
 
 
 # Face states robot_face.py knows how to draw. The model must pick one.
@@ -686,6 +686,12 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             if _history and _history[-1]["role"] == "user":
                 _history.pop()                   # side talk is not our conversation
             return "", "neutral", "none"
+        if data.get("actions") and offer_only(reply):
+            # "Może dopiszmy warzywa?" — still asking: nothing happens yet (the
+            # prompt says so, but the model added the items anyway now and then)
+            print(f"[brain] offer, not done — {len(data['actions'])} action(s) held back",
+                  flush=True)
+            data["actions"] = []
         timers.apply(data.get("actions") or [])
         lists.apply(data.get("actions") or [])
         for a in data.get("actions") or []:

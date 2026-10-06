@@ -64,3 +64,17 @@ def feminize(text):
     return text
 
 
+
+
+_OFFER = re.compile(r"(?:chcesz|może|moze|czy|mam)\b[^.!?]*\b(?:dopis|doda|włącz|wlacz|nastaw|"
+                    r"przypomn|zapis|ustaw|puści|pusci|skreśl|skresl|usun)\w*[^.!?]*\?", re.I)
+_DONE = re.compile(r"\b(?:dodałam|dopisałam|włączam|wlaczam|nastawiam|nastawiłam|ustawiam|"
+                   r"ustawiłam|zapisałam|przypomnę|skreśliłam|usunęłam|puszczam|gotowe|jasne)\b",
+                   re.I)
+
+
+def offer_only(reply):
+    """The reply offers to do something ("Może dopiszmy warzywa?", "Chcesz,
+    żebym nastawiła minutnik?") and confirms nothing — then any action the
+    model attached is premature."""
+    return bool(_OFFER.search(reply or "")) and not _DONE.search(reply or "")
