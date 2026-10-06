@@ -457,6 +457,14 @@ def english_side_talk(text):
     return sum(w in _EN_WORDS for w in words) >= max(2, len(words) // 4)
 
 
+def messages_armed():
+    try:
+        import messages
+        return messages.armed()
+    except Exception:
+        return False
+
+
 def foreign_script(text):
     """Letters outside the Latin script (Cyrillic, Greek, CJK…) — nobody here
     speaks those; it is the transcriber guessing the language wrong."""
@@ -522,6 +530,25 @@ _last_cloud_wake_check = 0.0
 
 _wake_checks = []                      # times of recent cloud wake checks
 last_utterance_pcm = b""               # the audio of the last answered utterance
+# a sentence the transcriber marked as cut off ("…żeby to wyk...") — the
+# speaker only paused: wait HELD_SECS for the rest and answer the two as one
+_held = None                           # (text, time)
+HELD_SECS = 2.5
+
+
+def cut_off(text):
+    """The cloud ends a transcript with "..." when the audio stops mid-word."""
+    return bool(text) and bool(re.search(r"(?:\.\.\.|…)\s*$", text))
+
+
+def join_held(text):
+    """The held first half + this one ("Zrób przyn..." + "przynajmniej listę")."""
+    global _held
+    if not _held:
+        return text
+    first = re.sub(r"(?:\.\.\.|…)\s*$", "", _held[0]).rstrip()
+    _held = None
+    return f"{first} {text}".strip()
                                        # (a voice message is saved from it)
 
 
@@ -754,6 +781,11 @@ def listen():
 
         if _muted():                       # muted in the middle of a listen
             return ""
+        global _held
+        if _held and time.time() - _held[1] > HELD_SECS:
+            text, _held = _held[0], None   # nothing more came: answer what there is
+            print(f"[STT] no continuation — answering \"{text}\"", flush=True)
+            return text
         data = _resample_to_16k(data)
         if not data:
             continue
@@ -915,6 +947,12 @@ def listen():
                         # Vosk made of the rest was noise; just answer "Tak?"
                         cleaned = ""
                     _save_utterance(utt_pcm, text, cloud, cleaned or "(wake)")
+                if cleaned and cut_off(cleaned) and not messages_armed():
+                    _held = (cleaned, time.time())  # "Luna, żeby to wyk..." — the rest
+                    active = True                   # comes without "Luna"
+                    print(f"[STT] cut off mid-sentence — waiting for the rest: "
+                          f"\"{cleaned}\"", flush=True)
+                    continue
                 return cleaned if cleaned else WAKE_ACK
 
             if active:
@@ -958,6 +996,16 @@ def listen():
                 global last_utterance_pcm
                 last_utterance_pcm = utt_pcm
                 final = cloud if cloud else text     # None: cloud unreachable
+                if _held:
+                    final = join_held(final)
+                if cut_off(final) and not messages_armed():
+                    _held = (final, time.time())
+                    print(f"[STT] cut off mid-sentence — waiting for the rest: \"{final}\"",
+                          flush=True)
+                    with state.lock:
+                        state.luna_mode = "listening"
+                        state.listening = True
+                    continue
                 _save_utterance(utt_pcm, text, cloud, final)
                 return final
 

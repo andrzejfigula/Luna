@@ -1155,6 +1155,18 @@ class KidsTest(unittest.TestCase):
         self.assertIn("Andrzej był tu", faces.where_is("Andrzej", t0 + 7200))
         self.assertNotIn("?", faces._seen)
 
+    def test_cut_off_sentences(self):
+        from unittest import mock
+        with mock.patch.dict(sys.modules, {"sounddevice": mock.MagicMock(),
+                                           "vosk": mock.MagicMock()}):
+            import speech_to_text as s
+        self.assertTrue(s.cut_off("Luna, powiedziałam, żeby to wyk..."))
+        self.assertTrue(s.cut_off("I jakichś jedzenie, zrób przyn…"))
+        self.assertFalse(s.cut_off("Dobrze."))
+        s._held = ("I jedzenie, zrób przyn...", 0.0)
+        self.assertEqual(s.join_held("przynajmniej listę."), "I jedzenie, zrób przyn przynajmniej listę.")
+        self.assertIsNone(s._held)
+
     def test_english_side_talk(self):
         from unittest import mock
         with mock.patch.dict(sys.modules, {"sounddevice": mock.MagicMock(),
