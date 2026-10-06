@@ -195,7 +195,9 @@ Always answer as JSON with exactly these keys:
                 <kolor>", "włącz szum deszczu / morza", "biały szum",
                 "wyłącz szum", "włącz napisy", "wyłącz napisy", "pokaż zegar",
                 "pokaż plan dnia", "pokaż listę zakupów", "przepis na <danie>
-                krok po kroku" (cooking along on the screen). Use it whenever your
+                krok po kroku" (cooking along on the screen), "przekaż <Imię>,
+                że …" (a note you say to that person when you next see them),
+                "zrób zdjęcie", "nagraj wiadomość dla <Imię>". Use it whenever your
                 reply says you switched, played or showed one of these (e.g.
                 they agree to your suggestion of a station). If you only
                 suggest it or ask "chcesz?", leave the action out until they
@@ -720,7 +722,9 @@ _COMMAND_OK = re.compile(
     r"dwójkę|dwojke|radio\s+357|nowy\s+świat|nowy\s+swiat|lampkę|lampke|szum\w*|napisy|"
     r"biały\s+szum)\b|^następna\s+stacja$|^(?:ciszej|głośniej)$|^mów\s+(?:wolniej|szybciej|"
     r"normalnie)$|^lampka\s+na\s+\w+$|^biały\s+szum$|^pokaż\s+(?:zegar|plan\s+dnia|"
-    r"listę\s+zakupów)$|^przepis\s+na\s+[\w ]{2,40}\s+krok\s+po\s+kroku$", re.I)
+    r"listę\s+zakupów)$|^przepis\s+na\s+[\w ]{2,40}\s+krok\s+po\s+kroku$|"
+    r"^przekaż\s+\w+,?\s+(?:że|żeby)\s+.{3,120}$|^zrób\s+(?:mi\s+|nam\s+)?zdjęcie$|"
+    r"^nagraj\s+wiadomość(?:\s+dla\s+\w+)?$", re.I)
 
 
 def run_command(label):
