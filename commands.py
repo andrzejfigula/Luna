@@ -249,14 +249,18 @@ def weather_setup(text, speak):
     phrase to learn (5 Oct: "Ale dziś zimno" → "nie mogę sprawdzić")."""
     import weather
     low = text.lower().strip(" .!?")
-    if time.time() < _place_wanted[0] and len(low.split()) <= 4:
+    if time.time() < _place_wanted[0]:
         _place_wanted[0] = 0.0
         place = re.sub(r"^(?:luna,?\s+)?(?:mieszkamy\s+|mieszkam\s+|jesteśmy\s+)?(?:w|we|na)?\s*",
                        "", low)
-        name = weather.set_place(f"pogoda dla {place}") if place else None
-        speak(f"Dzięki! Od teraz znam pogodę dla: {name}." if name else
-              "Nie znalazłam tej miejscowości — powiedz na przykład: pogoda dla Krakowa.")
-        return True
+        # only an answer that looks like a place — "zrób mi zdjęcie" was taken
+        # for a town; a place that isn't found lets the sentence go on as usual
+        if place and len(place.split()) <= 3 and not re.search(
+                r"\b(?:zrób|zrob|włącz|wlacz|wyłącz|pokaż|pokaz|nie|nastaw|ile|co|jak)\b", place):
+            name = weather.set_place(f"pogoda dla {place}")
+            if name:
+                speak(f"Dzięki! Od teraz znam pogodę dla: {name}.")
+                return True
     if (weather.enabled() or not _WEATHER_ASK.search(low) or len(low.split()) > 9
             or _WEATHER_SET.search(low)):
         return False                       # "pogoda dla Krakowa" sets it directly
