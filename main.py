@@ -143,6 +143,8 @@ def voice_loop():
                     elif handled := commands.handle(text, _logged(said := []), play_sound):
                         if handled != "recorded":
                             note_local(text, said)   # the model learns what happened
+                        if isinstance(handled, tuple) and handled[0] == "ask":
+                            process(handled[1])      # e.g. the weather question, now answerable
                     elif _is_self_echo(text):
                         print(f"[Luna] Ignoring self-echo: \"{text}\"")
                     else:

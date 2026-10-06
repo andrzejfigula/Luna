@@ -239,6 +239,7 @@ _name_wanted = [0.0]        # until when a bare name ("Ola.") answers "jak masz 
 
 
 _place_wanted = [0.0]          # she asked "w jakim mieście mieszkamy?" until then
+_place_question = [""]         # ...after this weather question, answered once the place is set
 _WEATHER_ASK = re.compile(r"\b(?:pogod\w*|temperatur\w*|ile\s+stopni|czy\s+(?:będzie\s+)?pada|"
                           r"jak\s+jest\s+na\s+(?:dworze|zewnątrz|polu)|parasol)\b", re.I)
 
@@ -246,7 +247,9 @@ _WEATHER_ASK = re.compile(r"\b(?:pogod\w*|temperatur\w*|ile\s+stopni|czy\s+(?:b�
 def weather_setup(text, speak):
     """No weather place yet: a weather question gets "w jakim mieście
     mieszkamy?", and the answer ("w Krakowie", "Kraków") switches it on — no
-    phrase to learn (5 Oct: "Ale dziś zimno" → "nie mogę sprawdzić")."""
+    phrase to learn (5 Oct: "Ale dziś zimno" → "nie mogę sprawdzić").
+    Returns ("ask", question) once the place is set: the question that
+    started it is then answered (6 Oct Andrzej had to ask a second time)."""
     import weather
     low = text.lower().strip(" .!?")
     if time.time() < _place_wanted[0]:
@@ -259,6 +262,10 @@ def weather_setup(text, speak):
                 r"\b(?:zrób|zrob|włącz|wlacz|wyłącz|pokaż|pokaz|nie|nastaw|ile|co|jak)\b", place):
             name = weather.set_place(f"pogoda dla {place}")
             if name:
+                question, _place_question[0] = _place_question[0], ""
+                if question:
+                    speak(f"Dzięki! Zapamiętałam: {name}.")
+                    return ("ask", question)
                 speak(f"Dzięki! Od teraz znam pogodę dla: {name}.")
                 return True
     if (weather.enabled() or not _WEATHER_ASK.search(low) or len(low.split()) > 9
@@ -267,6 +274,7 @@ def weather_setup(text, speak):
     if re.search(r"\b(?:w|we|na)\s+[A-ZĄĆĘŁŃÓŚŹŻ]", text):
         return False                       # "pogoda w Berlinie": that one place (model)
     _place_wanted[0] = time.time() + 25
+    _place_question[0] = text
     with state.lock:                       # the answer needs no "Luna"
         state.conversation_active = True
         state.last_activity_time = time.time() + 8
@@ -866,8 +874,8 @@ def handle(text, speak, play_sound, _polite=True):
         _spell(word, speak)
         return True
 
-    if weather_setup(text, speak):                 # first weather question: where?
-        return True
+    if setup := weather_setup(text, speak):        # first weather question: where?
+        return setup
 
     # "pogoda dla Krakowa" / "mieszkam w Gdańsku" — switch the forecast on
     if _WEATHER_SET.search(low) and _short(text, 8):

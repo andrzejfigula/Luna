@@ -191,7 +191,8 @@ class TimersTest(unittest.TestCase):
                 mock.patch.object(weather, "set_place", lambda p: "Kraków" if "krak" in p else None):
             self.assertTrue(commands.weather_setup("Jaka jest dziś pogoda?", said.append))
             self.assertIn("W jakim mieście", said[-1])
-            self.assertTrue(commands.weather_setup("W Krakowie", said.append))
+            self.assertEqual(commands.weather_setup("W Krakowie", said.append),
+                             ("ask", "Jaka jest dziś pogoda?"))
             self.assertIn("Kraków", said[-1])
             self.assertFalse(commands.weather_setup("Jaka jest pogoda w Berlinie?", said.append))
             self.assertFalse(commands.weather_setup("Lubię jesień", said.append))

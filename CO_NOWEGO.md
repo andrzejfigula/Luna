@@ -181,6 +181,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Pytanie w powitaniu | gdy Luna o coś zapyta przy powitaniu, możesz odpowiedzieć bez „Luna” |
 | Rozmowa / telefon przy Lunie | nie wita się i nie mówi „Hejka”, gdy ludzie rozmawiają między sobą |
 | „Kto to jest?” przy kamerze | mówi, kogo rozpoznała i gdzie: „Po lewej jest Maja, a po prawej Andrzej” (wcześniej: „nie wiem, kto to”) |
+| Pogoda za pierwszym razem | po odpowiedzi „W jakim mieście?” od razu mówi pogodę — nie trzeba pytać drugi raz |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 
