@@ -864,6 +864,9 @@ _HELLO_AGAIN = """Someone you know just came back to the desk after a while
 (not the first time today). Write ONE very short spoken hello in Polish, 3-8
 words, using their name in the vocative ("Cześć, Maju!", "O, Emilka wróciła!"),
 warm, fitted to the time of day and to how you feel about them. No emoji.
+Just a hello: NO question about their work, project, plans or anything from
+your memory — the first hello of the day already did that, and asking again
+at every return gets tiresome ("Jak idzie projekt?" three times a day).
 Feminine forms about yourself; THEIR gender from their name."""
 
 
@@ -893,7 +896,10 @@ def greeting(first_today, waking=False, who=None, stranger=False):
     prompt = (_WAKING if waking else _STRANGER if stranger else
               _BRIEFING if first_today else _HELLO_AGAIN)
     try:
-        context = (f"Local time: {_local_now_text()}.\n" + weather.prompt_line()
+        context = (f"Local time: {_local_now_text()}.\n"
+                   + (f"The person you greet: {who} (use their name, in the vocative).\n"
+                      if who else "")
+                   + weather.prompt_line()
                    + faces.prompt_line() + relationship.prompt_line()
                    + birthdays.prompt_line()
                    + timers.prompt_block() + lists.prompt_block()
