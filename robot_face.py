@@ -36,7 +36,9 @@ from shared_state import state
 from config import (RENDER_FPS, FACE_STYLE, SCREEN_WIDTH, SCREEN_HEIGHT,
                     FULLSCREEN, HIDE_CURSOR, GESTURE_DURATION,
                     CAMERA_PREVIEW, CAMERA_PREVIEW_W, TOUCH_DEBUG,
-                    TOUCH_REACT_SECS, TOUCH_POKE_SECS)
+                    TOUCH_REACT_SECS, TOUCH_POKE_SECS, GAZE_FACE_PUPIL,
+                    GAZE_MOTION_PUPIL, GAZE_MOTION_MAX_W, GAZE_MOTION_HOLD,
+                    GAZE_MOTION_MIN)
 
 # The face geometry below is in absolute pixels and was drawn for a 1400x800
 # window; it fits the 800x480 DSI panel as-is (~560x400 used), just larger
@@ -1418,6 +1420,7 @@ class RobotFace:
             listening      = state.listening
             audio_energy   = state.audio_energy
             look_dir       = state.look_dir
+            motion         = state.motion
             frozen_emotion = state.frozen_emotion
             g_anim         = state.gesture_anim
             g_start        = state.gesture_anim_start
@@ -1590,12 +1593,31 @@ class RobotFace:
         elif face_detected:
             target_ox = (fx - 0.5) * 120
             target_oy = (fy - 0.5) *  60
+            p_ox, p_oy = target_ox * GAZE_FACE_PUPIL, target_oy * GAZE_FACE_PUPIL
+            seen = self._motion_seen(motion, now_t)
+            if seen:
+                # something moves beside them: a glance at it (6 Oct: "eyes
+                # should move a bit more towards moving things")
+                m_ox, m_oy, w = seen
+                p_ox += (m_ox * GAZE_MOTION_PUPIL - p_ox) * w
+                p_oy += (m_oy * GAZE_MOTION_PUPIL - p_oy) * w
+                target_ox += (m_ox - target_ox) * w * 0.3
+                target_oy += (m_oy - target_oy) * w * 0.3
             self.target_ox = target_ox
             self.target_oy = target_oy
-            self.pupil_ox  = lerp(self.pupil_ox, target_ox * 0.25, 0.15)
-            self.pupil_oy  = lerp(self.pupil_oy, target_oy * 0.25, 0.15)
+            self.pupil_ox  = lerp(self.pupil_ox, p_ox, 0.18)
+            self.pupil_oy  = lerp(self.pupil_oy, p_oy, 0.18)
             self.target_tilt = (8.0 if fx < 0.38
                                 else (-8.0 if fx > 0.62 else 0.0))
+        elif self._motion_seen(motion, now_t):
+            # nobody in view, but something moves: the eyes follow it
+            m_ox, m_oy, _ = self._motion_seen(motion, now_t)
+            self.curiosity_timer = 0
+            self.target_ox = m_ox * 0.7
+            self.target_oy = m_oy * 0.7
+            self.pupil_ox  = lerp(self.pupil_ox, m_ox * GAZE_MOTION_PUPIL, 0.12)
+            self.pupil_oy  = lerp(self.pupil_oy, m_oy * GAZE_MOTION_PUPIL, 0.12)
+            self.target_tilt = 0.0
         else:
             self.curiosity_timer += 1
             if self.curiosity_timer > 140:
@@ -1970,6 +1992,18 @@ class RobotFace:
                        int(eye_col[1] * (1 - d)),
                        int(eye_col[2] * (1 - d)))
         self._eye_color = None if eye_col == EYE_OUTER else eye_col
+
+    def _motion_seen(self, motion, now_t):
+        """(offset x, offset y, weight) toward recent movement in the camera
+        picture (gesture_module), in the same units as the face offset; None
+        when nothing has moved lately."""
+        if not motion:
+            return None
+        mx, my, strength, t = motion
+        if now_t - t > GAZE_MOTION_HOLD or strength < GAZE_MOTION_MIN:
+            return None
+        w = min(GAZE_MOTION_MAX_W, 0.25 + strength)
+        return (mx - 0.5) * 120, (my - 0.5) * 60, w
 
     def _cancel_scene(self, name, start, why):
         """End the playing scene now. Its mood goes too — but only the mood

@@ -849,6 +849,9 @@ def listen():
                   f"(silence {silent_run:.2f}s)", flush=True)
             final = False
         early = not final and voiced and silent_run >= end_after
+        if (final or early) and voiced:
+            with state.lock:                 # the speech itself ended this long ago
+                state.heard_at = time.time() - silent_run
         if final or early:
             result   = json.loads(rec.FinalResult() if early else rec.Result())
             if msg_parts:                # a recorded message: all its parts

@@ -10,6 +10,11 @@ import re
 # A sentence ends at . ! ? … (maybe followed by a closing quote) and a space.
 _SENTENCE_END = re.compile(r"[.!?…]+[\"”»)]?\s")
 _FIRST_MIN_CHARS = 20          # don't send "Tak." alone — it sounds clipped
+# A long first sentence may be spoken from its first clause (", " ; : —) once
+# that clause is this long: her voice starts a few words sooner (6 Oct: "more
+# snappy"), and a comma is a natural place for the seam.
+_CLAUSE_END = re.compile(r"[,;:—–]\s")
+_FIRST_CLAUSE_MIN = 40
 _CHUNK_CHARS = 180             # after the first sentence, speak in pieces of
                                # about this much (whole sentences) — a long
                                # story must not wait for its last word
@@ -54,9 +59,12 @@ class ReplyStream:
         if not self.closed:
             self._decode()
         if self.sent == 0:
-            m = _SENTENCE_END.search(self.text, _FIRST_MIN_CHARS)
-            if m:
-                self._out(m.end())
+            # whichever comes first — the same split however the stream is chunked
+            ends = [m.end() for m in (_SENTENCE_END.search(self.text, _FIRST_MIN_CHARS),
+                                      _CLAUSE_END.search(self.text, _FIRST_CLAUSE_MIN))
+                    if m]
+            if ends:
+                self._out(min(ends))
         elif len(self.text) - self.sent >= _CHUNK_CHARS:
             # the last sentence end at least _CHUNK_CHARS into the pending text
             last = None

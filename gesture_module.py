@@ -174,6 +174,39 @@ def _skin_fraction(ycrcb, x, y, w, h):
     return frac(WAVE_SKIN_SIGMA, WAVE_SKIN_MIN_STD)
 
 
+MOTION_DIFF = 22          # grey-level change that counts as movement
+MOTION_MIN_FRAC = 0.004   # less of the picture than this moving: noise
+MOTION_MAX_FRAC = 0.35    # more: the light changed or the camera re-exposed
+_motion = {"prev": None, "x": None, "y": None, "frames": 0, "moving": 0}
+
+
+def _track_motion(grey, face_detected, fx, fy, fwf):
+    """Where something moves in the picture, for her eyes (robot_face.py):
+    state.motion = (x mirrored like face_x, y, strength 0..1, time). The face
+    itself is left out — the face tracker already follows it."""
+    prev, _motion["prev"] = _motion["prev"], grey
+    if prev is None:
+        return
+    _motion["frames"] += 1                  # (main.py's SIGUSR1 dump)
+    mask = cv2.absdiff(grey, prev) > MOTION_DIFF
+    if face_detected:
+        cx, cy, fw, fh = _face_box(fx, fy, fwf)
+        ex, ey = int(fw * 1.4), int(fh * 1.4)          # the head moves a bit too
+        mask[max(0, cy - ey):min(H, cy + ey), max(0, cx - ex):min(W, cx + ex)] = False
+    frac = float(mask.mean())
+    if not MOTION_MIN_FRAC <= frac <= MOTION_MAX_FRAC:
+        return
+    _motion["moving"] += 1
+    ys, xs = np.nonzero(mask)
+    x, y = float(xs.mean()) / W, float(ys.mean()) / H
+    if _motion["x"] is not None:            # a little smoothing: no jitter
+        x = 0.6 * x + 0.4 * _motion["x"]
+        y = 0.6 * y + 0.4 * _motion["y"]
+    _motion["x"], _motion["y"] = x, y
+    with state.lock:
+        state.motion = (1.0 - x, y, min(1.0, frac * 12), time.time())
+
+
 def gesture_loop():
     prev  = None
     track = deque(maxlen=int(WAVE_WINDOW_SECS * GESTURE_FPS * 2))
@@ -198,16 +231,16 @@ def gesture_loop():
             if frame is None:
                 time.sleep(0.2)
                 continue
+            small = cv2.resize(frame, (W, H))
+            grey  = cv2.GaussianBlur(cv2.cvtColor(small, cv2.COLOR_BGR2GRAY), (5, 5), 0)
+            _track_motion(grey, face_detected, fx, fy, fwf)
             if WAVE_REQUIRE_FACE and not face_detected:
                 prev = None            # don't let stale diffs pile up
                 track.clear()
                 time.sleep(period)
                 continue
 
-            small = cv2.resize(frame, (W, H))
             ycrcb = cv2.cvtColor(small, cv2.COLOR_BGR2YCrCb)
-            grey  = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
-            grey  = cv2.GaussianBlur(grey, (5, 5), 0)
             if prev is None:
                 prev = grey
                 continue

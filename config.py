@@ -261,7 +261,8 @@ STT_MIN_UTTERANCE_CHARS = 2
 # The utterance is over after this much silence following real speech (Vosk
 # alone waits ~1.05 s). Raise it if she answers before you finish sentences
 # with long pauses.
-STT_END_SILENCE = 0.75
+STT_END_SILENCE = 0.6    # (was 0.75 — 6 Oct: "more snappy"; a sentence cut mid-word
+                         # still waits for its end, see speech_to_text.cut_off)
 
 # Print per-utterance rms/confidence so the thresholds above can be tuned.
 STT_DEBUG_AUDIO = True
@@ -274,7 +275,8 @@ OPENAI_TTS_MODEL        = "gpt-4o-mini-tts"
 # .env: LUNA_TTS_VOICE=nova   (alloy, ash, ballad, coral, echo, fable, nova,
 # onyx, sage, shimmer, verse, marin, cedar — nova/shimmer/marin are the bright ones)
 OPENAI_TTS_VOICE        = _env("LUNA_TTS_VOICE", "marin")
-OPENAI_TTS_SPEED        = 1.0
+OPENAI_TTS_SPEED        = 1.2     # the house rate (6 Oct: "20% faster", Andrzej); per person
+                                  # in settings "tts_speed_by"
 # Delivery style. Kept conversational on purpose — "cheerful robot" style
 # prompts make the voice sound artificial.
 OPENAI_TTS_INSTRUCTIONS = (
@@ -384,7 +386,7 @@ VOLUME_STEP      = 0.10   # "głośniej" / "ciszej"
 VOLUME_MIN       = 0.10   # never fully silent by voice — she must answer you
 VOLUME_MAX       = 1.00
 SPEED_STEP       = 0.10   # "mów wolniej" / "mów szybciej"
-SPEED_MIN, SPEED_MAX = 0.75, 1.40
+SPEED_MIN, SPEED_MAX = 0.75, 1.60
 SETTINGS_PATH    = os.path.join(DATA_DIR, "settings.json")
 SLEEP_BRIGHTNESS = 3      # screen % while she sleeps ("dobranoc")
 # Night mode (display.py): during the quiet hours the screen dims by itself,
@@ -559,6 +561,13 @@ TOUCH_REPLIES = {
 FACE_OVERRIDE_SECS     = 4.0   # how long the LLM-chosen emotion lingers after a reply
 
 # ── Gestures (camera motion, see gesture_module.py) ───────────────────────────
+# ── Eyes that follow movement (gesture_module tracks it, robot_face looks) ──
+GAZE_FACE_PUPIL   = 0.4    # pupil shift per face offset (was 0.25)
+GAZE_MOTION_PUPIL = 0.8    # pupil shift toward something moving
+GAZE_MOTION_MAX_W = 0.65   # how far a glance at movement pulls away from a face
+GAZE_MOTION_HOLD  = 1.0    # keep looking where it moved this long after it stops
+GAZE_MOTION_MIN   = 0.05   # weaker movement (strength 0..1) is ignored
+
 GESTURE_FPS            = 15    # analysis rate (160x120 frame differencing, ~1 ms);
                                # a quick wave needs several samples per swing
 GESTURE_DEBUG          = False # log every near-miss with its features (tuning)

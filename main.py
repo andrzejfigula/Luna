@@ -255,6 +255,12 @@ def _dump_threads(*_):
     except Exception as e:
         print(f"[threads] vision stats: {e}", flush=True)
     try:
+        import gesture_module as gm
+        print(f"[threads] motion: {gm._motion['moving']} of {gm._motion['frames']} frames "
+              f"moving, last {gm.state.motion}", flush=True)
+    except Exception as e:
+        print(f"[threads] motion stats: {e}", flush=True)
+    try:
         import robot_face as rf
         f = rf.frame_stats
         n = max(1, f["frames"])

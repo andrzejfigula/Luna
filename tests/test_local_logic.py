@@ -1013,7 +1013,8 @@ class CommandsTest(unittest.TestCase):
         self.assertTrue(self.handle("Mów wolniej"))
         self.assertAlmostEqual(settings.get("tts_speed"), 0.9)
         self.assertTrue(self.handle("mów normalnie"))
-        self.assertAlmostEqual(settings.get("tts_speed"), 1.0)
+        from config import OPENAI_TTS_SPEED
+        self.assertAlmostEqual(settings.get("tts_speed"), OPENAI_TTS_SPEED)   # the house rate
 
 
 class CalcTest(unittest.TestCase):
