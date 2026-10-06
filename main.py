@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import time
 import signal
@@ -94,17 +95,22 @@ def _is_self_echo(text):
     if not last or (time.time() - last_time) > ECHO_GUARD_WINDOW:
         return False
 
-    heard_words = text.lower().split()
-    last_words  = last.split()
+    heard_words = re.findall(r"\w+", text.lower())    # punctuation never decides it
+    last_words  = re.findall(r"\w+", last.lower())
     if not heard_words:
         return False
 
     overlap = sum(1 for w in heard_words if w in set(last_words)) / len(heard_words)
     sm      = difflib.SequenceMatcher(None, heard_words, last_words, autojunk=False)
-    run     = sm.find_longest_match(0, len(heard_words), 0, len(last_words)).size
+    match   = sm.find_longest_match(0, len(heard_words), 0, len(last_words))
+    run     = match.size
     run_ratio = run / len(heard_words)
+    # an echo is the TAIL of what she said (the mic opens right after she
+    # stops); words from the middle of her answer are someone answering it —
+    # "kurczak z warzywami" (one of the two dinners she offered) was swallowed
+    at_end = match.b + run >= len(last_words) - 3
 
-    return run_ratio >= ECHO_RUN_THRESH and overlap >= ECHO_OVERLAP_THRESH
+    return run_ratio >= ECHO_RUN_THRESH and overlap >= ECHO_OVERLAP_THRESH and at_end
 
 
 def _stamp_activity():
