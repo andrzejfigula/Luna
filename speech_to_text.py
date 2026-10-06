@@ -1007,7 +1007,7 @@ def listen():
                         state.luna_mode = "listening"
                         state.listening = True
                     continue
-                if cloud and english_side_talk(cloud):
+                if cloud and not messages_armed() and english_side_talk(cloud):
                     # a work call in English next to her ("upload it and then
                     # download it…" got an answer on 5 Oct): not said to her
                     print(f"[STT] English side talk — ignored: \"{cloud}\"", flush=True)
