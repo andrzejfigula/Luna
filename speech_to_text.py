@@ -653,11 +653,32 @@ def _maybe_wake(words):
     return len(words) <= 2
 
 
+def _wake_check_worth(words):
+    """Might these (passive-mode) words hold a misheard "Luna"?"""
+    if not CLOUD_WAKE_CHECK or _cloud is None:
+        return False
+    return words is None or _maybe_wake(words) or _face_invites(words)
+
+
+def _wake_budget():
+    """One more cloud wake check allowed now? (spends it) — a room with the TV
+    on would otherwise send every sentence to the cloud."""
+    global _last_cloud_wake_check
+    now = time.time()
+    if now - _last_cloud_wake_check < CLOUD_WAKE_MIN_INTERVAL:
+        return False
+    _wake_checks[:] = [t for t in _wake_checks if now - t < 3600]
+    if len(_wake_checks) >= CLOUD_WAKE_MAX_PER_HOUR:
+        return False
+    _wake_checks.append(now)
+    _last_cloud_wake_check = now
+    return True
+
+
 def _cloud_wake_check(pcm16k, words=None):
     """Vosk heard speech but no wake word: ask the cloud whether the wake
     word is actually in there. Returns (found, cleaned_text). Rationed: a
     room with the TV on would otherwise send every sentence to the cloud."""
-    global _last_cloud_wake_check
     job = _spec_take(pcm16k) if pcm16k else None
     if job is not None:
         # already transcribed on the pause (Vosk's partial words had her name,
@@ -667,18 +688,8 @@ def _cloud_wake_check(pcm16k, words=None):
         if not cloud or not _cloud_has_wake(cloud):
             return False, None
         return True, _strip_wake_from_cloud(cloud)
-    if not CLOUD_WAKE_CHECK or _cloud is None:
+    if not _wake_check_worth(words) or not _wake_budget():
         return False, None
-    if words is not None and not _maybe_wake(words) and not _face_invites(words):
-        return False, None
-    now = time.time()
-    if now - _last_cloud_wake_check < CLOUD_WAKE_MIN_INTERVAL:
-        return False, None
-    _wake_checks[:] = [t for t in _wake_checks if now - t < 3600]
-    if len(_wake_checks) >= CLOUD_WAKE_MAX_PER_HOUR:
-        return False, None
-    _wake_checks.append(now)
-    _last_cloud_wake_check = now
     cloud = _cloud_transcribe(pcm16k)
     if not cloud or not _cloud_has_wake(cloud):
         return False, None
@@ -923,7 +934,10 @@ def listen():
                 and silent_run >= SPEC_AFTER and not spec_tried):
             spec_tried = True                    # once per pause
             words = json.loads(rec.PartialResult()).get("partial", "").split()
-            if active or _find_wake_word(words) is not None:
+            if (active or _find_wake_word(words) is not None
+                    or (_wake_check_worth(words) and _wake_budget())):
+                # (the last: the end-of-utterance wake check would ask the
+                # cloud anyway — 6 Oct 18:49 "runda jeśli" was "Luna, nie śpij!")
                 _speculate(b"".join(utt_audio))
         if final and recording and silent_run < end_after:
             # Vosk thinks you're done (~1 s pause) but a message may go on:

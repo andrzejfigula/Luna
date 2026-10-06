@@ -1391,6 +1391,21 @@ class KidsTest(unittest.TestCase):
                              (True, "Jakie stacje radiowe masz?"))
         s._spec_cancel()
 
+    def test_wake_budget_is_rationed(self):
+        from unittest import mock
+        with mock.patch.dict(sys.modules, {"sounddevice": mock.MagicMock(),
+                                           "vosk": mock.MagicMock()}):
+            import speech_to_text as s
+        s._wake_checks.clear()
+        s._last_cloud_wake_check = 0.0
+        self.assertTrue(s._wake_budget())
+        self.assertFalse(s._wake_budget())                     # 2 s between checks
+        s._last_cloud_wake_check = 0.0
+        s._wake_checks[:] = [time.time()] * s.CLOUD_WAKE_MAX_PER_HOUR
+        self.assertFalse(s._wake_budget())                     # the hour's budget is spent
+        s._wake_checks.clear()
+        s._last_cloud_wake_check = 0.0
+
     def test_face_invites_a_cloud_wake_check(self):
         from unittest import mock
         with mock.patch.dict(sys.modules, {"sounddevice": mock.MagicMock(),
