@@ -175,6 +175,11 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | „Hejka!” przy machaniu | macha zawsze, ale mówi „cześć” najwyżej raz na kwadrans |
 | Pamięć | już się nie „wyciera” — zwykła rozmowa tylko dopisuje; porządki raz dziennie, ostrożnie |
 | Dźwięk po wielu godzinach | koniec z trzaskami po ~8 h pracy (dryf zegara karty dźwiękowej) |
+| Tempo mowy dla każdego | „Mów szybciej” / „za wolno mówisz” zmienia tempo tylko dla osoby, która to mówi (Emilka ma już 1,1×) |
+| Dwie osoby przed Luną | nie zwraca się po imieniu — nie wie, kto mówi |
+| Obietnice | „przypomnę ci” tylko z prawdziwym przypomnieniem — inaczej zapyta, o której |
+| Pytanie w powitaniu | gdy Luna o coś zapyta przy powitaniu, możesz odpowiedzieć bez „Luna” |
+| Rozmowa / telefon przy Lunie | nie wita się i nie mówi „Hejka”, gdy ludzie rozmawiają między sobą |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 
