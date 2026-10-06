@@ -82,7 +82,7 @@ def _local_now_text():
             f"({LUNA_TIMEZONE if _TZ else 'system'}, {now.strftime('%Z')}, "
             f"UTC{off[:3]}:{off[3:]})")
 
-from polish import feminize as _feminize, offer_only   # (polish.py)
+from polish import feminize as _feminize, offer_only, empty_promise   # (polish.py)
 
 
 # Face states robot_face.py knows how to draw. The model must pick one.
@@ -205,7 +205,11 @@ Always answer as JSON with exactly these keys:
                 turned something on or changed something without the action
                 that does it — if there is none, say you can't. The same for
                 promises: "przypomnę ci…" only together with a reminder or
-                timer action (ask "o której?" if you don't know when).
+                timer action. A vague time is enough: "wieczorem" → 19:00,
+                "rano" → 8:00, "po południu" → 15:00 — set it and say the
+                hour. No time at all → ask "O której ci przypomnieć?". Never
+                "przypomnę ci, jeśli chcesz" without the action: they hear a
+                promise, and nothing would ring.
 Let user_mood quietly shape HOW you answer — softer, calmer and shorter when
 they seem tired, sad or stressed; livelier when they seem happy — without
 mentioning it. Whether you may actually SAY something about it is stated
@@ -693,6 +697,13 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             print(f"[brain] offer, not done — {len(data['actions'])} action(s) held back",
                   flush=True)
             data["actions"] = []
+        if empty_promise(reply, data.get("actions")):
+            # the promise becomes a question — the window stays open for "o 19"
+            extra = "O której mam ci przypomnieć?"
+            print(f"[brain] promised a reminder without one — asking: {extra}", flush=True)
+            if on_sentence:
+                on_sentence(extra)
+            reply = f"{reply} {extra}"
         timers.apply(data.get("actions") or [])
         lists.apply(data.get("actions") or [])
         for a in data.get("actions") or []:

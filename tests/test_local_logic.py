@@ -161,6 +161,15 @@ class TimersTest(unittest.TestCase):
             radio.play = old
         self.assertEqual(played[0], "Dwójka")
 
+    def test_empty_promise(self):
+        from polish import empty_promise
+        self.assertTrue(empty_promise("Dobrze, przypomnę ci o tym, jeśli chcesz.", []))
+        self.assertTrue(empty_promise("Jasne, przypomnę ci wieczorem.", None))
+        self.assertFalse(empty_promise("Przypomnę ci o 19:00.", [{"type": "reminder"}]))
+        self.assertFalse(empty_promise("Przypomnę ci. O której?", []))
+        self.assertFalse(empty_promise("Nie przypomnę sobie tego tytułu.", []))
+        self.assertFalse(empty_promise("Pamiętaj o ładowarce.", []))
+
     def test_log_report_audio_by_hour(self):
         sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
             os.path.abspath(__file__))), "tools"))

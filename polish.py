@@ -73,6 +73,17 @@ _DONE = re.compile(r"\b(?:dodałam|dopisałam|włączam|wlaczam|nastawiam|nastaw
                    re.I)
 
 
+_PROMISE = re.compile(r"(?<!nie )\bprzypomnę\b(?!\s+sobie)", re.I)
+
+
+def empty_promise(reply, actions):
+    """"Dobrze, przypomnę ci o tym, jeśli chcesz." with no action at all —
+    they hear a promise and nothing would ring (the prompt forbids it, and
+    the model still said it in 2 of 5 tries). A reply that already asks
+    ("…o której?") is fine."""
+    return bool(_PROMISE.search(reply or "")) and not actions and "?" not in (reply or "")
+
+
 def offer_only(reply):
     """The reply offers to do something ("Może dopiszmy warzywa?", "Chcesz,
     żebym nastawiła minutnik?") and confirms nothing — then any action the

@@ -177,7 +177,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Dźwięk po wielu godzinach | koniec z trzaskami po ~8 h pracy (dryf zegara karty dźwiękowej) |
 | Tempo mowy dla każdego | „Mów szybciej” / „za wolno mówisz” zmienia tempo tylko dla osoby, która to mówi (Emilka ma już 1,1×) |
 | Dwie osoby przed Luną | nie zwraca się po imieniu — nie wie, kto mówi |
-| Obietnice | „przypomnę ci” tylko z prawdziwym przypomnieniem — inaczej zapyta, o której |
+| Obietnice | „przypomnę ci” tylko z prawdziwym przypomnieniem — inaczej dopyta „O której mam ci przypomnieć?” (wystarczy odpowiedzieć „o 19”) |
 | Pytanie w powitaniu | gdy Luna o coś zapyta przy powitaniu, możesz odpowiedzieć bez „Luna” |
 | Rozmowa / telefon przy Lunie | nie wita się i nie mówi „Hejka”, gdy ludzie rozmawiają między sobą |
 | „Kto to jest?” przy kamerze | mówi, kogo rozpoznała i gdzie: „Po lewej jest Maja, a po prawej Andrzej” (wcześniej: „nie wiem, kto to”) |
