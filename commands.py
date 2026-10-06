@@ -28,6 +28,8 @@ commands.py — things Luna does herself, without asking the model.
   spell    "jak się pisze żółw?" — on the screen and letter by letter
   count    "policz do dwudziestu", "odliczaj od dziesięciu", "włącz stoper" (counting.py)
   kids     "myjemy zęby" (2-minute coach), "zacznij poranek" (a list step by step)
+  reading  "posłuchaj, jak czytam": she listens quietly until "koniec", then
+           praises what was read (reading.py)
   radio    "włącz radio", "włącz Trójkę", "wyłącz radio za 30 minut" (radio.py)
   goodbye  "pa", "do zobaczenia", "dzięki, to wszystko": a wave, and the
            conversation window closes at once
@@ -280,6 +282,16 @@ def weather_setup(text, speak):
         state.last_activity_time = time.time() + 8
     speak("Nie wiem jeszcze, gdzie mieszkamy. W jakim mieście? Powiedz tylko nazwę.")
     return True
+
+
+def reading_done(text, who):
+    """The reading is over: one answer about it (or nothing, if nothing came)."""
+    import reading
+    if not text:
+        return
+    import brain
+    brain.process("(Skończyłam czytać na głos — co powiesz?)",
+                  context=reading.feedback_context(text, who))
 
 
 def expect_name(secs=20):
@@ -992,6 +1004,10 @@ def handle(text, speak, play_sound, _polite=True):
     import counting
     if counting.ask_stopwatch(text, speak):        # "ile na stoperze?"
         return True
+
+    import reading                                 # "czy mogę ci poczytać?" too
+    if reading.is_request(text) and not reading.armed():
+        return reading.start(speak, reading_done)
 
     # everything below acts on a request — never on a question about it
     if question:

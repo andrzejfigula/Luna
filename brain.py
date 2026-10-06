@@ -1018,8 +1018,18 @@ def _think_filler(answered):
         play_sound(random.choice(THINK_SOUNDS))
 
 
+_process_lock = threading.RLock()     # one answer at a time, whichever thread asks
+
+
 def process(text, context=None):
-    """context: extra system-prompt text for this one question (news.py)."""
+    """context: extra system-prompt text for this one question (news.py).
+    Usually called from the voice thread; reading.py's end-after-silence
+    calls it from its own — the lock keeps the two from talking over each other."""
+    with _process_lock:
+        _process(text, context)
+
+
+def _process(text, context=None):
     text = text.strip()
     if not text:
         return

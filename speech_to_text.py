@@ -428,8 +428,8 @@ def fast_command(text, conf):
     try:
         import messages
         import voicefx
-        if messages.armed() or voicefx.armed():   # its audio is what counts
-            return None
+        if messages.armed() or voicefx.armed() or messages_armed():
+            return None                            # its audio / words are what counts
     except Exception:
         pass
     return t
@@ -474,9 +474,12 @@ def people_talking(now=None, window=120, count=4):
 
 
 def messages_armed():
+    """A voice message is being recorded, or a child reads aloud
+    (reading.py): every sentence counts as it is — no holding, no filters."""
     try:
         import messages
-        return messages.armed()
+        import reading
+        return messages.armed() or reading.armed()
     except Exception:
         return False
 

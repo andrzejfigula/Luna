@@ -87,6 +87,7 @@ CASES = [
     ("Pokaż plan dnia", "plan"),
     ("Jaka będzie jutro pogoda?", "W jakim mieście"),   # no town set in scratch data
     ("Zmień mój głos jak robot", "głos: robot"),
+    ("Czy mogę ci poczytać?", "Słucham"),               # reading.py (disarmed below)
     ("Zrób mi zdjęcie", ""),
     ("Włącz lampkę", ""),
     ("Lampka na niebiesko", ""),
@@ -169,6 +170,9 @@ for text, want in CASES:
     print(f"  {'ok  ' if ok else 'FAIL'} {text!r} → {out if handled else '(model)'}", flush=True)
     if not ok:
         failures.append(text)
+    import reading
+    if reading.armed():                     # the test goes on with other sentences
+        reading.take()
     time.sleep(0.05)
 
 print(f"[dialog] {'OK' if not failures else 'FAILED: ' + ', '.join(failures)}", flush=True)

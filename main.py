@@ -129,6 +129,14 @@ def voice_loop():
                         messages.store(speech_to_text.last_utterance_pcm, text)
                         speak("Zapisałam wiadomość.")
                         continue
+                    import reading
+                    if reading.armed():
+                        # "posłuchaj, jak czytam": collected, answered at the end
+                        if (r := reading.add(text)) == "end":
+                            commands.reading_done(*reading.take())
+                        elif r == "stop":
+                            speak("Dobrze, przestaję słuchać.")
+                        continue
                     import voicefx
                     if voicefx.armed():
                         # "zmień mój głos" — this sentence comes back changed

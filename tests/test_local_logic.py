@@ -172,6 +172,31 @@ class TimersTest(unittest.TestCase):
             self.assertEqual(timers.apply([{"type": "reminder", "seconds": 0, "at": "",
                                             "label": "x"}]), [])
 
+    def test_reading_aloud(self):
+        import reading
+        for t in ("Posłuchaj, jak czytam.", "Luna, poczytam ci", "Chcę ci przeczytać bajkę",
+                  "Czy mogę ci poczytać?"):
+            self.assertTrue(reading.is_request(t), t)
+        self.assertFalse(reading.is_request("Przeczytaj mi wiadomości"))
+        self.assertFalse(reading.is_request("Czytałam dziś książkę"))
+        done = []
+        with mock.patch.object(reading.threading, "Thread"):
+            reading.start(lambda s: None, lambda t, w: done.append(t))
+        self.assertTrue(reading.armed())
+        self.assertIsNone(reading.add("Był sobie kotek."))
+        self.assertIsNone(reading.add("Kotek lubił mleko."))
+        self.assertEqual(reading.add("Koniec."), "end")
+        self.assertEqual(reading.take()[0], "Był sobie kotek. Kotek lubił mleko.")
+        self.assertFalse(reading.armed())
+        with mock.patch.object(reading.threading, "Thread"):
+            reading.start(lambda s: None, lambda t, w: None)
+        self.assertEqual(reading.add("I żyli długo i szczęśliwie. Koniec."), "end")
+        self.assertEqual(reading.take()[0], "I żyli długo i szczęśliwie.")
+        with mock.patch.object(reading.threading, "Thread"):
+            reading.start(lambda s: None, lambda t, w: None)
+        self.assertEqual(reading.add("Przestań"), "stop")
+        self.assertFalse(reading.armed())
+
     def test_model_for_poems(self):
         import re
         import ast

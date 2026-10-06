@@ -185,6 +185,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | „Przypomnij mi o praniu” → „Za godzinę” | przypomnienie naprawdę się ustawia (wcześniej czasem obiecywała, a nic nie dzwoniło) |
 | „Co dzisiaj ważnego się stało na świecie?” | czyta prawdziwe nagłówki z RMF24; gdy sama zaproponuje wiadomości, wystarczy „chcę” (wcześniej potrafiła je zmyślić) |
 | „Wymyśl wierszyk o kotku” | cały wierszyk (dwie zwrotki, prawdziwe rymy) — pisze go mocniejszy model; nie urywa się na „chcesz, żebym dokończyła?” |
+| **Nowe: czytanie na głos** — „Posłuchaj, jak czytam” / „Czy mogę ci poczytać?” | Luna mówi „Słucham!” i cicho słucha (przerwy nie przeszkadzają); po „koniec” albo chwili ciszy chwali konkretnie to, co przeczytane, i może zadać jedno pytanie o historyjkę. „Przestań” kończy bez komentarza |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 

@@ -14,6 +14,10 @@ set -euo pipefail
 PI="${LUNA_PI:-raspberry@raspberrypi.local}"
 cd "$(dirname "$0")/.."
 
+new=$(git ls-files --others --exclude-standard -- '*.py' '*.sh' '*.txt')
+if [ -n "$new" ]; then
+    echo "[deploy] not in git yet, so NOT copied (git add them first):"; sed 's/^/  /' <<<"$new"
+fi
 files=$(git ls-files | grep -v -E '\.md$|^\.git|^\.env')
 local_sums=$(for f in $files; do printf '%s %s\n' "$(tr -d '\r' < "$f" | md5sum | cut -c1-32)" "$f"; done)
 remote_sums=$(printf '%s\n' $files | ssh "$PI" 'cd ~/luna && while read f; do
