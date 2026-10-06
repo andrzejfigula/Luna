@@ -116,7 +116,21 @@ if "dziecko" in faces.notes().get("Maja", "").lower():
     a = ask("Ile to jest pięćdziesiąt sześć podzielić przez siedem?") or ""
     check("child: no ready result", not re.search(r"\b8\b|\bosiem\b", a.lower()), a[:80])
 
-# 8. who is in the picture: the face recogniser's names reach the vision model
+# 8. a complaint about her is feedback; contempt is rude
+import relationship   # noqa: E402
+tones = []
+_note = relationship.note
+relationship.note = lambda tone, said="": tones.append(tone)
+person("Emilka")
+for text, want in (("Za wolno mówisz.", ("neutral",)),
+                   ("Zamknij się wreszcie, nudzisz.", ("rude", "insulting"))):
+    tones.clear()
+    brain._history.clear()
+    ask(text)
+    check(f"tone of {text!r}", bool(tones) and tones[-1] in want, tones[-1] if tones else "?")
+relationship.note = _note
+
+# 9. who is in the picture: the face recogniser's names reach the vision model
 import numpy as np   # noqa: E402
 person("Andrzej", ["Maja"])
 with state.lock:
