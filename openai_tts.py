@@ -308,6 +308,8 @@ class OpenAITTS:
             finally:
                 q.put(("end", n))
 
+        import timing
+        timing.mark("tts")
         threading.Thread(target=attempt, args=(0,), daemon=True, name="tts-a").start()
         started = 1
         if not first.wait(TTS_HEDGE_AFTER) and not self._cut.is_set():
@@ -318,6 +320,7 @@ class OpenAITTS:
         while ended < started:
             kind, val = q.get()
             if kind == "data":
+                timing.mark("audio")
                 yield val
             elif kind == "error":
                 errors.append(val)

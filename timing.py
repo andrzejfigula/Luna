@@ -16,8 +16,16 @@ _marks = {}
 
 
 def mark(stage):
-    """Note when `stage` ("text", "model", "sentence") happened — first time only."""
+    """Note when `stage` happened — first time only: "text" (transcript ready),
+    "model" (request sent), "sentence" (first one written), "tts" (voice
+    requested), "audio" (its first bytes in)."""
     _marks.setdefault(stage, time.time())
+
+
+def waiting_for_reply():
+    """The model was asked but hasn't written a sentence: a sound now is a
+    "hmm" filler, not the answer."""
+    return "model" in _marks and "sentence" not in _marks
 
 
 def reset():
@@ -26,7 +34,8 @@ def reset():
 
 def report(heard):
     """The breakdown since `heard` (end of speech), then forget the marks."""
-    parts = [f"{k} {_marks[k] - heard:.2f}" for k in ("text", "model", "sentence")
+    parts = [f"{k} {_marks[k] - heard:.2f}" for k in ("text", "model", "sentence", "tts",
+                                                       "audio")
              if k in _marks and _marks[k] >= heard]
     _marks.clear()
     return ", ".join(parts)

@@ -49,13 +49,15 @@ from config import (
 
 def _on_audio_start():
     """Called by the TTS engine the instant real audio begins playing."""
+    import timing
     with state.lock:
         state.audio_playing = True
+        if timing.waiting_for_reply():
+            return                           # a "hmm" filler: measure the answer
         heard, state.heard_at = state.heard_at, 0.0
     if heard and time.time() - heard < 15:
         # end of their speech → her voice: what "snappy" means (tools/log_report.py),
         # with the stages in between (timing.py)
-        import timing
         stages = timing.report(heard)
         if stages.startswith("text"):        # an answer — not a wave-back or hello
             print(f"[latency] end of speech → her voice {time.time() - heard:.2f}s"
