@@ -1357,6 +1357,18 @@ class KidsTest(unittest.TestCase):
         self.assertFalse(news.accepts_offer("Nie, dzięki.", offer))
         self.assertFalse(news.accepts_offer("Chcę.", "Chcesz wierszyk o jesieni?"))
 
+    def test_fuzzy_wake_needs_her_name(self):
+        from unittest import mock
+        with mock.patch.dict(sys.modules, {"sounddevice": mock.MagicMock(),
+                                           "vosk": mock.MagicMock()}):
+            import speech_to_text as s
+        start, n, exact = s._find_wake_word("to żeby ludzie więc".split())
+        self.assertFalse(exact)                      # "ludzie" ≈ "lunie": only fuzzy
+        self.assertFalse(s._cloud_has_wake(
+            "Każdemu, nie chciał dokuczać nigdy nikomu, chciał, żeby ludzie w zgodzie żyli."))
+        self.assertTrue(s._cloud_has_wake("Luno, jaka jest pogoda?"))
+        self.assertTrue(s._find_wake_word("luna włącz radio".split())[2])
+
     def test_cut_off_sentences(self):
         from unittest import mock
         with mock.patch.dict(sys.modules, {"sounddevice": mock.MagicMock(),

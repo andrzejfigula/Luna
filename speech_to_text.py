@@ -953,15 +953,33 @@ def listen():
                         state.luna_mode = "listening" if active else "idle"
                         state.listening = active
                     continue
+                fuzzy = wake is not None and not wake[2]
+                fuzzy_cloud = None
+                if fuzzy:
+                    # a near-miss ("ludzie" scores 0.73 against "lunie") must be
+                    # confirmed: her name has to be in the real words (6 Oct
+                    # 17:54, Maja and a parent rehearsing a poem: "…żeby ludzie
+                    # w zgodzie żyli" woke her)
+                    fuzzy_cloud = _cloud_transcribe(utt_pcm)
+                    if not fuzzy_cloud or not _cloud_has_wake(fuzzy_cloud):
+                        print(f"[STT] false wake — \"{text}\" was not her name "
+                              f"(cloud: \"{fuzzy_cloud}\")", flush=True)
+                        with state.lock:
+                            state.luna_mode = "listening" if active else "idle"
+                            state.listening = active
+                        continue
                 print("[STT] Wake word — conversation active")
                 with state.lock:
                     state.conversation_active = True
                     state.last_activity_time  = time.time()
-                if cleaned and fast_command(cleaned, _avg_confidence(result)):
+                if (cleaned and not fuzzy
+                        and fast_command(cleaned, _avg_confidence(result))):
                     print(f"[STT] sure of \"{cleaned}\" — no cloud", flush=True)
                     return cleaned
+                if fuzzy:
+                    cleaned = _strip_wake_from_cloud(fuzzy_cloud)
                 if cleaned:
-                    cloud = _cloud_transcribe(utt_pcm)
+                    cloud = fuzzy_cloud or _cloud_transcribe(utt_pcm)
                     if cloud and not messages_armed() and english_side_talk(cloud):
                         # Vosk turned an English call into Polish-ish words with
                         # a "luna" in them; the real words have no "Luna" at all
