@@ -645,6 +645,15 @@ def _cloud_wake_check(pcm16k, words=None):
     word is actually in there. Returns (found, cleaned_text). Rationed: a
     room with the TV on would otherwise send every sentence to the cloud."""
     global _last_cloud_wake_check
+    job = _spec_take(pcm16k) if pcm16k else None
+    if job is not None:
+        # already transcribed on the pause (Vosk's partial words had her name,
+        # its final ones lost it: 6 Oct 18:36 "Luna, jakie stacje radiowe
+        # masz?" heard as "no jakie stacje…" — and ignored); free to use
+        cloud = job["result"]
+        if not cloud or not _cloud_has_wake(cloud):
+            return False, None
+        return True, _strip_wake_from_cloud(cloud)
     if not CLOUD_WAKE_CHECK or _cloud is None:
         return False, None
     if words is not None and not _maybe_wake(words):

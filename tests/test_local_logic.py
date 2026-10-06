@@ -1384,6 +1384,11 @@ class KidsTest(unittest.TestCase):
             self.assertEqual(s._cloud_transcribe(b"\x01" * 300), "text300")
             s._speculate(b"\x02" * 50)                       # another utterance's audio
             self.assertEqual(s._cloud_transcribe(b"\x01" * 80), "text80")
+        with mock.patch.object(s, "_cloud_transcribe_now",
+                               lambda pcm: "Luna, jakie stacje radiowe masz?"):
+            s._speculate(b"\x03" * 60)                       # Vosk's final words lost "Luna"
+            self.assertEqual(s._cloud_wake_check(b"\x03" * 90, ["no", "jakie", "stacje"]),
+                             (True, "Jakie stacje radiowe masz?"))
         s._spec_cancel()
 
     def test_fuzzy_wake_needs_her_name(self):
