@@ -53,6 +53,9 @@ from config import (
 )
 
 PCM_RATE = 24000   # fixed by the API for response_format="pcm"
+# read the stream in small pieces: playback starts once AUDIO_PREBUFFER_SECS
+# (16.8 kB) is in, and 16 kB reads made it wait for a second whole piece
+TTS_READ_BYTES = 4096
 
 
 def speech_speed():
@@ -299,7 +302,7 @@ class OpenAITTS:
             try:
                 with self._client.audio.speech.with_streaming_response.create(
                         input=text, **kwargs) as resp:
-                    for chunk in resp.iter_bytes(chunk_size=16384):
+                    for chunk in resp.iter_bytes(chunk_size=TTS_READ_BYTES):
                         if self._cut.is_set():
                             break
                         out.write(chunk)
@@ -424,7 +427,7 @@ class OpenAITTS:
                 envelope.feed(leadin)
 
             with self._client.audio.speech.with_streaming_response.create(**kwargs) as resp:
-                for chunk in resp.iter_bytes(chunk_size=16384):
+                for chunk in resp.iter_bytes(chunk_size=TTS_READ_BYTES):
                     if self._cut.is_set():
                         break                      # tapped: stop downloading
                     if not chunk:
@@ -507,7 +510,7 @@ class OpenAITTS:
                 try:
                     with self._client.audio.speech.with_streaming_response.create(
                             input=text, **kwargs) as resp:
-                        for chunk in resp.iter_bytes(chunk_size=16384):
+                        for chunk in resp.iter_bytes(chunk_size=TTS_READ_BYTES):
                             if self._cut.is_set():
                                 break
                             if chunk:

@@ -360,10 +360,12 @@ _RESPONSE_FORMAT = {
                 # first: when false nothing is spoken (reply_stream.py stays quiet)
                 "to_luna":      {"type": "boolean"},
                 "user_mood":    {"type": "string", "enum": USER_MOODS},
-                "user_tone":    {"type": "string", "enum": relationship.TONES},
                 "emotion":      {"type": "string", "enum": EMOTIONS},
                 "gesture":      {"type": "string", "enum": GESTURES},
                 "reply":        {"type": "string"},
+                # after the reply: only the relationship score needs it, and
+                # every key before the reply delays her first word (6 Oct)
+                "user_tone":    {"type": "string", "enum": relationship.TONES},
                 "mood_comment": {"type": "boolean"},
                 "actions": {"type": "array", "items": {
                     "type": "object",
@@ -384,8 +386,8 @@ _RESPONSE_FORMAT = {
                     "additionalProperties": False,
                 }},
             },
-            "required": ["to_luna", "user_mood", "user_tone", "emotion", "gesture", "reply",
-                         "mood_comment", "actions"],
+            "required": ["to_luna", "user_mood", "emotion", "gesture", "reply",
+                         "user_tone", "mood_comment", "actions"],
             "additionalProperties": False,
         },
     },
