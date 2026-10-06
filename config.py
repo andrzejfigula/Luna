@@ -283,7 +283,7 @@ OPENAI_TTS_INSTRUCTIONS = (
     "the voice, natural pace and intonation, no exaggerated acting. Native "
     "Polish pronunciation; switch to natural English when the text is English."
 )
-OPENAI_TTS_TIMEOUT      = 20.0
+OPENAI_TTS_TIMEOUT      = 8.0 
 # The reply's emotion (the one her face shows) colours the voice too: this is
 # appended to the instructions for that one sentence. Same voice, different
 # mood — every line keeps the "high, light, girlish" identity above.
