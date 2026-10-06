@@ -184,6 +184,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Pogoda za pierwszym razem | po odpowiedzi „W jakim mieście?” od razu mówi pogodę — nie trzeba pytać drugi raz |
 | „Przypomnij mi o praniu” → „Za godzinę” | przypomnienie naprawdę się ustawia (wcześniej czasem obiecywała, a nic nie dzwoniło) |
 | „Co dzisiaj ważnego się stało na świecie?” | czyta prawdziwe nagłówki z RMF24; gdy sama zaproponuje wiadomości, wystarczy „chcę” (wcześniej potrafiła je zmyślić) |
+| „Wymyśl wierszyk o kotku” | cały wierszyk (dwie zwrotki, prawdziwe rymy) — pisze go mocniejszy model; nie urywa się na „chcesz, żebym dokończyła?” |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 

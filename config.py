@@ -159,6 +159,9 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 LUNA_TIMEZONE  = os.environ.get("LUNA_TIMEZONE", "").strip() or "Europe/Warsaw"
 LUNA_LOCATION  = os.environ.get("LUNA_LOCATION", "").strip() or "Poland"
 OPENAI_MODEL   = "gpt-4.1-mini"     # chat + vision; fast and cheap enough for voice
+CRAFT_MODEL    = "gpt-4.1"          # poems, rhymes, songs: the mini model's Polish
+                                    # rhymes were weak (6 Oct, Maja's "wierszyk");
+                                    # rare requests, so the cost and +~0.5 s are fine
 OPENAI_TIMEOUT = 15.0               # seconds — a stall must never freeze Luna
 
 # ── Audio devices ─────────────────────────────────────────────────────────────

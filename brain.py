@@ -48,7 +48,7 @@ from config import (
     GESTURE_DURATION,
     KNOWLEDGE_PATH,
     OPENAI_API_KEY,
-    OPENAI_MODEL,
+    OPENAI_MODEL, CRAFT_MODEL,
     OPENAI_MAX_TOKENS,
     OPENAI_TEMPERATURE,
     OPENAI_MAX_HISTORY,
@@ -88,7 +88,7 @@ from polish import feminize, offer_only, empty_promise, neutral_you   # (polish.
 def _feminize(text):
     """Her own forms feminine; and with nobody recognised in front of her, no
     guessed gender for "you" either."""
-    text = feminize(text)
+    text = feminize(re.sub(r"\s*(?:\\n|\n)+\s*", " ", text or ""))   # a poem's "\n"
     with state.lock:
         known = state.person is not None
     return text if known else neutral_you(text)
@@ -561,6 +561,15 @@ def _message_json(message):
     raise ValueError("empty answer")
 
 
+_CRAFT = re.compile(r"\b(?:wiersz\w*|rym\w*|rymowank\w*|piosenk\w*|limeryk\w*|"
+                    r"poem\w*|rhym\w*|song)\b", re.I)
+
+
+def model_for(text):
+    """The stronger model for a poem, a rhyme or a song; the quick one otherwise."""
+    return CRAFT_MODEL if _CRAFT.search(text or "") else OPENAI_MODEL
+
+
 def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=None,
                 context=None):
     """Returns (reply, emotion, gesture) or None on any failure.
@@ -630,7 +639,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   + memory.prompt_block()
                   + (context or ""))          # e.g. news headlines, this question only
 
-        request = dict(model=OPENAI_MODEL,
+        request = dict(model=model_for(text),
                        messages=[{"role": "system", "content": system}, *_history],
                        max_tokens=OPENAI_MAX_TOKENS,
                        temperature=OPENAI_TEMPERATURE,

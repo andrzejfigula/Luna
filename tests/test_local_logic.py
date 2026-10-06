@@ -172,6 +172,20 @@ class TimersTest(unittest.TestCase):
             self.assertEqual(timers.apply([{"type": "reminder", "seconds": 0, "at": "",
                                             "label": "x"}]), [])
 
+    def test_model_for_poems(self):
+        import re
+        import ast
+        src = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                "brain.py"), encoding="utf-8").read()
+        tree = ast.parse(src)
+        node = next(n for n in tree.body if isinstance(n, ast.Assign)
+                    and getattr(n.targets[0], "id", "") == "_CRAFT")
+        rx = eval(compile(ast.Expression(node.value), "brain", "eval"), {"re": re})
+        self.assertTrue(rx.search("Wymyśl wierszyk o kotku"))
+        self.assertTrue(rx.search("Zaśpiewaj piosenkę"))
+        self.assertFalse(rx.search("Która godzina?"))
+        self.assertFalse(rx.search("Wierzysz w duchy?"))
+
     def test_neutral_you(self):
         from polish import neutral_you
         self.assertEqual(neutral_you("Co chciałbyś przeczytać?"), "Co chcesz przeczytać?")
