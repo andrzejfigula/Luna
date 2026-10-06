@@ -161,6 +161,22 @@ class TimersTest(unittest.TestCase):
             radio.play = old
         self.assertEqual(played[0], "Dwójka")
 
+    def test_log_report_audio_by_hour(self):
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))), "tools"))
+        import log_report
+        lines = ["[Luna] Running on Raspberry Pi 4 (started 08:00:01)",
+                 "[health] 08:59 CPU 58°C, audio: 0 underruns, clock nudges 2, "
+                 "PipeWire xruns 3 (since start), light 0.1",
+                 "[health] 09:59 CPU 58°C, audio: 0 underruns, clock nudges 5, "
+                 "PipeWire xruns 3 (since start)"]
+        rows = log_report.audio_by_hour(lines)
+        self.assertIn("since 08:00", rows[0])
+        self.assertIn("+3 ", rows[1])
+        self.assertIn("+0 ", rows[2])
+        self.assertIn("5 nudges", rows[2])
+        self.assertEqual(log_report.audio_by_hour(["[Luna] Running on x"]), [])
+
     def test_picture_note_names_left_to_right(self):
         import faces
         from shared_state import state

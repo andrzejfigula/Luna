@@ -128,7 +128,9 @@ Silent, ~20 model calls; answers vary, so a single failure deserves a rerun.
 After a day of real use: `python3 tools/log_report.py` on the Pi — counts of
 the signals worth a look (answers, side talk she ignored, stranger greetings,
 wave-backs, memory changes, TTS errors, xruns and clock nudges) and every
-exchange (what was asked → what she said). Most fixes came from reading this.
+exchange (what was asked → what she said). Most fixes came from reading this. The audio
+hour by hour (xruns added each hour) should stay flat however long she runs:
+before fix #240 it jumped to tens of thousands an hour after ~8 h.
 
 ### Data she keeps (`data/`, never in git)
 

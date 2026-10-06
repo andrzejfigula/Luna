@@ -39,6 +39,30 @@ PATTERNS = [
 ]
 
 
+def audio_by_hour(lines):
+    """The current run's hourly health lines as a trend: xruns added each hour
+    and the clock nudges so far. The clock-drift bug (#240) showed up as
+    xruns climbing to ~50 000 an hour after ~8 h; with the fix they stay flat
+    while the nudges grow slowly."""
+    start = max((i for i, l in enumerate(lines) if l.startswith("[Luna] Running on")),
+                default=0)
+    rows, prev = [], 0
+    for l in lines[start:]:
+        m = re.match(r"^\[health\] (\d\d:\d\d) .*?PipeWire xruns (\d+)", l)
+        if not m:
+            continue
+        n = re.search(r"clock nudges (\d+)", l)
+        x = int(m.group(2))
+        rows.append(f"    {m.group(1)}  +{x - prev:<7d} xruns   "
+                    f"{n.group(1) if n else '?':>4} nudges so far")
+        prev = x
+    if rows:
+        started = re.search(r"started (\d\d:\d\d)", lines[start])
+        rows.insert(0, "  audio by the hour since "
+                    + (started.group(1) if started else "the last start") + ":")
+    return rows
+
+
 def main():
     since = sys.argv[1] if len(sys.argv) > 1 else None
     lines = open("luna.log", encoding="utf-8", errors="replace").read().splitlines()
@@ -62,6 +86,8 @@ def main():
         n = re.search(r"clock nudges (\d+)", last)
         print(f"  xruns (since the last start): {m.group(1) if m else '?'}, "
               f"clock nudges: {n.group(1) if n else '?'}")
+    for row in audio_by_hour(lines):
+        print(row)
     # replies that say she did something, with no line showing it was done
     # (the commonest real bug: "Włączam radio" — and nothing played)
     claim = re.compile(r"\b(włączam|wyłączam|nastawiam|ustawiam|przypomnę|dodałam|dopisałam|"
