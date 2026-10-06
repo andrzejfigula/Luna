@@ -208,6 +208,7 @@ class TimersTest(unittest.TestCase):
         rx = eval(compile(ast.Expression(node.value), "brain", "eval"), {"re": re})
         self.assertTrue(rx.search("Wymyśl wierszyk o kotku"))
         self.assertTrue(rx.search("Zaśpiewaj piosenkę"))
+        self.assertTrue(rx.search("Opowiedz mi spokojną bajkę na dobranoc"))
         self.assertFalse(rx.search("Która godzina?"))
         self.assertFalse(rx.search("Wierzysz w duchy?"))
 

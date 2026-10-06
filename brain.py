@@ -562,11 +562,14 @@ def _message_json(message):
 
 
 _CRAFT = re.compile(r"\b(?:wiersz\w*|rym\w*|rymowank\w*|piosenk\w*|limeryk\w*|"
-                    r"poem\w*|rhym\w*|song)\b", re.I)
+                    r"bajk\w*|baśń|baśni\w*|historyjk\w*|opowieś\w*|opowiadani\w*|"
+                    r"poem\w*|rhym\w*|song|story|fairy)\b", re.I)
 
 
 def model_for(text):
-    """The stronger model for a poem, a rhyme or a song; the quick one otherwise."""
+    """The stronger model for a poem, a rhyme, a song or a story (a named hero
+    and real scenes instead of the mini model's moral in eight sentences);
+    the quick one otherwise."""
     return CRAFT_MODEL if _CRAFT.search(text or "") else OPENAI_MODEL
 
 
