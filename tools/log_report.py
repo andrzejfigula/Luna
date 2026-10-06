@@ -15,10 +15,11 @@ import re
 import sys
 
 PATTERNS = [
+    ("utterances heard", r"^\[Luna heard\]"),
+    ("wake words", r"Wake word"),
     ("answers (model)", r"^\[brain\] OpenAI \("),
     ("quiet: not said to her", r"not said to me — staying quiet"),
     ("English side talk ignored", r"English side talk — ignored"),
-    ("local commands", r"^\[cmd\]|\[brain\] command "),
     ("model commands", r"\[brain\] command '"),
     ("fast commands (no cloud)", r"sure of \".*\" — no cloud"),
     ("cut-off sentences held", r"cut off mid-sentence"),
