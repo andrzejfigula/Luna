@@ -119,8 +119,11 @@ CONVO_GRACE        = 4    # speech that STARTED up to this long after the window
 POST_SPEAK_DELAY   = 0.2   # settle time after Luna speaks before listening again
 DOUBLE_FLUSH       = True  # flush audio queue twice (before and after delay)
 # Barge-in (bargein.py): while she speaks, these words stop her and she listens
-BARGE_IN        = False   # off until echo cancelling: alone it stopped her by herself (1 in 15
-                           # replies) and caught "stop!" over her voice only 1–2 times in 8
+BARGE_IN        = "log"   # True / False / "log": listens and logs "[barge] (log only) would
+                           # stop…" but never stops her — off until echo cancelling: alone it
+                           # stopped her by herself (1 in 15 replies) and caught "stop!" over
+                           # her voice only 1–2 times in 8 (offline, 6 Oct); the log gathers
+                           # real false stops and her echo level in the room meanwhile
 BARGE_WORDS     = ["stop", "przestań", "cicho", "luna", "luno"]   # (not "poczekaj", "dość":
                    # her own "poszukajmy" was heard as "poczekaj" — offline test, 6 Oct)
 BARGE_MIN_CONF  = 0.85

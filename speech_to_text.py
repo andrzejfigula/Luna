@@ -227,7 +227,10 @@ def _barge_loop():
                 continue
             import text_to_speech
             word = det.feed(_apply_gain(data), text_to_speech.current_text(), _energy_gate())
-            if word:
+            if word and BARGE_IN == "log":
+                det.reset()
+                print(f"[barge] (log only) would stop on {word!r}", flush=True)
+            elif word:
                 det.reset()
                 text_to_speech.stop_speaking(who=f"voice ({word!r})")
                 with state.lock:               # listen at once, no "Luna" needed
