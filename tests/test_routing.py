@@ -461,7 +461,8 @@ class RoutingTest(unittest.TestCase):
              "dobranoc pa jestem to zagadka dyktando quiz tabliczka gotujemy naleśniki "
              "dalej ? , . ! jutro codziennie godzin pół kwadrans dni robocze memory pary "
              "jeszcze raz rewanż ile lat ma zostało minutniku makaron Tokio Nowym Jorku "
-             "wylosuj wybierz liczbę kto zmywa : czy albo na czas angielskiego").split()
+             "wylosuj wybierz liczbę kto zmywa : czy albo na czas angielskiego "
+             "za cicho wolno szybko głośno mówisz cię możesz mówić radijko spokojną muzyką").split()
 
     def test_random_sentences_never_crash(self):
         import random as _r
