@@ -139,6 +139,14 @@ exchange (what was asked → what she said). Most fixes came from reading this. 
 hour by hour (xruns added each hour) should stay flat however long she runs:
 before fix #240 it jumped to tens of thousands an hour after ~8 h.
 
+### Echo cancelling (optional)
+
+`tools/aec.sh on` (on the Pi) installs `pi/60-luna-echo-cancel.conf` — PipeWire's
+WebRTC echo canceller between the webcam mic and the jack — and points
+`LUNA_MIC` / `LUNA_SPEAKER` in `.env` at it; `tools/aec.sh off` undoes it,
+`status` shows it. Restart Luna afterwards (`./restart.sh --now`). With it on,
+`BARGE_IN = True` in `config.py` lets "stop!" / "Luna!" interrupt her.
+
 ### Data she keeps (`data/`, never in git)
 
 `memory.json` (facts, episodes; tidied daily), `people.json` (faces, notes,

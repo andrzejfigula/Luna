@@ -26,6 +26,7 @@ import os
 import re
 import queue
 import json
+import subprocess
 import time
 import wave
 import difflib
@@ -245,11 +246,51 @@ if BARGE_IN:
     threading.Thread(target=_barge_loop, daemon=True, name="barge-in").start()
 
 
+def _pw_record(node):
+    """LUNA_MIC=pw:<node>: the microphone through PipeWire (pw-record) — e.g.
+    the echo-cancelled source of pi/60-luna-echo-cancel.conf, which the plain
+    ALSA stream can't reach. Blocks while the recorder runs."""
+    global _mic_ok, _mic_rate
+    rate = VOSK_SAMPLE_RATE
+    cmd = ["pw-record", "--raw", "--target", node, "--rate", str(rate), "--channels", "1",
+           "--format", "s16", "--latency", "50ms", "-"]
+    try:
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    except Exception as e:
+        print(f"[STT] pw-record failed to start ({e}) — retrying in 5s", flush=True)
+        time.sleep(5.0)
+        return
+    _mic_rate, _mic_ok = rate, True
+    with state.lock:
+        state.mic_ok = True
+    print(f"[STT] Microphone stream running @ {rate} Hz (PipeWire node {node})", flush=True)
+    block = int(rate * 0.25) * 2                    # 250 ms, like the ALSA stream
+    try:
+        while True:
+            data = proc.stdout.read(block)
+            if not data:
+                break
+            _callback(data, len(data) // 2, None, None)
+    finally:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+        _mic_ok = False
+        with state.lock:
+            state.mic_ok = False
+        print("[STT] pw-record stopped — retrying in 5s", flush=True)
+        time.sleep(5.0)
+
+
 def _stream_keeper():
     """Keeps a mic stream open forever; retries every 5 s if the mic vanishes."""
     global _stream, _mic_ok, _mic_rate, _help_printed
 
     while True:
+        if isinstance(AUDIO_INPUT_DEVICE, str) and AUDIO_INPUT_DEVICE.startswith("pw:"):
+            _pw_record(AUDIO_INPUT_DEVICE[3:])
+            continue
         if _mic_ok:
             time.sleep(1.0)
             continue
