@@ -119,6 +119,11 @@ printed (and noted in `luna.log`):
 On a development PC: `python -X utf8 -m unittest discover -s tests` (the
 unit, routing and fuzz tests; no Pi hardware or OpenAI SDK needed).
 
+After a day of real use: `python3 tools/log_report.py` on the Pi — counts of
+the signals worth a look (answers, side talk she ignored, stranger greetings,
+wave-backs, memory changes, TTS errors, xruns and clock nudges) and every
+exchange (what was asked → what she said). Most fixes came from reading this.
+
 ### Data she keeps (`data/`, never in git)
 
 `memory.json` (facts, episodes; tidied daily), `people.json` (faces, notes,
