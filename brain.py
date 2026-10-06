@@ -725,6 +725,8 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                       else None, tone)
         if data.get("to_luna") is False and not re.search(r"\bluna\b|\bluno\b", text.lower()):
             print(f"[brain] not said to me — staying quiet ({reply[:60]!r})", flush=True)
+            with state.lock:                     # they talk to each other: stop
+                state.conversation_active = False   # listening (next time: "Luna")
             if _history and _history[-1]["role"] == "user":
                 _history.pop()                   # side talk is not our conversation
             return "", "neutral", "none"
