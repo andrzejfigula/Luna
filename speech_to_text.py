@@ -64,6 +64,7 @@ from config import (
     CLOUD_STT_MAX_SECS,
     STT_END_SILENCE,
     STT_END_SILENCE_SHORT,
+    BARGE_IN,
     STT_SAVE_UTTERANCES,
     CLOUD_WAKE_CHECK,
     CLOUD_WAKE_MIN_INTERVAL,
@@ -177,11 +178,68 @@ def _print_mic_help():
 
 # ── Persistent stream (background thread) ─────────────────────────────────────
 
+_bq = queue.Queue(maxsize=100)    # her speech time: blocks for bargein.py
+_blocked = [False]
+
+
 def _callback(indata, frames, time_info, status):
+    data = bytes(indata)
+    # while she speaks (and a moment after: the echo) the listener gets nothing
+    # — it used to collect it and throw it away later, along with the first
+    # words said right after her (6 Oct); her speech time goes to barge-in
+    speaking = state.speaking
+    if speaking or time.time() < state.mic_unblock_time:
+        if not _blocked[0]:
+            _blocked[0] = True
+            _flush_queue()                 # what was before her speech is stale
+        if speaking and BARGE_IN:
+            try:
+                _bq.put_nowait(data)
+            except queue.Full:
+                pass
+        return
+    _blocked[0] = False
     try:
-        _q.put_nowait(bytes(indata))
+        _q.put_nowait(data)
     except queue.Full:
         pass   # drop oldest-style: consumer is behind, losing a block is fine
+
+
+def _barge_loop():
+    """"stop!" / "Luna!" while she speaks: she stops and listens (bargein.py)."""
+    det, was = None, False
+    while True:
+        data = _bq.get()
+        try:
+            if not state.speaking:
+                if was and det is not None:
+                    print(f"[barge] her voice in the mic: median level {det.echo_level():.0f}",
+                          flush=True)
+                    det.reset()
+                was = False
+                continue
+            was = True
+            if det is None:                  # (imported late: not at module import)
+                import bargein
+                det = bargein.Detector(_model, VOSK_SAMPLE_RATE)
+            data = _resample_to_16k(data)
+            if not data:
+                continue
+            import text_to_speech
+            word = det.feed(_apply_gain(data), text_to_speech.current_text(), _energy_gate())
+            if word:
+                det.reset()
+                text_to_speech.stop_speaking(who=f"voice ({word!r})")
+                with state.lock:               # listen at once, no "Luna" needed
+                    state.conversation_active = True
+                    state.last_activity_time = time.time()
+                    state.mic_unblock_time = time.time()
+        except Exception as e:
+            print(f"[barge] error: {e}", flush=True)
+
+
+if BARGE_IN:
+    threading.Thread(target=_barge_loop, daemon=True, name="barge-in").start()
 
 
 def _stream_keeper():
@@ -872,13 +930,8 @@ def listen():
             continue
         break
 
-    # Only pay the settle delay when Luna actually just spoke — the old code
-    # added POST_SPEAK_DELAY to EVERY listen cycle, even silent ones.
-    if was_blocked:
-        _flush_queue()
-        time.sleep(POST_SPEAK_DELAY)
-        if DOUBLE_FLUSH:
-            _flush_queue()
+    # nothing to flush or wait for after she spoke: the microphone callback
+    # kept her speech (and its echo) out of the queue already
 
     rec = _get_recognizer()
 

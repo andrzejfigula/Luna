@@ -118,7 +118,16 @@ CONVO_GRACE        = 4    # speech that STARTED up to this long after the window
                            # closed is still answered — you began in time
 POST_SPEAK_DELAY   = 0.2   # settle time after Luna speaks before listening again
 DOUBLE_FLUSH       = True  # flush audio queue twice (before and after delay)
-MIC_BLOCK_AFTER_SPEAK = 0.45  # echo-guard after speech ends (speech itself already
+# Barge-in (bargein.py): while she speaks, these words stop her and she listens
+BARGE_IN        = False   # off until echo cancelling: alone it stopped her by herself (1 in 15
+                           # replies) and caught "stop!" over her voice only 1–2 times in 8
+BARGE_WORDS     = ["stop", "przestań", "cicho", "luna", "luno"]   # (not "poczekaj", "dość":
+                   # her own "poszukajmy" was heard as "poczekaj" — offline test, 6 Oct)
+BARGE_MIN_CONF  = 0.85
+BARGE_OVER_ECHO = 1.6      # louder than her own voice in the mic by this much
+MIC_BLOCK_AFTER_SPEAK = 0.2   # (was 0.45, and listen() then waited 0.2 s more and threw
+                              # away what came: "I start talking before she listens",
+                              # 6 Oct) — echo-guard after speech ends (speech itself already
                               # blocks the mic via state.speaking). Was 0.6 + 0.8:
                               # 1.4 s deaf after every answer ate the first words of
                               # a quick reply. The persistent player knows when her
