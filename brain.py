@@ -697,15 +697,18 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             print(f"[brain] offer, not done — {len(data['actions'])} action(s) held back",
                   flush=True)
             data["actions"] = []
-        if empty_promise(reply, data.get("actions")):
-            # the promise becomes a question — the window stays open for "o 19"
+        set_now = timers.apply(data.get("actions") or [])
+        lists.apply(data.get("actions") or [])
+        other = [a for a in data.get("actions") or []
+                 if a.get("type") not in ("timer", "reminder", "alarm", "cancel")]
+        if empty_promise(reply, set_now + other):
+            # judged by what was really set (a reminder without a usable time
+            # sets nothing); the promise becomes a question — "o 19" answers it
             extra = "O której mam ci przypomnieć?"
             print(f"[brain] promised a reminder without one — asking: {extra}", flush=True)
             if on_sentence:
                 on_sentence(extra)
             reply = f"{reply} {extra}"
-        timers.apply(data.get("actions") or [])
-        lists.apply(data.get("actions") or [])
         for a in data.get("actions") or []:
             if a.get("type") == "command":
                 run_command(str(a.get("label", "")))

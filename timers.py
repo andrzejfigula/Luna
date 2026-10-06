@@ -175,6 +175,11 @@ def apply(actions):
                     done.append(f"timer {secs}s '{label}'")
             elif kind in ("reminder", "alarm"):
                 due = _parse_at(str(a.get("at", "")))
+                secs = int(a.get("seconds") or 0)
+                if not due and not str(a.get("at", "")).strip() and 0 < secs <= 7 * 86400:
+                    # "za godzinę" as a reminder with seconds and no "at": the
+                    # model sends that, and it used to vanish without a trace
+                    due = time.time() + secs
                 repeat = str(a.get("repeat", "none")).lower()
                 if repeat not in _REPEATS:
                     repeat = "none"
@@ -188,6 +193,8 @@ def apply(actions):
                                     "repeat": repeat, "set": time.time()})
                     done.append(f"{kind} {time.strftime('%d.%m %H:%M', time.localtime(due))} "
                                 f"'{label}'" + (f" ({repeat})" if repeat != "none" else ""))
+                else:
+                    print(f"[timers] {kind} not set — no usable time in {a}", flush=True)
             elif kind == "cancel":
                 gone = _to_cancel(label)
                 _timers[:] = [t for t in _timers if t not in gone]

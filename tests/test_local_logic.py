@@ -161,6 +161,17 @@ class TimersTest(unittest.TestCase):
             radio.play = old
         self.assertEqual(played[0], "Dwójka")
 
+    def test_reminder_with_seconds_only(self):
+        import timers
+        with mock.patch.object(timers, "_save", lambda: None), \
+                mock.patch.object(timers, "_timers", []):
+            done = timers.apply([{"type": "reminder", "seconds": 3600, "at": "",
+                                  "label": "pranie", "repeat": "none"}])
+            self.assertEqual(len(done), 1)
+            self.assertAlmostEqual(timers._timers[0]["due"], time.time() + 3600, delta=5)
+            self.assertEqual(timers.apply([{"type": "reminder", "seconds": 0, "at": "",
+                                            "label": "x"}]), [])
+
     def test_empty_promise(self):
         from polish import empty_promise
         self.assertTrue(empty_promise("Dobrze, przypomnę ci o tym, jeśli chcesz.", []))
