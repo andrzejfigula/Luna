@@ -90,6 +90,12 @@ def _may_speak():
         return False
     with state.lock:
         muted = state.proactive_muted_until
+    try:
+        import speech_to_text
+        if speech_to_text.people_talking():   # a call, or a chat between them
+            return False
+    except Exception:
+        pass
     return time.time() > muted and time.time() - _last_proactive >= PROACTIVE_MIN_GAP_SECS
 
 

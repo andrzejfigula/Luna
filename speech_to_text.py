@@ -457,6 +457,22 @@ def english_side_talk(text):
     return sum(w in _EN_WORDS for w in words) >= max(2, len(words) // 4)
 
 
+_side = []                             # times of sentences not said to her
+
+
+def note_side_speech(now=None):
+    now = now or time.time()
+    _side.append(now)
+    del _side[:-20]
+
+
+def people_talking(now=None, window=120, count=4):
+    """Several sentences in the last two minutes that weren't for her: a call,
+    or people talking to each other — no time for an unprompted hello."""
+    now = now or time.time()
+    return sum(1 for t in _side if now - t < window) >= count
+
+
 def messages_armed():
     try:
         import messages
@@ -992,7 +1008,9 @@ def listen():
                     # a work call in English next to her ("upload it and then
                     # download it…" got an answer on 5 Oct): not said to her
                     print(f"[STT] English side talk — ignored: \"{cloud}\"", flush=True)
-                    with state.lock:
+                    with state.lock:                 # a call: no hellos for 5 min
+                        state.proactive_muted_until = max(state.proactive_muted_until,
+                                                          time.time() + 300)
                         state.luna_mode = "listening"
                         state.listening = True
                     continue
@@ -1024,6 +1042,7 @@ def listen():
                     state.last_activity_time  = time.time()
                 return cleaned if cleaned else WAKE_ACK
 
+            note_side_speech()                     # people talking, not to her
             with state.lock:
                 state.luna_mode = "idle"
             return ""

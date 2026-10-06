@@ -88,7 +88,14 @@ def _behavior_step(speak, confirm_wave):
             state.gesture_anim       = "wave"
             state.gesture_anim_start = time.time()
         global _last_wave_said
-        if not in_convo and time.time() - _last_wave_said > WAVE_SPEAK_GAP:
+        with state.lock:
+            muted = time.time() < state.proactive_muted_until    # "cicho", a call
+        try:
+            import speech_to_text
+            muted = muted or speech_to_text.people_talking()   # they are talking
+        except Exception:
+            pass
+        if not in_convo and not muted and time.time() - _last_wave_said > WAVE_SPEAK_GAP:
             _last_wave_said = time.time()
             speak(random.choice(WAVE_REPLIES), can_drop=True)
 
