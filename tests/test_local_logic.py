@@ -661,6 +661,19 @@ class MemoryTest(unittest.TestCase):
         self.assertEqual(memory._load()["facts"], [])
 
 
+class EchoTest(unittest.TestCase):
+
+    def test_tail_only(self):
+        import echo
+        last = ("Na obiad może coś prostego i smacznego, na przykład makaron z sosem "
+                "pomidorowym albo kurczak z warzywami. Chcesz, żebym pomogła z przepisem?")
+        self.assertFalse(echo.is_echo("kurczak z warzywami.", last))     # an answer
+        self.assertTrue(echo.is_echo("pomogła z przepisem?", last))       # the tail
+        self.assertTrue(echo.is_echo("z przepisem", last))                # no "?" needed
+        self.assertFalse(echo.is_echo("Tak, poproszę przepis", last))
+        self.assertFalse(echo.is_echo("", last))
+
+
 class ListsTest(unittest.TestCase):
 
     def setUp(self):

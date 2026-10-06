@@ -1,5 +1,4 @@
 import os
-import re
 import sys
 import time
 import signal
@@ -67,7 +66,6 @@ from backup import start_backup        # a copy a day of what she has learned
 start_backup()
 
 import random
-import difflib
 
 from speech_to_text import listen, WAKE_ACK
 from text_to_speech import speak, play_sound
@@ -79,38 +77,14 @@ from config import (WAKE_REPLIES, ECHO_GUARD_WINDOW,
 
 
 def _is_self_echo(text):
-    """Defense-in-depth against Luna hearing her own voice through the
-    speaker (see text_to_speech.py docstring for the timing side of this —
-    that's the primary fix; this is cleanup for trailing echo/reverb that
-    slips past the mic-blocking window).
-
-    Requires BOTH a decent contiguous word-run match AND decent overall
-    word overlap with Luna's last reply — either check alone is too easy
-    to trigger on ordinary short sentences full of common words ("can",
-    "you", "i"...), which would wrongly swallow real user speech."""
+    """Her own voice coming back through the mic? (echo.py)"""
+    import echo
     with state.lock:
         last      = state.last_spoken_text
         last_time = state.last_spoken_time
-
     if not last or (time.time() - last_time) > ECHO_GUARD_WINDOW:
         return False
-
-    heard_words = re.findall(r"\w+", text.lower())    # punctuation never decides it
-    last_words  = re.findall(r"\w+", last.lower())
-    if not heard_words:
-        return False
-
-    overlap = sum(1 for w in heard_words if w in set(last_words)) / len(heard_words)
-    sm      = difflib.SequenceMatcher(None, heard_words, last_words, autojunk=False)
-    match   = sm.find_longest_match(0, len(heard_words), 0, len(last_words))
-    run     = match.size
-    run_ratio = run / len(heard_words)
-    # an echo is the TAIL of what she said (the mic opens right after she
-    # stops); words from the middle of her answer are someone answering it —
-    # "kurczak z warzywami" (one of the two dinners she offered) was swallowed
-    at_end = match.b + run >= len(last_words) - 3
-
-    return run_ratio >= ECHO_RUN_THRESH and overlap >= ECHO_OVERLAP_THRESH and at_end
+    return echo.is_echo(text, last, ECHO_RUN_THRESH, ECHO_OVERLAP_THRESH)
 
 
 def _stamp_activity():
