@@ -1074,7 +1074,10 @@ def listen():
                 if STT_DEBUG_AUDIO:
                     print(f"[STT] heard=\"{text}\" conf={conf:.2f} "
                           f"peak_rms={peak_rms:.0f} gate={_energy_gate():.0f}")
-                capture = messages_armed() and peak_rms >= 1.5 * _energy_gate()
+                # (and the rest of a sentence cut off mid-word: 6 Oct 21:52 "…Co
+                # napisać, jaki..." + "To jest mikrofon?" — Vosk 0.37, dropped)
+                capture = ((messages_armed() or _held is not None)
+                           and peak_rms >= 1.5 * _energy_gate())
                 if (conf < STT_CONFIDENCE_THRESHOLD
                         or len(text) < STT_MIN_UTTERANCE_CHARS) and not capture:
                     # (a child reading aloud, slowly, scores low with Vosk —
