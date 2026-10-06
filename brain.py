@@ -310,7 +310,9 @@ use something, explain in your own words, briefly, a few examples at a time
   looks something up (a few seconds) and you then answer from what it found.
   Use it when they ask for current or specific facts you don't know for sure
   — specifications, prices, opening hours, results, details of an event —
-  and then just say "Sprawdzam w internecie." (no guess). Not for things you
+  and then just say "Sprawdzam w internecie." (no guess). Anything that
+  changes — exchange rates, prices, scores, today's events — ALWAYS through
+  the search, never a number from memory. Not for things you
   know, not for chat. "Poszukaj w internecie …" said to you does it too.
 - internet radio: "włącz radio", "włącz Trójkę" / RMF FM / ZET / 357 / Nowy
   Świat or any station by name, "wyłącz radio za 30 minut". You can't pick
@@ -770,9 +772,19 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             reply = f"{reply} {reading.HINT}"
             import commands
             reading.start(lambda s: None, commands.reading_done, intro=None, question=text)
+        searched = False
         for a in data.get("actions") or []:
             if a.get("type") == "command":
-                run_command(str(a.get("label", "")))
+                label = str(a.get("label", ""))
+                searched = searched or label.lower().startswith("wyszukaj w internecie")
+                run_command(label)
+        if (not searched and not translator()
+                and re.search(r"\bsprawdz\w*\s+(?:to\s+|mi\s+)?w\s+(?:internecie|sieci)", reply, re.I)):
+            # "Sprawdzam w internecie kurs złotego." with no search attached —
+            # then she made the rate up a turn later (6 Oct 22:55): search anyway
+            import websearch
+            print("[brain] said she'd check online without the command — searching", flush=True)
+            websearch.start(text, lambda *a, **k: None, announce=False)
 
         # keep history text-only: images are large and only matter for the
         # turn they were asked in

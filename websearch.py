@@ -85,7 +85,8 @@ def search(query):
 
 def context(query, found):
     return ("\nWEB SEARCH just now, for «" + query + "»: " + found + "\nAnswer their "
-            "question from this in 1–3 spoken sentences — no links, no markdown; name the "
+            "question from this in 1–3 spoken sentences — no links, no markdown; numbers "
+            "rounded the way people say them (4,37 zł, not 4,3719); name the "
             "source only if asked. If it doesn't answer the question, say what you found "
             "and that you're not sure.\n")
 

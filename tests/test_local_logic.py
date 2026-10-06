@@ -172,6 +172,16 @@ class TimersTest(unittest.TestCase):
             self.assertEqual(timers.apply([{"type": "reminder", "seconds": 0, "at": "",
                                             "label": "x"}]), [])
 
+    def test_brain_searches_when_it_says_so(self):
+        src = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                "brain.py"), encoding="utf-8").read()
+        self.assertIn("said she'd check online without the command", src)
+        import re as _re
+        rx = r"\bsprawdz\w*\s+(?:to\s+|mi\s+)?w\s+(?:internecie|sieci)"
+        self.assertTrue(_re.search(rx, "Sprawdzam w internecie kurs złotego.", _re.I))
+        self.assertTrue(_re.search(rx, "Już sprawdzam to w internecie.", _re.I))
+        self.assertFalse(_re.search(rx, "Mogę poszukać w internecie, jeśli chcesz.", _re.I))
+
     def test_websearch_parsing(self):
         import websearch
         self.assertEqual(websearch.request("Luna, poszukaj w internecie jaki zasięg ma Rode NT-USB?"),
