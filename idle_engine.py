@@ -249,8 +249,15 @@ def idle_loop():
                                     and not faces.probably_family())
                         if stranger:
                             asked_name_at = now
-                        speak(greeting(first_today, who=who, stranger=bool(stranger))
-                              or _greeting(first_today), can_drop=True)
+                        hello = (greeting(first_today, who=who, stranger=bool(stranger))
+                                 or _greeting(first_today))
+                        speak(hello, can_drop=True)
+                        if "?" in hello and not stranger:
+                            # she asked something ("…opowiesz mi żart?"): the answer
+                            # needs no "Luna" — "puk puk" was lost on 6 Oct
+                            with state.lock:
+                                state.conversation_active = True
+                                state.last_activity_time = time.time() + 8
                         if stranger:                  # the answer needs no "Luna"
                             import commands
                             commands.expect_name()

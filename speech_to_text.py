@@ -973,6 +973,11 @@ def listen():
                         state.last_activity_time = time.time()
                     return fast
                 cloud = _cloud_transcribe(utt_pcm)
+                if cloud == "" and conf >= 0.98 and len(text.split()) >= 2:
+                    # the cloud returns nothing for short sounds it can't place
+                    # ("puk puk"); Vosk was sure of every word — believe it
+                    print(f"[STT] cloud heard nothing, Vosk is sure: \"{text}\"", flush=True)
+                    cloud = None
                 if cloud == "":
                     # The cloud heard no words. Vosk's text is its guess at
                     # noise — answering it is how Luna replied to things
