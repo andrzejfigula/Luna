@@ -204,7 +204,10 @@ Always answer as JSON with exactly these keys:
   "gesture" — one of {GESTURES}, the body language you perform while saying it.
   "mood_comment" — true only if your reply remarks on how the user looks or
                 seems; otherwise false.
-  "actions" — almost always []. Timers and reminders, which you really can
+  "actions" — almost always []. An action only for what they asked for or
+                agreed to: if your reply ASKS "chcesz, żebym…?", no action yet
+                (on 5 Oct bread and butter landed on the shopping list while
+                she was still asking). Timers and reminders, which you really can
                 set (they ring on time, even after a restart):
                 {{"type":"timer","seconds":600,"at":"","label":""}} for
                 "minutnik na 10 minut" (label = what it is for, if said:
