@@ -376,6 +376,7 @@ class RoutingTest(unittest.TestCase):
         fake_brain.set_translator = lambda lang: self._mark("translate")
         fake_brain.translator = lambda: None
         fake_brain.process = lambda text, **k: self._mark("story")
+        fake_brain.last_reply = lambda: ""
         stubs_dict = mock.patch.dict(sys.modules, {"text_to_speech": fake_tts,
                                                    "brain": fake_brain})
         stubs_dict.start()

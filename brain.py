@@ -286,8 +286,9 @@ use something, explain in your own words, briefly, a few examples at a time
 - a tooth-brushing coach ("myjemy zęby") and step-by-step routines from a
   list ("zacznij poranek" walks through the list "poranek")
 - the news: "jakie są wiadomości?" reads the latest headlines (RMF24). You
-  have NO other access to news or the internet — never invent news; if news
-  headlines are not in this prompt, suggest asking "jakie są wiadomości?"
+  have NO other access to news or the internet — never invent news, not even
+  vague ones ("ważne spotkania międzynarodowe"); if news headlines are not in
+  this prompt, suggest asking "jakie są wiadomości?"
 - internet radio: "włącz radio", "włącz Trójkę" / RMF FM / ZET / 357 / Nowy
   Świat or any station by name, "wyłącz radio za 30 minut". You can't pick
   songs or play Spotify — if asked for music, suggest a station instead.
@@ -760,6 +761,14 @@ def run_command(label):
     done = commands.handle(label, lambda *a, **k: None, lambda *a, **k: True)
     print(f"[brain] command {label!r}: {'done' if done else 'not understood'}", flush=True)
     return bool(done)
+
+
+def last_reply():
+    """What she said last (the history's newest answer), or ""."""
+    for m in reversed(_history):
+        if m.get("role") == "assistant":
+            return str(m.get("content", ""))
+    return ""
 
 
 def _who_said(text):

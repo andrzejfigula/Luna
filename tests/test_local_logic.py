@@ -1294,6 +1294,19 @@ class KidsTest(unittest.TestCase):
         self.assertFalse(s.people_talking(1300))           # two minutes later: quiet
         s._side.clear()
 
+    def test_news_requests(self):
+        import news
+        self.assertTrue(news.is_request("Co dzisiaj ważnego się stało na świecie?"))
+        self.assertTrue(news.is_request("Co się wydarzyło dziś w Polsce?"))
+        self.assertTrue(news.is_request("Przeczytaj nagłówki"))
+        self.assertFalse(news.is_request("Co ciekawego robiłaś?"))
+        self.assertFalse(news.is_request("Jakie mam wiadomości?"))
+        offer = "Nie mam dostępu do wiadomości, ale mogę podać najnowsze nagłówki z RMF24, jeśli chcesz."
+        self.assertTrue(news.accepts_offer("Chcę.", offer))
+        self.assertTrue(news.accepts_offer("No tak, poproszę", offer))
+        self.assertFalse(news.accepts_offer("Nie, dzięki.", offer))
+        self.assertFalse(news.accepts_offer("Chcę.", "Chcesz wierszyk o jesieni?"))
+
     def test_cut_off_sentences(self):
         from unittest import mock
         with mock.patch.dict(sys.modules, {"sounddevice": mock.MagicMock(),

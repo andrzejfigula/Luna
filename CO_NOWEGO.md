@@ -183,6 +183,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | „Kto to jest?” przy kamerze | mówi, kogo rozpoznała i gdzie: „Po lewej jest Maja, a po prawej Andrzej” (wcześniej: „nie wiem, kto to”) |
 | Pogoda za pierwszym razem | po odpowiedzi „W jakim mieście?” od razu mówi pogodę — nie trzeba pytać drugi raz |
 | „Przypomnij mi o praniu” → „Za godzinę” | przypomnienie naprawdę się ustawia (wcześniej czasem obiecywała, a nic nie dzwoniło) |
+| „Co dzisiaj ważnego się stało na świecie?” | czyta prawdziwe nagłówki z RMF24; gdy sama zaproponuje wiadomości, wystarczy „chcę” (wcześniej potrafiła je zmyślić) |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 

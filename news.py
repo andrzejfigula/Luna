@@ -38,11 +38,36 @@ _lock = threading.Lock()
 _cache = {"t": 0.0, "items": [], "source": ""}
 
 
+# "co dzisiaj ważnego się stało na świecie?" (6 Oct: missed — the model offered
+# "nagłówki z RMF24", and after "chcę" read out headlines it had made up)
+_ASK_RX = re.compile(
+    r"\bco\b[^.?!]{0,30}\b(?:stało|wydarzyło|dzieje|działo|słychać|nowego|ciekawego)\b"
+    r"[^.?!]{0,30}\b(?:na\s+świecie|w\s+polsce|w\s+kraju|w\s+europie)\b|"
+    r"\bco\b[^.?!]{0,20}\b(?:ważnego|ciekawego)\b[^.?!]{0,20}\b(?:stało|wydarzyło)\b|"
+    r"\b(?:nagłówki|najnowsze\s+informacje|wiadomości\s+dnia)\b", re.I)
+_YES = re.compile(r"^(?:no\s+)?(?:tak|chcę|chce|poproszę|poprosze|dawaj|jasne|pewnie|okej|ok|"
+                  r"dobrze|czemu\s+nie|chętnie)\b", re.I)
+_OFFERED = re.compile(r"nagłówk|wiadomości|newsy", re.I)
+
+
+def is_yes(text):
+    low = text.lower().strip(" .!?")
+    return bool(_YES.match(low)) and len(low.split()) <= 4 and "nie" not in low.split()
+
+
+def accepts_offer(text, last_reply):
+    """"Chcę." right after she offered the news ("…mogę podać najnowsze
+    nagłówki, jeśli chcesz") — the headlines must be fetched for THIS answer,
+    or the model reads out ones it invents."""
+    return (is_yes(text) and bool(_OFFERED.search(last_reply or ""))
+            and ("?" in last_reply or "jeśli chcesz" in last_reply.lower()))
+
+
 def is_request(text):
     low = text.lower()
     if re.search(r"\b(mam|moje|moich|dla mnie|głosow|nagr)", low):
         return False                      # "jakie mam wiadomości" — voice messages
-    if any(t in low for t in _TRIGGERS):
+    if any(t in low for t in _TRIGGERS) or _ASK_RX.search(low):
         return True
     # "co słychać w sporcie?", "wiadomości sportowe", "co nowego w polityce?"
     return bool(re.search(r"\bco (?:słychać|slychac|nowego|się dzieje|sie dzieje) w "

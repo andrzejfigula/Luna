@@ -910,7 +910,8 @@ def handle(text, speak, play_sound, _polite=True):
     # "jakie są wiadomości?" — real headlines (RSS) for the model to summarise;
     # without them she used to make news up
     import news
-    if news.is_request(text):
+    if news.is_request(text) or (news.is_yes(text) and news.accepts_offer(
+            text, __import__("brain").last_reply())):
         import brain
         ctx = news.context()
         if ctx is None:
