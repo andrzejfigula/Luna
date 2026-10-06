@@ -26,6 +26,14 @@ def answer(reply, emotion="happy", gesture="wink"):
 
 class ReplyStreamTest(unittest.TestCase):
 
+    def test_said_to_someone_else_stays_quiet(self):
+        payload = {"to_luna": False, **answer("Ten pasek brzmi ciekawie. Opowiesz więcej?")}
+        for piece in (1, 7, 1000):
+            heads, sentences = run(payload, piece)
+            self.assertEqual((heads, sentences), ([], []))
+        heads, sentences = run({"to_luna": True, **answer("Cześć!")})
+        self.assertEqual(heads, [("happy", "wink")])
+
     def test_head_arrives_once_with_emotion_and_gesture(self):
         heads, _ = run(answer("Cześć!"))
         self.assertEqual(heads, [("happy", "wink")])

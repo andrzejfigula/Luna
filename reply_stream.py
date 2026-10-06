@@ -36,9 +36,14 @@ class ReplyStream:
 
     def feed(self, piece):
         self.raw += piece
+        if getattr(self, "quiet", False):
+            return
         if self.pos is None:
             m = re.search(r'"reply"\s*:\s*"', self.raw)
             if not m:
+                return
+            if re.search(r'"to_luna"\s*:\s*false', self.raw):
+                self.quiet = True                  # said to someone else: nothing spoken
                 return
             self.pos = m.end()
             emo = re.search(r'"emotion"\s*:\s*"(\w+)"', self.raw)

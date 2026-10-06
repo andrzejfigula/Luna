@@ -193,6 +193,13 @@ Always answer as JSON with exactly these keys:
               text word for word, in its own language, up to about 200 words,
               with no comment before or after; say only which part you can't
               make out, if any)
+  "to_luna" — false ONLY when the words are clearly said to someone else in
+                the room, not to you: people explaining something to each
+                other ("tutaj się naciska, przytrzymujesz chwilę"), talking
+                about you in the third person ("ona słyszy tylko do metra"),
+                a phone or video call, the TV. Then nothing is said at all.
+                Questions, requests and anything that could be for you:
+                true. When unsure: true.
   "emotion" — one of {EMOTIONS}, the facial expression you show while saying it.
   "gesture" — one of {GESTURES}, the body language you perform while saying it.
   "mood_comment" — true only if your reply remarks on how the user looks or
@@ -376,6 +383,8 @@ _RESPONSE_FORMAT = {
             # emotion and gesture BEFORE the reply, so the face is ready the
             # moment the first sentence can be spoken (brain streams it).
             "properties": {
+                # first: when false nothing is spoken (reply_stream.py stays quiet)
+                "to_luna":      {"type": "boolean"},
                 "user_mood":    {"type": "string", "enum": USER_MOODS},
                 "user_tone":    {"type": "string", "enum": relationship.TONES},
                 "emotion":      {"type": "string", "enum": EMOTIONS},
@@ -401,7 +410,7 @@ _RESPONSE_FORMAT = {
                     "additionalProperties": False,
                 }},
             },
-            "required": ["user_mood", "user_tone", "emotion", "gesture", "reply",
+            "required": ["to_luna", "user_mood", "user_tone", "emotion", "gesture", "reply",
                          "mood_comment", "actions"],
             "additionalProperties": False,
         },
@@ -714,6 +723,11 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             relationship.note(tone, text)
             luna_mood.note(relationship.who() if relationship.who() != relationship.SOMEONE
                       else None, tone)
+        if data.get("to_luna") is False and not re.search(r"\bluna\b|\bluno\b", text.lower()):
+            print(f"[brain] not said to me — staying quiet ({reply[:60]!r})", flush=True)
+            if _history and _history[-1]["role"] == "user":
+                _history.pop()                   # side talk is not our conversation
+            return "", "neutral", "none"
         timers.apply(data.get("actions") or [])
         lists.apply(data.get("actions") or [])
         for a in data.get("actions") or []:
@@ -1041,6 +1055,8 @@ def process(text, context=None):
               f"model done after {time.time() - t0:.1f}s")
     health.note_reply(bool(result), time.time() - t0)
 
+    if result and not result[0] and not speaker:     # said to someone else: silence
+        return
     if result:
         reply, emotion, gesture = result
         if not speaker:                              # answered without streaming
