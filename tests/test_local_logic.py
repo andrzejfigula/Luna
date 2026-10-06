@@ -186,8 +186,11 @@ class TimersTest(unittest.TestCase):
         self.assertIsNone(reading.add("Był sobie kotek."))
         self.assertIsNone(reading.add("Kotek lubił mleko."))
         self.assertEqual(reading.add("Koniec."), "end")
+        from shared_state import state
+        self.assertEqual(state.overlay[2]["text"], "Słucham…")
         self.assertEqual(reading.take()[0], "Był sobie kotek. Kotek lubił mleko.")
         self.assertFalse(reading.armed())
+        self.assertIsNone(state.overlay)
         with mock.patch.object(reading.threading, "Thread"):
             reading.start(lambda s: None, lambda t, w: None)
         self.assertEqual(reading.add("I żyli długo i szczęśliwie. Koniec."), "end")

@@ -10,6 +10,9 @@ reading.py — "posłuchaj, jak czytam": a child reads aloud, Luna listens.
 
 Reading practice is what an 8-year-old does every day; with the normal
 conversation rules she would have answered every sentence of the book.
+(quiz.py's "poćwiczmy czytanie" is the other way round: SHE shows a sentence
+on the screen and the child reads it.) While listening, a card on the screen
+says "Słucham…" and the word that ends it.
 """
 
 import re
@@ -52,6 +55,17 @@ def _keep_window(secs):
     with state.lock:                      # pauses between sentences need no "Luna"
         state.conversation_active = True
         state.last_activity_time = time.time() + secs
+        # on the screen: she is listening, and the word that ends it
+        state.overlay = ("card", time.time() + secs + 5,
+                         {"text": "Słucham…", "sub": "Gdy skończysz, powiedz: koniec",
+                          "tone": None, "reading": True})
+
+
+def _clear_card():
+    with state.lock:
+        ov = state.overlay
+        if ov and ov[0] == "card" and isinstance(ov[2], dict) and ov[2].get("reading"):
+            state.overlay = None
 
 
 def start(speak, finish):
@@ -76,6 +90,7 @@ def add(text):
     if _STOP.match(low):
         with _lock:
             _s["on"] = False
+        _clear_card()
         print("[reading] stopped", flush=True)
         return "stop"
     if _END.match(low) and len(low.split()) <= 4:
@@ -90,6 +105,7 @@ def add(text):
 
 def take():
     """End the reading: the text read (or "") and the reader."""
+    _clear_card()
     with _lock:
         _s["on"] = False
         text = " ".join(p for p in _s["parts"] if p).strip()
