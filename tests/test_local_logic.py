@@ -718,6 +718,23 @@ class ListsTest(unittest.TestCase):
                          "Na liście „rzeczy do zrobienia” (1): umyć auto.")
         self.assertIsNone(lists.read_answer("Co mam dziś na obiad?"))
 
+    def test_list_owner(self):
+        from shared_state import state
+        with state.lock:
+            state.person = ("Andrzej", 0.9, time.time())
+        try:
+            self.act("list_add", "umyć auto", "do zrobienia")
+            self.act("list_add", "mleko")
+        finally:
+            with state.lock:
+                state.person = None
+        own = lists.owners()
+        self.assertEqual(own.get("do zrobienia"), "Andrzej")
+        self.assertNotIn("zakupy", own)                    # shopping: everyone's
+        self.assertIn("do zrobienia (started by Andrzej)", lists.prompt_block())
+        self.act("list_clear", "", "do zrobienia")
+        self.assertNotIn("do zrobienia", lists.owners())
+
     def test_restore(self):
         self.assertIsNone(lists.restore("Kup chleb"))
         self.assertIn("Nie mam czego", lists.restore("Przywróć listę"))

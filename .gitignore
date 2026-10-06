@@ -52,6 +52,7 @@ data/usage.json
 data/greeted.json
 data/history.json
 data/story.json
+data/lists_owners.json
 data/tts_cache/
 data/seen.json.tmp
 data/relations.json

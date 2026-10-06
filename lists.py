@@ -38,6 +38,44 @@ def _save():
     os.replace(tmp, LISTS_PATH)
 
 
+def _owners_path():
+    return LISTS_PATH.replace(".json", "_owners.json")
+
+
+def owners():
+    """{list name: who started it} — "co mam dzisiaj zrobić?" from Emilka is not
+    about the to-do list Andrzej dictated (6 Oct). The shopping list is shared."""
+    try:
+        with open(_owners_path(), encoding="utf-8") as f:
+            return dict(json.load(f))
+    except (OSError, ValueError):
+        return {}
+
+
+def _set_owner(lst, who):
+    own = owners()
+    if who:
+        own[lst] = who
+    else:
+        own.pop(lst, None)
+    try:
+        tmp = _owners_path() + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(own, f, ensure_ascii=False)
+        os.replace(tmp, _owners_path())
+    except OSError:
+        pass
+
+
+def _speaker():
+    try:
+        from shared_state import state
+        with state.lock:
+            return state.person[0] if state.person else None
+    except Exception:
+        return None
+
+
 def _name(name):
     name = (name or "").strip().lower()
     return name or "zakupy"
@@ -56,7 +94,10 @@ def apply(actions):
                 continue
             lst = _name(a.get("list"))
             item = str(a.get("label", "")).strip()
+            fresh = not _lists.get(lst)
             items = _lists.setdefault(lst, [])
+            if fresh and kind == "list_add" and lst != "zakupy":
+                _set_owner(lst, _speaker())          # whose list this is
             if kind in ("list_remove", "list_clear") and items:
                 _undo = (time.time(), lst, list(items))     # a mishearing can be undone
             if kind == "list_add" and item:
@@ -73,6 +114,8 @@ def apply(actions):
                 done.append(f"cleared {lst}")
             if not _lists.get(lst):
                 _lists.pop(lst, None)
+                if lst in owners():
+                    _set_owner(lst, None)
         if done:
             _save()
     if done:
@@ -172,8 +215,11 @@ def prompt_block():
     lists = get()
     if not lists:
         return "Your lists (shopping, to-do…): all empty.\n"
-    body = "; ".join(f"{k}: {', '.join(v)}" for k, v in lists.items())
-    return f"Your lists: {body}.\n"
+    own = owners()
+    body = "; ".join(f"{k}{f' (started by {own[k]})' if own.get(k) else ''}: {', '.join(v)}"
+                     for k, v in lists.items())
+    return (f"Your lists: {body}. A list started by someone is theirs: when another "
+            "person asks what THEY have to do, don't read it as theirs.\n")
 
 
 def find(text):
