@@ -487,10 +487,14 @@ def picture_note():
     if all(n == "?" for n, _ in layout):
         return ""
     names = [n if n != "?" else "ktoś, kogo nie znasz" for n, _ in sorted(layout, key=lambda p: p[1])]
+    # said as a fact her own recogniser established — asked to identify faces
+    # itself, the vision model declines ("nie mogę powiedzieć, kto to jest")
+    known = ("To wiesz na pewno: Twój własny system rozpoznawania domowników "
+             "(osoby, które same się przedstawiły) rozpoznał ")
     if len(names) == 1:
-        return f" Osoba na zdjęciu to {names[0]} (rozpoznana po twarzy)."
-    return (f" Twarze na zdjęciu, od lewej: {', '.join(names)} (rozpoznane po twarzy; "
-            "inne postacie, np. w telewizorze albo na obrazku, nie są z tej listy).")
+        return f" {known}{names[0]}. Gdy pytam, kto to, powiedz to imię."
+    return (f" {known}twarze na zdjęciu, od lewej: {', '.join(names)}. Gdy pytam, kto to, "
+            "powiedz te imiona (postacie w telewizorze albo na obrazku to nie oni).")
 
 
 def prompt_line():

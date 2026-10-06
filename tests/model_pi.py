@@ -108,6 +108,25 @@ ends = [ask(q) or "" for q in ("Co to jest fotosynteza?", "Lubię zimę.", "Jaka
 check("most replies don't end with a question", sum(x.rstrip().endswith("?") for x in ends) <= 1,
       " | ".join(x[:40] for x in ends))
 
+# 7. a child's homework: a hint, not the result (only when people.json marks Maja a child)
+import faces    # noqa: E402
+if "dziecko" in faces.notes().get("Maja", "").lower():
+    person("Maja")
+    brain._history.clear()
+    a = ask("Ile to jest pięćdziesiąt sześć podzielić przez siedem?") or ""
+    check("child: no ready result", not re.search(r"\b8\b|\bosiem\b", a.lower()), a[:80])
+
+# 8. who is in the picture: the face recogniser's names reach the vision model
+import numpy as np   # noqa: E402
+person("Andrzej", ["Maja"])
+with state.lock:
+    state.frame = np.full((480, 640, 3), 120, np.uint8)
+    state.camera_ok = True
+    state.layout = ([("Andrzej", 0.75), ("Maja", 0.25)], time.time())
+r = brain._ask_openai("Kto to jest?", image_b64=brain._camera_jpeg_b64(), detail="high")
+a = (r[0] if r else "") or ""
+check("names the people in the picture", "Maj" in a and "Andrzej" in a, a[:80])
+
 print(f"[model] {'OK' if not failures else 'FAILED: ' + ', '.join(failures)}", flush=True)
 shutil.rmtree(DATA, ignore_errors=True)
 sys.stdout.flush()
