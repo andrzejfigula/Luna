@@ -935,7 +935,10 @@ def listen():
             spec_tried = True                    # once per pause
             words = json.loads(rec.PartialResult()).get("partial", "").split()
             if (active or _find_wake_word(words) is not None
-                    or (_wake_check_worth(words) and _wake_budget())):
+                    or (utt_peak_rms >= 2.0 * _energy_gate() and len(words) >= 2
+                        and _wake_check_worth(words) and _wake_budget())):
+                # (passive: only clear, loud speech — room noise sent ahead ate
+                # the 2 s wake budget on 6 Oct 19:00, and "Luna, śpisz?" waited)
                 # (the last: the end-of-utterance wake check would ask the
                 # cloud anyway — 6 Oct 18:49 "runda jeśli" was "Luna, nie śpij!")
                 _speculate(b"".join(utt_audio))
