@@ -1129,6 +1129,19 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(health.usage_line("2026-10-01"), "chat 5, stt 5")
         self.assertEqual(health.usage_line("2026-09-01"), "brak")
 
+    def test_probably_family(self):
+        import faces
+        faces._seen = {}
+        faces._near[:] = [None, 0.0, 0.0]
+        self.assertFalse(faces.probably_family(1000.0))
+        faces._near[:] = ["Andrzej", 0.36, 995.0]
+        self.assertTrue(faces.probably_family(1000.0))       # a near miss just now
+        faces._near[:] = ["Andrzej", 0.20, 995.0]
+        self.assertFalse(faces.probably_family(1000.0))      # too far to say
+        faces._seen = {"Maja": 900.0}
+        self.assertTrue(faces.probably_family(1000.0))       # Maja was here
+        faces._seen = {}
+
     def test_where_is(self):
         import faces
         faces._seen = {}

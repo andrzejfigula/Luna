@@ -290,6 +290,7 @@ def identify(feature, learn_ok=True):
     second = ranked[1][1] if len(ranked) > 1 else 0.0
     if best < MATCH_COSINE:
         global _last_miss
+        _near[:] = [who, best, time.time()]
         if best >= 0.25 and time.time() - _last_miss > 60:   # who is it nearly?
             _last_miss = time.time()
             print(f"[faces] not sure who this is — closest {who} {best:.2f}"
@@ -302,6 +303,21 @@ def identify(feature, learn_ok=True):
 
 _last_auto = {}
 _last_miss = 0.0
+_near = [None, 0.0, 0.0]          # the last unsure match: closest name, score, when
+
+
+def probably_family(now=None, near_secs=8, seen_secs=180):
+    """An unrecognised face that is most likely one of the family: a near miss
+    just now (0.28+, e.g. Andrzej at 0.36 turned aside), or someone known was
+    here a moment ago. Then no "nie znam cię, jak masz na imię?"."""
+    now = now or time.time()
+    if _near[0] and now - _near[2] < near_secs and _near[1] >= 0.28:
+        return True
+    global _seen
+    with _lock:
+        if _seen is None:
+            _seen = _read_seen()
+        return any(now - t < seen_secs for t in _seen.values())
 
 
 def learn(name, feature):

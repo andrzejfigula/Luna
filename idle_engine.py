@@ -245,7 +245,8 @@ def idle_loop():
                         # does: ask for the name (at most every 30 min)
                         import faces
                         stranger = (who is None and faces.names()
-                                    and now - asked_name_at > 1800)
+                                    and now - asked_name_at > 1800
+                                    and not faces.probably_family())
                         if stranger:
                             asked_name_at = now
                         speak(greeting(first_today, who=who, stranger=bool(stranger))
