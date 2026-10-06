@@ -1368,6 +1368,24 @@ class KidsTest(unittest.TestCase):
         self.assertFalse(news.accepts_offer("Nie, dzięki.", offer))
         self.assertFalse(news.accepts_offer("Chcę.", "Chcesz wierszyk o jesieni?"))
 
+    def test_speculative_transcript(self):
+        from unittest import mock
+        with mock.patch.dict(sys.modules, {"sounddevice": mock.MagicMock(),
+                                           "vosk": mock.MagicMock()}):
+            import speech_to_text as s
+        calls = []
+        with mock.patch.object(s, "_cloud_transcribe_now",
+                               lambda pcm: calls.append(len(pcm)) or f"text{len(pcm)}"):
+            s._speculate(b"\x01" * 100)                      # sent ahead after 0.3 s
+            self.assertEqual(s._cloud_transcribe(b"\x01" * 100 + b"\x00" * 40), "text100")
+            self.assertEqual(calls, [100])                   # no second request
+            s._speculate(b"\x01" * 100)
+            s._spec_cancel()                                 # they went on talking
+            self.assertEqual(s._cloud_transcribe(b"\x01" * 300), "text300")
+            s._speculate(b"\x02" * 50)                       # another utterance's audio
+            self.assertEqual(s._cloud_transcribe(b"\x01" * 80), "text80")
+        s._spec_cancel()
+
     def test_fuzzy_wake_needs_her_name(self):
         from unittest import mock
         with mock.patch.dict(sys.modules, {"sounddevice": mock.MagicMock(),

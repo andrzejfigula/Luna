@@ -356,7 +356,62 @@ def _wav_bytes(pcm16k):
     return buf
 
 
+# ── Speculative transcription ────────────────────────────────────────────────
+# The utterance ends after STT_END_SILENCE of silence, and only then went to
+# the cloud (~0.9 s). Now, once SPEC_AFTER of that silence has passed (and the
+# words may be for her), the audio so far is sent at once; if nothing more is
+# said it IS the utterance, and the answer is already on its way — about
+# 0.3 s sooner (6 Oct: "more snappy"). Speech that goes on cancels it.
+SPEC_AFTER = 0.3
+_spec_lock = threading.Lock()
+_spec = None          # {"pcm": bytes, "done": Event, "result": ...} or None
+
+
+def _speculate(pcm16k):
+    global _spec
+    job = {"pcm": pcm16k, "done": threading.Event(), "result": None}
+    with _spec_lock:
+        _spec = job
+
+    def run():
+        try:
+            job["result"] = _cloud_transcribe_now(pcm16k)
+        finally:
+            job["done"].set()
+    threading.Thread(target=run, daemon=True, name="stt-spec").start()
+
+
+def _spec_cancel():
+    global _spec
+    with _spec_lock:
+        _spec = None
+
+
+def _spec_take(pcm16k):
+    """The speculative result for this utterance, if it was started on the
+    same audio (the utterance only added silence since); else None."""
+    global _spec
+    with _spec_lock:
+        job, _spec = _spec, None
+    if not job or not pcm16k.startswith(job["pcm"]):
+        return None
+    if not job["done"].wait(12):
+        return None
+    return job
+
+
 def _cloud_transcribe(pcm16k):
+    """Transcribe an utterance — from the speculative request when one was
+    started on this audio (see SPEC_AFTER), else now."""
+    job = _spec_take(pcm16k) if pcm16k else None
+    if job is not None:
+        print(f"[STT] speculative transcript used ({len(pcm16k) - len(job['pcm'])} "
+              "bytes of silence later)", flush=True)
+        return job["result"]
+    return _cloud_transcribe_now(pcm16k)
+
+
+def _cloud_transcribe_now(pcm16k):
     """Transcribe an utterance (16 kHz int16 mono bytes).
 
     Returns the text, "" when the cloud heard no speech, or None when the
@@ -768,6 +823,7 @@ def listen():
     utt_bytes    = 0
     utt_max      = int(CLOUD_STT_MAX_SECS * VOSK_SAMPLE_RATE * 2)
     utt_t0       = None  # when the current utterance's speech began
+    spec_tried   = False # this pause already sent ahead (see SPEC_AFTER)
 
     while True:
         try:
@@ -830,7 +886,9 @@ def listen():
         else:
             if not voiced and utt_t0 is None:
                 utt_t0 = time.time() - len(data) / (VOSK_SAMPLE_RATE * 2)
-            voiced, silent_run = True, 0.0
+            if silent_run >= SPEC_AFTER and _spec is not None:
+                _spec_cancel()                   # they went on: it wasn't the end
+            voiced, silent_run, spec_tried = True, 0.0, False
 
         # Vosk only calls the utterance finished after ~1.05 s of silence
         # (measured). Ours is quicker: STT_END_SILENCE of gated silence after
@@ -839,6 +897,12 @@ def listen():
         import messages                  # a voice message may have pauses
         recording = messages.armed()
         end_after = 2.0 if recording else STT_END_SILENCE
+        if (voiced and not recording and not final and _cloud is not None
+                and silent_run >= SPEC_AFTER and not spec_tried):
+            spec_tried = True                    # once per pause
+            words = json.loads(rec.PartialResult()).get("partial", "").split()
+            if active or _find_wake_word(words) is not None:
+                _speculate(b"".join(utt_audio))
         if final and recording and silent_run < end_after:
             # Vosk thinks you're done (~1 s pause) but a message may go on:
             # keep its text, keep the audio, keep listening
@@ -857,7 +921,7 @@ def listen():
             if msg_parts:                # a recorded message: all its parts
                 result = {"text": " ".join(msg_parts + [result.get("text", "")]).strip()}
                 msg_parts = []
-            voiced, silent_run = False, 0.0
+            voiced, silent_run, spec_tried = False, 0.0, False
             started, utt_t0 = utt_t0, None
             text     = result.get("text", "").strip()
             peak_rms = utt_peak_rms
