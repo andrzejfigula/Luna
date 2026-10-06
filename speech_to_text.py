@@ -962,6 +962,19 @@ def listen():
                     return cleaned
                 if cleaned:
                     cloud = _cloud_transcribe(utt_pcm)
+                    if cloud and not messages_armed() and english_side_talk(cloud):
+                        # Vosk turned an English call into Polish-ish words with
+                        # a "luna" in them; the real words have no "Luna" at all
+                        # (6 Oct 16:42: "…we need more people on the sprint review")
+                        print(f"[STT] false wake — English side talk: \"{cloud}\"", flush=True)
+                        with state.lock:
+                            state.conversation_active = False
+                            state.proactive_muted_until = max(state.proactive_muted_until,
+                                                              time.time() + 300)
+                            state.luna_mode = "idle"
+                            state.listening = False
+                        active = False
+                        continue
                     if cloud:
                         cleaned = _strip_wake_from_cloud(cloud)
                     elif cloud == "":
