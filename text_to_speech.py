@@ -57,8 +57,9 @@ def _on_audio_start():
         # with the stages in between (timing.py)
         import timing
         stages = timing.report(heard)
-        print(f"[latency] end of speech → her voice {time.time() - heard:.2f}s"
-              + (f" ({stages})" if stages else ""), flush=True)
+        if stages.startswith("text"):        # an answer — not a wave-back or hello
+            print(f"[latency] end of speech → her voice {time.time() - heard:.2f}s"
+                  f" ({stages})", flush=True)
 
 
 def _engine_speak(text, style=""):
