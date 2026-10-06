@@ -661,6 +661,21 @@ class MemoryTest(unittest.TestCase):
         self.assertEqual(memory._load()["facts"], [])
 
 
+class PolishTest(unittest.TestCase):
+
+    def test_feminize(self):
+        from polish import feminize as f
+        self.assertEqual(f("Zrobiłem to, czytałem i byłem gotowy."),
+                         "Zrobiłam to, czytałam i byłam gotowa.")
+        self.assertEqual(f("Chcesz, żebym zaczął od którejś z nich?"),
+                         "Chcesz, żebym zaczęła od którejś z nich?")
+        self.assertEqual(f("Mógłbym pomóc, żebym ci przyniósł."),
+                         "Mogłabym pomóc, żebym ci przyniosła.")
+        for keep in ("Można ją posmarować masłem.", "Pod stołem jest kot.",
+                     "Myję ręce mydłem.", "Jadłam z kołem ratunkowym."):
+            self.assertEqual(f(keep), keep)
+
+
 class EchoTest(unittest.TestCase):
 
     def test_tail_only(self):
