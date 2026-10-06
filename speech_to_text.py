@@ -63,6 +63,7 @@ from config import (
     CLOUD_STT_TIMEOUT,
     CLOUD_STT_MAX_SECS,
     STT_END_SILENCE,
+    STT_END_SILENCE_SHORT,
     STT_SAVE_UTTERANCES,
     CLOUD_WAKE_CHECK,
     CLOUD_WAKE_MIN_INTERVAL,
@@ -654,7 +655,8 @@ last_utterance_pcm = b""               # the audio of the last answered utteranc
 # a sentence the transcriber marked as cut off ("…żeby to wyk...") — the
 # speaker only paused: wait HELD_SECS for the rest and answer the two as one
 _held = None                           # (text, time)
-HELD_SECS = 2.5
+HELD_SECS = 4.0          # (was 2.5: "No więc ja słyszałem, że są takie
+                         # mikrofony..." got answered while Andrzej was thinking)
 
 
 def cut_off(text):
@@ -977,6 +979,11 @@ def listen():
         import messages                  # a voice message may have pauses
         recording = messages.armed()
         end_after = 2.0 if recording else STT_END_SILENCE
+        if (voiced and not recording and silent_run >= STT_END_SILENCE
+                and silent_run < STT_END_SILENCE_SHORT):
+            # one or two words so far: probably the start of a thought
+            if len(json.loads(rec.PartialResult()).get("partial", "").split()) <= 2:
+                end_after = STT_END_SILENCE_SHORT
         if (voiced and not recording and not final and _cloud is not None
                 and silent_run >= SPEC_AFTER and not spec_tried):
             spec_tried = True                    # once per pause

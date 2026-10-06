@@ -265,6 +265,9 @@ STT_MIN_UTTERANCE_CHARS = 2
 # with long pauses.
 STT_END_SILENCE = 0.6    # (was 0.75 — 6 Oct: "more snappy"; a sentence cut mid-word
                          # still waits for its end, see speech_to_text.cut_off)
+STT_END_SILENCE_SHORT = 1.1   # ...but one or two words ("Nie.", "No więc…") wait
+                         # longer: a pause after an opener is the middle of a
+                         # thought (6 Oct: "Ale nie przerywaj mi, jak mówię")
 
 # Print per-utterance rms/confidence so the thresholds above can be tuned.
 STT_DEBUG_AUDIO = True
