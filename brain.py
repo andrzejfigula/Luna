@@ -94,11 +94,33 @@ _FEM_SPECIAL = {
     "jestem szczęśliwy": "jestem szczęśliwa", "jestem zadowolony": "jestem zadowolona",
     "byłbym": "byłabym", "chciałbym": "chciałabym", "wolałbym": "wolałabym",
     "powinienem": "powinnam", "mogłem": "mogłam",
+    "zacząłbym": "zaczęłabym", "wziąłbym": "wzięłabym", "jadłem": "jadłam",
+    "zjadłem": "zjadłam", "niosłem": "niosłam", "przyniosłem": "przyniosłam",
+    "upadłem": "upadłam", "znalazłem": "znalazłam", "usiadłem": "usiadłam",
+    "przeczytałbym": "przeczytałabym", "byłem gotowy": "byłam gotowa",
+    "byłem pewny": "byłam pewna", "byłem ciekawy": "byłam ciekawa",
 }
 _FEM_SPECIAL_RE = re.compile(r"\b(" + "|".join(sorted(map(re.escape, _FEM_SPECIAL),
                                                     key=len, reverse=True)) + r")\b",
                              re.IGNORECASE)
-_FEM_ENDINGS_RE = re.compile(r"\b(\w+?)(łem|łbym)\b")
+# only after a, e, i, y, u: verbs ("zrobiłem", "czytałem"), never nouns in the
+# instrumental ("masłem" became "masłam", "stołem", "kołem", "mydłem")
+_FEM_ENDINGS_RE = re.compile(r"\b(\w+?[aeiyu])(łem|łbym)\b")
+# "Chcesz, żebym zaczął…?" — the past form after żebym / abym / bym
+_FEM_BYM_RE = re.compile(r"\b(żebym|zebym|abym|bym)(\s+(?:się\s+|ci\s+|go\s+|to\s+)?)(\w+ł)\b",
+                         re.IGNORECASE)
+_FEM_PAST = {"mógł": "mogła", "poszedł": "poszła", "szedł": "szła", "przyszedł": "przyszła",
+             "wyszedł": "wyszła", "niósł": "niosła", "przyniósł": "przyniosła"}
+
+
+def _fem_past(word):
+    """A masculine past form → feminine: zaczął → zaczęła, zrobił → zrobiła."""
+    low = word.lower()
+    if low in _FEM_PAST:
+        return _FEM_PAST[low]
+    if low.endswith("ął"):
+        return word[:-2] + "ęła"
+    return word + "a"
 
 
 def _feminize(text):
@@ -111,6 +133,7 @@ def _feminize(text):
     text = _FEM_SPECIAL_RE.sub(special, text)
     text = _FEM_ENDINGS_RE.sub(lambda m: m.group(1) + ("łam" if m.group(2) == "łem"
                                                        else "łabym"), text)
+    text = _FEM_BYM_RE.sub(lambda m: m.group(1) + m.group(2) + _fem_past(m.group(3)), text)
     return text
 
 
@@ -205,6 +228,21 @@ Always answer as JSON with exactly these keys:
                 The lists are shown below the date — read them from there.
                 Confirm briefly in "reply" ("Jasne, minutnik na 10 minut.").
                 The active ones are listed below the date.
+                Switches only the app can flip — {{"type":"command","label":
+                "włącz Dwójkę",...}} with the label one of: "włącz radio",
+                "włącz <RMF FM | Radio ZET | Trójkę | Jedynkę | Dwójkę | Radio
+                357 | Nowy Świat>", "wyłącz radio", "następna stacja",
+                "ciszej", "głośniej", "mów wolniej", "mów szybciej", "mów
+                normalnie", "włącz lampkę", "wyłącz lampkę", "lampka na
+                <kolor>", "włącz szum deszczu / morza", "biały szum",
+                "wyłącz szum", "włącz napisy", "wyłącz napisy", "pokaż zegar",
+                "pokaż plan dnia", "pokaż listę zakupów". Use it whenever your
+                reply says you switched, played or showed one of these (e.g.
+                they agree to your suggestion of a station). If you only
+                suggest it or ask "chcesz?", leave the action out until they
+                say yes. NEVER say you
+                turned something on or changed something without the action
+                that does it — if there is none, say you can't.
 Let user_mood quietly shape HOW you answer — softer, calmer and shorter when
 they seem tired, sad or stressed; livelier when they seem happy — without
 mentioning it. Whether you may actually SAY something about it is stated
@@ -349,7 +387,8 @@ _RESPONSE_FORMAT = {
                     "properties": {
                         "type":    {"type": "string",
                                     "enum": ["timer", "reminder", "alarm", "cancel",
-                                             "list_add", "list_remove", "list_clear"]},
+                                             "list_add", "list_remove", "list_clear",
+                                             "command"]},
                         "seconds": {"type": "integer"},
                         "at":      {"type": "string"},
                         "label":   {"type": "string"},
@@ -677,6 +716,9 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                       else None, tone)
         timers.apply(data.get("actions") or [])
         lists.apply(data.get("actions") or [])
+        for a in data.get("actions") or []:
+            if a.get("type") == "command":
+                run_command(str(a.get("label", "")))
 
         # keep history text-only: images are large and only matter for the
         # turn they were asked in
@@ -702,6 +744,28 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
 
 
 # ── Things she did herself, without the model ─────────────────────────────────
+
+_COMMAND_OK = re.compile(
+    r"^(?:włącz|wyłącz|wlacz|wylacz)\s+(?:radio|rmf|radio\s+zet|trójkę|trojke|jedynkę|jedynke|"
+    r"dwójkę|dwojke|radio\s+357|nowy\s+świat|nowy\s+swiat|lampkę|lampke|szum\w*|napisy|"
+    r"biały\s+szum)\b|^następna\s+stacja$|^(?:ciszej|głośniej)$|^mów\s+(?:wolniej|szybciej|"
+    r"normalnie)$|^lampka\s+na\s+\w+$|^biały\s+szum$|^pokaż\s+(?:zegar|plan\s+dnia|"
+    r"listę\s+zakupów)$", re.I)
+
+
+def run_command(label):
+    """The model's "command" action: one of the app's own switches, run
+    through the local command handler (which the model can't reach) —
+    whitelisted, silent (the model's reply already confirms it)."""
+    label = label.strip().rstrip(".!")
+    if not _COMMAND_OK.match(label):
+        print(f"[brain] command not allowed: {label!r}", flush=True)
+        return False
+    import commands
+    done = commands.handle(label, lambda *a, **k: None, lambda *a, **k: True)
+    print(f"[brain] command {label!r}: {'done' if done else 'not understood'}", flush=True)
+    return bool(done)
+
 
 def _who_said(text):
     """"[Maja] …" in the history: one history for the whole house, and the

@@ -547,6 +547,28 @@ def polite_to_command(text):
     return f"{verb} {m.group(1)}{m.group(3).strip()}".strip()
 
 
+_COMPLAINTS = [
+    (r"\b(?:za\s+wolno|zbyt\s+wolno)\b", "mów szybciej"),
+    (r"\b(?:za\s+szybko|zbyt\s+szybko)\b", "mów wolniej"),
+    (r"\b(?:za\s+cicho|zbyt\s+cicho|nie\s+słychać\s+cię|nie\s+slychac\s+cie|słabo\s+cię\s+słychać|"
+     r"nic\s+nie\s+słyszę|nic\s+nie\s+slysze)\b", "głośniej"),
+    (r"\b(?:za\s+głośno|za\s+glosno|zbyt\s+głośno)\b", "ciszej"),
+]
+
+
+def _complaint_as_command(low):
+    """"Za wolno mówisz", "nie słychać cię" — a complaint that asks for
+    something; the model only answered "mogę mówić szybciej" and changed
+    nothing. The command it means, or None."""
+    n = len(re.findall(r"\w+", low))
+    if n > 6 or re.search(r"\b(radio|muzyk|telewiz|tv)\w*", low):
+        return None
+    if n > 3 and not re.search(r"\b(mówisz|mowisz|gadasz|cię|cie|ciebie|twój\s+głos|twoj\s+glos)\b",
+                               low):
+        return None                        # "minutnik dzwoni za głośno" is not about her
+    return next((cmd for rx, cmd in _COMPLAINTS if re.search(rx, low)), None)
+
+
 def is_question(text):
     """A question about something (not a request to do it)."""
     words = [w for w in _words(text) if w not in ("luna", "luno", "hej", "a")]
@@ -687,6 +709,9 @@ def handle(text, speak, play_sound, _polite=True):
                 print(f"[cmd] polite request → \"{cmd}\"", flush=True)
                 return handled
     low = text.lower()
+    said_as = _complaint_as_command(low)           # "za wolno mówisz" → "szybciej"
+    if said_as and _polite:
+        return handle(said_as, speak, play_sound, _polite=False)
     question = is_question(text)
 
     # good night — said to her while awake

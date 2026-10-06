@@ -18,6 +18,7 @@ part of a reply (reply_scenes.py, chosen by the model in brain.py).
 
 import os
 import random
+import re
 import threading
 import time
 
@@ -42,12 +43,23 @@ def check_mute(text):
     True when the utterance was a mute/unmute command (so it needn't reach
     the brain)."""
     low = text.lower().strip(" .!?")
-    if any(p in low for p in MUTE_PHRASES):
+
+    def bare(phrases):
+        # the phrase and only fillers around it: "Luna, cicho!" — not "za cicho",
+        # "jest cicho w domu" or "możesz mówić wolniej?" (that one was swallowed)
+        hit = max((p for p in phrases if p in low), key=len, default=None)
+        if not hit:
+            return False
+        rest = re.findall(r"\w+", low.replace(hit, " ", 1))
+        return all(w in ("luna", "luno", "już", "juz", "teraz", "proszę", "prosze", "no",
+                         "dobra", "ok", "okej", "hej", "a", "to") for w in rest)
+
+    if bare(MUTE_PHRASES):
         with state.lock:
             state.proactive_muted_until = time.time() + MUTE_SECS
         print(f"[idle] proactive speech muted for {MUTE_SECS / 60:.0f} min")
         return True
-    if any(p in low for p in UNMUTE_PHRASES):
+    if bare(UNMUTE_PHRASES):
         with state.lock:
             state.proactive_muted_until = 0.0
         print("[idle] proactive speech back on")

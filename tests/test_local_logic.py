@@ -140,6 +140,27 @@ class TimersTest(unittest.TestCase):
         self.assertIn(voicefx.arm("?"), voicefx.EFFECTS)
         self.assertTrue(voicefx.armed())
 
+    def test_mute_only_when_bare(self):
+        import idle_engine
+        for t in ("Luna, cicho!", "bądź cicho", "Zamilcz", "Możesz mówić"):
+            self.assertTrue(idle_engine.check_mute(t), t)
+        for t in ("Za cicho", "Jest cicho w domu", "Możesz mówić wolniej?",
+                  "Możesz mówić głośniej"):
+            self.assertFalse(idle_engine.check_mute(t), t)
+
+    def test_radio_genres(self):
+        import radio
+        said = []
+        played = []
+        old = radio.play
+        radio.play = lambda name, url, **k: played.append(name)
+        try:
+            self.assertTrue(radio.handle("Włącz radio z jakąś spokojną muzyką", said.append))
+            self.assertTrue(radio.handle("Włącz radijko", said.append))
+        finally:
+            radio.play = old
+        self.assertEqual(played[0], "Dwójka")
+
     def test_polite_to_command(self):
         import commands
         p = commands.polite_to_command

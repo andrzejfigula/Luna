@@ -68,7 +68,15 @@ _ALIASES = {"rmf": "rmf fm", "rmfu": "rmf fm", "rmf-u": "rmf fm", "zet": "radio 
             "nowego świata": "nowy świat"}
 
 _ON = re.compile(r"^(?:luna,? |luno,? )?(?:włącz|wlacz|puść|pusc|zagraj|odpal|graj)\s+"
-                 r"(?:(?:mi|nam)\s+)?(?:(?:radio|stację|stacje)\s*(.*)|(.+))$")
+                 r"(?:(?:mi|nam)\s+)?(?:(?:radio|radijko|radyjko|radyjka|stację|stacje)\s*(.*)|(.+))$")
+# "włącz radio z jakąś spokojną muzyką" — a kind of music, not a station name
+_GENRES = [
+    (r"spokojn|relaks|klasyczn|poważn|powazn|wycisz|do\s+snu|chill|łagodn|lagodn", "dwójka"),
+    (r"rock|alternatyw|gitar", "trójka"),
+    (r"przebo|hit|pop|disco|tanecz|wesoł|wesol|imprez", "rmf fm"),
+    (r"wiadomości|wiadomosci|informac|news|publicyst", "jedynka"),
+    (r"jazz|ambitn|nowoczesn|indie|ciekaw", "nowy świat"),
+]
 _ALARM_ON = ("budź mnie radiem", "budz mnie radiem", "obudź mnie radiem",
              "obudz mnie radiem", "budzik z radiem", "budzenie radiem", "budzik radiem")
 _ALARM_OFF = ("budź mnie dzwonkiem", "budz mnie dzwonkiem", "budzik bez radia",
@@ -506,6 +514,10 @@ def handle(text, speak):
             what = key
     else:
         what = m.group(1)
+    genre = next((key for rx, key in _GENRES if re.search(rx, what or "")), None)
+    if genre and (not what or what.split()[0] in ("z", "ze", "jakąś", "jakas", "coś", "cos")
+                  or "muzyk" in what):
+        what = genre                       # "…z jakąś spokojną muzyką" → Dwójka
     if len(what.split()) > 4:
         return False
     st = _station(what)
