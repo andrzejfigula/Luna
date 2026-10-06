@@ -161,6 +161,21 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 - Co godzinę w `luna.log` linia `[health]`: temperatura, obciążenie, liczba odpowiedzi i ich średni czas, ewentualne przerwy w dźwięku.
 - Testy logiki (na dowolnym komputerze): `python -X utf8 -m unittest discover -s tests`.
 
+## Po pierwszym dniu w domu (poprawki z 6.10)
+
+| Co | Jak teraz |
+|---|---|
+| Rozmawiacie między sobą przy Lunie | Luna milczy, gdy słowa nie są do niej („tutaj się naciska…”, „Maja, idź umyć zęby”), i przestaje słuchać — żeby ją zawołać, powiedz „Luna” |
+| Rozmowy po angielsku (np. wideorozmowa) | ignoruje je, chyba że zaczniesz od „Luna” |
+| „Za wolno mówisz”, „za cicho”, „nie słychać cię”, „za głośno” | naprawdę zmienia tempo albo głośność (wcześniej tylko obiecywała) |
+| „Włącz radio z jakąś spokojną muzyką” | włącza Dwójkę (spokojna/klasyczna); rock → Trójka, przeboje → RMF FM, wiadomości → Jedynka, jazz → Nowy Świat; „włącz radijko” też działa |
+| Gdy Luna zaproponuje stację i powiesz „tak” | naprawdę ją włącza (wcześniej mówiła „włączam”, a nic nie grało) |
+| „Za cicho” | już jej nie ucisza (było odwrotnie) |
+| Kolejne powitania w ciągu dnia | krótkie, po imieniu, bez pytań o projekt za każdym razem |
+| „Hejka!” przy machaniu | macha zawsze, ale mówi „cześć” najwyżej raz na kwadrans |
+| Pamięć | już się nie „wyciera” — zwykła rozmowa tylko dopisuje; porządki raz dziennie, ostrożnie |
+| Dźwięk po wielu godzinach | koniec z trzaskami po ~8 h pracy (dryf zegara karty dźwiękowej) |
+
 ## Na co zwrócić uwagę przy pierwszym użyciu
 
 1. **Dźwięk** — odtwarzacz jest teraz stale otwarty. Gdyby coś trzeszczało, w `config.py` ustaw `AUDIO_PERSISTENT = False` (stary sposób) i daj znać.
