@@ -56,6 +56,11 @@ PCM_RATE = 24000   # fixed by the API for response_format="pcm"
 # read the stream in small pieces: playback starts once AUDIO_PREBUFFER_SECS
 # (16.8 kB) is in, and 16 kB reads made it wait for a second whole piece
 TTS_READ_BYTES = 4096
+# The speech API usually starts in ~0.75 s, but one request in six took over
+# 1 s (up to 2.2 s, and 3.9 s once in real use) — the answers that feel slow.
+# No audio after this long: the same request again, whichever starts first
+# plays, the other one stops (6 Oct: "more snappy").
+TTS_HEDGE_AFTER = 1.0
 
 
 def speech_speed():
@@ -274,6 +279,57 @@ class OpenAITTS:
             else:
                 self._speak_streaming(text, on_audio_start, style)
 
+    def _hedged(self, text, kwargs):
+        """The audio of `text`, chunk by chunk — from a second request when
+        the first one hasn't started within TTS_HEDGE_AFTER. Raises the
+        error when no request produced any audio."""
+        q, lock, first = queue.Queue(), threading.Lock(), threading.Event()
+        owner = [None]
+
+        def attempt(n):
+            try:
+                with self._client.audio.speech.with_streaming_response.create(
+                        input=text, **kwargs) as resp:
+                    for chunk in resp.iter_bytes(chunk_size=TTS_READ_BYTES):
+                        if self._cut.is_set() or not chunk:
+                            if self._cut.is_set():
+                                break
+                            continue
+                        with lock:
+                            if owner[0] is None:
+                                owner[0] = n
+                            mine = owner[0] == n
+                        if not mine:
+                            break                      # the other one was faster
+                        first.set()
+                        q.put(("data", chunk))
+            except Exception as e:
+                q.put(("error", e))
+            finally:
+                q.put(("end", n))
+
+        threading.Thread(target=attempt, args=(0,), daemon=True, name="tts-a").start()
+        started = 1
+        if not first.wait(TTS_HEDGE_AFTER) and not self._cut.is_set():
+            print(f"[TTS] no audio after {TTS_HEDGE_AFTER:.1f}s — asking again", flush=True)
+            threading.Thread(target=attempt, args=(1,), daemon=True, name="tts-b").start()
+            started = 2
+        ended, errors = 0, []
+        while ended < started:
+            kind, val = q.get()
+            if kind == "data":
+                yield val
+            elif kind == "error":
+                errors.append(val)
+            else:
+                ended += 1
+                if owner[0] == val:
+                    break                              # the winner is done
+        if owner[0] == 1:
+            print("[TTS] the second request won", flush=True)
+        if owner[0] is None and errors:
+            raise errors[0]
+
     def _tts_kwargs(self, style):
         kwargs = dict(model=OPENAI_TTS_MODEL, voice=OPENAI_TTS_VOICE,
                       response_format="pcm",
@@ -300,14 +356,12 @@ class OpenAITTS:
             out.write(cached)
         else:
             try:
-                with self._client.audio.speech.with_streaming_response.create(
-                        input=text, **kwargs) as resp:
-                    for chunk in resp.iter_bytes(chunk_size=TTS_READ_BYTES):
-                        if self._cut.is_set():
-                            break
-                        out.write(chunk)
-                        wrote = True
-                    ok = not self._cut.is_set()
+                for chunk in self._hedged(text, kwargs):
+                    if self._cut.is_set():
+                        break
+                    out.write(chunk)
+                    wrote = True
+                ok = not self._cut.is_set()
             except Exception as e:
                 if not self._cut.is_set():
                     print(f"[TTS] streaming error: {e}")
@@ -508,13 +562,10 @@ class OpenAITTS:
 
             def fetch(text, q):
                 try:
-                    with self._client.audio.speech.with_streaming_response.create(
-                            input=text, **kwargs) as resp:
-                        for chunk in resp.iter_bytes(chunk_size=TTS_READ_BYTES):
-                            if self._cut.is_set():
-                                break
-                            if chunk:
-                                q.put(chunk)
+                    for chunk in self._hedged(text, kwargs):
+                        if self._cut.is_set():
+                            break
+                        q.put(chunk)
                 except Exception as e:
                     if not self._cut.is_set():
                         print(f"[TTS] streaming error: {e}")

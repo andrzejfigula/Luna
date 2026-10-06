@@ -626,6 +626,19 @@ def join_held(text):
                                        # (a voice message is saved from it)
 
 
+def _face_invites(words):
+    """Someone is in front of her camera right now and said a short sentence:
+    worth a cloud look for "Luna" even when Vosk's words look nothing like it
+    (6 Oct 18:43: "Luna, w czym możesz pomóc?" → Vosk "woda w czym możesz
+    pomóc"). Not during a call or people's own talk — they face her too."""
+    if len(words) > 10:
+        return False
+    with state.lock:
+        seen = time.time() - state.last_face_time < 2.0
+        muted = time.time() < state.proactive_muted_until    # a call, "cicho"
+    return seen and not muted and not people_talking()
+
+
 def _maybe_wake(words):
     """Worth paying the cloud to look for "Luna" in this? Only when one of
     the first three words sounds a bit like it (people call her at the start)
@@ -656,7 +669,7 @@ def _cloud_wake_check(pcm16k, words=None):
         return True, _strip_wake_from_cloud(cloud)
     if not CLOUD_WAKE_CHECK or _cloud is None:
         return False, None
-    if words is not None and not _maybe_wake(words):
+    if words is not None and not _maybe_wake(words) and not _face_invites(words):
         return False, None
     now = time.time()
     if now - _last_cloud_wake_check < CLOUD_WAKE_MIN_INTERVAL:

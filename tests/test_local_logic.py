@@ -1391,6 +1391,30 @@ class KidsTest(unittest.TestCase):
                              (True, "Jakie stacje radiowe masz?"))
         s._spec_cancel()
 
+    def test_face_invites_a_cloud_wake_check(self):
+        from unittest import mock
+        with mock.patch.dict(sys.modules, {"sounddevice": mock.MagicMock(),
+                                           "vosk": mock.MagicMock()}):
+            import speech_to_text as s
+        from shared_state import state
+        words = "woda w czym możesz pomóc".split()
+        s._side.clear()
+        with state.lock:
+            old = (state.last_face_time, state.proactive_muted_until)
+            state.last_face_time, state.proactive_muted_until = time.time(), 0.0
+        try:
+            self.assertTrue(s._face_invites(words))
+            self.assertFalse(s._face_invites(("słowo " * 12).split()))   # long: not a call
+            with state.lock:
+                state.proactive_muted_until = time.time() + 300        # a call going on
+            self.assertFalse(s._face_invites(words))
+            with state.lock:
+                state.proactive_muted_until, state.last_face_time = 0.0, time.time() - 30
+            self.assertFalse(s._face_invites(words))                   # nobody in front
+        finally:
+            with state.lock:
+                state.last_face_time, state.proactive_muted_until = old
+
     def test_fuzzy_wake_needs_her_name(self):
         from unittest import mock
         with mock.patch.dict(sys.modules, {"sounddevice": mock.MagicMock(),
