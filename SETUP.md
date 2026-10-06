@@ -119,6 +119,12 @@ printed (and noted in `luna.log`):
 On a development PC: `python -X utf8 -m unittest discover -s tests` (the
 unit, routing and fuzz tests; no Pi hardware or OpenAI SDK needed).
 
+After changing the prompt or the persona: `./venv/bin/python tests/model_pi.py`
+on the Pi — the rules real use taught her, asked of the real model (side talk
+stays quiet, no names with two people in view, ask first and act after "tak",
+the radio really plays when she says so, no empty promises, feminine forms).
+Silent, ~20 model calls; answers vary, so a single failure deserves a rerun.
+
 After a day of real use: `python3 tools/log_report.py` on the Pi — counts of
 the signals worth a look (answers, side talk she ignored, stranger greetings,
 wave-backs, memory changes, TTS errors, xruns and clock nudges) and every
