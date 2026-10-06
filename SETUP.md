@@ -100,6 +100,13 @@ Log: `~/luna/luna.log`. ESC on an attached keyboard quits; keys 1/2 switch face 
 
 ### Updating — and the tests that guard it
 
+From the development PC, `tools/deploy.sh` copies every tracked file that
+differs from the Pi (by content; never `data/` or `.env`); `--dry-run` only
+lists them, `--restart` then runs `restart.sh`. Copying files by hand once
+left one of them two days behind.
+
+On the Pi:
+
 ```bash
 ./restart.sh        # waits until she has been idle 3 min, then restarts
 ./restart.sh --now  # restart right away
