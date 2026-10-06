@@ -238,6 +238,38 @@ def _learn_face(name_as_said, text, speak):
 _name_wanted = [0.0]        # until when a bare name ("Ola.") answers "jak masz na imię?"
 
 
+_place_wanted = [0.0]          # she asked "w jakim mieście mieszkamy?" until then
+_WEATHER_ASK = re.compile(r"\b(?:pogod\w*|temperatur\w*|ile\s+stopni|czy\s+(?:będzie\s+)?pada|"
+                          r"jak\s+jest\s+na\s+(?:dworze|zewnątrz|polu)|parasol)\b", re.I)
+
+
+def weather_setup(text, speak):
+    """No weather place yet: a weather question gets "w jakim mieście
+    mieszkamy?", and the answer ("w Krakowie", "Kraków") switches it on — no
+    phrase to learn (5 Oct: "Ale dziś zimno" → "nie mogę sprawdzić")."""
+    import weather
+    low = text.lower().strip(" .!?")
+    if time.time() < _place_wanted[0] and len(low.split()) <= 4:
+        _place_wanted[0] = 0.0
+        place = re.sub(r"^(?:luna,?\s+)?(?:mieszkamy\s+|mieszkam\s+|jesteśmy\s+)?(?:w|we|na)?\s*",
+                       "", low)
+        name = weather.set_place(f"pogoda dla {place}") if place else None
+        speak(f"Dzięki! Od teraz znam pogodę dla: {name}." if name else
+              "Nie znalazłam tej miejscowości — powiedz na przykład: pogoda dla Krakowa.")
+        return True
+    if (weather.enabled() or not _WEATHER_ASK.search(low) or len(low.split()) > 9
+            or _WEATHER_SET.search(low)):
+        return False                       # "pogoda dla Krakowa" sets it directly
+    if re.search(r"\b(?:w|we|na)\s+[A-ZĄĆĘŁŃÓŚŹŻ]", text):
+        return False                       # "pogoda w Berlinie": that one place (model)
+    _place_wanted[0] = time.time() + 25
+    with state.lock:                       # the answer needs no "Luna"
+        state.conversation_active = True
+        state.last_activity_time = time.time() + 8
+    speak("Nie wiem jeszcze, gdzie mieszkamy. W jakim mieście? Powiedz tylko nazwę.")
+    return True
+
+
 def expect_name(secs=20):
     _name_wanted[0] = time.time() + secs
 
@@ -828,6 +860,9 @@ def handle(text, speak, play_sound, _polite=True):
     word = _spell_word(text)
     if word:
         _spell(word, speak)
+        return True
+
+    if weather_setup(text, speak):                 # first weather question: where?
         return True
 
     # "pogoda dla Krakowa" / "mieszkam w Gdańsku" — switch the forecast on

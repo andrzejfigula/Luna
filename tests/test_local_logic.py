@@ -161,6 +161,19 @@ class TimersTest(unittest.TestCase):
             radio.play = old
         self.assertEqual(played[0], "Dwójka")
 
+    def test_weather_setup_asks_once(self):
+        import commands
+        import weather
+        said = []
+        with mock.patch.object(weather, "enabled", lambda: False), \
+                mock.patch.object(weather, "set_place", lambda p: "Kraków" if "krak" in p else None):
+            self.assertTrue(commands.weather_setup("Jaka jest dziś pogoda?", said.append))
+            self.assertIn("W jakim mieście", said[-1])
+            self.assertTrue(commands.weather_setup("W Krakowie", said.append))
+            self.assertIn("Kraków", said[-1])
+            self.assertFalse(commands.weather_setup("Jaka jest pogoda w Berlinie?", said.append))
+            self.assertFalse(commands.weather_setup("Lubię jesień", said.append))
+
     def test_polite_to_command(self):
         import commands
         p = commands.polite_to_command

@@ -184,5 +184,5 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 ## Na co zwrócić uwagę przy pierwszym użyciu
 
 1. **Dźwięk** — odtwarzacz jest teraz stale otwarty. Gdyby coś trzeszczało, w `config.py` ustaw `AUDIO_PERSISTENT = False` (stary sposób) i daj znać.
-2. **Pogoda** jest wyłączona, dopóki ktoś nie powie raz „Luna, pogoda dla <Twoje miasto>”.
+2. **Pogoda**: przy pierwszym pytaniu o pogodę Luna zapyta „W jakim mieście?” — wystarczy odpowiedzieć.
 3. **Kamień, papier, nożyce** i **zdjęcie** nie były testowane z prawdziwą osobą przed kamerą (pokój był pusty) — przebieg gry przetestowałam z symulowanym przeciwnikiem.
