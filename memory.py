@@ -354,10 +354,11 @@ def consolidate():
     if not facts_ok(data.get("facts"), mem["facts"], data.get("dropped")):
         print("[memory] the new fact list lost most old facts — not saved", flush=True)
         return
-    for d in data.get("dropped", [])[:20]:
-        print(f"[memory] dropped: {d}", flush=True)
 
     facts = [str(f).strip() for f in data.get("facts", []) if str(f).strip()]
+    facts = keep_old_facts(facts, mem["facts"], tidy)
+    for d in (data.get("dropped", []) if tidy else [])[:20]:
+        print(f"[memory] dropped: {d}", flush=True)
     facts = facts[:MEMORY_MAX_FACTS]
     if tidy and len(facts) > MERGE_ABOVE:
         facts = merge_topics(facts)
@@ -432,6 +433,32 @@ def merge_topics(facts):
         print(f"[memory] merge gave {len(new)} of {len(facts)} — kept as is", flush=True)
         return facts
     print(f"[memory] merged by topic: {len(facts)} → {len(new)} facts", flush=True)
+    return new
+
+
+TIDY_MAX_DROP = 0.4        # the daily tidy may let go of at most 40 % of the facts
+
+
+def keep_old_facts(new, old, tidy):
+    """Only the daily tidy may make the memory smaller. An ordinary
+    consolidation (the cheaper model) kept "weeding" a few facts each time and
+    on 5 Oct wore 17 facts down to 1 ("lubi żarty", "mówi po hiszpańsku"…):
+    now every old fact it left out is put back (a changed one stays changed
+    only if the new list still mentions its subject). The tidy keeps at least
+    60 % (merged facts count by their words)."""
+    if not tidy:
+        newstems = [_stems(f) for f in new]
+        back = [f for f in old if f not in new and not any(
+            len(_stems(f) & s) >= max(2, len(_stems(f)) // 2) for s in newstems)]
+        if back:
+            print(f"[memory] kept {len(back)} old fact(s) the update left out", flush=True)
+        return back + new
+    covered = sum(1 for f in old if f in new or any(
+        len(_stems(f) & _stems(n)) >= 2 for n in new))
+    if old and covered < (1 - TIDY_MAX_DROP) * len(old):
+        print(f"[memory] the tidy would keep {covered} of {len(old)} — too few, kept as it was",
+              flush=True)
+        return list(old)
     return new
 
 

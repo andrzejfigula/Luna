@@ -599,6 +599,20 @@ class MemoryTest(unittest.TestCase):
         self.assertEqual(calls, [])
         self.assertEqual(memory._session, [])
 
+    def test_ordinary_update_never_shrinks_memory(self):
+        old = ["Andrzej lubi żarty opowiadane przez Lunę.",
+               "Andrzej mówi po hiszpańsku i potrafi rozmawiać w tym języku.",
+               "Andrzej pracuje nad projektem związanym z certyfikatami."]
+        new = ["Andrzej pracuje nad projektem certyfikatów, teraz nad bazą danych.",
+               "Maja ma chomika Pestkę."]
+        got = memory.keep_old_facts(new, old, tidy=False)
+        self.assertIn("Andrzej lubi żarty opowiadane przez Lunę.", got)
+        self.assertIn("Andrzej mówi po hiszpańsku i potrafi rozmawiać w tym języku.", got)
+        self.assertNotIn("Andrzej pracuje nad projektem związanym z certyfikatami.", got)  # updated
+        self.assertIn("Maja ma chomika Pestkę.", got)
+        # the tidy may weed, but not wipe
+        self.assertEqual(memory.keep_old_facts(["Zupełnie co innego."], old, tidy=True), old)
+
     def test_facts_sanity(self):
         old = [f"fakt {i}" for i in range(12)]
         self.assertTrue(memory.facts_ok(old[:6], old))     # a cleanup
