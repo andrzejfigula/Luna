@@ -652,9 +652,20 @@ def race_result(kind, perfect, secs, who=None):
     return said + f" Rekord to {sek(old)}."
 
 
-def _finish(speak, play_sound_async):
+def _finish(speak, play_sound_async, early=False):
     global _q
     score, total = _q["score"], _q["total"]
+    if early:
+        # "Koniec" after 3 of 5 questions: "0 na 5" counted questions never asked
+        # (7 Oct probe); no star and no perfect-round count for a cut-short round
+        answered = max(0, int(_q.get("n", total)) - 1)
+        _q = None
+        if answered:
+            _card(f"{score} / {answered}", "do tej pory", None, secs=5)
+            speak(f"Do tej pory {score} na {answered}. Zagramy kiedy indziej do końca?")
+        else:
+            _card(None)
+        return
     try:                                    # for "jak Mai poszło dyktando?"
         import mood
         with state.lock:
@@ -866,6 +877,31 @@ def _read_paper():
     return brain.read_written_word(imgs, english=english)
 
 
+_REPEAT_Q = re.compile(r"^(?:luna,?\s+)?(?:powtórz|powtorz|jeszcze\s+raz|co\s+mówiłaś|"
+                       r"co\s+mowilas|nie\s+słyszałam|nie\s+słyszałem|nie\s+dosłyszałam|"
+                       r"nie\s+dosłyszałem)(?:\s+(?:pytanie|zagadkę|zagadke|słowo|proszę|"
+                       r"prosze|jeszcze\s+raz))*$", re.I)
+_HINT_Q = re.compile(r"\b(?:podpowie\w*|podpowiedź|podpowiedz|pomóż|pomoz|pomocy|"
+                     r"daj\s+wskazówkę|wskazówk\w*)\b", re.I)
+
+
+def _hint_for(q):
+    """A hint that helps without telling the answer."""
+    if q.get("hint"):
+        return "Podpowiedź: " + q["hint"]
+    ans = q.get("answer")
+    if isinstance(ans, list) and ans and isinstance(ans[0], str):
+        return f"Podpowiedź: to słowo zaczyna się na literę {ans[0][0].upper()}."
+    if isinstance(ans, str) and ans:
+        return f"Podpowiedź: to słowo zaczyna się na literę {ans[0].upper()}."
+    m = re.match(r"\s*(\d+)\s*([×x·*])\s*(\d+)", str(q.get("card", "")))
+    if m:
+        a, b = int(m.group(1)), int(m.group(3))
+        return (f"Podpowiedź: {a} razy {b} to tyle, co {b} dodane {a} razy. "
+                "Policz po kolei!")
+    return "Pomyśl jeszcze chwilkę — dasz radę! Policz krok po kroku."
+
+
 def answer(text, speak, play_sound_async):
     """An utterance while a game is on. True when it was part of the game."""
     global _q
@@ -880,11 +916,24 @@ def answer(text, speak, play_sound_async):
                 _q = None
                 _card(None)
             else:
-                _finish(speak, play_sound_async)
+                _finish(speak, play_sound_async, early=True)
             return True
         q = _q
         if q["kind"] == "guess":
             return _guess(text, speak, play_sound_async)
+        # "Powtórz" / "podpowiedz" are part of the game, not an answer (7 Oct
+        # probe: "Powtórz" ended the maths quiz as "not an answer", and in the
+        # riddles "Powtórz zagadkę" and "Podpowiedź" were judged as guesses)
+        if _REPEAT_Q.match(low.strip(" .!?")) and q.get("say"):
+            q["asked"] = time.time()
+            speak(q["say"])
+            _listen_longer()
+            return True
+        if _HINT_Q.search(low) and len(words) <= 5:
+            q["asked"] = time.time()
+            speak(_hint_for(q))
+            _listen_longer()
+            return True
         if any(s in low for s in _DONT_KNOW):
             _card(q["reveal"], "", None, secs=5)
             q.setdefault("misses", []).append(q["reveal"])

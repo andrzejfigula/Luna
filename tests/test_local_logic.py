@@ -1483,6 +1483,25 @@ class KidsTest(unittest.TestCase):
             "przetłumacz na niemiecki: gdzie jest dworzec?"))
         self.assertIsNone(commands._translator_language("przetłumacz na angielski dzień dobry"))
 
+    def test_quiz_repeat_hint_and_early_stop(self):
+        import quiz
+        said = []
+        old = quiz._q
+        try:
+            quiz._q = {"kind": "mul", "card": "4 × 7 = ?", "say": "Ile to jest 4 razy 7?",
+                       "answer": 28, "reveal": "4 × 7 = 28", "right": "4 razy 7 to 28.",
+                       "score": 1, "total": 5, "n": 3, "tries": 0, "asked": 0}
+            self.assertTrue(quiz.answer("Powtórz", said.append, lambda *a: None))
+            self.assertEqual(said[-1], "Ile to jest 4 razy 7?")
+            self.assertTrue(quiz.answer("Podpowiedz", said.append, lambda *a: None))
+            self.assertIn("7 dodane 4 razy", said[-1])
+            self.assertNotIn("28", said[-1])
+            self.assertTrue(quiz.answer("Koniec", said.append, lambda *a: None))
+            self.assertIn("Do tej pory 1 na 2", said[-1])
+            self.assertIsNone(quiz._q)
+        finally:
+            quiz._q = old
+
     def test_follow_ups(self):
         import calc, timers, time
         self.assertEqual(calc.arithmetic("Ile to jest 15 razy 4?"), "15 razy 4 to 60.")

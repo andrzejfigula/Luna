@@ -214,6 +214,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Gotowanie — pytania | w trakcie przepisu można pytać „ile mąki?”, „ile jeszcze kroków?” |
 | Pamięć o dniach | „O czym rozmawialiśmy wczoraj?” — tylko to, co było wczoraj; „przedwczoraj” — powie, że nie pamięta, zamiast zgadywać |
 | Przekazywanie | „Jak zobaczysz Maję, powiedz jej, że…” — teraz zapisuje i przekazuje (wcześniej tylko obiecywała) |
+| Quiz i zagadki | w trakcie gry: „powtórz” — Luna powtarza pytanie; „podpowiedz” — podpowiedź (bez wyniku); „koniec” — wynik tylko z zadanych pytań |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 
