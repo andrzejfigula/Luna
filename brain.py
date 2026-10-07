@@ -201,18 +201,36 @@ def _calendar_line(text, now=None):
         weeks.append(f"{a:%d.%m}–{b:%d.%m}")
     line = (f"Calendar (each week Monday–Sunday, today is {day:%A %d.%m.%Y}): "
             + ", ".join(weeks) + ".")
-    if _TZ:
-        def off(d):
-            return datetime(d.year, d.month, d.day, 12, tzinfo=_TZ).utcoffset()
-        for i in range(1, 400):
-            d = day + timedelta(days=i)
-            before, after = off(d - timedelta(days=1)), off(d)
-            if before != after:
-                kind = "winter (standard) time" if after < before else "summer time"
-                line += (f" The next clock change: the night from {d - timedelta(days=1):%A %d.%m}"
-                         f" to {d:%A %d.%m.%Y} — {kind} begins.")
-                break
+    line += _clock_change(day)
     return line + f" Coming up: {_holidays_ahead(day)}.\n"
+
+
+def _clock_change(day):
+    """" The next clock change: the night from Saturday 24.10 to Sunday
+    25.10.2026 — winter (standard) time begins." from the time-zone data."""
+    from datetime import timedelta
+    if not _TZ:
+        return ""
+
+    def off(d):
+        return datetime(d.year, d.month, d.day, 12, tzinfo=_TZ).utcoffset()
+    for i in range(1, 400):
+        d = day + timedelta(days=i)
+        before, after = off(d - timedelta(days=1)), off(d)
+        if before != after:
+            kind = "winter (standard) time" if after < before else "summer time"
+            return (f" The next clock change: the night from {d - timedelta(days=1):%A %d.%m}"
+                    f" to {d:%A %d.%m.%Y} — {kind} begins.")
+    return ""
+
+
+def _always_dates():
+    """The one date fact every prompt carries (a memory of "he asked about the
+    clock change" made her restate it wrongly, 7 Oct — with no date word in
+    the question, the calendar line wasn't there)."""
+    now = datetime.now(_TZ) if _TZ else datetime.now().astimezone()
+    cc = _clock_change(now.date()).strip()
+    return (cc + "\n") if cc else ""
 
 
 from polish import feminize, offer_only, empty_promise, neutral_you   # (polish.py)
@@ -835,7 +853,8 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   f"local date and time there is: {_local_now_text()}. When "
                   f"asked the time or date, answer with exactly this local "
                   f"time — do not convert it to any other zone.\n"
-                  + _calendar_line(text)
+                  + (_calendar_line(text) or _always_dates())
+                  + memory.day_line(text)
                   + _variety_rule()
                   + _translator_rule()
                   + _length_rule()

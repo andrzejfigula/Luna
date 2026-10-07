@@ -31,7 +31,7 @@ import re
 import os
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 try:
@@ -151,6 +151,30 @@ def _when(iso):
     return iso
 
 
+_DAY_Q = re.compile(r"\b(przedwczoraj|wczoraj|dzisiaj|dziś|dzis)\b", re.I)
+_RECALL_Q = re.compile(r"\b(?:rozmawia\w*|robi\w*|mówi\w*|mowi\w*|gada\w*|grali\w*|"
+                       r"bawi\w*|działo|dzialo|było|bylo|pamiętasz|pamietasz)\b", re.I)
+
+
+def day_line(text):
+    """"O czym rozmawialiśmy wczoraj?" → exactly that day's conversations from
+    memory, worked out here (7 Oct: the model gave today's topics as
+    yesterday's, twice, with the dates in front of it). '' otherwise."""
+    m = _DAY_Q.search(text or "")
+    if not m or not _RECALL_Q.search(text):
+        return ""
+    word = m.group(1).lower()
+    back = {"przedwczoraj": 2, "wczoraj": 1}.get(word, 0)
+    day = (_today() - timedelta(days=back)).isoformat()
+    with _lock:
+        eps = [e.get("text", "") for e in _load()["episodes"] if e.get("date") == day]
+    if not eps:
+        return (f"Asked about {word} ({day}): your memory has NO conversations from that "
+                "day — say you don't remember it; don't use other days' lines.\n")
+    return (f"Asked about {word} ({day}): your memory has from that day only: "
+            + " ".join(eps) + " — answer from these, nothing from other days.\n")
+
+
 def prompt_block():
     """Text for the system prompt, rebuilt on every request (so a fresh
     consolidation applies immediately). Empty when there is nothing yet."""
@@ -194,6 +218,10 @@ def prompt_block():
         "conversation — e.g. \"Jak poszła wczoraj rozmowa o pracę?\" — and",
         "don't ask about the same thing again after that. Never claim to",
         "remember anything that is not written here or in this conversation.",
+        "The day of each conversation is written before it (dzisiaj / wczoraj /",
+        "N dni temu): asked about a day, use only that day's lines — with none",
+        "for that day, say you don't remember that day (7 Oct: \"o czym",
+        "rozmawialiśmy wczoraj?\" got today's topics).",
         "--- END MEMORY ---",
     ]
     if thread is not None:

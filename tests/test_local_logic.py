@@ -1578,6 +1578,17 @@ class KidsTest(unittest.TestCase):
             self.assertTrue(commands._WEATHER_ASK.search(t.lower()), t)
         self.assertFalse(commands._WEATHER_ASK.search("czy będziesz grać?"))
 
+    def test_memory_day_line(self):
+        import memory, datetime
+        from unittest import mock
+        mem = {"facts": [], "episodes": [{"date": "2026-10-07", "text": "Andrzej pytał o czas."}],
+               "threads": []}
+        with mock.patch.object(memory, "_load", lambda: mem), \
+                mock.patch.object(memory, "_today", lambda: datetime.date(2026, 10, 7)):
+            self.assertIn("NO conversations", memory.day_line("O czym rozmawialiśmy wczoraj?"))
+            self.assertIn("Andrzej pytał o czas.", memory.day_line("O czym dziś rozmawialiśmy?"))
+            self.assertEqual(memory.day_line("Jaka pogoda wczoraj była?"[:0] + "Co tam?"), "")
+
     def test_twenty_reverse(self):
         import twenty
         for t in ("Zgadnij, o czym myślę", "Zgadnij, o jakim zwierzęciu myślę",
