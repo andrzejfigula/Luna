@@ -919,7 +919,12 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             if a.get("type") == "command":
                 label = str(a.get("label", ""))
                 searched = searched or label.lower().startswith("wyszukaj w internecie")
-                run_command(label, reply)
+                try:
+                    run_command(label, reply)
+                except Exception as e:
+                    # one broken switch must not lose the whole answer (its
+                    # history and memory) — 7 Oct, seen with a test stand-in
+                    print(f"[brain] command {label!r} failed: {e!r}", flush=True)
         if (not searched and not translator()
                 and re.search(r"\bsprawdz\w*\s+(?:to\s+|mi\s+)?w\s+(?:internecie|sieci)", reply, re.I)):
             # "Sprawdzam w internecie kurs złotego." with no search attached —
