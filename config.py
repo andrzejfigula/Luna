@@ -170,7 +170,10 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 # model with every request. .env: LUNA_TIMEZONE=Europe/Warsaw
 LUNA_TIMEZONE  = os.environ.get("LUNA_TIMEZONE", "").strip() or "Europe/Warsaw"
 LUNA_LOCATION  = os.environ.get("LUNA_LOCATION", "").strip() or "Poland"
-OPENAI_MODEL   = "gpt-4.1-mini"     # chat + vision; fast and cheap enough for voice
+OPENAI_MODEL   = "gpt-4.1-mini"     # the helpers (memory, greetings, cooking…) + vision
+CHAT_MODEL     = "gpt-5.4-mini"     # her replies: first sentence 1.13 s vs 1.67 s for
+                                    # gpt-4.1-mini on the same 5 questions (7 Oct), no
+                                    # reasoning (reasoning_effort "none")
 CRAFT_MODEL    = "gpt-4.1"          # poems, rhymes, songs: the mini model's Polish
                                     # rhymes were weak (6 Oct, Maja's "wierszyk");
                                     # rare requests, so the cost and +~0.5 s are fine

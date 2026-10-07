@@ -49,7 +49,7 @@ from config import (
     GESTURE_DURATION,
     KNOWLEDGE_PATH,
     OPENAI_API_KEY,
-    OPENAI_MODEL, CRAFT_MODEL, CHAT_HEDGE_AFTER,
+    OPENAI_MODEL, CRAFT_MODEL, CHAT_MODEL, CHAT_HEDGE_AFTER,
     OPENAI_MAX_TOKENS,
     OPENAI_TEMPERATURE,
     OPENAI_MAX_HISTORY,
@@ -584,6 +584,18 @@ _CRAFT = re.compile(r"\b(?:wiersz\w*|rym\w*|rymowank\w*|piosenk\w*|limeryk\w*|"
                     r"poem\w*|rhym\w*|song|story|fairy)\b", re.I)
 
 
+def model_params(request):
+    """GPT-5 models take max_completion_tokens and no temperature, and think
+    before answering unless told not to — for her voice: no reasoning."""
+    m = request.get("model", "")
+    if m.startswith("gpt-5") or m.startswith("o"):
+        request = dict(request)
+        request["max_completion_tokens"] = request.pop("max_tokens", OPENAI_MAX_TOKENS)
+        request.pop("temperature", None)
+        request["reasoning_effort"] = ("none" if m.startswith("gpt-5.") else "minimal")
+    return request
+
+
 def model_for(text):
     """The stronger model for a poem, a rhyme, a song or a story (a named hero
     and real scenes instead of the mini model's moral in eight sentences);
@@ -598,7 +610,7 @@ def model_for(text):
             return CRAFT_MODEL
     except Exception:
         pass
-    return OPENAI_MODEL
+    return CHAT_MODEL
 
 
 def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=None,
@@ -672,11 +684,11 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
 
         import timing
         timing.mark("model")
-        request = dict(model=model_for(text),
+        request = model_params(dict(model=model_for(text),
                        messages=[{"role": "system", "content": system}, *_history],
                        max_tokens=OPENAI_MAX_TOKENS,
                        temperature=OPENAI_TEMPERATURE,
-                       response_format=_RESPONSE_FORMAT)
+                       response_format=_RESPONSE_FORMAT))
         if on_head is None:
             response = _client.chat.completions.create(**request)
             raw = _message_json(response.choices[0].message)

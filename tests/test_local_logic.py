@@ -245,6 +245,21 @@ class TimersTest(unittest.TestCase):
         self.assertIn("«Który ładniejszy?»",
                       reading.feedback_context("Wiersz.", "Emilka", "Który ładniejszy?"))
 
+    def test_model_params_for_gpt5(self):
+        src = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                "brain.py"), encoding="utf-8").read()
+        import ast, re as _re
+        tree = ast.parse(src)
+        fn = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "model_params")
+        ns = {"OPENAI_MAX_TOKENS": 700}
+        exec(compile(ast.Module([fn], []), "brain", "exec"), ns)
+        p = ns["model_params"]({"model": "gpt-5.4-mini", "max_tokens": 700, "temperature": 0.8})
+        self.assertEqual(p["max_completion_tokens"], 700)
+        self.assertNotIn("temperature", p)
+        self.assertEqual(p["reasoning_effort"], "none")
+        q = ns["model_params"]({"model": "gpt-4.1", "max_tokens": 700, "temperature": 0.8})
+        self.assertEqual(q["temperature"], 0.8)
+
     def test_model_for_poems(self):
         import re
         import ast
