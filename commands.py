@@ -908,7 +908,8 @@ def handle(text, speak, play_sound, _polite=True):
     if (any(k in low for k in _NIGHT) and not question
             and all(w in _NIGHT_OK for w in _words(text))):
         import timers
-        note = timers.goodnight_note()
+        # the alarms are the grown-ups' — "Budzik masz na szóstą" isn't Maja's
+        note = None if _child_here() else timers.goodnight_note()
         speak(_goodnight() + (" " + note if note else ""))
         go_to_sleep()
         return True
