@@ -292,6 +292,23 @@ class TimersTest(unittest.TestCase):
         self.assertIn("5 nudges", rows[2])
         self.assertEqual(log_report.audio_by_hour(["[Luna] Running on x"]), [])
 
+    def test_face_continuity(self):
+        import faces
+        from unittest import mock
+        with mock.patch.object(faces, "_scores", lambda f: {"Andrzej": 0.36, "Maja": 0.10}):
+            faces._last_sure.clear()
+            self.assertEqual(faces.identify(None, learn_ok=False)[0], None)   # no sure match yet
+            faces._last_sure["Andrzej"] = time.time() - 10
+            self.assertEqual(faces.identify(None, learn_ok=False)[0], "Andrzej")
+            faces._last_sure["Andrzej"] = time.time() - 120
+            self.assertEqual(faces.identify(None, learn_ok=False)[0], None)   # too long ago
+        with mock.patch.object(faces, "_scores", lambda f: {"Andrzej": 0.33, "Maja": 0.30}):
+            faces._last_sure["Andrzej"] = time.time()
+            self.assertEqual(faces.identify(None, learn_ok=False)[0], None)   # not clearly him
+        with mock.patch.object(faces, "_scores", lambda f: {"Andrzej": 0.20}):
+            self.assertEqual(faces.identify(None, learn_ok=False)[0], None)   # too far
+        faces._last_sure.clear()
+
     def test_picture_note_names_left_to_right(self):
         import faces
         from shared_state import state

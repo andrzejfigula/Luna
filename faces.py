@@ -288,6 +288,12 @@ def identify(feature, learn_ok=True):
     ranked = sorted(scores.items(), key=lambda kv: -kv[1])
     who, best = ranked[0]
     second = ranked[1][1] if len(ranked) > 1 else 0.0
+    if (MATCH_COSINE > best >= CONTINUITY_MIN and best - second >= CONTINUITY_MARGIN
+            and time.time() - _last_sure.get(who, 0) < CONTINUITY_SECS):
+        # the same person a moment later, head turned: still them (7 Oct: 92
+        # near misses, almost all Andrzej, 35 of them at 0.35–0.40) — never
+        # learned from, only kept
+        return who, best
     if best < MATCH_COSINE:
         global _last_miss
         _near[:] = [who, best, time.time()]
@@ -296,11 +302,16 @@ def identify(feature, learn_ok=True):
             print(f"[faces] not sure who this is — closest {who} {best:.2f}"
                   f" (needs {MATCH_COSINE:.2f})", flush=True)
         return None, best
+    _last_sure[who] = time.time()
     if learn_ok and best >= AUTO_MIN and best - second >= AUTO_MARGIN:
         learn(who, feature)
     return who, best
 
 
+CONTINUITY_MIN = 0.28       # a near miss this good…
+CONTINUITY_MARGIN = 0.08    # …and clearly nearer to them than to anyone else…
+CONTINUITY_SECS = 30        # …just after a sure match of the same person: them
+_last_sure = {}             # name → when last surely recognised
 _last_auto = {}
 _last_miss = 0.0
 _near = [None, 0.0, 0.0]          # the last unsure match: closest name, score, when
