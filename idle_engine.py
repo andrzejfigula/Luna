@@ -213,9 +213,11 @@ def idle_loop():
             if present and not was_present:
                 away = now - left_at
                 if away >= IDLE_ABSENCE_SECS and not _busy() and not _asleep():
-                    # give recognition a moment: the hello is by name
+                    # give recognition a moment: the hello is by name — a full
+                    # recognition cycle (RECOGNISE_EVERY 2.5 s); 1.5 s was too
+                    # short and Andrzej was asked his name (7 Oct)
                     who = None
-                    for _ in range(15):
+                    for _ in range(35):
                         with state.lock:
                             who = state.person[0] if state.person else None
                         if who:
@@ -257,6 +259,17 @@ def idle_loop():
                             asked_name_at = now
                         hello = (greeting(first_today, who=who, stranger=bool(stranger))
                                  or _greeting(first_today))
+                        if stranger:
+                            # the greeting took a second or two: recognised by now?
+                            with state.lock:
+                                late = state.person[0] if state.person else None
+                            if late:
+                                print(f"[idle] it's {late} after all — no stranger hello",
+                                      flush=True)
+                                who, stranger = late, False
+                                asked_name_at = 0.0
+                                hello = (greeting(first_today, who=who) or
+                                         _greeting(first_today))
                         speak(hello, can_drop=True)
                         if "?" in hello and not stranger:
                             # she asked something ("…opowiesz mi żart?"): the answer
