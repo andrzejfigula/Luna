@@ -185,10 +185,14 @@ def _language_line(text):
     return "THIS MESSAGE IS IN ENGLISH — write \"reply\" in English.\n"
 
 
-def _just_called(secs=12):
+def _just_called(text="", secs=12):
     """Was her name said a moment ago? Then this sentence came with it (the
     wake word is cut off before the model sees the text — 7 Oct probe:
-    "Jestem zdenerwowany" got silence as "not for me")."""
+    "Jestem zdenerwowany" got silence as "not for me"). Not for long or
+    English sentences: the one real case in the log was a false wake in an
+    English meeting, rightly kept quiet."""
+    if len(text.split()) > 12 or _language_line(text):
+        return False
     with state.lock:
         return time.time() - getattr(state, "last_wake_time", 0.0) < secs
 
@@ -902,7 +906,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   + memory.day_line(text)
                   + _language_line(text)
                   + ("They have just said your name — this message is for you "
-                     "(to_luna true).\n" if _just_called() else "")
+                     "(to_luna true).\n" if _just_called(text) else "")
                   + _variety_rule()
                   + _translator_rule()
                   + _length_rule()
@@ -988,7 +992,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             relationship.note(tone, text)
             luna_mood.note(relationship.who() if relationship.who() != relationship.SOMEONE
                       else None, tone)
-        if data.get("to_luna") is False and _just_called():
+        if data.get("to_luna") is False and _just_called(text):
             if not reply.strip():
                 reply = "Jestem tutaj. Opowiedz mi, co się dzieje."
                 if on_sentence:
