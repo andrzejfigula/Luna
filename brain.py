@@ -999,10 +999,14 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                     on_sentence(reply)
             print("[brain] her name was just said — answering", flush=True)
             data["to_luna"] = True
-        if (data.get("to_luna") is False and len(text.split()) <= 5 and re.match(
+        prev = _history[-2].get("content", "") if (len(_history) >= 2 and
+                                                    _history[-2].get("role") == "assistant") else ""
+        she_asked = bool(re.search(r"\?|\bchcesz\b|\bmogę\b|\bchodź\b|\bchodz\b", str(prev)))
+        if (data.get("to_luna") is False and len(text.split()) <= 5 and (re.match(
                 r"^(?:włącz|wlacz|puść|pusc|zrób|zrob|pokaż|pokaz|zagraj|wyłącz|wylacz|"
-                r"zamów|zamow|zadzwoń|zadzwon|tak|nie|dobrze|okej|ok|jasne|chętnie|"
-                r"chetnie|poproszę|poprosze|no\s+(?:to|dobra|tak))\b", text.strip().lower())):
+                r"zamów|zamow|zadzwoń|zadzwon)\b", text.strip().lower()) or (she_asked and re.match(
+                r"^(?:tak|nie|dobrze|okej|ok|jasne|chętnie|chetnie|poproszę|poprosze|"
+                r"no\s+(?:to|dobra|tak))\b", text.strip().lower())))):
             # ("Tak" right after her "Chodź, oddychajmy razem…" — answered
             # with silence, 7 Oct probe: a yes/no is said to her)
             # a short command is said to her even when she can't do it (7 Oct
