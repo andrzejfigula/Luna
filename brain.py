@@ -921,7 +921,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
         data    = json.loads(raw)
         reply   = str(data.get("reply", "")).strip()
         # the history tags speakers ("[Maja] …"); a reply must never copy that
-        reply   = re.sub(r"^\[[^\]]{1,20}\]\s*", "", reply)
+        reply   = re.sub(r"^\[[^\]]{1,40}\]\s*", "", reply)    # ("[Andrzej, with Maja]")
         fixed   = _feminize(reply)
         if fixed != reply:
             print(f"[brain] feminized: {reply!r} → {fixed!r}")
@@ -1011,7 +1011,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             with state.lock:
                 person = state.person
             # "[Kasia] …": the memory can tell whose plans and likes these are
-            memory.record(f"[{person[0]}] {text}" if person else text, reply)
+            memory.record(_who_said(text) if person else text, reply)
         body.note_conversation()
 
         print(f"[brain] OpenAI ({emotion}, {gesture}, you: {mood}"
@@ -1114,7 +1114,19 @@ def _who_said(text):
     tagged — the prompt says who is in front of her)."""
     with state.lock:
         person = state.person
-    return f"[{person[0]}] {text}" if person else text
+        others, seen_at = state.others
+    if not person:
+        return text
+    # others in view too: the memory then knows it may have been them (7 Oct:
+    # "Andrzej bawił się zagadkami i wygrał wszystkie trzy" — Maja played)
+    try:
+        import faces
+        recent = time.time() - seen_at < 3 * faces.RECOGNISE_EVERY
+    except Exception:
+        recent = False
+    also = [o for o in (others or []) if o != "?" and o != person[0]] if recent else []
+    return (f"[{person[0]}, with {', '.join(also)}] {text}" if also
+            else f"[{person[0]}] {text}")
 
 
 def note_local(user_text, said):
@@ -1395,7 +1407,7 @@ def _process(text, context=None):
     def on_sentence(sentence):
         import timing
         timing.mark("sentence")
-        sentence = re.sub(r"^\[[^\]]{1,20}\]\s*", "", sentence)    # no "[Luna] " spoken
+        sentence = re.sub(r"^\[[^\]]{1,40}\]\s*", "", sentence)    # no "[Luna] " spoken
         sentences.put(_feminize(sentence))
 
     t0 = time.time()

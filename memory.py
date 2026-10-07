@@ -280,7 +280,10 @@ drop it. Never store passwords, PINs, codes, card or account numbers, or
 addresses. Read carefully who is who: "Maja w sobotę ma urodziny koleżanki"
 means a friend's birthday party Maja goes to, not Maja's birthday.
 A line starting "[Kasia]" was said by Kasia (Luna knows her face): write
-facts about that person with their name ("Kasia lubi koty"). An untagged line
+facts about that person with their name ("Kasia lubi koty"). "[Kasia, with Ola]"
+means Ola was in front of Luna too and may have said it: a game or activity
+then belongs to both ("Kasia i Ola rozwiązały zagadki"), and a personal fact
+only to whoever it clearly is about. An untagged line
 is from someone Luna didn't recognise: write "ktoś w domu", never
 "użytkownik". Old facts saying "Użytkownik" may be rewritten with the right
 name only when the facts make it certain who it was.
