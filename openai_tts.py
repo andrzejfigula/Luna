@@ -60,7 +60,8 @@ TTS_READ_BYTES = 4096
 # 1 s (up to 2.2 s, and 3.9 s once in real use) — the answers that feel slow.
 # No audio after this long: the same request again, whichever starts first
 # plays, the other one stops (6 Oct: "more snappy").
-TTS_HEDGE_AFTER = 1.0
+TTS_HEDGE_AFTER = 1.5          # (was 1.0: on 7 Oct it fired for 13 of 29 lines and the
+                               # second request won only 3 times — the first was just late)
 
 
 def speech_speed():
