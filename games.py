@@ -66,9 +66,16 @@ def _round(play_sound_async, classify_hand, camera_jpeg):
     _big("!", 0.9)
     _hand(mine, 4.0)
     play_sound_async("tick")
-    time.sleep(0.45)                                  # your hand lands
-    img = camera_jpeg()
-    yours = classify_hand(img) if img else None
+    # three looks over ~1.2 s, judged together: one frame 0.45 s after "!"
+    # caught the hand still rising or blurred — "Nie widzę twojej ręki" twice
+    # in a row for Andrzej (7 Oct)
+    imgs = []
+    for wait in (0.35, 0.4, 0.45):
+        time.sleep(wait)
+        img = camera_jpeg()
+        if img:
+            imgs.append(img)
+    yours = classify_hand(imgs) if imgs else None
     print(f"[game] me: {mine}, you: {yours}", flush=True)
     return mine, yours
 

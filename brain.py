@@ -1006,31 +1006,34 @@ def greeting(first_today, waking=False, who=None, stranger=False):
 
 # ── Rock, paper, scissors: what is the hand on camera showing? ───────────────
 
-def classify_hand(img_b64):
-    """'rock' | 'paper' | 'scissors' | None (no clear hand). games.py."""
-    if _client is None or not img_b64:
+def classify_hand(imgs):
+    """'rock' | 'paper' | 'scissors' | None (no clear hand). games.py — imgs:
+    one base64 JPEG or a few taken just after "!" (judged together)."""
+    if isinstance(imgs, str):
+        imgs = [imgs]
+    if _client is None or not imgs:
         return None
     try:
+        content = [{"type": "text", "text":
+                    "Someone is playing rock-paper-scissors with this webcam; these are "
+                    f"{len(imgs)} frames taken one after another right after the count. "
+                    "Which shape does their hand show? rock = a closed fist; paper = a "
+                    "flat open hand; scissors = index and middle finger extended (a V). "
+                    "The hand may be near an edge of the picture, partly cut off, small "
+                    "or a little blurred — judge it anyway, from the clearest frame. "
+                    "Only if no hand is visible in any frame answer none. Answer with "
+                    "exactly one word: rock, paper, scissors or none."}]
+        content += [{"type": "image_url",
+                     "image_url": {"url": f"data:image/jpeg;base64,{b}", "detail": "high"}}
+                    for b in imgs]
         r = _client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"type": "text", "text":
-                     "Someone is playing rock-paper-scissors with this webcam. "
-                     "Which shape is their hand showing right now? rock = a "
-                     "closed fist; paper = a flat open hand; scissors = index "
-                     "and middle finger extended (a V). If no hand is clearly "
-                     "visible, answer none. Answer with exactly one word: rock, "
-                     "paper, scissors or none."},
-                    {"type": "image_url",
-                     "image_url": {"url": f"data:image/jpeg;base64,{img_b64}",
-                                   "detail": "high"}},
-                ]}],
+            model=CRAFT_MODEL,                 # (the mini model said "none" too often)
+            messages=[{"role": "user", "content": content}],
             max_tokens=3,
             temperature=0.0,
         )
         ans = (r.choices[0].message.content or "").strip().lower()
+        print(f"[game] hand check ({len(imgs)} frames): {ans!r}", flush=True)
         for c in ("rock", "paper", "scissors"):
             if ans.startswith(c):
                 return c
