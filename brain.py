@@ -167,6 +167,24 @@ _COMMON_STEMS = {"jeszcze", "możesz", "mogę", "chcesz", "dzisia", "właśni", 
                  "pomóc", "potrze", "andrze", "emilko", "emilka"}
 
 
+_EN = {"the", "a", "an", "is", "are", "what", "how", "can", "you", "me", "my", "to", "for",
+        "set", "add", "turn", "on", "off", "tell", "please", "it", "do", "does", "time",
+        "timer", "list", "radio", "weather", "minutes", "joke", "play", "in", "of", "and"}
+
+
+def _language_line(text):
+    """An English sentence gets an English answer — 7 Oct probe: "Set a timer
+    for five minutes" → "Jasne, pięć minut." (the prompt's Polish examples
+    win over "speak the user's language")."""
+    low = (text or "").lower()
+    words = re.findall(r"[a-ząćęłńóśźż']+", low)
+    if len(words) < 3 or re.search(r"[ąćęłńóśźż]", low) or translator():
+        return ""
+    if sum(w in _EN for w in words) < max(2, len(words) // 3):
+        return ""
+    return "THIS MESSAGE IS IN ENGLISH — write \"reply\" in English.\n"
+
+
 def _cooking_line():
     try:
         import cooking
@@ -268,6 +286,10 @@ except OSError:
     pass   # optional — nothing to do
 
 SYSTEM_PROMPT = _PERSONA.strip() + f"""
+
+LANGUAGE: reply in the language they spoke to you in this message — English
+to English, Polish to Polish (a question asked in English gets an English
+answer even when the family usually speaks Polish).
 
 GRAMMAR RULE (Polish): you are FEMALE. Every 1st-person verb and adjective
 about yourself takes the FEMININE form. Correct: "mogłabym", "chciałabym",
@@ -813,6 +835,10 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                 f"dokładnie: na {lang}, jeśli to po polsku; na polski, jeśli to "
                 f"w języku {lang}] {text}")
         image_b64 = None                       # interpreting needs no camera
+    # the same lesson for English: next to the words, not only in the system
+    # prompt ("Set a timer for five minutes" → "Jasne, pięć minut", 7 Oct)
+    en_hint = (" (in English — reply in English; actions keep their Polish labels "
+               "and list items, e.g. \"włącz radio\", \"mleko\")") if _language_line(text) else ""
     try:
         if image_b64:
             # The frame rides along with every message so Luna can always
@@ -833,7 +859,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                         "moja wiadomość dotyczy tego, co na nim widać."
                         + faces.picture_note() + ")")
             content = [
-                {"type": "text", "text": f"{text}" + chr(10) + chr(10) + note},
+                {"type": "text", "text": f"{text}{en_hint}" + chr(10) + chr(10) + note},
                 {"type": "image_url",
                  "image_url": {"url": f"data:image/jpeg;base64,{image_b64}",
                                "detail": detail}},
@@ -841,7 +867,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             if detail != "low":
                 print(f"[brain] Attaching camera frame ({detail} detail)")
         else:
-            content = text
+            content = text + en_hint
 
         _history.append({"role": "user", "content": content})
         while len(_history) > OPENAI_MAX_HISTORY:
@@ -855,6 +881,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   f"time — do not convert it to any other zone.\n"
                   + (_calendar_line(text) or _always_dates())
                   + memory.day_line(text)
+                  + _language_line(text)
                   + _variety_rule()
                   + _translator_rule()
                   + _length_rule()
