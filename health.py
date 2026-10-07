@@ -255,10 +255,38 @@ def _rotate_log():
         print(f"[health] log rotation failed: {e}", flush=True)
 
 
+def busy_with():
+    """Something long-running that a restart would cut off, or None."""
+    checks = (("quiz", "quiz", "active"), ("reading", "reading", "armed"),
+              ("cooking", "cooking", "active"), ("radio", "radio", "playing"))
+    for name, module, fn in checks:
+        try:
+            if getattr(__import__(module), fn)():
+                return name
+        except Exception:
+            continue
+    return None
+
+
+def _stamp_busy():
+    """restart.sh waits while /tmp/luna_busy is in the future: on 7 Oct a
+    deploy cut off Maja's riddle game (3 idle minutes — she was thinking)."""
+    what = busy_with()
+    try:
+        if what:
+            with open("/tmp/luna_busy", "w") as f:
+                f.write(f"{time.time() + HEALTH_PROBE_SECS * 1.5:.0f} {what}")
+        elif os.path.exists("/tmp/luna_busy"):
+            os.remove("/tmp/luna_busy")
+    except OSError:
+        pass
+
+
 def _loop():
     last_log = time.time()
     while True:
         try:
+            _stamp_busy()
             with state.lock:
                 online = state.online
             if not online and _probe():

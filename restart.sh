@@ -12,7 +12,9 @@ if [ "$1" != "--now" ]; then
     for _ in $(seq 1 180); do
         last=$(cat /tmp/luna_last_activity 2>/dev/null || echo 0)
         now=$(date +%s)
-        if [ $(( now - ${last%.*} )) -ge $IDLE_SECS ]; then break; fi
+        busy=$(cut -d" " -f1 /tmp/luna_busy 2>/dev/null || echo 0)
+        # idle, and not in the middle of a game, a reading, cooking or the radio
+        if [ $(( now - ${last%.*} )) -ge $IDLE_SECS ] && [ "$now" -ge "${busy:-0}" ]; then break; fi
         sleep 10
     done
 fi

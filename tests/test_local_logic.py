@@ -207,6 +207,19 @@ class TimersTest(unittest.TestCase):
         with state.lock:
             state.overlay = None
 
+    def test_busy_with_holds_a_restart(self):
+        from unittest import mock
+        fakes = {n: mock.MagicMock() for n in ("quiz", "reading", "cooking", "radio")}
+        fakes["quiz"].active.return_value = False
+        fakes["reading"].armed.return_value = False
+        fakes["cooking"].active.return_value = False
+        fakes["radio"].playing.return_value = False
+        with mock.patch.dict(sys.modules, fakes):
+            import health
+            self.assertIsNone(health.busy_with())
+            fakes["quiz"].active.return_value = True
+            self.assertEqual(health.busy_with(), "quiz")
+
     def test_reading_aloud(self):
         import reading
         for t in ("Posłuchaj, jak czytam.", "Luna, poczytam ci", "Chcę ci przeczytać bajkę",
