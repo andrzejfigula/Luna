@@ -944,6 +944,12 @@ def handle(text, speak, play_sound, _polite=True):
             radio.stop()
             ambience.stop()
             return True
+        import timers
+        if time.time() - timers._last_rang["t"] < 120:
+            # "Stop!" after a timer rang: it already stopped (the model would
+            # "cancel" the gone timer and then say there was none)
+            speak("Dobrze.")
+            return True
 
     # goodbye — wave, and stop listening right away (otherwise the window
     # stays open and she may answer the next thing said in the room)
