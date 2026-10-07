@@ -193,6 +193,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | **Nowe: napis na ekranie** — „Pokaż mi to na ekranie”, „napisz na ekranie Shure MV7”, „wyświetl mi tę nazwę” | duży napis na 30 sekund (stuknięcie zamyka) — do przepisania nazwy, numeru, słowa |
 | **Nowe: wyszukiwanie w internecie** — „Poszukaj w internecie, jaki zasięg ma Rode NT-USB”, „sprawdź w internecie godziny otwarcia Biedronki”; Luna też sama sprawdza, gdy pytasz o konkretne fakty, których nie zna | mówi „Sprawdzam w internecie…” i po kilku sekundach odpowiada z tego, co znalazła |
 | Po tym, jak Luna skończy mówić | słucha od razu (po ~0,2 s) — pierwsze słowa nie giną |
+| Rozpoznawanie twarzy | gdy odwrócisz głowę chwilę po tym, jak Cię rozpoznała, dalej wie, że to Ty — i nie pyta po powrocie „jak masz na imię?”, zanim zdąży Cię rozpoznać |
 | Przerwanie Luny w pół zdania | **przytrzymaj palec na ekranie** — przestaje mówić i od razu słucha (głosowe „stop” będzie po dodaniu tłumienia echa) |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
