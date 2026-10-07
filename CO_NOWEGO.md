@@ -209,6 +209,11 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | „Tak” do gry | gdy Luna zaproponuje grę, wystarczy „tak” albo nazwa gry („kółko i krzyżyk”, „zagadki”) — gra naprawdę się zaczyna |
 | Przypomnienia | „Jakie mam przypomnienia?” — Luna czyta dokładną listę (też „przypomnij mi za godzinę…”); „Kiedy Maja ma urodziny?” — podaje datę; „Zapomnij o …” naprawdę usuwa notatkę |
 | Pogoda na tydzień | „Czy będzie padać w weekend?”, „jaka pogoda w piątek?” — Luna zna prognozę na 7 dni (wcześniej tylko dziś i jutro) |
+| Odpowiedź powtarzająca pytanie | gdy Luna zapyta „po pracy czy w trybie kanapowym?”, odpowiedź „w trybie kanapowym” już nie ginie (wcześniej brała ją za własne echo) |
+| Tłumaczenie jednego zdania | „Przetłumacz na niemiecki: gdzie jest dworzec?” — od razu tłumaczy (tryb tłumacza dalej: „włącz tryb tłumacza”) |
+| Gotowanie — pytania | w trakcie przepisu można pytać „ile mąki?”, „ile jeszcze kroków?” |
+| Pamięć o dniach | „O czym rozmawialiśmy wczoraj?” — tylko to, co było wczoraj; „przedwczoraj” — powie, że nie pamięta, zamiast zgadywać |
+| Przekazywanie | „Jak zobaczysz Maję, powiedz jej, że…” — teraz zapisuje i przekazuje (wcześniej tylko obiecywała) |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 
