@@ -167,6 +167,14 @@ _COMMON_STEMS = {"jeszcze", "możesz", "mogę", "chcesz", "dzisia", "właśni", 
                  "pomóc", "potrze", "andrze", "emilko", "emilka"}
 
 
+def _cooking_line():
+    try:
+        import cooking
+        return cooking.prompt_line()
+    except Exception:
+        return ""
+
+
 def _known_names():
     try:
         import faces
@@ -841,6 +849,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   + weather.prompt_line()
                   + timers.prompt_block()
                   + lists.prompt_block()
+                  + _cooking_line()
                   + memory.prompt_block()
                   + (context or ""))          # e.g. news headlines, this question only
 

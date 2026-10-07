@@ -102,6 +102,26 @@ def active():
         return _c is not None
 
 
+def prompt_line():
+    """While cooking along: the recipe and where they are, for the model —
+    7 Oct probe: "Ile mąki?" between steps got "Do czego dokładnie?", and
+    "ile jeszcze kroków?" the same."""
+    if not active():
+        return ""
+    with _lock:
+        c = _c
+        if c is None:
+            return ""
+        steps = "; ".join(f"{n}. {s['text']}" for n, s in enumerate(c["steps"], 1))
+        i = c.get("i", -1)
+        total = len(c["steps"])
+    where = (f"they are at step {i + 1} of {total}" if 0 <= i < total
+             else "they are getting the ingredients ready (no step yet)")
+    return (f"Cooking along now: {c['title']}. Ingredients: {', '.join(c['ingredients'])}. "
+            f"Steps: {steps}. Right now {where}. Answer questions about it from this "
+            "(\"dalej\" / \"powtórz\" / \"cofnij\" are handled by the app).\n")
+
+
 def _card(text, sub):
     with state.lock:
         state.overlay = ("card", time.time() + STEP_IDLE, {"text": text, "sub": sub, "tone": None})
