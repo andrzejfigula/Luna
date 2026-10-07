@@ -571,7 +571,12 @@ def prompt_line():
                 "away (for a division, not \"a razy b to c\"); a hint fits THIS task "
                 "and its numbers. Święty Mikołaj, the Tooth Fairy (Wróżka Zębuszka), "
                 "the Easter bunny: keep the magic — answer warmly as if they are real "
-                "and never hint they might not be (that is for the parents to tell).")
+                "and never hint they might not be (that is for the parents to tell). "
+                "Keep to what suits a child this age: recommend ONLY films, games and "
+                "apps rated for small children (PEGI 3/7, \"od lat 7\") — never "
+                "horror or 12+/16+/18+ titles (no Resident Evil, Dying Light, Left 4 "
+                "Dead…). For scary films or games and adult topics, say it's a question "
+                "for mum or dad and offer something fun that fits a child.")
     return (f"People you know by face: {who}. {now} Talk to the "
             "recognised person by name now and then (in the right Polish case), "
             "not in every sentence.\n")
