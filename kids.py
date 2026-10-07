@@ -170,6 +170,17 @@ def routine_answer(text, speak, play_sound):
             _clear()
             speak("Dobrze, kończymy.")
             return True
+        # "Powtórz" / "co dalej?" / "pomiń" belong to the routine (7 Oct probe:
+        # "Powtórz" ended it, and every "Gotowe" after went to the model)
+        if re.match(r"^(?:powtórz|powtorz|jeszcze\s+raz|co\s+(?:teraz|dalej|mam\s+robić)|"
+                    r"co\s+mówiłaś|co\s+mowilas|który\s+krok|ktory\s+krok)\b", low.strip()):
+            r["t"] = time.time()
+            _step(speak)
+            return True
+        skipped = bool(re.match(r"^(?:pomiń|pomin|przeskocz|nie\s+teraz)\b", low.strip())
+                       and len(words) <= 4)
+        if skipped:
+            words = list(_DONE)[:1]          # the next step, without the praise
         if not (set(words) & set(_DONE)) or len(words) > 6:
             print("[kids] routine left", flush=True)
             _routine = None
@@ -186,7 +197,7 @@ def routine_answer(text, speak, play_sound):
             speak(random.choice(["Wszystko zrobione! Jesteś super!",
                                  "Gotowe, wszystkie kroki! Brawo!"]))
             return True
-        speak(random.choice(_PRAISE))
+        speak("Dobrze, pomijamy." if skipped else random.choice(_PRAISE))
         _step(speak)
         return True
 
