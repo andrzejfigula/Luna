@@ -1453,6 +1453,11 @@ class KidsTest(unittest.TestCase):
         self.assertTrue(news.is_request("Przeczytaj nagłówki"))
         self.assertFalse(news.is_request("Co ciekawego robiłaś?"))
         self.assertFalse(news.is_request("Jakie mam wiadomości?"))
+        self.assertTrue(news.is_request("Co dzisiaj w wiadomościach?"))
+        self.assertTrue(news.is_request("Są jakieś nowe informacje z kraju?"))
+        self.assertTrue(news.is_request("Co słychać w świecie?"))
+        self.assertFalse(news.is_request("Odtwórz wiadomość od Emilki"))
+        self.assertFalse(news.is_request("Co słychać w szkole?"))
         offer = "Nie mam dostępu do wiadomości, ale mogę podać najnowsze nagłówki z RMF24, jeśli chcesz."
         self.assertTrue(news.accepts_offer("Chcę.", offer))
         self.assertTrue(news.accepts_offer("No tak, poproszę", offer))

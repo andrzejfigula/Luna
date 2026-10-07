@@ -44,7 +44,13 @@ _ASK_RX = re.compile(
     r"\bco\b[^.?!]{0,30}\b(?:stało|wydarzyło|dzieje|działo|słychać|nowego|ciekawego)\b"
     r"[^.?!]{0,30}\b(?:na\s+świecie|w\s+polsce|w\s+kraju|w\s+europie)\b|"
     r"\bco\b[^.?!]{0,20}\b(?:ważnego|ciekawego)\b[^.?!]{0,20}\b(?:stało|wydarzyło)\b|"
-    r"\b(?:nagłówki|najnowsze\s+informacje|wiadomości\s+dnia)\b", re.I)
+    r"\b(?:nagłówki|najnowsze\s+informacje|wiadomości\s+dnia)\b|"
+    # "co dzisiaj w wiadomościach?", "nowe informacje z kraju", "co słychać w
+    # świecie?" (7 Oct: these reached the model without headlines — it makes
+    # news up from what it remembers of the house)
+    r"\bco\b[^.?!]{0,15}\bw\s+(?:wiadomościach|dzienniku|serwisie)\b|"
+    r"\binformacje\s+(?:z\s+kraju|ze\s+świata|z\s+polski)\b|"
+    r"\bco\s+(?:słychać|nowego|się\s+dzieje)\s+w\s+świecie\b", re.I)
 _YES = re.compile(r"^(?:no\s+)?(?:tak|chcę|chce|poproszę|poprosze|dawaj|jasne|pewnie|okej|ok|"
                   r"dobrze|czemu\s+nie|chętnie)\b", re.I)
 _OFFERED = re.compile(r"nagłówk|wiadomości|newsy", re.I)
