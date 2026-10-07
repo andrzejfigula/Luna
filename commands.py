@@ -1102,6 +1102,10 @@ def handle(text, speak, play_sound, _polite=True):
 
     # questions she answers herself, exactly (they must come before the guard)
     import timers
+    said = timers.reminders_answer(text)           # "jakie mam przypomnienia?"
+    if said:
+        speak(said)
+        return True
     said = timers.left_answer(text)                # "ile zostało na minutniku?"
     if not said:
         m = _WHERE.search(text)                    # "gdzie jest Maja?"

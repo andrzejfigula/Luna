@@ -895,6 +895,15 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             data["actions"] = []
         set_now = timers.apply(data.get("actions") or [])
         lists.apply(data.get("actions") or [])
+        if any("nothing matched" in d for d in set_now or []) and not re.search(
+                r"\bnie\s+(?:mam|widzę|ma)\b", reply, re.I):
+            # "Jasne, usunę przypomnienie o basenie." — there was none (7 Oct
+            # probe): say so rather than leave a removal that never happened
+            extra = "Ojej, właściwie nie widzę takiego przypomnienia — nie było czego usuwać."
+            print("[brain] cancel matched nothing — correcting the reply", flush=True)
+            if on_sentence:
+                on_sentence(extra)
+            reply = f"{reply} {extra}"
         other = [a for a in data.get("actions") or []
                  if a.get("type") not in ("timer", "reminder", "alarm", "cancel")]
         if empty_promise(reply, set_now + other):

@@ -1465,6 +1465,32 @@ class KidsTest(unittest.TestCase):
         finally:
             state.person, state.others, faces.notes = old
 
+    def test_reminders_answer(self):
+        import timers
+        from datetime import datetime
+        now = datetime(2026, 10, 7, 20, 30).timestamp()
+        old = list(timers._timers)
+        try:
+            timers._timers[:] = [
+                {"due": now + 3600, "label": "wyjąć pranie", "kind": "timer", "repeat": "none"},
+                {"due": datetime(2026, 10, 8, 8, 0).timestamp(), "label": "śmieci",
+                 "kind": "reminder", "repeat": "none"},
+                {"due": datetime(2026, 10, 8, 20, 0).timestamp(), "label": "tabletki",
+                 "kind": "reminder", "repeat": "daily"},
+                {"due": now + 600, "label": "", "kind": "timer", "repeat": "none"},
+            ]
+            a = timers.reminders_answer("Jakie mam przypomnienia?", now)
+            self.assertTrue(a.startswith("Masz przypomnienia: wyjąć pranie — za godzin"), a)
+            self.assertIn("śmieci — jutro o ósmej", a)
+            self.assertIn("tabletki — codziennie o dwudziestej", a)
+            self.assertNotIn("minutnik", a)                     # a bare kitchen timer isn't one
+            self.assertIsNone(timers.reminders_answer("Przypomnij mi o praniu", now))
+            timers._timers[:] = []
+            self.assertEqual(timers.reminders_answer("Jakie mam przypomnienia?", now),
+                             "Nie masz teraz żadnych przypomnień.")
+        finally:
+            timers._timers[:] = old
+
     def test_game_choice_after_offer(self):
         import commands, brain
         old = list(brain._history)

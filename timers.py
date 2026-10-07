@@ -435,7 +435,11 @@ def prompt_block():
         at = time.strftime("%H:%M", time.localtime(t["due"]))
         what = t["label"] or ("minutnik" if t["kind"] == "timer" else "przypomnienie")
         rep = t.get("repeat", "none")
-        lines.append(f"- {t['kind']} \"{what}\": rings at {at}, {_left(t['due'] - now)} left"
+        # "przypomnij mi za godzinę wyjąć pranie" is kept as a labelled timer —
+        # to the family it's a reminder too (7 Oct probe: "jakie mam
+        # przypomnienia?" left it out)
+        kind = "timer/reminder" if t["kind"] == "timer" and t["label"] else t["kind"]
+        lines.append(f"- {kind} \"{what}\": rings at {at}, {_left(t['due'] - now)} left"
                      + (f", repeats {rep}" if rep != "none" else ""))
     return "\n".join(lines) + "\n"
 
@@ -558,6 +562,53 @@ def left_answer(text, now=None):
                 else "Zostało")
         return f"{verb} {out[0]}."
     return "Minutniki — " + "; ".join(out) + "."
+
+
+_REMS_Q = re.compile(r"\b(?:jakie|co)\s+(?:mam\s+|są\s+|masz\s+)?(?:\w+\s+)?przypomnie\w*|"
+                     r"\bmoje\s+przypomnienia\b|\bo\s+czym\s+(?:masz\s+)?mi\s+przypomnie\w*",
+                     re.I)
+_WD_LOC = ["w poniedziałek", "we wtorek", "w środę", "w czwartek", "w piątek", "w sobotę",
+           "w niedzielę"]
+
+
+def reminders_answer(text, now=None):
+    """"Jakie mam przypomnienia?" → every reminder, labelled timer and alarm,
+    read from the list itself (7 Oct probe: the model left out "wyjąć pranie
+    za godzinę", kept as a labelled timer). None if it isn't that question."""
+    import clock
+    if not _REMS_Q.search(text) or len(text.split()) > 8:
+        return None
+    now = now or time.time()
+    with _lock:
+        items = sorted((t for t in _timers if t["due"] > now
+                        and (t["kind"] != "timer" or t["label"])), key=lambda t: t["due"])
+    if not items:
+        return "Nie masz teraz żadnych przypomnień."
+    today = datetime.fromtimestamp(now).date()
+    out = []
+    for t in items[:5]:
+        due = datetime.fromtimestamp(t["due"])
+        what = t["label"] or _KIND_PL.get(t["kind"], "")
+        if t["kind"] == "alarm":
+            what = f"budzik{' — ' + t['label'] if t['label'] else ''}"
+        rep = t.get("repeat", "none")
+        at = f"o {clock.hour_locative(due.hour, due.minute)}"
+        if t["kind"] == "timer":
+            when = f"za {_say_left(t['due'] - now)}"
+        elif rep != "none":
+            when = f"{_REPEAT_PL.get(rep, '')} {at}"
+        elif due.date() == today:
+            when = f"dziś {at}"
+        elif (due.date() - today).days == 1:
+            when = f"jutro {at}"
+        elif (due.date() - today).days < 7:
+            when = f"{_WD_LOC[due.weekday()]} {at}"
+        else:
+            when = f"{due.day}.{due.month:02d} {at}"
+        out.append(f"{what} — {when}")
+    more = f" I jeszcze {len(items) - 5}." if len(items) > 5 else ""
+    return ("Masz przypomnienie: " if len(out) == 1 else "Masz przypomnienia: ") + \
+        "; ".join(out) + "." + more
 
 
 def _announcement(t, missed=False):
