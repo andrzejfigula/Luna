@@ -1465,6 +1465,43 @@ class KidsTest(unittest.TestCase):
         finally:
             state.person, state.others, faces.notes = old
 
+    def test_twenty_reverse(self):
+        import twenty
+        for t in ("Zgadnij, o czym myślę", "Zgadnij, o jakim zwierzęciu myślę",
+                  "Pomyślałam sobie zwierzę", "Ty zgaduj", "Zgadnij jakie zwierzę"):
+            self.assertTrue(twenty.wants(t) and twenty.reverse_wanted(t), t)
+        for t in ("Zagrajmy w 20 pytań", "Pomyśl sobie zwierzę"):
+            self.assertTrue(twenty.wants(t) and not twenty.reverse_wanted(t), t)
+        for t in ("Zgadnij, co dziś jadłam", "Pomyślałam o tobie"):
+            self.assertFalse(twenty.wants(t), t)
+        said = []
+        moves = iter([("question", "Czy umie latać?", ""), ("guess", "Czy to sowa?", "sowa")])
+        old = twenty._next_move
+        twenty._next_move = lambda qa, asked: next(moves)
+        try:
+            twenty.start(said.append, "Zgadnij, o czym myślę")
+            self.assertTrue(twenty.active())
+            twenty.answer("Gotowe", said.append)
+            self.assertIn("futro", said[-1])
+            twenty.answer("Nie", said.append)
+            self.assertEqual(said[-1], "Czy umie latać?")
+            twenty.answer("Tak", said.append)
+            self.assertEqual(said[-1], "Czy to sowa?")
+            self.assertEqual(twenty._r["qa"], [(twenty._FIRST_Q, "nie"),
+                                               ("Czy umie latać?", "tak")])
+            twenty.answer("Tak!", said.append)
+            self.assertIn("Zgadłam w 3", said[-1])
+            self.assertFalse(twenty.active())
+        finally:
+            twenty._next_move = old
+            twenty._r = None
+        g = twenty._as_guess
+        self.assertEqual(g("question", "Czy to ślimak?", "")[0], "guess")
+        self.assertEqual(g("question", "Czy twoje zwierzę jest sową?", "")[0], "guess")
+        self.assertEqual(g("question", "Czy to ptak?", "")[0], "question")
+        self.assertEqual(g("question", "Czy twoje zwierzę jest ssakiem?", "")[0], "question")
+        self.assertEqual(g("question", "Czy twoje zwierzę jest kolorowe?", "")[0], "question")
+
     def test_quiz_would_accept(self):
         import quiz
         old = quiz._q

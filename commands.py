@@ -1184,7 +1184,7 @@ def handle(text, speak, play_sound, _polite=True):
         return True
 
     if twenty.wants(text):                         # "zgadnij, o czym myślę"
-        twenty.start(speak)
+        twenty.start(speak, text)
         return True
 
     dish = cooking.wants(text)                     # "gotujemy naleśniki"

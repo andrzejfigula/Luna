@@ -10,6 +10,13 @@ twenty.py — "Zgadnij, o czym myślę": twenty questions, Luna keeps the secret
   "Poddaję się"    → she tells it; "koniec" stops
 
 Lives between utterances like the quizzes (commands.py).
+
+The other way round — "zgadnij, o czym myślę", "pomyślałam sobie zwierzę":
+the CHILD keeps the secret and Luna asks (7 Oct: both phrasings started the
+game above, so Maja's "guess what I'm thinking of" got Luna's own animal).
+  "Gotowe"         → her first question; "tak" / "nie" / "nie wiem" → the next
+                     one (the model picks it from all answers so far) or a guess
+  "Tak" to a guess → she cheers; after 20 questions she asks what it was
 """
 
 import json
@@ -50,6 +57,13 @@ ANIMALS = [
 _START = ("20 pytań", "dwadzieścia pytań", "o czym myślę", "o jakim zwierzęciu myślę",
           "pomyśl sobie zwierzę", "pomyśl jakieś zwierzę", "pomysl sobie zwierze",
           "zgadnę zwierzę", "zgadywanie zwierząt", "o kim myślę")
+# the child has the secret: "zgadnij, o czym myślę", "pomyślałam sobie
+# zwierzę", "ty zgaduj" — Luna asks the questions
+_REVERSE = re.compile(
+    r"\b(?:o\s+(?:czym|kim|jakim\s+\w+)\s+(?:teraz\s+)?myśl[eę]|"
+    r"pomyśla[łl](?:am|em)\s+(?:sobie\s+)?(?:jakieś\s+|o\s+)?zwierz\w*|"
+    r"ty\s+zgaduj|ty\s+zgadnij|zgadnij\s+jakie\s+zwierz\w*|"
+    r"(?:co|kogo)\s+mam\s+na\s+myśli)", re.I)
 _GIVE_UP = ("poddaję się", "poddaje sie", "nie wiem", "powiedz co to", "co to było",
             "zdradź", "zdradz")
 _STOP = ("koniec", "kończymy", "konczymy", "stop", "wystarczy")
@@ -60,19 +74,28 @@ _g = None              # {"animal", "forms", "asked", "t", "said_no": set()}
 
 def wants(text):
     low = text.lower()
-    return any(k in low for k in _START) and len(re.findall(r"\w+", low)) <= 10
+    return ((any(k in low for k in _START) or bool(_REVERSE.search(low)))
+            and len(re.findall(r"\w+", low)) <= 10)
+
+
+def reverse_wanted(text):
+    return bool(_REVERSE.search(text.lower()))
 
 
 def active():
-    global _g
+    global _g, _r
     with _lock:
         if _g and time.time() - _g["t"] > EXPIRE_SECS:
             _g = None
-        return _g is not None
+        if _r and time.time() - _r["t"] > EXPIRE_SECS:
+            _r = None
+        return _g is not None or _r is not None
 
 
-def start(speak):
+def start(speak, text=""):
     global _g
+    if text and reverse_wanted(text):
+        return _start_reverse(speak)
     name, forms = random.choice(ANIMALS)
     with _lock:
         _g = {"animal": name, "forms": forms, "asked": 0, "t": time.time()}
@@ -117,11 +140,180 @@ def _names_an_animal(text):
     return next((n for n, forms in ANIMALS if words & set(forms)), None)
 
 
+# ── the other way round: the child thinks, Luna asks ─────────────────────────
+_r = None              # {"qa": [(question, answer)], "asked", "t", "q", "guess", "stage"}
+
+_YES = re.compile(r"^(?:no\s+)?(?:tak|taak|jasne|pewnie|zgadza\s+się|dokładnie|owszem|"
+                  r"zgadłaś|zgadlas|brawo|udało\s+ci\s+się)\b", re.I)
+_NO = re.compile(r"^(?:no\s+)?(?:nie|pudło|pudlo)\b(?!\s+wiem)", re.I)
+_UNSURE = re.compile(r"\b(?:nie\s+wiem|czasem|czasami|trochę|troche|nie\s+jestem\s+pew\w+|"
+                     r"może|moze|to\s+zależy|zalezy)\b", re.I)
+_READY = re.compile(r"\b(?:gotowe|gotowa|gotowy|już|juz|mam|wymyśli\w*|pomyśla\w*|dobra|ok|"
+                    r"okej|tak|start|zaczynaj)\b", re.I)
+_FIRST_Q = "Czy twoje zwierzę ma futro?"
+_GROUPS = {"ptak", "ryba", "gad", "płaz", "plaz", "owad", "ssak", "zwierzę", "zwierze",
+           "pajęczak", "mięczak", "robak", "drapieżnik", "roślinożerca", "zwierzątko"}
+
+
+def _start_reverse(speak):
+    global _r
+    with _lock:
+        _r = {"qa": [], "asked": 0, "t": time.time(), "q": None, "guess": None,
+              "stage": "ready"}
+    print("[twenty] reverse: the child thinks, Luna asks", flush=True)
+    with state.lock:
+        state.overlay = ("card", time.time() + EXPIRE_SECS,
+                         {"text": "?", "sub": "ja zgaduję · odpowiadaj: tak / nie / nie wiem",
+                          "tone": None})
+    speak("Super! Pomyśl sobie zwierzę, a ja będę zgadywać. Odpowiadaj tak albo nie. "
+          "Powiedz: gotowe, kiedy już wymyślisz.")
+    _listen_longer()
+
+
+def _next_move(qa, asked):
+    """The model's next question or a guess: ("question" | "guess", text, animal)."""
+    from openai import OpenAI
+    from config import OPENAI_API_KEY, CRAFT_MODEL
+    c = OpenAI(api_key=OPENAI_API_KEY, timeout=12, max_retries=1)
+    facts = "\n".join(f"- {q} → {a}" for q, a in qa) or "- (jeszcze nic)"
+    must = asked >= MAX_QUESTIONS - 1
+    r = c.chat.completions.create(
+        model=CRAFT_MODEL, temperature=0.3, max_tokens=80,
+        response_format={"type": "json_object"},
+        messages=[{"role": "user", "content":
+                   "Grasz z 8-letnim dzieckiem w 20 pytań. Dziecko pomyślało o zwierzęciu, "
+                   "ty zgadujesz. Dotychczasowe pytania i odpowiedzi dziecka:\n" + facts +
+                   f"\nZadano już {asked} z {MAX_QUESTIONS} pytań. Zadaj JEDNO następne "
+                   "proste pytanie tak/nie, które najlepiej dzieli pozostałe zwierzęta "
+                   "(nie powtarzaj pytań, nie pytaj o to, co już wiadomo), albo — gdy jesteś "
+                   "dość pewna — zgadnij jedno konkretne zwierzę pytaniem \"Czy to …?\". "
+                   "Najpierw ustal gromadę, pytając wprost (\"Czy to ptak?\", \"Czy to "
+                   "owad?\", \"Czy to ryba?\", \"Czy to ssak, który ma sierść?\"), dopiero "
+                   "potem pytaj o wygląd i miejsce życia. Nie zakładaj cech, których dziecko "
+                   "nie potwierdziło (np. nie pytaj o pióra, dopóki nie wiesz, że to ptak). "
+                   "Myśl o zwierzętach, które zna 8-latek (z podwórka, wsi, zoo, książeczek "
+                   "— nie głuszec czy jarząbek), i zgaduj dopiero, gdy zostały 1–2 takie "
+                   "możliwości. Zgadując, pytaj ZAWSZE \"Czy to …?\" (np. \"Czy to sowa?\"). "
+                   + ("To ostatnie pytanie: MUSISZ zgadywać. " if must else "") +
+                   "Dziecko może się mylić, więc nie odrzucaj zwierzęcia przez jedną dziwną "
+                   "odpowiedź. Prosty język dla dziecka. Zwróć JSON {\"type\": \"question\" | "
+                   "\"guess\", \"text\": \"Czy …?\", \"animal\": \"(przy zgadywaniu: nazwa "
+                   "zwierzęcia w mianowniku)\"}."}])
+    d = json.loads(r.choices[0].message.content)
+    kind = "guess" if d.get("type") == "guess" else "question"
+    text = (d.get("text") or "").strip()
+    if not text:
+        raise ValueError("empty move")
+    return _as_guess(kind, text, (d.get("animal") or "").strip())
+
+
+def _as_guess(kind, text, animal):
+    """A "question" that names one animal is a guess: (kind, text, animal)."""
+    # "Czy to ślimak?" sent as a question is a guess all the same (a "tak" to
+    # it went on asking) — but "Czy to ptak?" asks about the group
+    m = re.match(r"czy\s+to\s+(?:jest\s+)?(\w+)\s*\?*$", text.lower())
+    if kind == "question" and m and m.group(1) not in _GROUPS:
+        kind, animal = "guess", m.group(1)
+    # "Czy twoje zwierzę jest sową / dzięciołem?" — a noun in the instrumental
+    m = re.match(r"czy\s+twoje\s+zwierzę\s+(?:to\s+)?jest\s+(\w+(?:ą|em|iem))\s*\?*$",
+                 text.lower())
+    if kind == "question" and m and m.group(1) not in ("ssakiem", "ptakiem", "owadem",
+                                                       "gadem", "płazem", "pająkiem",
+                                                       "drapieżnikiem", "zwierzątkiem"):
+        kind, animal = "guess", m.group(1)
+    return kind, text, animal
+
+
+def _ask_next(r, speak):
+    """Say the next question or guess (from the model). False when there is none."""
+    try:
+        kind, q, animal = _next_move(r["qa"], r["asked"])
+    except Exception as e:
+        print(f"[twenty] reverse: no next move ({e})", flush=True)
+        speak("Ojej, zgubiłam myśl. Zagrajmy jeszcze raz za chwilę!")
+        return False
+    r["asked"] += 1
+    r["q"], r["guess"] = q, ((animal or q) if kind == "guess" else None)
+    print(f"[twenty] reverse Q{r['asked']} ({kind}): {q}", flush=True)
+    speak(q)
+    _listen_longer()
+    return True
+
+
+def _answer_reverse(text, speak):
+    """An utterance while Luna is guessing (called under _lock)."""
+    global _r
+    r = _r
+    low = text.lower().strip(" .!?")
+    words = re.findall(r"\w+", low)
+    r["t"] = time.time()
+    if any(k in low for k in _STOP) and len(words) <= 4:
+        _r = None
+        speak("Dobrze, kończymy. Dzięki za grę!")
+        return True
+    if r["stage"] == "ready":
+        if _READY.search(low) or len(words) <= 2:
+            r["stage"], r["asked"] = "asking", 1
+            r["q"], r["guess"] = _FIRST_Q, None
+            speak("To zaczynam. " + _FIRST_Q)
+            _listen_longer()
+            return True
+        _r = None
+        return False
+    if r["stage"] == "reveal":                       # what it was, after she gave up
+        name = re.sub(r"^(?:no\s+)?(?:to\s+)?(?:był[aoy]?|jest|myślał\w*\s+o)\s+", "",
+                      text.strip(" .!?"), flags=re.I).strip()
+        if (_YES.match(low) or _NO.match(low)) and not r.get("asked_name"):
+            r["asked_name"] = True                    # "nie" is no animal: ask once more
+            speak("A jakie to było zwierzę? Powiedz mi!")
+            _listen_longer()
+            return True
+        _r = None
+        speak(f"Aha, {name or 'rozumiem'}! Sprytnie. Następnym razem zgadnę!")
+        return True
+    if any(k in low for k in ("poddajesz", "poddaj się", "poddaj sie")):
+        r["stage"] = "reveal"
+        speak("Dobrze, poddaję się! O jakim zwierzęciu myślisz?")
+        _listen_longer()
+        return True
+    yes, no = bool(_YES.match(low)), bool(_NO.match(low))
+    unsure = bool(_UNSURE.search(low)) and not yes
+    if not (yes or no or unsure):
+        if len(words) > 8:
+            _r = None                                 # not an answer: something else
+            return False
+        speak("Odpowiedz mi: tak, nie albo nie wiem. " + (r["q"] or ""))
+        _listen_longer()
+        return True
+    if r["guess"] and yes:
+        _r = None
+        with state.lock:
+            state.overlay = ("card", time.time() + 6,
+                             {"text": r["guess"], "sub": f"zgadłam w {r['asked']} pytaniach",
+                              "tone": "ok"})
+            state.emotion = "Happy"
+        speak(f"Hurra! Zgadłam w {r['asked']} pytaniach! Zagramy jeszcze raz?")
+        return True
+    r["qa"].append((r["q"], "tak" if yes else "nie wiem" if unsure else "nie"))
+    if r["asked"] >= MAX_QUESTIONS:
+        r["stage"] = "reveal"
+        speak("Ojej, skończyły mi się pytania — wygrywasz! O jakim zwierzęciu myślisz?")
+        _listen_longer()
+        return True
+    if r["guess"]:
+        speak(random.choice(["Hmm, pudło.", "Nie? To myślę dalej.", "Ojej, nie zgadłam."]))
+    if not _ask_next(r, speak):
+        _r = None
+    return True
+
+
 def answer(text, speak):
     """An utterance during the game. True when it belonged to it."""
     global _g
     low = text.lower().strip(" .!?")
     with _lock:
+        if _r is not None:
+            return _answer_reverse(text, speak)
         g = _g
         if g is None:
             return False

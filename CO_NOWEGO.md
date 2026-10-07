@@ -202,6 +202,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Prywatność przy rozmowach po angielsku | gdy w pokoju trwa rozmowa/wideorozmowa po angielsku, Luna przez 10 minut nie wysyła dźwięku do chmury; na wyraźne „Luna” dalej reaguje; w tym czasie też sama się nie odzywa |
 | Więcej zagadek | „Luna, zadaj mi zagadkę” — teraz 59 zagadek zamiast 31 (zwierzęta, jedzenie, pojazdy, pogoda), dłużej się nie powtarzają |
 | Gwiazdka dla Mai | gdy Maja gra razem z dorosłym, gwiazdkę za grę dostaje Maja (wcześniej dostawał ją ten, kogo Luna rozpoznała pierwszego) |
+| Luna zgaduje zwierzę | „Luna, zgadnij, o czym myślę” — pomyśl o zwierzęciu, powiedz „gotowe” i odpowiadaj tak / nie / nie wiem; Luna zgaduje w 20 pytaniach. (Odwrotnie: „pomyśl sobie zwierzę” — wtedy Ty zgadujesz) |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 

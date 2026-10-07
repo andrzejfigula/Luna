@@ -258,7 +258,8 @@ def _rotate_log():
 def busy_with():
     """Something long-running that a restart would cut off, or None."""
     checks = (("quiz", "quiz", "active"), ("reading", "reading", "armed"),
-              ("cooking", "cooking", "active"), ("radio", "radio", "playing"))
+              ("cooking", "cooking", "active"), ("radio", "radio", "playing"),
+              ("20 questions", "twenty", "active"))
     for name, module, fn in checks:
         try:
             if getattr(__import__(module), fn)():
