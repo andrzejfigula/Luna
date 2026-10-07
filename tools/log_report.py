@@ -69,6 +69,30 @@ def audio_by_hour(lines):
     return rows
 
 
+def latency_summary(lines):
+    """End of their speech → her voice, over the answers in these lines: median
+    and 90th percentile, and the median of each stage (timing.py)."""
+    totals, stages = [], {}
+    for l in lines:
+        m = re.match(r"^\[latency\] end of speech → her voice ([0-9.]+)s(?: \((.*)\))?", l)
+        if not m:
+            continue
+        totals.append(float(m.group(1)))
+        for part in (m.group(2) or "").split(", "):
+            if " " in part:
+                k, v = part.split(" ", 1)
+                stages.setdefault(k, []).append(float(v))
+    if not totals:
+        return []
+    med = lambda v: sorted(v)[len(v) // 2]
+    p90 = sorted(totals)[max(0, int(len(totals) * 0.9) - 1)]
+    rows = [f"  answer speed: {len(totals)} answers, median {med(totals):.2f}s, 90% within {p90:.2f}s"]
+    order = ("text", "model", "sentence", "tts", "audio")
+    rows.append("    stages (median, from the end of speech): " +
+                ", ".join(f"{k} {med(stages[k]):.2f}" for k in order if k in stages))
+    return rows
+
+
 def main():
     since = sys.argv[1] if len(sys.argv) > 1 else None
     lines = open("luna.log", encoding="utf-8", errors="replace").read().splitlines()
@@ -93,6 +117,8 @@ def main():
         print(f"  xruns (since the last start): {m.group(1) if m else '?'}, "
               f"clock nudges: {n.group(1) if n else '?'}")
     for row in audio_by_hour(lines):
+        print(row)
+    for row in latency_summary(lines):
         print(row)
     # replies that say she did something, with no line showing it was done
     # (the commonest real bug: "Włączam radio" — and nothing played)

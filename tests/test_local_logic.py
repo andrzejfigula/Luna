@@ -306,6 +306,13 @@ class TimersTest(unittest.TestCase):
         self.assertIn("+0 ", rows[2])
         self.assertIn("5 nudges", rows[2])
         self.assertEqual(log_report.audio_by_hour(["[Luna] Running on x"]), [])
+        lat = log_report.latency_summary([
+            "[latency] end of speech → her voice 3.00s (text 1.00, model 1.10, sentence 2.00)",
+            "[latency] end of speech → her voice 4.00s (text 1.50, model 1.60, sentence 2.50)",
+            "[latency] end of speech → her voice 5.00s (text 2.00, model 2.10, sentence 3.00)"])
+        self.assertIn("3 answers, median 4.00s", lat[0])
+        self.assertIn("text 1.50, model 1.60, sentence 2.50", lat[1])
+        self.assertEqual(log_report.latency_summary([]), [])
 
     def test_face_continuity(self):
         import faces
