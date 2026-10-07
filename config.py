@@ -659,6 +659,9 @@ WAVE_MAX_BELOW_FACE    = 1.3   # the hand's mean height: not lower than this
 # current frame shows an open, empty hand waving. ~1 s, a fraction of a cent.
 WAVE_CLOUD_CONFIRM     = False   # off: too slow (~1 s) and missed real waves
 WAVE_CONFIRM_MIN_GAP   = 3.0
+WAVE_BACK_GAP          = 300   # and waves back at most every 5 min: 37 wave-backs on
+                               # 7 Oct with Andrzej working at the desk — people wave
+                               # hello when they come or go, not every few minutes
 WAVE_SPEAK_GAP         = 900   # she waves back every time, but SAYS hello at most
                                # this often   # seconds between confirmation requests
 
