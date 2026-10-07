@@ -208,7 +208,11 @@ MIC_SAMPLE_RATE = 16000
 VOSK_SAMPLE_RATE = 16000    # vosk always needs 16000 — do not change
 
 CLOUD_STT          = True
-CLOUD_STT_MODEL    = "gpt-4o-mini-transcribe"
+CLOUD_STT_MODEL    = "gpt-transcribe"   # (was gpt-4o-mini-transcribe) 7 Oct, same clips:
+                                     # 0.56 s every time vs 0.5–3.4 s, "skrobanie szyb rano"
+                                     # right (old: "szyprano"), and "" for hiss or a knock
+                                     # where the old one echoed its prompt or made up
+                                     # "Cześć, Andrzej! Jak minął twój dzień?"
 CLOUD_STT_LANGUAGE = None      # None = auto-detect (Polish / English); or "pl"
 # Context for the transcriber. Measured on the Pi (speaker -> room -> C270):
 # with just "Luna" a lone "Tak." came back as "ták" (language guessed wrong
