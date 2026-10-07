@@ -186,11 +186,13 @@ def _language_line(text):
 
 
 def _cooking_line():
-    try:
-        import cooking
-        return cooking.prompt_line()
-    except Exception:
-        return ""
+    out = ""
+    for mod in ("cooking", "memo", "tictac"):
+        try:
+            out += __import__(mod).prompt_line()
+        except Exception:
+            pass
+    return out
 
 
 def _known_names():

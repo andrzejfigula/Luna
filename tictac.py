@@ -41,6 +41,22 @@ def active():
     return bool(ov) and ov[0] == "ttt" and time.time() < ov[1]
 
 
+def prompt_line():
+    """While noughts and crosses is on: whose turn, for "kto wygrywa?"."""
+    g = _g
+    if not g or not active():
+        return ""
+    if g.get("end"):
+        return "Noughts and crosses on your screen: the game is over.\n"
+    free = sum(1 for c in g["b"] if c is None)
+    if g.get("duo"):                          # two people playing each other
+        who = f"two players against each other, {'X' if g.get('turn') == 'X' else 'O'} to move"
+    else:
+        who = "their move (they are X)" if g.get("turn") == "X" else "your move (you are O)"
+    return (f"Noughts and crosses on your screen now: {9 - free} of 9 squares taken, "
+            f"{who}; nobody has won yet.\n")
+
+
 def _winner(b):
     for line in _LINES:
         a, c, d = (b[i] for i in line)

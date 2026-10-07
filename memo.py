@@ -43,6 +43,17 @@ def active():
     return bool(ov) and ov[0] == "memo" and time.time() < ov[1]
 
 
+def prompt_line():
+    """While the memory game is on: the score, for "ile par zostało?" (7 Oct
+    probe: the model couldn't see the board)."""
+    g = _g
+    if not g or not active():
+        return ""
+    pairs, found = len(g["cards"]) // 2, len(g["found"]) // 2
+    return (f"Memory game on your screen now: {found} of {pairs} pairs found, "
+            f"{pairs - found} left, {g['moves']} moves so far.\n")
+
+
 def _publish():
     data = {"cards": list(_g["cards"]), "up": set(_g["up"]) | set(_g["found"]),
             "found": set(_g["found"]), "msg": _g["msg"],
