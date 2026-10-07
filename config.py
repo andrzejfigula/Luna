@@ -298,9 +298,8 @@ STT_DEBUG_AUDIO = True
 
 TTS_RATE = 155   # legacy, unused by the OpenAI engine
 
-OPENAI_TTS_MODEL        = "gpt-4o-mini-tts-2025-12-15"   # the plain name still served
-                        # the older snapshot: first audio 0.93 s median (worst 42 s) vs
-                        # 0.66 s (worst 9.3 s) for this one, 8 lines each (7 Oct)
+OPENAI_TTS_MODEL        = "gpt-4o-mini-tts"   # (the 2025-12-15 snapshot was tried on
+                        # 7 Oct: faster in one benchmark, not in the next — back to this)
 # .env: LUNA_TTS_VOICE=nova   (alloy, ash, ballad, coral, echo, fable, nova,
 # onyx, sage, shimmer, verse, marin, cedar — nova/shimmer/marin are the bright ones)
 OPENAI_TTS_VOICE        = _env("LUNA_TTS_VOICE", "marin")

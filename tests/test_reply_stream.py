@@ -55,13 +55,13 @@ class ReplyStreamTest(unittest.TestCase):
         _, s = run(answer("Tak. Masz całkowitą rację w tej sprawie."))
         self.assertEqual(s, ["Tak. Masz całkowitą rację w tej sprawie."])
 
-    def test_long_first_sentence_starts_at_a_comma(self):
+    def test_long_first_sentence_is_not_split_at_a_comma(self):
         reply = ("Dzisiaj w Kątach Wrocławskich będzie pochmurno, temperatura od ośmiu "
                  "do dwudziestu dwóch stopni. Bez deszczu.")
         for piece in (1, 5, 10000):
             _, s = run(answer(reply), piece)
-            self.assertEqual(s, ["Dzisiaj w Kątach Wrocławskich będzie pochmurno,",
-                                 "temperatura od ośmiu do dwudziestu dwóch stopni. Bez deszczu."])
+            self.assertEqual(s[0], "Dzisiaj w Kątach Wrocławskich będzie pochmurno, "
+                                   "temperatura od ośmiu do dwudziestu dwóch stopni.")
         _, s = run(answer("Dobrze, już włączam radio. Miłego słuchania!"))
         self.assertEqual(s[0], "Dobrze, już włączam radio.")     # short clause: no split
 

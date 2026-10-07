@@ -14,7 +14,9 @@ _FIRST_MIN_CHARS = 20          # don't send "Tak." alone — it sounds clipped
 # that clause is this long: her voice starts a few words sooner (6 Oct: "more
 # snappy"), and a comma is a natural place for the seam.
 _CLAUSE_END = re.compile(r"[,;:—–]\s")
-_FIRST_CLAUSE_MIN = 40
+_FIRST_CLAUSE_MIN = 10_000    # off (was 40): when the speech service is slow, the
+                               # rest of a split sentence came late — she stopped in
+                               # the middle of a sentence (7 Oct); whole sentences only
 _CHUNK_CHARS = 180             # after the first sentence, speak in pieces of
                                # about this much (whole sentences) — a long
                                # story must not wait for its last word
