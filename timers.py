@@ -628,12 +628,17 @@ def reminders_answer(text, now=None):
     for t in items[:5]:
         due = datetime.fromtimestamp(t["due"])
         what = t["label"] or _KIND_PL.get(t["kind"], "")
+        first = what.split()[0].lower() if what.split() else ""
+        if (first not in ("o", "że", "ze", "żeby", "aby") and len(first) > 3
+                and re.search(r"(?:ie|ach|ej|ym|im|u)$", first)):
+            what = "o " + what               # "wizycie u dentysty" → "o wizycie…"
         if t["kind"] == "alarm":
             what = f"budzik{' — ' + t['label'] if t['label'] else ''}"
         rep = t.get("repeat", "none")
         at = f"o {clock.hour_locative(due.hour, due.minute)}"
         if t["kind"] == "timer":
-            when = f"za {_say_left(t['due'] - now)}"
+            # accusative after "za": "za godzinę", not "za godzina"
+            when = f"za {say_duration(max(60, int(round((t['due'] - now) / 60)) * 60))}"
         elif rep != "none":
             when = f"{_REPEAT_PL.get(rep, '')} {at}"
         elif due.date() == today:
