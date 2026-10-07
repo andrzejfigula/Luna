@@ -97,6 +97,11 @@ CASES = [
     ("Jakie mam przypomnienia?", "przypomnie"),          # timers.reminders_answer
     ("Kiedy przyjdzie Emilka, powiedz jej, że dzwoniła babcia", "Emilka"),   # errands
     ("Przetłumacz na niemiecki: dzień dobry", MODEL),    # one sentence, not the mode
+    ("Zmień stację na RMF", "RMF FM"),                  # that station, not the next
+    ("Włącz odgłosy lasu", "Takiego dźwięku nie mam"),  # ambience: what she has
+    ("Tryb skupienia na 25 minut", "25 minut skupienia"),
+    ("Koniec skupienia", "koniec skupienia"),
+    ("Na razie nie", MODEL),                             # not "przyciemnij ekran"
     ("Napisz na ekranie Shure MV7", "na ekranie"),        # commands.show_text
     ("Zrób mi zdjęcie", ""),
     ("Włącz lampkę", ""),
