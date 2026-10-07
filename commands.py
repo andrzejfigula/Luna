@@ -112,6 +112,39 @@ _SCREEN = re.compile(
     r"włącz|wlacz|zapal|ciemniej|jaśniej|jasniej)\s+(?:(?:mi|ten|swój|swoj|trochę|troche)\s+)?"
     r"(?:ekran|wyświetlacz|wyswietlacz|ekranik)(?:\s+(?:proszę|prosze|trochę|troche))?$",
     re.I)
+_GAME_NAMES = [
+    (r"kółk\w*|kolk\w*|krzyżyk", "zagrajmy w kółko i krzyżyk"),
+    (r"memory|memo\b|pary|karty", "zagrajmy w memory"),
+    (r"kamień|kamien|papier|nożyce|nozyce", "zagrajmy w kamień papier nożyce"),
+    (r"zagadk\w*", "zadaj mi zagadkę"),
+    (r"20\s+pytań|dwadzieścia\s+pytań", "zagrajmy w 20 pytań"),
+    (r"zgadywank\w*|liczb\w*", "zagrajmy w zgadywankę"),
+    (r"quiz\w*.*(?:angiel|słówek)|(?:angiel|słówk)\w*", "zróbmy quiz z angielskiego"),
+    (r"quiz\w*.*stolic|stolic\w*", "zróbmy quiz ze stolic"),
+    (r"quiz\w*|rachun\w*|matem\w*|liczenie", "zróbmy quiz z matematyki"),
+    (r"zegar\w*", "zagrajmy w zegar"),
+]
+
+
+def _game_choice(low):
+    """A short answer naming a game, right after she offered games (7 Oct
+    probe: "W kółko i krzyżyk" after her list went to the model, which
+    answered "Super, gramy!" and switched the radio on)."""
+    words = re.findall(r"\w+", low)
+    if not words or len(words) > 6 or {"nie", "bez", "żadnych", "zadnych"} & set(words):
+        return None                               # "nie chcę zagadek"
+    try:
+        import brain
+        if not brain.game_was_offered(before=1):
+            return None
+    except Exception:
+        return None
+    for rx, label in _GAME_NAMES:
+        if re.search(r"\b(?:" + rx + r")", low):
+            return label
+    return None
+
+
 _STOP_BARE = re.compile(r"^(?:luna,?\s+|luno,?\s+)?(?:stop|zatrzymaj(?:\s+to)?|przestań|"
                         r"przestan|wyłącz\s+to|wylacz\s+to|cisza|dość|dosc|wystarczy)$", re.I)
 _SLEEP_SELF = re.compile(
@@ -649,6 +682,8 @@ _COMPLAINTS = [
     (r"\b(?:za\s+cicho|zbyt\s+cicho|nie\s+słychać\s+cię|nie\s+slychac\s+cie|słabo\s+cię\s+słychać|"
      r"nic\s+nie\s+słyszę|nic\s+nie\s+slysze)\b", "głośniej"),
     (r"\b(?:za\s+głośno|za\s+glosno|zbyt\s+głośno)\b", "ciszej"),
+    # (7 Oct probe: "Za jasno tu" → "…mogę mówić po polsku albo po angielsku")
+    (r"\b(?:za\s+jasno|zbyt\s+jasno|razi\w*|oślepia\w*|oslepia\w*)\b", "przyciemnij ekran"),
 ]
 
 
@@ -857,6 +892,12 @@ def handle(text, speak, play_sound, _polite=True):
     import twenty                                  # "czy ma futro?"
     if twenty.active() and twenty.answer(text, speak):
         return True
+
+    # she offered games and they name one: "W kółko i krzyżyk!", "Zagadki"
+    label = _game_choice(low) if _polite else None     # (the label itself names it)
+    if label:
+        print(f"[cmd] game chosen after her offer → \"{label}\"", flush=True)
+        return handle(label, speak, play_sound, _polite=False)
 
     # "zgaś ekran" / "przyciemnij ekran" / "rozjaśnij ekran" (display.py)
     m = _SCREEN.match(low.strip(" .!?"))

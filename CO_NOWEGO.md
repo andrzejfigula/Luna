@@ -206,6 +206,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Muzyka dla dzieci, czytanie | „Puść muzykę dla dzieci” włącza RMF Dla Dzieci; „Poczytaj ze mną” / „Chcę poczytać” — Luna słucha czytania |
 | „Wyłącz się” | „Luna, wyłącz się” / „idź spać” — Luna naprawdę zasypia (ekran przygasa), o każdej porze |
 | Cisza i ekran | „Bądź cicho przez godzinę”, „nie przeszkadzaj do rana” — Luna sama się nie odzywa tyle, ile chcecie; „zatrzymaj” wyłącza radio/szum; „zgaś ekran”, „przyciemnij ekran”, „rozjaśnij ekran” (na 2 godziny, potem znów automatycznie) |
+| „Tak” do gry | gdy Luna zaproponuje grę, wystarczy „tak” albo nazwa gry („kółko i krzyżyk”, „zagadki”) — gra naprawdę się zaczyna |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 

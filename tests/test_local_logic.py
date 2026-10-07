@@ -1465,6 +1465,32 @@ class KidsTest(unittest.TestCase):
         finally:
             state.person, state.others, faces.notes = old
 
+    def test_game_choice_after_offer(self):
+        import commands, brain
+        old = list(brain._history)
+        try:
+            brain._history[:] = [{"role": "user", "content": "Pobawimy się?"},
+                                 {"role": "assistant", "content": "Jasne! Kółko i krzyżyk, "
+                                  "zagadki albo memory?"}]
+            self.assertEqual(commands._game_choice("w kółko i krzyżyk"),
+                             "zagrajmy w kółko i krzyżyk")
+            self.assertEqual(commands._game_choice("zagadki!"), "zadaj mi zagadkę")
+            self.assertIsNone(commands._game_choice("nie chcę zagadek"))
+            self.assertIsNone(commands._game_choice("a jaka jest pogoda"))
+            # her offer before their answer allows the model's game command;
+            # with no offer it doesn't
+            brain._history.append({"role": "user", "content": "Tak"})
+            self.assertTrue(brain.game_was_offered())
+            brain._history[:] = [{"role": "assistant", "content": "Dzień dobry!"},
+                                 {"role": "user", "content": "Pobawimy się?"}]
+            self.assertFalse(brain.game_was_offered())
+            self.assertIsNone(commands._game_choice("w kółko i krzyżyk"))
+            self.assertTrue(brain._asks_to_choose(
+                "Super, to zagramy. Wybierz: kamień, papier, nożyce, zgaduj liczbę albo zagadka."))
+            self.assertFalse(brain._asks_to_choose("Super, gramy w kółko i krzyżyk!"))
+        finally:
+            brain._history[:] = old
+
     def test_screen_stop_and_mute_phrases(self):
         import commands, display, idle_engine
         from shared_state import state

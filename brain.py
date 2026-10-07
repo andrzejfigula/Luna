@@ -313,7 +313,19 @@ Always answer as JSON with exactly these keys:
                 <tekst>" (a name, number or word big on her screen for 30 s — when
                 they want to see it or copy it down), "wyszukaj w internecie:
                 <zapytanie>" (see below), "przyciemnij ekran", "zgaś ekran",
-                "rozjaśnij ekran". When none of these is exactly what they
+                "rozjaśnij ekran", and to START A GAME (it then talks
+                itself — your reply only says something short like "Super,
+                gramy!"): "zagrajmy w kamień papier nożyce", "zadaj mi
+                zagadkę", "zagrajmy w memory", "zagrajmy w kółko i krzyżyk",
+                "zagrajmy w 20 pytań" (you think of an animal), "zgadnij, o
+                czym myślę" (they think, you guess), "zróbmy quiz z
+                matematyki / angielskiego / stolic", "zagrajmy w zegar",
+                "zagrajmy w zgadywankę" (you think of a number 1–100). A game
+                only once ONE game was chosen — named by them, or a "tak" to
+                the single game you proposed; while you list options, no
+                command. Never play a game inside your reply (no riddle or
+                quiz question of your own) — start it with its command.
+                When none of these is exactly what they
                 asked for, use NO command — never a different one in its
                 place ("nie przeszkadzaj" is not "włącz radio", "zgaś ekran"
                 is not "wyłącz lampkę") — and say plainly you can't do that
@@ -907,7 +919,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             if a.get("type") == "command":
                 label = str(a.get("label", ""))
                 searched = searched or label.lower().startswith("wyszukaj w internecie")
-                run_command(label)
+                run_command(label, reply)
         if (not searched and not translator()
                 and re.search(r"\bsprawdz\w*\s+(?:to\s+|mi\s+)?w\s+(?:internecie|sieci)", reply, re.I)):
             # "Sprawdzam w internecie kurs złotego." with no search attached —
@@ -949,18 +961,62 @@ _COMMAND_OK = re.compile(
     r"listę\s+zakupów)$|^przepis\s+na\s+[\w ]{2,40}\s+krok\s+po\s+kroku$|"
     r"^przekaż\s+\w+,?\s+(?:że|żeby)\s+.{3,120}$|^zrób\s+(?:mi\s+|nam\s+)?zdjęcie$|"
     r"^nagraj\s+wiadomość(?:\s+dla\s+\w+)?$|^pokaż\s+na\s+ekranie[:,]?\s+.{1,80}$"
-    r"|^wyszukaj\s+w\s+internecie[:,]?\s+.{3,200}$", re.I)
+    r"|^wyszukaj\s+w\s+internecie[:,]?\s+.{3,200}$"
+    r"|^(?:przyciemnij|zgaś|rozjaśnij)\s+ekran$", re.I)
+# a game she offered and they said "tak" (7 Oct probe: "Nudzi mi się" → "Tak"
+# → "zagrajmy w kamień, papier, nożyce" — not allowed, nothing started). A
+# game talks itself (intro, questions), so these run with her voice.
+_GAME_OK = re.compile(
+    r"^(?:zagrajmy\s+w\s+(?:kamień,?\s+papier,?\s+nożyce|memory|kółko\s+i\s+krzyżyk|"
+    r"20\s+pytań|zegar|zgadywankę|zagadki)|zadaj\s+mi\s+zagadkę|zgadnij,?\s+o\s+czym\s+myślę|"
+    r"zróbmy\s+quiz\s+ze?\s+(?:matematyki|angielskiego|stolic))$", re.I)
 
 
-def run_command(label):
+_GAME_OFFER = re.compile(r"zagra|\bgr[aęy]\b|\bgramy\b|zagadk|quiz|memory|kółk|zgadywank|"
+                         r"pytań|pobaw|zabaw", re.I)
+
+
+def game_was_offered(before=2):
+    """Her reply before the current utterance offered or listed games
+    (at action time _history ends: …, her offer, their answer)."""
+    if len(_history) < before:
+        return False
+    m = _history[-before]
+    return m.get("role") == "assistant" and bool(_GAME_OFFER.search(str(m.get("content", ""))))
+
+
+def _asks_to_choose(reply):
+    """Her reply still lists games to pick from ("Wybierz: kamień, papier,
+    nożyce, zgadywanka albo zagadka") — then no game has been chosen yet."""
+    names = len(re.findall(r"kamień|kółk|zagadk|zgadywank|memory|quiz|pytań|zegar", reply or "", re.I))
+    return names >= 2 and bool(re.search(r"\bwybierz|\bczy\s+wolisz|\balbo\b.*\?|\bco\s+wybierasz",
+                                         reply or "", re.I))
+
+
+def run_command(label, reply=""):
     """The model's "command" action: one of the app's own switches, run
     through the local command handler (which the model can't reach) —
-    whitelisted, silent (the model's reply already confirms it)."""
+    whitelisted, silent (the model's reply already confirms it). A game
+    from _GAME_OK speaks for itself."""
     label = label.strip().rstrip(".!")
-    if not _COMMAND_OK.match(label):
+    game = bool(_GAME_OK.match(label))
+    if not (game or _COMMAND_OK.match(label)):
         print(f"[brain] command not allowed: {label!r}", flush=True)
         return False
     import commands
+    if game and _asks_to_choose(reply):
+        print(f"[brain] game {label!r} while her reply asks to choose — not started", flush=True)
+        return False
+    if game and not game_was_offered():
+        # (7 Oct probe: "Pobawimy się?" → she listed three games AND started
+        # one; a game only follows her offer and their answer)
+        print(f"[brain] game {label!r} without an offer first — not started", flush=True)
+        return False
+    if game:
+        from text_to_speech import speak, play_sound
+        done = commands.handle(label, speak, play_sound)
+        print(f"[brain] game {label!r}: {'started' if done else 'not understood'}", flush=True)
+        return bool(done)
     done = commands.handle(label, lambda *a, **k: None, lambda *a, **k: True)
     print(f"[brain] command {label!r}: {'done' if done else 'not understood'}", flush=True)
     return bool(done)
