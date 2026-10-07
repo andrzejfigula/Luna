@@ -143,6 +143,14 @@ def days_answer(text, today=None):
         return f"To dzisiaj! Wszystkiego najlepszego!{age.replace('Skończy', 'Kończy dziś')}"
     if days == 1:
         return f"Już jutro!{age}"
+    if re.search(r"\bkiedy\b", low) and not re.search(r"\bile\b", low):
+        # "Kiedy Maja ma urodziny?" — the date first (7 Oct probe: it got only
+        # "Do urodzin zostało 217 dni", no date, no name)
+        m, d = (int(x) for x in md.split("-"))
+        mine = re.search(r"\b(moje|moich|mam|mój|moj)\b", low)
+        who = "Masz" if mine else f"{name} ma"
+        left = f"za {days} {'dzień' if days == 1 else 'dni'}"
+        return f"{who} urodziny {d} {_MONTHS_GEN[m - 1]} — {left}.{age}"
     phrase = re.search(r"urodzin\s+(\w+)", text, re.I)    # "Mai", as said
     whose = f"urodzin {phrase.group(1)}" if phrase else "urodzin"
     return calc._say_left(whose, days) + age

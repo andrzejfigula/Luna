@@ -1895,6 +1895,8 @@ class KidsTest(unittest.TestCase):
         import commands
         self.assertEqual(commands._remember("Zapamiętaj, że klucze są w szufladzie"),
                          "klucze są w szufladzie")
+        self.assertEqual(commands._remember("Zapamiętaj: rozmiar buta Mai to 31"),
+                         "rozmiar buta Mai to 31")
         self.assertIsNone(commands._remember("zapamiętaj to"))
         self.assertEqual(commands._spell_word("Jak się pisze żółw?"), "żółw")
         self.assertIsNone(commands._spell_word("jak się pisze po angielsku pies"))
@@ -2039,6 +2041,8 @@ class BirthdayTest(unittest.TestCase):
             self.assertEqual(birthdays.days_answer("Ile dni do urodzin Mai?"),
                              "Do urodzin Mai zostało 220 dni, czyli około 31 tygodni. "
                              "Skończy 9 lat.")
+            self.assertTrue(birthdays.days_answer("Kiedy Maja ma urodziny?").startswith(
+                "Maja ma urodziny 12 maja — za 220 dni."))
             self.assertIn("in 3 days", birthdays.prompt_line(datetime.date(2026, 5, 9)))
             self.assertIn("TODAY is Maja's birthday — turns 8",   # in May 2026
                           birthdays.prompt_line(datetime.date(2026, 5, 12)))

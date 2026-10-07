@@ -219,7 +219,8 @@ def _translator_language(low):
 
 _REMEMBER = re.compile(r"^(?:luna,? |luno,? |hej,? )?(?:proszę,? )?(?:zapamiętaj|zapamietaj|"
                        r"zanotuj|zapisz|pamiętaj|pamietaj|remember)(?: sobie)?(?: proszę)?"
-                       r",? (?:że|ze|to,? że|to ze|that) (.+)$", re.I)
+                       r"(?:,? (?:że|ze|to,? że|to ze|that) |\s*:\s*)(.+)$", re.I)
+# ("Zapamiętaj: rozmiar buta Mai to 31" — 7 Oct probe: the colon went to the model)
 
 
 # getting to know a face: "to jest Kasia", "poznaj Olę", "jestem Andrzej",
