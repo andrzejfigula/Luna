@@ -311,6 +311,10 @@ class TimersTest(unittest.TestCase):
             "[latency] end of speech → her voice 4.00s (text 1.50, model 1.60, sentence 2.50)",
             "[latency] end of speech → her voice 5.00s (text 2.00, model 2.10, sentence 3.00)"])
         self.assertIn("3 answers, median 4.00s", lat[0])
+        self.assertIn("90% within 5.00s", lat[0])
+        two = log_report.latency_summary(["[latency] end of speech → her voice 4.47s (text 1)",
+                                          "[latency] end of speech → her voice 3.96s (text 1)"])
+        self.assertIn("90% within 4.47s", two[0])
         self.assertIn("text 1.50, model 1.60, sentence 2.50", lat[1])
         self.assertEqual(log_report.latency_summary([]), [])
 

@@ -85,7 +85,8 @@ def latency_summary(lines):
     if not totals:
         return []
     med = lambda v: sorted(v)[len(v) // 2]
-    p90 = sorted(totals)[max(0, int(len(totals) * 0.9) - 1)]
+    import math
+    p90 = sorted(totals)[min(len(totals) - 1, math.ceil(len(totals) * 0.9) - 1)]
     rows = [f"  answer speed: {len(totals)} answers, median {med(totals):.2f}s, 90% within {p90:.2f}s"]
     order = ("text", "model", "sentence", "tts", "audio")
     rows.append("    stages (median, from the end of speech): " +
