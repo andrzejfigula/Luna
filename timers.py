@@ -139,6 +139,33 @@ def _stems(text):
     return {w[:5] for w in re.findall(r"\w+", text.lower()) if len(w) >= 4}
 
 
+def skip_tomorrow(now=None):
+    """"Wyłącz budzik na jutro" / "jutro bez budzika": tomorrow's wake-up
+    alarms are skipped — a repeating one moves to its next day after
+    tomorrow, a one-off is removed. (The model's "cancel budzik" deleted a
+    weekday alarm for good — 7 Oct probe.) Returns (skipped, next due or None)."""
+    now = now or time.time()
+    tomorrow = (datetime.fromtimestamp(now) + timedelta(days=1)).date()
+    skipped, nxt = 0, None
+    with _lock:
+        keep = []
+        for t in _timers:
+            if t["kind"] == "alarm" and datetime.fromtimestamp(t["due"]).date() == tomorrow:
+                skipped += 1
+                if t.get("repeat", "none") != "none":
+                    t["due"] = _next_matching(t["due"], t["repeat"])
+                    keep.append(t)
+                    nxt = t["due"] if nxt is None else min(nxt, t["due"])
+                continue
+            keep.append(t)
+        _timers[:] = sorted(keep, key=lambda t: t["due"])
+        if skipped:
+            _save()
+    if skipped:
+        print(f"[timers] tomorrow's alarm skipped ({skipped})", flush=True)
+    return skipped, nxt
+
+
 def _to_cancel(label):
     """Which entries a cancel means. Never more than asked for: a label that
     matches nothing cancels nothing (it used to clear everything — a weekday

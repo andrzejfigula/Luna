@@ -160,6 +160,11 @@ def _game_choice(low):
     return None
 
 
+_SKIP_TOMORROW = re.compile(
+    r"\b(?:wyłącz|wylacz|odwołaj|odwolaj|anuluj|skasuj|usuń|usun)\s+(?:mi\s+)?budzik\w*\s+"
+    r"(?:na\s+|tylko\s+na\s+)?jutr\w*|\bjutro\s+(?:bez\s+budzika|nie\s+budź|nie\s+budz)|"
+    r"\bnie\s+budź\s+mnie\s+jutro|\bnie\s+budz\s+mnie\s+jutro|\bjutro\s+(?:mam\s+)?wolne\b.*budzik",
+    re.I)
 _STOP_BARE = re.compile(r"^(?:luna,?\s+|luno,?\s+)?(?:stop|zatrzymaj(?:\s+to)?|przestań|"
                         r"przestan|wyłącz\s+to|wylacz\s+to|cisza|dość|dosc|wystarczy)$", re.I)
 _SLEEP_SELF = re.compile(
@@ -1273,6 +1278,23 @@ def handle(text, speak, play_sound, _polite=True):
         _tell_story("Opowiedz mi spokojną, krótką bajkę na dobranoc — około 8 "
                     "zdań, łagodnie i sennie — i zakończ życzeniem dobrej nocy.", True)
         return "recorded"            # process() already put it in the history
+
+    # "wyłącz budzik na jutro" / "jutro bez budzika" — skip it once, don't delete
+    if _SKIP_TOMORROW.search(low) and _short(text, 9):
+        import timers
+        n, nxt = timers.skip_tomorrow()
+        if not n:
+            speak("Na jutro nie mam ustawionego budzika.")
+        elif nxt:
+            import clock
+            lt = time.localtime(nxt)
+            day = ("w poniedziałek", "we wtorek", "w środę", "w czwartek", "w piątek",
+                   "w sobotę", "w niedzielę")[lt.tm_wday]
+            speak(f"Dobrze, jutro bez budzika. Następny {day} o "
+                  f"{clock.hour_locative(lt.tm_hour, lt.tm_min)}.")
+        else:
+            speak("Dobrze, jutro bez budzika.")
+        return True
 
     # "jeszcze 5 minut" / "drzemka" right after an alarm or timer rang
     if (any(k in low for k in _SNOOZE) or re.match(

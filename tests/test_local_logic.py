@@ -1483,6 +1483,30 @@ class KidsTest(unittest.TestCase):
             "przetłumacz na niemiecki: gdzie jest dworzec?"))
         self.assertIsNone(commands._translator_language("przetłumacz na angielski dzień dobry"))
 
+    def test_skip_tomorrows_alarm(self):
+        import timers, commands
+        from datetime import datetime
+        now = datetime(2026, 10, 7, 21, 0).timestamp()             # a Wednesday
+        old = list(timers._timers)
+        save = timers._save
+        try:
+            timers._save = lambda: None
+            timers._timers[:] = [
+                {"due": datetime(2026, 10, 8, 6, 30).timestamp(), "label": "", "kind": "alarm",
+                 "repeat": "weekdays"},
+                {"due": datetime(2026, 10, 8, 9, 0).timestamp(), "label": "", "kind": "alarm",
+                 "repeat": "none"}]
+            n, nxt = timers.skip_tomorrow(now)
+            self.assertEqual(n, 2)
+            self.assertEqual(len(timers._timers), 1)                 # the one-off is gone
+            self.assertEqual(datetime.fromtimestamp(nxt), datetime(2026, 10, 9, 6, 30))
+            for t in ("wyłącz budzik na jutro", "jutro bez budzika", "nie budź mnie jutro"):
+                self.assertTrue(commands._SKIP_TOMORROW.search(t), t)
+            self.assertFalse(commands._SKIP_TOMORROW.search("wyłącz budzik"))
+        finally:
+            timers._timers[:] = old
+            timers._save = save
+
     def test_quiz_repeat_hint_and_early_stop(self):
         import quiz
         said = []

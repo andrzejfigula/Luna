@@ -215,6 +215,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Pamięć o dniach | „O czym rozmawialiśmy wczoraj?” — tylko to, co było wczoraj; „przedwczoraj” — powie, że nie pamięta, zamiast zgadywać |
 | Przekazywanie | „Jak zobaczysz Maję, powiedz jej, że…” — teraz zapisuje i przekazuje (wcześniej tylko obiecywała) |
 | Quiz i zagadki | w trakcie gry: „powtórz” — Luna powtarza pytanie; „podpowiedz” — podpowiedź (bez wyniku); „koniec” — wynik tylko z zadanych pytań |
+| Budzik na jutro | „Wyłącz budzik na jutro” / „nie budź mnie jutro” — tylko jutro wolne, budzik w dni robocze zostaje; samo „wyłącz budzik” — Luna dopyta „tylko na jutro czy na stałe?”; „wyłącz budzik”, gdy dzwoni — po prostu cichnie |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 

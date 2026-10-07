@@ -359,6 +359,10 @@ Always answer as JSON with exactly these keys:
                 (label = what it is for, e.g. "piekarnik"; or a kind:
                 "minutnik", "budzik", "przypomnienie"; "wszystko" only when
                 they clearly want everything gone; empty = the kitchen timer).
+                A REPEATING alarm (repeats daily / weekdays…) is cancelled only
+                when they clearly want it gone for good — for a bare "wyłącz
+                budzik" ask "Tylko na jutro czy na stałe?" and set nothing
+                ("na jutro" the app skips by itself).
                 "repeat" is "none" unless they ask for it again and again:
                 "codziennie" → "daily", "w dni robocze / od poniedziałku do
                 piątku" → "weekdays", "w weekendy" → "weekends", "w każdy
