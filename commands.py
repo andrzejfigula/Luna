@@ -1276,9 +1276,14 @@ def handle(text, speak, play_sound, _polite=True):
             return True
 
     # "dodaj 5 minut do minutnika" / "przedłuż minutnik o minutę"
+    import timers
     if any(k in low for k in _EXTEND) and ("minutnik" in low or "timer" in low
-                                          or "przedłuż o" in low):
-        import timers
+                                          or "przedłuż o" in low
+                                          # "dodaj jeszcze 5 minut" while one runs
+                                          # (7 Oct probe: "Dorzucone" — nothing added)
+                                          or (timers.running_timer() and _short(text, 6)
+                                              and re.search(r"\b(?:minut\w*|sekund\w*|"
+                                                            r"godzin\w*|kwadrans)", low))):
         secs, _ = timers.parse_duration(low)
         if secs and timers.extend(secs):
             speak(f"Dodałam {timers.say_duration(secs)}.")

@@ -1483,6 +1483,21 @@ class KidsTest(unittest.TestCase):
             "przetłumacz na niemiecki: gdzie jest dworzec?"))
         self.assertIsNone(commands._translator_language("przetłumacz na angielski dzień dobry"))
 
+    def test_follow_ups(self):
+        import calc, timers, time
+        self.assertEqual(calc.arithmetic("Ile to jest 15 razy 4?"), "15 razy 4 to 60.")
+        self.assertEqual(calc.arithmetic("A razy 5?"), "15 razy 5 to 75.")
+        old = list(timers._timers)
+        try:
+            timers._timers[:] = [{"due": time.time() + 600, "label": "", "kind": "timer",
+                                  "repeat": "none"}]
+            self.assertTrue(timers.left_answer("Ile zostało?").startswith("Zostało"))
+            self.assertTrue(timers.running_timer())
+            timers._timers[:] = []
+            self.assertIsNone(timers.left_answer("Ile zostało?"))   # nothing runs: not that
+        finally:
+            timers._timers[:] = old
+
     def test_reminders_answer(self):
         import timers
         from datetime import datetime

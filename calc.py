@@ -232,13 +232,26 @@ def _evaluate(toks):
     return " ".join(spoken), value
 
 
+_last_sum = {"first": None, "t": 0.0}
+_FOLLOW = re.compile(r"^\W*(?:a|i|to)\s+(?:jak\s+|gdyby\s+)?((?:razy|plus|minus|dodać|odjąć|"
+                     r"podzielić|przez)\b.*)$", re.I)
+
+
 def arithmetic(text):
     """The spoken answer to a bare arithmetic question, or None."""
+    import time as _t
+    f = _FOLLOW.match(text.strip())
+    if f and _last_sum["first"] is not None and _t.time() - _last_sum["t"] < 120:
+        # "A razy 5?" right after "15 razy 4" → 15 razy 5 (7 Oct probe: the model
+        # asked "jaka jest ta liczba A?")
+        text = f"{_fmt(_last_sum['first'])} {f.group(1)}"
     toks = _tokens(text)
     if not toks or not any(isinstance(t, str) for t in toks):
         return None
     try:
         spoken, value = _evaluate(toks)
+        _last_sum.update(first=next((t for t in toks if not isinstance(t, str)), None),
+                         t=_t.time())
     except ZeroDivisionError:
         return "Przez zero nie da się dzielić."
     except (_Bad, OverflowError, ValueError):

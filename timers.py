@@ -538,14 +538,26 @@ def _say_left(secs):
     return " i ".join(parts) or "chwila"
 
 
+def running_timer(now=None):
+    """Is a kitchen timer counting down right now?"""
+    now = now or time.time()
+    with _lock:
+        return any(t["kind"] == "timer" and t["due"] > now for t in _timers)
+
+
 def left_answer(text, now=None):
     """"Ile zostało na minutniku?" → exact, from the running timers; None if
     it isn't that question."""
-    if not _LEFT_Q.search(text):
-        return None
     now = now or time.time()
     with _lock:
         running = [t for t in _timers if t["kind"] == "timer" and t["due"] > now]
+    # bare "Ile zostało?" / "ile jeszcze?" while a timer runs (7 Oct probe: the
+    # model guessed "około dziesięciu minut")
+    bare = bool(running) and bool(re.fullmatch(
+        r"\W*(?:a\s+)?(?:ile\s+(?:jeszcze\s+)?(?:zostało|zostalo|jeszcze)|jak\s+długo\s+jeszcze)"
+        r"(?:\s+czasu)?\W*", text.lower()))
+    if not (_LEFT_Q.search(text) or bare):
+        return None
     if not running:
         return "Nie mam teraz żadnego minutnika."
     running.sort(key=lambda t: t["due"])
