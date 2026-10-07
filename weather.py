@@ -11,6 +11,7 @@ every WEATHER_REFRESH_SECS in the background, and a short summary goes into
 every request: now, today, tomorrow.
 """
 
+from datetime import datetime
 import json
 import threading
 import time
@@ -149,7 +150,9 @@ def _fetch(lat=None, lon=None):
         "current": "temperature_2m,apparent_temperature,weather_code,wind_speed_10m,precipitation",
         "daily": "weather_code,temperature_2m_max,temperature_2m_min,"
                  "precipitation_probability_max,sunrise,sunset",
-        "timezone": "auto", "forecast_days": 2,
+        # a week: "czy będzie padać w weekend?" was answered from today and
+        # tomorrow only — the model invented Saturday and Sunday (7 Oct probe)
+        "timezone": "auto", "forecast_days": 7,
     })
     with urllib.request.urlopen("https://api.open-meteo.com/v1/forecast?" + q,
                                 timeout=10) as r:
@@ -169,8 +172,20 @@ def _describe(d, where=None):
                 + (f", rain chance {rain}%" if rain is not None else ""))
 
     sun = (f"sunrise {day['sunrise'][0][-5:]}, sunset {day['sunset'][0][-5:]}")
+    later = []
+    for i in range(2, len(day.get("time") or [])):
+        try:
+            dt = datetime.strptime(day["time"][i], "%Y-%m-%d")
+            later.append(f"{_WD_PL[dt.weekday()]} {dt.day}.{dt.month:02d}: {day_text(i)}")
+        except (ValueError, IndexError, TypeError):
+            break
+    week = (" Later: " + "; ".join(later) + ". Beyond these days you don't know the "
+            "weather.") if later else ""
     return (f"Weather in {where or _place()[2]} (open-meteo): now {now}. Today: {day_text(0)}; "
-            f"{sun}. Tomorrow: {day_text(1)}.")
+            f"{sun}. Tomorrow: {day_text(1)}.{week}")
+
+
+_WD_PL = ["poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela"]
 
 
 def prompt_line():
