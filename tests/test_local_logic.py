@@ -2224,7 +2224,7 @@ class MoodTest(unittest.TestCase):
         mood.note("Maja", "kind")
         mood.note(None, "rude")
         line = mood.prompt_line()
-        self.assertIn("Andrzej (3 razy)", line)
+        self.assertIn("Andrzej (a few times)", line)
         self.assertIn("Maja (raz)", line)
         self.assertIn("kind to you raz", line)
         self.assertIn("rude to you raz", line)

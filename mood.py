@@ -133,7 +133,10 @@ def note_game(who, kind, score, total, misses):
 
 
 def _times(n):
-    return "raz" if n == 1 else f"{n} razy"
+    # words, not numbers: "rozmawiałam dziś z Andrzejem trzynaście razy" sounded
+    # like a log file (7 Oct probe)
+    return ("once" if n == 1 else "a few times" if n <= 4 else
+            "quite a lot" if n <= 10 else "a lot")
 
 
 def prompt_line():
@@ -168,4 +171,5 @@ def prompt_line():
             + f".{gap}{_past_line()} It is {part}. Let this colour your mood lightly (livelier after "
             "a nice day, glad to have company after being alone, sleepy late); if asked "
             "how you are or how your day was, answer from this — say briefly who you "
-            "talked with and how it felt — and don't invent events.\n")
+            "talked with and how it felt (never a count of conversations) — and don't "
+            "invent events.\n")
