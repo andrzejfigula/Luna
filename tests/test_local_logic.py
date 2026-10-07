@@ -914,10 +914,18 @@ class EchoTest(unittest.TestCase):
         last = ("Na obiad może coś prostego i smacznego, na przykład makaron z sosem "
                 "pomidorowym albo kurczak z warzywami. Chcesz, żebym pomogła z przepisem?")
         self.assertFalse(echo.is_echo("kurczak z warzywami.", last))     # an answer
-        self.assertTrue(echo.is_echo("pomogła z przepisem?", last))       # the tail
-        self.assertTrue(echo.is_echo("z przepisem", last))                # no "?" needed
+        # after a question only a long word-for-word copy of the tail is echo
+        self.assertTrue(echo.is_echo("żebym pomogła z przepisem?", last))
+        self.assertFalse(echo.is_echo("z przepisem", last))
         self.assertFalse(echo.is_echo("Tak, poproszę przepis", last))
         self.assertFalse(echo.is_echo("", last))
+        q = ("Spokojnie, Andrzeju — czuwam sobie i mam oko na wszystko. A ty jak tam, "
+             "po pracy czy już po trybie kanapowym?")
+        self.assertFalse(echo.is_echo("Wy, trybie kanapowym.", q))       # 7 Oct 20:59
+        self.assertFalse(echo.is_echo("po trybie kanapowym", q))
+        # not a question: the tail rule as before
+        s = "Włączam radio. Miłego słuchania, Andrzeju."
+        self.assertTrue(echo.is_echo("miłego słuchania andrzeju", s))
 
 
 class ListsTest(unittest.TestCase):
