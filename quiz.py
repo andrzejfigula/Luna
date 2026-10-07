@@ -448,6 +448,23 @@ def _new_question(q):
              right=f"{a} {_WORD[op]} {b} to {res}.")
 
 
+def would_accept(text):
+    """Would `text` be the right answer to the question on now? (a copy is
+    judged — the game is untouched). speech_to_text: when the cloud hears
+    nothing, Vosk's words still count if they are the right answer — 7 Oct
+    18:58 "to nie inna ryba" (Vosk, loud) was dropped, the riddle's answer
+    was "ryba", and Maja and Andrzej thought she had got stuck."""
+    import copy
+    with _lock:
+        if _q is None or not _q.get("answer"):
+            return False
+        q = copy.deepcopy(_q)
+    try:
+        return _check(q, text) is True
+    except Exception:
+        return False
+
+
 def _check(q, text):
     """True / False, or None when the utterance is no answer at all."""
     if q["kind"] == "clock":

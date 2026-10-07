@@ -868,6 +868,14 @@ def call_pause(now=None):
     return (now or time.time()) < _call_until
 
 
+def _quiz_answer(text):
+    try:
+        import quiz
+        return quiz.would_accept(text)
+    except Exception:
+        return False
+
+
 def _wake_check_worth(words):
     """Might these (passive-mode) words hold a misheard "Luna"?"""
     if not CLOUD_WAKE_CHECK or _cloud is None or call_pause():
@@ -1390,6 +1398,10 @@ def listen():
                     # the cloud returns nothing for short sounds it can't place
                     # ("puk puk"); Vosk was sure of every word — believe it
                     print(f"[STT] cloud heard nothing, Vosk is sure: \"{text}\"", flush=True)
+                    cloud = None
+                if cloud == "" and conf >= 0.5 and _quiz_answer(text):
+                    print(f"[STT] cloud heard nothing, but Vosk's \"{text}\" is the "
+                          f"game's right answer — taking it", flush=True)
                     cloud = None
                 if cloud == "":
                     # The cloud heard no words. Vosk's text is its guess at

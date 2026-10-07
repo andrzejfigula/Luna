@@ -1446,6 +1446,20 @@ class KidsTest(unittest.TestCase):
         self.assertFalse(s.people_talking(1300))           # two minutes later: quiet
         s._side.clear()
 
+    def test_quiz_would_accept(self):
+        import quiz
+        old = quiz._q
+        try:
+            quiz._q = {"kind": "riddle", "answer": ["ryba", "rybka", "rybę"], "hint": "x"}
+            self.assertTrue(quiz.would_accept("to nie inna ryba"))
+            self.assertFalse(quiz.would_accept("wieloryb wieloryb ma"))
+            self.assertFalse(quiz.would_accept("grupa i partia"))
+            self.assertNotIn("last_try", quiz._q)          # the game is untouched
+            quiz._q = None
+            self.assertFalse(quiz.would_accept("ryba"))
+        finally:
+            quiz._q = old
+
     def test_english_call_pauses_wake_checks(self):
         import speech_to_text as s
         s._en_heard.clear()
