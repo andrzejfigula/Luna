@@ -984,6 +984,16 @@ def handle(text, speak, play_sound, _polite=True):
             # "cancel" the gone timer and then say there was none)
             speak("Dobrze.")
             return True
+    import timers
+    if (time.time() - timers._last_rang["t"] < 120 and _short(text, 4)
+            and re.match(r"^(?:luna,?\s+)?(?:wyłącz|wylacz|zatrzymaj|wycisz|zgaś|zgas)"
+                         r"(?:\s+(?:ten|to|już|juz))?(?:\s+(?:budzik|alarm|minutnik|dzwonek|"
+                         r"dzwonienie|to))?\W*$", low)):
+        # "Wyłącz budzik" right after it rang means "stop ringing" — the model
+        # would cancel the alarm itself, a weekday one included (7 Oct probe)
+        rang = timers._last_rang.get("entry") or {}
+        speak("Dobrze. Dzień dobry!" if rang.get("kind") == "alarm" else "Dobrze.")
+        return True
 
     # goodbye — wave, and stop listening right away (otherwise the window
     # stays open and she may answer the next thing said in the room)
@@ -1265,7 +1275,9 @@ def handle(text, speak, play_sound, _polite=True):
         return "recorded"            # process() already put it in the history
 
     # "jeszcze 5 minut" / "drzemka" right after an alarm or timer rang
-    if any(k in low for k in _SNOOZE) and _short(text, 7):
+    if (any(k in low for k in _SNOOZE) or re.match(
+            r"^(?:no\s+)?(?:daj\s+(?:mi\s+)?)?jeszcze\s+(?:\w+\s+)?(?:minut\w*|chwil\w*|"
+            r"sekund\w*|kwadrans)\b", low)) and _short(text, 7):
         import timers
         secs, _ = timers.parse_duration(low)
         secs = secs or SNOOZE_MINUTES * 60
