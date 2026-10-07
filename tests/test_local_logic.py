@@ -1528,7 +1528,7 @@ class KidsTest(unittest.TestCase):
             import speech_to_text as s
         calls = []
         with mock.patch.object(s, "_cloud_transcribe_now",
-                               lambda pcm: calls.append(len(pcm)) or f"text{len(pcm)}"):
+                               lambda pcm, lang=None: calls.append(len(pcm)) or f"text{len(pcm)}"):
             s._speculate(b"\x01" * 100)                      # sent ahead after 0.3 s
             self.assertEqual(s._cloud_transcribe(b"\x01" * 100 + b"\x00" * 40), "text100")
             self.assertEqual(calls, [100])                   # no second request
@@ -1538,7 +1538,7 @@ class KidsTest(unittest.TestCase):
             s._speculate(b"\x02" * 50)                       # another utterance's audio
             self.assertEqual(s._cloud_transcribe(b"\x01" * 80), "text80")
         with mock.patch.object(s, "_cloud_transcribe_now",
-                               lambda pcm: "Luna, jakie stacje radiowe masz?"):
+                               lambda pcm, lang=None: "Luna, jakie stacje radiowe masz?"):
             s._speculate(b"\x03" * 60)                       # Vosk's final words lost "Luna"
             self.assertEqual(s._cloud_wake_check(b"\x03" * 90, ["no", "jakie", "stacje"]),
                              (True, "Jakie stacje radiowe masz?"))
@@ -1582,6 +1582,16 @@ class KidsTest(unittest.TestCase):
         finally:
             with state.lock:
                 state.last_face_time, state.proactive_muted_until = old
+
+    def test_short_utterances_are_polish(self):
+        from unittest import mock
+        with mock.patch.dict(sys.modules, {"sounddevice": mock.MagicMock(),
+                                           "vosk": mock.MagicMock()}):
+            import speech_to_text as s
+        self.assertEqual(s.short_lang(["makaron"]), "pl")
+        self.assertEqual(s.short_lang(["no", "tak"]), "pl")
+        self.assertIsNone(s.short_lang("upload it and then download".split()))
+        self.assertIsNone(s.short_lang([]))
 
     def test_fast_short_answers(self):
         from unittest import mock

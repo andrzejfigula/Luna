@@ -481,7 +481,14 @@ _spec_lock = threading.Lock()
 _spec = None          # {"pcm": bytes, "done": Event, "result": ...} or None
 
 
-def _speculate(pcm16k):
+def short_lang(words):
+    """"pl" for one or two words: there the cloud's language guess tips over
+    ("Nie." → "Me.", "makaron" → "Макарон.", 7 Oct); longer speech keeps the
+    automatic guess, which English side talk relies on."""
+    return "pl" if 0 < len(words) <= 2 and not CLOUD_STT_LANGUAGE else None
+
+
+def _speculate(pcm16k, lang=None):
     global _spec
     job = {"pcm": pcm16k, "done": threading.Event(), "result": None}
     with _spec_lock:
@@ -489,7 +496,7 @@ def _speculate(pcm16k):
 
     def run():
         try:
-            job["result"] = _cloud_transcribe_now(pcm16k)
+            job["result"] = _cloud_transcribe_now(pcm16k, lang)
         finally:
             job["done"].set()
     threading.Thread(target=run, daemon=True, name="stt-spec").start()
@@ -514,7 +521,7 @@ def _spec_take(pcm16k):
     return job
 
 
-def _cloud_transcribe(pcm16k):
+def _cloud_transcribe(pcm16k, lang=None):
     """Transcribe an utterance — from the speculative request when one was
     started on this audio (see SPEC_AFTER), else now."""
     job = _spec_take(pcm16k) if pcm16k else None
@@ -522,7 +529,7 @@ def _cloud_transcribe(pcm16k):
         print(f"[STT] speculative transcript used ({len(pcm16k) - len(job['pcm'])} "
               "bytes of silence later)", flush=True)
         return job["result"]
-    return _cloud_transcribe_now(pcm16k)
+    return _cloud_transcribe_now(pcm16k, lang)
 
 
 STT_HEDGE_AFTER = 1.8    # no transcript yet: the same request again
@@ -572,7 +579,7 @@ def _stt_request(pcm16k, kwargs):
             raise last_err
 
 
-def _cloud_transcribe_now(pcm16k):
+def _cloud_transcribe_now(pcm16k, lang=None):
     """Transcribe an utterance (16 kHz int16 mono bytes).
 
     Returns the text, "" when the cloud heard no speech, or None when the
@@ -585,8 +592,8 @@ def _cloud_transcribe_now(pcm16k):
         t0 = time.time()
         kwargs = dict(model=CLOUD_STT_MODEL, file=_wav_bytes(pcm16k),
                       response_format="text")
-        if CLOUD_STT_LANGUAGE:
-            kwargs["language"] = CLOUD_STT_LANGUAGE
+        if CLOUD_STT_LANGUAGE or lang:
+            kwargs["language"] = CLOUD_STT_LANGUAGE or lang
         if CLOUD_STT_PROMPT:
             kwargs["prompt"] = stt_prompt()
         r = _stt_request(pcm16k, kwargs)
@@ -1119,7 +1126,7 @@ def listen():
                 # the 2 s wake budget on 6 Oct 19:00, and "Luna, śpisz?" waited)
                 # (the last: the end-of-utterance wake check would ask the
                 # cloud anyway — 6 Oct 18:49 "runda jeśli" was "Luna, nie śpij!")
-                _speculate(b"".join(utt_audio))
+                _speculate(b"".join(utt_audio), short_lang(words) if active else None)
         if final and recording and silent_run < end_after:
             # Vosk thinks you're done (~1 s pause) but a message may go on:
             # keep its text, keep the audio, keep listening
@@ -1324,7 +1331,8 @@ def listen():
                     with state.lock:
                         state.last_activity_time = time.time()
                     return fast
-                cloud = fix_lone_nie(_cloud_transcribe(utt_pcm), text, conf)
+                cloud = fix_lone_nie(_cloud_transcribe(utt_pcm, short_lang(text.split())),
+                                     text, conf)
                 if cloud == "" and conf >= 0.98 and len(text.split()) >= 2:
                     # the cloud returns nothing for short sounds it can't place
                     # ("puk puk"); Vosk was sure of every word — believe it
