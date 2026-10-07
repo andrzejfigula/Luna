@@ -95,6 +95,9 @@ def _behavior_step(speak, confirm_wave):
         global _last_wave_said
         with state.lock:
             muted = time.time() < state.proactive_muted_until    # "cicho", a call
+            # just talked with her: a hand moving is gesturing, not hello
+            # (7 Oct 21:15 — "Cześć!" right after Andrzej's "To super")
+            muted = muted or time.time() - state.last_activity_time < 180
         try:
             import speech_to_text
             muted = muted or speech_to_text.people_talking()   # they are talking
