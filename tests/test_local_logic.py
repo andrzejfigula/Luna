@@ -1465,6 +1465,17 @@ class KidsTest(unittest.TestCase):
         finally:
             state.person, state.others, faces.notes = old
 
+    def test_sleep_self_and_weather_ask(self):
+        import commands
+        for t in ("wyłącz się", "luna, idź spać", "dobra, idź już spać", "uśpij się proszę"):
+            self.assertTrue(commands._SLEEP_SELF.match(t), t)
+        for t in ("wyłącz radio", "wyłącz się za godzinę i zagraj", "idź spać do łóżka maju"):
+            self.assertFalse(commands._SLEEP_SELF.match(t), t)
+        for t in ("Czy będzie padać jutro?", "Czy jutro będzie deszcz?", "czy dziś pada?",
+                  "Wziąć parasolkę?"):
+            self.assertTrue(commands._WEATHER_ASK.search(t.lower()), t)
+        self.assertFalse(commands._WEATHER_ASK.search("czy będziesz grać?"))
+
     def test_twenty_reverse(self):
         import twenty
         for t in ("Zgadnij, o czym myślę", "Zgadnij, o jakim zwierzęciu myślę",

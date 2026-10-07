@@ -106,6 +106,11 @@ _NIGHT   = ("dobranoc", "idę spać", "ide spac", "idę już spać", "idę już 
             "idziemy spać", "idziemy spac", "pora spać", "pora spac", "czas spać",
             "czas spac", "lecę spać", "lece spac", "kładę się spać", "kładziemy się spać",
             "good night", "goodnight")
+_SLEEP_SELF = re.compile(
+    r"^(?:luna,?\s+|luno,?\s+)?(?:(?:to|no|dobra|już|juz|proszę|prosze),?\s+)*"
+    r"(?:wyłącz\s+się|wylacz\s+sie|id[źz]\s+(?:już\s+|juz\s+)?spa[ćc]|uśpij\s+się|uspij\s+sie|"
+    r"zaśnij|zasnij|śpij|spij|idź\s+lulu|idz\s+lulu)"
+    r"(?:\s+(?:już|juz|proszę|prosze|teraz|luna|luno))*$", re.I)
 # "dobranoc" must be the whole point of the utterance — "powiedz dobranoc mojej
 # córce" or "co było na dobranockę?" are not her bedtime
 _NIGHT_OK = {"dobranoc", "luna", "luno", "idę", "ide", "spać", "spac", "już", "juz",
@@ -242,8 +247,12 @@ _name_wanted = [0.0]        # until when a bare name ("Ola.") answers "jak masz 
 
 _place_wanted = [0.0]          # she asked "w jakim mieście mieszkamy?" until then
 _place_question = [""]         # ...after this weather question, answered once the place is set
-_WEATHER_ASK = re.compile(r"\b(?:pogod\w*|temperatur\w*|ile\s+stopni|czy\s+(?:będzie\s+)?pada|"
-                          r"jak\s+jest\s+na\s+(?:dworze|zewnątrz|polu)|parasol)\b", re.I)
+# ("pada\w*": "czy będzie padać?" — ć is a letter, so "pada\b" never matched it)
+_WEATHER_ASK = re.compile(r"\b(?:pogod\w*|temperatur\w*|ile\s+stopni|"
+                          r"czy\s+(?:(?:jutro|dziś|dzisiaj|wieczorem)\s+)?(?:będzie\s+)?"
+                          r"(?:(?:jutro|dziś|dzisiaj|wieczorem)\s+)?(?:pada\w*|deszcz\w*|"
+                          r"śnieg\w*|burz\w*|mróz|mroz\w*)|"
+                          r"jak\s+jest\s+na\s+(?:dworze|zewnątrz|polu)|parasol\w*)\b", re.I)
 
 
 def weather_setup(text, speak):
@@ -792,6 +801,14 @@ def handle(text, speak, play_sound, _polite=True):
     if said_as and _polite:
         return handle(said_as, speak, play_sound, _polite=False)
     question = is_question(text)
+
+    # "Wyłącz się" / "idź spać" — she herself goes to sleep, any time of day
+    # (7 Oct probe: the model answered "ucichnę i przygaszę ekran" and only
+    # sent "wyłącz radio" — nothing went quiet)
+    if _SLEEP_SELF.match(low.strip(" .!?")):
+        speak("Dobrze, idę spać. Obudź mnie, kiedy będę potrzebna.")
+        go_to_sleep()
+        return True
 
     # good night — said to her while awake
     if (any(k in low for k in _NIGHT) and not question

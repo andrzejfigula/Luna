@@ -204,6 +204,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Gwiazdka dla Mai | gdy Maja gra razem z dorosłym, gwiazdkę za grę dostaje Maja (wcześniej dostawał ją ten, kogo Luna rozpoznała pierwszego) |
 | Luna zgaduje zwierzę | „Luna, zgadnij, o czym myślę” — pomyśl o zwierzęciu, powiedz „gotowe” i odpowiadaj tak / nie / nie wiem; Luna zgaduje w 20 pytaniach. (Odwrotnie: „pomyśl sobie zwierzę” — wtedy Ty zgadujesz) |
 | Muzyka dla dzieci, czytanie | „Puść muzykę dla dzieci” włącza RMF Dla Dzieci; „Poczytaj ze mną” / „Chcę poczytać” — Luna słucha czytania |
+| „Wyłącz się” | „Luna, wyłącz się” / „idź spać” — Luna naprawdę zasypia (ekran przygasa), o każdej porze |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 
