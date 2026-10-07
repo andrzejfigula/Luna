@@ -14,6 +14,14 @@ set -euo pipefail
 PI="${LUNA_PI:-raspberry@raspberrypi.local}"
 cd "$(dirname "$0")/.."
 
+# a patch written through a shell heredoc turns "\b" into a backspace byte —
+# a regex then silently never matches (7 Oct: three times in one evening)
+bad=$(git ls-files -- '*.py' | xargs grep -lP '[\x00-\x08\x0b\x0c\x0e-\x1f]' 2>/dev/null || true)
+if [ -n "$bad" ]; then
+    echo "[deploy] REFUSED — control characters (a mangled \\b?) in:"; sed 's/^/  /' <<<"$bad"
+    exit 1
+fi
+
 new=$(git ls-files --others --exclude-standard -- '*.py' '*.sh' '*.txt')
 if [ -n "$new" ]; then
     echo "[deploy] not in git yet, so NOT copied (git add them first):"; sed 's/^/  /' <<<"$new"
