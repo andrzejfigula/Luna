@@ -254,8 +254,18 @@ def _pw_record(node):
     rate = VOSK_SAMPLE_RATE
     cmd = ["pw-record", "--raw", "--target", node, "--rate", str(rate), "--channels", "1",
            "--format", "s16", "--latency", "50ms", "-"]
+    def die_with_luna():
+        # if Luna exits, the recorder must too: on 7 Oct a leftover pw-record
+        # (its node gone) fell back to the webcam mic, PipeWire held it, and
+        # the next Luna found no microphone at all
+        try:
+            import ctypes
+            ctypes.CDLL("libc.so.6").prctl(1, 9)        # PR_SET_PDEATHSIG, SIGKILL
+        except Exception:
+            pass
     try:
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                preexec_fn=die_with_luna)
     except Exception as e:
         print(f"[STT] pw-record failed to start ({e}) — retrying in 5s", flush=True)
         time.sleep(5.0)

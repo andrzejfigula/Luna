@@ -21,4 +21,8 @@ for pid in $(pgrep -x lwrespawn) $(pgrep -x sh) $(pgrep -x python); do
     kill "$pid" 2>/dev/null && killed=$((killed + 1))
 done
 
+# her microphone recorder (LUNA_MIC=pw:…) must not outlive her: a leftover one
+# held the webcam mic and the next Luna found no microphone (7 Oct)
+pkill -x pw-record 2>/dev/null && echo "(and her pw-record)"
+
 echo "Luna stopped ($killed process(es))"
