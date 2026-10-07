@@ -876,6 +876,13 @@ def _quiz_answer(text):
         return False
 
 
+def _stamp_wake():
+    """The next sentence was said with her name: it is for her (brain.py —
+    the name is cut off before the model sees it)."""
+    with state.lock:
+        state.last_wake_time = time.time()
+
+
 def _wake_check_worth(words):
     """Might these (passive-mode) words hold a misheard "Luna"?"""
     if not CLOUD_WAKE_CHECK or _cloud is None or call_pause():
@@ -1286,7 +1293,7 @@ def listen():
                     if not active and peak_rms >= 2.0 * _energy_gate():
                         found, cleaned = _cloud_wake_check(utt_pcm, words)
                         if found:
-                            print("[STT] Wake word (cloud) — conversation active")
+                            print("[STT] Wake word (cloud) — conversation active"); _stamp_wake()
                             with state.lock:
                                 state.conversation_active = True
                                 state.last_activity_time  = time.time()
@@ -1335,7 +1342,7 @@ def listen():
                             state.luna_mode = "listening" if active else "idle"
                             state.listening = active
                         continue
-                print("[STT] Wake word — conversation active")
+                print("[STT] Wake word — conversation active"); _stamp_wake()
                 with state.lock:
                     state.conversation_active = True
                     state.last_activity_time  = time.time()
@@ -1445,7 +1452,7 @@ def listen():
             # model mishears "Luna" often, so let the cloud have a look.
             found, cleaned = _cloud_wake_check(utt_pcm, words)
             if found:
-                print("[STT] Wake word (cloud) — conversation active")
+                print("[STT] Wake word (cloud) — conversation active"); _stamp_wake()
                 with state.lock:
                     state.conversation_active = True
                     state.last_activity_time  = time.time()

@@ -185,6 +185,14 @@ def _language_line(text):
     return "THIS MESSAGE IS IN ENGLISH — write \"reply\" in English.\n"
 
 
+def _just_called(secs=12):
+    """Was her name said a moment ago? Then this sentence came with it (the
+    wake word is cut off before the model sees the text — 7 Oct probe:
+    "Jestem zdenerwowany" got silence as "not for me")."""
+    with state.lock:
+        return time.time() - getattr(state, "last_wake_time", 0.0) < secs
+
+
 def _cooking_line():
     out = ""
     for mod in ("cooking", "memo", "tictac"):
@@ -403,7 +411,9 @@ Always answer as JSON with exactly these keys:
                 "zagrajmy w 20 pytań" (you think of an animal), "zgadnij, o
                 czym myślę" (they think, you guess), "zróbmy quiz z
                 matematyki / angielskiego / stolic", "zagrajmy w zegar",
-                "zagrajmy w zgadywankę" (you think of a number 1–100). A game
+                "zagrajmy w zgadywankę" (you think of a number 1–100); and
+                "zróbmy ćwiczenie oddechowe" (a calm guided breathing circle —
+                when they say yes to breathing together). A game
                 only once ONE game was chosen — named by them, or a "tak" to
                 the single game you proposed; while you list options, no
                 command. Never play a game inside your reply (no riddle or
@@ -891,6 +901,8 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   + (_calendar_line(text) or _always_dates())
                   + memory.day_line(text)
                   + _language_line(text)
+                  + ("They have just said your name — this message is for you "
+                     "(to_luna true).\n" if _just_called() else "")
                   + _variety_rule()
                   + _translator_rule()
                   + _length_rule()
@@ -976,9 +988,19 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             relationship.note(tone, text)
             luna_mood.note(relationship.who() if relationship.who() != relationship.SOMEONE
                       else None, tone)
+        if data.get("to_luna") is False and _just_called():
+            if not reply.strip():
+                reply = "Jestem tutaj. Opowiedz mi, co się dzieje."
+                if on_sentence:
+                    on_sentence(reply)
+            print("[brain] her name was just said — answering", flush=True)
+            data["to_luna"] = True
         if (data.get("to_luna") is False and len(text.split()) <= 5 and re.match(
                 r"^(?:włącz|wlacz|puść|pusc|zrób|zrob|pokaż|pokaz|zagraj|wyłącz|wylacz|"
-                r"zamów|zamow|zadzwoń|zadzwon)\b", text.strip().lower())):
+                r"zamów|zamow|zadzwoń|zadzwon|tak|nie|dobrze|okej|ok|jasne|chętnie|"
+                r"chetnie|poproszę|poprosze|no\s+(?:to|dobra|tak))\b", text.strip().lower())):
+            # ("Tak" right after her "Chodź, oddychajmy razem…" — answered
+            # with silence, 7 Oct probe: a yes/no is said to her)
             # a short command is said to her even when she can't do it (7 Oct
             # probe: "Włącz ptaszki" → silence, as if she hadn't heard)
             if not reply.strip():
@@ -1092,6 +1114,9 @@ _GAME_OK = re.compile(
     r"^(?:zagrajmy\s+w\s+(?:kamień,?\s+papier,?\s+nożyce|memory|kółko\s+i\s+krzyżyk|"
     r"20\s+pytań|zegar|zgadywankę|zagadki)|zadaj\s+mi\s+zagadkę|zgadnij,?\s+o\s+czym\s+myślę|"
     r"zróbmy\s+quiz\s+ze?\s+(?:matematyki|angielskiego|stolic))$", re.I)
+# self-voiced like a game, but not a game (no game offer needed): the breathing
+# circle she invited them to ("Chodź, oddychajmy razem" → "Tak" — 7 Oct probe)
+_VOICED_OK = re.compile(r"^zróbmy\s+ćwiczenie\s+oddechowe$", re.I)
 
 
 _GAME_OFFER = re.compile(r"zagra|\bgr[aęy]\b|\bgramy\b|zagadk|quiz|memory|kółk|zgadywank|"
@@ -1126,10 +1151,15 @@ def run_command(label, reply=""):
     from _GAME_OK speaks for itself."""
     label = label.strip().rstrip(".!")
     game = bool(_GAME_OK.match(label))
-    if not (game or _COMMAND_OK.match(label)):
+    if not (game or _COMMAND_OK.match(label) or _VOICED_OK.match(label)):
         print(f"[brain] command not allowed: {label!r}", flush=True)
         return False
     import commands
+    if _VOICED_OK.match(label):
+        from text_to_speech import speak, play_sound
+        done = commands.handle(label, speak, play_sound)
+        print(f"[brain] {label!r}: {'started' if done else 'not understood'}", flush=True)
+        return bool(done)
     if game and _asks_to_choose(reply):
         print(f"[brain] game {label!r} while her reply asks to choose — not started", flush=True)
         return False

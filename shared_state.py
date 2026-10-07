@@ -36,6 +36,7 @@ class SharedState:
         "conversation_active",
         "convo_expired_time",    # time.time() when conversation last timed out
         "last_activity_time",
+        "last_wake_time",        # her name was just said (speech_to_text)
         "mic_unblock_time",      # time.time() after which mic is allowed
         "luna_mode",             # "idle" | "listening" | "processing" | "speaking"
         "face_override",         # temporary face state ("excited" | "love" | None)
@@ -121,6 +122,7 @@ class SharedState:
         self.conversation_active = False
         self.convo_expired_time  = 0.0
         self.last_activity_time  = 0.0
+        self.last_wake_time      = 0.0
         self.mic_unblock_time    = 0.0
         self.luna_mode           = "idle"
         self.face_override       = None
