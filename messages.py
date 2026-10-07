@@ -18,6 +18,7 @@ Stored on the Pi only: DATA_DIR/messages/*.wav (16 kHz mono) and index.json
 with the time, the transcript and whether it was heard.
 """
 
+import re
 import json
 import os
 import threading
@@ -74,6 +75,20 @@ def armed():
     if _waiting[0] and time.time() - _waiting[1] > 20:
         _waiting[0] = False
     return _waiting[0]
+
+
+_CANCEL = re.compile(r"^(?:luna,?\s+)?(?:anuluj|nieważne|niewazne|rezygnuję|rezygnuje|"
+                     r"nie\s+nagrywaj|jednak\s+nie|nie,?\s+jednak\s+nie|zapomnij\s+o\s+tym|"
+                     r"stop)(?:\s+\w+)?$", re.I)
+
+
+def cancelled(text):
+    """"Anuluj" right after "nagraj wiadomość" — not a message (7 Oct probe:
+    it would have been saved for Emilka as the message). Disarms."""
+    if _waiting[0] and _CANCEL.match((text or "").strip(" .!?").lower()):
+        _waiting[0] = False
+        return True
+    return False
 
 
 def store(pcm16k, transcript):

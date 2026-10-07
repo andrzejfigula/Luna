@@ -126,6 +126,9 @@ def voice_loop():
                     with state.lock:                     # subtitles: what she heard
                         state.caption = ("you", text, time.time() + 6.0)
                     _stamp_activity()
+                    if messages.armed() and messages.cancelled(text):
+                        speak("Dobrze, nie nagrywam.")
+                        continue
                     if messages.armed():
                         # "nagraj wiadomość" — this sentence IS the message
                         import speech_to_text
