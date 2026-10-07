@@ -460,7 +460,14 @@ def handle(text, speak):
     if answer_question(text, speak):
         return True
     words = re.findall(r"\w+", low)
-    if any(k in low for k in _NEXT) and len(words) <= 5:
+    m = re.search(r"\b(?:zmień|zmien|przełącz|przelacz)\s+(?:stację\s+|stacje\s+|radio\s+)?na\s+(.+)$",
+                  low)
+    if m:
+        # "zmień stację na RMF" — that station, not the next one (7 Oct probe:
+        # it answered "Teraz Jedynka")
+        low = f"włącz {m.group(1)}"
+        words = low.split()
+    elif any(k in low for k in _NEXT) and len(words) <= 5:
         names = list(STATIONS.values())
         now = playing()
         i = next((k for k, st in enumerate(names) if st[0] == now), -1)
