@@ -74,7 +74,8 @@ def search(query):
             instructions=("Odpowiadaj po polsku, krótko (2–4 zdania), same konkretne fakty "
                           "z wyszukiwania, bez linków i bez markdownu. Jeśli nic pewnego "
                           "nie ma, napisz to wprost."),
-            input=query)
+            input=query,
+            **({"reasoning": {"effort": "none"}} if SEARCH_MODEL.startswith("gpt-5") else {}))
         found = clean(r.output_text)
         print(f"[search] {query!r} → {found[:120]!r}", flush=True)
         return found or None

@@ -178,7 +178,8 @@ CRAFT_MODEL    = "gpt-4.1"          # poems, rhymes, songs: the mini model's Pol
                                     # rhymes were weak (6 Oct, Maja's "wierszyk");
                                     # rare requests, so the cost and +~0.5 s are fine
 OPENAI_TIMEOUT = 15.0               # seconds — a stall must never freeze Luna
-SEARCH_MODEL   = "gpt-4.1-mini"    # web search (websearch.py, OpenAI's web_search tool)
+SEARCH_MODEL   = "gpt-5.4-mini"    # web search (websearch.py): 4.4 s vs 5.4 s for gpt-4.1-mini
+                                   # on 3 real questions (7 Oct), reasoning off
 SEARCH_TIMEOUT = 20.0
 CHAT_HEDGE_AFTER = 2.0             # the reply stream hasn't started by then (the first
                                    # token normally comes in 0.65–0.9 s): a second request
