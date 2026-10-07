@@ -106,6 +106,14 @@ _NIGHT   = ("dobranoc", "idę spać", "ide spac", "idę już spać", "idę już 
             "idziemy spać", "idziemy spac", "pora spać", "pora spac", "czas spać",
             "czas spac", "lecę spać", "lece spac", "kładę się spać", "kładziemy się spać",
             "good night", "goodnight")
+_SCREEN = re.compile(
+    r"^(?:luna,?\s+|luno,?\s+)?(?:(?:możesz|mozesz|proszę|prosze)\s+)?"
+    r"(przyciemnij|ściemnij|sciemnij|zgaś|zgas|wyłącz|wylacz|rozjaśnij|rozjasnij|"
+    r"włącz|wlacz|zapal|ciemniej|jaśniej|jasniej)\s+(?:(?:mi|ten|swój|swoj|trochę|troche)\s+)?"
+    r"(?:ekran|wyświetlacz|wyswietlacz|ekranik)(?:\s+(?:proszę|prosze|trochę|troche))?$",
+    re.I)
+_STOP_BARE = re.compile(r"^(?:luna,?\s+|luno,?\s+)?(?:stop|zatrzymaj(?:\s+to)?|przestań|"
+                        r"przestan|wyłącz\s+to|wylacz\s+to|cisza|dość|dosc|wystarczy)$", re.I)
 _SLEEP_SELF = re.compile(
     r"^(?:luna,?\s+|luno,?\s+)?(?:(?:to|no|dobra|już|juz|proszę|prosze),?\s+)*"
     r"(?:wyłącz\s+się|wylacz\s+sie|id[źz]\s+(?:już\s+|juz\s+)?spa[ćc]|uśpij\s+się|uspij\s+sie|"
@@ -849,6 +857,33 @@ def handle(text, speak, play_sound, _polite=True):
     import twenty                                  # "czy ma futro?"
     if twenty.active() and twenty.answer(text, speak):
         return True
+
+    # "zgaś ekran" / "przyciemnij ekran" / "rozjaśnij ekran" (display.py)
+    m = _SCREEN.match(low.strip(" .!?"))
+    if m:
+        import display
+        verb = m.group(1)
+        if re.match(r"przyciemnij|ściemnij|sciemnij|ciemniej", verb):
+            display.set_user_override("dim")
+            speak("Dobrze, przyciemniam.")
+        elif re.match(r"zgaś|zgas|wyłącz|wylacz", verb):
+            display.set_user_override("off")
+            speak("Dobrze, gaszę ekran na dwie godziny. Powiedz: rozjaśnij ekran, "
+                  "żeby wrócił.")
+        else:
+            display.set_user_override("bright")
+            speak("Dobrze, rozjaśniam.")
+        return True
+
+    # "Zatrzymaj!" / "stop" while the radio or a sleep sound plays: silence
+    # (7 Oct probe: the model turned "Zatrzymaj" into "cancel the kitchen timer")
+    if _STOP_BARE.match(low.strip(" .!?")):
+        import ambience
+        import radio
+        if radio.playing() or ambience.playing():
+            radio.stop()
+            ambience.stop()
+            return True
 
     # goodbye — wave, and stop listening right away (otherwise the window
     # stays open and she may answer the next thing said in the room)

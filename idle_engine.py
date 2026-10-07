@@ -43,8 +43,15 @@ def check_mute(text):
     True when the utterance was a mute/unmute command (so it needn't reach
     the brain)."""
     low = text.lower().strip(" .!?")
+    # "bądź cicho przez godzinę", "nie przeszkadzaj do rana" (7 Oct probe: the
+    # words after "cicho" sent it to the model, which answered "dobrze, będę
+    # cicho" and changed her speech speed instead)
+    import timers
+    secs, used = timers.parse_duration(low)
+    until_morning = bool(re.search(r"\bdo\s+(?:rana|jutra)\b", low))
+    extra = set(used or ()) | {"przez", "na", "do", "rana", "jutra"}
 
-    def bare(phrases):
+    def bare(phrases, allow=()):
         # the phrase and only fillers around it: "Luna, cicho!" — not "za cicho",
         # "jest cicho w domu" or "możesz mówić wolniej?" (that one was swallowed)
         hit = max((p for p in phrases if p in low), key=len, default=None)
@@ -52,12 +59,19 @@ def check_mute(text):
             return False
         rest = re.findall(r"\w+", low.replace(hit, " ", 1))
         return all(w in ("luna", "luno", "już", "juz", "teraz", "proszę", "prosze", "no",
-                         "dobra", "ok", "okej", "hej", "a", "to") for w in rest)
+                         "dobra", "ok", "okej", "hej", "a", "to") or w in allow for w in rest)
 
-    if bare(MUTE_PHRASES):
+    if bare(MUTE_PHRASES, extra):
+        how_long = MUTE_SECS
+        if until_morning:
+            t = time.localtime()
+            hours = (PROACTIVE_QUIET_TO - t.tm_hour) % 24 or 24
+            how_long = hours * 3600 - t.tm_min * 60
+        elif secs:
+            how_long = secs
         with state.lock:
-            state.proactive_muted_until = time.time() + MUTE_SECS
-        print(f"[idle] proactive speech muted for {MUTE_SECS / 60:.0f} min")
+            state.proactive_muted_until = time.time() + how_long
+        print(f"[idle] proactive speech muted for {how_long / 60:.0f} min")
         return True
     if bare(UNMUTE_PHRASES):
         with state.lock:

@@ -1465,6 +1465,34 @@ class KidsTest(unittest.TestCase):
         finally:
             state.person, state.others, faces.notes = old
 
+    def test_screen_stop_and_mute_phrases(self):
+        import commands, display, idle_engine
+        from shared_state import state
+        for t, verb in (("zgaś ekran", "zgaś"), ("luna, przyciemnij trochę ekran", "przyciemnij"),
+                        ("rozjaśnij ekran proszę", "rozjaśnij"), ("wyłącz ekran", "wyłącz")):
+            m = commands._SCREEN.match(t)
+            self.assertTrue(m and m.group(1) == verb, t)
+        self.assertFalse(commands._SCREEN.match("pokaż na ekranie kota"))
+        for t in ("zatrzymaj", "stop", "luna, przestań", "wyłącz to"):
+            self.assertTrue(commands._STOP_BARE.match(t), t)
+        self.assertFalse(commands._STOP_BARE.match("zatrzymaj minutnik"))
+        display.set_user_override("off")
+        self.assertEqual(display._user_override(), "off")
+        display.set_user_override(None)
+        self.assertIsNone(display._user_override())
+        old = state.proactive_muted_until
+        try:
+            import time
+            self.assertTrue(idle_engine.check_mute("Bądź cicho przez godzinę"))
+            self.assertAlmostEqual(state.proactive_muted_until - time.time(), 3600, delta=5)
+            self.assertTrue(idle_engine.check_mute("Luna, cicho na pół godziny"))
+            self.assertAlmostEqual(state.proactive_muted_until - time.time(), 1800, delta=5)
+            self.assertTrue(idle_engine.check_mute("Nie przeszkadzaj"))
+            self.assertFalse(idle_engine.check_mute("jest cicho w domu"))
+            self.assertFalse(idle_engine.check_mute("za cicho mówisz"))
+        finally:
+            state.proactive_muted_until = old
+
     def test_sleep_self_and_weather_ask(self):
         import commands
         for t in ("wyłącz się", "luna, idź spać", "dobra, idź już spać", "uśpij się proszę"):

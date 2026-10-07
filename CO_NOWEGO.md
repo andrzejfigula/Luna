@@ -205,6 +205,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Luna zgaduje zwierzę | „Luna, zgadnij, o czym myślę” — pomyśl o zwierzęciu, powiedz „gotowe” i odpowiadaj tak / nie / nie wiem; Luna zgaduje w 20 pytaniach. (Odwrotnie: „pomyśl sobie zwierzę” — wtedy Ty zgadujesz) |
 | Muzyka dla dzieci, czytanie | „Puść muzykę dla dzieci” włącza RMF Dla Dzieci; „Poczytaj ze mną” / „Chcę poczytać” — Luna słucha czytania |
 | „Wyłącz się” | „Luna, wyłącz się” / „idź spać” — Luna naprawdę zasypia (ekran przygasa), o każdej porze |
+| Cisza i ekran | „Bądź cicho przez godzinę”, „nie przeszkadzaj do rana” — Luna sama się nie odzywa tyle, ile chcecie; „zatrzymaj” wyłącza radio/szum; „zgaś ekran”, „przyciemnij ekran”, „rozjaśnij ekran” (na 2 godziny, potem znów automatycznie) |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 

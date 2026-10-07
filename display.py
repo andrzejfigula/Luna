@@ -82,10 +82,41 @@ def target_percent():
         low = min(base, SLEEP_BRIGHTNESS if asleep else NIGHT_BRIGHTNESS)
         return round(low + (base - low) * k * k)    # slow at first, like dawn
     if asleep:
-        return min(base, SLEEP_BRIGHTNESS)
-    if NIGHT_MODE and _night():
-        return min(base, NIGHT_TALK_BRIGHTNESS if talking else NIGHT_BRIGHTNESS)
-    return min(base, _ambient_cap(base))
+        want = min(base, SLEEP_BRIGHTNESS)
+    elif NIGHT_MODE and _night():
+        want = min(base, NIGHT_TALK_BRIGHTNESS if talking else NIGHT_BRIGHTNESS)
+    else:
+        want = min(base, _ambient_cap(base))
+    user = _user_override()
+    if user == "off":
+        return min(want, USER_OFF_PERCENT)
+    if user == "dim":
+        return max(USER_OFF_PERCENT, want // 2)
+    if user == "bright" and not asleep:
+        return base
+    return want
+
+
+# "zgaś ekran" / "przyciemnij ekran" / "rozjaśnij ekran" — for USER_SECS, then
+# the automatic brightness again (7 Oct probe: the model "dimmed" the screen
+# by switching the lamp off)
+USER_SECS = 2 * 3600
+USER_OFF_PERCENT = 3
+_user = {"kind": None, "until": 0.0}
+
+
+def set_user_override(kind):
+    """kind: "off" | "dim" | "bright" | None (back to automatic)."""
+    with _lock:
+        _user["kind"], _user["until"] = kind, (time.time() + USER_SECS if kind else 0.0)
+    print(f"[display] user brightness: {kind or 'automatic'}", flush=True)
+
+
+def _user_override():
+    with _lock:
+        if _user["kind"] and time.time() < _user["until"]:
+            return _user["kind"]
+        return None
 
 
 def _ambient_cap(base):

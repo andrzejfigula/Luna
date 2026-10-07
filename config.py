@@ -540,7 +540,8 @@ PROACTIVE_QUIET_FROM   = 22    # no unprompted talking between these hours
 PROACTIVE_QUIET_TO     = 8
 MUTE_SECS              = 3600  # "Luna, cicho" silences her for this long
 MUTE_PHRASES   = ["cicho", "bądź cicho", "badz cicho", "nie odzywaj się",
-                  "nie odzywaj sie", "zamilcz", "be quiet", "hush"]
+                  "nie odzywaj sie", "zamilcz", "be quiet", "hush",
+                  "nie przeszkadzaj", "nie przeszkadzaj mi"]
 UNMUTE_PHRASES = ["możesz mówić", "mozesz mowic", "odzywaj się", "odzywaj sie",
                   "you can talk", "unmute"]
 
