@@ -198,6 +198,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Przerwanie Luny w pół zdania | **przytrzymaj palec na ekranie** — przestaje mówić i od razu słucha (głosowe „stop” będzie po dodaniu tłumienia echa) |
 | Dyktando — czytanie kartki | Luna patrzy na kartkę dwa razy i czyta lepszym modelem (jak w „kamień, papier, nożyce”) — trzymajcie kartkę spokojnie chwilę przed kamerą |
 | Daty bez pomyłek | „Kiedy zmiana czasu?”, „jaki dzień tygodnia będzie 11 listopada?”, „ile dni do świąt?” — Luna dostaje wyliczony kalendarz i święta, więc już nie zgaduje |
+| Mniej powtórek | Luna pamięta, jak zaczynała ostatnie odpowiedzi, i zaczyna inaczej — koniec z „Spokojnie, Andrzeju” na każde „Co tam?” |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 

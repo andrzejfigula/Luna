@@ -1446,6 +1446,17 @@ class KidsTest(unittest.TestCase):
         self.assertFalse(s.people_talking(1300))           # two minutes later: quiet
         s._side.clear()
 
+    def test_variety_rule(self):
+        import brain
+        h = [{"role": "user", "content": "Co tam?"},
+             {"role": "assistant", "content": "Spokojnie, Andrzeju. Jestem tu."},
+             {"role": "user", "content": "Co tam?"},
+             {"role": "assistant", "content": "Hej! U mnie dobrze."}]
+        rule = brain._variety_rule(h)
+        self.assertIn('"Spokojnie Andrzeju…"', rule)
+        self.assertIn('"Hej U…"', rule)
+        self.assertEqual(brain._variety_rule(h[:2]), "")
+
     def test_calendar_line(self):
         import brain
         from datetime import datetime

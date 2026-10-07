@@ -131,6 +131,24 @@ def _holidays_ahead(day, n=6):
 
 
 
+def _variety_rule(history=None):
+    """How her last replies began, so the next one starts differently —
+    7 Oct: four answers to "Co tam?" in a row opened "Spokojnie, Andrzeju"
+    (the model copies its own earlier turns). '' with fewer than two."""
+    replies = [m["content"] for m in (history if history is not None else _history)
+               if m.get("role") == "assistant" and isinstance(m.get("content"), str)]
+    starts = []
+    for r in replies[-4:]:
+        words = re.findall(r"[\w']+", r)[:2]
+        if words:
+            starts.append(" ".join(words))
+    if len(starts) < 2:
+        return ""
+    return ("Your last replies began: " + "; ".join(f'"{s}…"' for s in starts)
+            + ". Begin this one differently (another first word) and don't reuse "
+            "their images or set phrases.\n")
+
+
 def _calendar_line(text, now=None):
     """For a question about dates: the weeks ahead (Mon–Sun) and the next
     clock change, worked out here — 7 Oct 2026 "Kiedy zmieniamy czas na
@@ -759,6 +777,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   f"asked the time or date, answer with exactly this local "
                   f"time — do not convert it to any other zone.\n"
                   + _calendar_line(text)
+                  + _variety_rule()
                   + _translator_rule()
                   + _length_rule()
                   + faces.prompt_line()
