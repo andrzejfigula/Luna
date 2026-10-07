@@ -900,9 +900,21 @@ _HINT_Q = re.compile(r"\b(?:podpowie\w*|podpowiedź|podpowiedz|pomóż|pomoz|pom
 
 def _hint_for(q):
     """A hint that helps without telling the answer."""
+    kind = q.get("kind")
+    if kind in ("dictation", "dictation_en"):
+        # the stored hint names the tricky letters — that IS the test
+        return ("Podpowiedź: posłuchaj słowa jeszcze raz i pomyśl o trudnych literach — "
+                "ó czy u, rz czy ż, ch czy h." if kind == "dictation" else
+                "Podpowiedź: napisz tak, jak to słowo wygląda w książce — nie tak, jak słychać.")
+    if kind == "clock":
+        return ("Podpowiedź: najpierw krótka wskazówka — pokazuje godzinę. "
+                "Potem długa — każda cyfra to pięć minut.")
     if q.get("hint"):
-        return "Podpowiedź: " + q["hint"]
+        h = q["hint"]
+        return h if h.lower().startswith("podpowi") else "Podpowiedź: " + h
     ans = q.get("answer")
+    if kind == "capitals" and isinstance(ans, list) and ans:
+        return f"Podpowiedź: to miasto zaczyna się na literę {ans[0][0].upper()}."
     if isinstance(ans, list) and ans and isinstance(ans[0], str):
         return f"Podpowiedź: to słowo zaczyna się na literę {ans[0][0].upper()}."
     if isinstance(ans, str) and ans:
