@@ -26,8 +26,30 @@ _last_confirm = 0.0
 _last_react = {}   # gesture name → last reaction time
 
 
-_last_wave_said = 0.0
-_last_wave_back = 0.0
+_WAVE_FILE = "/tmp/luna_wave.json"   # survives restarts (not reboots): 7 Oct, each of
+                                     # ~25 restarts reset the gaps — 17 spoken hellos
+
+
+def _load_wave():
+    try:
+        import json
+        with open(_WAVE_FILE) as f:
+            d = json.load(f)
+        return float(d.get("said", 0.0)), float(d.get("back", 0.0))
+    except Exception:
+        return 0.0, 0.0
+
+
+def _save_wave():
+    try:
+        import json
+        with open(_WAVE_FILE, "w") as f:
+            json.dump({"said": _last_wave_said, "back": _last_wave_back}, f)
+    except Exception:
+        pass
+
+
+_last_wave_said, _last_wave_back = _load_wave()
 
 
 def _cooled(gesture):
@@ -87,6 +109,7 @@ def _behavior_step(speak, confirm_wave):
         if time.time() - _last_wave_back < WAVE_BACK_GAP:
             return                         # a "wave" again so soon: most likely typing
         _last_wave_back = time.time()
+        _save_wave()
         print("[behavior] waving back")
         _set_face("happy", GESTURE_DURATION["wave"] + 1.5)
         with state.lock:
@@ -111,6 +134,7 @@ def _behavior_step(speak, confirm_wave):
             pass
         if not in_convo and not muted and time.time() - _last_wave_said > WAVE_SPEAK_GAP:
             _last_wave_said = time.time()
+            _save_wave()
             speak(random.choice(WAVE_REPLIES), can_drop=True)
 
 
