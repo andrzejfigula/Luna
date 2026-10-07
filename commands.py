@@ -211,6 +211,12 @@ def _translator_language(low):
     """(English name, Polish name) when the utterance starts translator mode."""
     if not any(k in low for k in _TRANSLATE_START) or len(_words(low)) > 9:
         return None
+    # "Przetłumacz na niemiecki: gdzie jest dworzec?" — one sentence to
+    # translate, not the interpreter mode (7 Oct probe: the mode started and
+    # the sentence was never translated); the model answers it
+    if ":" in low or (re.search(r"\bprzetłumacz|\bprzetlumacz", low)
+                      and not re.search(r"\bwszystk|\bco\s+mówi|\bco\s+mowi", low)):
+        return None
     for stem, lang in _LANGS.items():
         if re.search(r"\b" + stem, low):
             return lang

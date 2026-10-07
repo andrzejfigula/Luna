@@ -1473,6 +1473,16 @@ class KidsTest(unittest.TestCase):
         finally:
             state.person, state.others, faces.notes = old
 
+    def test_translator_mode_vs_one_sentence(self):
+        import commands
+        self.assertEqual(commands._translator_language("włącz tryb tłumacza na angielski"),
+                         ("English", "angielski"))
+        self.assertEqual(commands._translator_language("przetłumacz wszystko na niemiecki")[0],
+                         "German")
+        self.assertIsNone(commands._translator_language(
+            "przetłumacz na niemiecki: gdzie jest dworzec?"))
+        self.assertIsNone(commands._translator_language("przetłumacz na angielski dzień dobry"))
+
     def test_reminders_answer(self):
         import timers
         from datetime import datetime
