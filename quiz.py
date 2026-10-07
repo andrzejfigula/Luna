@@ -935,7 +935,7 @@ def answer(text, speak, play_sound_async):
     with _lock:
         if _q is None:
             return False
-        if any(s in low for s in _STOP) and len(words) <= 5:
+        if re.search(r"\b(?:" + "|".join(map(re.escape, _STOP)) + r")\b", low) and len(words) <= 5:
             speak("Dobrze, kończymy.")
             if _q["kind"] == "guess":
                 _q = None

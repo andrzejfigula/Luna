@@ -935,6 +935,8 @@ def handle(text, speak, play_sound, _polite=True):
     if quiz.active() and quiz.answer(text, speak, _sound_async):
         return True
     import kids                                    # a routine step: "gotowe"
+    if kids.brushing_answer(text, speak):          # "ile jeszcze?" / "koniec"
+        return True
     if kids.routine_active() and kids.routine_answer(text, speak, _sound_async):
         return True
     import cooking                                 # a recipe step: "dalej"
@@ -1353,7 +1355,8 @@ def handle(text, speak, play_sound, _polite=True):
             state.focus_until = 0.0
         speak("Dobrze, koniec skupienia.")
         return True
-    if any(k in low for k in _FOCUS) and _short(text, 9) and intent.asked(low, 4):
+    if any(k in low for k in _FOCUS) and _short(text, 9) and (
+            intent.asked(low, 4) or re.match(r"^(?:luna,?\s+)?(?:tryb\s+skupienia|pomodoro)\b", low)):
         import timers
         m = re.search(r"(\d{1,3})\s*(min|minut)", low)
         mins = int(m.group(1)) if m else FOCUS_MINUTES

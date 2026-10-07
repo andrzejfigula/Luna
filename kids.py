@@ -71,11 +71,37 @@ def _card_gone():
     return not ov or ov[0] != "card" or time.time() > ov[1]
 
 
+_brush_t0 = [0.0]
+_brush_stop = [False]
+
+
+def brushing_answer(text, speak):
+    """While brushing: "ile jeszcze?" → the time left; "koniec" / "stop" ends
+    it (7 Oct probe: both went to the model — only a tap could stop it)."""
+    if not _brushing[0]:
+        return False
+    low = text.lower().strip(" .!?")
+    words = re.findall(r"\w+", low)
+    if set(words) & set(_STOP) and len(words) <= 4:        # whole words: not "stoper"
+        _brush_stop[0] = True
+        _brushing[0] = False                               # at once, not on the next tick
+        speak("Dobrze, kończymy mycie.")
+        return True
+    if re.search(r"\bile\b.*\b(?:jeszcze|zostało|zostalo)\b|\bjak\s+długo\b", low):
+        left = max(0, int(BRUSH_SECS - (time.time() - _brush_t0[0])))
+        speak(f"Jeszcze {left // 60} minuta {left % 60} sekund." if left >= 60 else
+              f"Jeszcze {left} sekund — prawie koniec!")
+        return True
+    return False
+
+
 def _brush(speak, play_sound):
     _brushing[0] = True
+    _brush_stop[0] = False
     try:
         speak("Dwie minuty mycia zębów! " + _ZONES[0][1])
         t0 = time.time()
+        _brush_t0[0] = t0
         zone = 0
         while True:
             left = BRUSH_SECS - (time.time() - t0)
@@ -88,8 +114,9 @@ def _brush(speak, play_sound):
             secs = int(left) + 1
             _card(f"{secs // 60}:{secs % 60:02d}", _ZONES[zone][0], secs=1.5)
             time.sleep(0.25)
-            if _card_gone():                       # a tap on the screen
-                print("[kids] brushing stopped by touch", flush=True)
+            if _card_gone() or _brush_stop[0]:     # a tap on the screen, or "koniec"
+                print("[kids] brushing stopped", flush=True)
+                _clear()
                 return
         _card("0:00", "gotowe!", "ok", secs=5)
         with state.lock:
@@ -165,7 +192,7 @@ def routine_answer(text, speak, play_sound):
         r = _routine
         if r is None:
             return False
-        if any(s in low for s in _STOP) and len(words) <= 4:
+        if re.search(r"\b(?:" + "|".join(map(re.escape, _STOP)) + r")\b", low) and len(words) <= 4:
             _routine = None
             _clear()
             speak("Dobrze, kończymy.")

@@ -247,7 +247,7 @@ def _answer_reverse(text, speak):
     low = text.lower().strip(" .!?")
     words = re.findall(r"\w+", low)
     r["t"] = time.time()
-    if any(k in low for k in _STOP) and len(words) <= 4:
+    if re.search(r"\b(?:" + "|".join(map(re.escape, _STOP)) + r")\b", low) and len(words) <= 4:
         _r = None
         speak("Dobrze, kończymy. Dzięki za grę!")
         return True
@@ -319,7 +319,7 @@ def answer(text, speak):
             return False
         g["t"] = time.time()
         words = re.findall(r"\w+", low)
-        if any(k in low for k in _STOP) and len(words) <= 4:
+        if re.search(r"\b(?:" + "|".join(map(re.escape, _STOP)) + r")\b", low) and len(words) <= 4:
             _g = None
             speak(f"Dobrze. Myślałam o: {g['animal']}.")
             return True
