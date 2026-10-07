@@ -163,13 +163,24 @@ memory and the conversation history.
 
 ```
 C270 mic ─► sounddevice 16 kHz ─► energy gate ─► Vosk (wake word "Luna", endpointing)
-     ─► utterance audio ─► OpenAI gpt-4o-mini-transcribe (auto PL/EN)
-     ─► brain.py: gpt-4.1-mini, streamed JSON {user_mood, emotion, gesture,
-        reply, …} with a camera frame (high detail if the question is visual)
+     ─► utterance audio ─► OpenAI gpt-transcribe (auto PL/EN; sent ahead after
+        0.3 s of silence, ready as the utterance ends at 0.6 s)
+     ─► brain.py: gpt-5.4-mini (reasoning off), streamed JSON {to_luna,
+        user_mood, emotion, gesture, reply, …} with a camera frame (high
+        detail if the question is visual); poems, stories and a child's sums
+        on gpt-4.1; web search (websearch.py) on gpt-5.4-mini + web_search
      ─► emotion + gesture set the face as soon as they arrive; the FIRST
-        SENTENCE goes to gpt-4o-mini-tts while the model writes the rest
+        SENTENCE (or first clause) goes to gpt-4o-mini-tts-2025-12-15 while
+        the model writes the rest
      ─► one pw-play per reply; sentence 2's audio downloads while 1 plays
 ```
+
+Every cloud step is hedged (hedge.py): a request that hasn't started in time
+is sent again and the first answer wins. Each answer logs
+`[latency] end of speech → her voice …s (text, model, sentence, tts, audio)`;
+`tools/log_report.py` sums it up ("answer speed"). Models were picked by
+measurement on the Pi (BACKLOG #301–#304); the helpers (greetings, memory,
+cooking…) stay on `OPENAI_MODEL` (gpt-4.1-mini).
 
 Say **"Luna"** first; after that the conversation window stays open for
 `CONVO_TIMEOUT` seconds per turn, no wake word needed. When nobody has been in
