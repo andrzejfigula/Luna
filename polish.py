@@ -84,7 +84,12 @@ def neutral_you(text):
 
 
 _OFFER = re.compile(r"(?:chcesz|może|moze|czy|mam)\b[^.!?]*\b(?:dopis|doda|włącz|wlacz|nastaw|"
-                    r"przypomn|zapis|ustaw|puści|pusci|skreśl|skresl|usun)\w*[^.!?]*\?", re.I)
+                    r"przypomn|zapis|ustaw|puści|pusci|skreśl|skresl|usun)\w*[^.!?]*\?|"
+                    # "Mogę za to włączyć szum deszczu, jeśli chcesz." / "Mogę włączyć…?"
+                    # (7 Oct probe: an offer like this came with the command attached)
+                    r"\bmogę\b[^.!?]*\b(?:dopis|doda|włącz|wlacz|nastaw|przypomn|zapis|ustaw|"
+                    r"puści|pusci|skreśl|skresl|usun)\w*[^.!?]*(?:\?|\b(?:jeśli|jeżeli|jesli)\s+"
+                    r"(?:chcesz|zechcesz|wolisz))", re.I)
 _DONE = re.compile(r"\b(?:dodałam|dopisałam|włączam|wlaczam|nastawiam|nastawiłam|ustawiam|"
                    r"ustawiłam|zapisałam|przypomnę|skreśliłam|usunęłam|puszczam|gotowe|jasne)\b",
                    re.I)

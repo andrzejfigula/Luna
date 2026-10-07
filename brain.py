@@ -329,6 +329,9 @@ Always answer as JSON with exactly these keys:
               text word for word, in its own language, up to about 200 words,
               with no comment before or after; say only which part you can't
               make out, if any)
+  "to_luna" — a request made TO YOU that you can't do ("włącz odgłosy lasu",
+  "zamów pizzę") is still true: say plainly what you can offer instead. Words
+  addressed to another person by name ("Maja, idź umyć zęby") stay false.
   "to_luna" — false ONLY when the words are clearly said to someone else in
                 the room, not to you: people explaining something to each
                 other ("tutaj się naciska, przytrzymujesz chwilę"), talking
@@ -973,6 +976,18 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             relationship.note(tone, text)
             luna_mood.note(relationship.who() if relationship.who() != relationship.SOMEONE
                       else None, tone)
+        if (data.get("to_luna") is False and len(text.split()) <= 5 and re.match(
+                r"^(?:włącz|wlacz|puść|pusc|zrób|zrob|pokaż|pokaz|zagraj|wyłącz|wylacz|"
+                r"zamów|zamow|zadzwoń|zadzwon)\b", text.strip().lower())):
+            # a short command is said to her even when she can't do it (7 Oct
+            # probe: "Włącz ptaszki" → silence, as if she hadn't heard)
+            if not reply.strip():
+                reply = "Tego nie umiem. Mogę włączyć radio, szum deszczu albo lampkę."
+                if on_sentence:
+                    on_sentence(reply)
+            print(f"[brain] a short command, not side talk — answering ({reply[:60]!r})",
+                  flush=True)
+            data["to_luna"] = True
         if data.get("to_luna") is False and not re.search(r"\bluna\b|\bluno\b", text.lower()):
             print(f"[brain] not said to me — staying quiet ({reply[:60]!r})", flush=True)
             with state.lock:                     # they talk to each other: stop
