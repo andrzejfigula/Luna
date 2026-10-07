@@ -863,6 +863,11 @@ def handle(text, speak, play_sound, _polite=True):
     if said_as and _polite:
         return handle(said_as, speak, play_sound, _polite=False)
     question = is_question(text)
+    import errands
+    if question and errands._WHEN.search(text):
+        # "Jak zobaczysz Maję, powiedz jej, że…" starts like a question but asks
+        # for an errand (7 Oct probe: it went to the model and wasn't saved)
+        question = False
 
     # "Wyłącz się" / "idź spać" — she herself goes to sleep, any time of day
     # (7 Oct probe: the model answered "ucichnę i przygaszę ekran" and only
@@ -1449,7 +1454,7 @@ def handle(text, speak, play_sound, _polite=True):
             speak(f"Dobrze. Po {at} powiem to, kiedy {to} się pojawi.")
         else:
             speak(random.choice((f"Dobrze, przekażę, kiedy {to} się pojawi.",
-                                 f"Jasne. Powiem, jak tylko zobaczę: {to}.")))
+                                 f"Jasne, powiem, jak tylko {to} się pojawi.")))
         return True
 
     note = _remember(text)                         # "zapamiętaj, że …"
