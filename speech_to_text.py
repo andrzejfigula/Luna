@@ -709,7 +709,9 @@ def people_talking(now=None, window=120, count=4):
     """Several sentences in the last two minutes that weren't for her: a call,
     or people talking to each other — no time for an unprompted hello."""
     now = now or time.time()
-    return sum(1 for t in _side if now - t < window) >= count
+    # (an English call found by the wake checks counts too — 7 Oct 14:51 she
+    # waved back with "O, cześć! Miło cię widzieć!" in the middle of one)
+    return sum(1 for t in _side if now - t < window) >= count or call_pause(now)
 
 
 def messages_armed():

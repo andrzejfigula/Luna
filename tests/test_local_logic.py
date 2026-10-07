@@ -1457,6 +1457,7 @@ class KidsTest(unittest.TestCase):
         self.assertFalse(s.call_pause(t + 11))
         s._note_wake_check_result("Just extend it a little bit, you don't...", t + 20)
         self.assertTrue(s.call_pause(t + 21))
+        self.assertTrue(s.people_talking(t + 21))         # and she keeps quiet
         self.assertTrue(s.call_pause(t + 20 + 599))
         self.assertFalse(s.call_pause(t + 20 + 601))
         s._call_until = 0.0
