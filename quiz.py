@@ -808,8 +808,18 @@ _READY = ("gotowe", "gotowa", "gotowy", "już", "juz", "sprawdź", "sprawdz", "p
 def _read_paper():
     """The word on the paper held up to the camera (brain.read_written_word)."""
     import brain
+    import time
     english = bool(_q and _q["kind"] == "dictation_en")
-    return brain.read_written_word(brain._camera_jpeg_b64(), english=english)
+    # two looks 0.5 s apart: a paper still moving into view blurs one frame
+    # (the same trouble rock-paper-scissors had with a single frame, 7 Oct)
+    imgs = []
+    for i in range(2):
+        if i:
+            time.sleep(0.5)
+        img = brain._camera_jpeg_b64()
+        if img:
+            imgs.append(img)
+    return brain.read_written_word(imgs, english=english)
 
 
 def answer(text, speak, play_sound_async):

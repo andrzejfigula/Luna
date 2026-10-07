@@ -1043,30 +1043,33 @@ def classify_hand(imgs):
         return None
 
 
-def read_written_word(img_b64, english=False):
+def read_written_word(imgs, english=False):
     """The word handwritten on a paper shown to the camera, letter by letter
-    as written (mistakes kept — it's a spelling test), or None. quiz.py."""
-    if _client is None or not img_b64:
+    as written (mistakes kept — it's a spelling test), or None. quiz.py —
+    imgs: one base64 JPEG or a few taken a moment apart (judged together)."""
+    if isinstance(imgs, str):
+        imgs = [imgs]
+    imgs = [b for b in (imgs or []) if b]
+    if _client is None or not imgs:
         return None
     try:
+        content = [{"type": "text", "text":
+                    (f"A child is showing a handwritten {'English' if english else 'Polish'} "
+                     f"word on paper to this webcam for a spelling test ({len(imgs)} "
+                     "frame(s) taken a moment apart — read it from the clearest one; "
+                     "the paper may be tilted, small or near an edge). Transcribe "
+                     "EXACTLY the letters written, keeping any spelling mistakes "
+                     + ("(do not correct them)" if english else
+                        "(do not correct u/ó, rz/ż, h/ch, ą/ę, missing diacritics)")
+                     + ". Return JSON {\"word\": \"...\"} — word empty if no "
+                     "writing is readable.")}]
+        content += [{"type": "image_url",
+                     "image_url": {"url": f"data:image/jpeg;base64,{b}", "detail": "high"}}
+                    for b in imgs]
         r = _client.chat.completions.create(
-            model=OPENAI_MODEL,
+            model=CRAFT_MODEL,                 # (the mini model misread hands, 7 Oct)
             response_format={"type": "json_object"},
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"type": "text", "text":
-                     (f"A child is showing a handwritten {'English' if english else 'Polish'} "
-                      "word on paper to this webcam for a spelling test. Transcribe "
-                      "EXACTLY the letters written, keeping any spelling mistakes "
-                      + ("(do not correct them)" if english else
-                         "(do not correct u/ó, rz/ż, h/ch, ą/ę, missing diacritics)")
-                      + ". Return JSON {\"word\": \"...\"} — word empty if no "
-                      "writing is readable.")},
-                    {"type": "image_url",
-                     "image_url": {"url": f"data:image/jpeg;base64,{img_b64}",
-                                   "detail": "high"}},
-                ]}],
+            messages=[{"role": "user", "content": content}],
             max_tokens=30,
             temperature=0.0,
         )
