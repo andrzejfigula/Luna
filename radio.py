@@ -76,6 +76,8 @@ _GENRES = [
     (r"przebo|hit|pop|disco|tanecz|wesoł|wesol|imprez", "rmf fm"),
     (r"wiadomości|wiadomosci|informac|news|publicyst", "jedynka"),
     (r"jazz|ambitn|nowoczesn|indie|ciekaw", "nowy świat"),
+    # (found online by "włącz radio dla dzieci": RMF Dla Dzieci)
+    (r"dla\s+dzieci|dziecięc|dzieciec|dla\s+maj|bajk", "dla dzieci"),
 ]
 _ALARM_ON = ("budź mnie radiem", "budz mnie radiem", "obudź mnie radiem",
              "obudz mnie radiem", "budzik z radiem", "budzenie radiem", "budzik radiem")
@@ -508,6 +510,10 @@ def handle(text, speak):
         key = _ALIASES.get(m.group(2).strip(), m.group(2).strip())
         if key in _MUSIC:
             what = ""                      # "włącz muzykę" → the last station
+        elif (re.match(r"(?:jakąś\s+|jakas\s+|trochę\s+|troche\s+)?(?:muzyk|muzyczk|piosenk)",
+                       key) and any(re.search(rx, key) for rx, _ in _GENRES)):
+            what = key                     # "puść muzykę dla dzieci" (7 Oct: went to
+                                           # the model) → the genre below picks it
         elif key not in STATIONS:
             return False
         else:
@@ -516,7 +522,7 @@ def handle(text, speak):
         what = m.group(1)
     genre = next((key for rx, key in _GENRES if re.search(rx, what or "")), None)
     if genre and (not what or what.split()[0] in ("z", "ze", "jakąś", "jakas", "coś", "cos")
-                  or "muzyk" in what):
+                  or re.search(r"muzyk|muzyczk|piosenk", what)):
         what = genre                       # "…z jakąś spokojną muzyką" → Dwójka
     if len(what.split()) > 4:
         return False

@@ -31,7 +31,11 @@ _START = re.compile(
     r"\b(?:poczytam|przeczytam)\s+ci\b|"
     r"\b(?:chcę|chce|mogę|moge)\s+ci\s+(?:po|prze)?czytać\b|"
     r"\bbędę\s+ci\s+czytać\b|"
-    r"\bczy\s+mogę\s+ci\s+(?:po|prze)?czytać\b", re.I)
+    r"\bczy\s+mogę\s+ci\s+(?:po|prze)?czytać\b|"
+    # 7 Oct probe: "Poczytaj ze mną", "Chcę poczytać" went to the model
+    r"\bpoczytaj\s+ze\s+mną\b|\bpoczytajmy\b|\bczytamy\s+razem\b|"
+    r"^(?:luna,?\s+)?(?:chcę|chce)\s+(?:teraz\s+)?(?:po|prze)?czytać(?:\s+na\s+głos)?[\s.!]*$",
+    re.I)
 _END = re.compile(r"^(?:no\s+)?(?:koniec|skończyłam|skończyłem|skonczylam|skonczylem|"
                   r"to\s+wszystko|to\s+koniec|i\s+tyle|już|juz|the\s+end)\b", re.I)
 _END_TAIL = re.compile(r"\s+(?:koniec|skończyłam|skończyłem)[\s.!]*$", re.I)

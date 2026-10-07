@@ -88,6 +88,9 @@ CASES = [
     ("Jaka będzie jutro pogoda?", "W jakim mieście"),   # no town set in scratch data
     ("Zmień mój głos jak robot", "głos: robot"),
     ("Czy mogę ci poczytać?", "Słucham"),               # reading.py (disarmed below)
+    ("Poczytaj ze mną", "Słucham"),
+    ("Zgadnij, o czym myślę", "ja będę zgadywać"),       # twenty.py, the child thinks
+    ("Koniec", "kończymy"),
     ("Napisz na ekranie Shure MV7", "na ekranie"),        # commands.show_text
     ("Zrób mi zdjęcie", ""),
     ("Włącz lampkę", ""),
