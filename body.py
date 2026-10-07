@@ -99,7 +99,9 @@ def prompt_line():
     parts = []
     t = cpu_temp()
     if t is not None:
-        feel = ("cool" if t < 55 else "warm" if t < 70 else
+        # 55–70 °C is simply her normal (the Pi sits at ~60–66): calling it
+        # "warm" had her mention the warmth in 3 of 10 everyday replies (7 Oct)
+        feel = ("normal" if t < 70 else
                 "hot" if t < 80 else "VERY hot, close to overheating")
         parts.append(f"CPU {t:.0f}°C ({feel})")
     th = throttled()
@@ -112,7 +114,8 @@ def prompt_line():
     parts.append(f"{_talks_today[1]} things said to you today")
     parts += _settings()
     return ("Your body right now (Raspberry Pi 4): " + ", ".join(parts) + ". "
-            "Bring it up only when asked how you are or about yourself — then "
-            "weave in one such detail playfully, like a person mentioning "
-            "being sleepy or warm — or, once, if you are VERY hot or "
-            "throttling.\n")
+            "Keep it to yourself almost always: \"jak się masz?\", \"co tam?\", "
+            "\"co robisz?\" get an ordinary friendly answer with no hardware "
+            "details. Mention one such detail, playfully, only when they ask about "
+            "your body itself (temperature, how long you've been on, how much you "
+            "talked today) — or once if you are hot, VERY hot or throttling.\n")
