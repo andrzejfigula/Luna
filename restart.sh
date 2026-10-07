@@ -35,6 +35,15 @@ if [ "$1" != "--force" ] && [ -f tests/smoke_pi.py ]; then
         echo "restart: dialog test failed, kept the running Luna" >> luna.log
         exit 1
     fi
+    # …and every sentence still reaches the right handler (7 Oct: two
+    # regressions only this test caught — "na razie nie" dimmed the screen)
+    if [ -f tests/test_routing.py ] && \
+       ! timeout 120 ./venv/bin/python -X utf8 tests/test_routing.py > /tmp/luna_routing.out 2>&1; then
+        echo "restart: ROUTING TEST FAILED — not restarting:"
+        grep -E "^FAIL|^ERROR|AssertionError" /tmp/luna_routing.out | head -20
+        echo "restart: routing test failed, kept the running Luna" >> luna.log
+        exit 1
+    fi
 fi
 ./stop.sh >/dev/null 2>&1
 # a Luna that doesn't go within 5 s is killed — two of them fight over the mic
