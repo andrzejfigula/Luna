@@ -725,7 +725,8 @@ _COMPLAINTS = [
      r"nic\s+nie\s+słyszę|nic\s+nie\s+slysze)\b", "głośniej"),
     (r"\b(?:za\s+głośno|za\s+glosno|zbyt\s+głośno)\b", "ciszej"),
     # (7 Oct probe: "Za jasno tu" → "…mogę mówić po polsku albo po angielsku")
-    (r"\b(?:za\s+jasno|zbyt\s+jasno|razi\w*|oślepia\w*|oslepia\w*)\b", "przyciemnij ekran"),
+    # ("razi" / "razią" only — "na razie nie" became "przyciemnij ekran")
+    (r"\b(?:za\s+jasno|zbyt\s+jasno|razi|razią|oślepia\w*|oslepia\w*)\b", "przyciemnij ekran"),
 ]
 
 
@@ -1357,7 +1358,9 @@ def handle(text, speak, play_sound, _polite=True):
         speak("Dobrze, koniec skupienia.")
         return True
     if any(k in low for k in _FOCUS) and _short(text, 9) and (
-            intent.asked(low, 4) or re.match(r"^(?:luna,?\s+)?(?:tryb\s+skupienia|pomodoro)\b", low)):
+            intent.asked(low, 4) or re.match(
+                r"^(?:luna,?\s+)?(?:tryb\s+skupienia|pomodoro)(?:\s+na\s+\d+\s*\w*)?[\s.!]*$", low)):
+        # (the bare name only — "Pomodoro to fajna metoda nauki" is talk)
         import timers
         m = re.search(r"(\d{1,3})\s*(min|minut)", low)
         mins = int(m.group(1)) if m else FOCUS_MINUTES

@@ -347,7 +347,7 @@ class RoutingTest(unittest.TestCase):
             (fun, "roll", lambda *a: self._mark("fun")),
             (fun, "flip", lambda *a: self._mark("fun")),
             (calc, "answer", self._calc(calc.answer)),
-            (news, "context", lambda: self._mark("news") or "headlines"),
+            (news, "context", lambda *a: self._mark("news") or "headlines"),
             (weather, "set_place", lambda t: self._mark("weather") or "Kraków"),
             (weather, "enabled", lambda: True),     # weather questions → the model
             (commands, "_learn_face", lambda *a: self._mark("face") or True),
