@@ -1134,7 +1134,7 @@ def handle(text, speak, play_sound, _polite=True):
     if news.is_request(text) or (news.is_yes(text) and news.accepts_offer(
             text, __import__("brain").last_reply())):
         import brain
-        ctx = news.context()
+        ctx = news.context(text)
         if ctx is None:
             speak("Nie mogę teraz pobrać wiadomości — nie mam połączenia z internetem.")
         else:

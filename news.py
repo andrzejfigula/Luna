@@ -101,12 +101,22 @@ def _fetch(url):
     return out
 
 
-def headlines():
+# the general feeds hardly carry sport: "co słychać w sporcie?" found nothing
+# (7 Oct probe) — a sport question reads these instead
+SPORT_FEEDS = [("WP SportoweFakty", "https://sportowefakty.wp.pl/rss.xml"),
+               ("Interia Sport", "https://sport.interia.pl/feed")]
+_SPORT_RX = re.compile(r"\bspor[tc]\w*|\bmecz\w*|\bpiłk\w*|\bpilk\w*|\bligi?\b|\bligach\b|"
+                       r"\bwynik\w*\s+(?:meczu|meczów)", re.I)
+_sport_cache = {"t": 0.0, "items": [], "source": ""}
+
+
+def headlines(sport=False):
     """[(title, description, date)] and the source name; [] when offline."""
+    cache, feeds = (_sport_cache, SPORT_FEEDS) if sport else (_cache, FEEDS)
     with _lock:
-        if time.time() - _cache["t"] < NEWS_CACHE_SECS and _cache["items"]:
-            return _cache["items"], _cache["source"]
-    for name, url in FEEDS:
+        if time.time() - cache["t"] < NEWS_CACHE_SECS and cache["items"]:
+            return cache["items"], cache["source"]
+    for name, url in feeds:
         try:
             items = _fetch(url)
         except Exception as e:
@@ -114,15 +124,16 @@ def headlines():
             continue
         if items:
             with _lock:
-                _cache.update(t=time.time(), items=items, source=name)
+                cache.update(t=time.time(), items=items, source=name)
             print(f"[news] {len(items)} headlines from {name}", flush=True)
             return items, name
     return [], ""
 
 
-def context():
-    """The headlines as a system-prompt block, or None."""
-    items, source = headlines()
+def context(text=""):
+    """The headlines as a system-prompt block, or None (sport ones for a
+    sport question)."""
+    items, source = headlines(sport=bool(_SPORT_RX.search(text or "")))
     if not items:
         return None
     lines = "\n".join(f"- {t}" + (f" — {d}" if d else "") + (f" ({w})" if w else "")
