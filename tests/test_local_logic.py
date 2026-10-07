@@ -1897,6 +1897,9 @@ class KidsTest(unittest.TestCase):
                          "klucze są w szufladzie")
         self.assertEqual(commands._remember("Zapamiętaj: rozmiar buta Mai to 31"),
                          "rozmiar buta Mai to 31")
+        m = commands._FORGET_THAT.search("Zapomnij o rozmiarze buta")
+        self.assertEqual(m.group(1) or m.group(2), "rozmiarze buta")
+        self.assertIsNone(commands._FORGET_THAT.search("Zapomnij o mnie"))
         self.assertIsNone(commands._remember("zapamiętaj to"))
         self.assertEqual(commands._spell_word("Jak się pisze żółw?"), "żółw")
         self.assertIsNone(commands._spell_word("jak się pisze po angielsku pies"))

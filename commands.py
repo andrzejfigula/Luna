@@ -407,7 +407,10 @@ _WHERE = re.compile(r"\b(?:gdzie\s+(?:jest|się\s+podziała?|podziała?\s+się)\
                     r"(\w+)", re.I)
 _ABOUT = re.compile(r"\bco\s+(?:(?:wiesz|pamiętasz|pamietasz)\s+o\s+(\w+)|"
                     r"o\s+(\w+)\s+(?:wiesz|pamiętasz|pamietasz))\b", re.I)
-_FORGET_THAT = re.compile(r"\bzapomnij,?\s+(?:o\s+tym,?\s+)?(?:że|ze)\s+(.+)", re.I)
+# "zapomnij, że …" and "zapomnij o rozmiarze buta" (7 Oct probe: the second went
+# to the model — "Zapomniałam rozmiaru buta" — and the note stayed)
+_FORGET_THAT = re.compile(r"\bzapomnij,?\s+(?:o\s+tym,?\s+)?(?:że|ze)\s+(.+)|"
+                          r"\bzapomnij\s+o\s+(?!mnie\b|nas\b|tym\b|wszystkim\b)(\w.+)", re.I)
 
 
 def _memory_talk(text):
@@ -421,7 +424,7 @@ def _memory_talk(text):
     m = _FORGET_THAT.search(text)
     if m and not re.search(r"\bnie\s+zapomnij", low) and _short(text, 14):
         among = memory.facts_about(me) if me and _child_here() else None   # a child: hers only
-        gone = memory.forget_fact(m.group(1), among)
+        gone = memory.forget_fact(m.group(1) or m.group(2), among)
         return (f"Dobrze, zapomniałam: {gone.rstrip('.')}." if gone else
                 "Nie mam tego zapisanego.")
     m = _ABOUT.search(text)
