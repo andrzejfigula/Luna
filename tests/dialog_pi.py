@@ -91,6 +91,12 @@ CASES = [
     ("Poczytaj ze mną", "Słucham"),
     ("Zgadnij, o czym myślę", "ja będę zgadywać"),       # twenty.py, the child thinks
     ("Koniec", "kończymy"),
+    # 7 Oct evening probes — each of these had gone to the model
+    ("Możesz przyciemnić ekran?", "przyciemniam"),        # display.py override
+    ("Rozjaśnij ekran", "rozjaśniam"),
+    ("Jakie mam przypomnienia?", "przypomnie"),          # timers.reminders_answer
+    ("Kiedy przyjdzie Emilka, powiedz jej, że dzwoniła babcia", "Emilka"),   # errands
+    ("Przetłumacz na niemiecki: dzień dobry", MODEL),    # one sentence, not the mode
     ("Napisz na ekranie Shure MV7", "na ekranie"),        # commands.show_text
     ("Zrób mi zdjęcie", ""),
     ("Włącz lampkę", ""),
