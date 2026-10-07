@@ -458,8 +458,15 @@ def prompt_block():
         return "\nActive timers and reminders: none.\n"
     now = time.time()
     lines = ["\nActive timers and reminders (soonest first):"]
+    today = datetime.fromtimestamp(now).date()
     for t in items:
-        at = time.strftime("%H:%M", time.localtime(t["due"]))
+        # the day too: with only "rings at 10:00" the model put tomorrow's
+        # hairdresser on today and found nothing for tomorrow (7 Oct probe)
+        due = datetime.fromtimestamp(t["due"])
+        days = (due.date() - today).days
+        day = ("today" if days == 0 else "tomorrow" if days == 1 else
+               due.strftime("%A"))
+        at = f"{day} {due:%d.%m} {due:%H:%M}"
         what = t["label"] or ("minutnik" if t["kind"] == "timer" else "przypomnienie")
         rep = t.get("repeat", "none")
         # "przypomnij mi za godzinę wyjąć pranie" is kept as a labelled timer —
