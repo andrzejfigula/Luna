@@ -48,7 +48,7 @@ class Detector:
 
     def __init__(self, model, rate=16000):
         from vosk import KaldiRecognizer
-        self.rec = KaldiRecognizer(model, rate, json.dumps(list(BARGE_WORDS) + ["[unk]"]))
+        self.rec = KaldiRecognizer(model, rate, json.dumps(list(BARGE_WORDS) + ["[unk]"], ensure_ascii=False))
         self.rec.SetWords(True)
         self.echo = collections.deque(maxlen=60)     # her voice's levels, recent blocks
         self.peak = 0.0                              # loudest block of the current segment

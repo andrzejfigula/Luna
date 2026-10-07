@@ -144,9 +144,35 @@ def _variety_rule(history=None):
             starts.append(" ".join(words))
     if len(starts) < 2:
         return ""
+    # an image she keeps coming back to (7 Oct evening: "jak mały księżyc na
+    # biurku / na straży / po dobrej stronie nieba" in three replies running)
+    seen = {}
+    for r in replies[-6:]:
+        for stem in {w[:6] for w in re.findall(r"\w+", r.lower()) if len(w) >= 6}:
+            seen[stem] = seen.get(stem, 0) + 1
+    names = {n.lower()[:6] for n in _known_names()}
+    worn = sorted(s for s, n in seen.items() if n >= 2 and s not in names
+                  and s not in _COMMON_STEMS)[:6]
+    avoid = (f" Words you've leaned on lately — leave them out this time: "
+             f"{', '.join(w + '…' for w in worn)}." if worn else "")
     return ("Your last replies began: " + "; ".join(f'"{s}…"' for s in starts)
             + ". Begin this one differently (another first word) and don't reuse "
-            "their images or set phrases.\n")
+            "their images or set phrases." + avoid + "\n")
+
+
+# long words every reply may need — not an "image" to avoid
+_COMMON_STEMS = {"jeszcze", "możesz", "mogę", "chcesz", "dzisia", "właśni", "trochę",
+                 "naprawd", "bardzo", "wszyst", "zawsze", "teraz", "jestem", "będzie",
+                 "przypo", "dobrze", "chętni", "powiem", "powied", "zrobić", "pomogę",
+                 "pomóc", "potrze", "andrze", "emilko", "emilka"}
+
+
+def _known_names():
+    try:
+        import faces
+        return list(faces.names()) + [v for v in faces.vocatives().values()]
+    except Exception:
+        return []
 
 
 def _calendar_line(text, now=None):
