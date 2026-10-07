@@ -200,6 +200,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Daty bez pomyłek | „Kiedy zmiana czasu?”, „jaki dzień tygodnia będzie 11 listopada?”, „ile dni do świąt?” — Luna dostaje wyliczony kalendarz i święta, więc już nie zgaduje |
 | Mniej powtórek | Luna pamięta, jak zaczynała ostatnie odpowiedzi, i zaczyna inaczej — koniec z „Spokojnie, Andrzeju” na każde „Co tam?” |
 | Prywatność przy rozmowach po angielsku | gdy w pokoju trwa rozmowa/wideorozmowa po angielsku, Luna przez 10 minut nie wysyła dźwięku do chmury; na wyraźne „Luna” dalej reaguje; w tym czasie też sama się nie odzywa |
+| Więcej zagadek | „Luna, zadaj mi zagadkę” — teraz 59 zagadek zamiast 31 (zwierzęta, jedzenie, pojazdy, pogoda), dłużej się nie powtarzają |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 
