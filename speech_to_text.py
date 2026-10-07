@@ -860,6 +860,27 @@ def _wake_budget():
     return True
 
 
+_WAKE_EXTRA_WORDS = 3
+
+
+def _cloud_wake_plausible(cloud, words):
+    """A wake found only by the cloud is believed when its sentence is about
+    as long as what Vosk heard: the transcriber (primed with "Luna" in its
+    prompt) sometimes writes a whole addressed sentence over faint sound —
+    7 Oct: Vosk "usa" (conf 0.24) → "Luna, wstań z łóżka, ty zdychasz.";
+    "tak tak" → "Luna, pomyślałam, że żyjesz. Tak, tak, żyję."; nobody had
+    spoken to her. Real ones match: "ilona która godzina" → "Cześć Luna,
+    która godzina?" (26 cloud wakes in the log)."""
+    if not words:
+        return True
+    rest = re.findall(r"\w+", _strip_wake_from_cloud(cloud) or "")
+    if len(rest) > len(words) + _WAKE_EXTRA_WORDS:
+        print(f"[STT] cloud wake not believed: {cloud!r} over Vosk's "
+              f"{' '.join(words)!r} — likely made up", flush=True)
+        return False
+    return True
+
+
 def _cloud_wake_check(pcm16k, words=None):
     """Vosk heard speech but no wake word: ask the cloud whether the wake
     word is actually in there. Returns (found, cleaned_text). Rationed: a
@@ -870,13 +891,13 @@ def _cloud_wake_check(pcm16k, words=None):
         # its final ones lost it: 6 Oct 18:36 "Luna, jakie stacje radiowe
         # masz?" heard as "no jakie stacje…" — and ignored); free to use
         cloud = job["result"]
-        if not cloud or not _cloud_has_wake(cloud):
+        if not cloud or not _cloud_has_wake(cloud) or not _cloud_wake_plausible(cloud, words):
             return False, None
         return True, _strip_wake_from_cloud(cloud)
     if not _wake_check_worth(words) or not _wake_budget():
         return False, None
     cloud = _cloud_transcribe(pcm16k)
-    if not cloud or not _cloud_has_wake(cloud):
+    if not cloud or not _cloud_has_wake(cloud) or not _cloud_wake_plausible(cloud, words):
         return False, None
     return True, _strip_wake_from_cloud(cloud)
 
@@ -1223,7 +1244,7 @@ def listen():
                     # A garbled low-confidence result can still be "Luna!" —
                     # if it was clearly loud speech, let the cloud check it.
                     if not active and peak_rms >= 2.0 * _energy_gate():
-                        found, cleaned = _cloud_wake_check(utt_pcm)
+                        found, cleaned = _cloud_wake_check(utt_pcm, words)
                         if found:
                             print("[STT] Wake word (cloud) — conversation active")
                             with state.lock:

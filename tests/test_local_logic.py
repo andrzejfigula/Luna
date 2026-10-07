@@ -1446,6 +1446,18 @@ class KidsTest(unittest.TestCase):
         self.assertFalse(s.people_talking(1300))           # two minutes later: quiet
         s._side.clear()
 
+    def test_cloud_wake_plausible(self):
+        import speech_to_text as s
+        self.assertFalse(s._cloud_wake_plausible("Luna, wstań z łóżka, ty zdychasz.", ["usa"]))
+        self.assertFalse(s._cloud_wake_plausible(
+            "Luna, pomyślałam, że żyjesz. Tak, tak, żyję.", ["tak", "tak"]))
+        self.assertTrue(s._cloud_wake_plausible("Cześć Luna, która godzina?",
+                                                ["ilona", "która", "godzina"]))
+        self.assertTrue(s._cloud_wake_plausible("Luna, wyłącz radio.",
+                                                ["ona", "wyłącznie", "odmowie"]))
+        self.assertTrue(s._cloud_wake_plausible("Luna?", ["zmiana"]))
+        self.assertTrue(s._cloud_wake_plausible("Luna, co tam?", None))
+
     def test_variety_rule(self):
         import brain
         h = [{"role": "user", "content": "Co tam?"},
