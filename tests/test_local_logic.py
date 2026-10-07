@@ -1579,6 +1579,17 @@ class KidsTest(unittest.TestCase):
             with state.lock:
                 state.last_face_time, state.proactive_muted_until = old
 
+    def test_fast_short_answers(self):
+        from unittest import mock
+        with mock.patch.dict(sys.modules, {"sounddevice": mock.MagicMock(),
+                                           "vosk": mock.MagicMock()}):
+            import speech_to_text as s
+        self.assertIsNone(s.fast_command("nie", 1.0))             # answers: still the cloud
+        self.assertEqual(s.fix_lone_nie("Me.", "nie", 1.0), "Nie.")
+        self.assertEqual(s.fix_lone_nie("Me.", "nie", 0.7), "Me.")        # Vosk unsure
+        self.assertEqual(s.fix_lone_nie("Maybe I am", "nie", 1.0), "Maybe I am")
+        self.assertEqual(s.fix_lone_nie("Tak.", "tak", 1.0), "Tak.")
+
     def test_fuzzy_wake_needs_her_name(self):
         from unittest import mock
         with mock.patch.dict(sys.modules, {"sounddevice": mock.MagicMock(),

@@ -634,6 +634,22 @@ FAST_COMMANDS = {
     "mów głośniej", "drzemka", "jeszcze pięć minut", "wyłącz minutnik", "jeszcze raz",
     "pokaż plan dnia", "pokaż listę zakupów", "gotowe", "wyłącz napisy", "włącz napisy",
 }
+# A lone "Nie." comes back from the cloud as "Me." now and then (its language
+# guess tips to English on one short word — 7 Oct, gpt-transcribe). Short
+# answers still go through the cloud (Vosk, "sure" of "tak"/"nie", disagreed
+# with it 13 times out of 22 — background talk, English, cut sentences); only
+# these known mishearings of a "nie" Vosk was sure of are put right.
+_NIE_MISHEARD = {"me", "ni", "nee", "knee", "nay", "nye", "nie"}
+
+
+def fix_lone_nie(cloud, vosk_text, conf):
+    """"Me." → "Nie." when Vosk heard exactly "nie" and was sure of it."""
+    word = re.sub(r"[^\w]", "", (cloud or "").lower())
+    if (vosk_text.strip().lower() == "nie" and conf >= FAST_CONF
+            and len((cloud or "").split()) == 1 and word in _NIE_MISHEARD and word != "nie"):
+        print(f"[STT] cloud heard {cloud!r} for Vosk's sure \"nie\" — using \"Nie.\"", flush=True)
+        return "Nie."
+    return cloud
 
 
 def fast_command(text, conf):
@@ -1308,7 +1324,7 @@ def listen():
                     with state.lock:
                         state.last_activity_time = time.time()
                     return fast
-                cloud = _cloud_transcribe(utt_pcm)
+                cloud = fix_lone_nie(_cloud_transcribe(utt_pcm), text, conf)
                 if cloud == "" and conf >= 0.98 and len(text.split()) >= 2:
                     # the cloud returns nothing for short sounds it can't place
                     # ("puk puk"); Vosk was sure of every word — believe it
