@@ -133,10 +133,19 @@ def _game_choice(low):
     words = re.findall(r"\w+", low)
     if not words or len(words) > 6 or {"nie", "bez", "żadnych", "zadnych"} & set(words):
         return None                               # "nie chcę zagadek"
+    # a question about a game is not choosing one (7 Oct probe: "Jak Maja
+    # poradziła sobie z zagadkami?" after she had mentioned riddles → a game)
+    if "?" in low or words[0] in ("jak", "czy", "co", "kto", "kiedy", "ile", "dlaczego",
+                                  "gdzie", "który", "która", "jaka", "jaki"):
+        return None
     try:
         import brain
         if not brain.game_was_offered(before=1):
             return None
+        offer = brain.last_reply()
+        if not re.search(r"\?|\bchcesz|\bmożemy|\bmozemy|\bwybierz|\bzagramy|\bzagrajmy|"
+                         r"\bmogę\s+(?:zaproponować|zadać)", offer, re.I):
+            return None                           # she only mentioned a game
     except Exception:
         return None
     for rx, label in _GAME_NAMES:

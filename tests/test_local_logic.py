@@ -1520,6 +1520,10 @@ class KidsTest(unittest.TestCase):
                              "zagrajmy w kółko i krzyżyk")
             self.assertEqual(commands._game_choice("zagadki!"), "zadaj mi zagadkę")
             self.assertIsNone(commands._game_choice("nie chcę zagadek"))
+            self.assertIsNone(commands._game_choice("jak maja poradziła sobie z zagadkami?"))
+            brain._history[-1]["content"] = "Wczoraj była zabawa w zagadki i memory."
+            self.assertIsNone(commands._game_choice("zagadki"))      # only mentioned
+            brain._history[-1]["content"] = "Jasne! Kółko i krzyżyk, zagadki albo memory?"
             self.assertIsNone(commands._game_choice("a jaka jest pogoda"))
             # her offer before their answer allows the model's game command;
             # with no offer it doesn't

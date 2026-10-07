@@ -1037,7 +1037,11 @@ def game_was_offered(before=2):
     if len(_history) < before:
         return False
     m = _history[-before]
-    return m.get("role") == "assistant" and bool(_GAME_OFFER.search(str(m.get("content", ""))))
+    said = str(m.get("content", ""))
+    # an offer, not a mention ("wczoraj była zabawa w zagadki" offers nothing)
+    return (m.get("role") == "assistant" and bool(_GAME_OFFER.search(said))
+            and bool(re.search(r"\?|\bchcesz|\bmożemy|\bmozemy|\bwybierz|\bzagramy|"
+                               r"\bzagrajmy|\bmogę\s+(?:zaproponować|zadać)", said, re.I)))
 
 
 def _asks_to_choose(reply):
