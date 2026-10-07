@@ -201,6 +201,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Mniej powtórek | Luna pamięta, jak zaczynała ostatnie odpowiedzi, i zaczyna inaczej — koniec z „Spokojnie, Andrzeju” na każde „Co tam?” |
 | Prywatność przy rozmowach po angielsku | gdy w pokoju trwa rozmowa/wideorozmowa po angielsku, Luna przez 10 minut nie wysyła dźwięku do chmury; na wyraźne „Luna” dalej reaguje; w tym czasie też sama się nie odzywa |
 | Więcej zagadek | „Luna, zadaj mi zagadkę” — teraz 59 zagadek zamiast 31 (zwierzęta, jedzenie, pojazdy, pogoda), dłużej się nie powtarzają |
+| Gwiazdka dla Mai | gdy Maja gra razem z dorosłym, gwiazdkę za grę dostaje Maja (wcześniej dostawał ją ten, kogo Luna rozpoznała pierwszego) |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 

@@ -1446,6 +1446,25 @@ class KidsTest(unittest.TestCase):
         self.assertFalse(s.people_talking(1300))           # two minutes later: quiet
         s._side.clear()
 
+    def test_star_goes_to_the_child_in_view(self):
+        import quiz, faces
+        from shared_state import state
+        old = (state.person, state.others, faces.notes)
+        try:
+            faces.notes = lambda: {"Maja": "dziecko, 8 lat", "Andrzej": "tata"}
+            state.person = ("Andrzej", 0.8)
+            state.others = (["Maja"], 1000.0)
+            self.assertEqual(quiz._star_for(1001.0), "Maja")
+            state.others = (["Maja"], 0.0)                   # seen long ago
+            self.assertEqual(quiz._star_for(1001.0), "Andrzej")
+            state.others = ([], 1000.0)
+            self.assertEqual(quiz._star_for(1001.0), "Andrzej")
+            state.person = ("Maja", 0.5)
+            state.others = (["Andrzej"], 1000.0)
+            self.assertEqual(quiz._star_for(1001.0), "Maja")
+        finally:
+            state.person, state.others, faces.notes = old
+
     def test_quiz_would_accept(self):
         import quiz
         old = quiz._q

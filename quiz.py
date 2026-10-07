@@ -717,12 +717,39 @@ def _record(field, value, better):
     return None
 
 
+def _star_for(now=None):
+    """Who gets the star: the person in front of her — but with a child in
+    view as well, the child (the games are theirs: 7 Oct 18:58 Maja and
+    Andrzej solved riddles together and the star went to Andrzej, the one
+    recognised first)."""
+    now = now or time.time()
+    with state.lock:
+        main = state.person[0] if state.person else None
+        others, seen_at = state.others
+    if not main:
+        return None
+    try:
+        import faces
+        notes = faces.notes()
+        recent = now - seen_at < 3 * faces.RECOGNISE_EVERY
+    except Exception:
+        return main
+    def child(n):
+        return "dziecko" in (notes.get(n, "") or "").lower()
+    if child(main) or not recent:
+        return main
+    kids = [o for o in (others or []) if o != "?" and child(o)]
+    if kids:
+        print(f"[quiz] {main} and {kids[0]} in view — the star goes to {kids[0]}", flush=True)
+        return kids[0]
+    return main
+
+
 def award_star():
     """+1 star for the person in front of her (by face) — None for someone
     unknown. Shown big on the screen; "pokaż moje gwiazdki" shows them all."""
     import settings
-    with state.lock:
-        who = state.person[0] if state.person else None
+    who = _star_for()
     if not who:
         return None
     stars = settings.get("stars", {}) or {}
