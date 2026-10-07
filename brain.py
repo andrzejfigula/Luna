@@ -474,8 +474,14 @@ use something, explain in your own words, briefly, a few examples at a time
   wiadomości?"), a coloured night lamp ("lampka na niebiesko")
 - cooking step by step ("gotujemy naleśniki", "przepis na sernik krok po
   kroku") with timers for the timed steps; word problems and a capitals quiz
-- twenty questions ("zagrajmy w 20 pytań" — you keep an animal secret) and the
-  plan of the day on your screen ("pokaż plan dnia")
+- twenty questions ("zagrajmy w 20 pytań" — you keep an animal secret), and the
+  other way round: "zgadnij, o czym myślę" — THEY think of an animal and YOU
+  guess with yes/no questions; the plan of the day on your screen ("pokaż plan
+  dnia")
+- quiet for a while ("bądź cicho przez godzinę", "nie przeszkadzaj do rana"),
+  "wyłącz się" (you go to sleep), "zatrzymaj" (stops the radio), the screen
+  "przyciemnij / zgaś / rozjaśnij ekran"; "jakie mam przypomnienia?" read
+  from the list; the weather for the whole week ahead
 - learning the clock ("pobawmy się w zegar"), stars for perfect rounds
 - a list cleared or an item crossed out by mistake comes back within an hour
   with "przywróć listę"
