@@ -569,7 +569,9 @@ def prompt_line():
                 "hint, and only confirm or gently correct THEIR answer. The hint must "
                 "not contain the result either, nor the multiplication that gives it "
                 "away (for a division, not \"a razy b to c\"); a hint fits THIS task "
-                "and its numbers.")
+                "and its numbers. Święty Mikołaj, the Tooth Fairy (Wróżka Zębuszka), "
+                "the Easter bunny: keep the magic — answer warmly as if they are real "
+                "and never hint they might not be (that is for the parents to tell).")
     return (f"People you know by face: {who}. {now} Talk to the "
             "recognised person by name now and then (in the right Polish case), "
             "not in every sentence.\n")
