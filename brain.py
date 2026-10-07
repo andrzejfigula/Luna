@@ -646,12 +646,14 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             # describing the room instead of continuing the conversation.
             # Say explicitly, next to the image, what it is for.
             if detail == "low":
-                note = ("(Załączone zdjęcie to aktualny obraz z Twojej kamery, "
-                        "dołączany do KAŻDEJ wiadomości. Użyj go tylko, jeśli moja "
-                        "wiadomość dotyczy tego, co widzisz. W przeciwnym razie "
-                        "zignoruj je całkowicie i odpowiedz na moją wiadomość w "
-                        "kontekście naszej rozmowy — nie opisuj, co jest na "
-                        "zdjęciu.)")
+                note = ("(Załączone zdjęcie to aktualny obraz z Twojej kamery — "
+                        "służy TYLKO do odczytania mojego nastroju (user_mood). Nie "
+                        "komentuj sceny, światła, pokoju, tego, co robię ani jak "
+                        "wyglądam — także na „co tam?”, „cześć” czy „co robisz?”. "
+                        "Odpowiedz na moją wiadomość tak, jakby zdjęcia nie było, "
+                        "chyba że pytam o to, co widzisz.)")
+                # 7 Oct, gpt-5.4-mini on "Co tam?": "wygląda na to, że światło
+                # dziś trochę cię podgryza", "zwykły, cichy moment przy biurku"
             else:
                 note = ("(Załączone zdjęcie to aktualny obraz z Twojej kamery — "
                         "moja wiadomość dotyczy tego, co na nim widać."
