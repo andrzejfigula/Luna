@@ -253,7 +253,8 @@ def _pw_record(node):
     global _mic_ok, _mic_rate
     rate = VOSK_SAMPLE_RATE
     cmd = ["pw-record", "--raw", "--target", node, "--rate", str(rate), "--channels", "1",
-           "--format", "s16", "--latency", "50ms", "-"]
+           "--format", "s16", "--latency", "100ms", "-"]   # (50 ms: a 800-sample
+    # quantum next to the AEC nodes' 1024 — xruns; 100 ms ran clean in the trial)
     def die_with_luna():
         # if Luna exits, the recorder must too: on 7 Oct a leftover pw-record
         # (its node gone) fell back to the webcam mic, PipeWire held it, and
