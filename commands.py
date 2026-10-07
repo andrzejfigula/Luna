@@ -126,6 +126,12 @@ _GAME_NAMES = [
 ]
 
 
+# "Czy zagramy w memory?", "a pogramy w zagadki?" — asking to play a named game
+# (7 Oct probe: went to the model, which may only start a game it offered)
+_SHALL_WE = re.compile(r"^(?:luna,?\s+|luno,?\s+)?(?:czy\s+|to\s+|a\s+|może\s+)*"
+                       r"(?:zagramy|pogramy|gramy|pobawimy\s+się)\s+(?:w\s+)?(.+?)[?.!]*$", re.I)
+
+
 def _game_choice(low):
     """A short answer naming a game, right after she offered games (7 Oct
     probe: "W kółko i krzyżyk" after her list went to the model, which
@@ -646,7 +652,14 @@ _IMPERATIVE = {
     "mówić": "mów", "zmienić": "zmień", "przełączyć": "przełącz", "ściszyć": "ścisz",
     "przestać": "przestań", "przepytać": "przepytaj", "zadać": "zadaj", "odliczyć": "odliczaj",
     "uruchomić": "uruchom", "zmniejszyć": "zmniejsz", "zwiększyć": "zwiększ",
+    # (7 Oct probe: "Możesz przyciemnić ekran?" went to the model)
+    "przyciemnić": "przyciemnij", "rozjaśnić": "rozjaśnij", "ściemnić": "ściemnij",
 }
+# "Czy możesz się wyłączyć / być cicho przez godzinę?" — said whole, not a verb
+_POLITE_WHOLE = [
+    (re.compile(r"\bsię\s+wyłączyć\b|\bwyłączyć\s+się\b|\biść\s+spać\b|\bzasnąć\b"), "wyłącz się"),
+    (re.compile(r"\bbyć\s+(?:cicho|ciszej)\b(.*)$"), "bądź cicho{0}"),
+]
 _POLITE_ASK = re.compile(r"^(?:luna,?\s+|hej,?\s+)*(?:czy\s+)?(?:możesz|mozesz|mogłabyś|"
                          r"moglabys|mogłabys)\s+(?:proszę\s+|prosze\s+)?((?:mi\s+|nam\s+)?)"
                          r"(\w+)(.*?)[?.!]*$", re.I)
@@ -689,6 +702,11 @@ def polite_to_command(text):
         if rest != text.strip() and first in _COMMAND_VERBS:
             return rest
         return None
+    rest = (m.group(1) + m.group(2) + m.group(3)).strip().lower()
+    for rx, cmd in _POLITE_WHOLE:
+        w = rx.search(rest)
+        if w:
+            return cmd.format(w.group(1) if w.groups() else "").strip()
     verb = _IMPERATIVE.get(m.group(2).lower())
     if not verb:
         return None
@@ -854,6 +872,10 @@ def handle(text, speak, play_sound, _polite=True):
     if _polite:
         cmd = polite_to_command(text)
         if cmd:
+            import idle_engine                     # "czy możesz być cicho przez godzinę?"
+            if idle_engine.check_mute(cmd):
+                print(f"[cmd] polite request → \"{cmd}\"", flush=True)
+                return True
             handled = handle(cmd, speak, play_sound, _polite=False)
             if handled:
                 print(f"[cmd] polite request → \"{cmd}\"", flush=True)
@@ -918,6 +940,13 @@ def handle(text, speak, play_sound, _polite=True):
         return True
 
     # she offered games and they name one: "W kółko i krzyżyk!", "Zagadki"
+    m = _SHALL_WE.match(low.strip())                   # "Czy zagramy w kółko i krzyżyk?"
+    if m and _polite:
+        label = next((lb for rx, lb in _GAME_NAMES if re.search(r"\b(?:" + rx + r")", m.group(1))),
+                     None)
+        if label:
+            print(f"[cmd] \"zagramy w …?\" → \"{label}\"", flush=True)
+            return handle(label, speak, play_sound, _polite=False)
     label = _game_choice(low) if _polite else None     # (the label itself names it)
     if label:
         print(f"[cmd] game chosen after her offer → \"{label}\"", flush=True)
