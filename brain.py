@@ -84,6 +84,85 @@ def _local_now_text():
             f"({LUNA_TIMEZONE if _TZ else 'system'}, {now.strftime('%Z')}, "
             f"UTC{off[:3]}:{off[3:]})")
 
+# a question about dates: weekdays, "the last Sunday of…", the clock change
+_DATEY = re.compile(
+    r"\b(?:kiedy|którego|ktorego|jaki\s+dzie[nń]|niedziel|poniedzia|wtor|czwart|"
+    r"piąt(?:ek|ku)|sobot|weekend|tydzie|tygodni|miesi[aą]c|stycz|kwie[ct]|sierp|"
+    r"wrze[sś]|październik|paździer|listopad|zmian\w*\s+czasu|"
+    r"czas\w*\s+(?:letni|zimowy)|ile\s+dni|święt|swiet|wigili|sylwest|wielkanoc|"
+    r"weekday|sunday|monday|daylight|christmas)|"
+    # whole words only: "mają" is not May, "data" not "datek" ("Maja" is Maja)
+    r"\b(?:dat[aęy]|środ[aęy]|środzie|lut(?:y|ego|ym)|mar(?:zec|ca|cu)|maj|maju|"
+    r"czerw(?:iec|ca|cu)|lip(?:iec|ca|cu)|grud(?:zień|nia|niu)|when|date)\b", re.I)
+
+
+def _easter(year):
+    """Easter Sunday (the Gregorian computus)."""
+    from datetime import date
+    a, b, c = year % 19, year // 100, year % 100
+    d, e = b // 4, b % 4
+    g = (8 * b + 13) // 25
+    h = (19 * a + b - d - g + 15) % 30
+    i, k = c // 4, c % 4
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    month = (h + l - 7 * m + 114) // 31
+    return date(year, month, (h + l - 7 * m + 114) % 31 + 1)
+
+
+def _holidays_ahead(day, n=6):
+    """The next n Polish holidays/feasts with how many days away — "ile dni
+    do świąt?" got 88 for 78 (7 Oct 2026)."""
+    from datetime import date, timedelta
+    out = []
+    for y in (day.year, day.year + 1):
+        e = _easter(y)
+        out += [(date(y, 1, 1), "Nowy Rok"), (date(y, 1, 6), "Trzech Króli"),
+                (e, "Wielkanoc"), (e + timedelta(days=1), "Poniedziałek Wielkanocny"),
+                (date(y, 5, 1), "Święto Pracy"), (date(y, 5, 3), "Święto Konstytucji 3 Maja"),
+                (date(y, 5, 26), "Dzień Matki"), (date(y, 6, 1), "Dzień Dziecka"),
+                (e + timedelta(days=60), "Boże Ciało"), (date(y, 8, 15), "Wniebowzięcie"),
+                (date(y, 11, 1), "Wszystkich Świętych"),
+                (date(y, 11, 11), "Święto Niepodległości"),
+                (date(y, 12, 6), "Mikołajki"), (date(y, 12, 24), "Wigilia"),
+                (date(y, 12, 25), "Boże Narodzenie"), (date(y, 12, 31), "Sylwester")]
+    out = sorted((d, name) for d, name in out if d > day)[:n]
+    return ", ".join(f"{name} {d:%d.%m} ({d:%A}, in {(d - day).days} days)" for d, name in out)
+
+
+
+def _calendar_line(text, now=None):
+    """For a question about dates: the weeks ahead (Mon–Sun) and the next
+    clock change, worked out here — 7 Oct 2026 "Kiedy zmieniamy czas na
+    zimowy?" got "w nocy z 25 na 26 października" (it's 24→25: the model
+    can't count weekdays). '' for any other question."""
+    if not _DATEY.search(text or ""):
+        return ""
+    now = now or (datetime.now(_TZ) if _TZ else datetime.now().astimezone())
+    from datetime import timedelta
+    day = now.date()
+    monday = day - timedelta(days=day.weekday())
+    weeks = []
+    for i in range(10):
+        a = monday + timedelta(weeks=i)
+        b = a + timedelta(days=6)
+        weeks.append(f"{a:%d.%m}–{b:%d.%m}")
+    line = (f"Calendar (each week Monday–Sunday, today is {day:%A %d.%m.%Y}): "
+            + ", ".join(weeks) + ".")
+    if _TZ:
+        def off(d):
+            return datetime(d.year, d.month, d.day, 12, tzinfo=_TZ).utcoffset()
+        for i in range(1, 400):
+            d = day + timedelta(days=i)
+            before, after = off(d - timedelta(days=1)), off(d)
+            if before != after:
+                kind = "winter (standard) time" if after < before else "summer time"
+                line += (f" The next clock change: the night from {d - timedelta(days=1):%A %d.%m}"
+                         f" to {d:%A %d.%m.%Y} — {kind} begins.")
+                break
+    return line + f" Coming up: {_holidays_ahead(day)}.\n"
+
+
 from polish import feminize, offer_only, empty_promise, neutral_you   # (polish.py)
 
 
@@ -679,6 +758,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   f"local date and time there is: {_local_now_text()}. When "
                   f"asked the time or date, answer with exactly this local "
                   f"time — do not convert it to any other zone.\n"
+                  + _calendar_line(text)
                   + _translator_rule()
                   + _length_rule()
                   + faces.prompt_line()

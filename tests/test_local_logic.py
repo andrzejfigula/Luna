@@ -1446,6 +1446,28 @@ class KidsTest(unittest.TestCase):
         self.assertFalse(s.people_talking(1300))           # two minutes later: quiet
         s._side.clear()
 
+    def test_calendar_line(self):
+        import brain
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        old, brain._TZ = brain._TZ, ZoneInfo("Europe/Warsaw")
+        try:
+            now = datetime(2026, 10, 7, 18, 0, tzinfo=brain._TZ)
+            line = brain._calendar_line("Kiedy zmieniamy czas na zimowy?", now)
+            self.assertIn("19.10–25.10", line)
+            self.assertIn("Saturday 24.10 to Sunday 25.10.2026", line)
+            self.assertIn("winter", line)
+            self.assertIn("Wigilia 24.12 (Thursday, in 78 days)", line)
+            self.assertEqual(str(brain._easter(2027)), "2027-03-28")
+            self.assertEqual(str(brain._easter(2026)), "2026-04-05")
+            self.assertTrue(brain._calendar_line("Jaka jest data?", now))
+            self.assertTrue(brain._calendar_line("Co robimy w maju?", now))
+            self.assertEqual(brain._calendar_line("Co tam?", now), "")
+            self.assertEqual(brain._calendar_line("Oni mają kota.", now), "")
+            self.assertEqual(brain._calendar_line("Maja", now), "")
+        finally:
+            brain._TZ = old
+
     def test_news_requests(self):
         import news
         self.assertTrue(news.is_request("Co dzisiaj ważnego się stało na świecie?"))

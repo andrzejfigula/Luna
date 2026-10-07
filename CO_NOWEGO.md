@@ -197,6 +197,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Szybciej i dokładniej (7.10) | nowsze modele: rozpoznawanie mowy (dokładniejsze, nie zmyśla zdań z szumu), odpowiedzi i głos — w sumie około sekundy szybciej na odpowiedź. Głos ten sam (marin), ale z nowszej wersji modelu — dajcie znać, jeśli brzmi inaczej |
 | Przerwanie Luny w pół zdania | **przytrzymaj palec na ekranie** — przestaje mówić i od razu słucha (głosowe „stop” będzie po dodaniu tłumienia echa) |
 | Dyktando — czytanie kartki | Luna patrzy na kartkę dwa razy i czyta lepszym modelem (jak w „kamień, papier, nożyce”) — trzymajcie kartkę spokojnie chwilę przed kamerą |
+| Daty bez pomyłek | „Kiedy zmiana czasu?”, „jaki dzień tygodnia będzie 11 listopada?”, „ile dni do świąt?” — Luna dostaje wyliczony kalendarz i święta, więc już nie zgaduje |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 
