@@ -392,6 +392,10 @@ OPENAI_MAX_HISTORY  = 12    # max conversation history messages sent to the API
 # so Luna can always "see"; questions containing any of the words below get
 # it at high detail instead (needed to read text, small objects).
 VISION_ALWAYS = True
+LOW_FRAME_EVERY = 60     # ...but the low-detail picture (for her reading of the mood)
+                         # at most this often: it cost 0.2–0.3 s per answer (first
+                         # sentence 1.21 s with it vs 0.92–1.03 s without, 7 Oct);
+                         # questions about what she sees always get one
 VISION_KEYWORDS = [
     # Polish
     "widzisz", "widać", "widac", "zobacz", "spójrz", "spojrz", "popatrz",

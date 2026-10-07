@@ -59,6 +59,7 @@ from config import (
     VISION_KEYWORDS,
     VISION_JPEG_QUALITY,
     VISION_ALWAYS,
+    LOW_FRAME_EVERY,
     LUNA_TIMEZONE,
     LUNA_LOCATION,
     THINK_SOUND_DELAY,
@@ -530,8 +531,17 @@ def _translator_rule():
             f"gesture none.\n")
 
 
+_last_low_frame = 0.0      # when the last everyday (low-detail) picture went along
+
+
 def _mood_rule(have_image):
     if not have_image:
+        if _mood_seen and time.time() - _last_low_frame < 2 * LOW_FRAME_EVERY:
+            # no new picture this turn (LOW_FRAME_EVERY): the reading from a
+            # moment ago still holds — the voice keeps fitting their mood
+            return (f"No new camera picture this time; a moment ago the person seemed "
+                    f"\"{_mood_seen[-1]}\" — use that as user_mood. Do not remark on "
+                    "how the user looks.\n")
         return ("There is no camera picture this time: user_mood is "
                 "\"no_person\" and do not remark on how the user looks.\n")
     steady = (len(_mood_seen) >= 1 and _mood_seen[-1] in MOOD_COMMENT_MOODS)
@@ -1106,7 +1116,11 @@ def _process(text, context=None):
     lower = text.lower()
 
     visual = _wants_vision(lower)
-    image  = _camera_jpeg_b64() if (visual or VISION_ALWAYS) else None
+    global _last_low_frame
+    with_frame = visual or (VISION_ALWAYS and time.time() - _last_low_frame >= LOW_FRAME_EVERY)
+    image  = _camera_jpeg_b64() if with_frame else None
+    if image is not None and not visual:
+        _last_low_frame = time.time()
 
     # the answer takes 2-4 s; now and then fill the silence with a "hmm"
     answered = threading.Event()
