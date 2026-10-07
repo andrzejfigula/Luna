@@ -957,6 +957,12 @@ def handle(text, speak, play_sound, _polite=True):
         print(f"[cmd] game chosen after her offer → \"{label}\"", flush=True)
         return handle(label, speak, play_sound, _polite=False)
 
+    # "Włącz kołysankę" — she has no recordings, but she sings one (7 Oct probe:
+    # the model took "włącz" as impossible and stayed silent)
+    if re.match(r"^(?:luna,?\s+)?(?:włącz|wlacz|puść|pusc|zagraj)\s+(?:mi\s+|nam\s+)?"
+                r"(?:jakąś\s+|jakas\s+)?kołysank\w*", low):
+        return ("ask", "Zaśpiewaj mi krótką, spokojną kołysankę.")
+
     # "zgaś ekran" / "przyciemnij ekran" / "rozjaśnij ekran" (display.py)
     m = _SCREEN.match(low.strip(" .!?"))
     if m:

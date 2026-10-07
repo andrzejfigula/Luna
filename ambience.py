@@ -202,6 +202,12 @@ def handle(text, speak):
         return False
     kind = next((k for k, stems in KINDS.items() if any(s in low for s in stems)), None)
     if kind is None:
+        if re.search(r"\b(?:odgłos\w*|odglos\w*|dźwięk\w*|dzwiek\w*|szum\w*)\b", low):
+            # "włącz odgłosy lasu" — one she hasn't got (7 Oct probe: the
+            # model went silent on it)
+            speak("Takiego dźwięku nie mam. Mam szum deszczu, szum morza i biały szum — "
+                  "który włączyć?")
+            return True
         return False
     import timers
     secs, _ = timers.parse_duration(low)
