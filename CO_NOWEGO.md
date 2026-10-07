@@ -199,6 +199,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Dyktando — czytanie kartki | Luna patrzy na kartkę dwa razy i czyta lepszym modelem (jak w „kamień, papier, nożyce”) — trzymajcie kartkę spokojnie chwilę przed kamerą |
 | Daty bez pomyłek | „Kiedy zmiana czasu?”, „jaki dzień tygodnia będzie 11 listopada?”, „ile dni do świąt?” — Luna dostaje wyliczony kalendarz i święta, więc już nie zgaduje |
 | Mniej powtórek | Luna pamięta, jak zaczynała ostatnie odpowiedzi, i zaczyna inaczej — koniec z „Spokojnie, Andrzeju” na każde „Co tam?” |
+| Prywatność przy rozmowach po angielsku | gdy w pokoju trwa rozmowa/wideorozmowa po angielsku, Luna przez 10 minut nie wysyła dźwięku do chmury; na wyraźne „Luna” dalej reaguje |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 

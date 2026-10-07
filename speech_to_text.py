@@ -838,9 +838,37 @@ def _maybe_wake(words):
     return len(words) <= 2
 
 
+_en_heard = []                         # times the wake check came back English
+_call_until = 0.0
+CALL_EN_COUNT, CALL_EN_WINDOW, CALL_PAUSE = 3, 300, 600
+
+
+def _note_wake_check_result(cloud, now=None):
+    """English with no "Luna" three times in five minutes: someone's call or
+    video — stop sending the room to the cloud for 10 minutes (each further
+    English sentence extends it). 7 Oct 14:29–15:26, Andrzej's English work
+    call: 63 transcriptions in an hour, no answer; Vosk's own wake word
+    still works meanwhile."""
+    global _call_until
+    now = now or time.time()
+    if not cloud or not english_side_talk(cloud):
+        return
+    _en_heard.append(now)
+    _en_heard[:] = [t for t in _en_heard if now - t < CALL_EN_WINDOW]
+    if len(_en_heard) >= CALL_EN_COUNT:
+        if now >= _call_until:
+            print(f"[STT] English call/video in the room — no cloud wake checks for "
+                  f"{CALL_PAUSE // 60} min (Vosk still hears \"Luna\")", flush=True)
+        _call_until = now + CALL_PAUSE
+
+
+def call_pause(now=None):
+    return (now or time.time()) < _call_until
+
+
 def _wake_check_worth(words):
     """Might these (passive-mode) words hold a misheard "Luna"?"""
-    if not CLOUD_WAKE_CHECK or _cloud is None:
+    if not CLOUD_WAKE_CHECK or _cloud is None or call_pause():
         return False
     return words is None or _maybe_wake(words) or _face_invites(words)
 
@@ -891,12 +919,14 @@ def _cloud_wake_check(pcm16k, words=None):
         # its final ones lost it: 6 Oct 18:36 "Luna, jakie stacje radiowe
         # masz?" heard as "no jakie stacje…" — and ignored); free to use
         cloud = job["result"]
+        _note_wake_check_result(cloud)
         if not cloud or not _cloud_has_wake(cloud) or not _cloud_wake_plausible(cloud, words):
             return False, None
         return True, _strip_wake_from_cloud(cloud)
     if not _wake_check_worth(words) or not _wake_budget():
         return False, None
     cloud = _cloud_transcribe(pcm16k)
+    _note_wake_check_result(cloud)
     if not cloud or not _cloud_has_wake(cloud) or not _cloud_wake_plausible(cloud, words):
         return False, None
     return True, _strip_wake_from_cloud(cloud)

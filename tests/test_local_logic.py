@@ -1446,6 +1446,22 @@ class KidsTest(unittest.TestCase):
         self.assertFalse(s.people_talking(1300))           # two minutes later: quiet
         s._side.clear()
 
+    def test_english_call_pauses_wake_checks(self):
+        import speech_to_text as s
+        s._en_heard.clear()
+        s._call_until = 0.0
+        t = 1000.0
+        s._note_wake_check_result("Should it be one man just standing and talking?", t)
+        s._note_wake_check_result("Zaraz mam spotkanie.", t + 5)           # Polish: no
+        s._note_wake_check_result("We have a demo session like this one.", t + 10)
+        self.assertFalse(s.call_pause(t + 11))
+        s._note_wake_check_result("Just extend it a little bit, you don't...", t + 20)
+        self.assertTrue(s.call_pause(t + 21))
+        self.assertTrue(s.call_pause(t + 20 + 599))
+        self.assertFalse(s.call_pause(t + 20 + 601))
+        s._call_until = 0.0
+        s._en_heard.clear()
+
     def test_cloud_wake_plausible(self):
         import speech_to_text as s
         self.assertFalse(s._cloud_wake_plausible("Luna, wstań z łóżka, ty zdychasz.", ["usa"]))
