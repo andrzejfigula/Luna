@@ -352,8 +352,31 @@ def answer(text, speak):
             speak(f"Nie, to nie {named}. Pytaj dalej!")
             _listen_longer()
             return True
+        # hint / questions left / repeat are part of the game (7 Oct probe:
+        # "Podpowiedz" ended it, and "Czy ma futro?" then went to the model)
+        if re.search(r"\b(?:podpowie\w*|podpowiedź|podpowiedz|pomóż|pomoz|wskazówk\w*)\b", low):
+            g["asked"] += 1                                # a hint costs a question
+            speak(f"Podpowiedź: to zwierzę zaczyna się na literę {g['animal'][0].upper()}. "
+                  f"Zostało ci {MAX_QUESTIONS - g['asked']} pytań.")
+            _listen_longer()
+            return True
+        if re.search(r"\bile\b.*\bpyta[ńn]", low):
+            left = MAX_QUESTIONS - g["asked"]
+            speak(f"Pytań już zadanych: {g['asked']}, zostało {left}." if g["asked"] else
+                  f"Masz jeszcze wszystkie {left} pytań.")
+            _listen_longer()
+            return True
+        if re.match(r"^(?:powtórz|powtorz|jeszcze\s+raz|nie\s+rozumiem|jak\s+się\s+gra)\b", low):
+            speak("Pomyślałam sobie zwierzę. Pytaj o nie, na przykład: czy ma futro? "
+                  "Czy umie latać? Albo zgaduj: czy to kot?")
+            _listen_longer()
+            return True
         if not re.search(r"\b(czy|jest|ma|mieszka|potrafi|umie|je|lata|pływa|plywa)\b", low) \
                 or len(words) > 15:
+            if len(words) <= 4:                            # a short slip: still playing
+                speak("Zadaj pytanie, na które odpowiem tak albo nie — albo zgaduj: czy to…?")
+                _listen_longer()
+                return True
             _g = None                                      # not a game question
             return False
         g["asked"] += 1

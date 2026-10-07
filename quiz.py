@@ -820,6 +820,19 @@ def _guess(text, speak, play_sound_async):
         _q = None
         return True
     n = calc.number_in(text)
+    words = re.findall(r"\w+", low)
+    if n is None and _HINT_Q.search(low):
+        # (7 Oct probe: "Podpowiedz" ended the game, and "50" went to the model)
+        q["asked"] = time.time()
+        even = "parzysta" if q["secret"] % 2 == 0 else "nieparzysta"
+        speak(f"Podpowiedź: to liczba między {q['lo']} a {q['hi']}, i jest {even}.")
+        _listen_longer()
+        return True
+    if n is None and (_REPEAT_Q.match(low.strip(" .!?")) or len(words) <= 3):
+        q["asked"] = time.time()
+        speak(f"Szukamy liczby od {q['lo']} do {q['hi']}. Zgaduj!")
+        _listen_longer()
+        return True
     if n is None:
         print("[quiz] no number in the guess — game over", flush=True)
         _q = None
