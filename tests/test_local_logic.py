@@ -1480,6 +1480,13 @@ class KidsTest(unittest.TestCase):
         # no "wieczór" list: the default steps; at the end, the best bit of the day
         kids.start_routine("wieczór", say)
         self.assertIn("Ułożyłam", said[-2])
+        # reluctance, "how many left" and something else keep it going (9 Oct probe)
+        self.assertTrue(kids.routine_answer("Nie chce mi się", say, lambda n: None))
+        self.assertIn(kids.DEFAULT_STEPS["wieczór"][0], said[-1])
+        self.assertTrue(kids.routine_answer("Ile jeszcze kroków?", say, lambda n: None))
+        self.assertIn(f"{len(kids.DEFAULT_STEPS['wieczór'])}", said[-1])
+        self.assertFalse(kids.routine_answer("Opowiedz bajkę o smoku", say, lambda n: None))
+        self.assertTrue(kids.routine_active())
         for _ in kids.DEFAULT_STEPS["wieczór"]:
             kids.routine_answer("Gotowe", say, lambda n: None)
         self.assertIn("najfajniejsze" if "najfajniejsze" in said[-1] else "najlepsze", said[-1])

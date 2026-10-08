@@ -229,14 +229,31 @@ def routine_answer(text, speak, play_sound):
             r["t"] = time.time()
             _step(speak)
             return True
+        # "Nie chce mi się" / "ile jeszcze?" — part of it too (9 Oct probe: the
+        # first ended the routine, and the steps after went to the model)
+        if re.search(r"\bnie\s+chce\s+mi\s+się|\bnie\s+chce\s+mi\s+sie|\bnie\s+chcę\b|"
+                     r"\bnie\s+chce\b|\bnie\s+mam\s+siły|\bczy\s+muszę|\bmuszę\?", low) \
+                and len(words) <= 6:
+            r["t"] = time.time()
+            speak(random.choice(["Wiem, wiem. Tylko ten jeden krok — dasz radę!",
+                                 "Rozumiem. Zróbmy tylko to jedno, a potem następne."]))
+            _step(speak)
+            return True
+        if re.search(r"\bile\s+(?:jeszcze|zostało|zostalo|kroków|krokow)\b", low) and len(words) <= 6:
+            r["t"] = time.time()
+            left = r["steps"][r["i"]:]
+            speak(("Został jeszcze tylko jeden krok: " if len(left) == 1 else
+                   f"Zostały jeszcze {len(left)} kroki: " if len(left) in (2, 3, 4) else
+                   f"Zostało jeszcze {len(left)} kroków: ") + ", ".join(left) + ".")
+            return True
         skipped = bool(re.match(r"^(?:pomiń|pomin|przeskocz|nie\s+teraz)\b", low.strip())
                        and len(words) <= 4)
         if skipped:
             words = list(_DONE)[:1]          # the next step, without the praise
         if not (set(words) & set(_DONE)) or len(words) > 6:
-            print("[kids] routine left", flush=True)
-            _routine = None
-            _clear()
+            # something else ("opowiedz bajkę", a question): answered as usual,
+            # and the routine waits — it ends with "koniec" or after a while
+            print("[kids] not a step — the routine waits", flush=True)
             return False
         r["i"] += 1
         r["t"] = time.time()
