@@ -54,8 +54,35 @@ _CANCEL = re.compile(r"\b(?:usuń|usun|skasuj|anuluj)\s+(?:wszystkie\s+)?(?:przy
                      r"(?:już\s+|juz\s+)?(\w+)", re.I)
 
 
+_PART_OF_DAY = ((r"\brano\b|\bz\s+rana\b|\bprzed\s+szkołą\b|\bprzed\s+szkola\b", "06:00"),
+                (r"\bpo\s+szkole\b|\bpo\s+południu\b|\bpo\s+poludniu\b", "13:00"),
+                (r"\bwieczorem\b|\bwieczór\b|\bwieczor\b", "17:00"))
+
+
+def days_ahead(text):
+    """"jutro" → 1, "pojutrze" → 2, else 0 (and 0 for a daily one)."""
+    low = text.lower()
+    if _DAILY.search(text) or re.search(r"\b(?:dziś|dzis|dzisiaj)\b", low):
+        return 0
+    return 2 if re.search(r"\bpojutrze\b", low) else 1 if re.search(r"\bjutr\w*", low) else 0
+
+
+def _day(text, now=None):
+    """The date it may first be said ("YYYY-MM-DD"), or None."""
+    n = days_ahead(text)
+    return time.strftime("%Y-%m-%d", time.localtime((now or time.time()) + n * 86400)) if n else None
+
+
 def _when(text):
-    """("HH:MM" or None, daily) from "codziennie o 20:30", "o dwudziestej trzydzieści"."""
+    """("HH:MM" or None, daily) from "codziennie o 20:30", "o dwudziestej trzydzieści",
+    "rano" (6:00), "po szkole" (13:00), "wieczorem" (17:00)."""
+    at, daily = _clock(text)
+    if not at:
+        at = next((hm for rx, hm in _PART_OF_DAY if re.search(rx, text, re.I)), None)
+    return at, daily
+
+
+def _clock(text):
     import calc
     daily = bool(_DAILY.search(text))
     m = _AT.search(text)
@@ -106,6 +133,8 @@ def _due(e, now=None):
     if not e.get("daily") and now - e["t"] > KEEP_DAYS * 86400:
         return False
     lt = time.localtime(now)
+    if e.get("day") and time.strftime("%Y-%m-%d", lt) < e["day"]:
+        return False                      # "jutro rano": not this morning
     if e.get("at") and time.strftime("%H:%M", lt) < e["at"]:
         return False
     if e.get("daily"):
@@ -138,6 +167,15 @@ def take(text):
         to = faces.match_name(m.group(1)) if m else None
         if to:
             break
+    m2 = _ASK.search(text)
+    if not to and m2 and m2.group(1).lower() in ("jej", "mu"):
+        # "Maja ma jutro wycieczkę, przypomnij jej rano, żeby wzięła kanapki" —
+        # "jej" is the name said before it (8 Oct sweep: it became a reminder
+        # for the whole house at 8:00)
+        names = [faces.match_name(w) for w in re.findall(r"\w+", text[:m2.start()])]
+        names = [n for n in names if n]
+        if names:
+            m, to = m2, names[-1]
     if not to:
         return None
     with state.lock:
@@ -149,7 +187,7 @@ def take(text):
     with _lock:
         items = [e for e in _load() if e.get("daily") or time.time() - e["t"] < KEEP_DAYS * 86400]
         items.append({"to": to, "from": frm, "words": words, "t": time.time(),
-                      "at": at, "daily": daily})
+                      "at": at, "daily": daily, "day": _day(text)})
         _save(items)
     print(f"[errands] for {to}" + (f" from {frm}" if frm else "")
           + (f" {'daily ' if daily else ''}after {at}" if at else "") + f": {words}",

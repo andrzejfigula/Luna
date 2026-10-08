@@ -631,12 +631,23 @@ def _spell(word, speak):
     speak(f"{word}: {names}.{tip}")
 
 
-def _is_goodbye(text):
-    """The whole utterance is a goodbye, perhaps after "super," / "dobra,"."""
+def _bye_core(text):
     words = [w for w in _words(text) if w not in ("luna", "luno")]
     while words and tuple(words) not in _BYE and words[0] in _BYE_LEAD:
         words = words[1:]
-    return tuple(words) in _BYE
+    return tuple(words) if tuple(words) in _BYE else None
+
+
+def _is_goodbye(text):
+    """The whole utterance is a goodbye, perhaps after "super," / "dobra,"."""
+    return _bye_core(text) is not None
+
+
+def _just_done(text):
+    """"Dziękuję, to wszystko" — the talk is over, nobody is leaving (8 Oct
+    sweep: it got "Pa pa! Weź parasol — dziś ma padać.")."""
+    core = _bye_core(text) or ()
+    return bool(core) and bool({"wszystko", "tyle", "rozmowy"} & set(core))
 
 
 def _words(text):
@@ -1032,8 +1043,13 @@ def handle(text, speak, play_sound, _polite=True):
             state.gesture_anim_start = time.time()
             state.emotion = "Happy"
         import weather
-        note = weather.umbrella_note()          # "Weź parasol — dziś ma padać."
-        speak((random.choice(GOODBYE_REPLIES) if not leaving else
+        done = not leaving and _just_done(text)
+        # "Weź parasol — dziś ma padać." — for someone going out: leaving, or a
+        # "pa" in the morning; not for "to wszystko" or a "pa" at bedtime
+        note = (weather.umbrella_note() if leaving or (not done and 5 <= time.localtime().tm_hour < 12)
+                else "")
+        speak((random.choice(("Do usług!", "Polecam się!", "Jasne. W razie czego — jestem."))
+               if done else random.choice(GOODBYE_REPLIES) if not leaving else
                random.choice(("Pa! Miłego dnia!", "Do zobaczenia!", "Pa, pa! Udanego dnia!")))
               + (" " + note if note else ""))
         with state.lock:
@@ -1553,10 +1569,17 @@ def handle(text, speak, play_sound, _polite=True):
     if got:
         to, _ = got
         at, daily = errands._when(text)
+        ahead = errands.days_ahead(text)
+        after = ""
+        if at:
+            import clock
+            hh, mm = (int(x) for x in at.split(":"))
+            after = f"po {clock.hour_locative(hh, mm)}"
         if at and daily:
-            speak(f"Dobrze. Codziennie po {at} powiem to, kiedy {to} się pojawi.")
-        elif at:
-            speak(f"Dobrze. Po {at} powiem to, kiedy {to} się pojawi.")
+            speak(f"Dobrze. Codziennie {after} powiem to, kiedy {to} się pojawi.")
+        elif at or ahead:
+            when = " ".join(w for w in (("", "jutro", "pojutrze")[ahead], after) if w)
+            speak(f"Dobrze. {when.capitalize()} powiem to, kiedy {to} się pojawi.")
         else:
             speak(random.choice((f"Dobrze, przekażę, kiedy {to} się pojawi.",
                                  f"Jasne, powiem, jak tylko {to} się pojawi.")))

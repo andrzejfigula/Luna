@@ -1841,6 +1841,14 @@ class KidsTest(unittest.TestCase):
         finally:
             state.person, state.others = old
 
+    def test_just_done(self):
+        import commands
+        self.assertTrue(commands._just_done("Dziękuję, to wszystko"))
+        self.assertTrue(commands._just_done("Dobra, to by było na tyle"))
+        self.assertFalse(commands._just_done("Pa pa"))
+        self.assertFalse(commands._just_done("Na razie, dzięki"))
+        self.assertTrue(commands._is_goodbye("Dziękuję, to wszystko"))
+
     def test_costume(self):
         import fun
         from shared_state import state
@@ -2437,6 +2445,20 @@ class ErrandsTest(unittest.TestCase):
             self.assertEqual(errands.take("Przypomnij Mai o 19, żeby się wykąpała"),
                              ("Maja", "żeby się wykąpała"))
             self.assertEqual(errands.cancel("Usuń przypomnienia dla Mai"), ("Maja", 2))
+            # "jej" = the name before it; "jutro rano" = not before tomorrow 6:00
+            with state.lock:
+                state.person = ("Emilka", 0.9, time.time())
+            got = errands.take("Maja ma jutro wycieczkę, przypomnij jej rano, żeby wzięła kanapki")
+            self.assertEqual(got, ("Maja", "żeby wzięła kanapki"))
+            e = [x for x in errands._load() if x["to"] == "Maja"][0]
+            self.assertEqual(e["at"], "06:00")
+            self.assertFalse(errands._due(e, time.time()))           # not today
+            tomorrow_7 = time.mktime(time.strptime(e["day"] + " 07:00", "%Y-%m-%d %H:%M"))
+            self.assertTrue(errands._due(e, tomorrow_7))
+            self.assertEqual(errands.days_ahead("dziś wieczorem powiedz Mai, że jutro basen"), 0)
+            self.assertEqual(errands._when("wieczorem powiedz Mai"), ("17:00", False))
+            with state.lock:
+                state.person = None
 
 
 class BackupTest(unittest.TestCase):
