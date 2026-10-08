@@ -321,7 +321,7 @@ def answer(text, speak):
         words = re.findall(r"\w+", low)
         if re.search(r"\b(?:" + "|".join(map(re.escape, _STOP)) + r")\b", low) and len(words) <= 4:
             _g = None
-            speak(f"Dobrze. Myślałam o: {g['animal']}.")
+            speak(f"Dobrze. Moje zwierzę to {g['animal']}.")
             return True
         if any(k in low for k in _GIVE_UP) and len(words) <= 6:
             _g = None
@@ -391,7 +391,7 @@ def answer(text, speak):
                 "czasem": "Czasami tak, czasami nie."}.get(yn, "Trudno powiedzieć…")
         if left <= 0:
             _g = None
-            speak(f"{said} To było ostatnie pytanie! Myślałam o: {g['animal']}.")
+            speak(f"{said} To było ostatnie pytanie! Moje zwierzę to {g['animal']}.")
             return True
         if left in (10, 5, 3, 1):
             said += f" Zostało {left} {'pytanie' if left == 1 else 'pytania' if left in (3,) else 'pytań'}."
