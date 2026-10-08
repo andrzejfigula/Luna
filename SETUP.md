@@ -282,7 +282,17 @@ front of the camera for 30 s the face goes to sleep.
   changed by the model's `list_*` actions; "pokaż listę zakupów" shows one.
 - On request only (`fun.py`, `breathing.py`, `screens.py`): night light,
   high five, dice and coin, guided breathing, photo booth + gallery,
-  mirror, clock, reminders list, status screen.
+  mirror, clock, reminders list, status screen; cat / dog / bunny ears on
+  her face ("pokaż mi kotka"), państwa-miasta (a letter and a minute).
+- Drawing (`drawing.py`): "narysuj mi jednorożca" → a picture from OpenAI's
+  image model (gpt-image-1-mini, low quality, ~1 cent) in a children's-book
+  style, shown as a polaroid; `DRAW_PER_DAY` caps it, kept in `data/drawings`.
+- A child's sums (`homework.py`): a result in a reply to a child (or with a
+  child in view) is swapped for a hint before it is spoken; their own answer
+  is judged in code. The Moon (`moon.py`): phase, next full / new moon.
+- Before deploying: `tools/check_pi.sh` runs the gates on the Pi against the
+  working tree; `tools/sweep.py tests/sweeps/<set>.txt` puts a batch of
+  questions to the real model, silently (`--at 20:45`, `--keep`).
 - Translator mode ("tłumacz na angielski" … "koniec tłumaczenia"),
   focus mode ("tryb skupienia"), "powtórz" (replays the last answer from
   its audio), "zrestartuj się" (exits; lwrespawn restarts her).
