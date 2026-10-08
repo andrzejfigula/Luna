@@ -1562,12 +1562,22 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         import clock
         import timers
         hm, repeat = alarm
+        moved = ""
+        if re.search(r"\b(?:przesuń|przesun|zmień|zmien|przestaw|zamiast)\b", low):
+            # "Przesuń budzik na wpół do ósmej" added a second alarm (8 Oct
+            # sweep) — moving means the one-off alarm that was set goes
+            with timers._lock:
+                old = [t for t in timers._timers if t["kind"] == "alarm"
+                       and t.get("repeat", "none") == "none"]
+            if len(old) == 1:
+                timers.remove_entries(old)
+                moved = " Poprzedni usunęłam."
         timers.apply([{"type": "alarm", "seconds": 0, "at": hm, "label": "",
                        "repeat": repeat, "list": ""}])
         h, m = (int(x) for x in hm.split(":"))
         when = {"daily": " codziennie", "weekdays": " w dni robocze",
                 "weekends": " w weekendy"}.get(repeat, "")
-        speak(f"Dobrze, budzik{when} na {clock.hour_accusative(h, m)}.")
+        speak(f"Dobrze, budzik{when} na {clock.hour_accusative(h, m)}.{moved}")
         return True
 
     import fun                                     # lamp, high five, dice, coin

@@ -838,6 +838,13 @@ def extend(seconds):
     return True
 
 
+def remove_entries(entries):
+    """Exactly these entries (by identity) — "przesuń budzik" drops the old one."""
+    with _lock:
+        _timers[:] = [t for t in _timers if not any(t is e for e in entries)]
+        _save()
+
+
 def remove(labels):
     with _lock:
         before = len(_timers)

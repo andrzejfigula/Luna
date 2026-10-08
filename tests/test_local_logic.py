@@ -1986,6 +1986,23 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(kids.offered_routine("Mogę ci ułożyć prosty poranny plan."), "poranek")
         self.assertIn("umyj zęby", kids.DEFAULT_STEPS["poranek"])
 
+    def test_move_alarm(self):
+        import commands
+        import timers
+        old = list(timers._timers)
+        try:
+            with mock.patch.object(timers, "_save", lambda: None):
+                timers._timers[:] = []
+                said = []
+                commands.handle("Obudź mnie jutro o siódmej", said.append, lambda *a, **k: True)
+                commands.handle("Przesuń budzik na wpół do ósmej", said.append,
+                                lambda *a, **k: True)
+                alarms = [t for t in timers._timers if t["kind"] == "alarm"]
+                self.assertEqual(len(alarms), 1)
+                self.assertEqual(time.strftime("%H:%M", time.localtime(alarms[0]["due"])), "07:30")
+        finally:
+            timers._timers[:] = old
+
     def test_radio_off_at_a_time(self):
         import radio
         said, ends = [], []
