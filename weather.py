@@ -11,7 +11,7 @@ every WEATHER_REFRESH_SECS in the background, and a short summary goes into
 every request: now, today, tomorrow.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 import threading
 import time
@@ -150,6 +150,7 @@ def _fetch(lat=None, lon=None):
         "current": "temperature_2m,apparent_temperature,weather_code,wind_speed_10m,precipitation",
         "daily": "weather_code,temperature_2m_max,temperature_2m_min,"
                  "precipitation_probability_max,sunrise,sunset",
+        "hourly": "temperature_2m,precipitation_probability",
         # a week: "czy będzie padać w weekend?" was answered from today and
         # tomorrow only — the model invented Saturday and Sunday (7 Oct probe)
         "timezone": "auto", "forecast_days": 7,
@@ -189,7 +190,31 @@ def _describe(d, where=None):
     week = (" Later: " + "; ".join(later) + ". Beyond these days you don't know the "
             "weather.") if later else ""
     return (f"Weather in {where or _place()[2]} (open-meteo): now {now}. Today: {day_text(0)}; "
-            f"{sun}. Tomorrow: {day_text(1)}.{week}")
+            f"{sun}. Tomorrow: {day_text(1)}.{_hours(d)}{week}")
+
+
+def _hours(d, now=None):
+    """" By the hour — today 18:00 15°C (rain 60%), …; tomorrow 07:00 9°C …" —
+    "co ubrać do szkoły rano?" got only the day's 7–21°C (8 Oct sweep)."""
+    try:
+        h = d["hourly"]
+        now = now or datetime.now()
+        today, tomorrow = now.date(), (now + timedelta(days=1)).date()
+        bits = {today: [], tomorrow: []}
+        for t, temp, rain in zip(h["time"], h["temperature_2m"], h["precipitation_probability"]):
+            dt = datetime.strptime(t, "%Y-%m-%dT%H:%M")
+            if dt.date() == today and dt.hour > now.hour and dt.hour in (9, 12, 15, 18, 21):
+                pass
+            elif dt.date() == tomorrow and dt.hour in (7, 12, 15, 18):
+                pass
+            else:
+                continue
+            bits[dt.date()].append(f"{dt:%H:%M} {temp:.0f}°C"
+                                   + (f" (rain {rain}%)" if rain else ""))
+        out = ([f"today {', '.join(bits[today])}"] if bits[today] else []) +               ([f"tomorrow {', '.join(bits[tomorrow])}"] if bits[tomorrow] else [])
+        return (" By the hour — " + "; ".join(out) + ".") if out else ""
+    except (KeyError, TypeError, ValueError):
+        return ""
 
 
 _WD_PL = ["poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela"]

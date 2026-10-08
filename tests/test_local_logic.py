@@ -1628,6 +1628,18 @@ class KidsTest(unittest.TestCase):
         finally:
             timers._timers[:] = old
 
+    def test_weather_by_the_hour(self):
+        import weather
+        from datetime import datetime
+        d = {"hourly": {"time": ["2026-10-08T15:00", "2026-10-08T18:00", "2026-10-09T07:00",
+                                 "2026-10-09T08:00"],
+                        "temperature_2m": [21.2, 18.0, 8.4, 9.0],
+                        "precipitation_probability": [18, 55, 0, 0]}}
+        line = weather._hours(d, datetime(2026, 10, 8, 14, 5))
+        self.assertIn("today 15:00 21°C (rain 18%), 18:00 18°C (rain 55%)", line)
+        self.assertIn("tomorrow 07:00 8°C", line)
+        self.assertNotIn("08:00", line)
+
     def test_hourly_and_labels(self):
         import timers
         t = time.mktime((2030, 1, 7, 21, 30, 0, 0, 0, -1))     # far ahead: not "in the past"
