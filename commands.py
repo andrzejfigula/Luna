@@ -227,7 +227,13 @@ _MSG_DELETE = ("usuń wiadomości", "usuń wiadomość", "skasuj wiadomości", "
 _WEATHER_SET = re.compile(r"^(?:luna,? |luno,? )?(?:(?:włącz|wlacz|ustaw|sprawdzaj) )"
                           r"(?:pogod[aęy]|prognoz[aęy])(?: pogody)? (?:dla|w|na) \w|"
                           r"^(?:luna,? |luno,? )?(?:pogod[aęy]|prognoz[aęy]) dla \w|"
-                          r"^(?:luna,? |luno,? )?(?:mieszkam|mieszkamy) (?:w|we|na) \w")
+                          r"^(?:luna,? |luno,? )?(?:mieszkam|mieszkamy) (?:w|we|na) \w|"
+                          # "ustaw miasto na Wrocław" (9 Oct sweep: the model said
+                          # "od teraz biorę Wrocław" and nothing changed)
+                          r"^(?:luna,? |luno,? )?(?:ustaw|zmień|zmien) (?:moje |nasze )?"
+                          r"(?:miasto|miejscowość|miejscowosc|lokalizację|lokalizacje)"
+                          r" (?:na|w|we) \w|"
+                          r"^(?:luna,? |luno,? )?(?:moje|nasze) miasto to \w")
 _WEATHER_ELSEWHERE = re.compile(r"\b(?:pogod\w*|prognoz\w*|temperatur\w*|ciepło|zimno|"
                                 r"pada|deszcz\w*|śnieg\w*)\b.*\b(?:w|we|na)\s+[A-ZĄĆĘŁŃÓŚŹŻa-ząćęłńóśźż]{3,}",
                                 re.I)

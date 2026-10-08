@@ -166,6 +166,8 @@ class TimersTest(unittest.TestCase):
         self.assertEqual(voicefx.wants("Odwróć mój głos"), "od tyłu")
         self.assertEqual(voicefx.wants("Zrób mi głos jak robot"), "robot")
         self.assertIsNone(voicefx.wants("Mam dziś zachrypnięty głos"))
+        self.assertIsNone(voicefx.wants("Zmień głos na męski"))         # hers, not mine
+        self.assertEqual(voicefx.wants("Pobawmy się głosem"), "?")
         self.assertIsNone(voicefx.wants("Zrób mi herbatę"))
         self.assertIsNone(voicefx.wants("Zrób mi zdjęcie"))
         tone = (np.sin(np.arange(16000) / 16000 * 2 * np.pi * 220) * 8000).astype(np.int16)

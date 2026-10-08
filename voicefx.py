@@ -40,6 +40,10 @@ def wants(text):
         return "robot"
     if "tyłu" in low or "tylu" in low or "odwr" in low:
         return "od tyłu"
+    # a surprise only for "zmień MÓJ głos" / "pobawmy się głosem" — "zmień głos
+    # na męski" asks about HER voice (9 Oct sweep: "…a ja zmienię twój głos!")
+    if not re.search(r"\b(?:mój|moj|mi|nam|nasz\w*|pobawmy|przerób|przerob)\b", low):
+        return None
     return "?"
 
 

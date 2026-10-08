@@ -1,0 +1,12 @@
+Andrzej|Mów wolniej
+Andrzej|Mów normalnie
+Andrzej|Ciszej
+Andrzej|Nie przeszkadzaj mi przez godzinę
+Andrzej|Możesz już mówić
+Andrzej|Zmień głos na męski
+Andrzej|Wróć do swojego głosu
+Andrzej|Wyłącz kamerę
+Andrzej|Pokaż status
+Andrzej|Ustaw miasto na Wrocław
+Andrzej|Mów do mnie po angielsku
+Andrzej|Mów po polsku
