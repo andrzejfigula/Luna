@@ -1849,6 +1849,20 @@ class KidsTest(unittest.TestCase):
         finally:
             state.person, state.others = old
 
+    def test_no_grace_after_bare_wake(self):
+        import speech_to_text as stt
+        old = (state.convo_expired_time, state.convo_closed_hard, state.bare_wake)
+        try:
+            now = time.time()
+            state.convo_expired_time, state.convo_closed_hard = now - 2, False
+            state.bare_wake = False
+            self.assertTrue(stt._started_in_window(now - 1.3))      # grace after a real talk
+            state.bare_wake = True
+            self.assertFalse(stt._started_in_window(now - 1.3))     # only "Luna" — no grace
+            self.assertTrue(stt._started_in_window(now - 2.5))      # began inside it
+        finally:
+            state.convo_expired_time, state.convo_closed_hard, state.bare_wake = old
+
     def test_offered_routine(self):
         import kids
         self.assertEqual(kids.offered_routine(

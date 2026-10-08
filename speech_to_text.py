@@ -1011,8 +1011,14 @@ def _started_in_window(t):
     with state.lock:
         ended = state.convo_expired_time
         hard = state.convo_closed_hard
+        bare = state.bare_wake
     if not ended or hard or time.time() - ended > 60:
         return False
+    if bare:
+        # only her name in that window ("hm?", then nothing): no grace after it
+        # — 8 Oct 9:46, a false wake in Andrzej's talk with someone, and his
+        # next sentence (0.7 s after the window) was answered
+        return t <= ended
     try:
         import radio
         if radio.playing():

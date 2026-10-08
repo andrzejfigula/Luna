@@ -117,6 +117,8 @@ def voice_loop():
             try:
                 if text == WAKE_ACK:
                     commands.wake_up("wake word")
+                    with state.lock:
+                        state.bare_wake = True
                     # wake word alone ("Luna!") — short acknowledgement; a
                     # quick "hm?" is instant, a sentence needs a TTS round trip
                     if not (random.random() < WAKE_SOUND_CHANCE
@@ -125,6 +127,7 @@ def voice_loop():
                 elif text:
                     with state.lock:                     # subtitles: what she heard
                         state.caption = ("you", text, time.time() + 6.0)
+                        state.bare_wake = False
                     _stamp_activity()
                     if messages.armed() and messages.cancelled(text):
                         speak("Dobrze, nie nagrywam.")
