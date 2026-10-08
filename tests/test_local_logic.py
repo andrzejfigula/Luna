@@ -1884,6 +1884,14 @@ class KidsTest(unittest.TestCase):
             brain._history[:] = old_h
             state.person = old_p
 
+    def test_fix_vocative(self):
+        from polish import fix_vocative as f
+        v = {"Maja": "Maju", "Andrzej": "Andrzeju", "Emilka": "Emilko"}
+        self.assertEqual(f("Maja, mama ma urodziny.", v), "Maju, mama ma urodziny.")
+        self.assertEqual(f("Dobranoc, Maja!", v), "Dobranoc, Maju!")
+        self.assertEqual(f("Maja ma dziś basen.", v), "Maja ma dziś basen.")
+        self.assertEqual(f("Byli: Andrzej, Emilka, Maja.", v), "Byli: Andrzej, Emilka, Maja.")
+
     def test_third_person_fact(self):
         import memory
         self.assertEqual(memory._third_person("lubię pizzę z ananasem", "Andrzej"),

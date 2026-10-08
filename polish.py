@@ -296,3 +296,19 @@ def is_secret(text):
     is not to be passed on (8 Oct sweep: Emilka asked and heard about her
     own birthday earrings)."""
     return bool(_SECRET.search(text or ""))
+
+
+def fix_vocative(text, vocatives):
+    """"Maja, mama ma urodziny…" → "Maju, …" — a name said TO someone, at the
+    start before a comma or after a comma at the end, takes the vocative
+    (8 Oct sweep). vocatives: {"Maja": "Maju", …}."""
+    text = text or ""
+    # "Byli: Andrzej, Emilka, Maja." is a list, not three people addressed
+    several = sum(bool(re.search(rf"\b{re.escape(n)}\b", text)) for n in vocatives or {}) > 1
+    for name, voc in (vocatives or {}).items():
+        if not voc or voc == name:
+            continue
+        text = re.sub(rf"^{re.escape(name)}(?=\s*,)", voc, text)
+        if not several:
+            text = re.sub(rf"(,\s*){re.escape(name)}(?=\s*[.!?,]|\s*$)", rf"\g<1>{voc}", text)
+    return text

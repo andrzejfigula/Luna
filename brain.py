@@ -358,13 +358,17 @@ def _always_dates():
 
 
 from polish import (feminize, offer_only, empty_promise, neutral_you,   # (polish.py)
-                    looks_english, is_secret)
+                    looks_english, is_secret, fix_vocative)
 
 
 def _feminize(text):
     """Her own forms feminine; and with nobody recognised in front of her, no
     guessed gender for "you" either."""
     text = feminize(re.sub(r"\s*(?:\\n|\n)+\s*", " ", text or ""))   # a poem's "\n"
+    try:
+        text = fix_vocative(text, faces.vocatives())     # "Maja, …" → "Maju, …"
+    except Exception:
+        pass
     with state.lock:
         known = state.person is not None
     return text if known else neutral_you(text)
