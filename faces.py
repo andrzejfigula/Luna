@@ -194,12 +194,15 @@ def _female(name):
     return name.lower().endswith("a") and name.lower() not in ("kuba", "barnaba", "kosma")
 
 
-def where_is(name, now=None):
-    """"Maja jest tutaj!" / "Maja była tu 12 minut temu." / "…wczoraj o 20:15"."""
+def where_is(name, now=None, call=None):
+    """"Maja jest tutaj!" / "Maja była tu 12 minut temu." / "…wczoraj o 20:15".
+    call: what the asker calls them — Maja's "Gdzie jest tata?" → "Tata był
+    tu…", not "Andrzej" (9 Oct sweep)."""
     from datetime import datetime
     now = time.time() if now is None else now
     t = last_seen(name)
     was = "była" if _female(name) else "był"
+    name = call or name
     if t is None:
         return f"{name} jeszcze nie {was} przy mnie, odkąd pamiętam."
     ago = now - t
@@ -464,6 +467,13 @@ def forms(name):
 
 _ROLES = (("tata", r"tat(?:a|y|ą|ę|o|u|cie|usia|uś|ka)$"), ("mama", r"mam(?:a|y|ą|ę|o|ie|usia|uś)$"),
           ("córka", r"córk\w*$"), ("syn", r"syn(?:a|em|u|owi)?$"))
+
+
+def role_word(word):
+    """"taty" → "Tata", "mamę" → "Mama" (how a child calls them), or None."""
+    w = (word or "").lower()
+    role = next((r for r, rx in _ROLES if re.match(rx, w)), None)
+    return role.capitalize() if role in ("tata", "mama") else None
 
 
 def match_role(word):

@@ -1356,7 +1356,8 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         if m and _short(text, 8) and not _stranger_here():   # a stranger: the model refuses
             import faces
             who = faces.match_name(m.group(1)) or faces.match_role(m.group(1))
-            said = faces.where_is(who) if who else None
+            call = None if faces.match_name(m.group(1)) else faces.role_word(m.group(1))
+            said = faces.where_is(who, call=call) if who else None
     if not said:
         said = _memory_talk(text)                  # "co o mnie wiesz?", "zapomnij, że…"
     if not said:

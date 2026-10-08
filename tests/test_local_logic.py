@@ -1976,6 +1976,12 @@ class KidsTest(unittest.TestCase):
             self.assertEqual(faces.match_role("mamę"), "Emilka")
             self.assertEqual(faces.match_role("córka"), "Maja")
             self.assertIsNone(faces.match_role("babcia"))
+        self.assertEqual(faces.role_word("taty"), "Tata")
+        self.assertIsNone(faces.role_word("córka"))
+        with mock.patch.object(faces, "last_seen", lambda n: None), \
+                mock.patch.object(faces, "_female", lambda n: False):
+            self.assertEqual(faces.where_is("Andrzej", call="Tata"),
+                             "Tata jeszcze nie był przy mnie, odkąd pamiętam.")
 
     def test_fix_vocative(self):
         from polish import fix_vocative as f
