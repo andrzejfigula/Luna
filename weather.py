@@ -215,14 +215,38 @@ def _loop():
             time.sleep(60)
             continue
         try:
-            s = _describe(_fetch())
+            d = _fetch()
+            s = _describe(d)
             with _lock:
                 _summary, _fetched = s, time.time()
+                try:
+                    _today.update(rain=d["daily"]["precipitation_probability_max"][0],
+                                  tmax=d["daily"]["temperature_2m_max"][0],
+                                  date=d["daily"]["time"][0])
+                except (KeyError, IndexError, TypeError):
+                    pass
             print(f"[weather] {s}", flush=True)
             time.sleep(WEATHER_REFRESH_SECS)
         except Exception as e:
             print(f"[weather] fetch failed ({e}) — retrying in 5 min")
             time.sleep(300)
+
+
+_today = {}        # today's rain chance and max temperature (the last fetch)
+
+
+def umbrella_note(now=None):
+    """What to say to someone leaving: "Weź parasol — dziś ma padać." when
+    today's rain chance is high, "Ubierz się ciepło…" when it's cold; None."""
+    with _lock:
+        t = dict(_today)
+    if not t or t.get("date") != time.strftime("%Y-%m-%d", time.localtime(now)):
+        return None
+    if (t.get("rain") or 0) >= 50:
+        return "Weź parasol — dziś ma padać."
+    if t.get("tmax") is not None and t["tmax"] <= 3:
+        return "Ubierz się ciepło, dziś zimno."
+    return None
 
 
 def start_weather():

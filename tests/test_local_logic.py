@@ -1483,6 +1483,27 @@ class KidsTest(unittest.TestCase):
             "przetłumacz na niemiecki: gdzie jest dworzec?"))
         self.assertIsNone(commands._translator_language("przetłumacz na angielski dzień dobry"))
 
+    def test_leaving_and_umbrella(self):
+        import commands, weather, time
+        for t in ("wychodzę do pracy", "no to lecę do szkoły", "wychodzę już, pa", "idziemy na spacer",
+                  "wychodzę"):
+            self.assertTrue(commands._LEAVING.match(t), t)
+        for t in ("wychodzę z siebie", "idę spać", "jadę jutro do babci na tydzień"):
+            self.assertFalse(commands._LEAVING.match(t), t)
+        old = dict(weather._today)
+        try:
+            today = time.strftime("%Y-%m-%d")
+            weather._today.clear(); weather._today.update(rain=80, tmax=14, date=today)
+            self.assertIn("parasol", weather.umbrella_note())
+            weather._today.update(rain=10, tmax=2)
+            self.assertIn("ciepło", weather.umbrella_note())
+            weather._today.update(rain=10, tmax=18)
+            self.assertIsNone(weather.umbrella_note())
+            weather._today.update(rain=90, date="2000-01-01")        # stale: nothing
+            self.assertIsNone(weather.umbrella_note())
+        finally:
+            weather._today.clear(); weather._today.update(old)
+
     def test_skip_tomorrows_alarm(self):
         import timers, commands
         from datetime import datetime

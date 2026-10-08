@@ -106,6 +106,15 @@ _NIGHT   = ("dobranoc", "idę spać", "ide spac", "idę już spać", "idę już 
             "idziemy spać", "idziemy spac", "pora spać", "pora spac", "czas spać",
             "czas spac", "lecę spać", "lece spac", "kładę się spać", "kładziemy się spać",
             "good night", "goodnight")
+# "Wychodzę do pracy", "lecę do szkoły" — a goodbye too, with an umbrella
+# reminder when it's going to rain (8 Oct: she knew the forecast, said nothing)
+_LEAVING = re.compile(
+    r"^(?:no\s+to\s+|dobra,?\s+|to\s+)?(?:ja\s+)?(?:wychodzę|wychodze|wychodzimy|"
+    r"lecę|lece|uciekam|idę|ide|idziemy|jadę|jade|jedziemy)\s+"
+    r"(?:już\s+|juz\s+)?(?:do\s+(?:pracy|szkoły|szkoly|przedszkola|sklepu|miasta)|"
+    r"na\s+(?:zakupy|spacer|trening|basen)|z\s+domu)\b(?:\s*,?\s*(?:pa|cześć|na razie))?$"
+    r"|^(?:no\s+to\s+|dobra,?\s+)?(?:wychodzę|wychodze|wychodzimy)(?:\s+już|\s+juz)?"
+    r"(?:\s*,?\s*(?:pa|cześć|na razie))?$", re.I)
 _SCREEN = re.compile(
     r"^(?:luna,?\s+|luno,?\s+)?(?:(?:możesz|mozesz|proszę|prosze)\s+)?"
     r"(przyciemnij|ściemnij|sciemnij|zgaś|zgas|wyłącz|wylacz|rozjaśnij|rozjasnij|"
@@ -1012,12 +1021,17 @@ def handle(text, speak, play_sound, _polite=True):
 
     # goodbye — wave, and stop listening right away (otherwise the window
     # stays open and she may answer the next thing said in the room)
-    if _is_goodbye(text):
+    leaving = bool(_LEAVING.match(low.strip(" .!?"))) and _short(text, 7)
+    if _is_goodbye(text) or leaving:
         with state.lock:
             state.gesture_anim = "wave"
             state.gesture_anim_start = time.time()
             state.emotion = "Happy"
-        speak(random.choice(GOODBYE_REPLIES))
+        import weather
+        note = weather.umbrella_note()          # "Weź parasol — dziś ma padać."
+        speak((random.choice(GOODBYE_REPLIES) if not leaving else
+               random.choice(("Pa! Miłego dnia!", "Do zobaczenia!", "Pa, pa! Udanego dnia!")))
+              + (" " + note if note else ""))
         with state.lock:
             state.emotion = "Neutral"
             state.conversation_active = False

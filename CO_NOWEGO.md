@@ -218,6 +218,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Budzik na jutro | „Wyłącz budzik na jutro” / „nie budź mnie jutro” — tylko jutro wolne, budzik w dni robocze zostaje; samo „wyłącz budzik” — Luna dopyta „tylko na jutro czy na stałe?”; „wyłącz budzik”, gdy dzwoni — po prostu cichnie |
 | Mycie zębów i poranek | przy myciu zębów: „ile jeszcze?”, „koniec”; w porannej liście kroków: „powtórz”, „co dalej?”, „pomiń” |
 | Sport | „Co słychać w sporcie?” — Luna czyta nagłówki sportowe (WP SportoweFakty) |
+| Wychodzę! | „Wychodzę do pracy”, „lecę do szkoły” — Luna macha na pożegnanie, a gdy ma padać, przypomni o parasolu |
 | Wiadomość — anuluj | po „nagraj wiadomość” wystarczy „anuluj”, żeby nic nie nagrała |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
