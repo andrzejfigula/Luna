@@ -199,6 +199,11 @@ class TimersTest(unittest.TestCase):
                 played.clear()
                 self.assertTrue(radio.handle(t, said.append))
                 self.assertEqual(played, ["Radio ZET"], t)
+            for t in ("Puść jakieś radio, obojętnie jakie.", "Włącz jakieś radio"):
+                played.clear()
+                self.assertTrue(radio.handle(t, said.append), t)    # any → the last one
+                self.assertEqual(len(played), 1, t)
+            self.assertFalse(radio.handle("Puść coś śmiesznego", said.append))
             self.assertEqual(radio._spoken("Polskie Radio - Chopin (Radio Chopin) (AAC+)"),
                              "Polskie Radio Chopin")
             asked = []

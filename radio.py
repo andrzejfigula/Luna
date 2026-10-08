@@ -84,6 +84,12 @@ _GENRES = [
     # (found online by "włącz radio dla dzieci": RMF Dla Dzieci)
     (r"dla\s+dzieci|dziecięc|dzieciec|dla\s+maj|bajk", "dla dzieci"),
 ]
+# "puść jakieś radio, obojętnie jakie" — any station is fine (9 Oct model
+# suite: she asked which one)
+_ANY = re.compile(r"(?:(?:jakieś|jakies|jakąś|jakas|dowolne|dowolną|dowolna|byle\s+jakie|"
+                  r"jakiekolwiek|cokolwiek|coś|cos)\s*)?(?:radio|stację|stacje|muzykę|muzyke)?"
+                  r"[\s,]*(?:obojętnie\s+jak\w*|obojetnie\s+jak\w*|wszystko\s+jedno|"
+                  r"jakiekolwiek|cokolwiek|dowolne)?")
 _ALARM_ON = ("budź mnie radiem", "budz mnie radiem", "obudź mnie radiem",
              "obudz mnie radiem", "budzik z radiem", "budzenie radiem", "budzik radiem")
 _ALARM_OFF = ("budź mnie dzwonkiem", "budz mnie dzwonkiem", "budzik bez radia",
@@ -165,6 +171,8 @@ def _station(words):
     import settings
     w = words.strip(" .!?").lower()
     w = re.sub(r"^(?:radio|stację|stacje)\s+", "", w)
+    if _ANY.fullmatch(w):                   # "puść jakieś radio, obojętnie jakie"
+        w = ""
     if not w:                              # "włącz radio": your last station
         mine = (settings.get("radio_last_by", {}) or {}).get(_who())
         last = mine or settings.get("radio_last")
@@ -577,7 +585,7 @@ def handle(text, speak):
         return False
     if m.group(1) is None:                 # "włącz trójkę" — only a known station
         key = _ALIASES.get(m.group(2).strip(), m.group(2).strip())
-        if key in _MUSIC:
+        if key in _MUSIC or (key and _ANY.fullmatch(key.strip(" .!?"))):
             what = ""                      # "włącz muzykę" → the last station
         elif (re.match(r"(?:jakąś\s+|jakas\s+|trochę\s+|troche\s+)?(?:muzyk|muzyczk|piosenk)",
                        key) and any(re.search(rx, key) for rx, _ in _GENRES)):
