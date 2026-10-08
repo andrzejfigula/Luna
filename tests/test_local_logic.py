@@ -1492,7 +1492,12 @@ class KidsTest(unittest.TestCase):
         s = polish.spoken_numbers("to 86400. Godzina 12:30, rok 2026, 3,14159, tel 600123456.")
         self.assertIn("osiemdziesiąt sześć tysięcy czterysta.", s)
         self.assertIn("tysiąc dwieście trzydzieści cztery", polish.spoken_numbers("Liczba 1234."))
-        for keep in ("12:30", "2026", "3,14159", "600123456"):
+        self.assertIn("Godzina dwunasta trzydzieści", s)
+        self.assertEqual(polish.spoken_numbers("Spotkanie 15.11 o 9:00."),
+                         "Spotkanie piętnastego listopada o dziewiątej.")
+        self.assertEqual(polish.spoken_numbers("Dziś 22°C."), "Dziś dwadzieścia dwa stopnie.")
+        self.assertEqual(polish.spoken_numbers("Wynik 2:1"), "Wynik 2:1")
+        for keep in ("2026", "3,14159", "600123456"):
             self.assertIn(keep, s)
 
     def test_thread_only_for_its_person(self):

@@ -153,11 +153,67 @@ def number_words(n):
 _BIG = re.compile(r"(?<![\d,.:/])(\d{4,12})(?!\d)(?![,.:/]\d)")
 
 
+_ABBR = [(re.compile(r"\bnp\.\s*", re.I), "na przykład "),
+         (re.compile(r"\bok\.\s*(?=\d)", re.I), "około "),
+         (re.compile(r"\bitp\.", re.I), "i tak dalej"),
+         (re.compile(r"\bitd\.", re.I), "i tak dalej"),
+         (re.compile(r"\btj\.\s*", re.I), "to jest "),
+         (re.compile(r"\bgodz\.\s*", re.I), "godzina ")]
+_TIME = re.compile(r"(?<![\d:])([01]?\d|2[0-3]):([0-5]\d)(?![\d:])")
+_TEMP = re.compile(r"(-?\d{1,3})\s*°\s*C?")
+_DATE = re.compile(r"(?<![\d.,])([0-3]?\d)\.([01]\d)(?:\.(\d{4}))?(?![\d,])")
+
+
+def _ord_gen(word):
+    """"piętnasty" → "piętnastego", "trzeci" → "trzeciego"."""
+    return " ".join(w[:-1] + "ego" if w.endswith("y") else w + "ego" if w.endswith("i") else w
+                    for w in word.split())
+
+
+def _spoken_forms(text):
+    """What the voice reads badly (8 Oct round trip, nothing played): "Jest
+    12:30." came out in English, "22°C" garbled, "Np." as letters, "15.11" as
+    "piętnastego piętnastego". Written out in Polish instead."""
+    import clock
+    for rx, rep in _ABBR:
+        text = rx.sub(rep, text)
+
+    def time_(m):
+        h, mi = int(m.group(1)), int(m.group(2))
+        before = text[max(0, m.start() - 4):m.start()].lower()
+        if re.search(r"\b(?:o|od|do|po|przed)\s+$", before):
+            return clock.hour_locative(h, mi)        # "o dziewiątej", "do siedemnastej"
+        if re.search(r"\b(?:na|za)\s+$", before):
+            return clock.hour_accusative(h, mi)      # "na siódmą trzydzieści"
+        if h == 0 and mi == 0:
+            return "północ"
+        return clock._HOURS[h] + ("" if mi == 0 else
+                                  f" {'zero ' if mi < 10 else ''}{clock._minutes(mi)}")
+    text = _TIME.sub(time_, text)
+
+    def temp(m):
+        n = int(m.group(1))
+        last, last2 = abs(n) % 10, abs(n) % 100
+        unit = ("stopień" if abs(n) == 1 else "stopnie"
+                if last in (2, 3, 4) and last2 not in (12, 13, 14) else "stopni")
+        return f"{number_words(n)} {unit}"
+    text = _TEMP.sub(temp, text)
+
+    def date(m):
+        d, mo = int(m.group(1)), int(m.group(2))
+        if not (1 <= d <= 31 and 1 <= mo <= 12):
+            return m.group(0)
+        out = f"{_ord_gen(clock._ordinal_day(d))} {clock._MONTHS[mo - 1]}"
+        return out + (f" {m.group(3)}" if m.group(3) else "")
+    return _DATE.sub(date, text)
+
+
 def spoken_numbers(text):
     """Long integers in words for the voice: "7006652" was read digit by digit
-    or garbled ("osiem sześć czterysta" for 86400 — 8 Oct check). Numbers
-    under 10 000, decimals, times and dates are left as they are."""
-    text = text or ""
+    or garbled ("osiem sześć czterysta" for 86400 — 8 Oct check). Years,
+    decimals, phone numbers stay as they are; times, temperatures, dates and
+    abbreviations are written out (_spoken_forms)."""
+    text = _spoken_forms(text or "")
 
     def words(m):
         before = text[max(0, m.start() - 16):m.start()].lower()
