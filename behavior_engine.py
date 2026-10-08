@@ -135,7 +135,22 @@ def _behavior_step(speak, confirm_wave):
         if not in_convo and not muted and time.time() - _last_wave_said > WAVE_SPEAK_GAP:
             _last_wave_said = time.time()
             _save_wave()
-            speak(random.choice(WAVE_REPLIES), can_drop=True)
+            # someone she knows waving, who hasn't had their first hello today:
+            # that hello, with the day in it (8 Oct 8:03 — "O, cześć!" to
+            # Andrzej, whose morning briefing was still due; 93% rain)
+            hello = None
+            with state.lock:
+                who = state.person[0] if state.person else None
+            try:
+                import idle_engine
+                if who and idle_engine.first_hello_due(who):
+                    from brain import greeting
+                    hello = greeting(True, who=who)
+                    if hello:
+                        idle_engine.mark_greeted(who)
+            except Exception as e:
+                print(f"[behavior] first hello failed: {e}", flush=True)
+            speak(hello or random.choice(WAVE_REPLIES), can_drop=True)
 
 
 def start_behavior():
