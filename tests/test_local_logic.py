@@ -1851,6 +1851,29 @@ class KidsTest(unittest.TestCase):
         finally:
             state.person, state.others = old
 
+    def test_secrets(self):
+        import brain
+        from polish import is_secret
+        self.assertTrue(is_secret("Kupiłem Emilce kolczyki, tylko jej nie mów"))
+        self.assertTrue(is_secret("Nie mów Mai, że jutro idziemy do kina."))
+        self.assertTrue(is_secret("To niespodzianka dla Mai"))
+        for t in ("Nie mówię po hiszpańsku", "Nie mów tak szybko", "Co mówiłaś?"):
+            self.assertFalse(is_secret(t), t)
+        old_h, old_p = list(brain._history), state.person
+        try:
+            brain._history[:] = [{"role": "user", "content": brain.SECRET_MARK
+                                  + "[Andrzej] kolczyki, tylko jej nie mów"},
+                                 {"role": "assistant", "content": "Jasne."}]
+            state.person = ("Emilka", 0.9, time.time())
+            line = brain._secret_line()
+            self.assertIn("by Andrzej", line)
+            self.assertIn("Emilka is asking now", line)
+            brain._history[:] = []
+            self.assertEqual(brain._secret_line(), "")
+        finally:
+            brain._history[:] = old_h
+            state.person = old_p
+
     def test_no_grace_after_bare_wake(self):
         import speech_to_text as stt
         old = (state.convo_expired_time, state.convo_closed_hard, state.bare_wake)

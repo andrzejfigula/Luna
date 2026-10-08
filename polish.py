@@ -281,3 +281,18 @@ def looks_english(text):
     if sum(w in _EN for w in words) < max(2, len(words) // 3):
         return False
     return any(w in _EN and w not in ("a", "to", "on", "do", "me", "no") for w in words)
+
+
+_SECRET = re.compile(r"\bnie\s+(?:mów|mow|zdradzaj|wygadaj|wspominaj|pisnij)"
+                     # "…tylko jej nie mów", "nie mów Mai" — not "nie mów tak szybko"
+                     r"(?:\s+(?!tak\b|tyle\b|szybko|wolno|głośn|glosn|ciszej|cicho|po\b)\w+){0,3}"
+                     r"\s*(?:[.!,?]|$)|\bto\s+(?:jest\s+)?(?:tajemnica|sekret|niespodzianka)\b|"
+                     r"\b(?:tylko\s+)?między\s+nami\b|\bw\s+tajemnicy\b|\bdon'?t\s+tell\b|"
+                     r"\bit'?s\s+a\s+(?:secret|surprise)\b", re.I)
+
+
+def is_secret(text):
+    """"…tylko jej nie mów", "to niespodzianka", "między nami" — what follows
+    is not to be passed on (8 Oct sweep: Emilka asked and heard about her
+    own birthday earrings)."""
+    return bool(_SECRET.search(text or ""))

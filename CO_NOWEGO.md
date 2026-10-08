@@ -230,6 +230,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Imieniny | „Kiedy Maja ma imieniny?” — jeśli nikt jej nie powiedział, Luna sprawdza w internecie (Maja — 1 maja); „Maja ma imieniny …” zapamiętuje |
 | Przekaż jutro | „Maja ma jutro wycieczkę, przypomnij jej rano, żeby wzięła kanapki” — Luna powie to Mai jutro rano, gdy ją zobaczy (też „wieczorem”, „po szkole”); „dziękuję, to wszystko” — Luna kończy rozmowę bez „weź parasol” |
 | Poranek i wieczór Mai | „Luna, zacznij poranek” / „zacznij wieczór” — krok po kroku na ekranie (Maja mówi „gotowe”); listę Luna ułoży sama, a zmienić ją można: „dopisz … do listy poranek”, „skreśl … z listy poranek” |
+| Tajemnice | „Luna, kupiłem Emilce kolczyki, tylko jej nie mów” — Luna nikomu tego nie zdradzi (też „to niespodzianka”, „między nami”); o prywatnych rozmowach mówi innym tylko ogólnie |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 

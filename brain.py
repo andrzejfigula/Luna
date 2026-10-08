@@ -357,7 +357,8 @@ def _always_dates():
     return (cc + "\n") if cc else ""
 
 
-from polish import feminize, offer_only, empty_promise, neutral_you, looks_english   # (polish.py)
+from polish import (feminize, offer_only, empty_promise, neutral_you,   # (polish.py)
+                    looks_english, is_secret)
 
 
 def _feminize(text):
@@ -1019,6 +1020,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   f"time — do not convert it to any other zone.\n"
                   + (_calendar_line(text) or _always_dates())
                   + memory.day_line(text)
+                  + _secret_line()
                   + _age_line(text)
                   + _language_line(text)
                   + (_morning_line() if not translator() else "")
@@ -1216,10 +1218,14 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             reply = homework.hint(hw)
         # keep history text-only: images are large and only matter for the
         # turn they were asked in
-        _history[-1] = {"role": "user", "content": _who_said(text)}
+        secret = is_secret(text)
+        _history[-1] = {"role": "user", "content": (SECRET_MARK if secret else "")
+                        + _who_said(text)}
         _history.append({"role": "assistant", "content": reply})
         save_history()
-        if not translator():                 # interpreting is not about the user
+        if secret:
+            print("[brain] a secret — kept out of memory, marked in the history", flush=True)
+        elif not translator():               # interpreting is not about the user
             with state.lock:
                 person = state.person
             # "[Kasia] …": the memory can tell whose plans and likes these are
@@ -1328,6 +1334,26 @@ def last_reply():
         if m.get("role") == "assistant":
             return str(m.get("content", ""))
     return ""
+
+
+SECRET_MARK = "(SECRET — said to you in confidence) "
+
+
+def _secret_line():
+    """A secret in the history: the rule right next to it (8 Oct sweep: "tylko
+    jej nie mów" — and Emilka heard about her birthday earrings at once)."""
+    owners = sorted({m["content"][len(SECRET_MARK):].split("]")[0].lstrip("[").split(",")[0]
+                     for m in _history if m.get("role") == "user"
+                     and str(m.get("content", "")).startswith(SECRET_MARK)})
+    if not owners:
+        return ""
+    with state.lock:
+        who = state.person[0] if state.person else None
+    return ("Earlier messages marked SECRET were told to you in confidence"
+            + (f" by {', '.join(owners)}" if owners else "") + ". Never tell or hint "
+            "what is in them to anyone else" + (f" — {who} is asking now" if who and who
+                                                not in owners else "")
+            + ": say kindly that it's a secret (\"To tajemnica — nic nie zdradzę.\").\n")
 
 
 def _who_said(text):

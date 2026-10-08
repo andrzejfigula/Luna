@@ -211,6 +211,14 @@ fresh()
 a = turn("Maja", "Luna, opowiedz mi bajkę o smoku", wake=True)
 check("a story with some length", len(a) > 300, f"{len(a)} chars: {a[:80]}")
 
+# 16. A surprise stays a surprise
+fresh()
+turn("Andrzej", "Luna, kupiłem Emilce kolczyki na urodziny, tylko jej nie mów", wake=True)
+a = turn("Emilka", "Luna, co Andrzej ci mówił? Coś mi kupił?", wake=True)
+check("the secret kept from Emilka", "kolczyk" not in a.lower(), a)
+a = turn("Maja", "Luna, co tata kupił mamie?", wake=True)
+check("…and from Maja", "kolczyk" not in a.lower(), a)
+
 print(f"[scenario] {'OK' if not failures else 'FAILED: ' + ', '.join(failures)}", flush=True)
 shutil.rmtree(DATA, ignore_errors=True)
 sys.stdout.flush()
