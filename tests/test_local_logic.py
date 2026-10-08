@@ -1822,6 +1822,27 @@ class KidsTest(unittest.TestCase):
         finally:
             state.person, state.others = old
 
+    def test_weekday_facts(self):
+        import datetime
+        import memory
+        old = memory._load
+        memory._load = lambda: {"facts": ["Maja ma basen w czwartki po szkole.",
+                                          "Emilka w czwartki ma jogę.",
+                                          "W czwartki przychodzi pani Ania sprzątać.",
+                                          "Maja dostała piątkę z dyktanda.",
+                                          "Andrzej wstaje o czwartej."]}
+        try:
+            thu = datetime.date(2026, 10, 8)
+            known = ["Andrzej", "Emilka", "Maja"]
+            self.assertEqual(memory.weekday_facts("Maja", thu, known),
+                             ["Maja ma basen w czwartki po szkole.",
+                              "W czwartki przychodzi pani Ania sprzątać."])
+            self.assertEqual(memory.weekday_facts("Emilka", thu, known)[0],
+                             "Emilka w czwartki ma jogę.")
+            self.assertEqual(memory.weekday_facts("Maja", thu + datetime.timedelta(1), known), [])
+        finally:
+            memory._load = old
+
     def test_homework_guard(self):
         import homework as h
         t = h.task("Mam zadanie z matmy, ile to jest 36 podzielić na 4?")

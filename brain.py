@@ -210,6 +210,13 @@ def _morning_line():
     what = ("rain or cold from the weather line (e.g. \"weź parasol\")" if _is_child(who)
             else "rain or cold from the weather line (e.g. \"weź parasol\"), or a reminder "
                  "set for today")
+    try:
+        weekly = memory.weekday_facts(who, known=faces.names())
+    except Exception:
+        weekly = []
+    if weekly:            # the pool on a Thursday comes first (8 Oct probe: never said)
+        what = (f"today's weekday thing you remember: {' / '.join(weekly)} (e.g. \"Dziś "
+                f"basen — pamiętaj o stroju!\"); rain only if there's room")
     return (f"This is {who}'s first talk with you today: after answering, add ONE short "
             f"sentence with what matters for their day — {what}. Nothing if neither.\n")
 
@@ -1430,6 +1437,11 @@ def greeting(first_today, waking=False, who=None, stranger=False):
                    # (8 Oct preview: "pamiętaj, żeby odebrać cię z basenu" to Maja)
                    + ("" if _is_child(who) else timers.prompt_block() + lists.prompt_block())
                    + memory.prompt_block())
+        weekly = memory.weekday_facts(who, known=faces.names()) if (
+            first_today or waking) and not stranger else []
+        if weekly:            # "Dziś basen!" on a Thursday (8 Oct probe: never said)
+            context += (f"For TODAY ({_local_now_text()}) you remember: {' / '.join(weekly)} — "
+                        f"this is the thing to mention for their day.\n")
         r = _client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=[{"role": "system", "content": _PERSONA.strip() + "\n\n" + prompt},

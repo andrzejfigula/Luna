@@ -157,6 +157,31 @@ _RECALL_Q = re.compile(r"\b(?:rozmawia\w*|robi\w*|mówi\w*|mowi\w*|gada\w*|grali
                        r"bawi\w*|działo|dzialo|było|bylo|pamiętasz|pamietasz)\b", re.I)
 
 
+_WEEKDAY_STEMS = (r"poniedział\w*", r"wtor(?:ek|ki|ku|kami|ków)", r"środ(?:a|ę|y|ach|ami)",
+                  r"czwart(?:ek|ki|ku|kami|ków)", r"piąt(?:ek|ki|ku|kami|ków)",   # not "piątka"
+                  r"sobot\w*|weekend\w*", r"niedziel\w*|weekend\w*")
+
+
+def _name_stem(name):
+    return name[:-1] if len(name) > 4 else name[:3]
+
+
+def weekday_facts(who, day=None, known=()):
+    """"Maja ma basen w czwartki" on a Thursday, for Maja (or for anyone when
+    it names no one of the family) — the morning hello mentions it (8 Oct
+    probe: the pool and the yoga were in memory, the hello said neither)."""
+    day = day or _today()
+    stem = _WEEKDAY_STEMS[day.weekday()]
+    out = []
+    for f in _load()["facts"]:
+        if not re.search(rf"\b(?:{stem})\b", f, re.I):
+            continue
+        named = [n for n in known if re.search(rf"\b{_name_stem(n)}\w*", f)]
+        if (who and who in named) or not named:
+            out.append(f)
+    return out[:2]
+
+
 def day_line(text):
     """"O czym rozmawialiśmy wczoraj?" → exactly that day's conversations from
     memory, worked out here (7 Oct: the model gave today's topics as
