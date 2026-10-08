@@ -228,6 +228,16 @@ a = turn("Andrzej", "Luna, czy Święty Mikołaj naprawdę istnieje?", wake=True
 check("child beside dad: the magic kept",
       not re.search(r"rodzic|dorośli|legend|nie istnieje|nie mam dowod", a.lower()), a)
 
+# 18. Bedtime: the evening steps, then the best bit of the day
+fresh()
+a = turn("Maja", "Luna, zacznij wieczór", wake=True)
+check("evening routine starts", "Ułożyłam" in a or "krok" in a.lower() or "Pierwszy" in a, a)
+for _ in range(5):
+    a = turn("Maja", "Gotowe")
+check("…and ends with the best bit of the day", "najfajniejsze" in a or "najlepsze" in a, a)
+a = turn("Maja", "Basen z tatą")
+check("…and her answer gets a warm reply", bool(a) and "basen" in a.lower(), a)
+
 print(f"[scenario] {'OK' if not failures else 'FAILED: ' + ', '.join(failures)}", flush=True)
 shutil.rmtree(DATA, ignore_errors=True)
 sys.stdout.flush()
