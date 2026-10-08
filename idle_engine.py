@@ -238,11 +238,11 @@ def idle_loop():
                             break
                         time.sleep(0.1)
                     today = time.strftime("%Y-%m-%d")
-                    # everyone gets their own first hello of the day
+                    # everyone gets their own first hello of the day — counted
+                    # only once it is SAID: on 8 Oct Andrzej came in at 7:24, in
+                    # the quiet hours, and the silent "welcome back" used up the
+                    # morning briefing he should have had after eight
                     first_today = greeted_days.get(who) != today
-                    greeted_days[who] = today
-                    if first_today:
-                        save_greeted(greeted_days)
                     print(f"[idle] welcome back{' ' + who if who else ''} "
                           f"(away {away / 60:.0f} min)")
                     # her face follows how she feels about them (relationship.py):
@@ -260,6 +260,9 @@ def idle_loop():
                         _gesture("wave")
                     if _may_speak():
                         _last_proactive = now
+                        greeted_days[who] = today
+                        if first_today:
+                            save_greeted(greeted_days)
                         # the first hello of the day knows your day (weather,
                         # reminders, memory); later ones are short phrases
                         from brain import greeting
