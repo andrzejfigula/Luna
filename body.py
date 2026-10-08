@@ -102,7 +102,7 @@ def _tech():
     out = []
     try:
         from config import CHAT_MODEL, CRAFT_MODEL, OPENAI_MODEL
-        out.append(f"your brain: OpenAI {CHAT_MODEL} (songs and poems {CRAFT_MODEL}, "
+        out.append(f"your brain (\"mózg\"): OpenAI {CHAT_MODEL} (songs and poems {CRAFT_MODEL}, "
                    f"helpers {OPENAI_MODEL})")
     except Exception:
         pass

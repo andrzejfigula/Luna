@@ -241,6 +241,10 @@ _WEATHER_OFF = ("wyłącz pogodę", "wylacz pogode", "nie sprawdzaj pogody")
 _MIC_OFF = ("nie słuchaj", "nie sluchaj", "przestań słuchać", "przestan sluchac",
             "wyłącz mikrofon", "wylacz mikrofon", "nie podsłuchuj", "nie podsluchuj",
             "wycisz mikrofon", "stop listening")
+_DOORBELL = re.compile(r"\b(?:ktoś|ktos|ktoś\s+tu)\s+(?:dzwoni\s+(?:do\s+drzwi|domofonem|"
+                       r"dzwonkiem)|puka|stoi\s+pod\s+drzwiami|jest\s+pod\s+drzwiami|"
+                       r"dobija\s+się)|\bdzwoni\s+domofon|\bdomofon\s+dzwoni|"
+                       r"\bdzwonek\s+do\s+drzwi\b|\bpukanie\s+do\s+drzwi", re.I)
 _CAM_OFF = ("wyłącz kamerę", "wylacz kamere", "wyłącz kamere", "wyłącz oczy", "wylacz oczy",
             "przestań patrzeć", "przestan patrzec", "nie nagrywaj mnie", "turn off the camera",
             "camera off")
@@ -1071,6 +1075,13 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
             was = time.time() < state.camera_off_until
             state.camera_off_until = 0.0
         speak("Dobrze, znowu widzę." if was else "Kamera jest włączona.")
+        return True
+
+    # a CHILD says someone is at the door: a fixed, safe answer — the model
+    # told Maja "Sprawdź, kto to" / "Poczekam, aż wrócisz" (9 Oct sweeps)
+    if _DOORBELL.search(low) and _short(text, 10) and _child_here():
+        speak("Nie otwieraj i nie podchodź do drzwi. Zawołaj mamę albo tatę — a jeśli "
+              "jesteś sama, zadzwoń do nich.")
         return True
 
     # a maths quiz is on: this utterance is probably the answer

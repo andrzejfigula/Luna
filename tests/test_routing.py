@@ -538,6 +538,16 @@ class RoutingTest(unittest.TestCase):
     def test_mute(self):
         self.assertEqual(self.route("Luna, cicho"), "mute")
 
+    def test_doorbell_for_a_child(self):
+        """A child at the door gets the fixed safe answer; a grown-up the model."""
+        said = []
+        with mock.patch.object(commands, "_child_here", lambda: True):
+            self.assertTrue(commands.handle("Ktoś puka do drzwi, otworzyć?",
+                                            lambda t, **k: said.append(t), lambda n, **k: True))
+        self.assertIn("Nie otwieraj", said[-1])
+        with mock.patch.object(commands, "_child_here", lambda: False):
+            self.assertEqual(self.route("Ktoś dzwoni do drzwi"), "model")
+
 
 if __name__ == "__main__":
     unittest.main()
