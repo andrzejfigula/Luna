@@ -119,6 +119,16 @@ def _busy():
                 or state.luna_mode in ("listening", "processing", "speaking"))
 
 
+def _people_talking():
+    """A call or people talking to each other (speech_to_text) — a note for
+    someone waits until it's over."""
+    try:
+        import speech_to_text
+        return speech_to_text.people_talking()
+    except Exception:
+        return False
+
+
 def _voice_allowed(now):
     """Quiet hours and "Luna, cicho" apply to every sound she makes on her
     own — touch sounds included."""
@@ -316,7 +326,8 @@ def idle_loop():
                 errands_checked = now
                 with state.lock:
                     p = state.person
-                if (p and now - p[2] < 6 and not _busy() and _voice_allowed(now)):
+                if (p and now - p[2] < 6 and not _busy() and _voice_allowed(now)
+                        and not _people_talking()):     # not into his video call
                     import errands
                     if errands.waiting(p[0]):
                         errands.deliver(p[0], lambda t: speak(t, can_drop=False))
