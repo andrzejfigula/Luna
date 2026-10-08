@@ -714,6 +714,21 @@ class TimersTest(unittest.TestCase):
         self.assertEqual(tictac.cell_at(0.01, 0.5), None)    # beside the board
         self.assertEqual(tictac.cell_at((190 + 10) / 800, (30 + 10) / 480), 0)
         self.assertTrue(tictac.wants("Zagrajmy w kółko i krzyżyk"))
+        # squares said aloud (9 Oct probe: "Środek" only got the model's pretence)
+        for said, cell in (("Środek", 4), ("Lewy górny róg", 0), ("prawy dolny", 8),
+                           ("Górny środek", 1), ("środkowe po lewej", 3), ("pole 7", 6),
+                           ("Piątka", 4), ("W lewym górnym rogu", 0)):
+            self.assertEqual(tictac.spoken_cell(said), cell, said)
+        self.assertIsNone(tictac.spoken_cell("prawy"))
+        self.assertIsNone(tictac.spoken_cell("Ile masz lat?"))
+        out = []
+        with mock.patch.object(tictac.threading, "Timer", lambda *a, **k: mock.Mock()):
+            tictac.start(out.append)
+            self.assertTrue(tictac.voice_move("Środek", out.append))
+            self.assertEqual(tictac._g["b"][4], "X")
+            self.assertTrue(tictac.voice_move("Lewy górny róg", out.append))   # not her turn yet
+            self.assertIn("mój ruch", out[-1])
+        tictac.stop()
         # optimal play from both sides is always a draw
         for _ in range(5):
             b = [None] * 9

@@ -1727,6 +1727,8 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         tictac.stop()
         speak("Dobrze, koniec gry. Dzięki za partyjkę!")
         return True
+    if tictac.active() and _short(text, 7) and tictac.voice_move(text, speak):
+        return True                                # "środek", "lewy górny róg"
 
     if quiz.dictation_words(text, speak):           # "słowa do dyktanda: …"
         return True

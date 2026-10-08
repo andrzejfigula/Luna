@@ -138,7 +138,7 @@ def start(speak, duo=False):
     with _lock:
         _new_game("X", duo)
     speak("Gramy we dwoje! Zaczyna krzyżyk — dotykajcie pól po kolei." if duo else
-          "Gramy! Ty jesteś krzyżyk — dotknij pola na ekranie.")
+          "Gramy! Ty jesteś krzyżyk — dotknij pola albo powiedz, które, na przykład: środek.")
 
 
 def again(speak):
@@ -228,6 +228,22 @@ def cell_at(nx, ny, width=800, height=480):
     return int((y - top) // 140) * 3 + int((x - left) // 140)
 
 
+def _play(i):
+    """Their mark on square i (the caller holds _lock and checked it's free)."""
+    mark = _g["turn"]
+    _g["b"][i] = mark
+    w, line = _winner(_g["b"])
+    if w:
+        _finish(w, line)
+    elif _g["duo"]:
+        _g["turn"] = "O" if mark == "X" else "X"
+        _g["msg"] = f"Ruch: {'krzyżyk' if _g['turn'] == 'X' else 'kółko'}"
+    else:
+        _g["turn"], _g["msg"] = "O", "Myślę…"
+        threading.Timer(0.8, _luna_moves).start()
+    _publish()
+
+
 def tap(nx, ny, width=800, height=480):
     """A tap on the board. Returns True when it was used."""
     with _lock:
@@ -241,16 +257,54 @@ def tap(nx, ny, width=800, height=480):
         i = cell_at(nx, ny, width, height)
         if i is None or _g["b"][i]:
             return True
-        mark = _g["turn"]
-        _g["b"][i] = mark
-        w, line = _winner(_g["b"])
-        if w:
-            _finish(w, line)
-        elif _g["duo"]:
-            _g["turn"] = "O" if mark == "X" else "X"
-            _g["msg"] = f"Ruch: {'krzyżyk' if _g['turn'] == 'X' else 'kółko'}"
-        else:
-            _g["turn"], _g["msg"] = "O", "Myślę…"
-            threading.Timer(0.8, _luna_moves).start()
-        _publish()
+        _play(i)
+    return True
+
+
+_NUMS = {"jeden": 1, "jedynka": 1, "dwa": 2, "dwójka": 2, "trzy": 3, "trójka": 3,
+         "cztery": 4, "czwórka": 4, "pięć": 5, "piątka": 5, "sześć": 6, "szóstka": 6,
+         "siedem": 7, "siódemka": 7, "osiem": 8, "ósemka": 8, "dziewięć": 9, "dziewiątka": 9}
+
+
+def spoken_cell(text):
+    """"środek" → 4, "lewy górny róg" → 0, "prawy dolny" → 8, "górny środek" → 1,
+    "pole 7" → 6 (1–9 like reading); None when it names no single square
+    (9 Oct probe: "Środek" got "Zaznaczyłam środek jako X" from the model —
+    the board never changed)."""
+    low = (text or "").lower()
+    words = re.findall(r"\w+", low)
+    num = next((int(w) for w in words if w.isdigit() and 1 <= int(w) <= 9), None) or \
+        next((_NUMS[w] for w in words if w in _NUMS), None)
+    if num:
+        return num - 1
+    row = 0 if re.search(r"\bgórn|\bgorn|\bgór|\bgor[ae]\b|\bna\s+górze", low) else \
+        2 if re.search(r"\bdoln|\bdół|\bdol\b|\bna\s+dole", low) else None
+    col = 0 if re.search(r"\blew", low) else 2 if re.search(r"\bpraw", low) else None
+    if re.search(r"\bśrod|\bsrod", low):
+        if row is None and col is None:
+            return 4
+        if row is None:
+            row = 1
+        elif col is None:
+            col = 1
+    if row is None or col is None:
+        return None
+    return row * 3 + col
+
+
+def voice_move(text, speak):
+    """A square said aloud while the game is on. True when it was a move."""
+    i = spoken_cell(text)
+    if i is None:
+        return False
+    with _lock:
+        if not _g or _g["end"]:
+            return False
+        if _g["turn"] != "X" and not _g["duo"]:
+            speak("Chwileczkę, teraz mój ruch.")
+            return True
+        if _g["b"][i]:
+            speak("To pole jest już zajęte — wybierz inne.")
+            return True
+        _play(i)
     return True
