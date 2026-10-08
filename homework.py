@@ -63,9 +63,11 @@ def hint(t):
     tens, ones = b // 10 * 10, b % 10
     verb = "dodaj" if op == "add" else "odejmij"
     if tens and ones:                     # "45 + 38": tens first, then ones
-        return (f"Najpierw do {a} {verb} {tens}, a potem jeszcze {ones}. Ile ci wychodzi?"
-                if op == "add" else
-                f"Najpierw od {a} {verb} {tens}, a potem jeszcze {ones}. Ile zostaje?")
+        # (numbers in the nominative: "do 45" was read "do czterdzieści pięć")
+        return (f"Policz najpierw {a} plus {tens}, a potem {verb} jeszcze {ones}. "
+                "Ile ci wychodzi?" if op == "add" else
+                f"Policz najpierw {a} minus {tens}, a potem {verb} jeszcze {ones}. "
+                "Ile zostaje?")
     if op == "add":
         return f"Zacznij od {a} i policz jeszcze {b} w górę. Ile ci wychodzi?"
     return f"Zacznij od {a} i odliczaj {b} w dół. Ile zostaje?"
