@@ -109,6 +109,11 @@ _FILL = {"ile", "to", "jest", "będzie", "bedzie", "wynosi", "luna", "luno", "po
 def _tokens(text):
     """Numbers and operators, or None if anything else is said."""
     low = text.lower().replace("%", " procent ").replace("√", " pierwiastek z ")
+    # "23 procent VAT od 2400 złotych" (9 Oct: went to the model, which said
+    # "Dwudziestotrzy procent…")
+    low = re.sub(r"\bprocent\s+(?:vat|vatu|podatku|napiwku|rabatu|zniżki|znizki|marży|marzy)\b",
+                 "procent", low)
+    low = re.sub(r"\b(?:złotych|zlotych|złote|zlote|złoty|zloty|zł|zl|pln)\b", " ", low)
     low = re.sub(r"(\d)\s*[x×*]\s*(?=\d)", r"\1 razy ", low)
     low = re.sub(r"(\d)\s*[:÷/]\s*(?=\d)", r"\1 przez ", low)
     low = re.sub(r"(\d)\s*\+\s*(?=\d)", r"\1 plus ", low)

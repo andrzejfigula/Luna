@@ -1206,6 +1206,8 @@ class CalcTest(unittest.TestCase):
             "Ile to jest 17 razy 23?": "17 razy 23 to 391.",
             "ile to jest dwanaście razy siedem": "12 razy 7 to 84.",
             "piętnaście procent z osiemdziesięciu": "15 procent z 80 to 12.",
+            "Ile to jest 23 procent VAT od 2400 złotych?": "23 procent z 2400 to 552.",
+            "Ile to 15% napiwku od 180 zł?": "15 procent z 180 to 27.",
             "pierwiastek z 144": "Pierwiastek z 144 to 12.",
             "100 podzielić przez 8": "100 przez 8 to 12,5.",
             "2+2*2": "2 plus 2 razy 2 to 6.",
