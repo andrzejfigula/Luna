@@ -228,6 +228,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Urodziny Luny | Luna ma urodziny 18 września (wtedy pierwszy raz się włączyła) — „Ile masz lat?” → „Mam dopiero trzy tygodnie!”; „Zaśpiewaj piosenkę” — prawdziwy tekst z refrenem |
 | Kotek, piesek, zajączek | „Luna, pokaż mi kotka” / „zamień się w pieska” / „bądź zajączkiem” — Luna na 25 sekund dostaje uszy (i wąsy) na swojej buzi; „zdejmij uszy” kończy |
 | Imieniny | „Kiedy Maja ma imieniny?” — jeśli nikt jej nie powiedział, Luna sprawdza w internecie (Maja — 1 maja); „Maja ma imieniny …” zapamiętuje |
+| Przekaż jutro | „Maja ma jutro wycieczkę, przypomnij jej rano, żeby wzięła kanapki” — Luna powie to Mai jutro rano, gdy ją zobaczy (też „wieczorem”, „po szkole”); „dziękuję, to wszystko” — Luna kończy rozmowę bez „weź parasol” |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 
