@@ -252,6 +252,15 @@ def handle(text, speak, play_sound, play_sound_async):
     if _PANSTWA.search(low):
         panstwa(speak)
         return True
+    with state.lock:                          # a round on: "koniec" / "stop" ends it
+        ov = state.overlay
+    if (ov and ov[0] == "card" and "państwa-miasta" in str((ov[2] or {}).get("sub", ""))
+            and re.fullmatch(r"(?:koniec|stop|starczy|wystarczy|kończymy)(?:\s+\w+){0,2}",
+                             low.strip(" .!?"))):
+        with state.lock:
+            state.overlay = None
+        speak("Dobrze, koniec rundy.")
+        return True
     return costume(low, speak)
 
 
