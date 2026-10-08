@@ -228,7 +228,53 @@ def handle(text, speak, play_sound, play_sound_async):
     if any(k in low for k in COIN):
         flip(speak, play_sound_async, english="flip" in low or "coin" in low)
         return True
+    if _PANSTWA.search(low):
+        panstwa(speak)
+        return True
     return costume(low, speak)
+
+
+# "Zagrajmy w państwa-miasta" — a letter big on her screen, a minute, "Stop!"
+# (a family evening game; she only keeps the time — they write on paper)
+_PANSTWA = re.compile(r"państwa[\s-]*miasta|panstwa[\s-]*miasta|"
+                      r"(?:wylosuj|losuj|nowa|następna|nastepna|kolejna)\s+liter[ęae]", re.I)
+_LETTERS = "ABCDEFGHIJKLMNOPRSTUWZ"           # no Q, V, X, Y — nothing starts with them
+PANSTWA_SECS = 60
+_LETTER_SAID = {"A": ("a", "arbuz"), "B": ("be", "balon"), "C": ("ce", "cebula"),
+                "D": ("de", "dom"), "E": ("e", "ekran"), "F": ("ef", "foka"),
+                "G": ("gie", "góra"), "H": ("ha", "herbata"), "I": ("i", "igła"),
+                "J": ("jot", "jabłko"), "K": ("ka", "kot"), "L": ("el", "las"),
+                "M": ("em", "mama"), "N": ("en", "nos"), "O": ("o", "okno"),
+                "P": ("pe", "pies"), "R": ("er", "rower"), "S": ("es", "słońce"),
+                "T": ("te", "tata"), "U": ("u", "ucho"), "W": ("wu", "woda"),
+                "Z": ("zet", "zebra")}
+
+
+def panstwa(speak):
+    letter = random.choice(_LETTERS)
+    t0 = time.time()
+    _overlay("card", PANSTWA_SECS + 5, {"text": letter, "sub": "państwa-miasta · minuta",
+                                        "tone": None})
+    _mood("Excited")
+    print(f"[fun] państwa-miasta: {letter}", flush=True)
+    # a lone "W" was read "double-u", "K" heard as "T" (TTS round trip, 8 Oct):
+    # the Polish letter name and a word for it
+    name, word = _LETTER_SAID[letter]
+    speak(f"Litera {name} — jak {word}! Macie minutę — start!")
+
+    def clock():
+        from text_to_speech import speak as say
+        for at, line in ((PANSTWA_SECS - 10, "Zostało dziesięć sekund!"),
+                         (PANSTWA_SECS, "Stop! Koniec czasu — odkładamy długopisy.")):
+            time.sleep(max(0.0, t0 + at - time.time()))
+            with state.lock:          # another letter or game since: this round is over
+                ov = state.overlay
+            if not (ov and ov[0] == "card" and (ov[2] or {}).get("text") == letter):
+                return
+            say(line)
+        _overlay("card", 8, {"text": letter, "sub": "koniec czasu", "tone": "bad"})
+    import threading
+    threading.Thread(target=clock, daemon=True, name="panstwa").start()
 
 
 # "Pokaż mi kotka" — she has no pictures, so she becomes one: ears, a nose and

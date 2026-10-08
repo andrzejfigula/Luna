@@ -1986,6 +1986,19 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(kids.offered_routine("Mogę ci ułożyć prosty poranny plan."), "poranek")
         self.assertIn("umyj zęby", kids.DEFAULT_STEPS["poranek"])
 
+    def test_panstwa_miasta(self):
+        import fun
+        said = []
+        with mock.patch.object(fun.threading if hasattr(fun, "threading") else __import__(
+                "threading"), "Thread", lambda *a, **k: mock.Mock()):
+            self.assertTrue(fun.handle("Zagrajmy w państwa-miasta", said.append, None, None))
+        self.assertTrue(said[-1].startswith("Litera "))
+        with state.lock:
+            letter = state.overlay[2]["text"]
+            state.overlay = None
+        self.assertIn(letter, fun._LETTERS)
+        self.assertNotIn("Q", fun._LETTERS)
+
     def test_where_name_first(self):
         import commands
         for t, who in (("Czy Maja już wróciła?", "Maja"), ("Czy tata jest w domu?", "tata"),

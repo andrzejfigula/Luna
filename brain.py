@@ -543,7 +543,9 @@ Always answer as JSON with exactly these keys:
                 "zagrajmy w 20 pytań" (you think of an animal), "zgadnij, o
                 czym myślę" (they think, you guess), "zróbmy quiz z
                 matematyki / angielskiego / stolic", "zagrajmy w zegar",
-                "zagrajmy w zgadywankę" (you think of a number 1–100); and
+                "zagrajmy w zgadywankę" (you think of a number 1–100),
+                "zagrajmy w państwa-miasta" (a letter on your screen, a minute,
+                "Stop!" — they write on paper); and
                 "zróbmy ćwiczenie oddechowe" (a calm guided breathing circle —
                 when they say yes to breathing together), "zamień się w
                 kotka / pieska / zajączka" (ears on your face). A game
@@ -1323,7 +1325,8 @@ _GAME_OK = re.compile(
 # circle she invited them to ("Chodź, oddychajmy razem" → "Tak" — 7 Oct probe)
 _VOICED_OK = re.compile(r"^zróbmy\s+ćwiczenie\s+oddechowe$|"
                         r"^zamień\s+się\s+w\s+(?:kotka|pieska|zajączka)$|"
-                        r"^zacznij\s+(?:poranek|wieczór)$", re.I)
+                        r"^zacznij\s+(?:poranek|wieczór)$|"
+                        r"^zagrajmy\s+w\s+państwa-miasta$", re.I)
 
 
 _GAME_OFFER = re.compile(r"zagra|\bgr[aęy]\b|\bgramy\b|zagadk|quiz|memory|kółk|zgadywank|"

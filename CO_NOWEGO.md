@@ -242,6 +242,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Tajemnice | „Luna, kupiłem Emilce kolczyki, tylko jej nie mów” — Luna nikomu tego nie zdradzi (też „to niespodzianka”, „między nami”); o prywatnych rozmowach mówi innym tylko ogólnie |
 | Drobiazgi (8.10 po południu) | „koniec” w zagadkach / quizie — Luna mówi odpowiedź; „podpowiedz” przy dodawaniu i odejmowaniu — najpierw dziesiątki, potem jedności; przy gotowaniu „nastaw minutnik na ten krok” (Luna zapyta, na ile minut); „Dlaczego tak krzyczysz?” — Luna mówi ciszej; Maja: „Gdzie jest tata?” — Luna mówi, kiedy go widziała; „włącz radio zed” — Radio ZET; „Zrób coś śmiesznego” — Luna czasem zamienia się w kotka |
 | Co godzinę | „Luna, przypominaj mi co godzinę, żeby pić wodę” — przypomina co godzinę, ale nie w nocy (22–8); „nie przypominaj już o wodzie” wyłącza |
+| Państwa-miasta | „Luna, zagrajmy w państwa-miasta” — Luna losuje literę (duża na ekranie), odmierza minutę i woła „Stop!”; „nowa litera” — następna runda |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 
