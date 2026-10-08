@@ -1,0 +1,12 @@
+Maja|Dzień dobry Luna
+Maja|Nie chce mi się iść do szkoły
+Emilka|Która godzina?
+Emilka|Ile mamy czasu do wyjścia, wychodzimy o ósmej
+Maja|Co dziś na śniadanie?
+Emilka|Przypomnij nam o wpół do ósmej, żeby myć zęby
+Andrzej|Jakie są wiadomości?
+Maja|Czy wzięłam wszystko do szkoły?
+Emilka|Maja, ubieraj się
+Maja|Luna, pospiesz mnie
+Andrzej|Wyłącz się, wychodzimy
+Maja|Pa Luna!

@@ -285,6 +285,23 @@ def _morning_line():
             f"sentence with what matters for their day — {what}. Nothing if neither.\n")
 
 
+def _to_someone(text):
+    """"Maja, ubieraj się" / "Emilko, chodź…" / "Mamo, gdzie…" — opens by
+    calling someone else (8 Oct sweeps: "Mhm, słucham cię." to Emilka's
+    "Maja, ubieraj się"; "Och, kochanie" to "Kochanie, zrobisz mi herbatę?").
+    "Maja się nudzi" (no comma) is about Maja, not to her."""
+    try:
+        low = text.strip().lower()
+        first = (re.findall(r"\w+", low) or [""])[0]
+        return bool(any(first == (v or "").lower() and first != n.lower()
+                        or re.match(re.escape(n.lower()) + r"\s*[,!]", low)
+                        for n, v in faces.vocatives().items())
+                    or re.match(r"(?:mamo|tato|mamusiu|tatusiu|kochanie|skarbie)\b", low))
+    except Exception:
+        return False
+
+
+
 def _just_called(text="", secs=12):
     """Was her name said a moment ago? Then this sentence came with it (the
     wake word is cut off before the model sees the text — 7 Oct probe:
@@ -293,19 +310,7 @@ def _just_called(text="", secs=12):
     English meeting, rightly kept quiet."""
     if len(text.split()) > 12 or _language_line(text):
         return False
-    # "Maja, ubieraj się" / "Emilko, chodź…" — said to someone else even right
-    # after her name (8 Oct morning sweep: "Mhm, słucham cię." to it); "Maja
-    # się nudzi" (no comma) is still about Maja, so it stays hers
-    try:
-        low = text.strip().lower()
-        first = (re.findall(r"\w+", low) or [""])[0]
-        to_someone = any(first == (v or "").lower() and first != n.lower()
-                         or re.match(re.escape(n.lower()) + r"\s*[,!]", low)
-                         for n, v in faces.vocatives().items()) or \
-            re.match(r"(?:mamo|tato|mamusiu|tatusiu|kochanie|skarbie)\b", low)
-    except Exception:
-        to_someone = False
-    if to_someone:
+    if _to_someone(text):
         return False
     with state.lock:
         if time.time() - getattr(state, "last_wake_time", 0.0) < secs:
@@ -1109,6 +1114,15 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
         image_b64 = None                       # interpreting needs no camera
     with state.lock:
         person = state.person
+        called = time.time() - getattr(state, "last_wake_time", 0.0) < 12
+    if (not lang and not _forced and not called and _to_someone(text)
+            and not re.search(r"\bluna\b|\bluno\b", text.lower())):
+        # overheard "Tato, pomożesz mi z matmą?" — the model answered it 3 of
+        # 3 times in the 9 Oct side-talk sweep; settled here, no model call
+        print(f"[brain] said to someone else — staying quiet ({text[:40]!r})", flush=True)
+        with state.lock:
+            state.conversation_active = False
+        return "", "neutral", "none"
     hw = homework.task(text) if (not lang and _child_near(person)) else None
     if hw and on_sentence:
         _say, swapped = on_sentence, []

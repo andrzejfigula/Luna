@@ -1,0 +1,10 @@
+Emilka+Maja|~Maja, zjedz jeszcze kanapkę
+Maja+Emilka|~Mamo, gdzie są moje skarpetki?
+Andrzej+Emilka|~Kochanie, zrobisz mi herbatę?
+Emilka+Andrzej|~Ale dzisiaj zimno
+Andrzej|~Ja pierdzielę, znowu ten błąd w kodzie
+Andrzej|~Okej, to widzimy się o trzeciej, na razie
+Maja|~Nudzi mi się
+Emilka|~Gdzie ja położyłam klucze?
+Maja+Andrzej|~Tato, pomożesz mi z matmą?
+Emilka|~Muszę pamiętać o dentyście jutro

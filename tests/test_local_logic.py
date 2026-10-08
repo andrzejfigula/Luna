@@ -1904,6 +1904,10 @@ class KidsTest(unittest.TestCase):
                 self.assertFalse(brain._just_called("Mamo, gdzie są moje skarpetki?"))
                 self.assertTrue(brain._just_called("Maja się nudzi."))
                 self.assertTrue(brain._just_called("Jestem zdenerwowany."))
+                self.assertTrue(brain._to_someone("Kochanie, zrobisz mi herbatę?"))
+                self.assertTrue(brain._to_someone("Tato, pomożesz mi z matmą?"))
+                self.assertFalse(brain._to_someone("Totalnie się nudzę."))
+                self.assertFalse(brain._to_someone("Majonez się skończył."))
         finally:
             state.last_wake_time, state.last_spoken_time, state.others = old
 
