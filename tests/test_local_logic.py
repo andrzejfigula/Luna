@@ -1986,6 +1986,21 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(kids.offered_routine("Mogę ci ułożyć prosty poranny plan."), "poranek")
         self.assertIn("umyj zęby", kids.DEFAULT_STEPS["poranek"])
 
+    def test_goodnight_morning_note(self):
+        import weather
+        old = dict(weather._today)
+        try:
+            day = time.strftime("%Y-%m-%d")
+            t20 = time.mktime(time.strptime(day + " 20:00", "%Y-%m-%d %H:%M"))
+            weather._today.update(date=day, morning=(8.4, 60))
+            self.assertEqual(weather.morning_note(t20),
+                             "Jutro rano 8 stopni i może padać — przyda się parasol.")
+            weather._today.update(morning=(-2.6, 10))
+            self.assertEqual(weather.morning_note(t20), "Jutro rano minus 3 stopnie.")
+            self.assertEqual(weather.morning_note(t20 - 36000), "")      # not before 18:00
+        finally:
+            weather._today.clear(); weather._today.update(old)
+
     def test_drawing_requests(self):
         import drawing
         self.assertEqual(drawing.wants("Narysuj mi jednorożca"), "jednorożca")

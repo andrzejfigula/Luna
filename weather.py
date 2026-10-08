@@ -257,7 +257,12 @@ def _loop():
                                   date=d["daily"]["time"][0],
                                   hours=[(int(t[11:13]), p) for t, p in zip(
                                       d["hourly"]["time"], d["hourly"]["precipitation_probability"])
-                                      if t[:10] == d["daily"]["time"][0] and p is not None])
+                                      if t[:10] == d["daily"]["time"][0] and p is not None],
+                                  morning=next(((temp, p) for t, temp, p in zip(
+                                      d["hourly"]["time"], d["hourly"]["temperature_2m"],
+                                      d["hourly"]["precipitation_probability"])
+                                      if t[:10] == d["daily"]["time"][1] and t[11:13] == "07"),
+                                      None))
                 except (KeyError, IndexError, TypeError):
                     pass
             print(f"[weather] {s}", flush=True)
@@ -268,6 +273,24 @@ def _loop():
 
 
 _today = {}        # today's rain chance and max temperature (the last fetch)
+
+
+def morning_note(now=None):
+    """For a grown-up's good night: "Jutro rano osiem stopni i może padać." —
+    tomorrow at 7 from the hourly forecast; '' when unknown or before 18:00."""
+    with _lock:
+        t = dict(_today)
+    m = t.get("morning")
+    if (not m or t.get("date") != time.strftime("%Y-%m-%d", time.localtime(now))
+            or time.localtime(now).tm_hour < 18):
+        return ""
+    temp, rain = round(m[0]), m[1] or 0
+    n = abs(temp)
+    unit = ("stopień" if n == 1 else "stopnie" if n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14)
+            else "stopni")
+    said = f"minus {n}" if temp < 0 else str(n)
+    return (f"Jutro rano {said} {unit}" + (" i może padać — przyda się parasol." if rain >= 50
+                                           else "."))
 
 
 def umbrella_note(now=None):

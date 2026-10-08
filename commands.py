@@ -1012,6 +1012,9 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         import timers
         # the alarms are the grown-ups' — "Budzik masz na szóstą" isn't Maja's
         note = None if _child_here() else timers.goodnight_note()
+        if not _child_here():                      # tomorrow at 7, for the grown-ups
+            import weather
+            note = " ".join(x for x in (note, weather.morning_note()) if x) or None
         speak(_goodnight() + (" " + note if note else ""))
         go_to_sleep()
         return True
