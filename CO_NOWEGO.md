@@ -219,6 +219,8 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Mycie zębów i poranek | przy myciu zębów: „ile jeszcze?”, „koniec”; w porannej liście kroków: „powtórz”, „co dalej?”, „pomiń” |
 | Sport | „Co słychać w sporcie?” — Luna czyta nagłówki sportowe (WP SportoweFakty) |
 | Wychodzę! | „Wychodzę do pracy”, „lecę do szkoły” — Luna macha na pożegnanie, a gdy ma padać, przypomni o parasolu |
+| Poranek | pierwsza rozmowa rano (np. „Dzień dobry”) — Luna doda jedno zdanie o dniu: deszcz → „weź parasol”, albo dzisiejsze przypomnienie |
+| Liczby i godziny | Luna lepiej wymawia duże liczby, godziny („dwunasta trzydzieści”), temperatury, daty i ułamki w przepisach („pół szklanki”) |
 | Wiadomość — anuluj | po „nagraj wiadomość” wystarczy „anuluj”, żeby nic nie nagrała |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
