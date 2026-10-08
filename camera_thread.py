@@ -152,7 +152,10 @@ def _local_loop():
             with state.lock:
                 state.frame = frame
                 off = time.time() < state.camera_off_until
-            if off:                          # "wyłącz kamerę": the device is let go
+                if off:                      # "wyłącz kamerę": no last frame left behind
+                    state.frame = None
+                    state.camera_ok = False
+            if off:                          # …and the device is let go
                 break
             if time.time() - last_light > 2.0:
                 last_light = time.time()
