@@ -50,10 +50,13 @@ STATIONS = {
     "dwójka":        ("Dwójka", "http://mp3.polskieradio.pl:8902/;.mp3"),
     "radio 357":     ("Radio 357", "https://n-11-21.dcs.redcdn.pl/sc/o2/radio357/live/radio357_pr.livx?preroll=0"),
     "nowy świat":    ("Radio Nowy Świat", "https://go-audio.toya.net.pl/63214"),
+    # 8 Oct night: the online lookup for "dla dzieci" failed once → kept here
+    "dla dzieci":    ("RMF Dla Dzieci", "http://195.150.20.8/BABY"),
 }
 # stations move and fail: what to try next when a stream won't start
 # (checked 2026-10-04 evening: Trójka's MP3 stream was down, its HLS worked)
 FALLBACKS = {
+    "http://195.150.20.8/BABY": ["http://stream3.polskieradio.pl:8916/"],   # Polskie Radio Dzieciom
     "http://195.150.20.242:8000/rmf_fm": ["http://195.150.20.9/RMFFM48"],
     "http://zet-net-01.cdn.eurozet.pl:8400/": ["https://r.dcs.redcdn.pl/sc/o2/Eurozet/live/audio.livx?audio=5"],
     "http://mp3.polskieradio.pl:8904/;.mp3": ["https://stream13.polskieradio.pl/pr3/pr3.sdp/playlist.m3u8"],
@@ -66,7 +69,8 @@ _ALIASES = {"rmf": "rmf fm", "rmfu": "rmf fm", "rmf-u": "rmf fm", "zet": "radio 
             "trojka": "trójka", "jedynkę": "jedynka", "jedynke": "jedynka",
             "dwójkę": "dwójka", "dwojke": "dwójka", "357": "radio 357",
             "trzysta pięćdziesiąt siedem": "radio 357", "nowy swiat": "nowy świat",
-            "nowego świata": "nowy świat"}
+            "nowego świata": "nowy świat",
+            "rmf dla dzieci": "dla dzieci", "radio dla dzieci": "dla dzieci"}
 
 _ON = re.compile(r"^(?:luna,? |luno,? )?(?:włącz|wlacz|puść|pusc|zagraj|odpal|graj)\s+"
                  r"(?:(?:mi|nam)\s+)?(?:(?:radio|radijko|radyjko|radyjka|stację|stacje)\s*(.*)|(.+))$")

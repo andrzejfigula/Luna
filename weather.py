@@ -212,7 +212,8 @@ def _hours(d, now=None):
                 continue
             bits[dt.date()].append(f"{dt:%H:%M} {temp:.0f}°C"
                                    + (f" (rain {rain}%)" if rain else ""))
-        out = ([f"today {', '.join(bits[today])}"] if bits[today] else []) +               ([f"tomorrow {', '.join(bits[tomorrow])}"] if bits[tomorrow] else [])
+        out = ([f"today {', '.join(bits[today])}"] if bits[today] else []) + \
+              ([f"tomorrow {', '.join(bits[tomorrow])}"] if bits[tomorrow] else [])
         return (" By the hour — " + "; ".join(out) + ".") if out else ""
     except (KeyError, TypeError, ValueError):
         return ""
@@ -235,7 +236,10 @@ def prompt_line():
     if not s:
         return unknown
     return (s + " Use it when asked about the weather, or briefly when it "
-            "matters (going out, a morning greeting) — don't recite it unasked.\n")
+            "matters (going out, a morning greeting) — don't recite it unasked. "
+            "\"Co/jak się ubrać\" is a weather question: advise from THIS forecast for "
+            "that time (school asked about in the evening = \"jutro\" 07:00) naming its temperature "
+            "and rain — never \"jeśli będzie zimno…\".\n")
 
 
 _started = [False]

@@ -162,6 +162,12 @@ class TimersTest(unittest.TestCase):
                 played.clear()
                 self.assertTrue(radio.handle(t, said.append))
                 self.assertEqual(played, ["Radio ZET"], t)
+            with mock.patch.object(radio, "_lookup", lambda n: None):    # offline
+                for t in ("Włącz radio dla dzieci", "Puść muzykę dla dzieci",
+                          "Włącz RMF dla dzieci"):
+                    played.clear()
+                    self.assertTrue(radio.handle(t, said.append))
+                    self.assertEqual(played, ["RMF Dla Dzieci"], t)
         finally:
             radio.play = old
 
