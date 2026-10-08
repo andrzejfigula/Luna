@@ -1884,6 +1884,16 @@ class KidsTest(unittest.TestCase):
             brain._history[:] = old_h
             state.person = old_p
 
+    def test_match_role(self):
+        import faces
+        with mock.patch.object(faces, "notes", lambda: {
+                "Andrzej": "partner Emilki, tata Mai", "Emilka": "partnerka Andrzeja, mama Mai",
+                "Maja": "córka Andrzeja i Emilki"}):
+            self.assertEqual(faces.match_role("tata"), "Andrzej")
+            self.assertEqual(faces.match_role("mamę"), "Emilka")
+            self.assertEqual(faces.match_role("córka"), "Maja")
+            self.assertIsNone(faces.match_role("babcia"))
+
     def test_fix_vocative(self):
         from polish import fix_vocative as f
         v = {"Maja": "Maju", "Andrzej": "Andrzeju", "Emilka": "Emilko"}

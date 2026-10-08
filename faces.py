@@ -22,6 +22,7 @@ Nothing leaves the Pi: detection, recognition and the samples are local.
 
 import json
 import os
+import re
 import threading
 import time
 
@@ -459,6 +460,21 @@ def forms(name):
     else:
         out |= {n + e for e in ("a", "owi", "em", "u", "e", "ie")}
     return out
+
+
+_ROLES = (("tata", r"tat(?:a|y|ą|ę|o|u|cie|usia|uś|ka)$"), ("mama", r"mam(?:a|y|ą|ę|o|ie|usia|uś)$"),
+          ("córka", r"córk\w*$"), ("syn", r"syn(?:a|em|u|owi)?$"))
+
+
+def match_role(word):
+    """"tata" / "taty" / "mamę" → whoever the notes call that ("tata Mai"), or
+    None — 8 Oct sweep: Maja's "Gdzie jest tata?" got a vague guess."""
+    w = (word or "").lower()
+    role = next((r for r, rx in _ROLES if re.match(rx, w)), None)
+    if not role:
+        return None
+    hits = [n for n, note in notes().items() if re.search(rf"\b{role}\b", (note or "").lower())]
+    return hits[0] if len(hits) == 1 else None
 
 
 def match_name(word, known=None):

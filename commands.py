@@ -1248,7 +1248,7 @@ def handle(text, speak, play_sound, _polite=True):
         m = _WHERE.search(text)                    # "gdzie jest Maja?"
         if m and _short(text, 8):
             import faces
-            who = faces.match_name(m.group(1))
+            who = faces.match_name(m.group(1)) or faces.match_role(m.group(1))
             said = faces.where_is(who) if who else None
     if not said:
         said = _memory_talk(text)                  # "co o mnie wiesz?", "zapomnij, że…"
