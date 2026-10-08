@@ -206,9 +206,11 @@ def _morning_line():
         idle_engine.mark_greeted(who)          # no second briefing at the desk later
     except Exception:
         return ""
+    what = ("rain or cold from the weather line (e.g. \"weź parasol\")" if _is_child(who)
+            else "rain or cold from the weather line (e.g. \"weź parasol\"), or a reminder "
+                 "set for today")
     return (f"This is {who}'s first talk with you today: after answering, add ONE short "
-            "sentence with what matters for their day — rain or cold from the weather "
-            "line (e.g. \"weź parasol\"), or a reminder set for today. Nothing if neither.\n")
+            f"sentence with what matters for their day — {what}. Nothing if neither.\n")
 
 
 def _just_called(text="", secs=12):
@@ -221,6 +223,14 @@ def _just_called(text="", secs=12):
         return False
     with state.lock:
         return time.time() - getattr(state, "last_wake_time", 0.0) < secs
+
+
+def _is_child(who):
+    try:
+        import faces
+        return bool(who) and "dziecko" in faces.notes().get(who, "").lower()
+    except Exception:
+        return False
 
 
 def _cooking_line():
@@ -1352,7 +1362,9 @@ def greeting(first_today, waking=False, who=None, stranger=False):
                    + weather.prompt_line()
                    + faces.prompt_line() + relationship.prompt_line()
                    + birthdays.prompt_line()
-                   + timers.prompt_block() + lists.prompt_block()
+                   # a child's hello leaves out the grown-ups' reminders and lists
+                   # (8 Oct preview: "pamiętaj, żeby odebrać cię z basenu" to Maja)
+                   + ("" if _is_child(who) else timers.prompt_block() + lists.prompt_block())
                    + memory.prompt_block())
         r = _client.chat.completions.create(
             model=OPENAI_MODEL,
