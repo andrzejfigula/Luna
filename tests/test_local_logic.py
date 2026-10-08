@@ -1994,6 +1994,9 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(drawing.wants("Luna, możesz mi narysować pieska?"), "pieska")
         self.assertEqual(drawing.wants("Narysujesz mi kotka?"), "kotka")
         self.assertIsNone(drawing.wants("Narysowałam dom"))
+        self.assertIn("robota", drawing._subject("siebie"))
+        self.assertIn("rodzinę", drawing._subject("naszą rodzinę"))
+        self.assertEqual(drawing._subject("smoka"), "smoka")
         self.assertTrue(drawing._SHOW.search("Pokaż mi jeszcze raz rysunek"))
         said = []
         d = tempfile.mkdtemp()

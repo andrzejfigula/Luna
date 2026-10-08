@@ -47,6 +47,34 @@ def wants(text):
     return m.group(1).strip() if m else None
 
 
+def _subject(what):
+    """"mnie", "siebie", "naszą rodzinę" — words for the picture (no photo is
+    ever sent; the family is drawn from a description)."""
+    low = what.lower().strip()
+    if re.fullmatch(r"siebie|się|sama siebie|ciebie|lunę|lune", low):
+        return ("małego, uroczego robota biurkowego z ekranem zamiast twarzy, dwoma "
+                "dużymi świecącymi bursztynowymi oczami, stojącego na biurku pod "
+                "rozgwieżdżonym niebem")
+    if re.fullmatch(r"(?:naszą|nasza|całą|cala)?\s*rodzin\w*|nas(?:\s+wszystkich)?", low):
+        return "szczęśliwą rodzinę: mamę, tatę i ośmioletnią córkę, razem i uśmiechniętych"
+    if re.fullmatch(r"mnie|mnie samą|mnie samego", low):
+        with state.lock:
+            who = state.person[0] if state.person else None
+        try:
+            import faces
+            note = (faces.notes().get(who) or "").lower() if who else ""
+        except Exception:
+            note = ""
+        if "dziecko" in note or "córka" in note:
+            return "uśmiechniętą ośmioletnią dziewczynkę"
+        if "tata" in note or "partner " in note:
+            return "uśmiechniętego tatę"
+        if "mama" in note or "partnerka" in note:
+            return "uśmiechniętą mamę"
+        return "uśmiechniętą osobę"
+    return what
+
+
 def _count_today():
     path = os.path.join(DIR, "count.json")
     today = time.strftime("%Y-%m-%d")
@@ -124,7 +152,7 @@ def draw(what, speak):
             c = OpenAI(api_key=OPENAI_API_KEY, timeout=60, max_retries=1)
             r = c.images.generate(
                 model=MODEL, size="1024x1024", quality="low", n=1,
-                prompt=(f"Obrazek dla dziecka: {what}. Pogodna, prosta, kolorowa "
+                prompt=(f"Obrazek dla dziecka: {_subject(what)}. Pogodna, prosta, kolorowa "
                         "ilustracja jak z książeczki dla dzieci, łagodne kształty, "
                         "jasne tło, bez żadnych napisów, nic strasznego."))
             png = base64.b64decode(r.data[0].b64_json)
