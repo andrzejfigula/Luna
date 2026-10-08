@@ -3,7 +3,7 @@
 Ściąga: co Luna teraz potrafi i jak to wywołać. Wszystko po polsku, zwykłymi
 zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 
-> **Nowe dzisiaj (8.10) — warto wypróbować wieczorem:**
+> **Nowe (8.10) — warto wypróbować:**
 > „Luna, **narysuj mi jednorożca**” — prawdziwy obrazek na ekranie! · „**pokaż mi kotka**” / „zamień się w pieska” (uszy na buzi!) ·
 > „**Zacznij wieczór**” — Maja krok po kroku do łóżka, na koniec „co dziś było najfajniejsze?” ·
 > „Kupiłem Emilce prezent, **tylko jej nie mów**” — Luna dochowa tajemnicy ·
@@ -12,6 +12,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 > „Zagrajmy w **państwa-miasta**” — litera na ekranie, minuta, „Stop!” ·
 > Maja sprawdza wynik: „**7 razy 8 to 56?**” — „Tak, brawo!” ·
 > „**Ile masz lat?**” (urodziny 18 września) · „**Kiedy Maja ma imieniny?**” (sprawdzi w internecie) ·
+> „**Kiedy pełnia?**” (Luna liczy fazy Księżyca) · „Zadaj mi **trudną zagadkę**” · „Zróbmy **quiz z wiedzy ogólnej**” ·
 > wychodząc z domu: „Weź parasol — **wieczorem** ma padać” · Maja przy zadaniach: tylko podpowiedzi, nawet gdy obok siedzi tata.
 
 ## Rozmowa
