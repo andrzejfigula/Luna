@@ -144,6 +144,43 @@ fresh()
 a = turn("Andrzej", "Jestem zdenerwowany", wake=True)
 check("with her name: answered", bool(a), a)
 
+# 6. The shopping list by voice: add, read, cross off
+import lists               # noqa: E402
+import timers              # noqa: E402
+fresh()
+turn("Emilka", "Luna, dopisz mleko i chleb do zakupów", wake=True)
+check("two items added", {"mleko", "chleb"} <= set(lists.get("zakupy")), str(lists.get("zakupy")))
+a = turn("Emilka", "Co mam na liście zakupów?")
+check("the list read back", "mleko" in a.lower() and "chleb" in a.lower(), a)
+turn("Emilka", "Skreśl mleko")
+check("crossed off", "mleko" not in lists.get("zakupy"), str(lists.get("zakupy")))
+
+# 7. A reminder for tomorrow, then "what reminders?"
+fresh()
+turn("Emilka", "Luna, przypomnij mi jutro o ósmej o dentyście", wake=True)
+a = turn("Emilka", "Jakie mam przypomnienia?")
+check("tomorrow's reminder listed", "denty" in a.lower() and "jutro" in a.lower(), a)
+
+# 8. A timer and "ile zostało?"
+fresh()
+turn("Andrzej", "Luna, nastaw minutnik na 10 minut", wake=True)
+a = turn("Andrzej", "Ile zostało?")
+check("time left told", bool(re.search(r"minut|sekund", a)), a)
+turn("Andrzej", "Wyłącz minutnik")
+check("timer gone", not timers.running_timer(), a)
+
+# 9. A question in the middle of a quiz doesn't end it in silence
+fresh()
+turn("Maja", "Luna, zagrajmy w quiz", wake=True)
+a = turn("Emilka", "Luna, jaka jest dziś pogoda?", wake=True)
+check("weather answered during a quiz", bool(re.search(r"°|stopn|pada|słońc|chmur|deszcz", a)), a)
+turn("Maja", "Koniec")
+
+# 10. A sad child: comfort, not a lecture
+fresh()
+a = turn("Maja", "Luna, jestem smutna, pokłóciłam się z Zosią", wake=True)
+check("comfort for a sad child", bool(a) and len(a) < 400, a)
+
 print(f"[scenario] {'OK' if not failures else 'FAILED: ' + ', '.join(failures)}", flush=True)
 shutil.rmtree(DATA, ignore_errors=True)
 sys.stdout.flush()

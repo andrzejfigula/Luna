@@ -37,6 +37,7 @@ import relationship
 from reply_stream import ReplyStream
 import body
 import health
+import homework
 import memory
 import lists
 import timers
@@ -925,6 +926,21 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                 f"dokładnie: na {lang}, jeśli to po polsku; na polski, jeśli to "
                 f"w języku {lang}] {text}")
         image_b64 = None                       # interpreting needs no camera
+    with state.lock:
+        person = state.person
+    hw = homework.task(text) if (person and not lang and _is_child(person[0])) else None
+    if hw and on_sentence:
+        _say, swapped = on_sentence, []
+
+        def on_sentence(sentence):         # a child's sum: no result, a hint instead
+            if homework.gives_away(sentence, hw):
+                if not swapped:
+                    swapped.append(sentence)
+                    print(f"[brain] the child's result was in {sentence[:60]!r} — a hint instead",
+                          flush=True)
+                    _say(homework.hint(hw))
+                return
+            _say(sentence)
     # the same lesson for English: next to the words, not only in the system
     # prompt ("Set a timer for five minutes" → "Jasne, pięć minut", 7 Oct)
     en_hint = (" (in English — reply in English; actions keep their Polish labels "
@@ -1160,6 +1176,11 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             print("[brain] said she'd check online without the command — searching", flush=True)
             websearch.start(text, lambda *a, **k: None, announce=False)
 
+        if hw and homework.gives_away(reply, hw):
+            if on_head is None:
+                print(f"[brain] the child's result was in {reply[:60]!r} — a hint instead",
+                      flush=True)
+            reply = homework.hint(hw)
         # keep history text-only: images are large and only matter for the
         # turn they were asked in
         _history[-1] = {"role": "user", "content": _who_said(text)}

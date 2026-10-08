@@ -223,6 +223,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Liczby i godziny | Luna lepiej wymawia duże liczby, godziny („dwunasta trzydzieści”), temperatury, daty i ułamki w przepisach („pół szklanki”) |
 | Wiadomość — anuluj | po „nagraj wiadomość” wystarczy „anuluj”, żeby nic nie nagrała |
 | Pomysły na zakupy | „Luna, wymyśl, co jeszcze kupić” — Luna podsuwa pomysły, ale dopisuje je do listy dopiero po „tak, dodaj” |
+| Zadania z matmy | gdy Maja pyta „ile to 36 podzielić na 4?”, Luna nigdy nie poda wyniku — daje podpowiedź i czeka na odpowiedź Mai |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 

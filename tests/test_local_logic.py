@@ -1822,6 +1822,19 @@ class KidsTest(unittest.TestCase):
         finally:
             state.person, state.others = old
 
+    def test_homework_guard(self):
+        import homework as h
+        t = h.task("Mam zadanie z matmy, ile to jest 36 podzielić na 4?")
+        self.assertEqual(t, (36, "div", 4, 9))
+        self.assertTrue(h.gives_away("Policz, ile to 4 razy 9.", t))
+        self.assertTrue(h.gives_away("Wychodzi dziewięć.", t))
+        self.assertFalse(h.gives_away("Ile czwórek mieści się w 36?", t))
+        self.assertFalse(h.gives_away(h.hint(t), t))
+        self.assertIsNone(h.task("12 + 5 to 17?"))          # their answer: to check
+        self.assertIsNone(h.task("Budzik na 7:30"))
+        self.assertEqual(h.task("ile to 7 razy 8")[3], 56)
+        self.assertEqual(h.task("20 minus 7")[3], 13)
+
     def test_ideas_only(self):
         import brain
         self.assertTrue(brain._ideas_only("Wymyśl, co jeszcze kupić do jedzenia."))
