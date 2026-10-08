@@ -99,6 +99,9 @@ _LOUDER = ("głośniej", "glosniej", "podgłośnij", "podglosnij", "pogłośnij"
 _SLEEP = re.compile(r"(?:wyłącz|wylacz)\s+(?:radio|muzykę|muzyke)\s+za\s+(.+)$|"
                     r"radio\s+(?:na|przez)\s+(.+)$")
 
+_SLEEP_AT = re.compile(r"(?:wyłącz|wylacz)\s+(?:radio|muzykę|muzyke)\s+o\s+(?:godzinie\s+)?"
+                       r"[\w:.]+(?:\s+\w+)?$")
+
 _lock = threading.Lock()
 _player = None             # {"name", "url", "stop": Event, "thread", "until"}
 _say = [None]              # speak(), for "the stream died" from the player thread
@@ -494,6 +497,32 @@ def handle(text, speak):
         print(f"[radio] music volume → {g:.0%}", flush=True)
         return True                        # the music itself is the answer
     m = _SLEEP.search(low)
+    at = _SLEEP_AT.search(low)
+    if at and not m:
+        # "wyłącz radio o 22" / "…o dziesiątej wieczorem" — until that time today
+        # (or tonight / tomorrow early, if it has already passed)
+        import errands
+        hm, _ = errands._when(at.group(0))
+        if hm:
+            hh, mm = (int(x) for x in hm.split(":"))
+            if hh < 12 and re.search(r"wieczor|w\s+nocy", low):
+                hh += 12
+            t = time.localtime()
+            target = time.mktime((t.tm_year, t.tm_mon, t.tm_mday, hh, mm, 0, 0, 0, -1))
+            if target <= time.time():
+                target += 12 * 3600 if hh < 12 and target + 12 * 3600 > time.time() else 86400
+            secs = int(target - time.time())
+            with _lock:
+                p = _player
+            if p:
+                p["until"] = target
+            else:
+                st = _station("")
+                play(st[0], st[1], until=target)
+            import clock
+            lt = time.localtime(target)
+            speak(f"Dobrze, radio wyłączy się o {clock.hour_locative(lt.tm_hour, lt.tm_min)}.")
+            return True
     if m and ("radio" in low or "muzyk" in low):
         secs = _minutes(m.group(1) or m.group(2))
         if secs:

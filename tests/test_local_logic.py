@@ -1986,6 +1986,15 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(kids.offered_routine("Mogę ci ułożyć prosty poranny plan."), "poranek")
         self.assertIn("umyj zęby", kids.DEFAULT_STEPS["poranek"])
 
+    def test_radio_off_at_a_time(self):
+        import radio
+        said, ends = [], []
+        with mock.patch.object(radio, "play", lambda n, u, until=None, **k: ends.append(until)), \
+                mock.patch.object(radio, "_player", None):
+            self.assertTrue(radio.handle("Wyłącz radio o 23:30", said.append))
+        self.assertIn("dwudziestej trzeciej trzydzieści", said[-1])
+        self.assertEqual(time.strftime("%H:%M", time.localtime(ends[-1])), "23:30")
+
     def test_later_off(self):
         import commands
         import radio
