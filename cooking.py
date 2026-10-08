@@ -72,7 +72,7 @@ def _recipe(dish):
         messages=[{"role": "user", "content":
                    f"Ktoś prosi o przepis na: \"{dish}\". Najpierw oceń, czy to jest "
                    "potrawa, wypiek albo napój. Zwróć JSON {\"is_food\": true/false, "
-                   '"title": "nazwa TEJ potrawy w mianowniku", "ingredients": ["ilość + '
+                   '"title": "nazwa TEJ potrawy w mianowniku, tak jak w menu (np. naleśniki, zupa pomidorowa)", "ingredients": ["ilość + '
                    'składnik", ...], "steps": [{"text": "jeden krok, jedno-dwa krótkie '
                    'zdania do przeczytania na głos", "minutes": liczba minut czekania '
                    'w tym kroku albo 0}, ...]} — prosty domowy przepis dla 2–4 osób, 4 do '
@@ -174,8 +174,9 @@ def start(dish, speak):
           f"{len(rec['steps'])} steps", flush=True)
     ing = rec["ingredients"]
     _card(rec["title"], f"{len(ing)} składników · powiedz „dalej”, gdy wszystko masz")
-    speak(f"{rec['title']}! Potrzebujesz: " + ", ".join(ing) + ". Kiedy wszystko "
-          "będzie pod ręką, powiedz: dalej." if ing else f"{rec['title']}! Powiedz: dalej.")
+    title = rec["title"][:1].upper() + rec["title"][1:]     # ("naleśnik! Potrzebujesz…")
+    speak(f"{title}! Potrzebujesz: " + ", ".join(ing) + ". Kiedy wszystko "
+          "będzie pod ręką, powiedz: dalej." if ing else f"{title}! Powiedz: dalej.")
     _keep_listening()
 
 
