@@ -2278,6 +2278,7 @@ class RobotFace:
         with state.lock:
             radio_on = state.radio
             muted = time.time() < state.mic_muted_until
+            cam_off = time.time() < state.camera_off_until
         if radio_on:
             self._draw_note(14 + (70 if not online else 0) + (70 if waiting else 0))
 
@@ -2285,6 +2286,11 @@ class RobotFace:
         if muted:
             self._draw_mic_off(14 + (70 if not online else 0) + (70 if waiting else 0)
                                + (60 if radio_on else 0))
+
+        # ── "wyłącz kamerę": a crossed-out camera, next to them ──────────
+        if cam_off:
+            self._draw_cam_off(14 + (70 if not online else 0) + (70 if waiting else 0)
+                               + (60 if radio_on else 0) + (56 if muted else 0))
 
         # ── whole-screen moments: mirror, photo, clock, flash ─────────────
         if self._overlay_on():
@@ -2743,6 +2749,17 @@ class RobotFace:
             pygame.draw.line(s, (255, 110, 90, 240), (6, 4), (38, 42), 4)   # crossed out
             self._micoff = s
         self.screen.blit(self._micoff, (x, 12))
+
+    def _draw_cam_off(self, x):
+        if getattr(self, "_camoff", None) is None:
+            s = pygame.Surface((50, 46), pygame.SRCALPHA)
+            col = (*STAR_COL, 230)
+            pygame.draw.rect(s, col, pygame.Rect(4, 12, 42, 28), 3, border_radius=6)   # body
+            pygame.draw.rect(s, col, pygame.Rect(16, 6, 16, 8), 3, border_radius=2)    # top
+            pygame.draw.circle(s, col, (25, 26), 8, 3)                                 # lens
+            pygame.draw.line(s, (255, 110, 90, 240), (4, 4), (46, 44), 4)   # crossed out
+            self._camoff = s
+        self.screen.blit(self._camoff, (x, 12))
 
     def _draw_note(self, x):
         if getattr(self, "_note", None) is None:
