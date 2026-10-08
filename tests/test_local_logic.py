@@ -898,6 +898,7 @@ class PolishTest(unittest.TestCase):
         self.assertTrue(offer_only("Jasne — dopisałabym na przykład jogurt i jajka."))
         self.assertTrue(offer_only("Jasne — dorzuć jajka, jogurt i pomidory."))
         self.assertTrue(offer_only("Mogę dopisać mleko, jeśli chcesz."))
+        self.assertTrue(offer_only("O, dobrze. Jeśli chcesz, mogę to od razu skreślić z listy."))
         self.assertFalse(offer_only("Jasne, dopisuję jajka. Można też dorzucić ser."))
 
     def test_feminize(self):

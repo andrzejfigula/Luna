@@ -1,0 +1,10 @@
+Emilka|Dopisz do listy zakupów mleko, chleb i masło
+Emilka|Usuń chleb z listy
+Emilka|Cofnij
+Andrzej|Dodaj do listy do zrobienia: umyć auto
+Andrzej|Co mam do zrobienia?
+Andrzej|Skreśl umyć auto
+Emilka|Kupiłam mleko
+Emilka|Co zostało na liście zakupów?
+Emilka|Zrobiłam już wszystkie zakupy
+Emilka|Co jest na liście zakupów?

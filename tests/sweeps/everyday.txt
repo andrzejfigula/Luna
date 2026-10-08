@@ -1,0 +1,16 @@
+Andrzej|Co potrafisz?
+Maja|Ile masz lat?
+Maja|Jaki jest twój ulubiony kolor?
+Emilka|Ile kalorii ma banan?
+Andrzej|Jaki mamy dziś dzień?
+Maja|Opowiedz żart
+Maja|Opowiedz jeszcze jeden żart
+Emilka|Co ugotować na obiad z ziemniaków i jajek?
+Andrzej|Kto wygrał ostatni mundial?
+Maja|Dlaczego niebo jest niebieskie?
+Emilka|Przypomnij mi za pół godziny wyjąć pranie
+Andrzej|Ile to jest 1234 razy 56?
+Maja|Zaśpiewaj piosenkę
+Emilka|Jaki jest kurs euro?
+Andrzej|Włącz Trójkę
+Maja|Nudzi mi się

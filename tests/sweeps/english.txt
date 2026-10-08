@@ -1,0 +1,10 @@
+Andrzej|Hi Luna, who are you?
+Andrzej|Set a timer for 5 minutes
+Andrzej|What's the weather tomorrow?
+Andrzej|Add milk to the shopping list
+Andrzej|Tell me a joke
+Andrzej|Play some music
+Andrzej|What can you do?
+Andrzej|How do you say thank you in Polish?
+Andrzej|Show me a cat
+Andrzej|Goodbye

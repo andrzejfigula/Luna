@@ -1,0 +1,12 @@
+Andrzej|Powiedz Mai, że ją kocham
+Emilka|Maja ma jutro wycieczkę, przypomnij jej rano, żeby wzięła kanapki
+Emilka|Kto dzisiaj był w domu?
+Andrzej|Włącz radio na 30 minut
+Andrzej|Głośniej
+Andrzej|Wyłącz radio
+Emilka|Jaki dziś dzień tygodnia?
+Andrzej|Pokaż plan dnia
+Emilka|Ile mamy rzeczy na liście zakupów?
+Andrzej|Wyczyść listę zakupów
+Emilka|Luna, jak się czujesz?
+Andrzej|Dziękuję, to wszystko

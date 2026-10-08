@@ -1,0 +1,9 @@
+Emilka|Nastaw minutnik na dwadzieścia pięć minut
+Emilka|Minutnik półtorej godziny
+Emilka|Przypomnij mi za kwadrans o praniu
+Andrzej|Obudź mnie o szóstej piętnaście
+Andrzej|Budzik na wpół do siódmej
+Emilka|Przypomnij mi w sobotę o dziesiątej o fryzjerze
+Emilka|Za dwie godziny przypomnij mi żeby zadzwonić do mamy
+Andrzej|Ustaw timer na trzy minuty trzydzieści sekund
+Emilka|Jakie mam przypomnienia?
