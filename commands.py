@@ -1291,8 +1291,9 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         import calc
         import websearch
         t = time.localtime()
-        websearch.start(f"ciekawe wydarzenia historyczne {t.tm_mday} {calc._MONTHS_GEN[t.tm_mon - 1]}"
-                        " — co wydarzyło się tego dnia w historii", speak)
+        websearch.start(f"{t.tm_mday} {calc._MONTHS_GEN[t.tm_mon - 1]} w historii: odkrycia, "
+                        "wynalazki, rekordy, urodziny znanych ludzi — miłe i ciekawe wydarzenia, "
+                        "bez katastrof i wojen", speak)
         return True
     who = birthdays.nameday_unknown(text)           # not told: the calendar knows
     if who:
