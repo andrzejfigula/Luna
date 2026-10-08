@@ -1,0 +1,7 @@
+Andrzej|Obudź mnie jutro o siódmej
+Andrzej|Ile godzin snu mi zostało, jeśli pójdę spać teraz?
+Andrzej|Ile czasu do budzika?
+Andrzej|Przesuń budzik na wpół do ósmej
+Andrzej|O której mam budzik?
+Andrzej|Wyłącz radio o 23:30
+Andrzej|Za 10 minut wyłącz radio
