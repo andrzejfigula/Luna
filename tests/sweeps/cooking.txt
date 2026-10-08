@@ -1,0 +1,8 @@
+Emilka|Luna, gotujemy spaghetti bolognese
+Emilka|Dalej
+Emilka|Ile mięsa?
+Emilka|Dalej
+Emilka|Nastaw minutnik na ten krok
+Emilka|Powtórz
+Emilka|Ile jeszcze kroków?
+Emilka|Koniec gotowania

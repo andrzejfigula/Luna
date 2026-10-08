@@ -2632,6 +2632,12 @@ class CookingTest(unittest.TestCase):
             self.assertIn("2 jajka", said[-1])
             self.assertTrue(cooking.answer("dalej", say))
             self.assertIn("Krok 1", said[-1])
+            # a timer for a step with no time in the recipe: asked, then set
+            self.assertTrue(cooking.answer("Nastaw minutnik na ten krok", say))
+            self.assertIn("Na ile minut", said[-1])
+            self.assertTrue(cooking.answer("pięć", say))
+            self.assertEqual(added, [300])
+            added.clear()
             self.assertTrue(cooking.answer("następny", say))
             self.assertIn("Nastawić minutnik na 2 minuty?", said[-1])
             self.assertTrue(cooking.answer("tak", say))

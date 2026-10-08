@@ -228,4 +228,30 @@ def answer(text, speak):
             speak("Dobrze. Powiedz: dalej, kiedy skończysz.")
             _keep_listening()
             return True
+        import timers
+        secs, _ = timers.parse_duration(low)
+        if c.get("ask_minutes") and not secs and len(words) <= 3:
+            import calc                    # "Na ile minut?" — "pięć" / "na 5"
+            n = calc.number_in(low)
+            secs = n * 60 if n and 0 < n <= 180 else None
+        step_timer = re.search(r"\b(?:minutnik\w*|timer\w*|odlicz\w*)\b", low) and len(words) <= 8
+        if (step_timer or c.get("ask_minutes")) and secs:
+            # "nastaw minutnik na ten krok" → "Na ile minut?" → "na pięć"
+            c["ask_minutes"] = False
+            timers.add(secs, f"{c['title'].lower()}, krok {max(c['i'], 0) + 1}")
+            speak(f"Minutnik na {timers.say_duration(secs)} ustawiony.")
+            _keep_listening()
+            return True
+        if step_timer and 0 <= c["i"] < len(c["steps"]):
+            # "…na ten krok" when the step has no time (8 Oct sweep: "Jasne,
+            # nastawiam…, ale potrzebuję konkretnego czasu")
+            mins = c["steps"][c["i"]].get("minutes")
+            if mins:
+                timers.add(mins * 60, f"{c['title'].lower()}, krok {c['i'] + 1}")
+                speak(f"Minutnik na {timers.say_duration(mins * 60)} ustawiony.")
+            else:
+                c["ask_minutes"] = True
+                speak("W przepisie nie ma czasu na ten krok. Na ile minut nastawić?")
+            _keep_listening()
+            return True
     return False                      # a question about something else: the model
