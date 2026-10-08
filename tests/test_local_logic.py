@@ -893,6 +893,11 @@ class PolishTest(unittest.TestCase):
         self.assertFalse(offer_only("Dodałam mleko. Coś jeszcze?"))
         self.assertFalse(offer_only("Jasne, minutnik na 10 minut."))
         self.assertFalse(offer_only("Włączam Trójkę."))
+        self.assertTrue(offer_only("Jasne — do jedzenia dorzuciłabym jeszcze pomidory i ser."))
+        self.assertTrue(offer_only("Jasne — dopisałabym na przykład jogurt i jajka."))
+        self.assertTrue(offer_only("Jasne — dorzuć jajka, jogurt i pomidory."))
+        self.assertTrue(offer_only("Mogę dopisać mleko, jeśli chcesz."))
+        self.assertFalse(offer_only("Jasne, dopisuję jajka. Można też dorzucić ser."))
 
     def test_feminize(self):
         from polish import feminize as f
@@ -1799,6 +1804,30 @@ class KidsTest(unittest.TestCase):
         self.assertIn('"Spokojnie Andrzeju…"', rule)
         self.assertIn('"Hej U…"', rule)
         self.assertEqual(brain._variety_rule(h[:2]), "")
+
+    def test_alone_request(self):
+        import time
+        import brain
+        from shared_state import state
+        old = (state.person, state.others)
+        try:
+            state.person = ("Andrzej", 0.8, time.time())
+            state.others = ([], 0.0)
+            self.assertTrue(brain._alone_request("Wymyśl, co jeszcze kupić do jedzenia."))
+            self.assertFalse(brain._alone_request("Tutaj się naciska, przytrzymujesz chwilę."))
+            state.others = (["Maja"], time.time())
+            self.assertFalse(brain._alone_request("Wymyśl, co jeszcze kupić do jedzenia."))
+            state.person = None
+            self.assertFalse(brain._alone_request("Wymyśl coś."))
+        finally:
+            state.person, state.others = old
+
+    def test_ideas_only(self):
+        import brain
+        self.assertTrue(brain._ideas_only("Wymyśl, co jeszcze kupić do jedzenia."))
+        self.assertTrue(brain._ideas_only("Co jeszcze kupić na weekend?"))
+        self.assertFalse(brain._ideas_only("Wymyśl coś na obiad i dopisz do listy."))
+        self.assertFalse(brain._ideas_only("Dodaj mleko do zakupów."))
 
     def test_calendar_line(self):
         import brain

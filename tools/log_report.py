@@ -49,6 +49,7 @@ PATTERNS = [
     ("game NOT started (no offer / choosing)", r"not started"),
     ("answered: short command / yes-no", r"a short command, not side talk"),
     ("answered: her name was just said", r"her name was just said"),
+    ("answered: a request, nobody else here", r"a request with nobody else here"),
     ("cancel matched nothing → corrected", r"cancel matched nothing"),
     ("command failed (answer kept)", r"\[brain\] command .* failed"),
     ("Vosk's right answer taken (game)", r"is the game's right answer"),

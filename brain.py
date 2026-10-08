@@ -225,6 +225,37 @@ def _just_called(text="", secs=12):
         return time.time() - getattr(state, "last_wake_time", 0.0) < secs
 
 
+_ASK_VERB = re.compile(r"^(?:wymyśl|wymysl|zaproponuj|podpowiedz|opowiedz|powiedz|sprawdź|sprawdz|"
+                       r"dodaj|dopisz|przypomnij|policz|poszukaj|znajdź|znajdz|wytłumacz|"
+                       r"wytlumacz|zaśpiewaj|zaspiewaj|poradź|poradz)\b", re.I)
+
+
+def _alone_request(text):
+    """"Wymyśl, co jeszcze kupić" with nobody else in view — a request to her
+    (8 Oct probe: 1 in 4 times taken for side talk → silence)."""
+    if len(text.split()) > 12 or _language_line(text) or not _ASK_VERB.match(text.strip()):
+        return False
+    with state.lock:
+        person = state.person
+        others, seen_at = state.others
+    if not person:
+        return False
+    try:
+        import faces
+        recent = time.time() - seen_at < 3 * faces.RECOGNISE_EVERY
+    except Exception:
+        recent = False
+    return not (recent and [o for o in (others or []) if o != person[0]])
+
+
+def _ideas_only(text):
+    """"Wymyśl / podpowiedz, co kupić" — ideas, not "dopisz"."""
+    t = (text or "").lower()
+    return bool(re.search(r"\b(?:wymyśl|wymysl|podpowiedz|zaproponuj|pomysł|pomysl|doradź|doradz|"
+                          r"poradź|poradz)\w*|\bco\s+(?:jeszcze\s+)?(?:by\s+)?(?:kupić|kupic)\b", t)
+                and not re.search(r"\b(?:dodaj|dopisz|zapisz|wpisz|dorzuć|dorzuc)\b", t))
+
+
 def _is_child(who):
     try:
         import faces
@@ -1036,6 +1067,13 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                     on_sentence(reply)
             print("[brain] her name was just said — answering", flush=True)
             data["to_luna"] = True
+        if data.get("to_luna") is False and _alone_request(text):
+            if not reply.strip():
+                reply = "Nie byłam pewna, czy to do mnie. Powiesz jeszcze raz?"
+                if on_sentence:
+                    on_sentence(reply)
+            print("[brain] a request with nobody else here — answering", flush=True)
+            data["to_luna"] = True
         prev = _history[-2].get("content", "") if (len(_history) >= 2 and
                                                     _history[-2].get("role") == "assistant") else ""
         she_asked = bool(re.search(r"\?|\bchcesz\b|\bmogę\b|\bchodź\b|\bchodz\b", str(prev)))
@@ -1068,6 +1106,11 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             print(f"[brain] offer, not done — {len(data['actions'])} action(s) held back",
                   flush=True)
             data["actions"] = []
+        if _ideas_only(text) and any(a.get("type") == "list_add" for a in data.get("actions") or []):
+            # "Wymyśl, co jeszcze kupić" — ideas asked for, the list waits for "tak"
+            # (8 Oct probe: the model's suggestions went straight onto the list)
+            print("[brain] ideas asked, not a list change — list_add held back", flush=True)
+            data["actions"] = [a for a in data["actions"] if a.get("type") != "list_add"]
         set_now = timers.apply(data.get("actions") or [])
         lists.apply(data.get("actions") or [])
         if any("nothing matched" in d for d in set_now or []) and not re.search(

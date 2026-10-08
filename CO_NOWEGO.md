@@ -222,6 +222,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Poranek | pierwsza rozmowa rano (np. „Dzień dobry”) — Luna doda jedno zdanie o dniu: deszcz → „weź parasol”, albo dzisiejsze przypomnienie |
 | Liczby i godziny | Luna lepiej wymawia duże liczby, godziny („dwunasta trzydzieści”), temperatury, daty i ułamki w przepisach („pół szklanki”) |
 | Wiadomość — anuluj | po „nagraj wiadomość” wystarczy „anuluj”, żeby nic nie nagrała |
+| Pomysły na zakupy | „Luna, wymyśl, co jeszcze kupić” — Luna podsuwa pomysły, ale dopisuje je do listy dopiero po „tak, dodaj” |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 

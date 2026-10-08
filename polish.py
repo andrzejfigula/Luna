@@ -90,9 +90,18 @@ _OFFER = re.compile(r"(?:chcesz|może|moze|czy|mam)\b[^.!?]*\b(?:dopis|doda|wł�
                     r"\bmogę\b[^.!?]*\b(?:dopis|doda|włącz|wlacz|nastaw|przypomn|zapis|ustaw|"
                     r"puści|pusci|skreśl|skresl|usun)\w*[^.!?]*(?:\?|\b(?:jeśli|jeżeli|jesli)\s+"
                     r"(?:chcesz|zechcesz|wolisz))", re.I)
-_DONE = re.compile(r"\b(?:dodałam|dopisałam|włączam|wlaczam|nastawiam|nastawiłam|ustawiam|"
-                   r"ustawiłam|zapisałam|przypomnę|skreśliłam|usunęłam|puszczam|gotowe|jasne)\b",
-                   re.I)
+_DONE_VERB = (r"dodałam|dopisałam|włączam|wlaczam|nastawiam|nastawiłam|ustawiam|ustawiłam|"
+              r"zapisałam|przypomnę|skreśliłam|usunęłam|puszczam|gotowe|dopisuję|dodaję|"
+              r"zapisuję|usuwam|skreślam")
+_DONE = re.compile(rf"\b(?:{_DONE_VERB}|jasne)\b", re.I)
+# "dorzuciłabym jajka…" / "można dorzucić ser" / "dorzuć jajka" — ideas asked
+# for ("Wymyśl, co kupić"), not a list change (8 Oct probe: 3 of 4 times the
+# items went straight onto the list). Opens with "Jasne —" too, so only a real
+# done-verb says otherwise.
+_SUGGEST = re.compile(r"\b(?:dorzuci|dopisa|doda|kupi|wzię)\w*(?:łabym|łbym)\b|"
+                      r"\bmożna\b[^.!?]*\b(?:dorzucić|dodać|dopisać|kupić|wziąć)\b|"
+                      r"\bdorzuć\b", re.I)
+_DONE_ONLY = re.compile(rf"\b(?:{_DONE_VERB})\b", re.I)
 
 
 _PROMISE = re.compile(r"(?<!nie )\bprzypomnę\b(?!\s+sobie)", re.I)
@@ -240,4 +249,7 @@ def offer_only(reply):
     """The reply offers to do something ("Może dopiszmy warzywa?", "Chcesz,
     żebym nastawiła minutnik?") and confirms nothing — then any action the
     model attached is premature."""
-    return bool(_OFFER.search(reply or "")) and not _DONE.search(reply or "")
+    reply = reply or ""
+    if _SUGGEST.search(reply) and not _DONE_ONLY.search(reply):
+        return True
+    return bool(_OFFER.search(reply)) and not _DONE.search(reply)

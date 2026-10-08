@@ -80,8 +80,10 @@ check("no name with two people in view", not any(n in a for n in ("Andrzej", "Em
 
 # 3. asking first, acting after "tak"
 person("Andrzej")
+with state.lock:                 # "Luna, wymyśl…" — said to her (without the wake
+    state.last_wake_time = time.time()   # 1 in 4 runs took it for side talk)
 a = ask("Wymyśl, co jeszcze kupić do jedzenia.") or ""
-check("nothing added while asking", lists.get("zakupy") == [] or "?" not in a, a[:80])
+check("ideas only: nothing added yet", lists.get("zakupy") == [], f"{a[:60]} {lists.get('zakupy')}")
 a = ask("Tak, dodaj to.") or ""
 check("added after yes", len(lists.get("zakupy")) > 0, str(lists.get("zakupy")))
 
