@@ -2024,6 +2024,7 @@ class KidsTest(unittest.TestCase):
         self.assertIsNone(h.task("Budzik na 7:30"))
         self.assertEqual(h.task("ile to 7 razy 8")[3], 56)
         self.assertEqual(h.task("20 minus 7")[3], 13)
+        self.assertIn("dodaj 30, a potem jeszcze 8", h.hint(h.task("45 plus 38")))
 
     def test_ideas_only(self):
         import brain

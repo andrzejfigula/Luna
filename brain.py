@@ -281,6 +281,20 @@ def _ideas_only(text):
                 and not re.search(r"\b(?:dodaj|dopisz|zapisz|wpisz|dorzuć|dorzuc)\b", t))
 
 
+def _child_near(person):
+    """The one in front of her is a child — or a child is in view with them
+    (Maja asking her sum while dad, recognised first, sits beside her)."""
+    if person and _is_child(person[0]):
+        return True
+    with state.lock:
+        others, seen_at = state.others
+    try:
+        recent = time.time() - seen_at < 3 * faces.RECOGNISE_EVERY
+    except Exception:
+        recent = False
+    return recent and any(_is_child(o) for o in others or [] if o != "?")
+
+
 def _is_child(who):
     try:
         import faces
@@ -940,7 +954,7 @@ def model_for(text):
     try:
         import calc
         import commands
-        if calc.arithmetic(text or "") and commands._child_here():
+        if calc.arithmetic(text or "") and (commands._child_here() or commands._child_in_view()):
             return CRAFT_MODEL
     except Exception:
         pass
@@ -965,7 +979,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
         image_b64 = None                       # interpreting needs no camera
     with state.lock:
         person = state.person
-    hw = homework.task(text) if (person and not lang and _is_child(person[0])) else None
+    hw = homework.task(text) if (not lang and _child_near(person)) else None
     if hw and on_sentence:
         _say, swapped = on_sentence, []
 

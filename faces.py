@@ -578,6 +578,13 @@ def prompt_line():
                 "can't tell who is speaking — don't address anyone by name in this "
                 "answer (on 5 Oct Emilka asked for the radio and heard "
                 "\"Miłego słuchania, Andrzeju!\").")
+        kids = [o for o in known_others if "dziecko" in about.get(o, "").lower()
+                and not (person and o == person[0])]
+        if kids and not (person and "dziecko" in about.get(person[0], "").lower()):
+            # Maja asking her sum with dad in view, dad recognised first
+            now += (f" {', '.join(kids)} (a child) is here too and may be the one asking: "
+                    "a school task or sum gets a hint, never the result; keep it "
+                    "child-friendly.")
     if person and "dziecko" in about.get(person[0], "").lower():
         # the persona's general "with a child" rules lost to a plain question
         # (tested: 56 : 7 was answered "8" straight away) — said here, now

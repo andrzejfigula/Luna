@@ -560,6 +560,20 @@ def _child_here():
         return False
 
 
+def _child_in_view():
+    """A child among the others in view (not the recognised one)."""
+    try:
+        import faces
+        with state.lock:
+            others, seen_at = state.others
+        if time.time() - seen_at >= 3 * faces.RECOGNISE_EVERY:
+            return False
+        notes = faces.notes()
+        return any("dziecko" in notes.get(o, "").lower() for o in others or [] if o != "?")
+    except Exception:
+        return False
+
+
 def _remember(text):
     """"Zapamiętaj, że klucze są w szufladzie" → "klucze są w szufladzie"."""
     m = _REMEMBER.match(text.strip())
@@ -1234,8 +1248,12 @@ def handle(text, speak, play_sound, _polite=True):
     # "ile to jest 17 razy 23?" / "ile dni do Wigilii?" — counted locally
     import calc
     said = calc.answer(text)
-    if said and calc.arithmetic(text) and _child_here():
-        said = None        # homework: for a child the model hints instead of answering
+    if said and calc.arithmetic(text) and (_child_here() or (
+            _child_in_view() and max(map(int, re.findall(r"\d+", text)) or [0]) <= 100)):
+        # homework: for a child the model hints instead of answering — also
+        # when dad was recognised first and Maja sits beside him (school-sized
+        # numbers only: his own "1234 razy 56" stays the calculator's)
+        said = None
     if said:
         print(f"[cmd] calc: {said}", flush=True)
         speak(said)
