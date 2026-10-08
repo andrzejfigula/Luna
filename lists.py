@@ -81,6 +81,29 @@ def _name(name):
     return name or "zakupy"
 
 
+_AMOUNT = re.compile(r"^(?:\d+[.,]?\d*\s*(?:g|kg|ml|l|dag)?|pół|szczypt\w*|łyżk\w*|łyżecz\w*|"
+                     r"szklan\w*|garś\w*|kostk\w*|opakowani\w*|paczk\w*|odrobin\w*|trochę)\s+",
+                     re.I)
+_NOMINATIVE = {"soli": "sól", "cukru": "cukier", "mąki": "mąka", "mleka": "mleko",
+               "masła": "masło", "oleju": "olej", "pieprzu": "pieprz", "drożdży": "drożdże",
+               "śmietany": "śmietana", "jajek": "jajka", "jaj": "jajka", "wody": "woda",
+               "ryżu": "ryż", "makaronu": "makaron", "sera": "ser", "twarogu": "twaróg",
+               "cynamonu": "cynamon", "kakao": "kakao", "proszku do pieczenia": "proszek do pieczenia"}
+
+
+def shopping_item(item):
+    """"szczypta soli" → "sól", "2 szklanki mąki" → "mąka": the thing to buy
+    (8 Oct sweep: "szczypta soli" on the shopping list — the prompt rule alone
+    didn't do it). Unknown words are left as they were."""
+    m = _AMOUNT.match(item)
+    if not m:
+        return item
+    rest = item[m.end():].strip()
+    rest = re.sub(r"^(?:\w+\s+)?(?=\w)", lambda x: "" if re.match(
+        r"(?:szklan|łyż|garś|kostk)\w*\s", x.group(0) or "") else x.group(0), rest)
+    return _NOMINATIVE.get(rest.lower(), rest if rest.lower() in _NOMINATIVE.values() else item)
+
+
 def apply(actions):
     """list_add / list_remove / list_clear from the model's actions."""
     global _undo
@@ -94,6 +117,8 @@ def apply(actions):
                 continue
             lst = _name(a.get("list"))
             item = str(a.get("label", "")).strip()
+            if lst == "zakupy" and kind == "list_add":
+                item = shopping_item(item)
             fresh = not _lists.get(lst)
             items = _lists.setdefault(lst, [])
             if fresh and kind == "list_add" and lst != "zakupy":

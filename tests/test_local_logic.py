@@ -1986,6 +1986,14 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(kids.offered_routine("Mogę ci ułożyć prosty poranny plan."), "poranek")
         self.assertIn("umyj zęby", kids.DEFAULT_STEPS["poranek"])
 
+    def test_shopping_item(self):
+        import lists
+        self.assertEqual(lists.shopping_item("szczypta soli"), "sól")
+        self.assertEqual(lists.shopping_item("2 szklanki mąki"), "mąka")
+        self.assertEqual(lists.shopping_item("pół kostki masła"), "masło")
+        self.assertEqual(lists.shopping_item("mleko"), "mleko")
+        self.assertEqual(lists.shopping_item("300 g mielonego mięsa"), "300 g mielonego mięsa")
+
     def test_spell_in_english(self):
         import commands
         said = []
