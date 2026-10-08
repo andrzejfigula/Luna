@@ -3,6 +3,15 @@
 Ściąga: co Luna teraz potrafi i jak to wywołać. Wszystko po polsku, zwykłymi
 zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 
+> **Nowe dzisiaj (8.10) — warto wypróbować wieczorem:**
+> „Luna, **pokaż mi kotka**” / „zamień się w pieska” (uszy na buzi!) ·
+> „**Zacznij wieczór**” — Maja krok po kroku do łóżka, na koniec „co dziś było najfajniejsze?” ·
+> „Kupiłem Emilce prezent, **tylko jej nie mów**” — Luna dochowa tajemnicy ·
+> „Maja ma jutro wycieczkę, **przypomnij jej rano**…” — powie Mai jutro ·
+> „**Przypominaj mi co godzinę**, żeby pić wodę” (nie w nocy) ·
+> „**Ile masz lat?**” (urodziny 18 września) · „**Kiedy Maja ma imieniny?**” (sprawdzi w internecie) ·
+> wychodząc z domu: „Weź parasol — **wieczorem** ma padać” · Maja przy zadaniach: tylko podpowiedzi, nawet gdy obok siedzi tata.
+
 ## Rozmowa
 
 | Co | Jak |
