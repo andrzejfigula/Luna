@@ -2109,6 +2109,12 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(h.task("20 minus 7")[3], 13)
         self.assertIn("45 plus 30, a potem dodaj jeszcze 8", h.hint(h.task("45 plus 38")))
 
+    def test_homework_verdict(self):
+        import homework as h
+        self.assertIn("RIGHT", h.verdict_line("36 podzielić na 4 to 9?"))
+        self.assertIn("NOT right", h.verdict_line("7 razy 8 to 54?"))
+        self.assertEqual(h.verdict_line("Ile to 7 razy 8?"), "")
+
     def test_ideas_only(self):
         import brain
         self.assertTrue(brain._ideas_only("Wymyśl, co jeszcze kupić do jedzenia."))

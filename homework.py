@@ -44,6 +44,27 @@ def task(text):
     return a, op, b, r
 
 
+def verdict_line(text):
+    """"36 podzielić na 4 to 9?" — the child's own answer, judged here: the
+    model gave a hint to a RIGHT answer (8 Oct probe). '' when there's none."""
+    m = _TASK.search(text or "")
+    if not m:
+        return ""
+    a, b = int(m.group(1)), int(m.group(m.lastindex))
+    op = next(k for k, _ in _OPS if m.group(k))
+    r = {"div": a // b if b and not a % b else None, "mul": a * b, "add": a + b,
+         "sub": a - b}[op]
+    import calc
+    theirs = calc.number_in(text[m.end():])
+    if r is None or theirs is None:
+        return ""
+    if theirs == r:
+        return (f"The child's answer {theirs} for {a} {op} {b} is RIGHT — say so warmly "
+                "(\"Tak, brawo!\"), no hint.\n")
+    return (f"The child's answer {theirs} for {a} {op} {b} is NOT right — say kindly it's "
+            "not quite and give one small hint; never say the result.\n")
+
+
 def _says(text, r):
     words = number_words(r) if r < 1000 else ""
     return bool(re.search(rf"(?<![\d,.]){r}(?![\d,.]\d)", text or "")) or bool(

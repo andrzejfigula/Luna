@@ -1070,6 +1070,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   + memory.day_line(text)
                   + _secret_line()
                   + _age_line(text)
+                  + (homework.verdict_line(text) if _child_near(person) else "")
                   + _language_line(text)
                   + (_morning_line() if not translator() else "")
                   + ("They have just said your name — this message is for you "
