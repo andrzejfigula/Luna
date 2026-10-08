@@ -1,0 +1,21 @@
+Andrzej|Włącz tryb tłumacza na angielski
+Andrzej|Gdzie jest najbliższa apteka?
+Andrzej|Wyłącz tryb tłumacza
+Maja|Policz do pięciu
+Maja|Zagrajmy w kółko i krzyżyk
+Maja|Środek
+Maja|Ile masz lat?
+Maja|Lewy górny róg
+Maja|Koniec
+Maja|Zacznij wieczór
+Maja|Zrobione
+Maja|Nie chce mi się
+Maja|Ile jeszcze kroków?
+Maja|Gotowe
+Maja|Opowiedz krótką bajkę
+Maja|Gotowe
+Maja|Koniec
+Maja|Zadaj mi zagadkę
+Maja|Zagrajmy w dwadzieścia pytań
+Maja|Czy to ptak?
+Maja|Zagrajmy w zgadywanie liczby
