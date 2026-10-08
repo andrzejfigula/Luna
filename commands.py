@@ -1015,7 +1015,10 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         if not _child_here():                      # tomorrow at 7, for the grown-ups
             import weather
             note = " ".join(x for x in (note, weather.morning_note()) if x) or None
-        speak(_goodnight() + (" " + note if note else ""))
+        if re.search(r"\bgood\s*night\b", low):     # an English guest: in English
+            speak(random.choice(("Good night! Sleep well.", "Good night — sweet dreams!")))
+        else:
+            speak(_goodnight() + (" " + note if note else ""))
         go_to_sleep()
         return True
 

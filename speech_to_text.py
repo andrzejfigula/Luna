@@ -294,6 +294,9 @@ def _pw_record(node):
         time.sleep(5.0)
 
 
+_open_fails = [0]          # failed opens in a row while the device was busy
+
+
 def _stream_keeper():
     """Keeps a mic stream open forever; retries every 5 s if the mic vanishes."""
     global _stream, _mic_ok, _mic_rate, _help_printed
@@ -332,11 +335,19 @@ def _stream_keeper():
                 state.mic_ok = True
             print(f"[STT] Microphone stream running @ {rate} Hz")
         except Exception as e:
-            print(f"[STT] Could not open microphone: {e} — retrying in 5s")
-            _print_mic_help()
+            # "Device unavailable" right after a restart: the old process is
+            # still letting go of it — try again soon, not deaf for 5 s (8 Oct)
+            busy = "unavailable" in str(e).lower() or "busy" in str(e).lower()
+            _open_fails[0] = _open_fails[0] + 1 if busy else 99
+            wait = 1.0 if _open_fails[0] <= 5 else 5.0
+            print(f"[STT] Could not open microphone: {e} — retrying in {wait:.0f}s")
+            if wait > 1.0:
+                _print_mic_help()
             with state.lock:
                 state.mic_ok = False
-            time.sleep(5.0)
+            time.sleep(wait)
+            continue
+        _open_fails[0] = 0
 
 
 threading.Thread(target=_stream_keeper, daemon=True, name="mic").start()
