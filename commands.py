@@ -109,11 +109,15 @@ _NIGHT   = ("dobranoc", "idę spać", "ide spac", "idę już spać", "idę już 
 # "Wychodzę do pracy", "lecę do szkoły" — a goodbye too, with an umbrella
 # reminder when it's going to rain (8 Oct: she knew the forecast, said nothing)
 _LEAVING = re.compile(
-    r"^(?:no\s+to\s+|dobra,?\s+|to\s+)?(?:ja\s+)?(?:wychodzę|wychodze|wychodzimy|"
+    # ("Dzięki, idę na trening, pa" — 8 Oct scenario: the "Dzięki," in front
+    # sent it to the model, no wave, the window left open)
+    r"^(?:(?:dzięki|dzieki|dziękuję|dziekuje|dobra|ok|okej|no\s+to|to|super),?\s+)*"
+    r"(?:ja\s+)?(?:wychodzę|wychodze|wychodzimy|"
     r"lecę|lece|uciekam|idę|ide|idziemy|jadę|jade|jedziemy)\s+"
     r"(?:już\s+|juz\s+)?(?:do\s+(?:pracy|szkoły|szkoly|przedszkola|sklepu|miasta)|"
     r"na\s+(?:zakupy|spacer|trening|basen)|z\s+domu)\b(?:\s*,?\s*(?:pa|cześć|na razie))?$"
-    r"|^(?:no\s+to\s+|dobra,?\s+)?(?:wychodzę|wychodze|wychodzimy)(?:\s+już|\s+juz)?"
+    r"|^(?:(?:dzięki|dzieki|dziękuję|dziekuje|dobra|ok|okej|no\s+to|to|super),?\s+)*"
+    r"(?:wychodzę|wychodze|wychodzimy)(?:\s+już|\s+juz)?"
     r"(?:\s*,?\s*(?:pa|cześć|na razie))?$", re.I)
 _SCREEN = re.compile(
     r"^(?:luna,?\s+|luno,?\s+)?(?:(?:możesz|mozesz|proszę|prosze)\s+)?"

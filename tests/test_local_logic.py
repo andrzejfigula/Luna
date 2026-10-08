@@ -1527,7 +1527,7 @@ class KidsTest(unittest.TestCase):
     def test_leaving_and_umbrella(self):
         import commands, weather, time
         for t in ("wychodzę do pracy", "no to lecę do szkoły", "wychodzę już, pa", "idziemy na spacer",
-                  "wychodzę"):
+                  "wychodzę", "dzięki, idę na trening, pa", "dobra, wychodzę"):
             self.assertTrue(commands._LEAVING.match(t), t)
         for t in ("wychodzę z siebie", "idę spać", "jadę jutro do babci na tydzień"):
             self.assertFalse(commands._LEAVING.match(t), t)
