@@ -1408,6 +1408,14 @@ class KidsTest(unittest.TestCase):
         self.assertFalse(kids.routine_active())
         self.assertEqual(lists.get("poranek"), ["umyj zęby", "ubierz się"])   # kept
         lists.apply([{"type": "list_clear", "list": "poranek"}])
+        # no "wieczór" list: the default steps; at the end, the best bit of the day
+        kids.start_routine("wieczór", say)
+        self.assertIn("Ułożyłam", said[-2])
+        for _ in kids.DEFAULT_STEPS["wieczór"]:
+            kids.routine_answer("Gotowe", say, lambda n: None)
+        self.assertIn("najfajniejsze" if "najfajniejsze" in said[-1] else "najlepsze", said[-1])
+        self.assertTrue(state.conversation_active)
+        lists.apply([{"type": "list_clear", "list": "wieczór"}])
 
     def test_usage_per_day(self):
         import health

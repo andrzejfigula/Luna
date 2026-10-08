@@ -246,8 +246,18 @@ def routine_answer(text, speak, play_sound):
             with state.lock:
                 state.emotion = "Happy"
             play_sound("chime")
-            speak(random.choice(["Wszystko zrobione! Jesteś super!",
-                                 "Gotowe, wszystkie kroki! Brawo!"]))
+            done = random.choice(["Wszystko zrobione! Jesteś super!",
+                                  "Gotowe, wszystkie kroki! Brawo!"])
+            if r["name"] == "wieczór":
+                # the bedtime chat: the best bit of the day (an answer needs no
+                # "Luna" — the conversation stays open)
+                speak(done + " " + random.choice(["A powiedz mi jeszcze: co dziś było najfajniejsze?",
+                                                  "Zanim zaśniesz — co dziś było najlepsze?"]))
+                with state.lock:
+                    state.conversation_active = True
+                    state.last_activity_time = time.time() + 8
+            else:
+                speak(done)
             return True
         speak("Dobrze, pomijamy." if skipped else random.choice(_PRAISE))
         _step(speak)
