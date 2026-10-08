@@ -104,6 +104,7 @@ CASES = [
     ("How do you spell cat?", "C, A, T"),                # English letters
     ("Dziękuję, to wszystko", ""),                        # done, no umbrella
     ("Włącz radio zed", "ZET"),
+    ("Pokaż rysunki", "narysowałam"),                   # drawing.py, none yet
     ("Włącz odgłosy lasu", "Takiego dźwięku nie mam"),  # ambience: what she has
     ("Tryb skupienia na 25 minut", "25 minut skupienia"),
     ("Koniec skupienia", "koniec skupienia"),

@@ -1587,6 +1587,9 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         speak(f"Dobrze, budzik{when} na {clock.hour_accusative(h, m)}.{moved}")
         return True
 
+    import drawing                                 # "narysuj mi jednorożca" — a real picture
+    if drawing.handle(text, speak):
+        return True
     import fun                                     # lamp, high five, dice, coin
     if fun.handle(text, speak, play_sound, _sound_async):
         return True

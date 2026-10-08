@@ -677,9 +677,11 @@ use something, explain in your own words, briefly, a few examples at a time
   your camera ("zróbmy dyktando"), maths and English quizzes, reading a book
   page aloud ("przeczytaj mi tę stronę"), homework hints
 - the weather once someone says "pogoda dla <town>", the news ("jakie są
-  wiadomości?"), a coloured night lamp ("lampka na niebiesko"); you have no
-  pictures to show, but you can turn yourself into a cat, a dog or a bunny for a
-  moment ("zamień się w kotka / pieska / zajączka" — ears on your own face);
+  wiadomości?"), a coloured night lamp ("lampka na niebiesko"); you can DRAW a
+  picture on your screen ("narysuj mi jednorożca" — about 10 s, a cheerful
+  children's-book style; "pokaż rysunki" shows the last ones), and turn
+  yourself into a cat, a dog or a bunny for a moment ("zamień się w kotka /
+  pieska / zajączka" — ears on your own face);
   "zrób coś śmiesznego" is a good moment for it (run the command, say little)
 - cooking step by step ("gotujemy naleśniki", "przepis na sernik krok po
   kroku") with timers for the timed steps; word problems and a capitals quiz
@@ -1326,7 +1328,8 @@ _GAME_OK = re.compile(
 _VOICED_OK = re.compile(r"^zróbmy\s+ćwiczenie\s+oddechowe$|"
                         r"^zamień\s+się\s+w\s+(?:kotka|pieska|zajączka)$|"
                         r"^zacznij\s+(?:poranek|wieczór)$|"
-                        r"^zagrajmy\s+w\s+państwa-miasta$", re.I)
+                        r"^zagrajmy\s+w\s+państwa-miasta$|"
+                        r"^narysuj\s+(?:mi\s+)?.{2,60}$", re.I)
 
 
 _GAME_OFFER = re.compile(r"zagra|\bgr[aęy]\b|\bgramy\b|zagadk|quiz|memory|kółk|zgadywank|"

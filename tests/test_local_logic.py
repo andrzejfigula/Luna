@@ -1986,6 +1986,30 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(kids.offered_routine("Mogę ci ułożyć prosty poranny plan."), "poranek")
         self.assertIn("umyj zęby", kids.DEFAULT_STEPS["poranek"])
 
+    def test_drawing_requests(self):
+        import drawing
+        self.assertEqual(drawing.wants("Narysuj mi jednorożca"), "jednorożca")
+        self.assertEqual(drawing.wants("Możesz narysować kotka?"), "kotka")
+        self.assertEqual(drawing.wants("Draw me a dinosaur"), "dinosaur")
+        self.assertIsNone(drawing.wants("Narysowałam dom"))
+        self.assertTrue(drawing._SHOW.search("Pokaż mi jeszcze raz rysunek"))
+        said = []
+        d = tempfile.mkdtemp()
+        with mock.patch.object(drawing, "DIR", d), \
+                mock.patch.object(drawing.threading, "Thread", lambda *a, **k: mock.Mock()):
+            with open(os.path.join(d, "count.json"), "w") as f:
+                json.dump({time.strftime("%Y-%m-%d"): drawing.DRAW_PER_DAY}, f)
+            drawing._last[0] = 0.0
+            drawing.draw("kota", said.append)              # the day's limit reached
+            self.assertIn("jutro", said[-1])
+            os.remove(os.path.join(d, "count.json"))
+            drawing.draw("kota", said.append)
+            self.assertEqual(said[-1], "Już rysuję… chwilka!")
+            drawing.draw("psa", said.append)               # too soon after
+            self.assertIn("kończę", said[-1])
+        with state.lock:
+            state.overlay = None
+
     def test_leaving_by_time_and_role_nameday(self):
         import commands
         import birthdays

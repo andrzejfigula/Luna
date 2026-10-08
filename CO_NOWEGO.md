@@ -4,7 +4,7 @@
 zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 
 > **Nowe dzisiaj (8.10) — warto wypróbować wieczorem:**
-> „Luna, **pokaż mi kotka**” / „zamień się w pieska” (uszy na buzi!) ·
+> „Luna, **narysuj mi jednorożca**” — prawdziwy obrazek na ekranie! · „**pokaż mi kotka**” / „zamień się w pieska” (uszy na buzi!) ·
 > „**Zacznij wieczór**” — Maja krok po kroku do łóżka, na koniec „co dziś było najfajniejsze?” ·
 > „Kupiłem Emilce prezent, **tylko jej nie mów**” — Luna dochowa tajemnicy ·
 > „Maja ma jutro wycieczkę, **przypomnij jej rano**…” — powie Mai jutro ·
@@ -246,6 +246,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Co godzinę | „Luna, przypominaj mi co godzinę, żeby pić wodę” — przypomina co godzinę, ale nie w nocy (22–8); „nie przypominaj już o wodzie” wyłącza |
 | Państwa-miasta | „Luna, zagrajmy w państwa-miasta” — Luna losuje literę (duża na ekranie), odmierza minutę i woła „Stop!”; „nowa litera” — następna runda |
 | Wyłącz później | „Za 10 minut wyłącz radio”, „wyłącz radio o 23”, „zgaś lampkę o 21”, „wyłącz lampkę za kwadrans”, „wyłącz szum za pół godziny”; „przesuń budzik na wpół do ósmej” — przestawia (nie dodaje drugiego) |
+| Rysunki | „Luna, **narysuj mi** jednorożca / smoka na rowerze / nasz dom” — po ok. 10 sekundach prawdziwy obrazek na ekranie (wesoły, dla dzieci); „pokaż rysunki” — ostatnie jeszcze raz. Do 25 rysunków dziennie |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 
