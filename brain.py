@@ -226,7 +226,21 @@ def _just_called(text="", secs=12):
     if len(text.split()) > 12 or _language_line(text):
         return False
     with state.lock:
-        return time.time() - getattr(state, "last_wake_time", 0.0) < secs
+        if time.time() - getattr(state, "last_wake_time", 0.0) < secs:
+            return True
+        spoke = time.time() - state.last_spoken_time
+        others, seen_at = state.others
+    # she has just answered them and nobody else is in view: their next words
+    # are for her (8 Oct 13:58: "Śpisz?" → her 6 s answer → "No, mi się chce
+    # spać" — 13 s after her name, judged side talk, silence)
+    try:
+        recent = time.time() - seen_at < 3 * faces.RECOGNISE_EVERY
+        first = (re.findall(r"\w+", text.lower()) or [""])[0]
+        to_someone = any(first in (n.lower(), (v or "").lower())
+                         for n, v in faces.vocatives().items())   # "Emilko, chodź…"
+    except Exception:
+        recent, to_someone = False, False
+    return spoke < 10 and not to_someone and not (recent and [o for o in others or [] if o])
 
 
 BIRTHDAY = (2026, 9, 18)          # first switched on at home (data/ was made then)

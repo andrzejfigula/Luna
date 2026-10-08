@@ -1844,6 +1844,25 @@ class KidsTest(unittest.TestCase):
         self.assertIn('"Hej U…"', rule)
         self.assertEqual(brain._variety_rule(h[:2]), "")
 
+    def test_just_called_after_her_answer(self):
+        import brain
+        import faces
+        old = (state.last_wake_time, state.last_spoken_time, state.others)
+        try:
+            state.last_wake_time = time.time() - 20
+            state.last_spoken_time = time.time() - 4
+            state.others = ([], 0.0)
+            with mock.patch.object(faces, "vocatives", lambda: {"Emilka": "Emilko"}):
+                self.assertTrue(brain._just_called("No, mi się chce spać."))
+                self.assertFalse(brain._just_called("Emilko, chodź na obiad."))
+                state.others = (["Maja"], time.time())
+                self.assertFalse(brain._just_called("No, mi się chce spać."))
+                state.others = ([], 0.0)
+                state.last_spoken_time = time.time() - 30
+                self.assertFalse(brain._just_called("No, mi się chce spać."))
+        finally:
+            state.last_wake_time, state.last_spoken_time, state.others = old
+
     def test_alone_request(self):
         import time
         import brain
