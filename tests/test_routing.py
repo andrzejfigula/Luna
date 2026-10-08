@@ -350,7 +350,7 @@ class RoutingTest(unittest.TestCase):
             (health, "status_rows", lambda: [("CPU", "ok")]),
             (fun, "high_five", lambda *a: self._mark("fun")),
             (fun, "roll", lambda *a: self._mark("fun")),
-            (fun, "flip", lambda *a: self._mark("fun")),
+            (fun, "flip", lambda *a, **k: self._mark("fun")),
             (calc, "answer", self._calc(calc.answer)),
             (news, "context", lambda *a: self._mark("news") or "headlines"),
             (weather, "set_place", lambda t: self._mark("weather") or "Kraków"),
