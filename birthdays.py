@@ -247,6 +247,17 @@ def namedays():
         return {n: p["nameday"] for n, p in faces._load().items() if p.get("nameday")}
 
 
+def nameday_unknown(text):
+    """"Kiedy Andrzej ma imieniny?" with no date told → the name, for a web
+    search: the calendar knows it (8 Oct sweep: "Nie wiem, kiedy Andrzej
+    obchodzi imieniny"; the model, asked instead, said dates from memory)."""
+    low = text.lower()
+    if not _NAMEDAY.search(low) or not re.search(r"\b(ile|kiedy)\b", low):
+        return None
+    name = _who(low, text)
+    return name if name and not namedays().get(name) else None
+
+
 def nameday_answer(text, today=None):
     """"Kiedy Maja ma imieniny?", "ile dni do imienin Mai?" → the answer, or None."""
     low = text.lower()
@@ -257,8 +268,7 @@ def nameday_answer(text, today=None):
         return None
     md = namedays().get(name)
     if not md:
-        return (f"Nie wiem, kiedy {name} obchodzi imieniny. Powiedz na przykład: "
-                f"{name} ma imieniny 3 maja.")
+        return None                      # not told: nameday_unknown → a web search
     today = today or _today()
     when = _next(md, today)
     days = (when - today).days

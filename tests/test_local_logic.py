@@ -2352,9 +2352,11 @@ class BirthdayTest(unittest.TestCase):
             self.assertIsNone(birthdays.days_alive("Ile dni ma Andrzej?"))   # no year known
             # name days
             self.assertIsNone(birthdays.set_nameday_from("Kiedy Maja ma imieniny?"))
-            self.assertIn("Nie wiem", birthdays.nameday_answer("Kiedy Maja ma imieniny?"))
+            self.assertIsNone(birthdays.nameday_answer("Kiedy Maja ma imieniny?"))
+            self.assertEqual(birthdays.nameday_unknown("Kiedy Maja ma imieniny?"), "Maja")
             self.assertEqual(birthdays.set_nameday_from("Maja ma imieniny 3 maja"),
                              ("Maja", "05-03"))
+            self.assertIsNone(birthdays.nameday_unknown("Kiedy Maja ma imieniny?"))
             self.assertEqual(birthdays.nameday_answer("Kiedy Maja ma imieniny?"),
                              "3 maja — za 211 dni.")
             self.assertIn("TODAY is Maja's name day",

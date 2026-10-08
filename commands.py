@@ -1167,6 +1167,12 @@ def handle(text, speak, play_sound, _polite=True):
     if said:
         speak(said)
         return True
+    who = birthdays.nameday_unknown(text)           # not told: the calendar knows
+    if who:
+        import websearch
+        websearch.start(f"kiedy są imieniny {who} w polskim kalendarzu (główna data i inne)",
+                        speak)
+        return True
     got = birthdays.set_nameday_from(text)          # "Maja ma imieniny 3 maja"
     if got:
         m, d = (int(x) for x in got[1].split("-"))
