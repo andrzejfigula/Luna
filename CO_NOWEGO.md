@@ -253,3 +253,11 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 1. **Dźwięk** — odtwarzacz jest teraz stale otwarty. Gdyby coś trzeszczało, w `config.py` ustaw `AUDIO_PERSISTENT = False` (stary sposób) i daj znać.
 2. **Pogoda**: przy pierwszym pytaniu o pogodę Luna zapyta „W jakim mieście?” — wystarczy odpowiedzieć.
 3. **Kamień, papier, nożyce** i **zdjęcie** nie były testowane z prawdziwą osobą przed kamerą (pokój był pusty) — przebieg gry przetestowałam z symulowanym przeciwnikiem.
+
+## Czeka na Twoją decyzję (Andrzej)
+
+1. **Panel w sieci domowej** (listy, przypomnienia, wiadomości z telefonu) — gotowy, ale wyłączony: otwiera port w sieci LAN. Daj znać, jeśli włączyć.
+2. **„Stop!” głosem, gdy Luna mówi** (usuwanie echa) — przygotowane, ale wymaga restartu PipeWire i prób na głos za dnia, w Twojej obecności.
+3. **Twarze gości** — Luna nie zapamiętuje ich sama (tak zdecydowałeś); „jestem Ola” zapamiętuje tylko, gdy ktoś sam się przedstawi.
+4. **Fakt w pamięci „Andrzej mówi po hiszpańsku”** — może być pomyłką z rozmowy. Jeśli tak: „Luna, zapomnij, że mówię po hiszpańsku”.
+5. **Koszt rysunków** — ok. 1 grosz za obrazek, najwyżej 25 dziennie; limit można zmienić w `drawing.py` (`DRAW_PER_DAY`).
