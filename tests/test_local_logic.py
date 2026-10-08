@@ -2008,6 +2008,17 @@ class KidsTest(unittest.TestCase):
         self.assertFalse(quiz._riddle_request("zadaj mi trudną zagadkę"))
         self.assertFalse(quiz._riddle_request("daj mi zagadkę logiczną"))
 
+    def test_timed_errand_in_quiet_morning(self):
+        import idle_engine
+        import errands
+        six_thirty = time.mktime(time.strptime("2026-10-09 06:30", "%Y-%m-%d %H:%M"))
+        four = six_thirty - 2.5 * 3600
+        with mock.patch.object(errands, "waiting", lambda who: [{"at": "06:00", "words": "x"}]):
+            self.assertTrue(idle_engine._timed_errand_ok("Maja", six_thirty))
+            self.assertFalse(idle_engine._timed_errand_ok("Maja", four))      # night
+        with mock.patch.object(errands, "waiting", lambda who: [{"at": None, "words": "x"}]):
+            self.assertFalse(idle_engine._timed_errand_ok("Maja", six_thirty))
+
     def test_weather_cache(self):
         import weather
         d = tempfile.mkdtemp()

@@ -129,6 +129,21 @@ def _people_talking():
         return False
 
 
+def _timed_errand_ok(who, now):
+    """"Przypomnij jej rano, żeby wzięła kanapki" — asked for the early
+    morning, like an alarm: said even in the quiet hours (at the night voice),
+    from 5:00, unless "Luna, cicho" — Maja leaves for school before 8."""
+    with state.lock:
+        muted = state.proactive_muted_until
+    if now <= muted or time.localtime(now).tm_hour < 5:
+        return False
+    try:
+        import errands
+        return any(e.get("at") for e in errands.waiting(who))
+    except Exception:
+        return False
+
+
 def _voice_allowed(now):
     """Quiet hours and "Luna, cicho" apply to every sound she makes on her
     own — touch sounds included."""
@@ -343,7 +358,8 @@ def idle_loop():
                 errands_checked = now
                 with state.lock:
                     p = state.person
-                if (p and now - p[2] < 6 and not _busy() and _voice_allowed(now)
+                if (p and now - p[2] < 6 and not _busy()
+                        and (_voice_allowed(now) or _timed_errand_ok(p[0], now))
                         and not _people_talking()):     # not into his video call
                     import errands
                     if errands.waiting(p[0]):
