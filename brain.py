@@ -191,6 +191,12 @@ def _morning_line():
     ended, so no greeting — got a pleasantry, with 93% rain on the way)."""
     if not 5 <= time.localtime().tm_hour < 12:
         return ""
+    try:                      # not in the middle of a recipe, game or routine
+        import cooking, quiz, kids
+        if cooking.active() or quiz.active() or kids.routine_active():
+            return ""
+    except Exception:
+        pass
     with state.lock:
         who = state.person[0] if state.person else None
     try:
