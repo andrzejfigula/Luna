@@ -1986,6 +1986,15 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(kids.offered_routine("Mogę ci ułożyć prosty poranny plan."), "poranek")
         self.assertIn("umyj zęby", kids.DEFAULT_STEPS["poranek"])
 
+    def test_spell_in_english(self):
+        import commands
+        said = []
+        self.assertTrue(commands.handle("How do you spell elephant?", said.append,
+                                        lambda *a, **k: True))
+        self.assertEqual(said[-1], "elephant: E, L, E, P, H, A, N, T.")
+        self.assertTrue(commands.handle("Jak się pisze żółw?", said.append, lambda *a, **k: True))
+        self.assertIn("zet z kropką", said[-1])
+
     def test_is_english(self):
         import brain
         for t in ("Play some music", "Set a timer for 5 minutes", "Show me a cat",

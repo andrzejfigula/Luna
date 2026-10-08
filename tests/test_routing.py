@@ -370,7 +370,7 @@ class RoutingTest(unittest.TestCase):
             (radio, "stop", lambda: self._mark("radio") or True),
             (counting, "_watch", {"t0": None}),
             (memory, "add_fact", lambda f: self._mark("remember")),
-            (commands, "_spell", lambda *a: self._mark("spell")),
+            (commands, "_spell", lambda *a, **k: self._mark("spell")),
         ]
         fake_tts = type(sys)("text_to_speech")
         fake_tts.replay_last = lambda: self._mark("repeat") or True

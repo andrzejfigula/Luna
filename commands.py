@@ -629,11 +629,16 @@ def show_text(text, speak):
     return True
 
 
-def _spell(word, speak):
-    """The word big on her screen, then letter by letter."""
+def _spell(word, speak, english=False):
+    """The word big on her screen, then letter by letter. english: "How do
+    you spell elephant?" — English letter names (8 Oct sweep: "e, el, e, pe…")."""
     with state.lock:
         state.overlay = ("card", time.time() + 15, {"text": word, "sub": "", "tone": None})
     letters = [c for c in word.lower() if c.isalpha()]
+    if english:
+        print(f"[cmd] spell (English): {word}", flush=True)
+        speak(f"{word}: " + ", ".join(c.upper() for c in letters) + ".")
+        return
     names = ", ".join(_LETTERS.get(c, c) for c in letters)
     tricky = [t for t in ("ó", "rz", "ż", "ch", "h", "u") if t in word.lower()]
     tip = ""
@@ -1164,7 +1169,8 @@ def handle(text, speak, play_sound, _polite=True):
         return websearch.start(query, speak)
     word = _spell_word(text)
     if word:
-        _spell(word, speak)
+        _spell(word, speak, english=bool(re.match(r"\s*(?:luna,?\s*)?(?:how|spell)\b", text,
+                                                  re.I)))
         return True
 
     if setup := weather_setup(text, speak):        # first weather question: where?
