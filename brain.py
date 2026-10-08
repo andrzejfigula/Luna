@@ -285,6 +285,11 @@ def _morning_line():
             f"sentence with what matters for their day — {what}. Nothing if neither.\n")
 
 
+_CLAIMED = re.compile(r"\b(?:od\s+teraz|od\s+dziś|ustawiłam|zmieniłam|przestawiłam|"
+                      r"włączyłam|wyłączyłam|zapisałam\s+(?:ustawienie|miasto)|"
+                      r"będę\s+(?:teraz\s+)?(?:mówić|mowic|używać|uzywac))\b", re.I)
+
+
 def _to_someone(text):
     """"Maja, ubieraj się" / "Emilko, chodź…" / "Mamo, gdzie…" — opens by
     calling someone else (8 Oct sweeps: "Mhm, słucham cię." to Emilka's
@@ -1364,6 +1369,10 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             if on_sentence:
                 on_sentence(extra)
             reply = f"{reply} {extra}"
+        if not (data.get("actions") or []) and _CLAIMED.search(reply):
+            # log only: "od teraz biorę Wrocław za twoje miasto" changed nothing
+            # (9 Oct sweep) — these lines show what still needs a real switch
+            print(f"[brain] claimed a change with no action: {reply[:80]!r}", flush=True)
         import reading
         if reading.she_asks(reply) and not reading.armed() and not translator():
             # "Przeczytaj mi oba" — then she listens to the whole reading
