@@ -1993,6 +1993,7 @@ class KidsTest(unittest.TestCase):
                 self.assertTrue(brain._just_called("Jestem zdenerwowany."))
                 self.assertTrue(brain._to_someone("Kochanie, zrobisz mi herbatę?"))
                 self.assertTrue(brain._to_someone("Tato, pomożesz mi z matmą?"))
+                self.assertTrue(brain._to_someone("Babciu, zobacz, Luna umie rysować!"))
                 self.assertFalse(brain._to_someone("Totalnie się nudzę."))
                 self.assertFalse(brain._to_someone("Majonez się skończył."))
         finally:

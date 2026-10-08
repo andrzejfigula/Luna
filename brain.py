@@ -301,7 +301,8 @@ def _to_someone(text):
         return bool(any(first == (v or "").lower() and first != n.lower()
                         or re.match(re.escape(n.lower()) + r"\s*[,!]", low)
                         for n, v in faces.vocatives().items())
-                    or re.match(r"(?:mamo|tato|mamusiu|tatusiu|kochanie|skarbie)\b", low))
+                    or re.match(r"(?:mamo|tato|mamusiu|tatusiu|kochanie|skarbie|babciu|"
+                                r"dziadku|ciociu|wujku|wujaszku|babuniu|dziadziu)\b", low))
     except Exception:
         return False
 
