@@ -584,7 +584,11 @@ Always answer as JSON with exactly these keys:
                 {{"type":"reminder","seconds":0,"at":"YYYY-MM-DD HH:MM",
                 "label":"zadzwonić do mamy"}} for "przypomnij mi o 18 …"
                 (local time; "za pół godziny przypomnij mi…" is a timer
-                with a label);
+                with a label; a reminder AHEAD of an event keeps the event's
+                own day and time in the label — "urodziny babci w sobotę o
+                15:00" — or "ile dni do urodzin babci?" is later answered
+                with the reminder's time); to MOVE a reminder: a cancel with
+                its label plus the new reminder, in the same reply;
                 {{"type":"alarm","seconds":0,"at":"YYYY-MM-DD HH:MM",
                 "label":""}} for waking up: "obudź mnie o 7", "budzik na
                 6:30" (the screen brightens like a sunrise before it);

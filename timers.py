@@ -627,6 +627,61 @@ def running_timer(now=None):
         return any(t["kind"] == "timer" and t["due"] > now for t in _timers)
 
 
+_MOVE = re.compile(r"^(?:luna,?\s+)?(?:przesuń|przesun|przestaw|zmień|zmien)\s+(?:mi\s+|nam\s+)?"
+                   r"(?:godzinę\s+|godzine\s+)?(?:(?:tego\s+|to\s+)?przypomnieni\w*\s+)?"
+                   r"(?:o\s+)?(.*?)\s*\bna\s+(.+?)\W*$", re.I)
+
+
+def local_move(text, now=None):
+    """"Przesuń przypomnienie o urodzinach babci na dwudziestą" → (reply) with
+    the one matching reminder moved, its day kept ("na jutro …" moves it to
+    tomorrow). None for anything else — alarms have their own "przesuń", an
+    unclear one goes to the model (9 Oct sweep: it moved Friday's reminder
+    to the next Friday)."""
+    import clock
+    import clockgame
+    m = _MOVE.match((text or "").strip())
+    if not m or re.search(r"budzik|alarm|minutnik", text, re.I) or \
+            not re.search(r"przypomnieni", text, re.I):    # "przesuń urodziny": the event
+        return None
+    what, target = m.group(1).strip(" ,"), m.group(2)
+    tomorrow = bool(re.search(r"\bjutr\w*", target, re.I))
+    target = re.sub(r"\b(?:na\s+)?jutr\w*\s*(?:o\s+|na\s+)?", "", target, flags=re.I).strip()
+    t = clockgame.parse(target)
+    if not t or not all(_time_word(w) for w in target.replace(",", " ").split()):
+        return None
+    now = now or time.time()
+    with _lock:
+        cands = [x for x in _timers if x["kind"] == "reminder"
+                 or (x["kind"] == "timer" and x["label"])]
+        if what:
+            hits = [x for x in cands if x in _to_cancel(what)]
+        else:
+            hits = cands if len(cands) == 1 else []
+        if len(hits) != 1:
+            return None
+        e = hits[0]
+        old = datetime.fromtimestamp(e["due"])
+        base = (datetime.fromtimestamp(now) + timedelta(days=1)) if tomorrow else old
+        h, mi = t
+        options = [base.replace(hour=hh, minute=mi, second=0, microsecond=0)
+                   for hh in ({h, h + 12} if h < 12 else {h})]
+        # "na ósmą" for a 19:00 reminder → 20:00; by the time of day, not the date
+        new = min(options, key=lambda d: abs(d.hour * 60 + d.minute - old.hour * 60 - old.minute))
+        if new.timestamp() < now:
+            return None
+        e["due"], e["kind"] = new.timestamp(), "reminder"
+        e.setdefault("repeat", "none")
+        _timers.sort(key=lambda x: x["due"])
+        _save()
+    today = datetime.fromtimestamp(now).date()
+    days = (new.date() - today).days
+    day = "dziś" if days == 0 else "jutro" if days == 1 else _WD_LOC[new.weekday()]
+    label = e["label"] or "przypomnienie"
+    print(f"[timers] moved '{label}' to {new:%d.%m %H:%M}", flush=True)
+    return f"Dobrze, przypomnę {day} o {clock.hour_locative(new.hour, new.minute)}: {label}."
+
+
 _SLEEP_Q = re.compile(r"\b(?:ile|jak\s+długo|jak\s+dlugo)\b.{0,40}?\b(?:snu|wyśpi\w*|wyspi\w*|"
                       r"pośpi\w*|pospi\w*|spania|spać|spac)\b", re.I)
 

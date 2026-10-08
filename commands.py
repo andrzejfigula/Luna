@@ -1591,6 +1591,10 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         timers.apply([rem[0]])
         speak(rem[1])
         return True
+    said = timers.local_move(text)                 # "przesuń przypomnienie o … na 20"
+    if said:
+        speak(said)
+        return True
 
     alarm = local_alarm(text)                      # "obudź mnie o 6:30" — even offline
     if alarm:

@@ -32,6 +32,25 @@ class TimersTest(unittest.TestCase):
     def setUp(self):
         timers._timers.clear()
 
+    def test_move_reminder(self):
+        # 9 Oct sweep: the model moved Friday's reminder to the next Friday
+        now = datetime.datetime(2026, 10, 9, 18, 0).timestamp()
+        due = datetime.datetime(2026, 10, 9, 19, 0).timestamp()
+        timers._timers.append({"kind": "reminder", "due": due, "repeat": "none",
+                               "label": "urodziny babci w sobotę o 15:00"})
+        timers._timers.append({"kind": "reminder", "repeat": "none", "label": "rachunek za prąd",
+                               "due": datetime.datetime(2026, 10, 12, 8, 0).timestamp()})
+        with mock.patch.object(timers, "_save", lambda: None):
+            said = timers.local_move("Przesuń przypomnienie o urodzinach babci na ósmą", now)
+            self.assertEqual(said, "Dobrze, przypomnę dziś o dwudziestej: urodziny babci "
+                                   "w sobotę o 15:00.")
+            self.assertEqual(datetime.datetime.fromtimestamp(timers._timers[0]["due"]).hour, 20)
+            said = timers.local_move("Przesuń przypomnienie o rachunku na jutro na dziewiątą", now)
+            self.assertIn("jutro o dziewiątej", said)
+            self.assertIsNone(timers.local_move("Przesuń urodziny babci na szesnastą", now))  # the event
+            self.assertIsNone(timers.local_move("Przesuń przypomnienie na ósmą", now))  # which one?
+            self.assertIsNone(timers.local_move("Przesuń budzik na ósmą", now))
+
     def test_sleep_answer(self):
         # 9 Oct probe: the model said 10 and 13 h of sleep for 14
         now = datetime.datetime(2026, 10, 9, 17, 0).timestamp()

@@ -1,0 +1,10 @@
+Emilka|W sobotę o piętnastej są urodziny babci, przypomnij nam w piątek wieczorem
+Andrzej|Co mamy w weekend?
+Emilka|Jutro Maja ma basen o szesnastej
+Andrzej|Co jest jutro?
+Emilka|Odwołaj basen
+Andrzej|Przypomnij mi w poniedziałek rano o rachunku za prąd
+Emilka|Jakie mamy przypomnienia na przyszły tydzień?
+Andrzej|Ile dni do urodzin babci?
+Emilka|Przesuń urodziny babci na szesnastą
+Andrzej|Pokaż plan dnia
