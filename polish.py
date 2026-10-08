@@ -159,6 +159,11 @@ _ABBR = [(re.compile(r"\bnp\.\s*", re.I), "na przykład "),
          (re.compile(r"\bitd\.", re.I), "i tak dalej"),
          (re.compile(r"\btj\.\s*", re.I), "to jest "),
          (re.compile(r"\bgodz\.\s*", re.I), "godzina ")]
+_FRACTIONS = [(re.compile(r"(?<![\d/])(?:1/2|½)(?![\d/])"), "pół"),
+              (re.compile(r"(?<![\d/])(?:1/4|¼)(?![\d/])"), "ćwierć"),
+              (re.compile(r"(?<![\d/])(?:3/4|¾)(?![\d/])"), "trzy czwarte"),
+              (re.compile(r"(?<![\d/])1/3(?![\d/])"), "jedna trzecia"),
+              (re.compile(r"(?<![\d/])2/3(?![\d/])"), "dwie trzecie")]
 _TIME = re.compile(r"(?<![\d:])([01]?\d|2[0-3]):([0-5]\d)(?![\d:])")
 _TEMP = re.compile(r"(-?\d{1,3})\s*°\s*C?")
 _DATE = re.compile(r"(?<![\d.,])([0-3]?\d)\.([01]\d)(?:\.(\d{4}))?(?![\d,])")
@@ -176,6 +181,9 @@ def _spoken_forms(text):
     "piętnastego piętnastego". Written out in Polish instead."""
     import clock
     for rx, rep in _ABBR:
+        text = rx.sub(rep, text)
+    # recipe fractions: "1/2 szklanki" came back "jedną poora szklanki"
+    for rx, rep in _FRACTIONS:
         text = rx.sub(rep, text)
 
     def time_(m):

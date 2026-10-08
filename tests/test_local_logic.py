@@ -1497,6 +1497,8 @@ class KidsTest(unittest.TestCase):
                          "Spotkanie piętnastego listopada o dziewiątej.")
         self.assertEqual(polish.spoken_numbers("Dziś 22°C."), "Dziś dwadzieścia dwa stopnie.")
         self.assertEqual(polish.spoken_numbers("Wynik 2:1"), "Wynik 2:1")
+        self.assertEqual(polish.spoken_numbers("Dodaj 1/2 szklanki i ¼ łyżeczki."),
+                         "Dodaj pół szklanki i ćwierć łyżeczki.")
         for keep in ("2026", "3,14159", "600123456"):
             self.assertIn(keep, s)
 
