@@ -78,7 +78,8 @@ _NORMAL_SPEED = ("normalnym tempie", "normalne tempo", "normalnie mów", "mów n
 # goodbyes: the whole utterance must be one of these (after dropping "Luna")
 # — "na razie nie" or "pa, a jeszcze jedno…" are not goodbyes
 _BYE = {("pa",), ("pa", "pa"), ("papa",), ("do", "widzenia"), ("do", "zobaczenia"),
-        ("na", "razie"), ("bye",), ("bye", "bye"), ("see", "you"), ("cześć", "pa"),
+        ("na", "razie"), ("bye",), ("bye", "bye"), ("see", "you"), ("goodbye",), ("good", "bye"),
+        ("see", "you", "later"), ("thanks", "bye"), ("that", "s", "all"), ("cześć", "pa"),
         ("to", "wszystko"), ("dzięki", "to", "wszystko"), ("dziękuję", "to", "wszystko"),
         ("dobra", "to", "wszystko"), ("trzymaj", "się"), ("na", "razie", "wszystko"),
         ("to", "na", "razie", "wszystko"), ("to", "na", "razie"), ("to", "by", "było", "na", "tyle"),
@@ -86,6 +87,7 @@ _BYE = {("pa",), ("pa", "pa"), ("papa",), ("do", "widzenia"), ("do", "zobaczenia
         ("do", "usłyszenia"), ("do", "później"), ("na", "razie", "dzięki")}
 # what may come before a goodbye: "super, to na razie wszystko", "dobra, pa"
 # "dziękuję, to wszystko": the talk is over, nobody is leaving
+GOODBYE_REPLIES_EN = ("Bye!", "See you!", "Bye-bye, take care!")
 DONE_REPLIES = ("Do usług!", "Polecam się!", "Jasne. W razie czego — jestem.")
 _BYE_LEAD = {"super", "dobra", "dobrze", "ok", "okej", "okay", "dzięki", "dziękuję",
              "dzieki", "dziekuje", "no", "świetnie", "fajnie", "a", "to", "spoko", "wielkie",
@@ -1050,10 +1052,14 @@ def handle(text, speak, play_sound, _polite=True):
         # "pa" in the morning; not for "to wszystko" or a "pa" at bedtime
         note = (weather.umbrella_note() if leaving or (not done and 5 <= time.localtime().tm_hour < 12)
                 else "")
-        speak((random.choice(DONE_REPLIES)
-               if done else random.choice(GOODBYE_REPLIES) if not leaving else
-               random.choice(("Pa! Miłego dnia!", "Do zobaczenia!", "Pa, pa! Udanego dnia!")))
-              + (" " + note if note else ""))
+        english = set(_bye_core(text) or ()) & {"bye", "goodbye", "good", "see", "thanks", "that"}
+        if english:                            # "Goodbye" got "Do widzenia." (8 Oct sweep)
+            speak(random.choice(GOODBYE_REPLIES_EN))
+        else:
+            speak((random.choice(DONE_REPLIES)
+                   if done else random.choice(GOODBYE_REPLIES) if not leaving else
+                   random.choice(("Pa! Miłego dnia!", "Do zobaczenia!", "Pa, pa! Udanego dnia!")))
+                  + (" " + note if note else ""))
         with state.lock:
             state.emotion = "Neutral"
             state.conversation_active = False
@@ -1388,7 +1394,13 @@ def handle(text, speak, play_sound, _polite=True):
     if secs:
         timers.apply([{"type": "timer", "seconds": secs, "at": "", "label": "",
                        "repeat": "none", "list": ""}])
-        speak(f"Jasne, minutnik na {timers.say_duration(secs)}.")
+        from polish import looks_english
+        if looks_english(text):              # "Set a timer for 5 minutes" (8 Oct sweep)
+            m, s = divmod(secs, 60)
+            speak(f"Sure, a timer for {m} minute{'s' * (m != 1)}"
+                  + (f" and {s} seconds." if s else ".") if m else f"Sure, {s} seconds.")
+        else:
+            speak(f"Jasne, minutnik na {timers.say_duration(secs)}.")
         return True
 
     # focus mode (pomodoro)

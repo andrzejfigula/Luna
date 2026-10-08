@@ -168,20 +168,16 @@ _COMMON_STEMS = {"jeszcze", "możesz", "mogę", "chcesz", "dzisia", "właśni", 
                  "pomóc", "potrze", "andrze", "emilko", "emilka"}
 
 
-_EN = {"the", "a", "an", "is", "are", "what", "how", "can", "you", "me", "my", "to", "for",
-        "set", "add", "turn", "on", "off", "tell", "please", "it", "do", "does", "time",
-        "timer", "list", "radio", "weather", "minutes", "joke", "play", "in", "of", "and"}
+def is_english(text):
+    """For the local replies too ("Set a timer for 5 minutes" → English)."""
+    return bool(_language_line(text))
 
 
 def _language_line(text):
     """An English sentence gets an English answer — 7 Oct probe: "Set a timer
     for five minutes" → "Jasne, pięć minut." (the prompt's Polish examples
     win over "speak the user's language")."""
-    low = (text or "").lower()
-    words = re.findall(r"[a-ząćęłńóśźż']+", low)
-    if len(words) < 3 or re.search(r"[ąćęłńóśźż]", low) or translator():
-        return ""
-    if sum(w in _EN for w in words) < max(2, len(words) // 3):
+    if translator() or not looks_english(text):
         return ""
     return "THIS MESSAGE IS IN ENGLISH — write \"reply\" in English.\n"
 
@@ -361,7 +357,7 @@ def _always_dates():
     return (cc + "\n") if cc else ""
 
 
-from polish import feminize, offer_only, empty_promise, neutral_you   # (polish.py)
+from polish import feminize, offer_only, empty_promise, neutral_you, looks_english   # (polish.py)
 
 
 def _feminize(text):

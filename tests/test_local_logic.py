@@ -1841,6 +1841,20 @@ class KidsTest(unittest.TestCase):
         finally:
             state.person, state.others = old
 
+    def test_is_english(self):
+        import brain
+        for t in ("Play some music", "Set a timer for 5 minutes", "Show me a cat",
+                  "What's the weather tomorrow?"):
+            self.assertTrue(brain.is_english(t), t)
+        for t in ("A to co?", "Ty i ja to dobra para", "No to do jutra", "Włącz radio"):
+            self.assertFalse(brain.is_english(t), t)
+
+    def test_english_goodbye_and_timer(self):
+        import commands
+        said = []
+        self.assertTrue(commands.handle("Goodbye", said.append, lambda *a, **k: True))
+        self.assertIn(said[-1], commands.GOODBYE_REPLIES_EN)
+
     def test_just_done(self):
         import commands
         self.assertTrue(commands._just_done("Dziękuję, to wszystko"))

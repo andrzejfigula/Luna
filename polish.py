@@ -253,3 +253,26 @@ def offer_only(reply):
     if _SUGGEST.search(reply) and not _DONE_ONLY.search(reply):
         return True
     return bool(_OFFER.search(reply)) and not _DONE.search(reply)
+
+
+_EN = {"the", "a", "an", "is", "are", "what", "how", "can", "you", "me", "my", "to", "for",
+        "set", "add", "turn", "on", "off", "tell", "please", "it", "do", "does", "time",
+        "timer", "list", "radio", "weather", "minutes", "joke", "play", "in", "of", "and",
+        # "Play some music" was answered in Polish (8 Oct sweep): more everyday words
+        "some", "music", "show", "who", "where", "when", "why", "your", "i'm", "this",
+        "that", "there", "be", "have", "will", "would", "could", "good", "morning",
+        "night", "thanks", "thank", "hello", "hi", "open", "stop", "start", "today",
+        "tomorrow", "give", "need", "want", "like", "let's", "us", "we", "it's", "what's",
+        "song", "story", "cat", "dog", "with", "about", "know", "say", "minute", "hour"}
+
+
+def looks_english(text):
+    """3+ words, no Polish letters, enough common English words — and one that
+    isn't also Polish ("A to co?" is Polish: a / to / on / do / no)."""
+    low = (text or "").lower()
+    words = re.findall(r"[a-ząćęłńóśźż']+", low)
+    if len(words) < 3 or re.search(r"[ąćęłńóśźż]", low):
+        return False
+    if sum(w in _EN for w in words) < max(2, len(words) // 3):
+        return False
+    return any(w in _EN and w not in ("a", "to", "on", "do", "me", "no") for w in words)
