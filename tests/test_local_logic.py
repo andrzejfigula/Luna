@@ -2008,6 +2008,19 @@ class KidsTest(unittest.TestCase):
         self.assertFalse(quiz._riddle_request("zadaj mi trudną zagadkę"))
         self.assertFalse(quiz._riddle_request("daj mi zagadkę logiczną"))
 
+    def test_weather_cache(self):
+        import weather
+        d = tempfile.mkdtemp()
+        path = os.path.join(d, "weather_last.json")
+        with mock.patch.object(weather, "_cache_path", lambda: path):
+            self.assertIsNone(weather._load_cache())
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump({"t": time.time() - 60, "d": {"x": 1}}, f)
+            self.assertEqual(weather._load_cache(), {"x": 1})
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump({"t": time.time() - 5 * 3600, "d": {"x": 1}}, f)
+            self.assertIsNone(weather._load_cache())                 # too old
+
     def test_goodnight_morning_note(self):
         import weather
         old = dict(weather._today)

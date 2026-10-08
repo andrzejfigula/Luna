@@ -13,6 +13,7 @@ every request: now, today, tomorrow.
 
 from datetime import datetime, timedelta
 import json
+import os
 import threading
 import time
 import urllib.parse
@@ -240,36 +241,80 @@ def prompt_line():
 _started = [False]
 
 
-def _loop():
+def _apply(d):
+    """A forecast (fresh or the cached one) into the summary and today's notes."""
     global _summary, _fetched
+    s = _describe(d)
+    with _lock:
+        _summary, _fetched = s, time.time()
+        try:
+            _today.update(rain=d["daily"]["precipitation_probability_max"][0],
+                          tmax=d["daily"]["temperature_2m_max"][0],
+                          date=d["daily"]["time"][0],
+                          hours=[(int(t[11:13]), p) for t, p in zip(
+                              d["hourly"]["time"], d["hourly"]["precipitation_probability"])
+                              if t[:10] == d["daily"]["time"][0] and p is not None],
+                          morning=next(((temp, p) for t, temp, p in zip(
+                              d["hourly"]["time"], d["hourly"]["temperature_2m"],
+                              d["hourly"]["precipitation_probability"])
+                              if t[:10] == d["daily"]["time"][1] and t[11:13] == "07"),
+                              None))
+        except (KeyError, IndexError, TypeError):
+            pass
+    return s
+
+
+def _cache_path():
+    from config import DATA_DIR
+    return os.path.join(DATA_DIR, "weather_last.json")
+
+
+def _load_cache(max_age=3 * 3600):
+    """The last good forecast, if it's recent — a restart while open-meteo
+    answers 503 (8 Oct) shouldn't leave her without any weather for 5 min."""
+    try:
+        with open(_cache_path(), encoding="utf-8") as f:
+            c = json.load(f)
+        if time.time() - c.get("t", 0) < max_age:
+            return c["d"]
+    except (OSError, ValueError, KeyError):
+        pass
+    return None
+
+
+def _loop():
+    first = True
+    fails = 0
     while True:
         if not enabled():                    # "wyłącz pogodę"
             time.sleep(60)
             continue
         try:
             d = _fetch()
-            s = _describe(d)
-            with _lock:
-                _summary, _fetched = s, time.time()
-                try:
-                    _today.update(rain=d["daily"]["precipitation_probability_max"][0],
-                                  tmax=d["daily"]["temperature_2m_max"][0],
-                                  date=d["daily"]["time"][0],
-                                  hours=[(int(t[11:13]), p) for t, p in zip(
-                                      d["hourly"]["time"], d["hourly"]["precipitation_probability"])
-                                      if t[:10] == d["daily"]["time"][0] and p is not None],
-                                  morning=next(((temp, p) for t, temp, p in zip(
-                                      d["hourly"]["time"], d["hourly"]["temperature_2m"],
-                                      d["hourly"]["precipitation_probability"])
-                                      if t[:10] == d["daily"]["time"][1] and t[11:13] == "07"),
-                                      None))
-                except (KeyError, IndexError, TypeError):
-                    pass
+            s = _apply(d)
+            fails = 0
+            try:
+                with open(_cache_path(), "w", encoding="utf-8") as f:
+                    json.dump({"t": time.time(), "d": d}, f)
+            except OSError:
+                pass
             print(f"[weather] {s}", flush=True)
+            first = False
             time.sleep(WEATHER_REFRESH_SECS)
         except Exception as e:
-            print(f"[weather] fetch failed ({e}) — retrying in 5 min")
-            time.sleep(300)
+            fails += 1
+            if first:
+                first = False
+                cached = _load_cache()
+                if cached:
+                    try:
+                        _apply(cached)
+                        print("[weather] using the last forecast from disk meanwhile", flush=True)
+                    except Exception:
+                        pass
+            wait = 30 if fails <= 2 else 300
+            print(f"[weather] fetch failed ({e}) — retrying in {wait} s", flush=True)
+            time.sleep(wait)
 
 
 _today = {}        # today's rain chance and max temperature (the last fetch)
