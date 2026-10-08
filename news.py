@@ -105,6 +105,16 @@ def _fetch(url):
 # (7 Oct probe) — a sport question reads these instead
 SPORT_FEEDS = [("WP SportoweFakty", "https://sportowefakty.wp.pl/rss.xml"),
                ("Interia Sport", "https://sport.interia.pl/feed")]
+# headlines a child never hears — removed here, not left to the model (8 Oct:
+# 1 of 3 runs told Maja "Policja zatrzymała siedemnastolatka")
+_SCARY = re.compile(
+    r"atak|zabi|zabój|zaboj|morder|zmarł|zmarl|śmier|smier|nie\s+żyj|zgin|wojn|wojsk|"
+    r"wybuch|pożar|pozar|wypad|katastrof|ofiar|zatrzyma|policj|prokur|areszt|wyrok|"
+    r"sąd\b|sad\b|nożem|strzel|przemoc|gwałt|gwalt|porw|rann|zagroż|zagroz|alarm|alert|"
+    r"dron|rakiet|bomb|zamach|terror|samobój|samoboj|tragedi|tragiczn|zwłok|zwlok|"
+    r"ciało|cialo|oszus|kradzie|napad|pobi|epidemi|wirus|nowotw|niepokoj|przerażaj|"
+    r"przerazaj|groź|groz|ewakuac|powódź|powodz|trzęsieni|trzesieni|kryzys|alkohol|"
+    r"prohibic|narkot", re.I)
 _SPORT_RX = re.compile(r"\bspor[tc]\w*|\bmecz\w*|\bpiłk\w*|\bpilk\w*|\bligi?\b|\bligach\b|"
                        r"\bwynik\w*\s+(?:meczu|meczów)", re.I)
 _sport_cache = {"t": 0.0, "items": [], "source": ""}
@@ -148,7 +158,29 @@ def context(text=""):
             child = who
     except Exception:
         pass
+    beside = None              # an adult asks, a child sits beside them (8 Oct
+    if not child:              # morning sweep: "Zagrożenie atakiem z powietrza" at breakfast)
+        try:
+            import brain
+            with state.lock:
+                others, seen_at = state.others
+            if time.time() - seen_at < 3 * faces.RECOGNISE_EVERY:
+                beside = next((o for o in others or [] if o != "?" and brain._is_child(o)), None)
+        except Exception:
+            beside = None
+    if child or beside:
+        kept = [(t, d, w) for t, d, w in items if not _SCARY.search(f"{t} {d}")]
+        print(f"[news] a child is here: {len(items) - len(kept)} of {len(items)} "
+              "headlines left out", flush=True)
+        lines = "\n".join(f"- {t}" + (f" — {d}" if d else "") + (f" ({w})" if w else "")
+                          for t, d, w in kept) or "(none suitable for a child today)"
     head = f"\nLATEST NEWS HEADLINES from {source} (RSS, fetched just now):\n{lines}\n"
+    if beside:
+        return (head + f"The user asked for the news, but {beside}, a CHILD, is right "
+                "beside them. Tell only headlines with nothing frightening (no attacks, "
+                "war, violence, crime, accidents, disasters, death) — at most 3, one "
+                "short sentence each, in Polish, \"Według " + source + "\" only once at the "
+                "start; end with exactly \"Resztę opowiem później.\" Never add news that is not listed.\n")
     if child:
         # a soft extra sentence lost to "pick the 3 most important" (tested):
         # for a child the whole instruction is different

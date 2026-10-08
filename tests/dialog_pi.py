@@ -84,7 +84,7 @@ CASES = [
     ("Usuń wiadomości", "wiadomości"),
     ("Przywróć listę zakupów", "Nie mam czego przywrócić"),
     ("Co mam na liście zakupów?", "Na liście zakupów"),
-    ("Pokaż plan dnia", "plan"),
+    ("Pokaż plan dnia", "na dziś"),       # "Oto plan…" or, near midnight, "Na dziś nic…"
     ("Jaka będzie jutro pogoda?", "W jakim mieście"),   # no town set in scratch data
     ("Zmień mój głos jak robot", "głos: robot"),
     ("Czy mogę ci poczytać?", "Słucham"),               # reading.py (disarmed below)

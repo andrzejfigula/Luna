@@ -33,8 +33,10 @@ class TimersTest(unittest.TestCase):
         timers._timers.clear()
 
     def test_timer_reminder_and_cancel_by_label(self):
-        timers.apply([{"type": "timer", "seconds": 60, "at": "", "label": "makaron"}])   # sooner than 23:59 even at 23:49
-        timers.apply([{"type": "reminder", "seconds": 0, "at": "23:59", "label": "piekarnik"}])
+        timers.apply([{"type": "timer", "seconds": 60, "at": "", "label": "makaron"}])
+        later = (datetime.datetime.now() + datetime.timedelta(minutes=30)).strftime("%H:%M")
+        # (a fixed "23:59" failed when the check ran at 23:59:47)
+        timers.apply([{"type": "reminder", "seconds": 0, "at": later, "label": "piekarnik"}])
         self.assertEqual([t["label"] for t in timers._timers], ["makaron", "piekarnik"])
         timers.apply([{"type": "cancel", "seconds": 0, "at": "", "label": "piekarnik"}])
         self.assertEqual([t["label"] for t in timers._timers], ["makaron"])
@@ -1893,6 +1895,15 @@ class KidsTest(unittest.TestCase):
                 state.others = ([], 0.0)
                 state.last_spoken_time = time.time() - 30
                 self.assertFalse(brain._just_called("No, mi się chce spać."))
+            # right after her name, but said to someone else (8 Oct morning sweep)
+            state.last_wake_time = time.time() - 3
+            with mock.patch.object(faces, "vocatives",
+                                   lambda: {"Emilka": "Emilko", "Maja": "Maju"}):
+                self.assertFalse(brain._just_called("Maja, ubieraj się."))
+                self.assertFalse(brain._just_called("Maju, ubieraj się."))
+                self.assertFalse(brain._just_called("Mamo, gdzie są moje skarpetki?"))
+                self.assertTrue(brain._just_called("Maja się nudzi."))
+                self.assertTrue(brain._just_called("Jestem zdenerwowany."))
         finally:
             state.last_wake_time, state.last_spoken_time, state.others = old
 
@@ -2337,6 +2348,16 @@ class KidsTest(unittest.TestCase):
             self.assertIn("Saturday 01.05–Monday 03.05", lw)
         finally:
             brain._TZ = old
+
+    def test_news_scary_headlines_for_children(self):
+        import news
+        for t in ("Zagrożenie atakiem z powietrza", "Policja zatrzymała siedemnastolatka",
+                  "Niepokojące nagranie krążyło w sieci", "Sejm uchwalił nocną prohibicję",
+                  "Tragiczny wypadek na A4", "Pożar hali w Łodzi"):
+            self.assertTrue(news._SCARY.search(t), t)
+        for t in ("Sejm zdecydował ws. budżetu na 2027 rok", "Polska wygrała z Holandią",
+                  "W zoo urodziła się żyrafa", "Ustawa o zabezpieczeniu artystów"):
+            self.assertFalse(news._SCARY.search(t), t)
 
     def test_news_requests(self):
         import news

@@ -293,6 +293,20 @@ def _just_called(text="", secs=12):
     English meeting, rightly kept quiet."""
     if len(text.split()) > 12 or _language_line(text):
         return False
+    # "Maja, ubieraj się" / "Emilko, chodź…" — said to someone else even right
+    # after her name (8 Oct morning sweep: "Mhm, słucham cię." to it); "Maja
+    # się nudzi" (no comma) is still about Maja, so it stays hers
+    try:
+        low = text.strip().lower()
+        first = (re.findall(r"\w+", low) or [""])[0]
+        to_someone = any(first == (v or "").lower() and first != n.lower()
+                         or re.match(re.escape(n.lower()) + r"\s*[,!]", low)
+                         for n, v in faces.vocatives().items()) or \
+            re.match(r"(?:mamo|tato|mamusiu|tatusiu|kochanie|skarbie)\b", low)
+    except Exception:
+        to_someone = False
+    if to_someone:
+        return False
     with state.lock:
         if time.time() - getattr(state, "last_wake_time", 0.0) < secs:
             return True
@@ -303,12 +317,9 @@ def _just_called(text="", secs=12):
     # spać" — 13 s after her name, judged side talk, silence)
     try:
         recent = time.time() - seen_at < 3 * faces.RECOGNISE_EVERY
-        first = (re.findall(r"\w+", text.lower()) or [""])[0]
-        to_someone = any(first in (n.lower(), (v or "").lower())
-                         for n, v in faces.vocatives().items())   # "Emilko, chodź…"
     except Exception:
-        recent, to_someone = False, False
-    return spoke < 10 and not to_someone and not (recent and [o for o in others or [] if o])
+        recent = False
+    return spoke < 10 and not (recent and [o for o in others or [] if o])
 
 
 BIRTHDAY = (2026, 9, 18)          # first switched on at home (data/ was made then)
