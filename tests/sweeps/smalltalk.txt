@@ -1,0 +1,7 @@
+Emilka|Jaki film obejrzeć dziś wieczorem?
+Andrzej|Polecisz jakąś książkę?
+Emilka|Co ugotować na kolację?
+Andrzej|Co sądzisz o sztucznej inteligencji?
+Emilka|Jestem zmęczona po pracy
+Andrzej|Nudzi mi się
+Emilka|Opowiedz mi coś ciekawego o kosmosie
