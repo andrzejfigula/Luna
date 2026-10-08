@@ -63,6 +63,9 @@ PATTERNS = [
     ("memory: private fact not kept", r"not kept — private between them"),
     ("costume (cat / dog / bunny)", r"\[fun\] costume"),
     ("errand for later (jutro / wieczorem)", r"\[errands\] for .* after"),
+    ("weather from disk (open-meteo down)", r"using the last forecast from disk"),
+    ("drawings made", r"\[draw\] done"),
+    ("drawings failed", r"\[draw\] failed"),
 ]
 
 
