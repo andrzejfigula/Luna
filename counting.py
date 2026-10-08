@@ -3,7 +3,8 @@ counting.py — counting out loud, and a stopwatch.
 
   "Policz do dwudziestu"       → hide and seek: "Chowajcie się!", then one
                                  number a second, big on her screen, and
-                                 "Kto się nie schował, ten kryje! Szukam!"
+                                 "Kto się nie schował, ten kryje!" (from 10 up;
+                                 "do pięciu" is plain counting)
   "Odliczaj od dziesięciu"     → a rocket countdown: 10, 9 … 1, "Start!"
   "Włącz stoper"               → counts up in the corner of the screen
   "Ile na stoperze?"           → how long so far
@@ -110,14 +111,17 @@ def _interrupted(t0):
         return state.touch_time > t0
 
 
-def count(direction, n, speak, play_sound):
+def count(direction, n, speak, play_sound, hide=None):
     from text_to_speech import play_clip
     numbers = list(range(1, n + 1)) if direction == "up" else list(range(n, 0, -1))
     clips = {}
     prep = threading.Thread(target=lambda: clips.update(_prepare(numbers)), daemon=True)
     prep.start()
+    # hide-and-seek only when it sounds like it: "policz do pięciu" from a child
+    # learning numbers got "Chowajcie się!" (9 Oct probe)
+    hide = (n >= 10) if hide is None else hide
     if direction == "up":
-        speak(f"Liczę do {n}! Chowajcie się!")
+        speak(f"Liczę do {n}! Chowajcie się!" if hide else f"Liczę do {n}!")
     else:
         speak(f"Odliczam od {n}!")
     prep.join(20)
@@ -146,7 +150,8 @@ def count(direction, n, speak, play_sound):
         next_beat = max(start + BEAT_SECS, time.time() + 0.12)
     time.sleep(max(0.0, next_beat - time.time()))
     if direction == "up":
-        speak("Kto się nie schował, ten kryje! Szukam!")
+        # (she can't look for anyone — whoever is "it" goes seeking)
+        speak("Kto się nie schował, ten kryje!" if hide else "Gotowe!")
     else:
         play_sound("chime")
         speak("Start!")
@@ -200,6 +205,7 @@ def handle(text, speak, play_sound):
         return True
     c = parse_count(text)
     if c:
-        count(c[0], c[1], speak, play_sound)
+        hide = True if re.search(r"chowa|chowan|kryj", low) else None
+        count(c[0], c[1], speak, play_sound, hide=hide)
         return True
     return False

@@ -1327,7 +1327,10 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             print(f"[brain] a short command, not side talk — answering ({reply[:60]!r})",
                   flush=True)
             data["to_luna"] = True
-        if data.get("to_luna") is False and not re.search(r"\bluna\b|\bluno\b", text.lower()):
+        if data.get("to_luna") is False and not lang and \
+                not re.search(r"\bluna\b|\bluno\b", text.lower()):
+            # (never while interpreting — every sentence is for the other person
+            # then; 9 Oct probe: "Gdzie jest najbliższa apteka?" got silence)
             print(f"[brain] not said to me — staying quiet ({reply[:60]!r})", flush=True)
             with state.lock:                     # they talk to each other: stop
                 state.conversation_active = False   # listening (next time: "Luna")

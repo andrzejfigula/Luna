@@ -361,7 +361,7 @@ class RoutingTest(unittest.TestCase):
             (commands, "_learn_face", lambda *a: self._mark("face") or True),
             (weather, "forecast_for", self._forecast),
             (quiz, "start", lambda *a: self._mark("quiz")),
-            (counting, "count", lambda *a: self._mark("count")),
+            (counting, "count", lambda *a, **k: self._mark("count")),
             (kids, "_brush", lambda *a: self._mark("kids")),
             (kids, "threading", self._sync_threads()),
             (kids, "start_routine", lambda *a: self._mark("kids")),

@@ -256,7 +256,10 @@ _TRANSLATE_START = ("tłumacz na", "tlumacz na", "tłumaczyć na", "tlumaczyc na
                     "przetłumacz wszystko na", "tłumacz z polskiego na", "translate to",
                     "be my interpreter", "tłumacz mnie na", "tłumacz to co mówię na")
 _TRANSLATE_END = ("koniec tłumaczenia", "przestań tłumaczyć", "wyłącz tłumacza",
-                  "stop translating", "koniec tlumaczenia")
+                  "stop translating", "koniec tlumaczenia",
+                  # "Wyłącz tryb tłumacza" switched it ON again (9 Oct probe)
+                  "wyłącz tryb tłumacza", "wylacz tryb tlumacza", "zakończ tłumaczenie",
+                  "koniec trybu tłumacza", "nie tłumacz już", "nie tłumacz")
 
 
 def _translator_language(low):
@@ -1472,7 +1475,7 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         return True
 
     # translator mode — "tłumacz na angielski" … "koniec tłumaczenia"
-    lang = _translator_language(low)
+    lang = None if any(k in low for k in _TRANSLATE_END) else _translator_language(low)
     if lang:
         import brain
         brain.set_translator(lang[0])
