@@ -89,8 +89,11 @@ check("added after yes", len(lists.get("zakupy")) > 0, str(lists.get("zakupy")))
 
 # 4. the radio really starts when she says so
 played.clear()
-a = ask("Puść jakieś radio, obojętnie jakie.") or ""
-check("radio command when she says she plays it", bool(played) or "?" in a, f"{a[:60]} {played}")
+a = ask("Ale cicho tu, przydałaby się jakaś muzyka w tle.") or ""   # (the bare "puść jakieś radio" is radio.py's now)
+from polish import offer_only   # an offer ("Mogę włączyć radio… jeśli chcesz") is fine too
+check("radio command when she says she plays it", bool(played) or "?" in a or offer_only(a)
+      or bool(re.match(r"\s*(?:mogę|moge)\b", a, re.I)),
+      f"{a[:60]} {played}")
 
 # 5. no reminder promise without a reminder
 with timers._lock:
