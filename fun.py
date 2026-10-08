@@ -118,6 +118,10 @@ def roll(speak, play_sound_async, low):
         play_sound_async("tick")
         time.sleep(0.28)
     time.sleep(0.2)
+    if re.search(r"\b(?:roll|dice|die)\b", low):          # "Roll a die" — in English
+        speak(" and ".join(str(r) for r in results) + (f" — {sum(results)} together!"
+                                                        if two else "!"))
+        return
     if two:
         speak(f"{_PIPS[results[0]].capitalize()} i {_PIPS[results[1]]} — "
               f"razem {sum(results)}!")
@@ -125,12 +129,12 @@ def roll(speak, play_sound_async, low):
         speak(f"Wypadła {_PIPS[results[0]]}!")          # what the die shows
 
 
-def flip(speak, play_sound_async):
+def flip(speak, play_sound_async, english=False):
     side = random.choice(["orzeł", "reszka"])
     _overlay("coin", 3.4, {"side": side, "t0": time.time()})
     play_sound_async("tick")
     time.sleep(1.5)
-    speak(side.capitalize() + "!")
+    speak({"orzeł": "Heads!", "reszka": "Tails!"}[side] if english else side.capitalize() + "!")
 
 
 _NUMBER = re.compile(r"\b(?:wylosuj|losuj|wybierz|podaj|daj)\s+(?:mi\s+)?(?:jakąś\s+|losową\s+)?"
@@ -222,7 +226,7 @@ def handle(text, speak, play_sound, play_sound_async):
         roll(speak, play_sound_async, low)
         return True
     if any(k in low for k in COIN):
-        flip(speak, play_sound_async)
+        flip(speak, play_sound_async, english="flip" in low or "coin" in low)
         return True
     return costume(low, speak)
 
