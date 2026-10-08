@@ -269,6 +269,13 @@ def prompt_block():
     return "\n".join(out)
 
 
+# what everyone at home would then see in her prompt — a surprise being planned,
+# a quarrel (8 Oct probe: "Andrzej planuje kolację niespodziankę dla Emilki"
+# was kept as a fact twice, despite the rule)
+_PRIVATE = re.compile(r"niespodziank\w*|\bprezent\w*|tajemnic\w*|\bsekret\w*|pokłóci\w*|"
+                      r"pokloci\w*|kłótni\w*|klotni\w*|kłóc\w*", re.I)
+
+
 def record(user_text, reply, local=False):
     """Called by brain after every answered utterance. local: a command
     handled without the model (radio, lamp, dice…) — kept as context, but a
@@ -297,6 +304,10 @@ NOT a fact:
 - words that sound like a radio, TV or someone else's phone call in the
   background rather than said to Luna (an advert, a news item, a stranger)
 - passing states ("is tired", "went shopping") unless they matter later
+- anything private between the people of the home that the others shouldn't
+  hear from Luna — quarrels, complaints about each other, worries about each
+  other, a surprise or a present being planned: everyone at home sees these
+  facts (8 Oct: "pokłóciłem się z Emilką" would have reached Emilka)
 - details of a discussion: at most TWO facts per topic — ten facts about
   one work project become one ("Andrzej pracuje nad systemem do certyfikatów
   i transakcji")
@@ -438,9 +449,16 @@ def consolidate():
     facts = facts[:MEMORY_MAX_FACTS]
     if tidy and len(facts) > MERGE_ABOVE:
         facts = merge_topics(facts)
+    private = [f for f in facts if _PRIVATE.search(f)]
+    for f in private:
+        print(f"[memory] not kept — private between them: {f}", flush=True)
+    facts = [f for f in facts if f not in private]
     with _lock:
         facts += [f for t, f in _added if t >= t0 and f not in facts]
-    episode = str(data.get("episode", "")).strip()
+    episode = " ".join(s for s in re.split(r"(?<=[.!?])\s+", str(data.get("episode", "")).strip())
+                       if not _PRIVATE.search(s))
+    data["threads"] = [t for t in data.get("threads", [])
+                       if not _PRIVATE.search(str(t.get("question", "")))]
     with _lock:
         mem = _load()                        # re-read: a wipe may have happened
         if mem.get("_wiped_at", 0) > t0:

@@ -1874,6 +1874,12 @@ class KidsTest(unittest.TestCase):
             brain._history[:] = old_h
             state.person = old_p
 
+    def test_memory_private(self):
+        import memory
+        self.assertTrue(memory._PRIVATE.search("Andrzej planuje kolację niespodziankę dla Emilki"))
+        self.assertTrue(memory._PRIVATE.search("Andrzej pokłócił się z Emilką"))
+        self.assertFalse(memory._PRIVATE.search("Maja ma basen w czwartki"))
+
     def test_no_grace_after_bare_wake(self):
         import speech_to_text as stt
         old = (state.convo_expired_time, state.convo_closed_hard, state.bare_wake)
