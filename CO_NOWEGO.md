@@ -14,6 +14,10 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 > „**Ile masz lat?**” (urodziny 18 września) · „**Kiedy Maja ma imieniny?**” (sprawdzi w internecie) ·
 > „**Kiedy pełnia?**” (Luna liczy fazy Księżyca) · „Zadaj mi **trudną zagadkę**” · „Zróbmy **quiz z wiedzy ogólnej**” ·
 > wychodząc z domu: „Weź parasol — **wieczorem** ma padać” · Maja przy zadaniach: tylko podpowiedzi, nawet gdy obok siedzi tata.
+>
+> **Nowe (9.10):** „**Kiedy najbliższy długi weekend?**” — policzone na ten rok (24–27.12, a z 28–31.12 urlopu — 11 dni) ·
+> „Jak ubrać Maję do szkoły?” — z prognozy na jutro rano · „**Włącz radio dla dzieci**” · „Ile km do Krakowa?” — sprawdzi w internecie ·
+> gdy obok jest Maja, wiadomości tylko spokojne · „Mamo, …”, „Tato, …”, „Kochanie, …” powiedziane do kogoś innego — Luna się nie wtrąca.
 
 ## Rozmowa
 
