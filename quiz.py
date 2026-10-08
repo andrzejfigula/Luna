@@ -955,7 +955,15 @@ def answer(text, speak, play_sound_async):
         if _q is None:
             return False
         if re.search(r"\b(?:" + "|".join(map(re.escape, _STOP)) + r")\b", low) and len(words) <= 5:
-            speak("Dobrze, kończymy.")
+            # the open question's answer — a child wants to know it was a tortoise
+            # (8 Oct probe: "Koniec" mid-riddle → just "Dobrze, kończymy.")
+            if _q["kind"] == "guess":
+                tell = f" Myślałam o liczbie {_q.get('secret')}." if _q.get("secret") else ""
+            else:
+                right = str(_q.get("right") or "")
+                tell = ("" if not right else f" {right}" if right.startswith("To ")
+                        else f" A odpowiedź: {right}")
+            speak("Dobrze, kończymy." + tell)
             if _q["kind"] == "guess":
                 _q = None
                 _card(None)

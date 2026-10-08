@@ -1603,6 +1603,7 @@ class KidsTest(unittest.TestCase):
             self.assertNotIn("28", said[-1])
             self.assertTrue(quiz.answer("Koniec", said.append, lambda *a: None))
             self.assertIn("Do tej pory 1 na 2", said[-1])
+            self.assertIn("A odpowiedź: 4 razy 7 to 28.", said[-2])     # the open one, told
             self.assertIsNone(quiz._q)
             # plus / minus: tens first, then ones — never the result
             h = quiz._hint_for({"card": "71 − 23 = ?", "kind": "sub"})
