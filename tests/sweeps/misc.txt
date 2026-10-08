@@ -1,0 +1,16 @@
+Maja|Jak jest po angielsku motyl?
+Maja|Jak się pisze słowo żółw?
+Emilka|Przetłumacz na angielski: czy mogę zapłacić kartą?
+Andrzej|Ile to jest siedemnaście procent z dwustu czterdziestu?
+Maja|Zaśpiewaj mi piosenkę
+Maja|Opowiedz dowcip
+Emilka|Jaki dziś jest dzień tygodnia?
+Andrzej|Kiedy jest najbliższy długi weekend?
+Maja|Czy jesteś żywa?
+Maja|Lubisz mnie?
+Emilka|Co jutro mamy w planach?
+Andrzej|Ile kilometrów jest z Wrocławia do Krakowa?
+Maja|Ile nóg ma pająk?
+Emilka|Przypomnij mi, co mówiłam wczoraj o dentystce
+Andrzej|Ile kosztuje bitcoin?
+Maja|Dobranoc Luna

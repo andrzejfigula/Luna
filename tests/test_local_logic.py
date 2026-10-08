@@ -2326,6 +2326,15 @@ class KidsTest(unittest.TestCase):
             self.assertEqual(brain._calendar_line("Co tam?", now), "")
             self.assertEqual(brain._calendar_line("Oni mają kota.", now), "")
             self.assertEqual(brain._calendar_line("Maja", now), "")
+            # long weekends, counted (8 Oct: "sobota 1 listopada" — a Sunday)
+            line = brain._calendar_line("Kiedy jest najbliższy długi weekend?", now)
+            self.assertIn("Thursday 24.12–Sunday 27.12 (4 free days", line)
+            self.assertIn("01.11 is a Sunday", line)
+            self.assertTrue(brain._calendar_line("Kiedy majówka?", now))
+            from datetime import date
+            lw = brain._long_weekends(date(2027, 4, 10))
+            self.assertIn("Thursday 27.05 only; with Friday 28.05 taken off: 4 days", lw)
+            self.assertIn("Saturday 01.05–Monday 03.05", lw)
         finally:
             brain._TZ = old
 

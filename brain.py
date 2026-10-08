@@ -90,7 +90,7 @@ _DATEY = re.compile(
     r"\b(?:kiedy|którego|ktorego|jaki\s+dzie[nń]|niedziel|poniedzia|wtor|czwart|"
     r"piąt(?:ek|ku)|sobot|weekend|tydzie|tygodni|miesi[aą]c|stycz|kwie[ct]|sierp|"
     r"wrze[sś]|październik|paździer|listopad|zmian\w*\s+czasu|"
-    r"czas\w*\s+(?:letni|zimowy)|ile\s+dni|święt|swiet|wigili|sylwest|wielkanoc|"
+    r"czas\w*\s+(?:letni|zimowy)|ile\s+dni|majówk|majowk|wolne|święt|swiet|wigili|sylwest|wielkanoc|"
     r"weekday|sunday|monday|daylight|christmas)|"
     # whole words only: "mają" is not May, "data" not "datek" ("Maja" is Maja)
     r"\b(?:dat[aęy]|środ[aęy]|środzie|lut(?:y|ego|ym)|mar(?:zec|ca|cu)|maj|maju|"
@@ -126,9 +126,77 @@ def _holidays_ahead(day, n=6):
                 (date(y, 11, 1), "Wszystkich Świętych"),
                 (date(y, 11, 11), "Święto Niepodległości"),
                 (date(y, 12, 6), "Mikołajki"), (date(y, 12, 24), "Wigilia"),
-                (date(y, 12, 25), "Boże Narodzenie"), (date(y, 12, 31), "Sylwester")]
+                (date(y, 12, 25), "Boże Narodzenie"), (date(y, 12, 26), "drugi dzień Świąt"),
+                (date(y, 12, 31), "Sylwester")]
     out = sorted((d, name) for d, name in out if d > day)[:n]
     return ", ".join(f"{name} {d:%d.%m} ({d:%A}, in {(d - day).days} days)" for d, name in out)
+
+
+def _days_off(y):
+    """Poland's statutory days off in year y (Wigilia since 2025)."""
+    from datetime import date, timedelta
+    e = _easter(y)
+    out = {date(y, 1, 1), date(y, 1, 6), e + timedelta(days=1), date(y, 5, 1),
+           date(y, 5, 3), e + timedelta(days=60), date(y, 8, 15), date(y, 11, 1),
+           date(y, 11, 11), date(y, 12, 25), date(y, 12, 26)}
+    if y >= 2025:
+        out.add(date(y, 12, 24))
+    return out
+
+
+def _long_weekends(day, horizon=200, n=3):
+    """The next free stretches of 3+ days around a day off (or 4+ with one
+    bridge day taken) — "najbliższy długi weekend?" got "sobota 1 listopada"
+    (a Sunday in 2026) on 8 Oct."""
+    from datetime import timedelta
+    one = timedelta(days=1)
+    off = _days_off(day.year) | _days_off(day.year + 1)
+
+    def free(d):
+        return d.weekday() >= 5 or d in off
+
+    def stretch(d):
+        a = b = d
+        while free(a - one):
+            a -= one
+        while free(b + one):
+            b += one
+        return a, b
+    out, seen, d = [], set(), day
+    while d < day + timedelta(days=horizon) and len(out) < n:
+        d += one
+        if d not in off or d in seen:
+            continue
+        a, b = stretch(d)
+        seen.update(x for x in off if a <= x <= b)
+        days = (b - a).days + 1
+        bridge = ""
+        for gap, other in ((a - one, a - 2 * one), (b + one, b + 2 * one)):
+            if free(other):
+                oa, ob = stretch(other)
+                total = (max(b, ob) - min(a, oa)).days + 1
+                bridge = f"; with {gap:%A %d.%m} taken off: {total} days"
+        if not bridge:                    # 2–4 working days to the next holiday stretch
+            for k in range(2, 5):
+                nxt = b + (k + 1) * one
+                if nxt in off and all(not free(b + j * one) for j in range(1, k + 1)):
+                    oa, ob = stretch(nxt)
+                    bridge = (f"; with {k} days {b + one:%d.%m}–{b + k * one:%d.%m} taken off: "
+                              f"{a:%d.%m}–{ob:%d.%m}, {(ob - a).days + 1} days")
+                    break
+        note =("; the Saturday holiday gives employees another day off"
+                if any(x.weekday() == 5 for x in off if a <= x <= b) else "")
+        if days >= 3 or bridge:
+            out.append(f"{a:%A %d.%m}–{b:%A %d.%m} ({days} free days{bridge}{note})"
+                       if days > 1 else f"{a:%A %d.%m} only{bridge}")
+    wd = ["poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela"]
+    ahead = [x for x in sorted(off) if day < x <= day + timedelta(days=120)]
+    nothing = [f"{x:%d.%m} is a {x:%A}" for x in ahead if x.weekday() in (2, 6)]
+    return ("DAYS OFF AHEAD with their weekday (this year — weekdays you remember are "
+            "from other years, never use them): "
+            + ", ".join(f"{x:%d.%m.%Y} {wd[x.weekday()]}" for x in ahead)
+            + ". Long weekends, counted here: " + "; ".join(out)
+            + (". No long weekend from: " + ", ".join(nothing[:3]) if nothing else "") + ".")
 
 
 
@@ -354,7 +422,7 @@ def _calendar_line(text, now=None):
     line = (f"Calendar (each week Monday–Sunday, today is {day:%A %d.%m.%Y}): "
             + ", ".join(weeks) + ".")
     line += _clock_change(day)
-    return line + f" Coming up: {_holidays_ahead(day)}.\n"
+    return line + f" Coming up: {_holidays_ahead(day)}. {_long_weekends(day)}\n"
 
 
 def _clock_change(day):
