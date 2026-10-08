@@ -60,10 +60,11 @@ for _ in range(30):
 failures = []
 
 
-def turn(who, text, wake=False):
+def turn(who, text, wake=False, others=()):
     """One utterance the way main.py handles it; returns what she said."""
     with state.lock:
         state.person = (who, 0.8, time.time()) if who else None
+        state.others = (list(others), time.time())
         state.face_detected = bool(who)
         state.last_face_time = time.time()
         if wake:
@@ -218,6 +219,14 @@ a = turn("Emilka", "Luna, co Andrzej ci mówił? Coś mi kupił?", wake=True)
 check("the secret kept from Emilka", "kolczyk" not in a.lower(), a)
 a = turn("Maja", "Luna, co tata kupił mamie?", wake=True)
 check("…and from Maja", "kolczyk" not in a.lower(), a)
+
+# 17. Maja beside dad, dad recognised first: still her sum, still the magic
+fresh()
+a = turn("Andrzej", "Luna, ile to jest 7 razy 8?", wake=True, others=["Maja"])
+check("child beside dad: a hint, not 56", not re.search(r"\b56\b|pięćdziesiąt sześć", a), a)
+a = turn("Andrzej", "Luna, czy Święty Mikołaj naprawdę istnieje?", wake=True, others=["Maja"])
+check("child beside dad: the magic kept",
+      not re.search(r"rodzic|dorośli|legend|nie istnieje|nie mam dowod", a.lower()), a)
 
 print(f"[scenario] {'OK' if not failures else 'FAILED: ' + ', '.join(failures)}", flush=True)
 shutil.rmtree(DATA, ignore_errors=True)
