@@ -662,7 +662,11 @@ def _finish(speak, play_sound_async, early=False):
         _q = None
         if answered:
             _card(f"{score} / {answered}", "do tej pory", None, secs=5)
-            speak(f"Do tej pory {score} na {answered}. Zagramy kiedy indziej do końca?")
+            # "0 na 2" alone was flat for a child: a kind word with a low score
+            speak(f"Do tej pory {score} na {answered}."
+                  + (" Następnym razem pójdzie lepiej — ćwiczenie czyni mistrza!"
+                     if score * 2 < answered or score == 0 else "")
+                  + " Zagramy kiedy indziej do końca?")
         else:
             _card(None)
         return
@@ -924,6 +928,21 @@ def _hint_for(q):
         a, b = int(m.group(1)), int(m.group(3))
         return (f"Podpowiedź: {a} razy {b} to tyle, co {b} dodane {a} razy. "
                 "Policz po kolei!")
+    # "71 − 23": tens first, then ones (8 Oct: "Policz krok po kroku" was all she said)
+    m = re.match(r"\s*(\d+)\s*([+−:])\s*(\d+)", str(q.get("card", "")))
+    if m:
+        a, op, b = int(m.group(1)), m.group(2), int(m.group(3))
+        tens, ones = b // 10 * 10, b % 10
+        if op == ":":
+            return f"Podpowiedź: ile razy {b} mieści się w {a}? Albo: {b} razy ile daje {a}?"
+        verb, word = ("dodaj", "w górę") if op == "+" else ("odejmij", "w dół")
+        if tens and ones:
+            return (f"Podpowiedź: najpierw {verb} dziesiątki — {tens}, a potem jeszcze {ones}.")
+        if tens:                          # "40 − 20": two tens, not twenty steps
+            n = tens // 10
+            return (f"Podpowiedź: {verb} {n} "
+                    f"{'dziesiątkę' if n == 1 else 'dziesiątki' if n < 5 else 'dziesiątek'}.")
+        return f"Podpowiedź: zacznij od {a} i policz {b} {word}."
     return "Pomyśl jeszcze chwilkę — dasz radę! Policz krok po kroku."
 
 
