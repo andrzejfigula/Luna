@@ -42,6 +42,17 @@ PATTERNS = [
     ("audio underruns (speech)", r"underrun during speech"),
     ("errors / tracebacks", r"Traceback|Error:|\bERROR\b"),
     ("restarts", r"^\[Luna\] Running on"),
+    # 7–8 Oct additions
+    ("cloud wake not believed (made up)", r"cloud wake not believed"),
+    ("English call: cloud checks paused", r"English call/video in the room"),
+    ("game chosen after her offer", r"game chosen after her offer"),
+    ("game NOT started (no offer / choosing)", r"not started"),
+    ("answered: short command / yes-no", r"a short command, not side talk"),
+    ("answered: her name was just said", r"her name was just said"),
+    ("cancel matched nothing → corrected", r"cancel matched nothing"),
+    ("command failed (answer kept)", r"\[brain\] command .* failed"),
+    ("Vosk's right answer taken (game)", r"is the game's right answer"),
+    ("leaving / goodbye", r"goodbye — conversation closed"),
 ]
 
 
