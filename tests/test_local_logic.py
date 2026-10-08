@@ -1852,6 +1852,14 @@ class KidsTest(unittest.TestCase):
             self.assertTrue(idle_engine.check_mute("Nie przeszkadzaj"))
             self.assertFalse(idle_engine.check_mute("jest cicho w domu"))
             self.assertFalse(idle_engine.check_mute("za cicho mówisz"))
+            # until a clock time, with a reason first (9 Oct workday sweep)
+            import datetime as dt
+            at13 = dt.datetime(2026, 10, 12, 13, 0).timestamp()
+            self.assertEqual(idle_engine._until_clock("bądź cicho do 15", at13)[0], 7200)
+            self.assertEqual(idle_engine._until_clock("cicho do trzeciej", at13)[0], 7200)
+            self.assertEqual(idle_engine._until_clock("cicho do wpół do drugiej", at13)[0], 1800)
+            self.assertIsNone(idle_engine._until_clock("nie przeszkadzaj do rana", at13))
+            self.assertTrue(idle_engine.check_mute("Mam spotkanie, bądź cicho do 15"))
         finally:
             state.proactive_muted_until = old
 

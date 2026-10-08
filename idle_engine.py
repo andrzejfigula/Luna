@@ -38,18 +38,47 @@ _last_proactive = 0.0
 
 # ── quiet / mute ──────────────────────────────────────────────────────────────
 
+def _until_clock(low, now=None):
+    """"…do 15" / "do wpół do trzeciej" → (seconds until then, the words used),
+    or None. An hour under 12 that has passed today means the afternoon one."""
+    import clockgame
+    m = re.search(r"\bdo\s+(?:godziny\s+)?((?:wpół\s+do\s+)?[\w:.]+(?:\s+\w+)?)$", low)
+    if not m or re.search(r"\bdo\s+(?:rana|jutra)\b", low):
+        return None
+    t = clockgame.parse(m.group(1))
+    if not t:
+        return None
+    now_t = time.localtime(now or time.time())
+    h, mi = t
+    mins_now = now_t.tm_hour * 60 + now_t.tm_min
+    target = h * 60 + mi
+    if target <= mins_now and h < 12:
+        target += 12 * 60                            # "do trzeciej" at 13:00 → 15:00
+    if target <= mins_now:
+        return None
+    return (target - mins_now) * 60, set(re.findall(r"\w+", m.group(1)))
+
+
 def check_mute(text):
     """Called from the voice loop with every recognised utterance. Returns
     True when the utterance was a mute/unmute command (so it needn't reach
     the brain)."""
     low = text.lower().strip(" .!?")
+    # "Mam spotkanie, bądź cicho do 15" — the reason before the comma is fine
+    # (9 Oct sweep: it went to the model, which said "będę cicho do piętnastej"
+    # and nothing was muted)
+    if "," in low and any(p in low.split(",", 1)[1] for p in MUTE_PHRASES):
+        low = low.split(",", 1)[1].strip()
     # "bądź cicho przez godzinę", "nie przeszkadzaj do rana" (7 Oct probe: the
     # words after "cicho" sent it to the model, which answered "dobrze, będę
     # cicho" and changed her speech speed instead)
     import timers
     secs, used = timers.parse_duration(low)
     until_morning = bool(re.search(r"\bdo\s+(?:rana|jutra)\b", low))
-    extra = set(used or ()) | {"przez", "na", "do", "rana", "jutra"}
+    extra = set(used or ()) | {"przez", "na", "do", "rana", "jutra", "godziny"}
+    till = _until_clock(low)                       # "do 15", "do wpół do trzeciej"
+    if till:
+        secs, extra = till[0], extra | till[1]
 
     def bare(phrases, allow=()):
         # the phrase and only fillers around it: "Luna, cicho!" — not "za cicho",
