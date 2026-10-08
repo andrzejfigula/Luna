@@ -1986,6 +1986,20 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(kids.offered_routine("Mogę ci ułożyć prosty poranny plan."), "poranek")
         self.assertIn("umyj zęby", kids.DEFAULT_STEPS["poranek"])
 
+    def test_lamp_off_later(self):
+        import fun
+        said = []
+        try:
+            fun.lamp_on()
+            fun.handle("Zgaś lampkę o 23:15", said.append, None, None)
+            self.assertEqual(said[-1], "Lampka zgaśnie o dwudziestej trzeciej piętnaście.")
+            fun.lamp_on()
+            fun.handle("Wyłącz lampkę za kwadrans", said.append, None, None)
+            self.assertEqual(said[-1], "Lampka zgaśnie za 15 minut.")
+            self.assertTrue(fun.lamp_lit())
+        finally:
+            fun.lamp_off()
+
     def test_move_alarm(self):
         import commands
         import timers

@@ -202,11 +202,24 @@ def handle(text, speak, play_sound, play_sound_async):
     if any(k in low for k in LAMP_OFF):
         import timers
         secs, _ = timers.parse_duration(low) if re.search(r"\bza\b", low) else (None, None)
+        when = None
+        if not secs and re.search(r"\bo\s+(?:godzinie\s+)?[\w:.]+", low):
+            import errands                    # "zgaś lampkę o 21" — at that time
+            hm, _ = errands._clock(low)
+            if hm:
+                hh, mm = (int(x) for x in hm.split(":"))
+                t = time.localtime()
+                target = time.mktime((t.tm_year, t.tm_mon, t.tm_mday, hh, mm, 0, 0, 0, -1))
+                if target <= time.time():
+                    target += 86400
+                secs = target - time.time() + 0.5
+                import clock
+                when = f"o {clock.hour_locative(hh, mm)}"
         if secs and lamp_lit():               # "wyłącz lampkę za kwadrans" — later
             with state.lock:
                 col = (state.overlay[2] or {}).get("col")
             lamp_on(col, secs)
-            speak(f"Lampka zgaśnie za {timers.say_duration(secs)}.")
+            speak(f"Lampka zgaśnie {when or 'za ' + timers.say_duration(secs)}.")
             return True
         lamp_off()
         return True
