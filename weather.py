@@ -238,7 +238,7 @@ def prompt_line():
     return (s + " Use it when asked about the weather, or briefly when it "
             "matters (going out, a morning greeting) — don't recite it unasked. "
             "\"Co/jak się ubrać\" is a weather question: advise from THIS forecast for "
-            "that time (school asked about in the evening = \"jutro\" 07:00) naming its temperature "
+            "that time (school asked about after about 14:00 = \"jutro\" 07:00, \"dziś rano\" is gone) naming its temperature "
             "and rain — never \"jeśli będzie zimno…\".\n")
 
 
