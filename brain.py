@@ -551,8 +551,15 @@ Always answer as JSON with exactly these keys:
                 kotka / pieska / zajączka" (ears on your face). A game
                 only once ONE game was chosen — named by them, or a "tak" to
                 the single game you proposed; while you list options, no
-                command. Never play a game inside your reply (no riddle or
-                quiz question of your own) — start it with its command.
+                command. Never play one of THESE games inside your reply (no
+                riddle or maths / English / capitals question of your own) —
+                start it with its command. A quiz on a topic with no command
+                (wiedza ogólna, historia, zwierzęta, filmy) or a hard riddle
+                for a grown-up: run it yourself, one question per reply, wait
+                for their answer, say if it's right AND ask the next question
+                in the same reply, keep the score, 5 questions, then the score;
+                "koniec" ends it with the score so far — never claim to start
+                one and then ask nothing.
                 When none of these is exactly what they
                 asked for, use NO command — never a different one in its
                 place ("nie przeszkadzaj" is not "włącz radio", "zgaś ekran"
@@ -1226,7 +1233,10 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
         set_now = timers.apply(data.get("actions") or [], said=text)
         lists.apply(data.get("actions") or [])
         if any("nothing matched" in d for d in set_now or []) and not re.search(
-                r"\bnie\s+(?:mam|widzę|ma)\b", reply, re.I):
+                r"\bnie\s+(?:mam|widzę|ma)\b", reply, re.I) and re.search(
+                r"przypom|minutnik|budzik|alarm|timer|remind", text, re.I):
+            # (only when they spoke of one — "Koniec" ending a quiz came with a
+            # stray cancel, and the correction about a reminder made no sense)
             # "Jasne, usunę przypomnienie o basenie." — there was none (7 Oct
             # probe): say so rather than leave a removal that never happened
             extra = "Ojej, właściwie nie widzę takiego przypomnienia — nie było czego usuwać."
