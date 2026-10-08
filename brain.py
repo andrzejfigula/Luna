@@ -1096,8 +1096,10 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   + (_morning_line() if not translator() else "")
                   + ("They have just said your name — this message is for you "
                      "(to_luna true).\n" if _just_called(text) else "")
-                  + ("This message IS said to you — answer it, warmly and briefly "
-                     "(to_luna true).\n" if _forced else "")
+                  + ("This message IS said to you — to_luna MUST be true and "
+                     "\"reply\" must not be empty: answer it, warmly and briefly (a "
+                     "statement like \"Kupiłam mleko\" gets a short reaction, e.g. "
+                     "\"Super — to skreślam mleko z listy.\").\n" if _forced else "")
                   + _variety_rule()
                   + _translator_rule()
                   + _length_rule()
@@ -1188,8 +1190,8 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                 # asked once more, told it's for her — a canned "Jestem tutaj.
                 # Opowiedz mi, co się dzieje." answered "Kupiłam mleko" (8 Oct)
                 return _ask_again(text, image_b64, detail, on_sentence, context)
-            if not reply.strip():
-                reply = "Jestem tutaj. Opowiedz mi, co się dzieje."
+            if not reply.strip():                # even the second time: a neutral "yes?"
+                reply = "Mhm, słucham cię."
                 if on_sentence:
                     on_sentence(reply)
             print("[brain] her name was just said — answering", flush=True)
