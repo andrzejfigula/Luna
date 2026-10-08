@@ -232,7 +232,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Liczby i godziny | Luna lepiej wymawia duże liczby, godziny („dwunasta trzydzieści”), temperatury, daty i ułamki w przepisach („pół szklanki”) |
 | Wiadomość — anuluj | po „nagraj wiadomość” wystarczy „anuluj”, żeby nic nie nagrała |
 | Pomysły na zakupy | „Luna, wymyśl, co jeszcze kupić” — Luna podsuwa pomysły, ale dopisuje je do listy dopiero po „tak, dodaj” |
-| Zadania z matmy | gdy Maja pyta „ile to 36 podzielić na 4?”, Luna nigdy nie poda wyniku — daje podpowiedź i czeka na odpowiedź Mai |
+| Zadania z matmy | gdy Maja pyta „ile to 36 podzielić na 4?”, Luna nigdy nie poda wyniku — daje podpowiedź i czeka na odpowiedź Mai (także gdy obok siedzi tata); Maja może sprawdzić swój wynik: „7 razy 8 to 56?” — „Tak, brawo!” albo podpowiedź |
 | Co dziś? | powiedzcie raz „Luna, zapamiętaj, że Maja ma basen w czwartki” — w czwartek rano na „Dzień dobry” Luna sama przypomni: „dziś basen” |
 | Urodziny Luny | Luna ma urodziny 18 września (wtedy pierwszy raz się włączyła) — „Ile masz lat?” → „Mam dopiero trzy tygodnie!”; „Zaśpiewaj piosenkę” — prawdziwy tekst z refrenem |
 | Kotek, piesek, zajączek | „Luna, pokaż mi kotka” / „zamień się w pieska” / „bądź zajączkiem” — Luna na 25 sekund dostaje uszy (i wąsy) na swojej buzi; „zdejmij uszy” kończy |
