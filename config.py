@@ -663,8 +663,9 @@ WAVE_CONFIRM_MIN_GAP   = 3.0
 WAVE_BACK_GAP          = 300   # and waves back at most every 5 min: 37 wave-backs on
                                # 7 Oct with Andrzej working at the desk — people wave
                                # hello when they come or go, not every few minutes
-WAVE_SPEAK_GAP         = 900   # she waves back every time, but SAYS hello at most
-                               # this often   # seconds between confirmation requests
+WAVE_SPEAK_GAP         = 1800  # she waves back every time, but SAYS hello at most
+                               # this often (8 Oct: ~6 spoken hellos in an afternoon of
+                               # Andrzej working — mostly hands moving, not hellos)
 
 # Local wave-vs-object check: skin colour. The face gives the person's own
 # skin tone (Cr/Cb statistics, adapts to lighting); an open empty hand is
