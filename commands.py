@@ -945,9 +945,18 @@ _COMPOUND = re.compile(r"^(.{3,60}?)(?:,?\s+i\s+|,?\s+a\s+potem\s+|,\s*potem\s+)
                        r"dobranoc|ustaw|obudź|obudz)\b.*)$", re.I)
 
 
+_LATER_OFF = re.compile(r"^(?:luna,?\s+)?(za\s+(?:\w+\s+){0,2}?(?:minut\w*|godzin\w*|kwadrans|"
+                        r"sekund\w*))[,]?\s+((?:wyłącz|wylacz|zgaś|zgas)\s+.+?)[.!]?$", re.I)
+
+
 def handle(text, speak, play_sound, _polite=True, _split=True):
     """Handle a local command. Returns True when the utterance was one (and
     must not go to the model)."""
+    later = _LATER_OFF.match(text.strip()) if _split else None
+    if later:
+        # "Za 10 minut wyłącz radio" stopped it at once (8 Oct sweep): the time
+        # goes to the end, where the radio / lamp / sound timers look for it
+        text = f"{later.group(2)} {later.group(1).lower()}"
     m = _COMPOUND.match(text.strip()) if _split else None
     if m and len(_words(m.group(1))) <= 6:
         # "Włącz lampkę i opowiedz bajkę" — the lamp came on and the story was

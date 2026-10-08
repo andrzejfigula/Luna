@@ -1986,6 +1986,16 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(kids.offered_routine("Mogę ci ułożyć prosty poranny plan."), "poranek")
         self.assertIn("umyj zęby", kids.DEFAULT_STEPS["poranek"])
 
+    def test_later_off(self):
+        import commands
+        import radio
+        seen = []
+        with mock.patch.object(radio, "handle", lambda text, speak: seen.append(text) or True):
+            commands.handle("Za 10 minut wyłącz radio", lambda *a, **k: None,
+                            lambda *a, **k: True)
+        self.assertIn("wyłącz radio za 10 minut", seen)
+        self.assertTrue(radio._SLEEP.search("wyłącz radio za 10 minut"))
+
     def test_panstwa_miasta(self):
         import fun
         said = []

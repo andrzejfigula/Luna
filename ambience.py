@@ -189,7 +189,17 @@ def playing():
 def handle(text, speak):
     low = text.lower().strip(" .!?")
     words = re.findall(r"\w+", low)
-    if any(k in low for k in _OFF) and len(words) <= 5:
+    if any(k in low for k in _OFF) and len(words) <= 7:
+        import timers
+        secs, _ = timers.parse_duration(low) if re.search(r"\bza\b", low) else (None, None)
+        if secs:                                # "wyłącz szum za pół godziny" — later
+            with _lock:
+                p = _player
+                if p:
+                    p["until"] = time.time() + secs
+            speak(f"Dobrze, wyłączy się za {timers.say_duration(secs)}." if p
+                  else "Nic nie szumi.")
+            return True
         if not stop():
             speak("Nic nie szumi.")
         return True

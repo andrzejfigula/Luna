@@ -200,6 +200,14 @@ def handle(text, speak, play_sound, play_sound_async):
                           and not any(k in low for k in COIN)):
         return False                       # "czy możesz rzucić kostką?" is a request
     if any(k in low for k in LAMP_OFF):
+        import timers
+        secs, _ = timers.parse_duration(low) if re.search(r"\bza\b", low) else (None, None)
+        if secs and lamp_lit():               # "wyłącz lampkę za kwadrans" — later
+            with state.lock:
+                col = (state.overlay[2] or {}).get("col")
+            lamp_on(col, secs)
+            speak(f"Lampka zgaśnie za {timers.say_duration(secs)}.")
+            return True
         lamp_off()
         return True
     colour = _colour(low)
