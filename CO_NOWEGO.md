@@ -247,6 +247,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Państwa-miasta | „Luna, zagrajmy w państwa-miasta” — Luna losuje literę (duża na ekranie), odmierza minutę i woła „Stop!”; „nowa litera” — następna runda |
 | Wyłącz później | „Za 10 minut wyłącz radio”, „wyłącz radio o 23”, „zgaś lampkę o 21”, „wyłącz lampkę za kwadrans”, „wyłącz szum za pół godziny”; „przesuń budzik na wpół do ósmej” — przestawia (nie dodaje drugiego) |
 | Rysunki | „Luna, **narysuj mi** jednorożca / smoka na rowerze / nasz dom” — po ok. 10 sekundach prawdziwy obrazek na ekranie (wesoły, dla dzieci); „narysuj siebie” (autoportret Luny), „narysuj naszą rodzinę”, „narysuj jeszcze raz”, „pokaż mi obrazek kota”; „pokaż rysunki” — ostatnie jeszcze raz. Do 25 rysunków dziennie |
+| Dobranoc (dorośli) | wieczorem „Dobranoc, Luna” — oprócz budzika Luna powie, jak będzie jutro rano: „Jutro rano 8 stopni i może padać — przyda się parasol.” |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 
