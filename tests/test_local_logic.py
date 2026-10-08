@@ -1997,6 +1997,11 @@ class KidsTest(unittest.TestCase):
         self.assertIn("robota", drawing._subject("siebie"))
         self.assertIn("rodzinę", drawing._subject("naszą rodzinę"))
         self.assertEqual(drawing._subject("smoka"), "smoka")
+        got = []
+        with mock.patch.object(drawing, "draw", lambda w, speak, intro="": got.append(w) or True):
+            drawing.handle("Narysuj mi smoka", lambda t: None)
+            drawing.handle("Narysuj jeszcze raz", lambda t: None)
+        self.assertEqual(got, ["smoka", "smoka"])
         self.assertTrue(drawing._SHOW.search("Pokaż mi jeszcze raz rysunek"))
         self.assertEqual(drawing._SHOW_OF.match("Pokaż mi obrazek kota").group(1), "kota")
         self.assertIsNone(drawing._SHOW_OF.match("Pokaż mi obrazek"))

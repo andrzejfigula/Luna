@@ -39,6 +39,7 @@ _SHOW = re.compile(r"\b(?:pokaż|pokaz)\s+(?:mi\s+)?(?:jeszcze\s+raz\s+)?(?:te\s
                    r"(?:rysun\w*|obraz\w*)\b", re.I)
 _lock = threading.Lock()
 _last = [0.0]
+_last_what = [""]              # "narysuj jeszcze raz" — what it was
 
 
 def wants(text):
@@ -193,6 +194,13 @@ def handle(text, speak):
     if _SHOW.search(text or "") and len(text.split()) <= 6:
         return show_saved(speak)
     what = wants(text)
+    if what and re.fullmatch(r"(?:to\s+)?(?:jeszcze(?:\s+raz)?|jeszcze\s+jedn\w*|inn\w*|drugi\w*|again|another(?:\s+one)?)", what, re.I):
+        # "narysuj jeszcze raz" — the same thing again, a new picture
+        if not _last_what[0]:
+            speak("A co mam narysować?")
+            return True
+        what = _last_what[0]
     if what:
+        _last_what[0] = what
         return draw(what, speak)
     return False
