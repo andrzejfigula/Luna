@@ -1986,6 +1986,13 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(kids.offered_routine("Mogę ci ułożyć prosty poranny plan."), "poranek")
         self.assertIn("umyj zęby", kids.DEFAULT_STEPS["poranek"])
 
+    def test_where_name_first(self):
+        import commands
+        for t, who in (("Czy Maja już wróciła?", "Maja"), ("Czy tata jest w domu?", "tata"),
+                       ("Czy Andrzej był dziś?", "Andrzej")):
+            m = commands._WHERE.search(t) or commands._WHERE2.search(t)
+            self.assertEqual(m.group(1), who, t)
+
     def test_compound_split(self):
         import commands
         m = commands._COMPOUND.match("Włącz lampkę i opowiedz bajkę")

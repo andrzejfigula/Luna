@@ -448,6 +448,10 @@ _WHERE = re.compile(r"\b(?:gdzie\s+(?:jest|się\s+podziała?|podziała?\s+się)\
                     r"(?:kiedy\s+)?(?:ostatnio\s+)?widziała[sś]\s+(?:dziś\s+|dzisiaj\s+|"
                     r"ostatnio\s+)?|czy\s+(?:był[aoy]?|przyszedł|przyszła)\s+(?:już\s+)?)"
                     r"(\w+)", re.I)
+# "Czy Maja już wróciła?", "Czy tata był dziś?" — the name first (8 Oct)
+_WHERE2 = re.compile(r"\bczy\s+(\w+)\s+(?:już\s+|juz\s+|dziś\s+|dzis\s+|dzisiaj\s+)*"
+                     r"(?:był[aoy]?|byl[aoy]?|wrócił[aoy]?|wrocil[aoy]?|przyszedł|przyszla|"
+                     r"przyszła|jest\s+w\s+domu)\b", re.I)
 _ABOUT = re.compile(r"\bco\s+(?:(?:wiesz|pamiętasz|pamietasz)\s+o\s+(\w+)|"
                     r"o\s+(\w+)\s+(?:wiesz|pamiętasz|pamietasz))\b", re.I)
 # "zapomnij, że …" and "zapomnij o rozmiarze buta" (7 Oct probe: the second went
@@ -556,6 +560,18 @@ def _child_here():
         with state.lock:
             who = state.person[0] if state.person else None
         return bool(who) and "dziecko" in faces.notes().get(who, "").lower()
+    except Exception:
+        return False
+
+
+def _stranger_here():
+    """A face she doesn't know in front of her (and not a near miss of the
+    family's) — family whereabouts aren't told then (#423)."""
+    try:
+        import faces
+        with state.lock:
+            unknown = state.person is None and state.face_detected
+        return bool(unknown and faces.names() and not faces.probably_family())
     except Exception:
         return False
 
@@ -1293,8 +1309,8 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         return True
     said = timers.left_answer(text)                # "ile zostało na minutniku?"
     if not said:
-        m = _WHERE.search(text)                    # "gdzie jest Maja?"
-        if m and _short(text, 8):
+        m = _WHERE.search(text) or _WHERE2.search(text)    # "gdzie jest Maja?"
+        if m and _short(text, 8) and not _stranger_here():   # a stranger: the model refuses
             import faces
             who = faces.match_name(m.group(1)) or faces.match_role(m.group(1))
             said = faces.where_is(who) if who else None
