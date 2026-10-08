@@ -1,0 +1,16 @@
+Maja|Przepytaj mnie z tabliczki mnożenia
+Maja|Piętnaście
+Maja|Nie wiem
+Maja|Powtórz
+Maja|Dwadzieścia cztery
+Maja|Podpowiedz
+Maja|Koniec
+Maja|Zadaj mi zagadkę
+Maja|Kot?
+Maja|Poddaję się
+Maja|Zagrajmy w dwadzieścia pytań
+Maja|Czy to zwierzę?
+Maja|Czy jest duże?
+Maja|Czy to słoń?
+Maja|Zagrajmy w kamień papier nożyce
+Maja|Papier

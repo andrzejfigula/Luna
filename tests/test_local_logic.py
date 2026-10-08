@@ -1308,6 +1308,9 @@ class KidsTest(unittest.TestCase):
         with mock.patch.object(quiz, "_read_paper", lambda: self.fail("read the paper")):
             self.assertFalse(quiz.answer("Ile to jest 36 podzielić przez 4?", say, lambda n: None))
         self.assertIsNone(quiz._q)                                # the dictation gave way
+        quiz.start("riddle", "zagadka", say, lambda n: None)      # another game asked for
+        self.assertFalse(quiz.answer("Zagrajmy w dwadzieścia pytań", say, lambda n: None))
+        self.assertIsNone(quiz._q)
 
     def test_practice_what_was_wrong(self):
         import mood
@@ -3047,6 +3050,15 @@ class TwentyQuestionsTest(unittest.TestCase):
         self.assertTrue(twenty.answer("To kot!", say))
         self.assertIn("To kot! Udało się w 4 pytaniach", said[-1])
         self.assertFalse(twenty.active())
+        # another game asked for mid-game (9 Oct games sweep)
+        with mock.patch.object(twenty.random, "choice", lambda seq: ("kot", ["kot", "kotek", "kota"])):
+            twenty.start(say)
+        self.assertFalse(twenty.answer("Zagrajmy w zgadywanie liczby", say))
+        self.assertEqual(said[-1], "Dobrze — moje zwierzę to kot.")
+        self.assertFalse(twenty.active())
+        import quiz
+        self.assertFalse(quiz._OTHER_GAME.match("zadaj mi następne pytanie"))
+        self.assertTrue(quiz._OTHER_GAME.match("zadaj mi trudną zagadkę"))
 
 
 class MessagesForPeopleTest(unittest.TestCase):

@@ -310,8 +310,19 @@ def _answer_reverse(text, speak):
 def answer(text, speak):
     """An utterance during the game. True when it belonged to it."""
     global _g
+    global _r
     low = text.lower().strip(" .!?")
     with _lock:
+        if (_g or _r) and len(low.split()) >= 2 and not wants(text) and \
+                __import__("quiz")._OTHER_GAME.match(low):
+            # "Zagrajmy w zgadywanie liczby" / "Zadaj mi zagadkę" mid-game got
+            # "Zadaj pytanie, na które odpowiem tak albo nie" (9 Oct games sweep)
+            animal = _g["animal"] if _g else None
+            _g = _r = None
+            print("[twenty] another game asked for — game over", flush=True)
+            if animal:
+                speak(f"Dobrze — moje zwierzę to {animal}.")
+            return False
         if _r is not None:
             return _answer_reverse(text, speak)
         g = _g

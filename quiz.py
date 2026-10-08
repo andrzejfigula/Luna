@@ -909,6 +909,10 @@ _REPEAT_Q = re.compile(r"^(?:luna,?\s+)?(?:powtórz|powtorz|jeszcze\s+raz|co\s+m
                        r"co\s+mowilas|nie\s+słyszałam|nie\s+słyszałem|nie\s+dosłyszałam|"
                        r"nie\s+dosłyszałem)(?:\s+(?:pytanie|zagadkę|zagadke|słowo|proszę|"
                        r"prosze|jeszcze\s+raz))*$", re.I)
+_OTHER_GAME = re.compile(r"^(?:luna,?\s+)?(?:zagrajmy|zagraj|pograjmy|pobawmy\s+się|"
+                         r"pobaw\s+się|gramy\s+w|zróbmy|zrobmy|przepytaj|"
+                         r"zadaj\s+mi\s+(?:\w+\s+)?(?:zagadk|quiz|dyktand)\w*|"
+                         r"opowiedz|włącz|wlacz|let's\s+play)\b", re.I)
 _HINT_Q = re.compile(r"\b(?:podpowie\w*|podpowiedź|podpowiedz|pomóż|pomoz|pomocy|"
                      r"daj\s+wskazówkę|wskazówk\w*)\b", re.I)
 
@@ -981,6 +985,13 @@ def answer(text, speak, play_sound_async):
             else:
                 _finish(speak, play_sound_async, early=True)
             return True
+        if _OTHER_GAME.match(low) and len(words) >= 2:
+            # "Zagrajmy w dwadzieścia pytań" mid-riddle was judged a guess ("Hmm,
+            # nie dwadzieścia pytań", 9 Oct games sweep) — another game: this ends
+            print("[quiz] another game asked for — quiz over", flush=True)
+            _q = None
+            _card(None)
+            return False
         q = _q
         if q["kind"] == "guess":
             return _guess(text, speak, play_sound_async)
