@@ -87,6 +87,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Pamięta Cię między dniami | samo działa — imię, plany, ważne sprawy; po rozmowie o czymś ważnym zapyta później, jak poszło |
 | Poranne powitanie | pierwsze „cześć” danego dnia zna pogodę (jeśli włączona), przypomnienia i wczorajsze sprawy |
 | Nie słuchaj | „Luna, nie słuchaj” (albo „przestań słuchać na 30 minut”) — mikrofon naprawdę wyłączony, na ekranie przekreślony mikrofon; włącza się po czasie albo przytrzymaniem palca na ekranie |
+| Nie patrz | „Wyłącz kamerę” (albo „…na 20 minut”, „przestań patrzeć”) — kamera naprawdę zwolniona, Luna nic nie widzi i nikogo nie rozpoznaje (słyszy dalej); „włącz kamerę” albo po godzinie sama wraca |
 | Cofnij wyczyszczenie listy | „Luna, przywróć listę zakupów” (przez godzinę) |
 | Co Luna o mnie wie | „Co o mnie wiesz?”, „Co wiesz o Mai?” — mówi, co ma zapisane; „Zapomnij, że …” usuwa jedną rzecz |
 | Wyczyść pamięć | „Luna, zapomnij wszystko” → zapyta „Na pewno?” → „tak, zapomnij” (dziecko nie może) |
