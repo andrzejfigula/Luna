@@ -128,7 +128,7 @@ def show_saved(speak):
     return True
 
 
-def draw(what, speak, intro="Już rysuję… chwilka!"):
+def draw(what, speak, intro="Już rysuję… chwilka!", english=False):
     """Start a drawing in the background; True (handled) either way."""
     os.makedirs(DIR, exist_ok=True)
     path, today, n = _count_today()
@@ -167,7 +167,7 @@ def draw(what, speak, intro="Już rysuję… chwilka!"):
                     pass
             _show(out)
             print(f"[draw] done: {out}", flush=True)
-            say("Gotowe! Proszę bardzo.")
+            say("Here you go!" if english else "Gotowe! Proszę bardzo.")
         except Exception as e:
             print(f"[draw] failed: {e}", flush=True)
             with state.lock:
@@ -202,5 +202,7 @@ def handle(text, speak):
         what = _last_what[0]
     if what:
         _last_what[0] = what
+        if re.match(r"\s*(?:luna,?\s*)?draw\b", text, re.I):    # "Draw me a cat"
+            return draw(what, speak, "Drawing it now — just a moment!", english=True)
         return draw(what, speak)
     return False
