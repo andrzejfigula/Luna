@@ -1998,6 +1998,8 @@ class KidsTest(unittest.TestCase):
         self.assertIn("rodzinę", drawing._subject("naszą rodzinę"))
         self.assertEqual(drawing._subject("smoka"), "smoka")
         self.assertTrue(drawing._SHOW.search("Pokaż mi jeszcze raz rysunek"))
+        self.assertEqual(drawing._SHOW_OF.match("Pokaż mi obrazek kota").group(1), "kota")
+        self.assertIsNone(drawing._SHOW_OF.match("Pokaż mi obrazek"))
         said = []
         d = tempfile.mkdtemp()
         with mock.patch.object(drawing, "DIR", d), \

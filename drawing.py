@@ -127,7 +127,7 @@ def show_saved(speak):
     return True
 
 
-def draw(what, speak):
+def draw(what, speak, intro="Już rysuję… chwilka!"):
     """Start a drawing in the background; True (handled) either way."""
     os.makedirs(DIR, exist_ok=True)
     path, today, n = _count_today()
@@ -140,7 +140,7 @@ def draw(what, speak):
             return True
         _last[0] = time.time()
     _bump(path, today, n)
-    speak("Już rysuję… chwilka!")
+    speak(intro)
     _card("Rysuję…", 30)
     print(f"[draw] {what!r}", flush=True)
 
@@ -178,7 +178,18 @@ def draw(what, speak):
     return True
 
 
+_SHOW_OF = re.compile(r"^(?:luna,?\s+)?(?:pokaż|pokaz)\s+(?:mi\s+|nam\s+)?(?:jakiś\s+|jakis\s+)?"
+                      r"(?:obrazek|obrazka|rysunek|rysunku|obraz|zdjęcie|zdjecie)\s+"
+                      r"(?!z\s+wczoraj|z\s+dziś)(.{2,60}?)[.!?]*$", re.I)
+
+
 def handle(text, speak):
+    of = _SHOW_OF.match((text or "").strip())
+    if of and not re.match(r"(?:jeszcze|ostatni|swój|swoj|mój|moj|ten)\b", of.group(1), re.I):
+        # "pokaż mi obrazek kota" — a picture of it, drawn (no web pictures)
+        photo = re.search(r"zdj", of.group(0), re.I)
+        return draw(of.group(1).strip(), speak,
+                    "Zdjęć nie mam, ale narysuję — chwilka!" if photo else "Już rysuję… chwilka!")
     if _SHOW.search(text or "") and len(text.split()) <= 6:
         return show_saved(speak)
     what = wants(text)
