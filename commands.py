@@ -988,7 +988,9 @@ def handle(text, speak, play_sound, _polite=True):
     if kids.routine_active() and kids.routine_answer(text, speak, _sound_async):
         return True
     import news
-    if not kids.routine_active() and news.is_yes(text):
+    if not kids.routine_active() and news.is_yes(text) and (_child_here() or _child_in_view()):
+        # (a child's routine only — Andrzej's "tak" to "Twój poranny plan…
+        # chcesz, żebym przypomniała?" is not Maja's morning steps)
         # "Tak" to her "…chcesz, żebym pokazała ci to krok po kroku?" about the
         # morning (8 Oct: the model ran "pokaż plan dnia" and made the steps up)
         import brain
