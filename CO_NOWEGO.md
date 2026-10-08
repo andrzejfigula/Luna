@@ -17,7 +17,10 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 >
 > **Nowe (9.10):** „**Kiedy najbliższy długi weekend?**” — policzone na ten rok (24–27.12, a z 28–31.12 urlopu — 11 dni) ·
 > „Jak ubrać Maję do szkoły?” — z prognozy na jutro rano · „**Włącz radio dla dzieci**” · „Ile km do Krakowa?” — sprawdzi w internecie ·
-> gdy obok jest Maja, wiadomości tylko spokojne · „Mamo, …”, „Tato, …”, „Kochanie, …” powiedziane do kogoś innego — Luna się nie wtrąca.
+> gdy obok jest Maja, wiadomości tylko spokojne · „Mamo, …”, „Tato, …”, „Kochanie, …” powiedziane do kogoś innego — Luna się nie wtrąca ·
+> „**Ile godzin snu mi zostało?**” / „jak pójdę spać o pierwszej, ile się wyśpię?” — liczy do budzika ·
+> „**Przesuń przypomnienie** o … na dwudziestą” · Maja: „Zostaw wiadomość dla taty, że jestem w domu” — powie tacie ·
+> „Jaki model cię napędza?”, „Ile masz wolnej pamięci?”, „Jaki jest adres IP?” — odpowiada z prawdziwych danych.
 
 ## Rozmowa
 
