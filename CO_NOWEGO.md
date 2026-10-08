@@ -249,6 +249,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Rysunki | „Luna, **narysuj mi** jednorożca / smoka na rowerze / nasz dom” — po ok. 10 sekundach prawdziwy obrazek na ekranie (wesoły, dla dzieci); „narysuj siebie” (autoportret Luny), „narysuj naszą rodzinę”, „narysuj jeszcze raz”, „pokaż mi obrazek kota”; „pokaż rysunki” — ostatnie jeszcze raz. Do 25 rysunków dziennie |
 | Dobranoc (dorośli) | wieczorem „Dobranoc, Luna” — oprócz budzika Luna powie, jak będzie jutro rano: „Jutro rano 8 stopni i może padać — przyda się parasol.” |
 | Quiz dla dorosłych | „Zróbmy quiz z wiedzy ogólnej / z historii / o zwierzętach” — Luna zadaje 5 pytań i liczy punkty; „Zadaj mi trudną zagadkę” — zagadka dla dorosłych (zwykła „zagadka” to dalej zagadki dla Mai) |
+| Księżyc | „Jaka dziś faza Księżyca?”, „Kiedy pełnia?”, „Kiedy nów?” — Luna liczy sama (nazywa się przecież jak Księżyc); „Co się wydarzyło tego dnia w historii?” — sprawdza w internecie miłe ciekawostki |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 

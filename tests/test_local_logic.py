@@ -1986,6 +1986,16 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(kids.offered_routine("Mogę ci ułożyć prosty poranny plan."), "poranek")
         self.assertIn("umyj zęby", kids.DEFAULT_STEPS["poranek"])
 
+    def test_moon(self):
+        import moon
+        from datetime import datetime
+        name, lit, _ = moon.phase(datetime(2026, 10, 26, 4, 0))
+        self.assertEqual(name, "pełnia")
+        self.assertGreater(lit, 95)
+        self.assertEqual(moon.next_full(datetime(2026, 10, 8)).date(), datetime(2026, 10, 26).date())
+        self.assertIsNone(moon.answer("Lubię księżyc"))
+        self.assertIn("pełnia", moon.answer("Kiedy pełnia?"))
+
     def test_on_this_day(self):
         import commands
         self.assertTrue(commands._ON_THIS_DAY.search("Co się wydarzyło tego dnia w historii?"))

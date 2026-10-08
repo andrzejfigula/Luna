@@ -1322,6 +1322,12 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         screens.show_today(speak)
         return True
 
+    import moon                                    # "Jaka dziś faza Księżyca?", "kiedy pełnia?"
+    said = moon.answer(text)
+    if said:
+        speak(said)
+        return True
+
     # "ile to jest 17 razy 23?" / "ile dni do Wigilii?" — counted locally
     import calc
     said = calc.answer(text)
