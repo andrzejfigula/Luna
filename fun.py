@@ -190,7 +190,8 @@ def handle(text, speak, play_sound, play_sound_async):
         return True
     low = text.lower()
     words = re.findall(r"\w+", low)
-    polite = re.search(r"\b(?:możesz|mozesz|mogłabyś|moglabys|mogłabys)\b", low)
+    polite = re.search(r"\b(?:możesz|mozesz|mogłabyś|moglabys|mogłabys|can\s+you|could\s+you)\b",
+                       low)
     if len(words) > 8 or (low.strip().endswith("?") and not polite
                           and not any(k in low for k in COIN)):
         return False                       # "czy możesz rzucić kostką?" is a request
@@ -244,6 +245,8 @@ _COSTUME_SAY = {"cat": "Miau! Zobacz — jestem kotkiem!",
                 "bunny": "Kic, kic! Zobacz, jaki ze mnie zajączek!"}
 _COSTUME_OFF = re.compile(r"\b(?:zdejmij\s+uszy|koniec\s+przebrania|bądź\s+sobą|badz\s+soba)\b")
 COSTUME_SECS = 25
+_COSTUME_EN = re.compile(r"^(?:luna,?\s+)?(?:show\s+me\s+a|be\s+a|turn\s+into\s+a|"
+                         r"can\s+you\s+be\s+a)\s+(cat|kitty|kitten|dog|puppy|bunny|rabbit)\W*$")
 
 
 def costume(low, speak):
@@ -253,6 +256,17 @@ def costume(low, speak):
         if was:
             speak("Już jestem sobą!")
         return bool(was)
+    e = _COSTUME_EN.search(low)              # "Show me a cat" (8 Oct sweep: "Here's a cat: kot.")
+    if e:
+        kind = {"cat": "cat", "kitty": "cat", "kitten": "cat", "dog": "dog", "puppy": "dog",
+                "bunny": "bunny", "rabbit": "bunny"}[e.group(1)]
+        with state.lock:
+            state.costume = (kind, time.time() + COSTUME_SECS)
+        _mood("happy")
+        print(f"[fun] costume: {kind}", flush=True)
+        speak({"cat": "Meow! Look — I'm a kitty!", "dog": "Woof, woof! Now I'm a puppy!",
+               "bunny": "Hop, hop! Look, I'm a bunny!"}[kind])
+        return True
     m = _COSTUME.search(low)
     if not m or len(re.findall(r"\w+", m.group(2))) > 1 and not re.search(
             r"^\W*(?:proszę|prosze|luna|luno)\b", m.group(2)):

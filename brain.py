@@ -978,8 +978,21 @@ def model_for(text):
     return CHAT_MODEL
 
 
+def _ask_again(text, image_b64, detail, on_sentence, context):
+    """The model said "not for me" with nothing to say, but it was for her:
+    once more, told so. Not streamed; the reply goes to on_sentence (when the
+    first call had started a speaker, it speaks it; otherwise process() does)."""
+    if _history and _history[-1].get("role") == "user":
+        _history.pop()                       # the first call's copy of this message
+    print("[brain] not-for-me overruled — asking again", flush=True)
+    r = _ask_openai(text, image_b64, detail, None, None, context, _forced=True)
+    if r and r[0] and on_sentence:
+        on_sentence(r[0])
+    return r
+
+
 def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=None,
-                context=None):
+                context=None, _forced=False):
     """Returns (reply, emotion, gesture) or None on any failure.
 
     With on_head / on_sentence the answer is streamed: the face is set and
@@ -1061,6 +1074,8 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   + (_morning_line() if not translator() else "")
                   + ("They have just said your name — this message is for you "
                      "(to_luna true).\n" if _just_called(text) else "")
+                  + ("This message IS said to you — answer it, warmly and briefly "
+                     "(to_luna true).\n" if _forced else "")
                   + _variety_rule()
                   + _translator_rule()
                   + _length_rule()
@@ -1147,6 +1162,10 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             luna_mood.note(relationship.who() if relationship.who() != relationship.SOMEONE
                       else None, tone)
         if data.get("to_luna") is False and _just_called(text):
+            if not reply.strip() and not _forced:
+                # asked once more, told it's for her — a canned "Jestem tutaj.
+                # Opowiedz mi, co się dzieje." answered "Kupiłam mleko" (8 Oct)
+                return _ask_again(text, image_b64, detail, on_sentence, context)
             if not reply.strip():
                 reply = "Jestem tutaj. Opowiedz mi, co się dzieje."
                 if on_sentence:
@@ -1154,6 +1173,8 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             print("[brain] her name was just said — answering", flush=True)
             data["to_luna"] = True
         if data.get("to_luna") is False and _alone_request(text):
+            if not reply.strip() and not _forced:
+                return _ask_again(text, image_b64, detail, on_sentence, context)
             if not reply.strip():
                 reply = "Nie byłam pewna, czy to do mnie. Powiesz jeszcze raz?"
                 if on_sentence:

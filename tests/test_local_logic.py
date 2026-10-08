@@ -2043,6 +2043,7 @@ class KidsTest(unittest.TestCase):
         said = []
         try:
             for text, kind in (("Pokaż mi kotka", "cat"), ("Luna, zamień się w pieska", "dog"),
+                               ("Show me a cat", "cat"), ("Can you be a bunny?", "bunny"),
                                ("Czy możesz być zajączkiem?", "bunny"),
                                ("Pokaż mi jakiegoś małego pieska", "dog")):
                 state.costume = None
