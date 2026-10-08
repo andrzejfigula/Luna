@@ -9,6 +9,8 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 > „Kupiłem Emilce prezent, **tylko jej nie mów**” — Luna dochowa tajemnicy ·
 > „Maja ma jutro wycieczkę, **przypomnij jej rano**…” — powie Mai jutro ·
 > „**Przypominaj mi co godzinę**, żeby pić wodę” (nie w nocy) ·
+> „Zagrajmy w **państwa-miasta**” — litera na ekranie, minuta, „Stop!” ·
+> Maja sprawdza wynik: „**7 razy 8 to 56?**” — „Tak, brawo!” ·
 > „**Ile masz lat?**” (urodziny 18 września) · „**Kiedy Maja ma imieniny?**” (sprawdzi w internecie) ·
 > wychodząc z domu: „Weź parasol — **wieczorem** ma padać” · Maja przy zadaniach: tylko podpowiedzi, nawet gdy obok siedzi tata.
 
