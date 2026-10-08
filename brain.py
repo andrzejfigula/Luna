@@ -185,6 +185,26 @@ def _language_line(text):
     return "THIS MESSAGE IS IN ENGLISH — write \"reply\" in English.\n"
 
 
+def _morning_line():
+    """Their first talk of the day, in the morning: the reply carries the
+    briefing (8 Oct: Andrzej's "Dzień dobry" at 7:41 — before the quiet hours
+    ended, so no greeting — got a pleasantry, with 93% rain on the way)."""
+    if not 5 <= time.localtime().tm_hour < 12:
+        return ""
+    with state.lock:
+        who = state.person[0] if state.person else None
+    try:
+        import idle_engine
+        if not idle_engine.first_hello_due(who):
+            return ""
+        idle_engine.mark_greeted(who)          # no second briefing at the desk later
+    except Exception:
+        return ""
+    return (f"This is {who}'s first talk with you today: after answering, add ONE short "
+            "sentence with what matters for their day — rain or cold from the weather "
+            "line (e.g. \"weź parasol\"), or a reminder set for today. Nothing if neither.\n")
+
+
 def _just_called(text="", secs=12):
     """Was her name said a moment ago? Then this sentence came with it (the
     wake word is cut off before the model sees the text — 7 Oct probe:
@@ -905,6 +925,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   + (_calendar_line(text) or _always_dates())
                   + memory.day_line(text)
                   + _language_line(text)
+                  + (_morning_line() if not translator() else "")
                   + ("They have just said your name — this message is for you "
                      "(to_luna true).\n" if _just_called(text) else "")
                   + _variety_rule()

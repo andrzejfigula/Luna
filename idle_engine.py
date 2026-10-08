@@ -200,6 +200,22 @@ def save_greeted(days):
 
 # ── main loop ─────────────────────────────────────────────────────────────────
 
+_greeted = {}          # who → the day of their first hello (shared with brain.py)
+
+
+def first_hello_due(who):
+    """Hasn't this person had their first hello (the briefing) today?"""
+    return bool(who) and _greeted.get(who) != time.strftime("%Y-%m-%d")
+
+
+def mark_greeted(who):
+    """Their first talk of the day carried the briefing (brain.py): no second
+    one when they come back to the desk later."""
+    if who:
+        _greeted[who] = time.strftime("%Y-%m-%d")
+        save_greeted(_greeted)
+
+
 def idle_loop():
     # she has been alone since start-up, so the first person to show up after
     # a long boot-time absence gets greeted too. Stamped BEFORE the import
@@ -214,7 +230,8 @@ def idle_loop():
     last_touch_t = 0.0
     last_touch_say = 0.0
     last_touch_sound = 0.0
-    greeted_days = load_greeted()        # who (None: unknown) → day of their first hello
+    _greeted.update(load_greeted())
+    greeted_days = _greeted              # who (None: unknown) → day of their first hello
     asked_name_at = 0.0                  # when she last asked a stranger their name
     errands_checked = 0.0                # notes to pass on (errands.py)
 
