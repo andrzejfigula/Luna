@@ -233,6 +233,27 @@ def _just_called(text="", secs=12):
         return time.time() - getattr(state, "last_wake_time", 0.0) < secs
 
 
+BIRTHDAY = (2026, 9, 18)          # first switched on at home (data/ was made then)
+_AGE_Q = re.compile(r"\bile\s+masz\s+lat|\bjak\w*\s+(?:jesteś\s+)?star[aey]|\bjesteś\s+star|"
+                    r"\burodzin\w*|\bhow\s+old|\bbirthday|\bkiedy\s+się\s+urodził", re.I)
+
+
+def _age_line(text, today=None):
+    """"Ile masz lat?" — her age counted here (8 Oct probe: "trochę ponad
+    tydzień" at 20 days, with the birthday and the date in front of it)."""
+    if not _AGE_Q.search(text or ""):
+        return ""
+    from datetime import date
+    today = today or (datetime.now(_TZ) if _TZ else datetime.now()).date()
+    days = (today - date(*BIRTHDAY)).days
+    if days < 0:
+        return ""
+    months = (today.year - BIRTHDAY[0]) * 12 + today.month - BIRTHDAY[1] - (today.day < BIRTHDAY[2])
+    about = f"{months} full months" if months >= 2 else f"about {round(days / 7)} weeks"
+    return (f"Your age today, counted: {days} days ({about}) since your birthday, "
+            f"18 September 2026.\n")
+
+
 _ASK_VERB = re.compile(r"^(?:wymyśl|wymysl|zaproponuj|podpowiedz|opowiedz|powiedz|sprawdź|sprawdz|"
                        r"dodaj|dopisz|przypomnij|policz|poszukaj|znajdź|znajdz|wytłumacz|"
                        r"wytlumacz|zaśpiewaj|zaspiewaj|poradź|poradz)\b", re.I)
@@ -994,6 +1015,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   f"time — do not convert it to any other zone.\n"
                   + (_calendar_line(text) or _always_dates())
                   + memory.day_line(text)
+                  + _age_line(text)
                   + _language_line(text)
                   + (_morning_line() if not translator() else "")
                   + ("They have just said your name — this message is for you "

@@ -1822,6 +1822,16 @@ class KidsTest(unittest.TestCase):
         finally:
             state.person, state.others = old
 
+    def test_age_line(self):
+        import datetime
+        import brain
+        line = brain._age_line("Ile masz lat?", datetime.date(2026, 10, 8))
+        self.assertIn("20 days", line)
+        self.assertIn("about 3 weeks", line)
+        self.assertIn("2 full months", brain._age_line("Kiedy masz urodziny?",
+                                                        datetime.date(2026, 11, 18)))
+        self.assertEqual(brain._age_line("Ile kosztuje chleb?"), "")
+
     def test_weekday_facts(self):
         import datetime
         import memory

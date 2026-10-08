@@ -225,6 +225,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Pomysły na zakupy | „Luna, wymyśl, co jeszcze kupić” — Luna podsuwa pomysły, ale dopisuje je do listy dopiero po „tak, dodaj” |
 | Zadania z matmy | gdy Maja pyta „ile to 36 podzielić na 4?”, Luna nigdy nie poda wyniku — daje podpowiedź i czeka na odpowiedź Mai |
 | Co dziś? | powiedzcie raz „Luna, zapamiętaj, że Maja ma basen w czwartki” — w czwartek rano na „Dzień dobry” Luna sama przypomni: „dziś basen” |
+| Urodziny Luny | Luna ma urodziny 18 września (wtedy pierwszy raz się włączyła) — „Ile masz lat?” → „Mam dopiero trzy tygodnie!”; „Zaśpiewaj piosenkę” — prawdziwy tekst z refrenem |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 
