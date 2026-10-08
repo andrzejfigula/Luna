@@ -180,6 +180,12 @@ class TimersTest(unittest.TestCase):
                 played.clear()
                 self.assertTrue(radio.handle(t, said.append))
                 self.assertEqual(played, ["Radio ZET"], t)
+            self.assertEqual(radio._spoken("Polskie Radio - Chopin (Radio Chopin) (AAC+)"),
+                             "Polskie Radio Chopin")
+            asked = []
+            with mock.patch.object(radio, "_search", lambda q, c: asked.append(q) or []):
+                radio._lookup("polskie radio chopin")
+            self.assertIn("chopin", asked)                # substring search: shorter forms too
             with mock.patch.object(radio, "_lookup", lambda n: None):    # offline
                 for t in ("Włącz radio dla dzieci", "Puść muzykę dla dzieci",
                           "Włącz RMF dla dzieci"):

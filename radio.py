@@ -113,23 +113,51 @@ _say = [None]              # speak(), for "the stream died" from the player thre
 
 # ── which station ─────────────────────────────────────────────────────────────
 
-def _lookup(name):
-    """radio-browser.info: the most voted working station by that name."""
-    q = urllib.parse.quote(name)
-    for country in ("&countrycode=PL", ""):
-        url = (f"https://de1.api.radio-browser.info/json/stations/search?name={q}"
-               f"{country}&order=votes&reverse=true&limit=5&hidebroken=true")
+_MIRRORS = ("de1", "de2", "all")
+
+
+def _search(q, country):
+    """One radio-browser.info search, trying the next mirror when one fails
+    (fi1/at1/nl1 were down on 9 Oct); None if no mirror answered."""
+    for host in _MIRRORS:
+        url = (f"https://{host}.api.radio-browser.info/json/stations/search?name="
+               f"{urllib.parse.quote(q)}{country}&order=votes&reverse=true&limit=5&hidebroken=true")
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "Luna-robot/1.0"})
-            with urllib.request.urlopen(req, timeout=6) as r:
-                found = json.load(r)
+            with urllib.request.urlopen(req, timeout=5) as r:
+                return json.load(r)
         except Exception as e:
-            print(f"[radio] lookup failed: {e}", flush=True)
-            return None
-        for s in found:
-            if s.get("url_resolved") and s.get("codec", "").upper() in ("MP3", "AAC", "AAC+", "OGG"):
-                return s["name"].strip(), s["url_resolved"]
+            print(f"[radio] lookup on {host} failed: {e}", flush=True)
     return None
+
+
+def _lookup(name):
+    """radio-browser.info: the most voted working station by that name. The
+    search is by substring, so "polskie radio chopin" finds nothing ("Polskie
+    Radio - Chopin") — shorter forms are tried too (9 Oct sweep)."""
+    words = name.split()
+    tries = [name]
+    short = re.sub(r"^(?:polskie\s+)?radio\s+", "", name, flags=re.I)
+    if short != name and short:
+        tries.append(short)
+    if len(words) > 1 and words[-1] not in tries:
+        tries.append(words[-1])
+    for q in tries:
+        for country in ("&countrycode=PL", ""):
+            found = _search(q, country)
+            if found is None:
+                return None
+            for s in found:
+                if s.get("url_resolved") and s.get("codec", "").upper() in ("MP3", "AAC", "AAC+", "OGG"):
+                    return _spoken(s["name"]), s["url_resolved"]
+    return None
+
+
+def _spoken(name):
+    """"Polskie Radio - Chopin (Radio Chopin) (AAC+)" → "Polskie Radio Chopin"."""
+    out = re.sub(r"\s*[\(\[][^)\]]*[\)\]]", "", name)
+    out = re.sub(r"\s+[-–|]\s+", " ", out).strip(" -|")
+    return out or name.strip()
 
 
 def _station(words):
