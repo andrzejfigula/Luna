@@ -2050,6 +2050,8 @@ class KidsTest(unittest.TestCase):
                          "I wiesz co, na biurku, lampka świeci.")
         self.assertEqual(fix_desk("Pokrój cebulę na desce."), "Pokrój cebulę na desce.")
         self.assertEqual(fix_desk("Siedzę na desk."), "Siedzę na biurku.")
+        self.assertEqual(fix_desk("jestem małą robotką z desk... z biurka."),
+                         "jestem małą robotką z biurka.")
 
     def test_fix_vocative(self):
         from polish import fix_vocative as f
