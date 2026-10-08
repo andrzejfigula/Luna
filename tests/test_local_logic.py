@@ -723,6 +723,7 @@ class TimersTest(unittest.TestCase):
         self.assertEqual(timers.say_duration(22), "22 sekundy")
         self.assertEqual(timers.say_duration(22 * 3600), "22 godziny")
         self.assertEqual(timers.say_duration(25 * 3600), "25 godzin")
+        self.assertEqual(timers.say_duration(210), "3 minuty i 30 sekund")
 
     def test_labelled_timer(self):
         t = timers.local_labelled_timer

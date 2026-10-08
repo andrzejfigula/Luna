@@ -456,6 +456,9 @@ def say_duration(secs):
     if secs % 60 == 0:
         m = secs // 60
         return "minutę" if m == 1 else f"{m} {_minutes_pl(m) if m != 1 else 'minuta'}"
+    if secs > 60:                        # "3 minuty i 30 sekund", not "210 sekund"
+        m, s = divmod(secs, 60)
+        return f"{say_duration(m * 60)} i {say_duration(s)}"
     return f"{secs} {_pl(secs, 'sekundę', 'sekundy', 'sekund')}"
 
 
