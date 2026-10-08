@@ -60,7 +60,8 @@ FALLBACKS = {
     "http://mp3.polskieradio.pl:8900/;.mp3": ["http://stream3.polskieradio.pl:8950/;.mp3"],
     "https://n-11-21.dcs.redcdn.pl/sc/o2/radio357/live/radio357_pr.livx?preroll=0": ["https://stream.radio357.pl/"],
 }
-_ALIASES = {"rmf": "rmf fm", "rmfu": "rmf fm", "rmf-u": "rmf fm", "zet": "radio zet",
+_ALIASES = {"rmf": "rmf fm", "rmfu": "rmf fm", "rmf-u": "rmf fm", "zet": "radio zet", "zed": "radio zet", "zett": "radio zet",
+            "set": "radio zet", "radio zed": "radio zet", "radio set": "radio zet",
             "zetkę": "radio zet", "zetka": "radio zet", "trójkę": "trójka", "trojke": "trójka",
             "trojka": "trójka", "jedynkę": "jedynka", "jedynke": "jedynka",
             "dwójkę": "dwójka", "dwojke": "dwójka", "357": "radio 357",

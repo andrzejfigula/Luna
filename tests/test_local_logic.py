@@ -157,9 +157,13 @@ class TimersTest(unittest.TestCase):
         try:
             self.assertTrue(radio.handle("Włącz radio z jakąś spokojną muzyką", said.append))
             self.assertTrue(radio.handle("Włącz radijko", said.append))
+            self.assertEqual(played[0], "Dwójka")
+            for t in ("Włącz radio zed", "Włącz radio set"):       # how STT hears "ZET"
+                played.clear()
+                self.assertTrue(radio.handle(t, said.append))
+                self.assertEqual(played, ["Radio ZET"], t)
         finally:
             radio.play = old
-        self.assertEqual(played[0], "Dwójka")
 
     def test_reminder_with_seconds_only(self):
         import timers
