@@ -1483,6 +1483,18 @@ class KidsTest(unittest.TestCase):
             "przetłumacz na niemiecki: gdzie jest dworzec?"))
         self.assertIsNone(commands._translator_language("przetłumacz na angielski dzień dobry"))
 
+    def test_spoken_numbers(self):
+        import polish
+        self.assertEqual(polish.number_words(7006652),
+                         "siedem milionów sześć tysięcy sześćset pięćdziesiąt dwa")
+        self.assertEqual(polish.number_words(21000), "dwadzieścia jeden tysięcy")
+        self.assertEqual(polish.number_words(1001), "tysiąc jeden")
+        s = polish.spoken_numbers("to 86400. Godzina 12:30, rok 2026, 3,14159, tel 600123456.")
+        self.assertIn("osiemdziesiąt sześć tysięcy czterysta.", s)
+        self.assertIn("tysiąc dwieście trzydzieści cztery", polish.spoken_numbers("Liczba 1234."))
+        for keep in ("12:30", "2026", "3,14159", "600123456"):
+            self.assertIn(keep, s)
+
     def test_thread_only_for_its_person(self):
         import memory
         from shared_state import state

@@ -286,6 +286,11 @@ class OpenAITTS:
         error when no request produced any audio."""
         q, lock, first = queue.Queue(), threading.Lock(), threading.Event()
         owner = [None]
+        try:                                   # "7006652" → words the voice reads well
+            from polish import spoken_numbers
+            text = spoken_numbers(text)
+        except Exception:
+            pass
 
         def attempt(n):
             try:

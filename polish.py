@@ -106,6 +106,72 @@ def empty_promise(reply, actions):
     return bool(_PROMISE.search(reply or "")) and not actions and "?" not in (reply or "")
 
 
+_ONES = ["", "jeden", "dwa", "trzy", "cztery", "pięć", "sześć", "siedem", "osiem", "dziewięć"]
+_TEENS = ["dziesięć", "jedenaście", "dwanaście", "trzynaście", "czternaście", "piętnaście",
+          "szesnaście", "siedemnaście", "osiemnaście", "dziewiętnaście"]
+_TENS = ["", "", "dwadzieścia", "trzydzieści", "czterdzieści", "pięćdziesiąt",
+         "sześćdziesiąt", "siedemdziesiąt", "osiemdziesiąt", "dziewięćdziesiąt"]
+_HUNDREDS = ["", "sto", "dwieście", "trzysta", "czterysta", "pięćset", "sześćset",
+             "siedemset", "osiemset", "dziewięćset"]
+_SCALES = [("", "", ""), ("tysiąc", "tysiące", "tysięcy"),
+           ("milion", "miliony", "milionów"), ("miliard", "miliardy", "miliardów")]
+
+
+def _below_1000(n):
+    h, rest = divmod(n, 100)
+    t, o = divmod(rest, 10)
+    words = [_HUNDREDS[h]]
+    words += [_TEENS[o]] if t == 1 else [_TENS[t], _ONES[o]]
+    return " ".join(w for w in words if w)
+
+
+def number_words(n):
+    """1234567 → "milion dwieście trzydzieści cztery tysiące pięćset
+    sześćdziesiąt siedem" (nominative)."""
+    if n == 0:
+        return "zero"
+    if n < 0:
+        return "minus " + number_words(-n)
+    parts, i = [], 0
+    while n and i < len(_SCALES):
+        n, chunk = divmod(n, 1000)
+        if chunk:
+            one, few, many = _SCALES[i]
+            if i == 0:
+                parts.append(_below_1000(chunk))
+            elif chunk == 1:
+                parts.append(one)
+            else:
+                last2, last = chunk % 100, chunk % 10
+                form = few if last in (2, 3, 4) and last2 not in (12, 13, 14) else many
+                parts.append(f"{_below_1000(chunk)} {form}")
+        i += 1
+    return " ".join(reversed([p for p in parts if p]))
+
+
+# (a full stop after it is the end of a sentence, not a decimal: "…to 7006652.")
+_BIG = re.compile(r"(?<![\d,.:/])(\d{4,12})(?!\d)(?![,.:/]\d)")
+
+
+def spoken_numbers(text):
+    """Long integers in words for the voice: "7006652" was read digit by digit
+    or garbled ("osiem sześć czterysta" for 86400 — 8 Oct check). Numbers
+    under 10 000, decimals, times and dates are left as they are."""
+    text = text or ""
+
+    def words(m):
+        before = text[max(0, m.start() - 16):m.start()].lower()
+        digits = m.group(1)
+        if re.search(r"\b(?:tel|telefon\w*|numer\w*|nr|pin|kod\w*)\b\.?\s*:?\s*$", before) or (
+                len(digits) == 9 and digits[0] in "45678"):
+            return digits                     # a phone number / code: as digits
+        if len(digits) == 4 and 1900 <= int(digits) <= 2099:
+            return digits                     # a year: the voice reads those well
+        # (four digits too: "Liczba 1234" came back as "dwanaście trzy cztery")
+        return number_words(int(digits))
+    return _BIG.sub(words, text)
+
+
 def offer_only(reply):
     """The reply offers to do something ("Może dopiszmy warzywa?", "Chcesz,
     żebym nastawiła minutnik?") and confirms nothing — then any action the
