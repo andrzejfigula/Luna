@@ -1303,7 +1303,11 @@ class KidsTest(unittest.TestCase):
         with mock.patch.object(quiz, "_read_paper", lambda: None):
             quiz.answer("gotowe", say, lambda n: None)           # nothing readable
         self.assertIn("Nie widzę dobrze napisu", said[-1])
-        quiz.answer("koniec", say, lambda n: None)
+        # a question with "jest" in it is not "it's written" (9 Oct school sweep)
+        self.assertTrue(quiz._ready(["patrz", "jest"]))
+        with mock.patch.object(quiz, "_read_paper", lambda: self.fail("read the paper")):
+            self.assertFalse(quiz.answer("Ile to jest 36 podzielić przez 4?", say, lambda n: None))
+        self.assertIsNone(quiz._q)                                # the dictation gave way
 
     def test_practice_what_was_wrong(self):
         import mood

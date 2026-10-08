@@ -876,8 +876,16 @@ def _guess(text, speak, play_sound_async):
     return True
 
 
-_READY = ("gotowe", "gotowa", "gotowy", "już", "juz", "sprawdź", "sprawdz", "patrz",
-          "zobacz", "pokazuję", "pokazuje", "napisałam", "napisałem", "napisane", "jest")
+_READY = ("gotowe", "gotowa", "gotowy", "sprawdź", "sprawdz", "pokazuję", "pokazuje",
+          "napisałam", "napisałem", "napisane")
+# only in a short "Już!" / "Patrz, jest!" — "Ile to jest 36 podzielić przez 4?"
+# mid-dictation read the paper as an answer (9 Oct school sweep)
+_READY_SHORT = ("już", "juz", "patrz", "zobacz", "jest")
+
+
+def _ready(words):
+    return any(w in words for w in _READY) or (
+        len(words) <= 3 and any(w in words for w in _READY_SHORT))
 
 
 def _read_paper():
@@ -996,7 +1004,7 @@ def answer(text, speak, play_sound_async):
         else:
             if q["kind"] in ("dictation", "dictation_en"):
                 # the answer is on paper: "gotowe" → read it from the camera
-                if not any(w in words for w in _READY):
+                if not _ready(words):
                     if len(words) <= 4:
                         q["asked"] = time.time()
                         speak("Kiedy napiszesz, pokaż mi kartkę i powiedz: gotowe.")
