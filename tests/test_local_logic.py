@@ -2638,6 +2638,17 @@ class ErrandsTest(unittest.TestCase):
                 state.person = None
 
 
+class ErrandSenderTest(unittest.TestCase):
+
+    def test_sender_label(self):
+        import errands
+        notes = {"Andrzej": "partner Emilki, tata Mai", "Emilka": "partnerka Andrzeja, mama Mai",
+                 "Maja": "córka — DZIECKO"}
+        self.assertEqual(errands._sender("Emilka", "Maja", notes), "mama")
+        self.assertEqual(errands._sender("Andrzej", "Maja", notes), "tata")
+        self.assertEqual(errands._sender("Andrzej", "Emilka", notes), "Andrzej")
+
+
 class BackupTest(unittest.TestCase):
 
     def test_a_copy_a_day(self):

@@ -200,13 +200,25 @@ def waiting(who):
         return [e for e in _load() if e["to"] == who and _due(e)]
 
 
+def _sender(frm, to, notes):
+    """Who asked, as the listener would say it: a child hears "mama" / "tata",
+    a grown-up the name (8 Oct: Emilka heard "tata prosił…" about Andrzej)."""
+    if "dziecko" in (notes.get(to) or "").lower():
+        for role in ("mama", "tata"):
+            if re.search(rf"\b{role}\b", (notes.get(frm) or "").lower()):
+                return role
+    return frm
+
+
 def _phrase(e):
     """The note in words for them (vocative, "you" form), by the model; a
     plain fallback when it can't be reached."""
     import faces
     voc = faces.vocatives().get(e["to"]) or e["to"]
     frm = e.get("from")
-    plain = f"{voc}, " + (f"{frm} prosił, żebym ci przekazała: " if frm else
+    label = _sender(frm, e["to"], faces.notes()) if frm else ""
+    asked = "prosiła" if label.endswith("a") else "prosił"       # Emilka / mama: prosiła
+    plain = f"{voc}, " + (f"{label} {asked}, żebym ci przekazała: " if frm else
                          "mam dla ciebie wiadomość: ") + e["words"] + "."
     try:
         from openai import OpenAI
@@ -223,9 +235,10 @@ def _phrase(e):
                        f"({notes.get(e['to'], '')}) to: \"{e['words']}\". Powiedz to "
                        f"teraz bezpośrednio do tej osoby, zaczynając od \"{voc}\", jednym "
                        "lub dwoma krótkimi zdaniami, w formie zwracania się do niej "
-                       "(np. \"żebyś posprzątała\")" + (", mówiąc kto prosił (dla dziecka "
-                       "rodzic to tata/mama)" if frm else "") +
-                       ". Tylko te słowa, bez cudzysłowu."}])
+                       "(np. \"żebyś posprzątała\")" + (f", mówiąc, że prosi {_sender(frm, e['to'], notes)}"
+                                                       if frm else "") +
+                       ". Nie dodawaj niczego, czego nie było w wiadomości (żadnych próśb "
+                       "ani pośpiechu od siebie). Tylko te słowa, bez cudzysłowu."}])
         out = (r.choices[0].message.content or "").strip().strip('"')
         return out or plain
     except Exception as e2:
