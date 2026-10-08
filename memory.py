@@ -573,7 +573,8 @@ def facts_ok(new, old, dropped=()):
 _FIRST_PERSON = {"jestem", "mam", "mój", "moja", "moje", "mojego", "mojej", "moich",
                  "mnie", "mi", "lubię", "lubie", "mieszkam", "pracuję", "pracuje",
                  "muszę", "musze", "chcę", "chce", "będę", "bede", "my", "nasz",
-                 "nasza", "nasze", "naszego", "naszej", "mamy", "jesteśmy"}
+                 "nasza", "nasze", "naszego", "naszej", "mamy", "jesteśmy", "moją", "moim",
+                 "moi", "mojemu", "mną", "naszą", "naszym", "naszych", "naszemu", "nam", "nas"}
 _RELATIVE = {"jutro", "pojutrze", "dziś", "dzisiaj", "wczoraj", "przedwczoraj",
              "przyszły", "przyszłym", "przyszłą", "przyszłej", "tydzień", "tygodniu",
              "weekend", "weekendzie", "miesiąc", "miesiącu", "wieczorem", "rano"}
@@ -645,6 +646,31 @@ def forget_fact(what, among=None):
     return best
 
 
+_THIRD = {"jestem": "jest", "mam": "ma", "lubię": "lubi", "lubie": "lubi", "mieszkam": "mieszka",
+          "pracuję": "pracuje", "muszę": "musi", "chcę": "chce", "będę": "będzie",
+          "uwielbiam": "uwielbia", "znoszę": "znosi", "gram": "gra", "chodzę": "chodzi",
+          "jeżdżę": "jeździ", "uczę": "uczy", "boję": "boi", "wolę": "woli", "piję": "pije",
+          "jem": "je", "znam": "zna", "umiem": "umie", "potrafię": "potrafi", "mówię": "mówi",
+          "czytam": "czyta", "oglądam": "ogląda", "biegam": "biega", "pływam": "pływa",
+          "słucham": "słucha", "kocham": "kocha", "nienawidzę": "nienawidzi"}
+
+
+def _third_person(fact, who):
+    """"lubię pizzę z ananasem" → "Andrzej lubi pizzę z ananasem", or None
+    when it isn't that simple (8 Oct sweep: stored as „Andrzej mówi: «lubię…»",
+    read back as "Lubiłeś pizzę")."""
+    words = fact.split()
+    neg = words[:1] == ["nie"]
+    rest = words[1:] if neg else words
+    if not rest or rest[0].lower() not in _THIRD:
+        return None
+    tail = rest[1:]
+    if any(w.lower().strip(",.") in _FIRST_PERSON for w in tail) or any(
+            w.lower().endswith(("łem", "łam")) for w in tail):
+        return None
+    return " ".join([who] + (["nie"] if neg else []) + [_THIRD[rest[0].lower()]] + tail)
+
+
 def add_fact(fact):
     """"Zapamiętaj, że klucze są w szufladzie" — written at once, not at the
     end of the conversation, and never judged as trivia."""
@@ -653,7 +679,8 @@ def add_fact(fact):
     if words & _FIRST_PERSON or any(w.endswith(("łem", "łam")) for w in words):
         with state.lock:                           # "jestem uczulony…" — not Luna
             who = state.person[0] if state.person else None
-        fact = f"{who} mówi: „{fact}”" if who else f"Powiedziano mi: „{fact}”"
+        fact = ((who and _third_person(fact, who))
+                or (f"{who} mówi: „{fact}”" if who else f"Powiedziano mi: „{fact}”"))
     else:
         fact = fact[0].upper() + fact[1:]
     if words & _RELATIVE:                          # "jutro" must keep its day

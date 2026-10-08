@@ -1884,6 +1884,14 @@ class KidsTest(unittest.TestCase):
             brain._history[:] = old_h
             state.person = old_p
 
+    def test_third_person_fact(self):
+        import memory
+        self.assertEqual(memory._third_person("lubię pizzę z ananasem", "Andrzej"),
+                         "Andrzej lubi pizzę z ananasem")
+        self.assertEqual(memory._third_person("nie lubię brokułów", "Maja"), "Maja nie lubi brokułów")
+        self.assertIsNone(memory._third_person("moja mama mieszka w Krakowie", "Emilka"))
+        self.assertIsNone(memory._third_person("chodzę na basen z moją córką", "Andrzej"))
+
     def test_memory_private(self):
         import memory
         self.assertTrue(memory._PRIVATE.search("Andrzej planuje kolację niespodziankę dla Emilki"))
