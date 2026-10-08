@@ -1822,6 +1822,25 @@ class KidsTest(unittest.TestCase):
         finally:
             state.person, state.others = old
 
+    def test_costume(self):
+        import fun
+        from shared_state import state
+        said = []
+        try:
+            for text, kind in (("Pokaż mi kotka", "cat"), ("Luna, zamień się w pieska", "dog"),
+                               ("Czy możesz być zajączkiem?", "bunny"),
+                               ("Pokaż mi jakiegoś małego pieska", "dog")):
+                state.costume = None
+                self.assertTrue(fun.handle(text, said.append, None, None), text)
+                self.assertEqual(state.costume[0], kind)
+            state.costume = None
+            for text in ("Pokaż mi listę", "Pokaż kota w butach film", "Bądź cicho",
+                         "Kotek jest fajny"):
+                self.assertFalse(fun.handle(text, said.append, None, None), text)
+                self.assertIsNone(state.costume)
+        finally:
+            state.costume = None
+
     def test_age_line(self):
         import datetime
         import brain

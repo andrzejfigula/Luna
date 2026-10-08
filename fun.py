@@ -9,6 +9,8 @@ fun.py — small on-request games and gadgets (all local, no model call).
   "przybij piątkę"         → her hand comes up; tap the screen within 4 s
   "rzuć kostką"            → a die rolls on her screen ("dwiema kostkami": two)
   "rzuć monetą" / "orzeł czy reszka" → a coin flips
+  "pokaż mi kotka" / "zamień się w pieska" / "bądź zajączkiem" → cat / dog /
+                             bunny ears (and whiskers) on her face for 25 s
 
 robot_face.py draws the overlays ("lamp", "dice", "coin"); see screens.py for
 the overlay mechanism. None of these run on their own.
@@ -221,4 +223,48 @@ def handle(text, speak, play_sound, play_sound_async):
     if any(k in low for k in COIN):
         flip(speak, play_sound_async)
         return True
-    return False
+    return costume(low, speak)
+
+
+# "Pokaż mi kotka" — she has no pictures, so she becomes one: ears, a nose and
+# whiskers on her own face for a while (8 Oct sweep: the model offered a kitten
+# "na ekranie" she can't show)
+_COSTUME = re.compile(r"\b(?:pokaż|pokaz|pokazać|pokazac|zamień\s+się\s+w|zamien\s+sie\s+w|"
+                      r"zamienić\s+się\s+w|zamienic\s+sie\s+w|bądź|badz|być|byc|"
+                      r"zrób\s+się\s+na|zrob\s+sie\s+na|udawaj|udawać|udawac|"
+                      r"przebierz\s+się\s+za|przebierz\s+sie\s+za|przebrać\s+się\s+za|"
+                      r"przebrac\s+sie\s+za|zrób\s+minę|zrob\s+mine|zrobić\s+minę|zrobic\s+mine|"
+                      r"narysuj|narysować|narysowac)"
+                      r"\s+(?:mi\s+)?(?:jak\s+)?(?:(?:jakiegoś|jakiegos|małego|malego|małym|malym|"
+                      r"słodkiego|slodkiego)\s+){0,2}(\w+)((?:\W+\w+){0,3})")
+_COSTUME_KIND = (("cat", r"kot|kici|kotk"), ("dog", r"pies|psa|psem|piesk|szczeni"),
+                 ("bunny", r"zając|zajac|zajączk|zajaczk|królik|krolik|króliczk|kroliczk"))
+_COSTUME_SAY = {"cat": "Miau! Zobacz — jestem kotkiem!",
+                "dog": "Hau, hau! Teraz jestem pieskiem!",
+                "bunny": "Kic, kic! Zobacz, jaki ze mnie zajączek!"}
+_COSTUME_OFF = re.compile(r"\b(?:zdejmij\s+uszy|koniec\s+przebrania|bądź\s+sobą|badz\s+soba)\b")
+COSTUME_SECS = 25
+
+
+def costume(low, speak):
+    if _COSTUME_OFF.search(low):
+        with state.lock:
+            was, state.costume = state.costume, None
+        if was:
+            speak("Już jestem sobą!")
+        return bool(was)
+    m = _COSTUME.search(low)
+    if not m or len(re.findall(r"\w+", m.group(2))) > 1 and not re.search(
+            r"^\W*(?:proszę|prosze|luna|luno)\b", m.group(2)):
+        return False                       # "pokaż kota w butach" is something else
+    kind = next((k for k, rx in _COSTUME_KIND if re.match(rx, m.group(1))), None)
+    if not kind:
+        return False
+    with state.lock:
+        state.costume = (kind, time.time() + COSTUME_SECS)
+    _mood("happy")
+    print(f"[fun] costume: {kind}", flush=True)
+    # "Narysuj mi kotka" got ASCII art read aloud (8 Oct sweep)
+    speak(("Rysować nie umiem, ale popatrz! " if m.group(0).startswith("narys") else "")
+          + _COSTUME_SAY[kind])
+    return True

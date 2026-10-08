@@ -870,6 +870,53 @@ def draw_hair(surf, fcx, fcy, sway):
         surf.blit(img, rect)
 
 
+# ── Costume: "Pokaż mi kotka" — ears, nose and whiskers on her own face ──────
+# kind → (ears, whiskers). An ear: (dx past the eye centre, dy, w, h, tilt,
+# triangle?) for the right side, mirrored for the left; the screen is short
+# above the brows, so the cat's sit beside them and the bunny's between them.
+COSTUMES = {
+    "cat":   ([(95, -142, 116, 98, -9, True)], True),
+    "bunny": ([(None, -150, 46, 124, -6, False)], True),     # None: 62 px off the middle
+    "dog":   ([(175, 0, 78, 165, 12, False)], False),
+}
+
+
+def _ear(w, h, triangle):
+    img = gradient_block(w, h, w // 2 if not triangle else 8, EYE_GRAD_TOP, EYE_GRAD_BOTTOM)
+    if triangle:                                  # cut to a point at the top
+        img = img.copy()
+        mask = pygame.Surface(img.get_size(), pygame.SRCALPHA)
+        iw, ih = img.get_size()
+        pygame.draw.polygon(mask, (255, 255, 255, 255), [(iw // 2, 0), (iw - 1, ih - 1), (0, ih - 1)])
+        img.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+    return img
+
+
+def draw_costume_back(surf, fcx, fcy, kind, sway):
+    """The ears, behind the eyes."""
+    ears = COSTUMES.get(kind, ([], False))[0]
+    for (dx, oy, w, h, tilt, tri) in ears:
+        for side in (-1, 1):
+            ox = side * (62 if dx is None else EYE_SPREAD + dx)
+            img = _ear(w, h, tri)
+            img = pygame.transform.rotate(img, side * tilt + sway * 0.4)
+            rect = img.get_rect(center=(fcx + ox + int(sway * 1.5), fcy + oy))
+            surf.blit(img, rect)
+
+
+def draw_costume_front(surf, fcx, fcy, kind):
+    """The nose and the whiskers, between the eyes and the mouth."""
+    if kind not in COSTUMES:
+        return
+    nose = gradient_block(44, 30, 14, EYE_GRAD_TOP, EYE_GRAD_BOTTOM)
+    surf.blit(nose, nose.get_rect(center=(fcx, fcy + 92)))
+    if COSTUMES[kind][1]:
+        for side in (-1, 1):
+            for dy, tip in ((-8, -26), (6, 0), (20, 26)):
+                pygame.draw.line(surf, MOUTH_COL, (fcx + side * 70, fcy + 100 + dy),
+                                 (fcx + side * 230, fcy + 100 + dy + tip), 5)
+
+
 # ── Hands (style extra) ───────────────────────────────────────────────────────
 # Rounded "mitten" hands drawn as gradient blocks. Poses:
 #   open       — palm + 4 fingers + thumb (waving, heart)
@@ -2077,6 +2124,12 @@ class RobotFace:
         # ── hair (behind everything) ──────────────────────────────────────
         if HAIR:
             draw_hair(base, fcx, fcy, self.head_angle)
+        with state.lock:
+            costume = state.costume
+        if costume and time.time() > costume[1]:
+            costume = None
+        if costume:
+            draw_costume_back(base, fcx, fcy, costume[0], self.head_angle)
 
         # ── blush (behind eyes) ───────────────────────────────────────────
         self.left_blush.draw(base, fcx, fcy)
@@ -2112,6 +2165,8 @@ class RobotFace:
         my = fcy + self.mouth.rel_y
         self.mouth.draw(base, mx, my, self._emotion,
                         self._speaking, self._audio_energy)
+        if costume:
+            draw_costume_front(base, fcx, fcy, costume[0])
 
         # ── hands (in front of the face) ──────────────────────────────────
         if HANDS:

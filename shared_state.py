@@ -50,6 +50,7 @@ class SharedState:
         "light",                 # log10(room light) from the camera, smoothed
                                  # (camera_thread.py) — None until measured
         "focus_until",           # "tryb skupienia": no small talk until then
+        "costume",               # (kind, until): cat / dog / bunny ears on her face
         "overlay",               # (kind, until, data): mirror / photo / clock /
                                  # flash over the whole screen (screens.py)
         "sunrise",               # (start, end) of a wake-up alarm's dawn:
@@ -150,6 +151,7 @@ class SharedState:
         self.convo_closed_hard   = False
         self.sunrise             = None
         self.overlay             = None
+        self.costume             = None
         self.focus_until         = 0.0
         self.light               = None
         self.game_hand           = None

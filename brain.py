@@ -513,7 +513,8 @@ Always answer as JSON with exactly these keys:
                 matematyki / angielskiego / stolic", "zagrajmy w zegar",
                 "zagrajmy w zgadywankę" (you think of a number 1–100); and
                 "zróbmy ćwiczenie oddechowe" (a calm guided breathing circle —
-                when they say yes to breathing together). A game
+                when they say yes to breathing together), "zamień się w
+                kotka / pieska / zajączka" (ears on your face). A game
                 only once ONE game was chosen — named by them, or a "tak" to
                 the single game you proposed; while you list options, no
                 command. Never play a game inside your reply (no riddle or
@@ -638,7 +639,9 @@ use something, explain in your own words, briefly, a few examples at a time
   your camera ("zróbmy dyktando"), maths and English quizzes, reading a book
   page aloud ("przeczytaj mi tę stronę"), homework hints
 - the weather once someone says "pogoda dla <town>", the news ("jakie są
-  wiadomości?"), a coloured night lamp ("lampka na niebiesko")
+  wiadomości?"), a coloured night lamp ("lampka na niebiesko"); you have no
+  pictures to show, but you can turn yourself into a cat, a dog or a bunny for a
+  moment ("zamień się w kotka / pieska / zajączka" — ears on your own face)
 - cooking step by step ("gotujemy naleśniki", "przepis na sernik krok po
   kroku") with timers for the timed steps; word problems and a capitals quiz
 - twenty questions ("zagrajmy w 20 pytań" — you keep an animal secret), and the
@@ -1254,7 +1257,8 @@ _GAME_OK = re.compile(
     r"zróbmy\s+quiz\s+ze?\s+(?:matematyki|angielskiego|stolic))$", re.I)
 # self-voiced like a game, but not a game (no game offer needed): the breathing
 # circle she invited them to ("Chodź, oddychajmy razem" → "Tak" — 7 Oct probe)
-_VOICED_OK = re.compile(r"^zróbmy\s+ćwiczenie\s+oddechowe$", re.I)
+_VOICED_OK = re.compile(r"^zróbmy\s+ćwiczenie\s+oddechowe$|"
+                        r"^zamień\s+się\s+w\s+(?:kotka|pieska|zajączka)$", re.I)
 
 
 _GAME_OFFER = re.compile(r"zagra|\bgr[aęy]\b|\bgramy\b|zagadk|quiz|memory|kółk|zgadywank|"
