@@ -89,8 +89,9 @@ _SCHEMA = {
                     "properties": {
                         "question": {"type": "string"},
                         "due":      {"type": "string"},
+                        "who":      {"type": "string"},
                     },
-                    "required": ["question", "due"],
+                    "required": ["question", "due", "who"],
                     "additionalProperties": False,
                 }},
             },
@@ -186,7 +187,13 @@ def prompt_block():
         thread = None
         if not _session:
             today = _today().isoformat()
+            with state.lock:
+                here = state.person[0] if state.person else None
             for t in mem["threads"]:
+                # only to the person it is about: Andrzej's interview isn't a
+                # question for Maja, and asking her would use up its turn (8 Oct)
+                if t.get("who") and t["who"] != here:
+                    continue
                 if t.get("due", "") <= today and t.get("asked", 0) < MEMORY_THREAD_ASKS:
                     thread = t
                     break
@@ -293,7 +300,9 @@ outcome Luna does not know yet and a friend would ask about later: an
 interview, exam, doctor's visit, trip, a worry, something they were going to
 try. "question" is a short, natural Polish question Luna could ask ("Jak
 poszła rozmowa o pracę w Nokii?"); "due" is the date (YYYY-MM-DD) from which
-asking makes sense — the day after the event, or today if it is ongoing. Keep
+asking makes sense — the day after the event, or today if it is ongoing;
+"who" is the name of the person to ask (from the "[Name]" tags), or "" when it
+is unknown. Keep
 the open ones from CURRENT THREADS, drop those this conversation answered or
 made pointless, at most {max_threads}.
 
@@ -309,7 +318,8 @@ DATES: this memory is read on later days, so NEVER write relative time words
 the episode. Work out the calendar date from today's date and write it, e.g.
 "ma rozmowę o pracę 25 września 2026".
 
-Today's date: {today} ({weekday})."""
+Today's date: {today} ({weekday}). The next days: {week} — use these for
+"w piątek", "jutro", "w sobotę" (a weekday is the next one of these)."""
 
 
 _TIDY = """
@@ -361,7 +371,11 @@ def consolidate():
                 {"role": "system", "content": _INSTRUCTIONS.format(
                     max_facts=MEMORY_MAX_FACTS, max_threads=MEMORY_MAX_THREADS,
                     today=_today().isoformat(),
-                    weekday=_WEEKDAYS[_today().weekday()])},
+                    weekday=_WEEKDAYS[_today().weekday()],
+                    # (8 Oct: "w piątek sprawdzian" said on a Thursday got the
+                    # follow-up on Sunday — weekday sums are not the model's)
+                    week=", ".join(f"{_WEEKDAYS[d.weekday()]} {d.isoformat()}" for d in
+                                   (_today() + timedelta(days=i) for i in range(1, 8))))},
                 {"role": "user", "content":
                     f"CURRENT FACTS:\n{current}\n\nCURRENT THREADS:\n{threads}"
                     f"\n\nCONVERSATION:\n{_transcript(session)}"
@@ -406,6 +420,7 @@ def consolidate():
         old = {t.get("question"): t.get("asked", 0) for t in mem["threads"]}
         mem["threads"] = [
             {"question": str(t["question"]).strip(), "due": str(t["due"]).strip(),
+             "who": str(t.get("who", "")).strip(),
              "asked": old.get(str(t["question"]).strip(), 0)}
             for t in data.get("threads", []) if str(t.get("question", "")).strip()
             # asked as often as it may be: done with, not carried on forever

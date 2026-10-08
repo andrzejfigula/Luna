@@ -1483,6 +1483,28 @@ class KidsTest(unittest.TestCase):
             "przetłumacz na niemiecki: gdzie jest dworzec?"))
         self.assertIsNone(commands._translator_language("przetłumacz na angielski dzień dobry"))
 
+    def test_thread_only_for_its_person(self):
+        import memory
+        from shared_state import state
+        from unittest import mock
+        mem = {"facts": ["x"], "episodes": [], "_wiped_at": 0,
+               "threads": [{"question": "Jak było u dentysty?", "due": "2000-01-01",
+                            "who": "Andrzej", "asked": 0}]}
+        old = (state.person, list(memory._session))
+        try:
+            memory._session.clear()
+            with mock.patch.object(memory, "_load", lambda: mem), \
+                    mock.patch.object(memory, "_save", lambda m: None):
+                state.person = ("Maja", 0.7)
+                self.assertNotIn("u dentysty", memory.prompt_block())
+                self.assertEqual(mem["threads"][0]["asked"], 0)      # not used up
+                state.person = ("Andrzej", 0.9)
+                self.assertIn("u dentysty", memory.prompt_block())
+                self.assertEqual(mem["threads"][0]["asked"], 1)
+        finally:
+            state.person = old[0]
+            memory._session[:] = old[1]
+
     def test_leaving_and_umbrella(self):
         import commands, weather, time
         for t in ("wychodzę do pracy", "no to lecę do szkoły", "wychodzę już, pa", "idziemy na spacer",
