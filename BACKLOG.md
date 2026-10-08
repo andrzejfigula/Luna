@@ -7,16 +7,18 @@ voice is the scarce resource (rate limits, quiet hours, "Luna, cicho").
 
 Status: ✅ done · 🚧 in progress · ⏳ queued · 💤 parked (with the reason)
 
-**Where it stands (2026-10-08, afternoon):** 428 items, 521 commits on
+**Where it stands (2026-10-09, night):** 489 items, 614 commits on
 `surprise-pack`, not merged into `main`. Before every deploy `tools/check_pi.sh`
-runs the gates on the Pi against the working tree: 178 logic tests
-(`tests/test_local_logic.py`), 279 routing cases (`tests/test_routing.py`),
+runs the gates on the Pi against the working tree: 202 logic tests
+(`tests/test_local_logic.py`), the routing cases (`tests/test_routing.py`),
 `smoke_pi` and `dialog_pi`; `restart.sh` runs the same gates again and keeps the
 running Luna if one fails. With the real model, by hand: `tests/model_pi.py`,
-`tests/scenario_pi.py` (17 family scenarios) and `tools/sweep.py` with the
-question sets in `tests/sweeps/` (18 of them; `--at 20:45` pretends a time).
-Not seen yet on the real screen: the costume ears (#396, rendered on the Pi
-only). Parked for Andrzej's OK: the web panel, echo cancelling / voice stop.
+`tests/scenario_pi.py` (18 family scenarios) and `tools/sweep.py` with the
+question sets in `tests/sweeps/` (34 of them; `--at 20:45` pretends a time,
+`Andrzej+Maja|…` puts Maja in view, `Maja|~…` is overheard without "Luna").
+Deployed but waiting for a restart (the morning one): everything since #462 —
+the camera switch (#487) needs it most. Parked for Andrzej's OK: the web panel,
+echo cancelling / voice stop.
 
 | # | Item | Why | Status |
 |---|------|-----|--------|
