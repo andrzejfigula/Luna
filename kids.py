@@ -186,6 +186,21 @@ def _step(speak):
            "I ostatni: " if r["i"] == len(r["steps"]) - 1 else "Teraz: ") + step + ".")
 
 
+_SCHOOL_STEP = re.compile(r"plecak|tornister|szkoł|szkol|lekcj", re.I)
+
+
+def school_day(day=None):
+    """A weekday that isn't a Polish day off (brain._days_off)."""
+    from datetime import date
+    day = day or date.fromtimestamp(time.time())
+    try:
+        import brain
+        off = brain._days_off(day.year)
+    except Exception:
+        off = set()
+    return day.weekday() < 5 and day not in off
+
+
 def start_routine(name, speak):
     global _routine
     import lists
@@ -202,6 +217,9 @@ def start_routine(name, speak):
         speak(f"Nie mam jeszcze listy „{name}”. Powiedz na przykład: dopisz „umyj zęby” "
               f"do listy {name}.")
         return
+    if name == "poranek" and not school_day():
+        # a Saturday morning: no "spakuj plecak" (the list itself stays as it is)
+        steps = [s for s in steps if not _SCHOOL_STEP.search(s)] or steps
     with _lock:
         _routine = {"name": name, "steps": steps, "i": 0, "t": time.time()}
         print(f"[kids] routine {name}: {len(steps)} steps", flush=True)

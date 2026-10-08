@@ -1507,6 +1507,16 @@ class KidsTest(unittest.TestCase):
         self.assertIn("najfajniejsze" if "najfajniejsze" in said[-1] else "najlepsze", said[-1])
         self.assertTrue(state.conversation_active)
         lists.apply([{"type": "list_clear", "list": "wieczór"}])
+        # a Saturday morning: no "spakuj plecak" (9 Oct)
+        from datetime import date
+        self.assertFalse(kids.school_day(date(2026, 10, 10)))     # Saturday
+        self.assertTrue(kids.school_day(date(2026, 10, 12)))      # Monday
+        with mock.patch.object(kids, "school_day", lambda: False):
+            kids.start_routine("poranek", say)
+            self.assertNotIn("spakuj plecak", kids._routine["steps"])
+        self.assertIn("spakuj plecak", lists.get("poranek"))      # the list is kept
+        kids._routine = None
+        lists.apply([{"type": "list_clear", "list": "poranek"}])
 
     def test_usage_per_day(self):
         import health
