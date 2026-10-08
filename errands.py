@@ -164,7 +164,8 @@ def take(text):
     m = to = None
     for rx in (_WHEN, _ASK):
         m = rx.search(text)
-        to = faces.match_name(m.group(1)) if m else None
+        # "powiedz tacie" — a role too (9 Oct sweep: Maja's message for dad)
+        to = (faces.match_name(m.group(1)) or faces.match_role(m.group(1))) if m else None
         if to:
             break
     m2 = _ASK.search(text)

@@ -476,6 +476,16 @@ def role_word(word):
     return role.capitalize() if role in ("tata", "mama") else None
 
 
+def called_by_child(name):
+    """How a child in the house calls them: "tata" / "mama" from the notes
+    ("tata Mai"), else the name."""
+    note = (notes().get(name) or "").lower()
+    for role in ("tata", "mama"):
+        if re.search(rf"\b{role}\b", note):
+            return role
+    return name
+
+
 def match_role(word):
     """"tata" / "taty" / "mamę" → whoever the notes call that ("tata Mai"), or
     None — 8 Oct sweep: Maja's "Gdzie jest tata?" got a vague guess."""

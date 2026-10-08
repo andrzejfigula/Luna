@@ -1177,12 +1177,23 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
 
     # voice messages — "nagraj wiadomość", "odtwórz wiadomość", "usuń wiadomości"
     import messages
+    said_it = re.search(r"\bdla\s+(\w+)\W+(że|ze|żeby|zeby)\s+(.+)$", text, re.I)
+    if said_it:
+        import faces                                # someone she knows, or a recording
+        if not (faces.match_name(said_it.group(1)) or faces.match_role(said_it.group(1))):
+            said_it = None
+    if any(k in low for k in _MSG_RECORD) and said_it and _split:
+        # "Zostaw wiadomość dla taty, że jestem w domu" — the message is already
+        # said: an errand, not a recording (9 Oct sweep: "Dobrze, nagrywam. Mów
+        # teraz." after it)
+        w, conj, rest = said_it.groups()
+        return handle(f"Przekaż {w}, {conj} {rest}", speak, play_sound, _polite, _split=False)
     if any(k in low for k in _MSG_RECORD) and _short(text, 8):
         to = None
         m = re.search(r"\bdla\s+(\w+)", text)
         if m:                                       # "…dla Emilki" → Emilka
             import faces
-            to = faces.match_name(m.group(1))       # "dla Mai" → Maja, locally
+            to = faces.match_name(m.group(1)) or faces.match_role(m.group(1))   # "dla taty"
             if not to:                              # someone she doesn't know
                 to = faces.nominative(m.group(1))
         messages.arm(to)
@@ -1716,6 +1727,9 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
     got = errands.take(text)
     if got:
         to, _ = got
+        if _child_here():                          # Maja: "kiedy tata się pojawi"
+            import faces
+            to = faces.called_by_child(to)
         at, daily = errands._when(text)
         ahead = errands.days_ahead(text)
         after = ""

@@ -2900,6 +2900,16 @@ class ErrandsTest(unittest.TestCase):
                                           "babcia")[0], "Emilka")
             self.assertIsNone(errands.take("Powiedz mi, że wszystko będzie dobrze"))
             self.assertIsNone(errands.take("Przekaż Oli, że…"))       # unknown person
+            with mock.patch.object(faces, "notes", lambda: {     # Maja's "tata" (9 Oct sweep)
+                    "Andrzej": "partner Emilki, tata Mai", "Emilka": "mama Mai",
+                    "Maja": "córka, DZIECKO"}):
+                with state.lock:
+                    state.person = ("Maja", 0.9, time.time())
+                self.assertEqual(errands.take("Przekaż taty, że jestem w domu"),
+                                 ("Andrzej", "że jestem w domu"))
+                self.assertEqual(faces.called_by_child("Andrzej"), "tata")
+                self.assertEqual(faces.called_by_child("Maja"), "Maja")
+                errands.cancel("usuń przypomnienia dla Andrzeja")
             with state.lock:
                 state.person = None
             self.assertEqual(len(errands.waiting("Maja")), 1)
