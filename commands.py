@@ -670,6 +670,13 @@ def _spell(word, speak, english=False):
     speak(f"{word}: {names}.{tip}")
 
 
+def _leaving_replies(hour=None):
+    """"Udanego dnia!" at 18:14 (8 Oct sweep) — the part of the day it is."""
+    h = time.localtime().tm_hour if hour is None else hour
+    part = "dnia" if 5 <= h < 17 else "wieczoru"
+    return (f"Pa! Miłego {part}!", "Do zobaczenia!", f"Pa, pa! Udanego {part}!")
+
+
 def _bye_core(text):
     words = [w for w in _words(text) if w not in ("luna", "luno")]
     while words and tuple(words) not in _BYE and words[0] in _BYE_LEAD:
@@ -1135,7 +1142,7 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         else:
             speak((random.choice(DONE_REPLIES)
                    if done else random.choice(GOODBYE_REPLIES) if not leaving else
-                   random.choice(("Pa! Miłego dnia!", "Do zobaczenia!", "Pa, pa! Udanego dnia!")))
+                   random.choice(_leaving_replies()))
                   + (" " + note if note else ""))
         with state.lock:
             state.emotion = "Neutral"

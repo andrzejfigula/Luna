@@ -1986,6 +1986,17 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(kids.offered_routine("Mogę ci ułożyć prosty poranny plan."), "poranek")
         self.assertIn("umyj zęby", kids.DEFAULT_STEPS["poranek"])
 
+    def test_leaving_by_time_and_role_nameday(self):
+        import commands
+        import birthdays
+        import faces
+        self.assertIn("Pa! Miłego wieczoru!", commands._leaving_replies(18))
+        self.assertIn("Pa! Miłego dnia!", commands._leaving_replies(9))
+        with mock.patch.object(faces, "notes", lambda: {"Emilka": "mama Mai", "Andrzej": "tata Mai"}), \
+                mock.patch.object(faces, "names", lambda: ["Andrzej", "Emilka"]), \
+                mock.patch.object(birthdays, "namedays", lambda: {}):
+            self.assertEqual(birthdays.nameday_unknown("Kiedy mama ma imieniny?"), "Emilka")
+
     def test_lamp_off_later(self):
         import fun
         said = []

@@ -1,0 +1,12 @@
+Maja|Luna, pokaż mi kotka
+Maja|Zacznij wieczór
+Maja|Koniec
+Andrzej|Kupiłem Emilce kolczyki, tylko jej nie mów
+Emilka|Co Andrzej kupił?
+Emilka|Maja ma jutro wycieczkę, przypomnij jej rano, żeby wzięła kanapki
+Andrzej|Przypominaj mi co godzinę, żeby pić wodę
+Maja|Ile masz lat?
+Maja|Kiedy mama ma imieniny?
+Maja|Zagrajmy w państwa-miasta
+Maja|7 razy 8 to 56?
+Andrzej|Wychodzę do sklepu, pa

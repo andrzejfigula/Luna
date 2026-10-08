@@ -72,6 +72,10 @@ def _who(low, text):
         hit = faces.match_name(w, known)            # any case form: "Mai" → Maja
         if hit:
             return hit
+    for w in words:                                 # "Kiedy mama ma imieniny?" (8 Oct)
+        hit = faces.match_role(w)
+        if hit:
+            return hit
     return None
 
 
