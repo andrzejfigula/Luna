@@ -1986,6 +1986,12 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(kids.offered_routine("Mogę ci ułożyć prosty poranny plan."), "poranek")
         self.assertIn("umyj zęby", kids.DEFAULT_STEPS["poranek"])
 
+    def test_hard_riddle_goes_to_the_model(self):
+        import quiz
+        self.assertTrue(quiz._riddle_request("zadaj mi zagadkę"))
+        self.assertFalse(quiz._riddle_request("zadaj mi trudną zagadkę"))
+        self.assertFalse(quiz._riddle_request("daj mi zagadkę logiczną"))
+
     def test_goodnight_morning_note(self):
         import weather
         old = dict(weather._today)

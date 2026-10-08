@@ -251,6 +251,9 @@ def _riddle_request(low):
         return False                       # "to zagadkowe" isn't a request
     if any(s in low for _, stems in _KINDS for s in stems):
         return False
+    if re.search(r"\b(?:trudn\w*|logiczn\w*|podchwytliw\w*|dla\s+dorosł\w*|matematyczn\w*|"
+                 r"na\s+myślenie|łamigłówk\w*)\b", low):
+        return False                       # "trudną zagadkę" — the model's, not a child's list
     asked = re.search(r"\b(?:zadaj|zadasz|opowiedz|powiedz|daj|wymyśl|wymysl|pobawmy|"
                       r"zagrajmy|chcę|chce|jeszcze|kolejn\w*|następn\w*|nastepn\w*)\b", low)
     return bool(asked) or [w for w in words if w not in ("luna", "luno")] in (
