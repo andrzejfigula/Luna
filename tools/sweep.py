@@ -5,6 +5,7 @@ scratch data. A quick way to see how she answers a batch of everyday things:
 
     cd ~/luna && ./venv/bin/python -X utf8 tools/sweep.py questions.txt
     ./venv/bin/python -X utf8 tools/sweep.py --at 20:45 questions.txt   # pretend time
+    ./venv/bin/python -X utf8 tools/sweep.py --at 08:00 --day 2026-10-10 q.txt   # a Saturday
     ./venv/bin/python -X utf8 tools/sweep.py --keep questions.txt       # one conversation
 
 questions.txt: one "Who|What they say" per line ("Maja|Ile masz lat?"; "?|…" a face
@@ -25,6 +26,7 @@ import time
 ap = argparse.ArgumentParser()
 ap.add_argument("questions")
 ap.add_argument("--at", help="pretend local time HH:MM (today)")
+ap.add_argument("--day", help="pretend date YYYY-MM-DD (with --at; default today)")
 ap.add_argument("--keep", action="store_true", help="one conversation, history kept")
 ap.add_argument("--hello", action="store_true", help="leave the morning briefing on")
 args = ap.parse_args()
@@ -33,8 +35,9 @@ if args.at:                          # before Luna's modules read the clock
     hh, mm = (int(x) for x in args.at.split(":"))
     _real_time, _real_lt, _real_sf = time.time, time.localtime, time.strftime
     _now = _real_lt()
-    _off = time.mktime((_now.tm_year, _now.tm_mon, _now.tm_mday, hh, mm, 0, 0, 0, -1)) \
-        - _real_time()
+    y, mo, d = ((int(x) for x in args.day.split("-")) if args.day
+                else (_now.tm_year, _now.tm_mon, _now.tm_mday))
+    _off = time.mktime((y, mo, d, hh, mm, 0, 0, 0, -1)) - _real_time()
     time.time = lambda: _real_time() + _off
     time.localtime = lambda s=None: _real_lt(time.time() if s is None else s)
     time.strftime = lambda f, t=None: _real_sf(f, time.localtime() if t is None else t)
