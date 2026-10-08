@@ -1995,6 +1995,7 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(drawing.wants("Narysujesz mi kotka?"), "kotka")
         self.assertIsNone(drawing.wants("Narysowałam dom"))
         self.assertIn("robota", drawing._subject("siebie"))
+        self.assertIn("robota", drawing._subject(drawing.wants("Narysuj, jak wyglądasz")))
         self.assertIn("rodzinę", drawing._subject("naszą rodzinę"))
         self.assertEqual(drawing._subject("smoka"), "smoka")
         got = []

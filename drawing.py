@@ -34,7 +34,7 @@ _ASK = re.compile(r"^(?:luna,?\s+)?(?:(?:czy\s+)?(?:możesz|mozesz|mogłabyś|mo
                   r"(?:(?:mi|nam)\s+)?"
                   r"(?:narysuj|narysujesz|narysować|narysowac|namaluj|namalujesz|namalować|"
                   r"namalowac|draw)"
-                  r"(?:\s+(?:mi|nam|me))?(?:\s+(?:a|an))?\s+(.{2,80}?)[.!?]*$", re.I)
+                  r",?(?:\s+(?:mi|nam|me),?)?(?:\s+(?:a|an))?\s+(.{2,80}?)[.!?]*$", re.I)
 _SHOW = re.compile(r"\b(?:pokaż|pokaz)\s+(?:mi\s+)?(?:jeszcze\s+raz\s+)?(?:te\s+|moje\s+|swoje\s+)?"
                    r"(?:rysun\w*|obraz\w*)\b", re.I)
 _lock = threading.Lock()
@@ -52,7 +52,8 @@ def _subject(what):
     """"mnie", "siebie", "naszą rodzinę" — words for the picture (no photo is
     ever sent; the family is drawn from a description)."""
     low = what.lower().strip()
-    if re.fullmatch(r"siebie|się|sama siebie|ciebie|lunę|lune", low):
+    if re.fullmatch(r"siebie|się|sama siebie|ciebie|lunę|lune|(?:,\s*)?jak\s+wyglądasz|"
+                    r"(?:,\s*)?jak\s+wygladasz|yourself", low):
         return ("małego, uroczego robota biurkowego z ekranem zamiast twarzy, dwoma "
                 "dużymi świecącymi bursztynowymi oczami, stojącego na biurku pod "
                 "rozgwieżdżonym niebem")
