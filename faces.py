@@ -524,6 +524,16 @@ def picture_note():
             "powiedz te imiona (postacie w telewizorze albo na obrazku to nie oni).")
 
 
+_CHILD_SAFE = ("Święty Mikołaj, the Tooth Fairy (Wróżka Zębuszka), the Easter bunny: keep "
+               "the magic — answer warmly as if they are real and never hint they might "
+               "not be (that is for the parents to tell). Keep to what suits a child this "
+               "age: recommend ONLY films, games and apps rated for small children (PEGI "
+               "3/7, \"od lat 7\") — never horror or 12+/16+/18+ titles (no Resident Evil, "
+               "Dying Light, God of War, Left 4 Dead…). For scary films or games and adult "
+               "topics, say it's a question for mum or dad and offer something fun that "
+               "fits a child.")
+
+
 def prompt_line():
     """Who she knows and who is in front of her, for the system prompt."""
     known = names()
@@ -582,9 +592,11 @@ def prompt_line():
                 and not (person and o == person[0])]
         if kids and not (person and "dziecko" in about.get(person[0], "").lower()):
             # Maja asking her sum with dad in view, dad recognised first
-            now += (f" {', '.join(kids)} (a child) is here too and may be the one asking: "
-                    "a school task or sum gets a hint, never the result; keep it "
-                    "child-friendly.")
+            # (8 Oct probe, dad recognised, Maja beside him: "dorośli pomagają
+            # Mikołajowi po cichu", and God of War recommended)
+            now += (f" {', '.join(kids)} (a child) is here too, hears every word and may "
+                    "be the one asking: a school task or sum gets a hint, never the "
+                    "result. " + _CHILD_SAFE)
     if person and "dziecko" in about.get(person[0], "").lower():
         # the persona's general "with a child" rules lost to a plain question
         # (tested: 56 : 7 was answered "8" straight away) — said here, now
@@ -595,14 +607,7 @@ def prompt_line():
                 "away (for a division, not \"a razy b to c\"); a hint fits THIS task "
                 "and its numbers; no \"prawie\"/\"dobrze\" before they have said an "
                 "answer, and they speak, so \"powiedz mi\", never \"napisz\". "
-                "Święty Mikołaj, the Tooth Fairy (Wróżka Zębuszka), "
-                "the Easter bunny: keep the magic — answer warmly as if they are real "
-                "and never hint they might not be (that is for the parents to tell). "
-                "Keep to what suits a child this age: recommend ONLY films, games and "
-                "apps rated for small children (PEGI 3/7, \"od lat 7\") — never "
-                "horror or 12+/16+/18+ titles (no Resident Evil, Dying Light, Left 4 "
-                "Dead…). For scary films or games and adult topics, say it's a question "
-                "for mum or dad and offer something fun that fits a child.")
+                + _CHILD_SAFE)
     return (f"People you know by face: {who}. {now} Talk to the "
             "recognised person by name now and then (in the right Polish case), "
             "not in every sentence.\n")
