@@ -969,6 +969,15 @@ def handle(text, speak, play_sound, _polite=True):
         return True
     if kids.routine_active() and kids.routine_answer(text, speak, _sound_async):
         return True
+    import news
+    if not kids.routine_active() and news.is_yes(text):
+        # "Tak" to her "…chcesz, żebym pokazała ci to krok po kroku?" about the
+        # morning (8 Oct: the model ran "pokaż plan dnia" and made the steps up)
+        import brain
+        name = kids.offered_routine(brain.last_reply())
+        if name:
+            kids.start_routine(name, speak)
+            return True
     import cooking                                 # a recipe step: "dalej"
     if cooking.active() and cooking.answer(text, speak):
         return True

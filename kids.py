@@ -41,6 +41,10 @@ _ROUTINE = re.compile(r"\b(?:zacznij|zaczynamy|zacznijmy|start|rozpocznij|włąc
 _ROUTINE_NAMES = {"poranek": "poranek", "poranną": "poranek", "ranną": "poranek",
                   "rano": "poranek", "dzień": "poranek", "wieczór": "wieczór",
                   "wieczorną": "wieczór", "wieczor": "wieczór", "wieczorem": "wieczór"}
+DEFAULT_STEPS = {"poranek": ["umyj buzię", "ubierz się", "zjedz śniadanie", "umyj zęby",
+                             "spakuj plecak"],
+                 "wieczór": ["umyj się", "umyj zęby", "przygotuj ubranie na jutro",
+                             "piżama", "do łóżka"]}
 _DONE = ("gotowe", "gotowy", "gotowa", "zrobione", "zrobiłem", "zrobiłam", "zrobilem",
          "zrobilam", "dalej", "następne", "nastepne", "następny", "już", "juz",
          "skończyłem", "skończyłam", "done", "next", "ok", "okej", "jest")
@@ -152,6 +156,19 @@ def routine_name(text):
     return None
 
 
+def offered_routine(reply):
+    """Her reply offered the morning / bedtime steps → "poranek" / "wieczór"."""
+    low = (reply or "").lower()
+    if (("?" not in low and not re.search(r"\bchcesz\b|\bmogę\b|\bmoge\b", low))
+            or not re.search(r"krok\s+po\s+kroku|po\s+kolei|listę|liste|plan", low)):
+        return None
+    if re.search(r"\bporann\w*|\bporan\w*|\bna\s+rano\b", low):
+        return "poranek"
+    if re.search(r"\bwieczorn\w*|\bna\s+wieczór\b|\bprzed\s+snem\b|\bdo\s+snu\b", low):
+        return "wieczór"
+    return None
+
+
 def routine_active():
     global _routine
     with _lock:
@@ -173,6 +190,14 @@ def start_routine(name, speak):
     global _routine
     import lists
     steps = lists.get(name)
+    if not steps and name in DEFAULT_STEPS:
+        # no list yet: a sensible one, kept as an ordinary list the parents can
+        # change ("skreśl … z listy poranek") — 8 Oct: Maja's "Co dziś mam
+        # zrobić rano?" had nothing to start
+        lists.apply([{"type": "list_add", "list": name, "label": s, "seconds": 0, "at": "",
+                      "repeat": "none"} for s in DEFAULT_STEPS[name]])
+        steps = lists.get(name)
+        speak(f"Ułożyłam listę „{name}” — rodzice mogą ją zmienić.")
     if not steps:
         speak(f"Nie mam jeszcze listy „{name}”. Powiedz na przykład: dopisz „umyj zęby” "
               f"do listy {name}.")

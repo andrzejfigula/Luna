@@ -229,6 +229,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Kotek, piesek, zajączek | „Luna, pokaż mi kotka” / „zamień się w pieska” / „bądź zajączkiem” — Luna na 25 sekund dostaje uszy (i wąsy) na swojej buzi; „zdejmij uszy” kończy |
 | Imieniny | „Kiedy Maja ma imieniny?” — jeśli nikt jej nie powiedział, Luna sprawdza w internecie (Maja — 1 maja); „Maja ma imieniny …” zapamiętuje |
 | Przekaż jutro | „Maja ma jutro wycieczkę, przypomnij jej rano, żeby wzięła kanapki” — Luna powie to Mai jutro rano, gdy ją zobaczy (też „wieczorem”, „po szkole”); „dziękuję, to wszystko” — Luna kończy rozmowę bez „weź parasol” |
+| Poranek i wieczór Mai | „Luna, zacznij poranek” / „zacznij wieczór” — krok po kroku na ekranie (Maja mówi „gotowe”); listę Luna ułoży sama, a zmienić ją można: „dopisz … do listy poranek”, „skreśl … z listy poranek” |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 

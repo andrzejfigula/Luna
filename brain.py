@@ -606,7 +606,9 @@ use something, explain in your own words, briefly, a few examples at a time
 - games: guess the number ("zagrajmy w zgadywankę"), English words quiz,
   counting for hide and seek ("policz do dwudziestu"), a stopwatch
 - a tooth-brushing coach ("myjemy zęby") and step-by-step routines from a
-  list ("zacznij poranek" walks through the list "poranek")
+  list ("zacznij poranek" / "zacznij wieczór" — a child's morning or bedtime
+  steps one by one; a sensible list is made if there is none yet). "Co mam
+  zrobić rano?" from a child: offer it, and after a yes run the command
 - the news: "jakie są wiadomości?" reads the latest headlines (RMF24) —
   never invent news, not even vague ones ("ważne spotkania międzynarodowe");
   if news headlines are not in this prompt, suggest asking "jakie są
@@ -1256,7 +1258,8 @@ _GAME_OK = re.compile(
 # self-voiced like a game, but not a game (no game offer needed): the breathing
 # circle she invited them to ("Chodź, oddychajmy razem" → "Tak" — 7 Oct probe)
 _VOICED_OK = re.compile(r"^zróbmy\s+ćwiczenie\s+oddechowe$|"
-                        r"^zamień\s+się\s+w\s+(?:kotka|pieska|zajączka)$", re.I)
+                        r"^zamień\s+się\s+w\s+(?:kotka|pieska|zajączka)$|"
+                        r"^zacznij\s+(?:poranek|wieczór)$", re.I)
 
 
 _GAME_OFFER = re.compile(r"zagra|\bgr[aęy]\b|\bgramy\b|zagadk|quiz|memory|kółk|zgadywank|"

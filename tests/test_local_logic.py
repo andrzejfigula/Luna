@@ -1841,6 +1841,16 @@ class KidsTest(unittest.TestCase):
         finally:
             state.person, state.others = old
 
+    def test_offered_routine(self):
+        import kids
+        self.assertEqual(kids.offered_routine(
+            "Mogę Ci ułożyć poranny plan, Maju. Chcesz, żebym pokazała Ci to krok po kroku?"),
+            "poranek")
+        self.assertEqual(kids.offered_routine("Zrobimy razem listę przed snem?"), "wieczór")
+        self.assertIsNone(kids.offered_routine("Rano będzie padać."))
+        self.assertEqual(kids.offered_routine("Mogę ci ułożyć prosty poranny plan."), "poranek")
+        self.assertIn("umyj zęby", kids.DEFAULT_STEPS["poranek"])
+
     def test_is_english(self):
         import brain
         for t in ("Play some music", "Set a timer for 5 minutes", "Show me a cat",
