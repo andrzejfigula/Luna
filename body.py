@@ -9,6 +9,7 @@ one, and she can mention it herself if she really is overheating.
 import os
 import subprocess
 import time
+from shared_state import state
 
 _STARTED = time.time()
 _talks_today = [time.strftime("%Y-%m-%d"), 0]
@@ -153,6 +154,13 @@ def prompt_line():
     parts.append(f"{_talks_today[1]} things said to you today")
     parts += _settings()
     parts += _tech()
+    with state.lock:
+        cam_off = state.camera_off_until
+    if cam_off > time.time():
+        parts.insert(0, "YOUR CAMERA IS OFF (they asked, for privacy) until "
+                     + time.strftime("%H:%M", time.localtime(cam_off))
+                     + " — you see nothing now; if asked what you see, say the camera is off "
+                     "(\"włącz kamerę\" turns it on)")
     return ("Your body right now (Raspberry Pi 4): " + ", ".join(parts) + ". "
             "Keep it to yourself almost always: \"jak się masz?\", \"co tam?\", "
             "\"co robisz?\" get an ordinary friendly answer with no hardware "

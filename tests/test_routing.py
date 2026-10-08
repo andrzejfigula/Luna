@@ -131,6 +131,9 @@ LOCAL = {
     "Przepis na sernik krok po kroku": "cooking",
     "Luna, nie słuchaj": "mic",
     "Przestań słuchać na 30 minut": "mic",
+    "Wyłącz kamerę": "camera",
+    "Czy możesz wyłączyć kamerę na 20 minut?": "camera",
+    "Włącz kamerę": "camera",
     "Włącz szum deszczu": "ambience",
     "Szum morza na 30 minut": "ambience",
     "Biały szum": "ambience",
@@ -454,6 +457,11 @@ class RoutingTest(unittest.TestCase):
             self._mark("mic")
             with state.lock:
                 state.mic_muted_until = 0.0
+        if any(t.startswith(("Dobrze, wyłączam kamerę", "Kamera jest", "Dobrze, znowu widzę"))
+               for t in said):
+            self._mark("camera")
+            with state.lock:
+                state.camera_off_until = 0.0
         if not handled:
             return "model"
         return self.hit or "handled-but-unknown"

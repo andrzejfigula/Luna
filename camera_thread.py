@@ -94,6 +94,19 @@ def _measure_light(cap, frame):
         pass
 
 
+def _privacy_wait():
+    """"Wyłącz kamerę" (commands.py): no frames at all until the time is up —
+    True while it waits a second."""
+    with state.lock:
+        off = time.time() < state.camera_off_until
+        if off:
+            state.frame = None
+            state.camera_ok = False
+    if off:
+        time.sleep(1.0)
+    return off
+
+
 def _local_loop():
     """Read from local USB or Pi camera. Retries forever if no camera —
     Luna keeps running (voice + face) without vision."""
@@ -103,6 +116,8 @@ def _local_loop():
     help_printed = False
 
     while True:
+        if _privacy_wait():
+            continue
         cap = _open_local_camera()
 
         if cap is None:
@@ -136,6 +151,9 @@ def _local_loop():
             fail_count = 0
             with state.lock:
                 state.frame = frame
+                off = time.time() < state.camera_off_until
+            if off:                          # "wyłącz kamerę": the device is let go
+                break
             if time.time() - last_light > 2.0:
                 last_light = time.time()
                 _measure_light(cap, frame)

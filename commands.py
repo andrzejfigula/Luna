@@ -241,6 +241,11 @@ _WEATHER_OFF = ("wyłącz pogodę", "wylacz pogode", "nie sprawdzaj pogody")
 _MIC_OFF = ("nie słuchaj", "nie sluchaj", "przestań słuchać", "przestan sluchac",
             "wyłącz mikrofon", "wylacz mikrofon", "nie podsłuchuj", "nie podsluchuj",
             "wycisz mikrofon", "stop listening")
+_CAM_OFF = ("wyłącz kamerę", "wylacz kamere", "wyłącz kamere", "wyłącz oczy", "wylacz oczy",
+            "przestań patrzeć", "przestan patrzec", "nie nagrywaj mnie", "turn off the camera",
+            "camera off")
+_CAM_ON = ("włącz kamerę", "wlacz kamere", "włącz kamere", "możesz patrzeć", "mozesz patrzec",
+           "możesz już patrzeć", "turn on the camera", "camera on")
 _RESTART = ("zrestartuj się", "zrestartuj sie", "uruchom się ponownie",
             "uruchom sie ponownie", "restart yourself")
 _TRANSLATE_START = ("tłumacz na", "tlumacz na", "tłumaczyć na", "tlumaczyc na", "tryb tłumacza", "bądź tłumaczem",
@@ -1046,6 +1051,26 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
             state.mic_muted_until = time.time() + secs
             state.conversation_active = False
         print(f"[cmd] microphone off for {secs} s", flush=True)
+        return True
+
+    # "wyłącz kamerę" — privacy: the camera is let go for a while (9 Oct
+    # sweep: "Nie mogę wyłączyć kamery"); she still hears
+    if any(k in low for k in _CAM_OFF) and _short(text, 8) and (
+            not question or re.match(r"(?:luna,?\s+)?(?:czy\s+)?(?:mo[żz]esz|mog[łl]aby[śs])\b", low)):
+        import timers
+        secs, _ = timers.parse_duration(low)
+        secs = secs or 3600
+        with state.lock:
+            state.camera_off_until = time.time() + secs
+        speak(f"Dobrze, wyłączam kamerę na {timers.say_duration(secs)} — nic nie widzę. "
+              "Żeby ją włączyć wcześniej, powiedz: włącz kamerę.")
+        print(f"[cmd] camera off for {secs} s", flush=True)
+        return True
+    if any(k in low for k in _CAM_ON) and _short(text, 6):
+        with state.lock:
+            was = time.time() < state.camera_off_until
+            state.camera_off_until = 0.0
+        speak("Dobrze, znowu widzę." if was else "Kamera jest włączona.")
         return True
 
     # a maths quiz is on: this utterance is probably the answer

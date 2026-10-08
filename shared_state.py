@@ -59,6 +59,7 @@ class SharedState:
         "messages_waiting",      # unheard voice messages (messages.py)
         "radio",                 # the station playing (radio.py), or None
         "mic_muted_until",       # "nie słuchaj": no audio is processed until then
+        "camera_off_until",      # "wyłącz kamerę": the camera is closed until then
                                  # (a finger held on the screen ends it)
         "heard_at",              # when the last utterance's speech really ended —
                                  # her first sound after it logs the latency
@@ -144,6 +145,7 @@ class SharedState:
         self.messages_waiting    = 0
         self.radio               = None
         self.mic_muted_until     = 0.0
+        self.camera_off_until    = 0.0
         self.person              = None
         self.others              = ([], 0.0)
         self.layout              = ([], 0.0)
