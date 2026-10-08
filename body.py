@@ -95,6 +95,45 @@ def _settings():
     return out
 
 
+def _tech():
+    """What her builder asks about (9 Oct sweep: "jaki model cię napędza?" →
+    "nie mam pewności", "ile masz wolnej pamięci?" → a guess)."""
+    out = []
+    try:
+        from config import CHAT_MODEL, CRAFT_MODEL, OPENAI_MODEL
+        out.append(f"your brain: OpenAI {CHAT_MODEL} (songs and poems {CRAFT_MODEL}, "
+                   f"helpers {OPENAI_MODEL})")
+    except Exception:
+        pass
+    try:
+        info = {}
+        with open("/proc/meminfo") as f:
+            for line in f:
+                k, v = line.split(":", 1)
+                info[k] = int(v.split()[0])
+        out.append(f"RAM {info['MemAvailable'] // 1024} MB free of {info['MemTotal'] // 1024} MB")
+    except (OSError, KeyError, ValueError):
+        pass
+    try:
+        from datetime import date
+        import health
+        out.append(f"cloud calls today: {health.usage_line(date.today().isoformat())} "
+                   "(chat = your answers, stt = hearing, tts = your voice). You do NOT "
+                   "know what you cost — never say \"nic\" or a sum; give these counts "
+                   "and say the OpenAI account page shows the money")
+    except Exception:
+        pass
+    try:
+        import socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("10.255.255.255", 1))           # no packet is sent: picks the LAN address
+        out.append(f"LAN IP {s.getsockname()[0]}")
+        s.close()
+    except OSError:
+        pass
+    return out
+
+
 def prompt_line():
     parts = []
     t = cpu_temp()
@@ -113,6 +152,7 @@ def prompt_line():
     parts.append(f"running for {_span(time.time() - _STARTED)} since your last start")
     parts.append(f"{_talks_today[1]} things said to you today")
     parts += _settings()
+    parts += _tech()
     return ("Your body right now (Raspberry Pi 4): " + ", ".join(parts) + ". "
             "Keep it to yourself almost always: \"jak się masz?\", \"co tam?\", "
             "\"co robisz?\" get an ordinary friendly answer with no hardware "

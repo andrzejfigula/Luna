@@ -1,0 +1,11 @@
+Andrzej|Jaki model językowy cię napędza?
+Andrzej|Ile dzisiaj kosztowałaś?
+Andrzej|Jaka jest temperatura procesora?
+Andrzej|Ile masz wolnej pamięci?
+Andrzej|Zrestartuj się
+Andrzej|Jaka jest twoja wersja?
+Andrzej|Co nowego potrafisz?
+Andrzej|Czy działa internet?
+Andrzej|Jak długo już działasz bez przerwy?
+Andrzej|Głośność na pięćdziesiąt procent
+Andrzej|Jaki jest adres IP?

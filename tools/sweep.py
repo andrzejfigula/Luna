@@ -71,6 +71,7 @@ import weather             # noqa: E402
 from shared_state import state   # noqa: E402
 
 radio.play = lambda *a, **k: None
+os.kill = lambda *a, **k: print("[sweep] \"zrestartuj się\" — not really", flush=True)
 ambience.play = lambda *a, **k: True
 screens._take_photo = lambda *a: None
 commands.set_volume = lambda v: v
