@@ -752,6 +752,10 @@ _COMPLAINTS = [
     (r"\b(?:za\s+cicho|zbyt\s+cicho|nie\s+słychać\s+cię|nie\s+slychac\s+cie|słabo\s+cię\s+słychać|"
      r"nic\s+nie\s+słyszę|nic\s+nie\s+slysze)\b", "głośniej"),
     (r"\b(?:za\s+głośno|za\s+glosno|zbyt\s+głośno)\b", "ciszej"),
+    # "Dlaczego tak krzyczysz?" (log: answered "Andrzej nie krzyczy, mówi spokojnie")
+    (r"\b(?:krzyczysz|krzycz|drzesz\s+się|drzesz\s+sie|ogłuszasz|ogluszasz|wrzeszczysz)\b",
+     "ciszej"),
+    (r"\b(?:szepczesz|mamroczesz|mówisz\s+pod\s+nosem|mowisz\s+pod\s+nosem)\b", "głośniej"),
     # (7 Oct probe: "Za jasno tu" → "…mogę mówić po polsku albo po angielsku")
     # ("razi" / "razią" only — "na razie nie" became "przyciemnij ekran")
     (r"\b(?:za\s+jasno|zbyt\s+jasno|razi|razią|oślepia\w*|oslepia\w*)\b", "przyciemnij ekran"),
@@ -765,8 +769,8 @@ def _complaint_as_command(low):
     n = len(re.findall(r"\w+", low))
     if n > 6 or re.search(r"\b(radio|muzyk|telewiz|tv)\w*", low):
         return None
-    if n > 3 and not re.search(r"\b(mówisz|mowisz|gadasz|cię|cie|ciebie|twój\s+głos|twoj\s+glos)\b",
-                               low):
+    if n > 3 and not re.search(r"\b(mówisz|mowisz|gadasz|cię|cie|ciebie|twój\s+głos|twoj\s+glos|"
+                               r"krzyczysz|szepczesz|mamroczesz|drzesz)\b", low):
         return None                        # "minutnik dzwoni za głośno" is not about her
     return next((cmd for rx, cmd in _COMPLAINTS if re.search(rx, low)), None)
 
