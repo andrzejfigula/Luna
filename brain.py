@@ -287,7 +287,7 @@ def _morning_line():
 
 _CLAIMED = re.compile(r"\b(?:od\s+teraz|od\s+dziś|ustawiłam|zmieniłam|przestawiłam|"
                       r"włączyłam|wyłączyłam|zapisałam\s+(?:ustawienie|miasto)|"
-                      r"będę\s+(?:teraz\s+)?(?:mówić|mowic|używać|uzywac))\b", re.I)
+                      r"będę\s+(?:teraz\s+)?(?:mówić|mowic|używać|uzywac|cicho))\b", re.I)
 
 
 def _to_someone(text):
