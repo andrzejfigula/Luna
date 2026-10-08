@@ -578,6 +578,13 @@ def prompt_line():
         now += (" You don't know who is speaking: address them without gendered "
                 "forms (\"Chcesz…?\", \"Możesz…\", not \"Chciałabyś/Chciałbyś\", "
                 "\"zrobiłaś/zrobiłeś\").")
+    if not person and seen and known and not probably_family():
+        # a stranger asking when the home is empty (8 Oct probe: an unknown face
+        # was told the child's name) — only for a face really seen and unknown
+        now += (" This face is not one of the family: tell them nothing about the "
+                "family's routine — when the home is empty, when people leave or "
+                "come back, alarms, the address, the child's name, school or plans "
+                "(\"To pytanie do domowników — nie opowiadam o nich obcym.\").")
     with state.lock:
         others, seen_at = state.others
     if seen and others and time.time() - seen_at < 3 * RECOGNISE_EVERY:

@@ -7,7 +7,8 @@ scratch data. A quick way to see how she answers a batch of everyday things:
     ./venv/bin/python -X utf8 tools/sweep.py --at 20:45 questions.txt   # pretend time
     ./venv/bin/python -X utf8 tools/sweep.py --keep questions.txt       # one conversation
 
-questions.txt: one "Who|What they say" per line ("Maja|Ile masz lat?").
+questions.txt: one "Who|What they say" per line ("Maja|Ile masz lat?"; "?|…" a face
+she doesn't know, "|…" nobody in view).
 Without --keep every line starts a fresh conversation. With --hello the
 first-talk-of-the-day briefing is left on. It costs a few cents per batch.
 (8 Oct: these sweeps found the costume, the age, the name days, "to wszystko".)
@@ -93,8 +94,10 @@ lines = [ln.split("|", 1) for ln in open(args.questions, encoding="utf-8").read(
 for who, text in lines:
     if not args.keep:
         brain._history.clear()
-    with state.lock:
-        state.person = (who, 0.8, time.time()) if who else None
+    with state.lock:                 # "?|…" — a face she doesn't know; "|…" — nobody
+        state.person = (who, 0.8, time.time()) if who and who != "?" else None
+        state.face_detected = bool(who)
+        state.last_face_time = time.time()
         state.last_wake_time = time.time()
     said.clear()
     h = commands.handle(text, lambda t, **k: said.append(t), lambda *a, **k: True)
