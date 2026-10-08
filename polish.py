@@ -298,6 +298,14 @@ def is_secret(text):
     return bool(_SECRET.search(text or ""))
 
 
+def fix_desk(text):
+    """"na desk… na biurku" (9 Oct sweep — the English word slipped out and was
+    corrected mid-sentence) → "na biurku". ("Pokrój na desce" is a chopping
+    board — left alone.)"""
+    text = re.sub(r"\bna\s+desk\w*\W*\s*(?=na\s+biurk)", "", text or "", flags=re.I)
+    return re.sub(r"\bna\s+desk\b", "na biurku", text, flags=re.I)
+
+
 def fix_vocative(text, vocatives):
     """"Maja, mama ma urodziny…" → "Maju, …" — a name said TO someone, at the
     start before a comma or after a comma at the end, takes the vocative

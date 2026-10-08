@@ -2022,6 +2022,13 @@ class KidsTest(unittest.TestCase):
             self.assertEqual(faces.where_is("Andrzej", call="Tata"),
                              "Tata jeszcze nie był przy mnie, odkąd pamiętam.")
 
+    def test_fix_desk(self):
+        from polish import fix_desk
+        self.assertEqual(fix_desk("I wiesz co, na desk… na biurku, lampka świeci."),
+                         "I wiesz co, na biurku, lampka świeci.")
+        self.assertEqual(fix_desk("Pokrój cebulę na desce."), "Pokrój cebulę na desce.")
+        self.assertEqual(fix_desk("Siedzę na desk."), "Siedzę na biurku.")
+
     def test_fix_vocative(self):
         from polish import fix_vocative as f
         v = {"Maja": "Maju", "Andrzej": "Andrzeju", "Emilka": "Emilko"}

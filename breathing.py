@@ -15,7 +15,10 @@ from config import BREATH_IN, BREATH_HOLD, BREATH_OUT, BREATH_CYCLES
 
 TRIGGERS = ("ćwiczenie oddechowe", "cwiczenie oddechowe", "ćwiczenia oddechowe",
             "pooddychajmy", "pomóż mi się uspokoić", "pomoz mi sie uspokoic",
-            "breathing exercise", "oddychajmy razem")
+            "breathing exercise", "oddychajmy razem",
+            # 9 Oct sweep: "Pomóż mi się zrelaksować" got three breaths in words
+            "pomóż mi się zrelaksować", "pomoz mi sie zrelaksowac", "pomóż mi się odprężyć",
+            "pomoz mi sie odprezyc", "pomóż mi zasnąć", "pomoz mi zasnac", "help me relax")
 
 
 def is_trigger(low):

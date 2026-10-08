@@ -479,13 +479,13 @@ def _year_facts(today=None):
 
 
 from polish import (feminize, offer_only, empty_promise, neutral_you,   # (polish.py)
-                    looks_english, is_secret, fix_vocative)
+                    looks_english, is_secret, fix_vocative, fix_desk)
 
 
 def _feminize(text):
     """Her own forms feminine; and with nobody recognised in front of her, no
     guessed gender for "you" either."""
-    text = feminize(re.sub(r"\s*(?:\\n|\n)+\s*", " ", text or ""))   # a poem's "\n"
+    text = fix_desk(feminize(re.sub(r"\s*(?:\\n|\n)+\s*", " ", text or "")))   # a poem's "\n"
     try:
         text = fix_vocative(text, faces.vocatives())     # "Maja, …" → "Maju, …"
     except Exception:
