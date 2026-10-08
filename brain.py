@@ -385,6 +385,15 @@ def _always_dates():
     return (cc + "\n") if cc else ""
 
 
+def _year_facts(today=None):
+    """Counted here: "który dziś dzień roku?" got 211 and "ile do końca roku?"
+    88 days on 8 Oct (281 and 84)."""
+    d = today or (datetime.now(_TZ) if _TZ else datetime.now().astimezone()).date()
+    left = (d.replace(month=12, day=31) - d).days
+    return (f"Today is day {d.timetuple().tm_yday} of the year, ISO week "
+            f"{d.isocalendar()[1]}; {left} days left until 31 December.\n")
+
+
 from polish import (feminize, offer_only, empty_promise, neutral_you,   # (polish.py)
                     looks_english, is_secret, fix_vocative)
 
@@ -1078,6 +1087,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   f"asked the time or date, answer with exactly this local "
                   f"time — do not convert it to any other zone.\n"
                   + (_calendar_line(text) or _always_dates())
+                  + _year_facts()
                   + memory.day_line(text)
                   + _secret_line()
                   + _age_line(text)
@@ -1377,6 +1387,16 @@ def run_command(label, reply=""):
     if not (game or _COMMAND_OK.match(label) or _VOICED_OK.match(label)):
         print(f"[brain] command not allowed: {label!r}", flush=True)
         return False
+    if re.match(r"przepis\s+na\b", label, re.I):
+        try:
+            import cooking
+            if cooking.active():
+                # a question mid-recipe ("Ile mięsa?") came with the recipe
+                # command — it started over from step 1 (8 Oct night sweep)
+                print(f"[brain] {label!r} while cooking — not restarted", flush=True)
+                return False
+        except Exception:
+            pass
     import commands
     if _VOICED_OK.match(label):
         from text_to_speech import speak, play_sound

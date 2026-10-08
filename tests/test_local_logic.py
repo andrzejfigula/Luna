@@ -2008,6 +2008,13 @@ class KidsTest(unittest.TestCase):
         self.assertFalse(quiz._riddle_request("zadaj mi trudną zagadkę"))
         self.assertFalse(quiz._riddle_request("daj mi zagadkę logiczną"))
 
+    def test_year_facts(self):
+        import brain
+        from datetime import date
+        self.assertEqual(brain._year_facts(date(2026, 10, 8)),
+                         "Today is day 281 of the year, ISO week 41; 84 days left until "
+                         "31 December.\n")
+
     def test_timed_errand_in_quiet_morning(self):
         import idle_engine
         import errands
