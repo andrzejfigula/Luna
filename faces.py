@@ -543,7 +543,8 @@ def prompt_line():
                ([age(n)] if age(n) else [])
         return f"{n} ({'; '.join(bits)})" if bits else n
     who = ", ".join(one(n) for n in known)
-    now = (f"In front of you now: {person[0]} (recognised by face)."
+    now = (f"In front of you now: {person[0]} (recognised by face — you know their "
+           "name, so never ask it)."
            if person else
            "In front of you now: a face you don't recognise." if seen else
            "Nobody is in front of the camera now.")
