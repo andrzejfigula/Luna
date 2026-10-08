@@ -231,6 +231,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Przekaż jutro | „Maja ma jutro wycieczkę, przypomnij jej rano, żeby wzięła kanapki” — Luna powie to Mai jutro rano, gdy ją zobaczy (też „wieczorem”, „po szkole”); „dziękuję, to wszystko” — Luna kończy rozmowę bez „weź parasol” |
 | Poranek i wieczór Mai | „Luna, zacznij poranek” / „zacznij wieczór” — krok po kroku na ekranie (Maja mówi „gotowe”); listę Luna ułoży sama, a zmienić ją można: „dopisz … do listy poranek”, „skreśl … z listy poranek” |
 | Tajemnice | „Luna, kupiłem Emilce kolczyki, tylko jej nie mów” — Luna nikomu tego nie zdradzi (też „to niespodzianka”, „między nami”); o prywatnych rozmowach mówi innym tylko ogólnie |
+| Drobiazgi (8.10 po południu) | „koniec” w zagadkach / quizie — Luna mówi odpowiedź; „podpowiedz” przy dodawaniu i odejmowaniu — najpierw dziesiątki, potem jedności; przy gotowaniu „nastaw minutnik na ten krok” (Luna zapyta, na ile minut); „Dlaczego tak krzyczysz?” — Luna mówi ciszej; Maja: „Gdzie jest tata?” — Luna mówi, kiedy go widziała; „włącz radio zed” — Radio ZET; „Zrób coś śmiesznego” — Luna czasem zamienia się w kotka |
 
 ## Na co zwrócić uwagę przy pierwszym użyciu
 
