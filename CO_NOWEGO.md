@@ -20,7 +20,10 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 > gdy obok jest Maja, wiadomości tylko spokojne · „Mamo, …”, „Tato, …”, „Kochanie, …” powiedziane do kogoś innego — Luna się nie wtrąca ·
 > „**Ile godzin snu mi zostało?**” / „jak pójdę spać o pierwszej, ile się wyśpię?” — liczy do budzika ·
 > „**Przesuń przypomnienie** o … na dwudziestą” · Maja: „Zostaw wiadomość dla taty, że jestem w domu” — powie tacie ·
-> „Jaki model cię napędza?”, „Ile masz wolnej pamięci?”, „Jaki jest adres IP?” — odpowiada z prawdziwych danych.
+> „Jaki model cię napędza?”, „Ile masz wolnej pamięci?”, „Jaki jest adres IP?” — odpowiada z prawdziwych danych ·
+> **kółko i krzyżyk głosem**: „środek”, „lewy górny róg”, „pole 7” · „**Wyłącz kamerę**” (ikonka na ekranie) ·
+> wieczorna lista Mai nie urywa się na „nie chce mi się” · „Pomóż mi się zrelaksować” — ćwiczenie oddechowe ·
+> Maja: „ktoś dzwoni do drzwi” — zawsze „nie otwieraj, zawołaj mamę albo tatę”.
 
 ## Rozmowa
 
@@ -145,7 +148,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Co | Jak |
 |---|---|
 | Kamień, papier, nożyce | „Zagrajmy w kamień, papier, nożyce!” — do dwóch wygranych, pokaż rękę do kamery na „!”; „tak” = rewanż |
-| Kółko i krzyżyk | „Zagrajmy w kółko i krzyżyk” — dotykasz pola na ekranie; z Mają gra łagodniej; „jeszcze raz”, „koniec”; „…we dwoje” / „…z mamą” — dwie osoby, Luna sędziuje |
+| Kółko i krzyżyk | „Zagrajmy w kółko i krzyżyk” — dotykasz pola na ekranie albo mówisz („środek”, „lewy górny róg”, „pole 7”); z Mają gra łagodniej; „jeszcze raz”, „koniec”; „…we dwoje” / „…z mamą” — dwie osoby, Luna sędziuje |
 | Memory | „Zagrajmy w memory” — 12 kart na ekranie, szukasz par; „trudne memory” — 16 kart; pamięta rekord każdego |
 | Zdjęcie | „Zrób mi zdjęcie” — odliczanie, błysk, zdjęcie jak polaroid; zapisuje się w `~/luna/photos/` (tylko na Pi) |
 | Kostka i moneta | „Rzuć kostką”, „Rzuć dwiema kostkami”, „Orzeł czy reszka?” |
