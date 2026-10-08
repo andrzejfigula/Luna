@@ -129,7 +129,7 @@ fresh()
 turn("Maja", "Luna, posłuchaj, jak czytam", wake=True)
 turn("Maja", "Ala ma kota. Kot ma na imię Mruczek.")
 a = turn("Maja", "Koniec")
-check("reading aloud gets an answer about it", bool(a) and "Mruczk" in a, a)
+check("reading aloud gets an answer about it", bool(a) and "Mrucz" in a, a)
 
 # 4. Cooking along: a question between steps is answered from the recipe
 fresh()
