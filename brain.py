@@ -1159,7 +1159,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             # (8 Oct probe: the model's suggestions went straight onto the list)
             print("[brain] ideas asked, not a list change — list_add held back", flush=True)
             data["actions"] = [a for a in data["actions"] if a.get("type") != "list_add"]
-        set_now = timers.apply(data.get("actions") or [])
+        set_now = timers.apply(data.get("actions") or [], said=text)
         lists.apply(data.get("actions") or [])
         if any("nothing matched" in d for d in set_now or []) and not re.search(
                 r"\bnie\s+(?:mam|widzę|ma)\b", reply, re.I):

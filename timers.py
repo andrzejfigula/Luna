@@ -173,6 +173,8 @@ def _to_cancel(label):
     low = label.lower().strip()
     if low in ("wszystko", "wszystkie", "all", "everything"):
         return list(_timers)
+    if low.split()[0:1] in (["wszystkie"], ["all"]) and _all_of(low):   # "wszystkie budziki"
+        return [t for t in _timers if t["kind"] in _all_of(low)]
     if low in _KIND_WORDS:                       # "wyłącz budzik"
         return [t for t in _timers if t["kind"] == _KIND_WORDS[low]]
     if not low:
@@ -187,8 +189,22 @@ def _to_cancel(label):
     return [t for t in _timers if want & _stems(t["label"])]
 
 
-def apply(actions):
-    """Carry out the model's timer actions. Returns a short log string."""
+_ALL_OF_KIND = (("reminder", r"przypomnie\w*|reminders?"), ("alarm", r"budzik\w*|alarm\w*"),
+                ("timer", r"minutnik\w*|timers?"))
+
+
+def _all_of(said):
+    """"Wyłącz wszystkie przypomnienia" — the kinds named, or None when they
+    really meant everything (8 Oct sweep: the model's "wszystkie" would have
+    taken the weekday alarm along with the reminders)."""
+    kinds = {k for k, rx in _ALL_OF_KIND if re.search(rf"\b(?:{rx})\b", said or "", re.I)}
+    return kinds or None
+
+
+def apply(actions, said=""):
+    """Carry out the model's timer actions. Returns a short log string.
+    said: what the person said — "wszystkie przypomnienia" limits a cancel
+    of everything to the reminders."""
     done = []
     with _lock:
         for a in actions or []:
@@ -224,6 +240,10 @@ def apply(actions):
                     print(f"[timers] {kind} not set — no usable time in {a}", flush=True)
             elif kind == "cancel":
                 gone = _to_cancel(label)
+                kinds = _all_of(said) if label.lower().split()[:1] in (
+                    ["wszystko"], ["wszystkie"], ["all"], ["everything"]) else None
+                if kinds:
+                    gone = [t for t in gone if t["kind"] in kinds]
                 _timers[:] = [t for t in _timers if t not in gone]
                 done.append(f"cancelled {len(gone)}" + ("" if gone else
                             f" (nothing matched '{label}')"))
@@ -468,6 +488,10 @@ def prompt_block():
                due.strftime("%A"))
         at = f"{day} {due:%d.%m} {due:%H:%M}"
         what = t["label"] or ("minutnik" if t["kind"] == "timer" else "przypomnienie")
+        first = what.split()[0].lower() if what.split() else ""
+        if (t["kind"] != "alarm" and first not in ("o", "że", "ze", "żeby", "aby")
+                and len(first) > 3 and re.search(r"(?:ie|ach|ej|ym|im|u|ce)$", first)):
+            what = "o " + what               # the model said "tabletce", not "o tabletce"
         rep = t.get("repeat", "none")
         # "przypomnij mi za godzinę wyjąć pranie" is kept as a labelled timer —
         # to the family it's a reminder too (7 Oct probe: "jakie mam
@@ -611,7 +635,8 @@ def left_answer(text, now=None):
 
 
 _REMS_Q = re.compile(r"\b(?:jakie|co)\s+(?:mam\s+|są\s+|masz\s+)?(?:\w+\s+)?przypomnie\w*|"
-                     r"\bmoje\s+przypomnienia\b|\bo\s+czym\s+(?:masz\s+)?mi\s+przypomnie\w*",
+                     r"\bmoje\s+przypomnienia\b|\bile\s+(?:mam\s+|jest\s+)?przypomnie\w*|"
+                     r"\bo\s+czym\s+(?:masz\s+)?mi\s+przypomnie\w*",
                      re.I)
 _WD_LOC = ["w poniedziałek", "we wtorek", "w środę", "w czwartek", "w piątek", "w sobotę",
            "w niedzielę"]
@@ -637,7 +662,7 @@ def reminders_answer(text, now=None):
         what = t["label"] or _KIND_PL.get(t["kind"], "")
         first = what.split()[0].lower() if what.split() else ""
         if (first not in ("o", "że", "ze", "żeby", "aby") and len(first) > 3
-                and re.search(r"(?:ie|ach|ej|ym|im|u)$", first)):
+                and re.search(r"(?:ie|ach|ej|ym|im|u|ce)$", first)):
             what = "o " + what               # "wizycie u dentysty" → "o wizycie…"
         if t["kind"] == "alarm":
             what = f"budzik{' — ' + t['label'] if t['label'] else ''}"

@@ -1628,6 +1628,25 @@ class KidsTest(unittest.TestCase):
             self.assertIn("tabletki — codziennie o dwudziestej", a)
             self.assertNotIn("minutnik", a)                     # a bare kitchen timer isn't one
             self.assertIsNone(timers.reminders_answer("Przypomnij mi o praniu", now))
+            self.assertIsNotNone(timers.reminders_answer("Ile mam przypomnień?", now))
+            timers._timers.append({"due": now + 7200, "label": "tabletce", "kind": "reminder",
+                                   "repeat": "none"})
+            self.assertIn("o tabletce", timers.reminders_answer("Jakie mam przypomnienia?", now))
+            self.assertIn('"o tabletce"', timers.prompt_block())
+            # "wyłącz wszystkie przypomnienia": the weekday alarm stays
+            timers._timers.append({"due": now + 36000, "label": "", "kind": "alarm",
+                                   "repeat": "weekdays"})
+            saved = timers._save
+            timers._save = lambda: None
+            try:
+                timers.apply([{"type": "cancel", "label": "wszystkie"}],
+                             said="Wyłącz wszystkie przypomnienia")
+                self.assertEqual([t["kind"] for t in timers._timers if t["kind"] != "timer"],
+                                 ["alarm"])
+                timers.apply([{"type": "cancel", "label": "wszystkie budziki"}])
+                self.assertFalse([t for t in timers._timers if t["kind"] == "alarm"])
+            finally:
+                timers._save = saved
             timers._timers[:] = []
             self.assertEqual(timers.reminders_answer("Jakie mam przypomnienia?", now),
                              "Nie masz teraz żadnych przypomnień.")
