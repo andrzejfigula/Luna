@@ -121,7 +121,7 @@ turn("Maja", "Koniec")
 # 2. Leaving in the morning: an umbrella when it is going to rain
 fresh()
 a = turn("Emilka", "Dobra, wychodzę do pracy, pa", wake=True)
-rainy = (weather._today.get("rain") or 0) >= 50
+rainy = "parasol" in (weather.umbrella_note() or "")   # the rain still ahead today
 check("leaving: a goodbye" + (" with an umbrella" if rainy else ""),
       ("parasol" in a) == rainy and bool(a), a)
 

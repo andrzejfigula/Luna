@@ -1561,6 +1561,13 @@ class KidsTest(unittest.TestCase):
             self.assertIsNone(weather.umbrella_note())
             weather._today.update(rain=90, date="2000-01-01")        # stale: nothing
             self.assertIsNone(weather.umbrella_note())
+            # by the hour: only the rain still ahead counts, and it says when
+            at14 = time.mktime(time.strptime(today + " 14:05", "%Y-%m-%d %H:%M"))
+            weather._today.update(rain=80, tmax=14, date=today,
+                                  hours=[(8, 90), (14, 10), (15, 20), (21, 80)])
+            self.assertEqual(weather.umbrella_note(at14), "Weź parasol — wieczorem ma padać.")
+            weather._today.update(hours=[(8, 90), (14, 10), (21, 20)])  # the morning shower
+            self.assertIsNone(weather.umbrella_note(at14))
         finally:
             weather._today.clear(); weather._today.update(old)
 

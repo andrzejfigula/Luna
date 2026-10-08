@@ -254,7 +254,10 @@ def _loop():
                 try:
                     _today.update(rain=d["daily"]["precipitation_probability_max"][0],
                                   tmax=d["daily"]["temperature_2m_max"][0],
-                                  date=d["daily"]["time"][0])
+                                  date=d["daily"]["time"][0],
+                                  hours=[(int(t[11:13]), p) for t, p in zip(
+                                      d["hourly"]["time"], d["hourly"]["precipitation_probability"])
+                                      if t[:10] == d["daily"]["time"][0] and p is not None])
                 except (KeyError, IndexError, TypeError):
                     pass
             print(f"[weather] {s}", flush=True)
@@ -274,7 +277,18 @@ def umbrella_note(now=None):
         t = dict(_today)
     if not t or t.get("date") != time.strftime("%Y-%m-%d", time.localtime(now)):
         return None
-    if (t.get("rain") or 0) >= 50:
+    hours = t.get("hours")
+    if hours:
+        # the hours still ahead (8 Oct: at 14:00, rain only from 21:00 — and a
+        # morning shower already over is no reason for an umbrella)
+        hour = time.localtime(now).tm_hour
+        wet = [h for h, p in hours if h >= hour and p >= 50]
+        if wet:
+            h = wet[0]
+            when = ("zaraz może padać" if h <= hour + 1 else
+                    "ma padać po południu" if h < 17 else "wieczorem ma padać")
+            return f"Weź parasol — {when}."
+    elif (t.get("rain") or 0) >= 50:
         return "Weź parasol — dziś ma padać."
     if t.get("tmax") is not None and t["tmax"] <= 3:
         return "Ubierz się ciepło, dziś zimno."
