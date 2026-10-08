@@ -7,12 +7,16 @@ voice is the scarce resource (rate limits, quiet hours, "Luna, cicho").
 
 Status: ✅ done · 🚧 in progress · ⏳ queued · 💤 parked (with the reason)
 
-**Where it stands (2026-10-04):** 48 items done, plus the fixes in "Found while
-reviewing / testing". 53 commits on `surprise-pack`, not merged into `main`.
-38 logic tests (`python -X utf8 -m unittest discover -s tests`) pass on Windows
-and on the Pi; `tests/soak_pi.py` (40 conversations through the real
-pipeline) runs clean. Not tested with a real person in front of the camera:
-the game's hand reading, photos, the mood read from a face.
+**Where it stands (2026-10-08, afternoon):** 428 items, 521 commits on
+`surprise-pack`, not merged into `main`. Before every deploy `tools/check_pi.sh`
+runs the gates on the Pi against the working tree: 178 logic tests
+(`tests/test_local_logic.py`), 279 routing cases (`tests/test_routing.py`),
+`smoke_pi` and `dialog_pi`; `restart.sh` runs the same gates again and keeps the
+running Luna if one fails. With the real model, by hand: `tests/model_pi.py`,
+`tests/scenario_pi.py` (17 family scenarios) and `tools/sweep.py` with the
+question sets in `tests/sweeps/` (18 of them; `--at 20:45` pretends a time).
+Not seen yet on the real screen: the costume ears (#396, rendered on the Pi
+only). Parked for Andrzej's OK: the web panel, echo cancelling / voice stop.
 
 | # | Item | Why | Status |
 |---|------|-----|--------|
