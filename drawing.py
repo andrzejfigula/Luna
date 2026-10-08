@@ -31,7 +31,9 @@ SHOW_SECS = 40
 MODEL = "gpt-image-1-mini"
 
 _ASK = re.compile(r"^(?:luna,?\s+)?(?:(?:czy\s+)?(?:możesz|mozesz|mogłabyś|moglabys)\s+)?"
-                  r"(?:narysuj|narysować|narysowac|namaluj|namalować|namalowac|draw)"
+                  r"(?:(?:mi|nam)\s+)?"
+                  r"(?:narysuj|narysujesz|narysować|narysowac|namaluj|namalujesz|namalować|"
+                  r"namalowac|draw)"
                   r"(?:\s+(?:mi|nam|me))?(?:\s+(?:a|an))?\s+(.{2,80}?)[.!?]*$", re.I)
 _SHOW = re.compile(r"\b(?:pokaż|pokaz)\s+(?:mi\s+)?(?:jeszcze\s+raz\s+)?(?:te\s+|moje\s+|swoje\s+)?"
                    r"(?:rysun\w*|obraz\w*)\b", re.I)

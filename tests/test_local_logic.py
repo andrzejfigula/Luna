@@ -1991,6 +1991,8 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(drawing.wants("Narysuj mi jednorożca"), "jednorożca")
         self.assertEqual(drawing.wants("Możesz narysować kotka?"), "kotka")
         self.assertEqual(drawing.wants("Draw me a dinosaur"), "dinosaur")
+        self.assertEqual(drawing.wants("Luna, możesz mi narysować pieska?"), "pieska")
+        self.assertEqual(drawing.wants("Narysujesz mi kotka?"), "kotka")
         self.assertIsNone(drawing.wants("Narysowałam dom"))
         self.assertTrue(drawing._SHOW.search("Pokaż mi jeszcze raz rysunek"))
         said = []
