@@ -54,6 +54,15 @@ PATTERNS = [
     ("command failed (answer kept)", r"\[brain\] command .* failed"),
     ("Vosk's right answer taken (game)", r"is the game's right answer"),
     ("leaving / goodbye", r"goodbye — conversation closed"),
+    # 8 Oct additions
+    ("not-for-me overruled → asked again", r"not-for-me overruled"),
+    ("two requests in one sentence", r"\[cmd\] two in one"),
+    ("a child's result swapped for a hint", r"the child's result was in"),
+    ("ideas only: list_add held back", r"ideas asked, not a list change"),
+    ("a secret kept out of memory", r"a secret — kept out of memory"),
+    ("memory: private fact not kept", r"not kept — private between them"),
+    ("costume (cat / dog / bunny)", r"\[fun\] costume"),
+    ("errand for later (jutro / wieczorem)", r"\[errands\] for .* after"),
 ]
 
 
