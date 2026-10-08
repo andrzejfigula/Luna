@@ -85,6 +85,8 @@ _BYE = {("pa",), ("pa", "pa"), ("papa",), ("do", "widzenia"), ("do", "zobaczenia
         ("to", "by", "było", "wszystko"), ("na", "tyle"), ("koniec", "rozmowy"),
         ("do", "usłyszenia"), ("do", "później"), ("na", "razie", "dzięki")}
 # what may come before a goodbye: "super, to na razie wszystko", "dobra, pa"
+# "dziękuję, to wszystko": the talk is over, nobody is leaving
+DONE_REPLIES = ("Do usług!", "Polecam się!", "Jasne. W razie czego — jestem.")
 _BYE_LEAD = {"super", "dobra", "dobrze", "ok", "okej", "okay", "dzięki", "dziękuję",
              "dzieki", "dziekuje", "no", "świetnie", "fajnie", "a", "to", "spoko", "wielkie",
              "bardzo", "ekstra", "dobre"}
@@ -1048,7 +1050,7 @@ def handle(text, speak, play_sound, _polite=True):
         # "pa" in the morning; not for "to wszystko" or a "pa" at bedtime
         note = (weather.umbrella_note() if leaving or (not done and 5 <= time.localtime().tm_hour < 12)
                 else "")
-        speak((random.choice(("Do usług!", "Polecam się!", "Jasne. W razie czego — jestem."))
+        speak((random.choice(DONE_REPLIES)
                if done else random.choice(GOODBYE_REPLIES) if not leaving else
                random.choice(("Pa! Miłego dnia!", "Do zobaczenia!", "Pa, pa! Udanego dnia!")))
               + (" " + note if note else ""))

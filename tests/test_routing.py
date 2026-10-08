@@ -327,6 +327,7 @@ class RoutingTest(unittest.TestCase):
                  "reply_length": "length"}.get(k, "radio"))),
             (commands, "go_to_sleep", lambda: self._mark("sleep")),
             (commands, "GOODBYE_REPLIES", ["<BYE>"]),
+            (commands, "DONE_REPLIES", ["<BYE>"]),
             (screens, "_take_photo", lambda *a: self._mark("screen")),
             (screens, "_show", lambda *a, **k: self._mark("screen")),
             (games, "play_match", lambda *a: self._mark("game")),
