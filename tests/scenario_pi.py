@@ -181,6 +181,36 @@ fresh()
 a = turn("Maja", "Luna, jestem smutna, pokłóciłam się z Zosią", wake=True)
 check("comfort for a sad child", bool(a) and len(a) < 400, a)
 
+# 11. An alarm for tomorrow, then "o której budzik?"
+fresh()
+turn("Andrzej", "Luna, obudź mnie jutro o szóstej trzydzieści", wake=True)
+check("alarm set", any(t.get("kind") == "alarm" or "budzik" in str(t.get("label", "")).lower()
+                       for t in timers._timers), str(timers._timers)[:110])
+a = turn("Andrzej", "O której mam budzik?")
+check("alarm time told", bool(re.search(r"6:30|szóst\w* trzydzie", a.lower())), a)
+
+# 12. Grown-up sums are exact
+fresh()
+a = turn("Andrzej", "Luna, ile to jest 15 procent z 80?", wake=True)
+check("15% of 80 = 12", bool(re.search(r"\b12\b|dwanaście", a)), a)
+
+# 13. Remembered, then recalled
+fresh()
+turn("Emilka", "Luna, zapamiętaj, że Maja ma basen we wtorki", wake=True)
+a = turn("Emilka", "Kiedy Maja ma basen?")
+check("the fact recalled", "wtork" in a.lower(), a)
+
+# 14. English in, English out
+fresh()
+a = turn("Andrzej", "Luna, what time is it?", wake=True)
+check("English answered in English", bool(re.search(r"\b(?:it's|it is|o'clock|past|to)\b", a.lower()))
+      and not re.search(r"[ąęłńśźż]", a), a)
+
+# 15. A story for Maja: a real story, not a one-liner
+fresh()
+a = turn("Maja", "Luna, opowiedz mi bajkę o smoku", wake=True)
+check("a story with some length", len(a) > 300, f"{len(a)} chars: {a[:80]}")
+
 print(f"[scenario] {'OK' if not failures else 'FAILED: ' + ', '.join(failures)}", flush=True)
 shutil.rmtree(DATA, ignore_errors=True)
 sys.stdout.flush()
