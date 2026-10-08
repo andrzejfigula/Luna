@@ -98,6 +98,12 @@ CASES = [
     ("Kiedy przyjdzie Emilka, powiedz jej, że dzwoniła babcia", "Emilka"),   # errands
     ("Przetłumacz na niemiecki: dzień dobry", MODEL),    # one sentence, not the mode
     ("Zmień stację na RMF", "RMF FM"),                  # that station, not the next
+    # 8 Oct sweeps
+    ("Pokaż mi kotka", "kotkiem"),                       # fun.costume
+    ("Zdejmij uszy", "sobą"),
+    ("How do you spell cat?", "C, A, T"),                # English letters
+    ("Dziękuję, to wszystko", ""),                        # done, no umbrella
+    ("Włącz radio zed", "ZET"),
     ("Włącz odgłosy lasu", "Takiego dźwięku nie mam"),  # ambience: what she has
     ("Tryb skupienia na 25 minut", "25 minut skupienia"),
     ("Koniec skupienia", "koniec skupienia"),
