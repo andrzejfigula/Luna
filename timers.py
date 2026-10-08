@@ -627,6 +627,47 @@ def running_timer(now=None):
         return any(t["kind"] == "timer" and t["due"] > now for t in _timers)
 
 
+_SLEEP_Q = re.compile(r"\b(?:ile|jak\s+długo|jak\s+dlugo)\b.{0,40}?\b(?:snu|wyśpi\w*|wyspi\w*|"
+                      r"pośpi\w*|pospi\w*|spania|spać|spac)\b", re.I)
+
+
+def sleep_answer(text, now=None):
+    """"Ile godzin snu mi zostało?" / "Jak pójdę spać o pierwszej, to ile się
+    wyśpię?" — counted to the next alarm (9 Oct probe: the model said 10 and
+    13 h for 14). None if it isn't that question or there's no alarm."""
+    import clock
+    import clockgame
+    if not _SLEEP_Q.search(text or ""):
+        return None
+    now = now or time.time()
+    with _lock:
+        alarms = sorted(t["due"] for t in _timers
+                        if t["kind"] == "alarm" and now < t["due"] < now + 24 * 3600)
+    if not alarms:
+        return None
+    due = datetime.fromtimestamp(alarms[0])
+    now_dt = datetime.fromtimestamp(now)
+    bed, when = now_dt, "teraz"
+    o = re.search(r"\bo\s+((?:\S+\s*){1,4})", text, re.I)
+    t = clockgame.parse(o.group(1)) if o else None
+    if t:
+        h, mi = t
+        tries = [now_dt.replace(hour=hh, minute=mi, second=0, microsecond=0) + timedelta(days=d)
+                 for d in (0, 1) for hh in ({h, h + 12} if h < 12 else {h})]
+        tries = sorted(x for x in tries if now_dt - timedelta(minutes=30) <= x < due)
+        if not tries:
+            return None
+        bed = tries[0]
+        when = f"o {clock.hour_locative(bed.hour, bed.minute)}"
+    secs = (due - bed).total_seconds()
+    if secs <= 0:
+        return None
+    secs = round(secs / 300) * 300                  # to 5 minutes: it's sleep, not a timer
+    span = re.sub(r"\bgodzina\b", "godzinę", re.sub(r"\bminuta\b", "minutę", _say_left(secs)))
+    return (f"Budzik masz o {clock.hour_locative(due.hour, due.minute)} — kładąc się {when}, "
+            f"wyśpisz się najwyżej {span}.")
+
+
 def left_answer(text, now=None):
     """"Ile zostało na minutniku?" → exact, from the running timers; None if
     it isn't that question."""

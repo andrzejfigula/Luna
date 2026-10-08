@@ -1350,6 +1350,8 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         return True
     said = timers.left_answer(text)                # "ile zostało na minutniku?"
     if not said:
+        said = timers.sleep_answer(text)           # "ile godzin snu mi zostało?"
+    if not said:
         m = _WHERE.search(text) or _WHERE2.search(text)    # "gdzie jest Maja?"
         if m and _short(text, 8) and not _stranger_here():   # a stranger: the model refuses
             import faces

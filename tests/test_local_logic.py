@@ -32,6 +32,22 @@ class TimersTest(unittest.TestCase):
     def setUp(self):
         timers._timers.clear()
 
+    def test_sleep_answer(self):
+        # 9 Oct probe: the model said 10 and 13 h of sleep for 14
+        now = datetime.datetime(2026, 10, 9, 17, 0).timestamp()
+        due = datetime.datetime(2026, 10, 10, 7, 0).timestamp()
+        timers._timers.append({"kind": "alarm", "due": due, "label": "", "repeat": "none"})
+        self.assertEqual(timers.sleep_answer("Ile godzin snu mi zostało, jeśli pójdę spać teraz?", now),
+                         "Budzik masz o siódmej — kładąc się teraz, wyśpisz się najwyżej 14 godzin.")
+        said = timers.sleep_answer("Jak pójdę spać o pierwszej, to ile się wyśpię?", now)
+        self.assertIn("kładąc się o pierwszej, wyśpisz się najwyżej 6 godzin.", said)
+        said = timers.sleep_answer("Ile się wyśpię, jak położę się o wpół do dwunastej?", now)
+        self.assertIn("najwyżej 7 godzin i 30 minut", said)
+        late = datetime.datetime(2026, 10, 10, 5, 50).timestamp()
+        self.assertIn("najwyżej godzinę i 10 minut", timers.sleep_answer("Ile jeszcze pośpię?", late))
+        self.assertIsNone(timers.sleep_answer("Ile spałaś?", now - 10 ** 6))   # no alarm in 24 h
+        self.assertIsNone(timers.sleep_answer("Ile zostało na minutniku?", now))
+
     def test_timer_reminder_and_cancel_by_label(self):
         timers.apply([{"type": "timer", "seconds": 60, "at": "", "label": "makaron"}])
         later = (datetime.datetime.now() + datetime.timedelta(minutes=30)).strftime("%H:%M")
