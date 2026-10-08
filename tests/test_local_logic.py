@@ -1986,6 +1986,18 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(kids.offered_routine("Mogę ci ułożyć prosty poranny plan."), "poranek")
         self.assertIn("umyj zęby", kids.DEFAULT_STEPS["poranek"])
 
+    def test_compound_split(self):
+        import commands
+        m = commands._COMPOUND.match("Włącz lampkę i opowiedz bajkę")
+        self.assertEqual((m.group(1), m.group(2)), ("Włącz lampkę", "opowiedz bajkę"))
+        self.assertEqual(commands._COMPOUND.match("Wyłącz radio i dobranoc").group(2), "dobranoc")
+        self.assertIsNone(commands._COMPOUND.match("Dopisz mleko i chleb"))
+        said = []
+        h = commands.handle("Włącz lampkę i opowiedz bajkę", said.append, lambda *a, **k: True)
+        self.assertEqual(h, ("ask", "opowiedz bajkę"))         # the story goes to the model
+        import fun
+        fun.lamp_off()
+
     def test_shopping_item(self):
         import lists
         self.assertEqual(lists.shopping_item("szczypta soli"), "sól")

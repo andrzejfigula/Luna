@@ -923,9 +923,27 @@ def _sound_async(name):
     play_sound_async(name)
 
 
-def handle(text, speak, play_sound, _polite=True):
+_COMPOUND = re.compile(r"^(.{3,60}?)(?:,?\s+i\s+|,?\s+a\s+potem\s+|,\s*potem\s+)"
+                       r"((?:opowiedz|zaśpiewaj|zaspiewaj|nastaw|włącz|wlacz|wyłącz|wylacz|"
+                       r"puść|pusc|dopisz|przypomnij|pokaż|pokaz|zrób|zrob|zgaś|zgas|"
+                       r"dobranoc|ustaw|obudź|obudz)\b.*)$", re.I)
+
+
+def handle(text, speak, play_sound, _polite=True, _split=True):
     """Handle a local command. Returns True when the utterance was one (and
     must not go to the model)."""
+    m = _COMPOUND.match(text.strip()) if _split else None
+    if m and len(_words(m.group(1))) <= 6:
+        # "Włącz lampkę i opowiedz bajkę" — the lamp came on and the story was
+        # lost (8 Oct sweep); "Wyłącz radio i dobranoc" — no good night. When the
+        # first part is a local command, the rest goes through here too, or to
+        # the model; otherwise the whole sentence is the model's
+        first, rest = m.group(1).strip(" ,"), m.group(2).strip()
+        h1 = handle(first, speak, play_sound, _split=False)
+        if h1 and not isinstance(h1, tuple):
+            print(f"[cmd] two in one: \"{first}\" + \"{rest}\"", flush=True)
+            h2 = handle(rest, speak, play_sound, _split=False)
+            return h2 if isinstance(h2, tuple) else True if h2 else ("ask", rest)
     if _polite:
         cmd = polite_to_command(text)
         if cmd:
