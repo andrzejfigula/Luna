@@ -1986,6 +1986,12 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(kids.offered_routine("Mogę ci ułożyć prosty poranny plan."), "poranek")
         self.assertIn("umyj zęby", kids.DEFAULT_STEPS["poranek"])
 
+    def test_on_this_day(self):
+        import commands
+        self.assertTrue(commands._ON_THIS_DAY.search("Co się wydarzyło tego dnia w historii?"))
+        self.assertTrue(commands._ON_THIS_DAY.search("Co się działo w historii dzisiaj?"))
+        self.assertFalse(commands._ON_THIS_DAY.search("Opowiedz o historii Polski"))
+
     def test_hard_riddle_goes_to_the_model(self):
         import quiz
         self.assertTrue(quiz._riddle_request("zadaj mi zagadkę"))

@@ -952,6 +952,9 @@ _COMPOUND = re.compile(r"^(.{3,60}?)(?:,?\s+i\s+|,?\s+a\s+potem\s+|,\s*potem\s+)
                        r"dobranoc|ustaw|obudź|obudz)\b.*)$", re.I)
 
 
+_ON_THIS_DAY = re.compile(r"(?:tego\s+dnia|dzisiaj|dziś|dzis|tego\s+dnia\s+roku)\W+(?:\w+\W+){0,3}"
+                          r"w\s+historii|w\s+historii\W+(?:\w+\W+){0,3}(?:tego\s+dnia|dzisiaj|dziś)|"
+                          r"\bon\s+this\s+day\b", re.I)
 _LATER_OFF = re.compile(r"^(?:luna,?\s+)?(za\s+(?:\w+\s+){0,2}?(?:minut\w*|godzin\w*|kwadrans|"
                         r"sekund\w*))[,]?\s+((?:wyłącz|wylacz|zgaś|zgas)\s+.+?)[.!]?$", re.I)
 
@@ -1281,6 +1284,15 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
             or birthdays.age_answer(text) or birthdays.days_alive(text))
     if said:
         speak(said)
+        return True
+    if _ON_THIS_DAY.search(text) and _short(text, 12):
+        # "Co się wydarzyło tego dnia w historii?" — today's date, looked up
+        # (8 Oct: "powiedz mi, o jaki dzień chodzi")
+        import calc
+        import websearch
+        t = time.localtime()
+        websearch.start(f"ciekawe wydarzenia historyczne {t.tm_mday} {calc._MONTHS_GEN[t.tm_mon - 1]}"
+                        " — co wydarzyło się tego dnia w historii", speak)
         return True
     who = birthdays.nameday_unknown(text)           # not told: the calendar knows
     if who:
