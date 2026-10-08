@@ -85,7 +85,8 @@ def _parse_at(at):
     return due
 
 
-_REPEATS = {"none", "daily", "weekdays", "weekends", "weekly", "monthly", "yearly"}
+_REPEATS = {"none", "hourly", "daily", "weekdays", "weekends", "weekly", "monthly",
+            "yearly"}
 
 
 def _add_months(dt, n):
@@ -106,6 +107,19 @@ def _next_matching(due, repeat, inclusive=False):
     """The next time a repeating reminder rings: same wall-clock time on the
     next matching day (computed on the calendar, so a DST change doesn't
     shift it by an hour)."""
+    if repeat == "hourly":
+        # "przypominaj mi co godzinę, żeby pić wodę" (8 Oct sweep: kept as daily
+        # while she said "co godzinę") — every hour, but never in the quiet hours
+        from config import PROACTIVE_QUIET_FROM, PROACTIVE_QUIET_TO
+        t = due if inclusive else due + 3600
+        while t < time.time() + 1:
+            t += 3600
+        for _ in range(30):
+            h = time.localtime(t).tm_hour
+            if PROACTIVE_QUIET_TO <= h < PROACTIVE_QUIET_FROM:
+                break
+            t += 3600
+        return t
     dt = datetime.fromtimestamp(due, _TZ) if _TZ else datetime.fromtimestamp(due)
     step = {"weekly": lambda d: d + timedelta(days=7),
             "monthly": lambda d: _add_months(d, 1),
@@ -446,6 +460,13 @@ def local_labelled_timer(text):
     return (secs, label) if secs else None
 
 
+def _locative(word):
+    """"wizycie", "dentyście", "tabletce" take "o" in front; the verbal nouns
+    "pranie", "wyniesienie", "picie" don't (8 Oct sweep: "o wyniesienie śmieci")."""
+    return (bool(re.search(r"(?:ie|ach|ej|ym|im|u|ce)$", word))
+            and not re.search(r"(?:anie|enie|ęcie|icie|ucie|^mycie|^życie|^bycie)$", word))
+
+
 def say_duration(secs):
     """Polish words for a duration, for her confirmation."""
     if secs % 3600 == 0:
@@ -493,7 +514,7 @@ def prompt_block():
         what = t["label"] or ("minutnik" if t["kind"] == "timer" else "przypomnienie")
         first = what.split()[0].lower() if what.split() else ""
         if (t["kind"] != "alarm" and first not in ("o", "że", "ze", "żeby", "aby")
-                and len(first) > 3 and re.search(r"(?:ie|ach|ej|ym|im|u|ce)$", first)):
+                and len(first) > 3 and _locative(first)):
             what = "o " + what               # the model said "tabletce", not "o tabletce"
         rep = t.get("repeat", "none")
         # "przypomnij mi za godzinę wyjąć pranie" is kept as a labelled timer —
@@ -505,7 +526,7 @@ def prompt_block():
     return "\n".join(lines) + "\n"
 
 
-_REPEAT_PL = {"daily": "codziennie", "weekdays": "pn–pt", "weekends": "weekendy",
+_REPEAT_PL = {"hourly": "co godzinę", "daily": "codziennie", "weekdays": "pn–pt", "weekends": "weekendy",
               "weekly": "co tydzień", "monthly": "co miesiąc", "yearly": "co roku"}
 _KIND_PL = {"timer": "minutnik", "reminder": "przypomnienie", "alarm": "budzik"}
 
@@ -665,7 +686,7 @@ def reminders_answer(text, now=None):
         what = t["label"] or _KIND_PL.get(t["kind"], "")
         first = what.split()[0].lower() if what.split() else ""
         if (first not in ("o", "że", "ze", "żeby", "aby") and len(first) > 3
-                and re.search(r"(?:ie|ach|ej|ym|im|u|ce)$", first)):
+                and _locative(first)):
             what = "o " + what               # "wizycie u dentysty" → "o wizycie…"
         if t["kind"] == "alarm":
             what = f"budzik{' — ' + t['label'] if t['label'] else ''}"
@@ -674,6 +695,10 @@ def reminders_answer(text, now=None):
         if t["kind"] == "timer":
             # accusative after "za": "za godzinę", not "za godzina"
             when = f"za {say_duration(max(60, int(round((t['due'] - now) / 60)) * 60))}"
+        elif rep == "weekly":                # "co tydzień w poniedziałek o dziewiątej"
+            when = f"co tydzień {_WD_LOC[due.weekday()]} {at}"
+        elif rep == "hourly":
+            when = "co godzinę"
         elif rep != "none":
             when = f"{_REPEAT_PL.get(rep, '')} {at}"
         elif due.date() == today:

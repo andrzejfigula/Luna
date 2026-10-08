@@ -504,6 +504,7 @@ Always answer as JSON with exactly these keys:
                 budzik" ask "Tylko na jutro czy na stałe?" and set nothing
                 ("na jutro" the app skips by itself).
                 "repeat" is "none" unless they ask for it again and again:
+                "co godzinę" → "hourly" (rings 8–22, "at" an hour from now),
                 "codziennie" → "daily", "w dni robocze / od poniedziałku do
                 piątku" → "weekdays", "w weekendy" → "weekends", "w każdy
                 wtorek" → "weekly" (with "at" on the next Tuesday), "co
@@ -743,8 +744,8 @@ _RESPONSE_FORMAT = {
                         "at":      {"type": "string"},
                         "label":   {"type": "string"},
                         "repeat":  {"type": "string",
-                                    "enum": ["none", "daily", "weekdays", "weekends",
-                                             "weekly", "monthly", "yearly"]},
+                                    "enum": ["none", "hourly", "daily", "weekdays",
+                                             "weekends", "weekly", "monthly", "yearly"]},
                         "list":    {"type": "string"},
                     },
                     "required": ["type", "seconds", "at", "label", "repeat", "list"],

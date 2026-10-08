@@ -1628,6 +1628,14 @@ class KidsTest(unittest.TestCase):
         finally:
             timers._timers[:] = old
 
+    def test_hourly_and_labels(self):
+        import timers
+        t = time.mktime((2030, 1, 7, 21, 30, 0, 0, 0, -1))     # far ahead: not "in the past"
+        n = time.localtime(timers._next_matching(t, "hourly"))
+        self.assertEqual((n.tm_mday, n.tm_hour, n.tm_min), (8, 8, 30))   # the night skipped
+        self.assertFalse(timers._locative("wyniesienie"))
+        self.assertTrue(timers._locative("wizycie"))
+
     def test_reminders_answer(self):
         import timers
         from datetime import datetime
