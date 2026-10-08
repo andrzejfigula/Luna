@@ -287,7 +287,10 @@ breaks the rules must go even though it is already stored.
 conversation adds. Short sentences in Polish, most important first, at most
 {max_facts}. Once an event's date has passed, rewrite it in the past tense or
 drop it. Never store passwords, PINs, codes, card or account numbers, or
-addresses. Read carefully who is who: "Maja w sobotę ma urodziny koleżanki"
+addresses. Only facts about the PEOPLE and the HOME — never general knowledge,
+dates of public events or what Luna answered (8 Oct: her own wrong answer
+"zmiana czasu z 25 na 26 października" was kept as a fact and repeated).
+Read carefully who is who: "Maja w sobotę ma urodziny koleżanki"
 means a friend's birthday party Maja goes to, not Maja's birthday.
 A line starting "[Kasia]" was said by Kasia (Luna knows her face): write
 facts about that person with their name ("Kasia lubi koty"). "[Kasia, with Ola]"
