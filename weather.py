@@ -159,11 +159,18 @@ def _fetch(lat=None, lon=None):
         return json.loads(r.read().decode("utf-8"))
 
 
+def _wind_word(kmh):
+    """9 km/h is "słaby" — 8 Oct sweep: "dziś wieje umiarkowanie, około 9 km/h"."""
+    return ("bezwietrznie" if kmh < 2 else "słaby wiatr" if kmh < 12 else
+            "umiarkowany wiatr" if kmh < 29 else "silny wiatr" if kmh < 50 else
+            "bardzo silny wiatr")
+
+
 def _describe(d, where=None):
     cur, day = d["current"], d["daily"]
     now = (f"{cur['temperature_2m']:.0f}°C (feels like {cur['apparent_temperature']:.0f}°C), "
            f"{_WMO.get(cur['weather_code'], 'kod ' + str(cur['weather_code']))}, "
-           f"wind {cur['wind_speed_10m']:.0f} km/h")
+           f"wind {cur['wind_speed_10m']:.0f} km/h ({_wind_word(cur['wind_speed_10m'])})")
 
     def day_text(i):
         rain = day["precipitation_probability_max"][i]

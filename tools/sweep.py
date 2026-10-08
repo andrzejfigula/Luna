@@ -82,6 +82,12 @@ for _ in range(30):
 if not args.hello:
     idle_engine.first_hello_due = lambda who: False
 
+said = []
+# answers that go through brain.process (another town's weather, the news, a
+# story) are heard too, not just "(recorded)"
+brain.process = lambda t, context=None, **k: said.append(
+    (brain._ask_openai(t, context=context) or [""])[0])
+
 lines = [ln.split("|", 1) for ln in open(args.questions, encoding="utf-8").read().splitlines()
          if "|" in ln]
 for who, text in lines:
@@ -90,7 +96,7 @@ for who, text in lines:
     with state.lock:
         state.person = (who, 0.8, time.time()) if who else None
         state.last_wake_time = time.time()
-    said = []
+    said.clear()
     h = commands.handle(text, lambda t, **k: said.append(t), lambda *a, **k: True)
     if isinstance(h, tuple) and h[0] == "ask":
         r = brain._ask_openai(h[1])

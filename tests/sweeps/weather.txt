@@ -1,0 +1,8 @@
+Emilka|Czy dziś będzie padać?
+Emilka|Jak się ubrać dla Mai do szkoły?
+Andrzej|Ile stopni jest teraz na dworze?
+Andrzej|Jaka pogoda w Krakowie?
+Emilka|Czy w niedzielę będzie ładnie?
+Maja|Będzie śnieg?
+Andrzej|O której zachód słońca?
+Andrzej|Wieje dzisiaj?
