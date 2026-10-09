@@ -241,6 +241,13 @@ _WEATHER_OFF = ("wyłącz pogodę", "wylacz pogode", "nie sprawdzaj pogody")
 _MIC_OFF = ("nie słuchaj", "nie sluchaj", "przestań słuchać", "przestan sluchac",
             "wyłącz mikrofon", "wylacz mikrofon", "nie podsłuchuj", "nie podsluchuj",
             "wycisz mikrofon", "stop listening")
+_SPEAK_EN = re.compile(r"^(?:luna,?\s+)?(?:(?:mów|mow|odpowiadaj|rozmawiaj|gadaj)\s+(?:do\s+mnie\s+|ze\s+mną\s+|z\s+nami\s+)?"
+                       r"po\s+angielsku|rozmawiajmy\s+po\s+angielsku|"
+                       r"(?:please\s+)?(?:speak|talk)\s+english(?:\s+(?:to|with)\s+me)?|"
+                       r"let's\s+speak\s+english)(?:\s+(?:proszę|prosze|please|teraz|now))?$")
+_SPEAK_PL = re.compile(r"^(?:luna,?\s+)?(?:(?:mów|mow|odpowiadaj|rozmawiaj|gadaj)\s+(?:do\s+mnie\s+|ze\s+mną\s+|z\s+nami\s+)?"
+                       r"po\s+polsku|wróć\s+do\s+polskiego|wroc\s+do\s+polskiego|"
+                       r"(?:please\s+)?speak\s+polish(?:\s+(?:to|with)\s+me)?)(?:\s+(?:proszę|prosze|please|teraz|now))?$")
 _DOORBELL = re.compile(r"\b(?:ktoś|ktos|ktoś\s+tu)\s+(?:dzwoni\s+(?:do\s+drzwi|domofonem|"
                        r"dzwonkiem)|puka|stoi\s+pod\s+drzwiami|jest\s+pod\s+drzwiami|"
                        r"dobija\s+się)|\bdzwoni\s+domofon|\bdomofon\s+dzwoni|"
@@ -1472,6 +1479,20 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         on = any(k in low for k in ("włącz", "wlacz", "pokazuj", "on"))
         settings.put("captions", on)
         speak("Dobrze, włączam napisy." if on else "Dobrze, wyłączam napisy.")
+        return True
+
+    # "Mów do mnie po angielsku" — her replies in English for a while; "mów po
+    # polsku" back (9 Oct: the model promised it and nothing kept it)
+    if _short(text, 7) and _SPEAK_EN.match(low.strip(" .!?")):
+        import brain
+        brain.set_english(True)
+        speak("Okay! From now on I'll answer in English. Say „mów po polsku” to switch back.")
+        return True
+    if _short(text, 6) and _SPEAK_PL.match(low.strip(" .!?")):
+        import brain
+        was = brain.english_wanted()
+        brain.set_english(False)
+        speak("Dobrze, wracam do polskiego." if was else "Jasne, mówię po polsku.")
         return True
 
     # translator mode — "tłumacz na angielski" … "koniec tłumaczenia"

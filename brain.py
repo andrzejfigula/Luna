@@ -250,6 +250,26 @@ def _language_line(text):
     return "THIS MESSAGE IS IN ENGLISH — write \"reply\" in English.\n"
 
 
+def _reply_language_line(text):
+    """For the prompt: _language_line, or "speak English" while they asked for it."""
+    if not translator() and english_wanted():
+        return "They asked you to speak ENGLISH for now — write \"reply\" in English.\n"
+    return _language_line(text)
+
+
+_english_until = [0.0]
+
+
+def set_english(on, hours=2):
+    """"Mów do mnie po angielsku" — her replies in English for a while (9 Oct:
+    the model said "I'll speak English" and nothing kept it)."""
+    _english_until[0] = time.time() + hours * 3600 if on else 0.0
+
+
+def english_wanted():
+    return time.time() < _english_until[0]
+
+
 def _morning_line():
     """Their first talk of the day, in the morning: the reply carries the
     briefing (8 Oct: Andrzej's "Dzień dobry" at 7:41 — before the quiet hours
@@ -1149,7 +1169,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
     # the same lesson for English: next to the words, not only in the system
     # prompt ("Set a timer for five minutes" → "Jasne, pięć minut", 7 Oct)
     en_hint = (" (in English — reply in English; actions keep their Polish labels "
-               "and list items, e.g. \"włącz radio\", \"mleko\")") if _language_line(text) else ""
+               "and list items, e.g. \"włącz radio\", \"mleko\")") if _reply_language_line(text) else ""
     try:
         if image_b64:
             # The frame rides along with every message so Luna can always
@@ -1196,7 +1216,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   + _secret_line()
                   + _age_line(text)
                   + (homework.verdict_line(text) if _child_near(person) else "")
-                  + _language_line(text)
+                  + _reply_language_line(text)
                   + (_morning_line() if not translator() else "")
                   + ("They have just said your name — this message is for you "
                      "(to_luna true).\n" if _just_called(text) else "")
