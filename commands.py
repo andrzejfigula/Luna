@@ -1589,7 +1589,8 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         timers.apply([{"type": "timer", "seconds": secs, "at": "", "label": "",
                        "repeat": "none", "list": ""}])
         from polish import looks_english
-        if looks_english(text):              # "Set a timer for 5 minutes" (8 Oct sweep)
+        import brain
+        if looks_english(text) or brain.english_wanted():   # "Set a timer for 5 minutes"
             m, s = divmod(secs, 60)
             speak(f"Sure, a timer for {m} minute{'s' * (m != 1)}"
                   + (f" and {s} seconds." if s else ".") if m else f"Sure, {s} seconds.")
