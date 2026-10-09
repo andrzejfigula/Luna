@@ -1462,6 +1462,12 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                 person = state.person
             # "[Kasia] …": the memory can tell whose plans and likes these are
             memory.record(_who_said(text) if person else text, reply)
+            if len(reply) > 300 and re.search(r"\bbaj\w*|historyjk\w*|opowie\w*", text, re.I):
+                try:                                 # a story: "dalszy ciąg" can follow
+                    import commands                  # (tomorrow too — 9 Oct)
+                    commands._save_story(reply)
+                except Exception as e:
+                    print(f"[brain] story not kept: {e!r}", flush=True)
             if person:
                 try:                                 # a note passed on in this reply
                     errands.mark_told(person[0], reply)   # (module import at the top —
