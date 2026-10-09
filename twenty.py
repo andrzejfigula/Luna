@@ -98,7 +98,9 @@ def start(speak, text=""):
         return _start_reverse(speak)
     name, forms = random.choice(ANIMALS)
     with _lock:
-        _g = {"animal": name, "forms": forms, "asked": 0, "t": time.time()}
+        with state.lock:
+            player = state.person[0] if state.person else None
+        _g = {"animal": name, "forms": forms, "asked": 0, "t": time.time(), "player": player}
     print(f"[twenty] thinking of: {name}", flush=True)
     with state.lock:
         state.overlay = ("card", time.time() + EXPIRE_SECS,
@@ -323,6 +325,11 @@ def answer(text, speak):
             if animal:
                 speak(f"Dobrze — moje zwierzę to {animal}.")
             return False
+        with state.lock:
+            speaker = state.person[0] if state.person else None
+        if _g and _g.get("player") and speaker and speaker != _g["player"] \
+                and len(low.split()) >= 4:
+            return False                         # someone else talks: the game waits (#514)
         if _r is not None:
             return _answer_reverse(text, speak)
         g = _g
