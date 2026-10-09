@@ -16,6 +16,7 @@ jeszcze!" can't run up a bill. Kept in DATA_DIR/drawings (the newest KEEP).
 import base64
 import json
 import os
+import random
 import re
 import threading
 import time
@@ -74,7 +75,17 @@ def _subject(what):
         if "mama" in note or "partnerka" in note:
             return "uśmiechniętą mamę"
         return "uśmiechniętą osobę"
+    if re.fullmatch(r"(?:coś|cos|cokolwiek|co\s+chcesz|coś\s+(?:ładnego|ladnego|fajnego|"
+                    r"śmiesznego|smiesznego|wesołego|wesolego)|niespodziankę|niespodzianke)", low):
+        # "Narysuj coś" drew the word "coś" (9 Oct) — a surprise of her own instead
+        return random.choice(_SURPRISES)
     return what
+
+
+_SURPRISES = ("kotka w skafandrze kosmicznym na Księżycu", "smoka, który piecze naleśniki",
+              "jednorożca na tęczy", "żółwia na deskorolce", "sowę czytającą książkę pod "
+              "gwiazdami", "rakietę lecącą między planetami", "małego robota podlewającego "
+              "kwiatki", "lisa w szaliku w jesiennym lesie")
 
 
 def _count_today():
