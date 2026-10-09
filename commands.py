@@ -1845,8 +1845,10 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         if new == cur:
             speak("Szybciej już nie umiem." if new >= SPEED_MAX else
                   "Wolniej już nie umiem." if new <= SPEED_MIN else "Mówię normalnie.")
+        elif new == OPENAI_TTS_SPEED:
+            speak("Dobrze, wracam do zwykłego tempa.")
         else:
-            speak("Dobrze, tak mówię teraz. Może być?")
+            speak("Dobrze, tak mówię teraz. Może być?")   # said at the new speed
         return True
 
     if _short(text, 7):
