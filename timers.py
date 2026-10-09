@@ -822,8 +822,13 @@ def _announcement(t, missed=False):
         return text or "Dzień dobry! Pora wstawać."
     if t["kind"] == "timer":
         mins = round(t.get("secs", 0) / 60)
+        first = (label.split() or [""])[0].lower()
         if label.lower().startswith("o "):           # a reminder "za 20 minut o praniu"
             text = f"Przypominam {label}!"
+        elif first in ("żeby", "zeby", "że", "aby"):
+            text = f"Przypominam, {label}!"          # "…, żeby wyłączyć piekarnik!"
+        elif re.fullmatch(r"\w+(?:ć|c)", first) and len(first) > 4:
+            text = f"Przypominam: {label}!"          # "wyjąć pranie" — not "Minął czas: wyjąć…"
         elif label.lower().startswith(("do ", "dla ")):   # "minutnik do jajek"
             text = f"Dzyń! Minutnik {label}!"
         elif label:

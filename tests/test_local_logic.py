@@ -854,6 +854,11 @@ class TimersTest(unittest.TestCase):
                          "Dzyń! Minęły 3 minuty.")
         self.assertEqual(timers._announcement({"kind": "reminder", "label": "zadzwonić do mamy"}),
                          "Przypominam: zadzwonić do mamy!")
+        # a labelled timer that is really a reminder (9 Oct: "Minął czas: wyjąć pranie!")
+        self.assertEqual(timers._announcement({"kind": "timer", "label": "wyjąć pranie", "secs": 1800}),
+                         "Przypominam: wyjąć pranie!")
+        self.assertEqual(timers._announcement({"kind": "timer", "label": "makaron", "secs": 600}),
+                         "Minął czas: makaron!")
 
 
 class MemoryTest(unittest.TestCase):
