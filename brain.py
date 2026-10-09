@@ -350,7 +350,13 @@ def _just_called(text="", secs=12):
         recent = time.time() - seen_at < 3 * faces.RECOGNISE_EVERY
     except Exception:
         recent = False
-    return spoke < 10 and not (recent and [o for o in others or [] if o])
+    # she asked something (an offer of games…): a short answer up to 20 s later
+    # is that answer — 9 Oct 09:51: "w co chcesz się pobawić? …" took 10 s to
+    # say, Andrzej's "zgadywankę" (heard "Iwanka.") came 11 s after: silence
+    asked = "?" in last_reply()[-200:] or re.search(
+        r"\b(?:mogę zaproponować|wybierz|wybierasz|chcesz)\b", last_reply()[-200:], re.I)
+    window = 20 if asked and len(text.split()) <= 4 else 10
+    return spoke < window and not (recent and [o for o in others or [] if o])
 
 
 BIRTHDAY = (2026, 9, 18)          # first switched on at home (data/ was made then)

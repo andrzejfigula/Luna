@@ -1993,6 +1993,14 @@ class KidsTest(unittest.TestCase):
                 state.others = ([], 0.0)
                 state.last_spoken_time = time.time() - 30
                 self.assertFalse(brain._just_called("No, mi się chce spać."))
+                # after her question, a short answer 11 s later (9 Oct "Iwanka.")
+                state.last_spoken_time = time.time() - 11
+                brain._history[:] = [{"role": "assistant",
+                                      "content": "Jasne — w co chcesz się pobawić?"}]
+                self.assertTrue(brain._just_called("Iwanka."))
+                brain._history[:] = [{"role": "assistant", "content": "Dobranoc."}]
+                self.assertFalse(brain._just_called("Iwanka."))
+                brain._history.clear()
             # right after her name, but said to someone else (8 Oct morning sweep)
             state.last_wake_time = time.time() - 3
             with mock.patch.object(faces, "vocatives",
