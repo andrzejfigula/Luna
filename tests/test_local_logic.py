@@ -1475,6 +1475,20 @@ class KidsTest(unittest.TestCase):
         self.assertIn("nie mam internetu", said[-1])
         self.assertFalse(quiz.active())
 
+    def test_quiz_waits_while_someone_else_talks(self):
+        import quiz
+        with state.lock:
+            state.person = ("Maja", 0.9, time.time())
+        quiz.start("mul", "tabliczka", lambda t, **k: None, lambda n: None)
+        with state.lock:
+            state.person = ("Emilka", 0.9, time.time())
+        self.assertFalse(quiz.answer("Ile minut piec sernik w piekarniku?",
+                                     lambda t, **k: None, lambda n: None))
+        self.assertTrue(quiz.active())                       # Maja's quiz goes on
+        with state.lock:
+            state.person = None
+        quiz.answer("koniec", lambda t, **k: None, lambda n: None)
+
     def test_quiz_ends_on_unrelated_talk(self):
         import quiz
         quiz.start("add", "quiz z dodawania do 20", lambda t, **k: None, lambda n: None)

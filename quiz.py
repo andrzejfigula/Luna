@@ -577,8 +577,10 @@ def start(kind, text, speak, play_sound_async):
     global _q
     limit = quiz_limit(text)
     with _lock:
+        with state.lock:
+            player = state.person[0] if state.person else None
         _q = {"kind": kind, "limit": limit, "n": 0, "score": 0, "seen": set(),
-              "asked": time.time(), "tries": 0,
+              "asked": time.time(), "tries": 0, "player": player,
               "total": RIDDLES if kind == "riddle" else QUESTIONS}
         if kind == "guess":
             _q.update(secret=random.randint(1, 100), lo=1, hi=100)
@@ -985,6 +987,15 @@ def answer(text, speak, play_sound_async):
             else:
                 _finish(speak, play_sound_async, early=True)
             return True
+        with state.lock:
+            speaker = state.person[0] if state.person else None
+        if _q.get("player") and speaker and speaker != _q["player"] and len(words) >= 4:
+            # (short ones still count: a flicker of the face recognition must
+            # not take Maja's "pięćdziesiąt sześć" away)
+            # Emilka asks something while Maja plays: answered as usual, and
+            # Maja's quiz waits (9 Oct: any other sentence ended it)
+            print(f"[quiz] {speaker} talks, {_q['player']} plays — passed on", flush=True)
+            return False
         if _OTHER_GAME.match(low) and len(words) >= 2:
             # "Zagrajmy w dwadzieścia pytań" mid-riddle was judged a guess ("Hmm,
             # nie dwadzieścia pytań", 9 Oct games sweep) — another game: this ends
