@@ -84,8 +84,10 @@ def search(query):
         return None
 
 
-def context(query, found):
-    return ("\nWEB SEARCH just now, for «" + query + "»: " + found + "\nAnswer their "
+def context(query, found, moved=False):
+    bridge = (" The talk has moved on since they asked: open with a short bridge to "
+              "the question (e.g. \"A co do …: \")." if moved else "")
+    return ("\nWEB SEARCH just now, for «" + query + "»: " + found + bridge + "\nAnswer their "
             "question from this in 1–3 spoken sentences — no links, no markdown; numbers "
             "rounded the way people say them (4,37 zł, not 4,3719); name the "
             "source only if asked. If it doesn't answer the question, say what you found "
@@ -97,11 +99,16 @@ def start(query, speak, announce=True):
     if announce:
         speak("Sprawdzam w internecie…")
 
+    import brain
+    turns = len(brain._history)       # this turn adds 2 more; anything past that
+                                      # was said while searching (9 Oct replay)
+
     def run():
         found = search(query)
-        import brain
         if found:
-            brain.process(f"(Wynik wyszukiwania: {query})", context=context(query, found))
+            moved = len(brain._history) > turns + 2
+            brain.process(f"(Wynik wyszukiwania: {query})",
+                          context=context(query, found, moved))
         else:
             from text_to_speech import speak as say
             say("Nie udało mi się nic znaleźć w internecie.")

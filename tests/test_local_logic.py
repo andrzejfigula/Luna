@@ -2467,6 +2467,11 @@ class KidsTest(unittest.TestCase):
         finally:
             brain._TZ = old
 
+    def test_websearch_bridge_when_the_talk_moved_on(self):
+        import websearch
+        self.assertNotIn("moved on", websearch.context("zasięg Rode", "100 m"))
+        self.assertIn("moved on", websearch.context("zasięg Rode", "100 m", moved=True))
+
     def test_news_scary_headlines_for_children(self):
         import news
         for t in ("Zagrożenie atakiem z powietrza", "Policja zatrzymała siedemnastolatka",
