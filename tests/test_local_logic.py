@@ -2964,6 +2964,9 @@ class ErrandsTest(unittest.TestCase):
                                  ("Andrzej", "że jestem w domu"))
                 self.assertEqual(faces.called_by_child("Andrzej"), "tata")
                 self.assertEqual(faces.called_by_child("Maja"), "Maja")
+                # told already in a reply: not said again (9 Oct)
+                self.assertEqual(errands.mark_told("Andrzej", "Maja mówi, że jest już w domu."), 1)
+                self.assertEqual(errands.waiting("Andrzej"), [])
                 errands.cancel("usuń przypomnienia dla Andrzeja")
             with state.lock:
                 state.person = None

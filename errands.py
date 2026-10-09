@@ -269,6 +269,27 @@ def deliver(who, speak):
     return True
 
 
+def mark_told(who, reply):
+    """The model already passed a note on ("Co mi Andrzej przekazał?" → "Że kupił
+    chleb.") — then it isn't said again when their face shows up (9 Oct probe).
+    A note counts as told when most of its longer words are in the reply."""
+    if not who or not reply:
+        return 0
+    said = {w[:5] for w in re.findall(r"\w{4,}", reply.lower())}
+    told = []
+    for e in waiting(who):
+        if e.get("daily"):
+            continue
+        words = {w[:5] for w in re.findall(r"\w{4,}", e["words"].lower())}
+        if words and len(words & said) >= max(1, (len(words) + 1) // 2):
+            told.append(e)
+    if told:
+        with _lock:
+            _save([e for e in _load() if e not in told])
+        print(f"[errands] {len(told)} note(s) for {who} already told in a reply", flush=True)
+    return len(told)
+
+
 def prompt_line():
     with _lock:
         items = [e for e in _load() if e.get("daily") or time.time() - e["t"] < KEEP_DAYS * 86400]
