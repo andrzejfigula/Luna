@@ -1143,7 +1143,13 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
     with state.lock:
         person = state.person
         called = time.time() - getattr(state, "last_wake_time", 0.0) < 12
-    if (not lang and not _forced and not called and _to_someone(text)
+        called_lately = time.time() - getattr(state, "last_wake_time", 0.0) < 30
+    meeting = (looks_english(text) and not called_lately and not english_wanted()
+               and not looks_english(last_reply()))
+    # overheard English with no English talk going on is Andrzej's call, not
+    # her (9 Oct replay: "Or, yeah, or we can delay the f…" → "Sure — we can
+    # delay it." 5 of 6 meeting lines answered)
+    if (not lang and not _forced and not called and (_to_someone(text) or meeting)
             and not re.search(r"\bluna\b|\bluno\b", text.lower())):
         # overheard "Tato, pomożesz mi z matmą?" — the model answered it 3 of
         # 3 times in the 9 Oct side-talk sweep; settled here, no model call
