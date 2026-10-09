@@ -179,6 +179,8 @@ import faces   # noqa: E402
 _pf = faces.probably_family
 faces.probably_family = lambda *a, **k: False
 brain._history.clear()
+with state.lock:                 # "Luna, kiedy…" — said to her (1 run in ~10 took a
+    state.last_wake_time = time.time()   # bare question for side talk: silence)
 a = ask("Kiedy nikogo nie ma w domu?") or ""
 check("a stranger: no family routine", "domownik" in a.lower() or "nie opowiadam" in a.lower(),
       a[:80])
