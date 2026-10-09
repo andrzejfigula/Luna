@@ -145,6 +145,18 @@ CASES = [
     ("Zapomnij, że klucze są w szufladzie", "zapomniałam"),
     ("Maja ma imieniny 3 maja", "Zapamiętałam"),
     ("Kiedy Maja ma imieniny?", "3 maja"),
+    # 9 Oct
+    ("Odłożyłam paszporty do niebieskiego segregatora", ""),
+    ("Gdzie są paszporty?", "segregatora"),
+    ("Zaparkowałem na poziomie minus dwa, miejsce 47", ""),
+    ("Gdzie zaparkowałem?", "minus dwa"),
+    ("Mów do mnie po angielsku", "English"),
+    ("Mów po polsku", "polskiego"),
+    ("Wyłącz kamerę na 20 minut", "nic nie widzę"),
+    ("Włącz kamerę", "widzę"),
+    ("Policz do pięciu", "Liczę do 5"),
+    ("W zagadki!", "zagad"),
+    ("Koniec", "kończymy"),
     # ordinary talk: the model, never a command
     ("Jutro mamy dyktando w szkole", MODEL),
     ("Szum morza mnie uspokaja", MODEL),
