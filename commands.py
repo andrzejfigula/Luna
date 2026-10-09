@@ -1524,7 +1524,12 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
     # "opowiedz dalszy ciąg bajki" — last night's story goes on
     if _CONTINUE.search(low) and any(k in low for k in ("bajk", "historyjk", "opowieś",
                                                          "opowies")) and _short(text, 10):
-        story = last_story()
+        # a story told just now by the model isn't saved — it's in the history
+        # (9 Oct: "Opowiedz bajkę o smoku", then "dalszy ciąg" → "nie pamiętam")
+        import brain
+        recent = [m.get("content", "") for m in (getattr(brain, "_history", None) or [])
+                  if m.get("role") == "assistant" and len(m.get("content", "")) > 200]
+        story = recent[-1] if recent else last_story()
         if not story:
             speak("Nie pamiętam żadnej bajki do kontynuowania. Mogę opowiedzieć nową!")
             return True
