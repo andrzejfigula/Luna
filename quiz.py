@@ -256,8 +256,10 @@ def _riddle_request(low):
         return False                       # "trudną zagadkę" — the model's, not a child's list
     asked = re.search(r"\b(?:zadaj|zadasz|opowiedz|powiedz|daj|wymyśl|wymysl|pobawmy|"
                       r"zagrajmy|chcę|chce|jeszcze|kolejn\w*|następn\w*|nastepn\w*)\b", low)
+    # "W zagadki!" — the answer to "w co się pobawimy?" (9 Oct scenario: it went
+    # to the model, which picked the number game)
     return bool(asked) or [w for w in words if w not in ("luna", "luno")] in (
-        ["zagadka"], ["zagadki"])
+        ["zagadka"], ["zagadki"], ["w", "zagadki"], ["na", "zagadki"], ["może", "zagadki"])
 
 
 def active():

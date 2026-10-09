@@ -79,6 +79,7 @@ LOCAL = {
     "Przepytaj mnie ze słówek angielskich": "quiz",
     "Zadaj mi zagadkę": "quiz",
     "Pobawmy się w zagadki": "quiz",
+    "W zagadki!": "quiz",
     "Zagadka!": "quiz",
     "Pobawmy się w zegar": "quiz",
     "Naucz mnie zegara": "quiz",
