@@ -1454,9 +1454,9 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             # "[Kasia] …": the memory can tell whose plans and likes these are
             memory.record(_who_said(text) if person else text, reply)
             if person:
-                try:
-                    import errands                   # a note passed on in this reply
-                    errands.mark_told(person[0], reply)
+                try:                                 # a note passed on in this reply
+                    errands.mark_told(person[0], reply)   # (module import at the top —
+                    # a local "import errands" here broke every answer: 9 Oct)
                 except Exception as e:
                     print(f"[brain] errands check failed: {e!r}", flush=True)
         body.note_conversation()
