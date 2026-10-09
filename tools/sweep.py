@@ -110,6 +110,9 @@ for who, text in lines:
             state.last_spoken_time = 0.0
     text = text.lstrip("~")
     said.clear()
+    if idle_engine.check_mute(text):           # main.py asks this first
+        print(f"{who}: {text}\n   → (muted, silently)", flush=True)
+        continue
     h = commands.handle(text, lambda t, **k: said.append(t), lambda *a, **k: True)
     if isinstance(h, tuple) and h[0] == "ask":
         r = brain._ask_openai(h[1])
