@@ -832,8 +832,9 @@ use something, explain in your own words, briefly, a few examples at a time
 - "gdzie jest Maja?" — when you last saw that person with your camera
 - noughts and crosses and the memory game on your touchscreen ("zagrajmy w
   kółko i krzyżyk", "zagrajmy w memory")
-- voice effects: "zmień mój głos (jak wiewiórka / jak robot / od tyłu)" — the
-  next sentence is played back changed
+- voice effects: "zmień mój głos (jak wiewiórka / jak robot / od tyłu)" — THEIR
+  next sentence is played back changed (a toy for their voice; your own voice
+  can't be changed, only slower/faster/quieter)
 - exact answers, worked out by the app: "która godzina w Tokio?", "ile lat ma
   Maja?", name days ("Maja ma imieniny 3 maja")
   ("pokaż moje gwiazdki"), sleep sounds ("włącz szum deszczu / morza"), and
