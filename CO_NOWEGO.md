@@ -24,7 +24,10 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 > **kółko i krzyżyk głosem**: „środek”, „lewy górny róg”, „pole 7” · „**Wyłącz kamerę**” (ikonka na ekranie) ·
 > wieczorna lista Mai nie urywa się na „nie chce mi się” · „Pomóż mi się zrelaksować” — ćwiczenie oddechowe ·
 > Maja: „ktoś dzwoni do drzwi” — zawsze „nie otwieraj, zawołaj mamę albo tatę” ·
-> „**Mów do mnie po angielsku**” (2 godziny albo do „mów po polsku”) · „Mam spotkanie, **bądź cicho do 15**” · „Co dziś robiłyśmy?” pamięta dzisiejsze gry.
+> „**Mów do mnie po angielsku**” (2 godziny albo do „mów po polsku”) · „Mam spotkanie, **bądź cicho do 15**” · „Co dziś robiłyśmy?” pamięta dzisiejsze gry ·
+> „**Odłożyłam paszporty do segregatora**” / „**Zaparkowałem na -2, miejsce 47**” → potem „Gdzie są paszporty?”, „Gdzie zaparkowałem?” ·
+> „Opowiedz **dalszy ciąg** bajki” — także następnego dnia · „Narysuj coś” — niespodzianka · „W zagadki!” · quiz Mai czeka, gdy ktoś inny o coś pyta ·
+> rozmowy po angielsku przy biurku (calle) — Luna się nie wtrąca.
 
 ## Rozmowa
 
