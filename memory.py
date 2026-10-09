@@ -613,6 +613,12 @@ _PLACE = re.compile(r"\b(?:w|we|na|pod|przy|obok|za|u|nad|między|do)\s+\w+", re
 def where_is_thing(text):
     """"Gdzie są klucze?" → "Zapisałam: Klucze są w szufladzie." from what she
     was told to remember; None when no remembered fact says where it is."""
+    if re.search(r"\bgdzie\s+(?:\w+\s+)?zaparkowa\w*|\bgdzie\s+(?:jest|stoi)\s+(?:nasz\s+|mój\s+|moj\s+)?"
+                 r"(?:samochód|samochod|auto)", text or "", re.I):
+        with _lock:
+            parked = [f for f in _load()["facts"] if re.search(r"zaparkowa", f, re.I)]
+        if parked:                                   # "Andrzej zaparkował na poziomie…"
+            return parked[-1].rstrip(".") + "."
     m = _WHERE_THING.search(text)
     if not m:
         return None

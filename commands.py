@@ -625,15 +625,17 @@ def _remember(text):
         # "zapamiętałam" and nothing was saved)
         with state.lock:
             who = state.person[0] if state.person else None
-        verb = put.group(1).lower()[:-1]             # odłożyłam → odłożyła, -em → -e…
+        verb = (put.group(1) or put.group(3)).lower()[:-1]   # odłożyłam → odłożyła
         verb = verb[:-1] if verb.endswith("e") else verb   # odłożyłe → odłożył
-        return f"{who or 'Ktoś'} {verb} {put.group(2)}"
+        return f"{who or 'Ktoś'} {verb} {(put.group(2) or put.group(4)).strip(' ,')}"
     fact = m.group(1).strip(" .!")
     return fact if len(_words(fact)) >= 2 else None
 
 
 _PUT_AWAY = re.compile(r"^(?:luna,?\s+)?((?:odłoży|schowa|położy|włoży|zostawi|wsadzi)ł[ae]m)\s+"
-                       r"(\w+(?:\s+\w+){0,3}?\s+(?:do|w|we|na|pod|za|przy|obok)\s+\w+(?:\s+\w+){0,4})$",
+                       r"(\w+(?:\s+\w+){0,3}?\s+(?:do|w|we|na|pod|za|przy|obok)\s+\w+(?:\s+\w+){0,4})$|"
+                       # "Zaparkowałem na poziomie minus dwa, miejsce 47"
+                       r"^(?:luna,?\s+)?(zaparkował[ae]m)\s+((?:na|w|we|przy|pod|obok)\s+[\w ,.-]{3,60})$",
                        re.I)
 
 

@@ -953,6 +953,12 @@ class MemoryTest(unittest.TestCase):
         self.assertEqual(memory.where_is_thing("Gdzie są paszporty?"),
                          "Emilka odłożyła paszporty do niebieskiego segregatora.")
         self.assertIsNone(memory.where_is_thing("Gdzie jest prezent?"))
+        memory._save({"facts": ["Andrzej zaparkował na poziomie minus dwa, miejsce 47"],
+                      "episodes": [], "threads": [], "_wiped_at": 0})
+        self.assertEqual(memory.where_is_thing("Gdzie zaparkowałem?"),
+                         "Andrzej zaparkował na poziomie minus dwa, miejsce 47.")
+        self.assertEqual(memory.where_is_thing("Gdzie stoi nasz samochód?"),
+                         "Andrzej zaparkował na poziomie minus dwa, miejsce 47.")
         memory._save(memory._empty())                  # other tests expect no notes
 
     def test_forget(self):
