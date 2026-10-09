@@ -194,11 +194,17 @@ def day_line(text):
     day = (_today() - timedelta(days=back)).isoformat()
     with _lock:
         eps = [e.get("text", "") for e in _load()["episodes"] if e.get("date") == day]
+    # today's talk is also the chat history in front of the model, not yet in
+    # the stored episodes (9 Oct: after a quiz, "co dziś robiłyśmy?" got
+    # "nie pamiętam rozmów z dziś")
+    now = (" Today also counts everything in this conversation's history (games, "
+           "timers, questions) — tell those." if back == 0 else "")
     if not eps:
-        return (f"Asked about {word} ({day}): your memory has NO conversations from that "
-                "day — say you don't remember it; don't use other days' lines.\n")
+        return (f"Asked about {word} ({day}): your stored memory has no other conversations "
+                "from that day" + (" — say you don't remember it; don't use other days' "
+                                   "lines." if back else ".") + now + "\n")
     return (f"Asked about {word} ({day}): your memory has from that day only: "
-            + " ".join(eps) + " — answer from these, nothing from other days.\n")
+            + " ".join(eps) + " — answer from these, nothing from other days." + now + "\n")
 
 
 def prompt_block():

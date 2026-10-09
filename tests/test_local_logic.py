@@ -1881,7 +1881,8 @@ class KidsTest(unittest.TestCase):
                "threads": []}
         with mock.patch.object(memory, "_load", lambda: mem), \
                 mock.patch.object(memory, "_today", lambda: datetime.date(2026, 10, 7)):
-            self.assertIn("NO conversations", memory.day_line("O czym rozmawialiśmy wczoraj?"))
+            self.assertIn("say you don't remember", memory.day_line("O czym rozmawialiśmy wczoraj?"))
+            self.assertIn("conversation's history", memory.day_line("O czym dziś rozmawialiśmy?"))
             self.assertIn("Andrzej pytał o czas.", memory.day_line("O czym dziś rozmawialiśmy?"))
             self.assertEqual(memory.day_line("Jaka pogoda wczoraj była?"[:0] + "Co tam?"), "")
 

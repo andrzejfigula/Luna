@@ -1603,6 +1603,8 @@ def note_local(user_text, said):
         _history.pop(0)
     save_history()
     memory.record(tagged, reply, local=True)
+    body.note_conversation()       # a quiz or a timer is talking to her too (9 Oct:
+                                   # "co dziś robiłyśmy?" → "nikt ze mną nie rozmawiał")
 
 
 # ── Yes/no question about the current camera frame (used by behavior_engine) ─
