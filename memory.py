@@ -607,7 +607,7 @@ _WHERE_THING = re.compile(
     r"\bgdzie\s+(?:jest|są|sa|leży|lezy|leżą|leza|położył\w*|polozyl\w*|zostawił\w*|"
     r"zostawil\w*|schował\w*|schowal\w*|odłożył\w*|odlozyl\w*|mam|mamy)\s+"
     r"(?:mój|moj|moja|moje|moi|nasz\w*|te|ten|ta)?\s*(.+?)[?.!]*$", re.I)
-_PLACE = re.compile(r"\b(?:w|we|na|pod|przy|obok|za|u|nad|między)\s+\w+", re.I)
+_PLACE = re.compile(r"\b(?:w|we|na|pod|przy|obok|za|u|nad|między|do)\s+\w+", re.I)
 
 
 def where_is_thing(text):
@@ -622,10 +622,24 @@ def where_is_thing(text):
     with _lock:
         facts = _load()["facts"]
     for f in reversed(facts):                     # the newest note wins
+        if re.search(r"prezent|niespodzian|upomin", f, re.I):
+            continue                              # where a present is hidden: never told
         body = re.sub(r"^(?:\w+ mówi: |Powiedziano mi: )?[„\"]?", "", f)
         head = _stems(" ".join(body.split()[:3]))
         if want & head and _PLACE.search(body):
-            return f"Zapisałam: {body.strip('„”\" .')}."
+            body = body.strip('„”" .')
+            # "Klucze są w szufladzie." → "W szufladzie." — 9 Oct: "Zapisałam:
+            # Zapasowe klucze są…" read the note back like a file
+            v = re.search(r"\b(?:są|jest|leżą|leży|stoi|stoją|wiszą|wisi|schowane|"
+                          r"schowany|schowana)\s+(.+)$", body)
+            if v and _PLACE.match(v.group(1)):
+                place = v.group(1)
+                return f"{place[0].upper()}{place[1:]} — tak mi mówiliście."
+            first = body.split()[0]
+            if first[:1].isupper() and first.lower() not in ("mój", "moje", "moja", "nasz",
+                                                             "nasze", "nasza", "ktoś"):
+                return f"{body}."                    # "Emilka odłożyła paszporty do …"
+            return f"Pamiętam, że {body[0].lower()}{body[1:]}."
     return None
 
 

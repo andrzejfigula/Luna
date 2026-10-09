@@ -617,9 +617,24 @@ def _remember(text):
     """"Zapamiętaj, że klucze są w szufladzie" → "klucze są w szufladzie"."""
     m = _REMEMBER.match(text.strip())
     if not m:
-        return None
+        put = _PUT_AWAY.match(text.strip(" .!"))
+        if not put or re.search(r"prezent|niespodzian|upomin", text, re.I):
+            return None          # a hidden present is a secret — never a "where is" answer
+        # "Odłożyłam paszporty do niebieskiego segregatora" — kept, so "gdzie
+        # są paszporty?" has an answer tomorrow (9 Oct: the model said
+        # "zapamiętałam" and nothing was saved)
+        with state.lock:
+            who = state.person[0] if state.person else None
+        verb = put.group(1).lower()[:-1]             # odłożyłam → odłożyła, -em → -e…
+        verb = verb[:-1] if verb.endswith("e") else verb   # odłożyłe → odłożył
+        return f"{who or 'Ktoś'} {verb} {put.group(2)}"
     fact = m.group(1).strip(" .!")
     return fact if len(_words(fact)) >= 2 else None
+
+
+_PUT_AWAY = re.compile(r"^(?:luna,?\s+)?((?:odłoży|schowa|położy|włoży|zostawi|wsadzi)ł[ae]m)\s+"
+                       r"(\w+(?:\s+\w+){0,3}?\s+(?:do|w|we|na|pod|za|przy|obok)\s+\w+(?:\s+\w+){0,4})$",
+                       re.I)
 
 
 _SPELL = re.compile(r"(?:jak (?:się |sie )?(?:pisze|piszę|napisać|napisac|literuje)|"

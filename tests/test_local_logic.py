@@ -941,11 +941,18 @@ class MemoryTest(unittest.TestCase):
                                 "Andrzej mówi: „mój paszport leży w szafie”."],
                       "episodes": [], "threads": [], "_wiped_at": 0})
         self.assertEqual(memory.where_is_thing("Gdzie są klucze?"),
-                         "Zapisałam: Klucze są w szufladzie w kuchni.")
+                         "W szufladzie w kuchni — tak mi mówiliście.")
         self.assertEqual(memory.where_is_thing("Gdzie jest mój paszport?"),
-                         "Zapisałam: mój paszport leży w szafie.")
+                         "W szafie — tak mi mówiliście.")
         self.assertIsNone(memory.where_is_thing("Gdzie jest Polska?"))
         self.assertIsNone(memory.where_is_thing("Gdzie są żarty?"))     # no place in it
+        # "odłożyłam … do …" kept by commands._remember; a hidden present never told
+        memory._save({"facts": ["Emilka odłożyła paszporty do niebieskiego segregatora",
+                                "Andrzej schował prezent w szafie"],
+                      "episodes": [], "threads": [], "_wiped_at": 0})
+        self.assertEqual(memory.where_is_thing("Gdzie są paszporty?"),
+                         "Emilka odłożyła paszporty do niebieskiego segregatora.")
+        self.assertIsNone(memory.where_is_thing("Gdzie jest prezent?"))
         memory._save(memory._empty())                  # other tests expect no notes
 
     def test_forget(self):
