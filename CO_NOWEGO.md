@@ -23,7 +23,8 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 > „Jaki model cię napędza?”, „Ile masz wolnej pamięci?”, „Jaki jest adres IP?” — odpowiada z prawdziwych danych ·
 > **kółko i krzyżyk głosem**: „środek”, „lewy górny róg”, „pole 7” · „**Wyłącz kamerę**” (ikonka na ekranie) ·
 > wieczorna lista Mai nie urywa się na „nie chce mi się” · „Pomóż mi się zrelaksować” — ćwiczenie oddechowe ·
-> Maja: „ktoś dzwoni do drzwi” — zawsze „nie otwieraj, zawołaj mamę albo tatę”.
+> Maja: „ktoś dzwoni do drzwi” — zawsze „nie otwieraj, zawołaj mamę albo tatę” ·
+> „**Mów do mnie po angielsku**” (2 godziny albo do „mów po polsku”) · „Mam spotkanie, **bądź cicho do 15**” · „Co dziś robiłyśmy?” pamięta dzisiejsze gry.
 
 ## Rozmowa
 
