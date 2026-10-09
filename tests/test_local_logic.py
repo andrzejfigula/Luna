@@ -2079,6 +2079,12 @@ class KidsTest(unittest.TestCase):
             self.assertEqual(faces.where_is("Andrzej", call="Tata"),
                              "Tata jeszcze nie był przy mnie, odkąd pamiętam.")
 
+    def test_waking_greeting_never_asks_a_name(self):
+        import brain
+        for s in ("Jak się nazywasz?", "A tak w ogóle, jak masz na imię?", "Kim jesteś?"):
+            self.assertTrue(brain._ASKS_NAME.search(s), s)
+        self.assertFalse(brain._ASKS_NAME.search("Jak się czujesz?"))
+
     def test_fix_desk(self):
         from polish import fix_desk
         self.assertEqual(fix_desk("I wiesz co, na desk… na biurku, lampka świeci."),

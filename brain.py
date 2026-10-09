@@ -1720,6 +1720,10 @@ but talk to THEM in the grammatical gender their name or your memory
 implies; if you don't know it, phrase it so it needs no gender."""
 
 
+_ASKS_NAME = re.compile(r"jak\s+(?:się\s+)?(?:nazywasz|masz\s+na\s+imię)|kim\s+jesteś|"
+                        r"twoje\s+imię|przedstaw\s+się", re.I)
+
+
 def greeting(first_today, waking=False, who=None, stranger=False):
     """A context-aware hello (weather, reminders, memory), or None when the
     model can't be reached — the caller then uses a fixed phrase.
@@ -1732,7 +1736,10 @@ def greeting(first_today, waking=False, who=None, stranger=False):
     try:
         context = (f"Local time: {_local_now_text()}.\n"
                    + (f"The person you greet: {who} (use their name, in the vocative).\n"
-                      if who else "")
+                      if who else
+                      "You can't see who is waking up (dark, still in bed) — it is "
+                      "someone of this family: NEVER ask their name or who they are, "
+                      "just greet without a name.\n" if waking else "")
                    + weather.prompt_line()
                    + faces.prompt_line() + relationship.prompt_line()
                    + birthdays.prompt_line()
@@ -1753,6 +1760,11 @@ def greeting(first_today, waking=False, who=None, stranger=False):
             temperature=0.8,
         )
         text = _feminize((r.choices[0].message.content or "").strip().strip('"'))
+        if waking and not who:
+            # the alarm asked "Jak się nazywasz?" 2 of 3 times (9 Oct probe) — it
+            # is someone of this family, unseen in the dark
+            text = " ".join(s for s in re.split(r"(?<=[.!?])\s+", text)
+                            if not _ASKS_NAME.search(s)).strip()
         print(f"[brain] greeting{' for ' + who if who else ''}: {text}")
         return text or None
     except Exception as e:
