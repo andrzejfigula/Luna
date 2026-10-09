@@ -713,7 +713,6 @@ _CONFIRM_SECS  = 25
 def _child_in_view():
     try:
         import faces
-        from shared_state import state
         with state.lock:
             who = state.person[0] if state.person else None
         return bool(who) and "dziecko" in faces.notes().get(who, "").lower()

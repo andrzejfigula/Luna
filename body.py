@@ -85,7 +85,6 @@ def _settings():
     except Exception:
         pass
     try:
-        from shared_state import state
         with state.lock:
             if time.time() < state.focus_until:
                 out.append(f"focus mode for {int((state.focus_until - time.time()) / 60)} more min")

@@ -319,7 +319,6 @@ def _math_problem(kind, limit, row=None):
 def _riddle(seen):
     """The next riddle (riddles.py, written by hand — the model's were too often
     untrue): one not asked in this round nor in the last rounds (settings)."""
-    import random
     import riddles
     import settings
     recent = set(settings.get("riddles_recent", []) or []) | seen
@@ -891,7 +890,6 @@ def _ready(words):
 def _read_paper():
     """The word on the paper held up to the camera (brain.read_written_word)."""
     import brain
-    import time
     english = bool(_q and _q["kind"] == "dictation_en")
     # two looks 0.5 s apart: a paper still moving into view blurs one frame
     # (the same trouble rock-paper-scissors had with a single frame, 7 Oct)

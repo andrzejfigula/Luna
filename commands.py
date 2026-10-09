@@ -536,7 +536,6 @@ def _story_path():
 
 def last_story(max_days=14):
     """The last bedtime story told (text), if not older than max_days."""
-    import json
     try:
         with open(_story_path(), encoding="utf-8") as f:
             s = json.load(f)
@@ -548,7 +547,6 @@ def last_story(max_days=14):
 
 
 def _save_story(text):
-    import json
     try:
         tmp = _story_path() + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
@@ -1469,7 +1467,6 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
     if any(k in low for k in _RESTART):
         speak("Dobrze, restartuję się. Zaraz wracam!")
         print("[cmd] restart requested by voice", flush=True)
-        import os
         import signal
         os.kill(os.getpid(), signal.SIGTERM)    # main._shutdown does the rest
         return True

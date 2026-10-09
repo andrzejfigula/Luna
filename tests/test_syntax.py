@@ -61,6 +61,33 @@ class UndefinedNameTest(unittest.TestCase):
             walk(top)
 
 
+class ShadowingImportTest(unittest.TestCase):
+    """`import errands` inside a function whose module already imports errands
+    at the top makes `errands` local to the WHOLE function — any earlier use
+    there raises UnboundLocalError. 9 Oct: that broke every model answer in
+    brain._ask_openai, and no other gate noticed (they don't call the model)."""
+
+    def test_no_function_reimports_a_module_level_import(self):
+        import symtable
+        for path in glob.glob(os.path.join(ROOT, "*.py")):
+            src = open(path, encoding="utf-8").read()
+            top = symtable.symtable(src, path, "exec")
+            at_top = {s.get_name() for s in top.get_symbols() if s.is_imported()}
+
+            def walk(table):
+                for child in table.get_children():
+                    if child.get_type() == "function":
+                        for s in child.get_symbols():
+                            if s.is_imported() and s.is_local() and s.get_name() in at_top:
+                                with self.subTest(file=os.path.basename(path),
+                                                  scope=child.get_name()):
+                                    self.fail(f"{child.get_name()}() imports "
+                                              f"'{s.get_name()}' again — it is "
+                                              "imported at the top already")
+                    walk(child)
+            walk(top)
+
+
 class StateFieldTest(unittest.TestCase):
     """shared_state has fixed slots: `state.radoi` or a field nobody added
     raises AttributeError only when that line runs."""

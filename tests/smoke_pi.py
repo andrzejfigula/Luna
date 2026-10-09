@@ -128,6 +128,43 @@ if child:                                   # homework: no ready answer for a ch
     if any("391" in s for s in said):
         failures.append(f"the calculator gave {child} the answer")
 
+# the model path itself, with a stand-in client streaming a canned answer —
+# 9 Oct: a local "import errands" in _ask_openai made EVERY answer fail with
+# UnboundLocalError, and no gate called the model path at all
+class _Chunk:
+    def __init__(self, text, finish=None):
+        delta = type("D", (), {"content": text, "refusal": None})()
+        self.choices = [type("C", (), {"delta": delta, "finish_reason": finish})()]
+
+
+class _FakeCompletions:
+    def create(self, stream=False, **k):
+        import json as _json
+        body = _json.dumps({"to_luna": True, "user_mood": "neutral", "emotion": "happy",
+                            "gesture": "none", "reply": "Jasne, wszystko gra.",
+                            "user_tone": "neutral", "mood_comment": False, "actions": []},
+                           ensure_ascii=False)
+        if stream:
+            return iter([_Chunk(body[:20]), _Chunk(body[20:]), _Chunk("", "stop")])
+        msg = type("M", (), {"content": body, "refusal": None})()
+        return type("R", (), {"choices": [type("C", (), {"message": msg,
+                                                           "finish_reason": "stop"})()]})()
+
+
+brain = mods["brain"]
+_real_client = brain._client
+brain._client = type("Cl", (), {"chat": type("Ch", (), {"completions": _FakeCompletions()})()})()
+for who in (None, "Maja"):
+    with state.lock:
+        state.person = (who, 0.9, time.time()) if who else None
+        state.last_wake_time = time.time()
+    got = check(f"model path ({who or 'nobody'})",
+                lambda: brain._ask_openai("Jak się masz?", on_sentence=lambda s: None), limit=15)
+    if not (got and "wszystko gra" in got[0]):
+        failures.append(f"model path ({who or 'nobody'}) gave {got!r}")
+brain._client = _real_client
+brain._history.clear()
+
 with state.lock:
     state.person = None
 print(f"[smoke] {'OK' if not failures else 'FAILED'}", flush=True)

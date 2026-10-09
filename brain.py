@@ -390,7 +390,6 @@ def _alone_request(text):
     if not person:
         return False
     try:
-        import faces
         recent = time.time() - seen_at < 3 * faces.RECOGNISE_EVERY
     except Exception:
         recent = False
@@ -421,7 +420,6 @@ def _child_near(person):
 
 def _is_child(who):
     try:
-        import faces
         return bool(who) and "dziecko" in faces.notes().get(who, "").lower()
     except Exception:
         return False
@@ -439,7 +437,6 @@ def _cooking_line():
 
 def _known_names():
     try:
-        import faces
         return list(faces.names()) + [v for v in faces.vocatives().values()]
     except Exception:
         return []
@@ -1547,7 +1544,6 @@ def run_command(label, reply=""):
             pass
     import commands
     if _VOICED_OK.match(label):
-        from text_to_speech import speak, play_sound
         done = commands.handle(label, speak, play_sound)
         print(f"[brain] {label!r}: {'started' if done else 'not understood'}", flush=True)
         return bool(done)
@@ -1560,7 +1556,6 @@ def run_command(label, reply=""):
         print(f"[brain] game {label!r} without an offer first — not started", flush=True)
         return False
     if game:
-        from text_to_speech import speak, play_sound
         done = commands.handle(label, speak, play_sound)
         print(f"[brain] game {label!r}: {'started' if done else 'not understood'}", flush=True)
         return bool(done)
@@ -1609,7 +1604,6 @@ def _who_said(text):
     # others in view too: the memory then knows it may have been them (7 Oct:
     # "Andrzej bawił się zagadkami i wygrał wszystkie trzy" — Maja played)
     try:
-        import faces
         recent = time.time() - seen_at < 3 * faces.RECOGNISE_EVERY
     except Exception:
         recent = False

@@ -1,4 +1,5 @@
 import os
+import traceback
 import sys
 import time
 import signal
@@ -187,7 +188,6 @@ def voice_loop():
         except Exception as e:
             # an unexpected error must never kill the voice thread — that
             # would leave Luna permanently deaf until restart
-            import traceback
             print(f"[Luna] voice loop error (recovering): {e}", flush=True)
             traceback.print_exc()
             with state.lock:
@@ -298,7 +298,6 @@ except BaseException:
     # _shutdown() ends the process with os._exit(), which would kill the
     # interpreter before it could print this. Any renderer bug used to look
     # like a silent, unexplained restart.
-    import traceback
     print("[Luna] renderer crashed:", flush=True)
     traceback.print_exc()
     sys.stdout.flush()

@@ -246,7 +246,7 @@ def _school_note():
     """Whether today/tomorrow are school days, counted (9 Oct: "Jak ubrać Maję
     do szkoły?" on a Saturday got "dziś do szkoły", and after a rule about it,
     a Monday got "szkoły nie ma")."""
-    from datetime import date, timedelta
+    from datetime import date
     today = date.fromtimestamp(time.time())
     try:
         import brain
