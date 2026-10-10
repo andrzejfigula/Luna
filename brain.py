@@ -1333,8 +1333,11 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                 # asked once more, told it's for her — a canned "Jestem tutaj.
                 # Opowiedz mi, co się dzieje." answered "Kupiłam mleko" (8 Oct)
                 return _ask_again(text, image_b64, detail, on_sentence, context)
-            if not reply.strip():                # even the second time: a neutral "yes?"
-                reply = "Mhm, słucham cię."
+            if not reply.strip():                # even the second time: a neutral word
+                # (a statement "Maja ma w poniedziałek sprawdzian" got "słucham cię"
+                # — 10 Oct: fits a question only)
+                reply = ("Hmm, powiesz to jeszcze raz, inaczej?" if "?" in text else
+                         "Mhm, rozumiem.")
                 if on_sentence:
                     on_sentence(reply)
             print("[brain] her name was just said — answering", flush=True)
