@@ -7,18 +7,19 @@ voice is the scarce resource (rate limits, quiet hours, "Luna, cicho").
 
 Status: ✅ done · 🚧 in progress · ⏳ queued · 💤 parked (with the reason)
 
-**Where it stands (2026-10-09, night):** 489 items, 614 commits on
+**Where it stands (2026-10-10, evening):** 526 items, 676 commits on
 `surprise-pack`, not merged into `main`. Before every deploy `tools/check_pi.sh`
-runs the gates on the Pi against the working tree: 202 logic tests
+runs the gates on the Pi against the working tree: 209 logic tests
 (`tests/test_local_logic.py`), the routing cases (`tests/test_routing.py`),
-`smoke_pi` and `dialog_pi`; `restart.sh` runs the same gates again and keeps the
-running Luna if one fails. With the real model, by hand: `tests/model_pi.py`,
+`smoke_pi` (since #506 it also runs the model path with a stand-in client) and
+`dialog_pi`; `restart.sh` runs the same gates again and keeps the running Luna
+if one fails. With the real model, by hand: `tests/model_pi.py`,
 `tests/scenario_pi.py` (18 family scenarios) and `tools/sweep.py` with the
-question sets in `tests/sweeps/` (34 of them; `--at 20:45` pretends a time,
-`Andrzej+Maja|…` puts Maja in view, `Maja|~…` is overheard without "Luna").
-Deployed but waiting for a restart (the morning one): everything since #462 —
-the camera switch (#487) needs it most. Parked for Andrzej's OK: the web panel,
-echo cancelling / voice stop.
+question sets in `tests/sweeps/` (37 of them; `--at 20:45 [--day 2026-10-10]`
+pretends a time, `Andrzej+Maja|…` puts Maja in view, `Maja|~…` is overheard).
+After any brain.py change, one real-model sweep line before deploying (#506's
+lesson). Running: the code of 9 Oct 12:30; #518–#526 deployed, restart planned
+Sunday 09:00. Parked for Andrzej's OK: the web panel, echo cancelling / voice stop.
 
 | # | Item | Why | Status |
 |---|------|-----|--------|
