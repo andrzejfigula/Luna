@@ -334,8 +334,17 @@ def _just_called(text="", secs=12):
     "Jestem zdenerwowany" got silence as "not for me"). Not for long or
     English sentences: the one real case in the log was a false wake in an
     English meeting, rightly kept quiet."""
-    if len(text.split()) > 12 or _language_line(text):
+    if len(text.split()) > 12:
         return False
+    if _language_line(text):
+        # English right after "Luna": only a short question or command to her
+        # ("What's the weather tomorrow?" got silence in the 9 Oct sweep);
+        # meeting sentences are longer and rarely start like this
+        with state.lock:
+            woke = time.time() - getattr(state, "last_wake_time", 0.0) < secs
+        return bool(woke and len(text.split()) <= 8 and re.match(
+            r"\W*(?:what|what's|how|can|could|tell|set|play|show|add|turn|is|are|do|"
+            r"will|when|where|who|please|remind)\b", text, re.I))
     if _to_someone(text):
         return False
     with state.lock:
