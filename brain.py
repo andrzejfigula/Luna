@@ -1622,6 +1622,24 @@ def _asks_to_choose(reply):
                                          reply or "", re.I))
 
 
+def _spoken_command(label, kind):
+    """A command that talks ("narysuj …", a game) — run on its own thread. It is
+    called while her answer is still streaming: on the voice thread its speak()
+    waited for the speech lock, held by the answer, which waited for its next
+    sentence from that same voice thread — Luna deaf for good (10 Oct 20:20 and
+    20:37, stacks in luna.log). Now it speaks once the answer is done."""
+    import commands
+
+    def run():
+        try:
+            done = commands.handle(label, speak, play_sound)
+            print(f"[brain] {kind}{label!r}: {'started' if done else 'not understood'}",
+                  flush=True)
+        except Exception as e:
+            print(f"[brain] {kind}{label!r} failed: {e!r}", flush=True)
+    threading.Thread(target=run, daemon=True, name="command").start()
+
+
 def run_command(label, reply=""):
     """The model's "command" action: one of the app's own switches, run
     through the local command handler (which the model can't reach) —
@@ -1644,9 +1662,8 @@ def run_command(label, reply=""):
             pass
     import commands
     if _VOICED_OK.match(label):
-        done = commands.handle(label, speak, play_sound)
-        print(f"[brain] {label!r}: {'started' if done else 'not understood'}", flush=True)
-        return bool(done)
+        _spoken_command(label, "")
+        return True
     if game and _asks_to_choose(reply):
         print(f"[brain] game {label!r} while her reply asks to choose — not started", flush=True)
         return False
@@ -1656,9 +1673,8 @@ def run_command(label, reply=""):
         print(f"[brain] game {label!r} without an offer first — not started", flush=True)
         return False
     if game:
-        done = commands.handle(label, speak, play_sound)
-        print(f"[brain] game {label!r}: {'started' if done else 'not understood'}", flush=True)
-        return bool(done)
+        _spoken_command(label, "game ")
+        return True
     done = commands.handle(label, lambda *a, **k: None, lambda *a, **k: True)
     print(f"[brain] command {label!r}: {'done' if done else 'not understood'}", flush=True)
     return bool(done)
