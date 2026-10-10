@@ -128,6 +128,10 @@ def _behavior_step(speak, confirm_wave):
         try:
             import idle_engine                  # quiet hours: the wave, no words
             muted = muted or idle_engine._quiet_now()
+            # someone working at the desk for a while: a "wave" is their hands,
+            # not a hello (10 Oct 19:3x: "O, cześć!" to Andrzej sitting for ages)
+            since = idle_engine.present_since[0]
+            muted = muted or (since and time.time() - since > 600)
         except Exception:
             pass
         try:

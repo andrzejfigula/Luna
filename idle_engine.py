@@ -34,6 +34,7 @@ from config import (IDLE_ABSENCE_SECS, IDLE_PRESENCE_GRACE, IDLE_DEBUG,
                     GESTURE_DURATION, FACE_OVERRIDE_SECS)
 
 _last_proactive = 0.0
+present_since = [0.0]   # when the person in front of her sat down (0: nobody)
 
 
 # ── quiet / mute ──────────────────────────────────────────────────────────────
@@ -383,6 +384,10 @@ def idle_loop():
                                   can_drop=True)
             elif was_present and not present:
                 left_at = now
+            if present and not was_present:
+                present_since[0] = now
+            elif not present:
+                present_since[0] = 0.0
             was_present = present
 
             # ── a note to pass on, and its person is right here ──────────
