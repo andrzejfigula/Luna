@@ -221,6 +221,9 @@ def handle(text, speak, play_sound, play_sound_async):
             lamp_on(col, secs)
             speak(f"Lampka zgaśnie {when or 'za ' + timers.say_duration(secs)}.")
             return True
+        if secs and not lamp_lit():           # "zgaś lampkę za godzinę" — it isn't on
+            speak("Lampka teraz nie świeci.")   # (10 Oct: nothing was said at all)
+            return True
         lamp_off()
         return True
     colour = _colour(low)
