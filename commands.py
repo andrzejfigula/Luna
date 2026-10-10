@@ -1816,6 +1816,24 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         return True
 
     import errands                                 # "przekaż Mai, żeby…"
+    sl = re.match(r"^(?:luna,?\s+)?(?:wyślij|wyslij|przekaż|przekaz|podaj|powiedz)\s+"
+                  r"(?:listę\s+zakupów|liste\s+zakupow|zakupy)\s+(\w+)\W*$", text.strip(), re.I)
+    if sl:
+        # "Wyślij listę zakupów Emilce" — she can't send, but she can tell her
+        # (10 Oct: "Nie mogę jej wysłać")
+        import faces
+        import lists
+        to = faces.match_name(sl.group(1)) or faces.match_role(sl.group(1))
+        items = lists.get("zakupy")
+        if to and items:
+            got = errands.take(f"Przekaż {sl.group(1)}, że na liście zakupów jest: "
+                               + ", ".join(items))
+            if got:
+                speak(f"Wysłać nie umiem, ale przeczytam listę, kiedy {to} się pojawi.")
+                return True
+        if to and not items:
+            speak("Lista zakupów jest pusta — nie ma czego przekazywać.")
+            return True
     gone = errands.cancel(text)
     if gone:
         who, n = gone
