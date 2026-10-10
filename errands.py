@@ -326,8 +326,11 @@ def prompt_line():
         items = [e for e in _load() if e.get("daily") or time.time() - e["t"] < KEEP_DAYS * 86400]
     if not items:
         return ""
-    return ("Notes you are to pass on when you see the person: "
+    return ("Notes you are to pass on when you see the person — the app says each one "
+            "itself at its time; never pass one on earlier yourself (10 Oct: Sunday's note "
+            "told on Saturday): "
             + "; ".join(f"for {e['to']}" + (f" from {e['from']}" if e.get("from") else "")
+                        + (f" (from {e['day']})" if e.get("day") else "")
                         + (f" ({'every day ' if e.get('daily') else ''}after {e['at']})"
                            if e.get("at") else "")
                         + f": \"{e['words']}\"" for e in items) + ".\n")
