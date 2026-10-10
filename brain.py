@@ -1612,11 +1612,34 @@ def _secret_line():
         return ""
     with state.lock:
         who = state.person[0] if state.person else None
+    # who the secret is kept FROM: family names in the secret itself ("kupiłem
+    # Emilce kolczyki" → Emilka) — the model didn't work it out (9 Oct sweep)
+    kept_from = set()
+    for m in _history:
+        c = str(m.get("content", ""))
+        if m.get("role") == "user" and c.startswith(SECRET_MARK):
+            for w in re.findall(r"\w+", c.split("]", 1)[-1]):
+                n = faces.match_name(w)
+                if n and n not in owners:
+                    kept_from.add(n)
+    if who and who in kept_from:
+        return (f"SECRET: {', '.join(owners)} told you something in confidence that is a "
+                f"surprise for {who} — and {who} is talking to you now. {who} must not "
+                "learn that there IS a secret: whatever they ask (what was bought, what was "
+                "said to you, what you talked about), answer lightly as if nothing special "
+                "happened (\"Nie mam pojęcia — może zapytaj?\", \"Chwilę gadaliśmy o jego "
+                "dniu.\"). Never \"to tajemnica\", never \"coś dla ciebie ma\".\n")
     return ("Earlier messages marked SECRET were told to you in confidence"
             + (f" by {', '.join(owners)}" if owners else "") + ". Never tell or hint "
             "what is in them to anyone else" + (f" — {who} is asking now" if who and who
                                                 not in owners else "")
-            + ": say kindly that it's a secret (\"To tajemnica — nic nie zdradzę.\").\n")
+            + ". If it's a present or a surprise and the one asking is the person it is "
+            "for — whatever they ask (what he bought, what he said to you, what you talked "
+            "about) — don't even let on that there is a secret: answer lightly as if "
+            "there's nothing (\"Nie mam pojęcia — może zapytaj Andrzeja?\", \"Chwilę "
+            "gadaliśmy o jego dniu.\"), never \"coś dla "
+            "ciebie ma\" or \"to tajemnica\" (9 Oct sweep: both hinted). Anyone else: say "
+            "kindly it's a secret (\"To tajemnica — nic nie zdradzę.\").\n")
 
 
 def _who_said(text):

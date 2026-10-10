@@ -2114,6 +2114,25 @@ class KidsTest(unittest.TestCase):
         self.assertIn(drawing._subject("coś ładnego"), drawing._SURPRISES)
         self.assertEqual(drawing._subject("kota"), "kota")
 
+    def test_secret_line_for_the_one_it_is_kept_from(self):
+        import brain
+        import faces
+        old = list(brain._history)
+        try:
+            brain._history[:] = [{"role": "user", "content": brain.SECRET_MARK +
+                                  "[Andrzej] Luna, kupiłem Emilce kolczyki, tylko jej nie mów"}]
+            with mock.patch.object(faces, "names", lambda: ["Andrzej", "Emilka", "Maja"]):
+                with state.lock:
+                    state.person = ("Emilka", 0.9, time.time())
+                self.assertIn("must not learn that there IS a secret", brain._secret_line())
+                with state.lock:
+                    state.person = ("Maja", 0.9, time.time())
+                self.assertIn("To tajemnica", brain._secret_line())
+        finally:
+            brain._history[:] = old
+            with state.lock:
+                state.person = None
+
     def test_waking_greeting_never_asks_a_name(self):
         import brain
         for s in ("Jak się nazywasz?", "A tak w ogóle, jak masz na imię?", "Kim jesteś?"):
