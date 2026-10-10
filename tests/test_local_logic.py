@@ -1488,6 +1488,16 @@ class KidsTest(unittest.TestCase):
         self.assertIn("nie mam internetu", said[-1])
         self.assertFalse(quiz.active())
 
+    def test_quiz_before_a_test(self):
+        import quiz
+        import memory
+        with mock.patch.object(memory, "_load", lambda: {"facts": [
+                "Maja ma w poniedziałek sprawdzian z angielskiego"]}):
+            self.assertEqual(quiz.trigger("Przepytaj mnie przed sprawdzianem"), "words")
+        with mock.patch.object(memory, "_load", lambda: {"facts": []}):
+            self.assertEqual(quiz.trigger("Przepytaj mnie przed sprawdzianem"), "mix")
+            self.assertIsNone(quiz.trigger("Jutro mam sprawdzian"))
+
     def test_quiz_waits_while_someone_else_talks(self):
         import quiz
         with state.lock:

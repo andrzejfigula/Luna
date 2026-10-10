@@ -221,6 +221,20 @@ def trigger(text):
     for kind, stems in _KINDS:
         if any(s in low for s in stems):
             return kind
+    # "Przepytaj mnie przed sprawdzianem" — the subject from what she was told
+    # ("Maja ma w poniedziałek sprawdzian z matmy"; 10 Oct: the model improvised)
+    if re.search(r"\b(?:sprawdzian\w*|klasówk\w*|klasowk\w*|kartkówk\w*|kartkowk\w*)", low):
+        try:
+            import memory
+            notes = " ".join(memory._load()["facts"]).lower()
+        except Exception:
+            notes = ""
+        m = re.search(r"(?:sprawdzian\w*|klasówk\w*|kartkówk\w*)\s+z\s+(\w+)", notes)
+        subject = m.group(1) if m else ""
+        for kind, stems in _KINDS:
+            if any(s in subject for s in stems):
+                return kind
+        return "mix"
     return None
 
 
