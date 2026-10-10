@@ -313,7 +313,10 @@ def idle_loop():
                     # only once it is SAID: on 8 Oct Andrzej came in at 7:24, in
                     # the quiet hours, and the silent "welcome back" used up the
                     # morning briefing he should have had after eight
-                    first_today = greeted_days.get(who) != today
+                    # an unrecognised face gets no briefing: "first today" can't
+                    # be known for nobody (10 Oct 13:06: the weather again after
+                    # 13 minutes, to a face that was most likely Maja's)
+                    first_today = bool(who) and greeted_days.get(who) != today
                     print(f"[idle] welcome back{' ' + who if who else ''} "
                           f"(away {away / 60:.0f} min)")
                     # her face follows how she feels about them (relationship.py):

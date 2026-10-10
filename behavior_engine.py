@@ -121,6 +121,9 @@ def _behavior_step(speak, confirm_wave):
             # just talked with her: a hand moving is gesturing, not hello
             # (7 Oct 21:15 — "Cześć!" right after Andrzej's "To super")
             muted = muted or time.time() - state.last_activity_time < 180
+            # she has just said hello herself ("welcome back", 9 Oct 12:48, then a
+            # hand moving at the desk read as a wave: "O, cześć!" right after)
+            muted = muted or time.time() - state.last_spoken_time < 300
             muted = muted or state.sleep_mode or time.time() < state.focus_until
         try:
             import idle_engine                  # quiet hours: the wave, no words

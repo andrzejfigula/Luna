@@ -1891,7 +1891,9 @@ class KidsTest(unittest.TestCase):
             self.assertEqual(idle_engine._until_clock("cicho do trzeciej", at13)[0], 7200)
             self.assertEqual(idle_engine._until_clock("cicho do wpół do drugiej", at13)[0], 1800)
             self.assertIsNone(idle_engine._until_clock("nie przeszkadzaj do rana", at13))
-            self.assertTrue(idle_engine.check_mute("Mam spotkanie, bądź cicho do 15"))
+            later = (time.localtime().tm_hour + 2) % 24        # any time of day (it
+            if later >= 2:                                     # failed at 19:00 on 10 Oct)
+                self.assertTrue(idle_engine.check_mute(f"Mam spotkanie, bądź cicho do {later}"))
         finally:
             state.proactive_muted_until = old
 
