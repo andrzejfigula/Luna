@@ -64,7 +64,22 @@ def days_ahead(text):
     low = text.lower()
     if _DAILY.search(text) or re.search(r"\b(?:dziś|dzis|dzisiaj)\b", low):
         return 0
-    return 2 if re.search(r"\bpojutrze\b", low) else 1 if re.search(r"\bjutr\w*", low) else 0
+    if re.search(r"\bpojutrze\b", low):
+        return 2
+    if re.search(r"\bjutr\w*", low):
+        return 1
+    # "w niedzielę wieczorem" (10 Oct: stored for "after 17:00" today)
+    m = re.search(r"\bw[e]?\s+(poniedziałek|wtorek|środę|srode|czwartek|piątek|piatek|"
+                  r"sobotę|sobote|niedzielę|niedziele)\b", low)
+    if m:
+        wd = _WD_STEMS.index(m.group(1)[:3].replace("ś", "s").replace("ą", "a"))
+        return (wd - time.localtime().tm_wday) % 7
+    return 0
+
+
+_WD_STEMS = ["pon", "wto", "sro", "czw", "pia", "sob", "nie"]
+WD_LOC = ["w poniedziałek", "we wtorek", "w środę", "w czwartek", "w piątek", "w sobotę",
+          "w niedzielę"]
 
 
 def _day(text, now=None):
@@ -269,12 +284,28 @@ def deliver(who, speak):
     return True
 
 
+def mentioned(reply):
+    """Does the reply talk about a note that is already waiting? ("A w niedzielę
+    przypomnę jej, żeby powtórzyła tabliczkę" — not an empty promise, 10 Oct)"""
+    said = {w[:5] for w in re.findall(r"\w{4,}", (reply or "").lower())}
+    with _lock:
+        items = _load()
+    for e in items:
+        words = {w[:5] for w in re.findall(r"\w{4,}", e["words"].lower())}
+        if words and len(words & said) >= max(1, (len(words) + 1) // 2):
+            return True
+    return False
+
+
 def mark_told(who, reply):
     """The model already passed a note on ("Co mi Andrzej przekazał?" → "Że kupił
     chleb.") — then it isn't said again when their face shows up (9 Oct probe).
     A note counts as told when most of its longer words are in the reply."""
     if not who or not reply:
         return 0
+    if re.search(r"\b(?:przypomnę|przypomne|powiem|przekażę|przekaze|przypomina\w*)\b", reply,
+                 re.I):
+        return 0      # "w niedzielę przypomnę ci, żebyś…" is about it, not it (10 Oct)
     said = {w[:5] for w in re.findall(r"\w{4,}", reply.lower())}
     told = []
     for e in waiting(who):

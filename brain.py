@@ -1412,7 +1412,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             reply = f"{reply} {extra}"
         other = [a for a in data.get("actions") or []
                  if a.get("type") not in ("timer", "reminder", "alarm", "cancel")]
-        if empty_promise(reply, set_now + other):
+        if empty_promise(reply, set_now + other) and not errands.mentioned(reply):
             # judged by what was really set (a reminder without a usable time
             # sets nothing); the promise becomes a question — "o 19" answers it
             extra = "O której mam ci przypomnieć?"

@@ -1838,7 +1838,9 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         if at and daily:
             speak(f"Dobrze. Codziennie {after} powiem to, kiedy {to} się pojawi.")
         elif at or ahead:
-            when = " ".join(w for w in (("", "jutro", "pojutrze")[ahead], after) if w)
+            day = (("", "jutro", "pojutrze")[ahead] if ahead <= 2 else
+                   errands.WD_LOC[(time.localtime().tm_wday + ahead) % 7])
+            when = " ".join(w for w in (day, after) if w)
             speak(f"Dobrze. {when.capitalize()} powiem to, kiedy {to} się pojawi.")
         else:
             speak(random.choice((f"Dobrze, przekażę, kiedy {to} się pojawi.",

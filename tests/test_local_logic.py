@@ -3048,6 +3048,13 @@ class ErrandsTest(unittest.TestCase):
                                  ("Andrzej", "że jestem w domu"))
                 self.assertEqual(faces.called_by_child("Andrzej"), "tata")
                 self.assertEqual(faces.called_by_child("Maja"), "Maja")
+                # a weekday (10 Oct: "w niedzielę wieczorem" was due at once)
+                with mock.patch.object(errands.time, "localtime",
+                                       lambda *a: time.struct_time((2026, 10, 10, 18, 0, 0, 5, 283, 1))):
+                    self.assertEqual(errands.days_ahead("przypomnij jej w niedzielę wieczorem"), 1)
+                    self.assertEqual(errands.days_ahead("we wtorek rano"), 3)
+                # a promise to tell is not the telling (10 Oct)
+                self.assertEqual(errands.mark_told("Andrzej", "W niedzielę przypomnę mu, że jestem w domu."), 0)
                 # told already in a reply: not said again (9 Oct)
                 self.assertEqual(errands.mark_told("Andrzej", "Maja mówi, że jest już w domu."), 1)
                 self.assertEqual(errands.waiting("Andrzej"), [])
