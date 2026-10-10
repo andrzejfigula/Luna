@@ -205,6 +205,27 @@ def local_add(text):
     return f"Dopisałam: {', '.join(items)}."
 
 
+_CLEAR = re.compile(r"^(?:luna,?\s+)?(?:wyczyść|wyczysc|wyczyszcz|opróżnij|oproznij|skasuj|"
+                    r"usuń|usun)\s+(?:całą\s+|cala\s+)?(?:listę|liste)(?:\s+(?:zakupów|zakupow|"
+                    r"do\s+zrobienia|(\w+)))?\W*$", re.I)
+
+
+def clear_empty_answer(text):
+    """"Wyczyść listę zakupów" when it is already empty → said here (9 Oct: "Jasne,
+    już czyszczę… Właściwie ta lista już była pusta" — the first half was already
+    spoken). None when the list has items: the model clears it (with undo)."""
+    m = _CLEAR.match((text or "").strip())
+    if not m:
+        return None
+    low = text.lower()
+    name = ("do zrobienia" if "do zrobienia" in low else m.group(1).lower() if m.group(1)
+            else "zakupy")
+    if get(name):
+        return None
+    return ("Lista zakupów już jest pusta." if name == "zakupy"
+            else f"Lista „{name}” już jest pusta.")
+
+
 def read_answer(text):
     """"Co mam na liście zakupów?", "co mam kupić?" → the list read out, here
     and offline; None for anything else."""
