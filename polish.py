@@ -189,6 +189,11 @@ def _ord_gen(word):
                     for w in word.split())
 
 
+_UNITS = {"kg": ("kilogram", "kilogramy", "kilograma", "kilogramów"),
+          "g": ("gram", "gramy", "grama", "gramów"),
+          "dag": ("dekagram", "dekagramy", "dekagrama", "dekagramów"),
+          "ml": ("mililitr", "mililitry", "mililitra", "mililitrów"),
+          "l": ("litr", "litry", "litra", "litrów")}
 _HELPLINES = (
     (r"\b800[\s-]?70[\s-]?22[\s-]?22\b", "osiemset — siedemdziesiąt — dwadzieścia dwa — dwadzieścia dwa"),
     (r"\b116[\s-]?123\b", "sto szesnaście — sto dwadzieścia trzy"),
@@ -205,6 +210,17 @@ def _spoken_forms(text):
     # "osiemset siedemdziesiąt dwa dwa dwa dwa" for 800 70 22 22)
     for num, said in _HELPLINES:
         text = re.sub(num, said, text)
+
+    def unit(m):                                 # "2 kg" was read "dwa ka gie"
+        n = m.group(1)
+        if not n.isdigit():
+            return f"{n} {_UNITS[m.group(2)][2]}"   # "1,5 kg" → "1,5 kilograma"
+        k = int(n)
+        forms = _UNITS[m.group(2)]
+        word = forms[0] if k == 1 else forms[1] if k % 10 in (2, 3, 4) and \
+            k % 100 not in (12, 13, 14) else forms[3]
+        return f"{n} {word}"
+    text = re.sub(r"\b(\d+(?:[.,]\d+)?)\s*(kg|g|dag|ml|l)\b(?!\w)", unit, text)
     # 9 Oct builder answers: a model name, an IP address and "poziom -2"
     text = re.sub(r"\bgpt-(\d)\.(\d)(-mini)?\b",
                   lambda m: f"GPT {number_words(int(m.group(1)))} kropka "

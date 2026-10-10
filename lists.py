@@ -88,17 +88,25 @@ _NOMINATIVE = {"soli": "sól", "cukru": "cukier", "mąki": "mąka", "mleka": "ml
                "masła": "masło", "oleju": "olej", "pieprzu": "pieprz", "drożdży": "drożdże",
                "śmietany": "śmietana", "jajek": "jajka", "jaj": "jajka", "wody": "woda",
                "ryżu": "ryż", "makaronu": "makaron", "sera": "ser", "twarogu": "twaróg",
-               "cynamonu": "cynamon", "kakao": "kakao", "proszku do pieczenia": "proszek do pieczenia"}
+               "cynamonu": "cynamon", "kakao": "kakao", "proszku do pieczenia": "proszek do pieczenia",
+               "ziemniaków": "ziemniaki", "pomidorów": "pomidory", "jabłek": "jabłka",
+               "marchwi": "marchew", "cebuli": "cebula", "mięsa": "mięso", "kurczaka": "kurczak"}
 
 
 def shopping_item(item):
     """"szczypta soli" → "sól", "2 szklanki mąki" → "mąka": the thing to buy
     (8 Oct sweep: "szczypta soli" on the shopping list — the prompt rule alone
     didn't do it). Unknown words are left as they were."""
+    if " — " in item:
+        return item                    # "ziemniaki — 2 kg": an amount they said (10 Oct)
     m = _AMOUNT.match(item)
     if not m:
         return item
     rest = item[m.end():].strip()
+    unit = re.fullmatch(r"(\d+[.,]?\d*)\s*(kg|g|dag|l|ml)", m.group(0).strip())
+    if unit:                           # "2 kg ziemniaków" — a buying amount: kept
+        thing = _NOMINATIVE.get(rest.lower())
+        return f"{thing} — {unit.group(1)} {unit.group(2)}" if thing else item
     rest = re.sub(r"^(?:\w+\s+)?(?=\w)", lambda x: "" if re.match(
         r"(?:szklan|łyż|garś|kostk)\w*\s", x.group(0) or "") else x.group(0), rest)
     return _NOMINATIVE.get(rest.lower(), rest if rest.lower() in _NOMINATIVE.values() else item)

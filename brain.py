@@ -685,8 +685,11 @@ Always answer as JSON with exactly these keys:
                 (reminders and alarms only).
                 Lists: {{"type":"list_add","label":"mleko","list":"zakupy",
                 ...}} — one action per item ("dopisz mleko i chleb" = two);
-                a shopping item is the thing to buy, without amounts ("sól",
-                not "szczypta soli"; "mąka", not "2 szklanki mąki");
+                a shopping item is the thing to buy, without RECIPE amounts
+                ("sól", not "szczypta soli"; "mąka", not "2 szklanki mąki");
+                an amount THEY say for buying stays, after a dash ("dopisz
+                dwa kilo ziemniaków" → "ziemniaki — 2 kg", "10 jajek" →
+                "jajka — 10");
                 "list_remove" to cross an item off, "list_clear" to empty a
                 list. "list" is the list's name in Polish, lowercase:
                 "zakupy" for shopping, "do zrobienia" for to-dos, or what
