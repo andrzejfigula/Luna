@@ -189,11 +189,22 @@ def _ord_gen(word):
                     for w in word.split())
 
 
+_HELPLINES = (
+    (r"\b800[\s-]?70[\s-]?22[\s-]?22\b", "osiemset — siedemdziesiąt — dwadzieścia dwa — dwadzieścia dwa"),
+    (r"\b116[\s-]?123\b", "sto szesnaście — sto dwadzieścia trzy"),
+    (r"\b116[\s-]?111\b", "sto szesnaście — sto jedenaście"),
+)
+
+
 def _spoken_forms(text):
     """What the voice reads badly (8 Oct round trip, nothing played): "Jest
     12:30." came out in English, "22°C" garbled, "Np." as letters, "15.11" as
     "piętnastego piętnastego". Written out in Polish instead."""
     import clock
+    # helplines in clear groups (10 Oct: the model's own words came out as
+    # "osiemset siedemdziesiąt dwa dwa dwa dwa" for 800 70 22 22)
+    for num, said in _HELPLINES:
+        text = re.sub(num, said, text)
     # 9 Oct builder answers: a model name, an IP address and "poziom -2"
     text = re.sub(r"\bgpt-(\d)\.(\d)(-mini)?\b",
                   lambda m: f"GPT {number_words(int(m.group(1)))} kropka "

@@ -305,6 +305,44 @@ def _morning_line():
             f"sentence with what matters for their day — {what}. Nothing if neither.\n")
 
 
+_CRISIS = re.compile(r"nie\s+chc[ęe]\s+(?:już\s+|juz\s+)?(?:żyć|zyc)|zabi[ćc]\s+si[ęe]|"
+                     r"odebra[ćc]\s+sobie\s+życie|skończy[ćc]\s+ze\s+sobą|chc[ęe]\s+umrze[ćc]|"
+                     r"nie\s+ma\s+sensu\s+(?:żyć|zyc)|lepiej\s+by\s+(?:było|bylo)\s+beze\s+mnie", re.I)
+def _adult_crisis_reply(reply, female):
+    """A grown-up's crisis answer, fixed where the model slipped into the
+    child's one (10 Oct, 1 run in 4): no "powiedz mamie albo tacie", the
+    adults' helpline instead of the children's, a man's grammatical forms."""
+    parts = re.split(r"(?<=[.!?;])\s+", reply)
+    kept = [s for s in parts if not re.search(
+        r"\bmam(?:ie|y|ę|a)\s+(?:albo|lub|i)\s+ta(?:cie|ty|tę|ta)\b", s, re.I)]
+    if len(kept) != len(parts):
+        print("[brain] crisis: the child's 'mum or dad' removed for a grown-up", flush=True)
+        reply = " ".join(kept + ["Powiedz komuś bliskiemu, co czujesz."])
+    if not female:                                    # "Nie jesteś z tym sama" to Andrzej
+        for f, m in (("sama", "sam"), ("powiedziałaś", "powiedziałeś"),
+                     ("zrobiłaś", "zrobiłeś"), ("mogłabyś", "mógłbyś")):
+            reply = re.sub(rf"\b{f}\b", m, reply)
+        # "sam sam" — letters only: "22 22" in 800 70 22 22 is not a typo (it was cut once)
+        reply = re.sub(r"\b([^\W\d_]+)(?:\s*/\s*|\s+)\1\b", r"\1", reply)
+    return re.sub(r"116[\s-]?111", "800 70 22 22", reply)
+
+
+def _crisis_line(text, person):
+    """Thoughts of not wanting to live: who it is, said plainly (10 Oct: 1 run
+    in 4 gave Andrzej the child's answer — "powiedz mamie albo tacie", "sama")."""
+    if not _CRISIS.search(text or ""):
+        return ""
+    who = person[0] if person else None
+    if who and _is_child(who):
+        return (f"{who}, a CHILD, said this: the child's answer (mum or dad now, "
+                "116 111).\n")
+    if who:
+        return (f"{who}, a GROWN-UP, said this: the grown-up's answer — Centrum Wsparcia "
+                "800 70 22 22 and someone close; never \"mamie albo tacie\"; use the "
+                "grammatical gender their name implies.\n")
+    return ""
+
+
 _CLAIMED = re.compile(r"\b(?:od\s+teraz|od\s+dziś|ustawiłam|zmieniłam|przestawiłam|"
                       r"włączyłam|wyłączyłam|zapisałam\s+(?:ustawienie|miasto)|"
                       r"będę\s+(?:teraz\s+)?(?:mówić|mowic|używać|uzywac|cicho))\b", re.I)
@@ -1155,6 +1193,10 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                 f"dokładnie: na {lang}, jeśli to po polsku; na polski, jeśli to "
                 f"w języku {lang}] {text}")
         image_b64 = None                       # interpreting needs no camera
+    if _CRISIS.search(text or ""):
+        # not streamed: the whole answer is checked before a word is said (the
+        # model gave an adult the child's answer 1 time in 4, 10 Oct)
+        on_head = on_sentence = None
     with state.lock:
         person = state.person
         called = time.time() - getattr(state, "last_wake_time", 0.0) < 12
@@ -1233,6 +1275,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   + _year_facts()
                   + memory.day_line(text)
                   + _secret_line()
+                  + _crisis_line(text, person)
                   + _age_line(text)
                   + (homework.verdict_line(text) if _child_near(person) else "")
                   + _reply_language_line(text)
@@ -1420,6 +1463,23 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             # sets nothing); the promise becomes a question — "o 19" answers it
             extra = "O której mam ci przypomnieć?"
             print(f"[brain] promised a reminder without one — asking: {extra}", flush=True)
+            if on_sentence:
+                on_sentence(extra)
+            reply = f"{reply} {extra}"
+        if _CRISIS.search(text) and person and not _child_near(person) and not lang:
+            try:
+                female = faces._female(person[0])
+            except Exception:
+                female = True                         # unsure: leave the forms alone
+            reply = _adult_crisis_reply(reply, female)
+        if _CRISIS.search(text) and not re.search(r"800|116", reply) and not lang:
+            # a helpline every time (10 Oct: 1 run of 3 gave only 112)
+            with state.lock:
+                p = state.person
+            extra = ("Możesz też zadzwonić pod 116 111 — tam ktoś zawsze wysłucha, całą dobę."
+                     if _child_near(p) else
+                     "Możesz też zadzwonić do Centrum Wsparcia: 800 70 22 22, całą dobę.")
+            print("[brain] crisis words and no helpline in the reply — adding one", flush=True)
             if on_sentence:
                 on_sentence(extra)
             reply = f"{reply} {extra}"

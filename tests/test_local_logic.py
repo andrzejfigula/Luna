@@ -2149,6 +2149,24 @@ class KidsTest(unittest.TestCase):
             with state.lock:
                 state.person = None
 
+    def test_crisis_words_and_helplines_read_clearly(self):
+        import brain
+        import polish
+        for t in ("Czasem myślę, że nie chcę już żyć", "Chcę umrzeć", "Lepiej by było beze mnie"):
+            self.assertTrue(brain._CRISIS.search(t), t)
+        self.assertFalse(brain._CRISIS.search("Nie chcę już kawy"))
+        self.assertIn("osiemset — siedemdziesiąt — dwadzieścia dwa — dwadzieścia dwa",
+                      polish.spoken_numbers("Centrum Wsparcia 800 70 22 22."))
+        self.assertIn("sto szesnaście — sto jedenaście", polish.spoken_numbers("116 111"))
+        fixed = brain._adult_crisis_reply(
+            "Dziękuję, że mi to powiedziałaś. Nie jesteś z tym sam sama. Powiedz od razu mamie "
+            "albo tacie. Zadzwoń pod 116 111 albo 800 70 22 22.", female=False)
+        self.assertNotIn("mamie", fixed)
+        self.assertIn("powiedziałeś", fixed)
+        self.assertIn("z tym sam.", fixed)
+        self.assertIn("800 70 22 22 albo 800 70 22 22", fixed)       # the number stays whole
+        self.assertNotIn("116 111", fixed)
+
     def test_waking_greeting_never_asks_a_name(self):
         import brain
         for s in ("Jak się nazywasz?", "A tak w ogóle, jak masz na imię?", "Kim jesteś?"):
