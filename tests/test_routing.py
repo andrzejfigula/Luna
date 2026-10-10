@@ -543,6 +543,19 @@ class RoutingTest(unittest.TestCase):
     def test_mute(self):
         self.assertEqual(self.route("Luna, cicho"), "mute")
 
+    def test_bare_what_right_after_her_answer(self):
+        """"Co?" just after she spoke repeats it; out of the blue it's the model's."""
+        import time
+        old = state.last_spoken_time
+        try:
+            state.last_spoken_time = time.time() - 5
+            self.assertEqual(self.route("Co?"), "repeat")
+            self.assertEqual(self.route("Słucham?"), "repeat")
+            state.last_spoken_time = time.time() - 300
+            self.assertEqual(self.route("Co?"), "model")
+        finally:
+            state.last_spoken_time = old
+
     def test_doorbell_for_a_child(self):
         """A child at the door gets the fixed safe answer; a grown-up the model."""
         said = []

@@ -1241,6 +1241,16 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         if not replay_last():
             speak("Jeszcze nic nie mówiłam.")
         return True
+    # a bare "Co?" / "Słucham?" just after she spoke: they didn't catch it (9 Oct
+    # 20:15: "Co?" got "Co dokładnie masz na myśli?")
+    with state.lock:
+        just_spoke = time.time() - state.last_spoken_time < 20
+    if just_spoke and re.fullmatch(r"(?:luna,?\s+)?(?:co|słucham|slucham|hę|he|że\s+co|ze\s+co|"
+                                   r"proszę|prosze|jak|nie\s+usłyszałe[mś]|nie\s+usłyszałam|"
+                                   r"what|sorry|pardon)\W*", low.strip()):
+        from text_to_speech import replay_last
+        if replay_last():
+            return True
 
     # voice messages — "nagraj wiadomość", "odtwórz wiadomość", "usuń wiadomości"
     import messages
