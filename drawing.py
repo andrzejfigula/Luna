@@ -58,6 +58,10 @@ def wants(text):
     what = m.group(1).strip()
     bare = re.sub(r"\s+(?:jeszcze\s+raz|znowu|ponownie|jeszcze\s+jeden\s+raz)\W*$", "", what,
                   flags=re.I)
+    # "narysuj mnie ze zdjęcia" — no photo is ever sent (the family's faces stay
+    # here); drawn from imagination, and handle() says so (10 Oct 20:43)
+    bare = re.sub(r"\s+(?:ze\s+zdjęcia|ze\s+zdjecia|z\s+kamery|z\s+obrazu\s+z\s+kamery|"
+                  r"tak\s+jak\s+wyglądam|jak\s+wyglądam)\W*$", "", bare or what, flags=re.I)
     return bare or what
 
 
@@ -65,6 +69,9 @@ def _subject(what):
     """"mnie", "siebie", "naszą rodzinę" — words for the picture (no photo is
     ever sent; the family is drawn from a description)."""
     low = what.lower().strip()
+    det = re.match(r"(mnie|mnie samą|mnie samego)\s*[:,—–-]\s*(.{3,})$", low)
+    if det:                    # "mnie: krótkie włosy, okulary" — details they gave
+        return f"{_subject(det.group(1))}, {det.group(2)}"
     if re.fullmatch(r"siebie|się|sama siebie|ciebie|lunę|lune|(?:,\s*)?jak\s+wyglądasz|"
                     r"(?:,\s*)?jak\s+wygladasz|yourself", low):
         return ("małego, uroczego robota biurkowego z ekranem zamiast twarzy, dwoma "
@@ -240,8 +247,9 @@ def handle(text, speak):
 def _is_person(what):
     """"mnie", "Maję", "tatę", "naszą rodzinę" — a person or the family."""
     low = what.lower().strip()
-    if re.fullmatch(r"mnie(?:\s+\w+)?|nas(?:\s+wszystkich)?|(?:naszą|nasza|całą)?\s*rodzin\w*|"
-                    r"tat\w*|mam\w*|siebie\s+i\s+\w+", low):
+    if re.match(r"mnie\b", low) or re.fullmatch(
+            r"nas(?:\s+wszystkich)?|(?:naszą|nasza|całą)?\s*rodzin\w*|"
+            r"tat\w*|mam\w*|siebie\s+i\s+\w+", low):
         return True
     try:
         import faces

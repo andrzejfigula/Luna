@@ -284,3 +284,4 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 3. **Twarze gości** — Luna nie zapamiętuje ich sama (tak zdecydowałeś); „jestem Ola” zapamiętuje tylko, gdy ktoś sam się przedstawi.
 4. ~~**Fakt w pamięci „Andrzej mówi po hiszpańsku”**~~ — już go nie ma (codzienne porządki pamięci go usunęły, 10.10).
 5. **Koszt rysunków** — ok. 1 centa (ok. 4 grosze) za obrazek, najwyżej 25 dziennie; limit można zmienić w `drawing.py` (`DRAW_PER_DAY`).
+6. **Portret ze zdjęcia** — „narysuj mnie” rysuje z wyobraźni (żadne zdjęcie nie wychodzi z domu), więc portret nie jest podobny; możesz podać szczegóły („włosy krótkie, okulary, broda”). Mogę zrobić portret na podstawie zdjęcia z kamery (twarz idzie wtedy do OpenAI, jak przy każdej rozmowie z obrazem) — tylko jeśli się zgodzisz.
