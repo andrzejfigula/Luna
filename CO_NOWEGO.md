@@ -278,5 +278,5 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 1. **Panel w sieci domowej** (listy, przypomnienia, wiadomości z telefonu) — gotowy, ale wyłączony: otwiera port w sieci LAN. Daj znać, jeśli włączyć.
 2. **„Stop!” głosem, gdy Luna mówi** (usuwanie echa) — przygotowane, ale wymaga restartu PipeWire i prób na głos za dnia, w Twojej obecności.
 3. **Twarze gości** — Luna nie zapamiętuje ich sama (tak zdecydowałeś); „jestem Ola” zapamiętuje tylko, gdy ktoś sam się przedstawi.
-4. **Fakt w pamięci „Andrzej mówi po hiszpańsku”** — może być pomyłką z rozmowy. Jeśli tak: „Luna, zapomnij, że mówię po hiszpańsku”.
+4. ~~**Fakt w pamięci „Andrzej mówi po hiszpańsku”**~~ — już go nie ma (codzienne porządki pamięci go usunęły, 10.10).
 5. **Koszt rysunków** — ok. 1 centa (ok. 4 grosze) za obrazek, najwyżej 25 dziennie; limit można zmienić w `drawing.py` (`DRAW_PER_DAY`).
