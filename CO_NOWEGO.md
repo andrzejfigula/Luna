@@ -28,6 +28,10 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 > „**Odłożyłam paszporty do segregatora**” / „**Zaparkowałem na -2, miejsce 47**” → potem „Gdzie są paszporty?”, „Gdzie zaparkowałem?” ·
 > „Opowiedz **dalszy ciąg** bajki” — także następnego dnia · „Narysuj coś” — niespodzianka · „W zagadki!” · quiz Mai czeka, gdy ktoś inny o coś pyta ·
 > rozmowy po angielsku przy biurku (calle) — Luna się nie wtrąca.
+>
+> **Nowe (10.10):** „**Co?**” zaraz po jej odpowiedzi — powtarza · „Przypomnij Mai **w niedzielę** wieczorem…” (dni tygodnia) ·
+> „**Przepytaj mnie przed sprawdzianem**” — quiz z przedmiotu, o którym jej mówiliście · prezent dla Emilki: Emilka nie usłyszy nawet „to tajemnica” ·
+> mniej powtórzonych „cześć” przy biurku · „Luna, what's the weather?” po angielsku działa.
 
 ## Rozmowa
 
