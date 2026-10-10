@@ -159,9 +159,11 @@ _GROUPS = {"ptak", "ryba", "gad", "płaz", "plaz", "owad", "ssak", "zwierzę", "
 
 def _start_reverse(speak):
     global _r
+    with state.lock:
+        player = state.person[0] if state.person else None
     with _lock:
         _r = {"qa": [], "asked": 0, "t": time.time(), "q": None, "guess": None,
-              "stage": "ready"}
+              "stage": "ready", "player": player}
     print("[twenty] reverse: the child thinks, Luna asks", flush=True)
     with state.lock:
         state.overlay = ("card", time.time() + EXPIRE_SECS,
@@ -327,7 +329,8 @@ def answer(text, speak):
             return False
         with state.lock:
             speaker = state.person[0] if state.person else None
-        if _g and _g.get("player") and speaker and speaker != _g["player"] \
+        game = _g or _r
+        if game and game.get("player") and speaker and speaker != game["player"] \
                 and len(low.split()) >= 4:
             return False                         # someone else talks: the game waits (#514)
         if _r is not None:

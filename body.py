@@ -95,9 +95,15 @@ def _settings():
     return out
 
 
+_tech_cache = {"t": 0.0, "parts": []}
+
+
 def _tech():
     """What her builder asks about (9 Oct sweep: "jaki model cię napędza?" →
-    "nie mam pewności", "ile masz wolnej pamięci?" → a guess)."""
+    "nie mam pewności", "ile masz wolnej pamięci?" → a guess). Worked out at
+    most every 5 minutes — not on every answer (10 Oct review)."""
+    if time.time() - _tech_cache["t"] < 300:
+        return list(_tech_cache["parts"])
     out = []
     try:
         from config import CHAT_MODEL, CRAFT_MODEL, OPENAI_MODEL
@@ -131,7 +137,8 @@ def _tech():
         s.close()
     except OSError:
         pass
-    return out
+    _tech_cache.update(t=time.time(), parts=out)
+    return list(out)
 
 
 def prompt_line():

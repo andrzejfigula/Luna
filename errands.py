@@ -61,7 +61,9 @@ _PART_OF_DAY = ((r"\brano\b|\bz\s+rana\b|\bprzed\s+szkołą\b|\bprzed\s+szkola\b
 
 def days_ahead(text):
     """"jutro" → 1, "pojutrze" → 2, else 0 (and 0 for a daily one)."""
-    low = text.lower()
+    # only the part before the message sets the time: "Przekaż Mai, że w
+    # poniedziałek ma sprawdzian" is for now, not for Monday (10 Oct review)
+    low = re.split(r"\b(?:że|ze|żeby|zeby|aby)\b", text.lower(), maxsplit=1)[0]
     if _DAILY.search(text) or re.search(r"\b(?:dziś|dzis|dzisiaj)\b", low):
         return 0
     if re.search(r"\bpojutrze\b", low):
@@ -78,8 +80,7 @@ def days_ahead(text):
 
 
 _WD_STEMS = ["pon", "wto", "sro", "czw", "pia", "sob", "nie"]
-WD_LOC = ["w poniedziałek", "we wtorek", "w środę", "w czwartek", "w piątek", "w sobotę",
-          "w niedzielę"]
+
 
 
 def _day(text, now=None):
@@ -91,9 +92,12 @@ def _day(text, now=None):
 def _when(text):
     """("HH:MM" or None, daily) from "codziennie o 20:30", "o dwudziestej trzydzieści",
     "rano" (6:00), "po szkole" (13:00), "wieczorem" (17:00)."""
-    at, daily = _clock(text)
+    daily = bool(_DAILY.search(text))
+    # the time is in the part before the message ("…, że o 17 ma basen" is now)
+    head = re.split(r"\b(?:że|ze|żeby|zeby|aby)\b", text, maxsplit=1, flags=re.I)[0]
+    at, _ = _clock(head)
     if not at:
-        at = next((hm for rx, hm in _PART_OF_DAY if re.search(rx, text, re.I)), None)
+        at = next((hm for rx, hm in _PART_OF_DAY if re.search(rx, head, re.I)), None)
     return at, daily
 
 
@@ -284,13 +288,24 @@ def deliver(who, speak):
     return True
 
 
-def mentioned(reply):
+def mentioned(reply, who=None):
     """Does the reply talk about a note that is already waiting? ("A w niedzielę
-    przypomnę jej, żeby powtórzyła tabliczkę" — not an empty promise, 10 Oct)"""
-    said = {w[:5] for w in re.findall(r"\w{4,}", (reply or "").lower())}
+    przypomnę jej, żeby powtórzyła tabliczkę" — not an empty promise, 10 Oct)
+    Only notes for `who` (the one she answers) or for someone named in the
+    reply — an unrelated note about milk mustn't silence "o której?"."""
+    import faces
+    low = (reply or "").lower()
+    said = {w[:5] for w in re.findall(r"\w{4,}", low)}
+    words_in = set(re.findall(r"\w+", low))
     with _lock:
         items = _load()
     for e in items:
+        try:
+            named = bool(words_in & set(faces.forms(e["to"])))
+        except Exception:
+            named = False
+        if e["to"] != who and not named:
+            continue
         words = {w[:5] for w in re.findall(r"\w{4,}", e["words"].lower())}
         if words and len(words & said) >= max(1, (len(words) + 1) // 2):
             return True

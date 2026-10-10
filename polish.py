@@ -228,7 +228,10 @@ def _spoken_forms(text):
                   text, flags=re.I)
     text = re.sub(r"\b(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\b",
                   lambda m: " kropka ".join(number_words(int(g)) for g in m.groups()), text)
-    text = re.sub(r"(?<![\w\d])-(\d+)\b(?![.:]\d)", lambda m: "minus " + m.group(1), text)
+    # (not a range: "od 8 -14 stopni" — a number just before it, 10 Oct review)
+    text = re.sub(r"(?<![\w\d])-(\d+)\b(?![.:]\d)",
+                  lambda m: m.group(0) if re.search(r"\d\s*$", m.string[:m.start()])
+                  else "minus " + m.group(1), text)
     for rx, rep in _ABBR:
         text = rx.sub(rep, text)
     # recipe fractions: "1/2 szklanki" came back "jedną poora szklanki"

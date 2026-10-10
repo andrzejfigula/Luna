@@ -247,15 +247,8 @@ def _school_note():
     do szkoły?" on a Saturday got "dziś do szkoły", and after a rule about it,
     a Monday got "szkoły nie ma")."""
     from datetime import date
+    from kids import school_day as school          # one rule for the routine and this
     today = date.fromtimestamp(time.time())
-    try:
-        import brain
-        off = brain._days_off(today.year) | brain._days_off(today.year + 1)
-    except Exception:
-        off = set()
-
-    def school(d):
-        return d.weekday() < 5 and d not in off
     t, n = school(today), school(today + timedelta(days=1))
     return (f"Today is {'a school day' if t else 'NOT a school day (no school)'}, "
             f"tomorrow is {'a school day' if n else 'NOT a school day'}.")

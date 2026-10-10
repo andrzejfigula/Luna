@@ -360,6 +360,12 @@ def idle_loop():
                                       flush=True)
                                 who, stranger = late, False
                                 asked_name_at = 0.0
+                                # their own first hello of the day (computed for
+                                # "nobody" above — 10 Oct review)
+                                first_today = greeted_days.get(who) != today
+                                greeted_days[who] = today
+                                if first_today:
+                                    save_greeted(greeted_days)
                                 hello = (greeting(first_today, who=who) or
                                          _greeting(first_today))
                         speak(hello, can_drop=True)

@@ -620,6 +620,13 @@ def _remember(text):
         put = _PUT_AWAY.match(text.strip(" .!"))
         if not put or re.search(r"prezent|niespodzian|upomin", text, re.I):
             return None          # a hidden present is a secret — never a "where is" answer
+        thing = (put.group(2) or "").split()[0].lower() if put.group(2) else ""
+        import faces
+        if (put.group(2) and (thing in ("to", "go", "ją", "je", "ich", "jego", "jej", "się")
+                              or faces.match_name(thing) or faces.match_role(thing)
+                              or re.search(r"\bna\s+(?:później|potem|jutro|bok)\b",
+                                           put.group(2), re.I))):
+            return None          # "Położyłam Maję do łóżka", "odłożyłam to na później"
         # "Odłożyłam paszporty do niebieskiego segregatora" — kept, so "gdzie
         # są paszporty?" has an answer tomorrow (9 Oct: the model said
         # "zapamiętałam" and nothing was saved)
@@ -1857,7 +1864,7 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
             speak(f"Dobrze. Codziennie {after} powiem to, kiedy {to} się pojawi.")
         elif at or ahead:
             day = (("", "jutro", "pojutrze")[ahead] if ahead <= 2 else
-                   errands.WD_LOC[(time.localtime().tm_wday + ahead) % 7])
+                   __import__("timers")._WD_LOC[(time.localtime().tm_wday + ahead) % 7])
             when = " ".join(w for w in (day, after) if w)
             speak(f"Dobrze. {when.capitalize()} powiem to, kiedy {to} się pojawi.")
         else:

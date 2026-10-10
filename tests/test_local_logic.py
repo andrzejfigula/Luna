@@ -936,6 +936,19 @@ class MemoryTest(unittest.TestCase):
                          "Maja ma chomika o imieniu Pestka.")
         self.assertEqual(memory.facts_about("Maja"), ["Mai ulubiony kolor to fiolet."])
 
+    def test_put_away_is_not_every_sentence(self):
+        import commands
+        import faces
+        with mock.patch.object(faces, "names", lambda: ["Andrzej", "Emilka", "Maja"]):
+            with state.lock:
+                state.person = ("Emilka", 0.9, time.time())
+            self.assertIsNone(commands._remember("Położyłam Maję do łóżka"))
+            self.assertIsNone(commands._remember("Odłożyłam to na później"))
+            self.assertEqual(commands._remember("Położyłam klucze na lodówce"),
+                             "Emilka położyła klucze na lodówce")
+            with state.lock:
+                state.person = None
+
     def test_where_is_thing(self):
         memory._save({"facts": ["Andrzej lubi żarty.", "Klucze są w szufladzie w kuchni.",
                                 "Andrzej mówi: „mój paszport leży w szafie”."],
@@ -1653,6 +1666,7 @@ class KidsTest(unittest.TestCase):
                          "IP sto dziewięćdziesiąt dwa kropka sto sześćdziesiąt osiem kropka "
                          "trzy kropka czterdzieści trzy.")
         self.assertIn("poziomie minus 2", polish.spoken_numbers("na poziomie -2, miejsce 47"))
+        self.assertIn("od 8 -14 stopni", polish.spoken_numbers("od 8 -14 stopni"))   # a range
         self.assertEqual(polish.spoken_numbers("ziemniaki — 2 kg, masło — 500 g, 1 l"),
                          "ziemniaki — 2 kilogramy, masło — 500 gramów, 1 litr")
         s = polish.spoken_numbers("to 86400. Godzina 12:30, rok 2026, 3,14159, tel 600123456.")
@@ -3083,6 +3097,9 @@ class ErrandsTest(unittest.TestCase):
                                        lambda *a: time.struct_time((2026, 10, 10, 18, 0, 0, 5, 283, 1))):
                     self.assertEqual(errands.days_ahead("przypomnij jej w niedzielę wieczorem"), 1)
                     self.assertEqual(errands.days_ahead("we wtorek rano"), 3)
+                # a weekday or an hour inside the message itself is not its time (review)
+                self.assertEqual(errands.days_ahead("Przekaż Mai, że w poniedziałek ma sprawdzian"), 0)
+                self.assertEqual(errands._when("Przekaż Mai, że o 17 ma basen"), (None, False))
                 # a promise to tell is not the telling (10 Oct)
                 self.assertEqual(errands.mark_told("Andrzej", "W niedzielę przypomnę mu, że jestem w domu."), 0)
                 # told already in a reply: not said again (9 Oct)
