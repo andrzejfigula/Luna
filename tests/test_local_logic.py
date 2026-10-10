@@ -2145,6 +2145,13 @@ class KidsTest(unittest.TestCase):
 
     def test_drawing_something_is_a_surprise(self):
         import drawing
+        # verb last / "jeszcze raz" (10 Oct: nothing was drawn, the model promised)
+        self.assertEqual(drawing.wants("Jeszcze raz mnie narysuj"), "mnie")
+        self.assertEqual(drawing.wants("Narysuj mnie jeszcze raz"), "mnie")
+        self.assertEqual(drawing.wants("Luna, kota narysuj"), "kota")
+        self.assertIsNone(drawing.wants("Co mam narysować?"))
+        self.assertTrue(drawing._is_person("mnie"))
+        self.assertFalse(drawing._is_person("kota"))
         self.assertIn(drawing._subject("coś"), drawing._SURPRISES)
         self.assertIn(drawing._subject("coś ładnego"), drawing._SURPRISES)
         self.assertEqual(drawing._subject("kota"), "kota")

@@ -44,9 +44,21 @@ _last_what = [""]              # "narysuj jeszcze raz" — what it was
 
 
 def wants(text):
-    """The thing to draw, or None."""
-    m = _ASK.match((text or "").strip())
-    return m.group(1).strip() if m else None
+    """The thing to draw, or None. "Jeszcze raz mnie narysuj" (verb last) and
+    "narysuj mnie jeszcze raz" too — 10 Oct 20:36: the first went to the
+    model, which said "rysuję jeszcze raz" and nothing was drawn."""
+    t = (text or "").strip()
+    last = re.match(r"^(?:luna,?\s+)?(?:(?:jeszcze\s+raz|znowu|ponownie)\s+)?"
+                    r"((?:\w+\s+){0,3}?\w+)\s+(?:narysuj|namaluj)\W*$", t, re.I)
+    if last:
+        t = f"narysuj {last.group(1)}"
+    m = _ASK.match(t)
+    if not m:
+        return None
+    what = m.group(1).strip()
+    bare = re.sub(r"\s+(?:jeszcze\s+raz|znowu|ponownie|jeszcze\s+jeden\s+raz)\W*$", "", what,
+                  flags=re.I)
+    return bare or what
 
 
 def _subject(what):
@@ -216,5 +228,23 @@ def handle(text, speak):
         _last_what[0] = what
         if re.match(r"\s*(?:luna,?\s*)?draw\b", text, re.I):    # "Draw me a cat"
             return draw(what, speak, "Drawing it now — just a moment!", english=True)
+        if _is_person(what):
+            # no photo is ever sent — say it, or "it doesn't look like me" follows
+            # (10 Oct 20:35: Andrzej; she then blamed "the camera")
+            return draw(what, speak, "Rysuję z wyobraźni, nie ze zdjęcia — więc nie "
+                                     "będzie podobny. Chwilka!")
         return draw(what, speak)
     return False
+
+
+def _is_person(what):
+    """"mnie", "Maję", "tatę", "naszą rodzinę" — a person or the family."""
+    low = what.lower().strip()
+    if re.fullmatch(r"mnie(?:\s+\w+)?|nas(?:\s+wszystkich)?|(?:naszą|nasza|całą)?\s*rodzin\w*|"
+                    r"tat\w*|mam\w*|siebie\s+i\s+\w+", low):
+        return True
+    try:
+        import faces
+        return bool(faces.match_name(low.split()[0]))
+    except Exception:
+        return False
