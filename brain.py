@@ -162,7 +162,7 @@ def _long_weekends(day, horizon=200, n=3):
         while free(b + one):
             b += one
         return a, b
-    out, seen, d = [], set(), day
+    out, seen, d = [], set(), day - one            # today counts: a long weekend under way
     while d < day + timedelta(days=horizon) and len(out) < n:
         d += one
         if d not in off or d in seen:
@@ -355,7 +355,13 @@ def _to_someone(text):
     "Maja się nudzi" (no comma) is about Maja, not to her."""
     try:
         low = text.strip().lower()
-        first = (re.findall(r"\w+", low) or [""])[0]
+        words = re.findall(r"\w+", low)
+        first = (words or [""])[0]
+        # "Maja, Emilka i Andrzej — kto…?" is a list of names, not a call (review)
+        family = {n.lower() for n in faces.vocatives()}
+        if len(words) > 1 and (words[1] in family or faces.match_name(words[1])
+                               or words[1] == "i"):
+            return False
         return bool(any(first == (v or "").lower() and first != n.lower()
                         or re.match(re.escape(n.lower()) + r"\s*[,!]", low)
                         for n, v in faces.vocatives().items())

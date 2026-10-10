@@ -66,6 +66,7 @@ class TimersTest(unittest.TestCase):
         self.assertIn("najwyżej godzinę i 10 minut", timers.sleep_answer("Ile jeszcze pośpię?", late))
         self.assertIsNone(timers.sleep_answer("Ile spałaś?", now - 10 ** 6))   # no alarm in 24 h
         self.assertIsNone(timers.sleep_answer("Ile zostało na minutniku?", now))
+        self.assertIsNone(timers.sleep_answer("Ile godzin dziennie powinno spać dziecko?", now))
 
     def test_timer_reminder_and_cancel_by_label(self):
         timers.apply([{"type": "timer", "seconds": 60, "at": "", "label": "makaron"}])
@@ -720,6 +721,7 @@ class TimersTest(unittest.TestCase):
                            ("Piątka", 4), ("W lewym górnym rogu", 0)):
             self.assertEqual(tictac.spoken_cell(said), cell, said)
         self.assertIsNone(tictac.spoken_cell("prawy"))
+        self.assertIsNone(tictac.spoken_cell("Mam 8 lat"))              # not a move (review)
         self.assertIsNone(tictac.spoken_cell("Ile masz lat?"))
         out = []
         with mock.patch.object(tictac.threading, "Timer", lambda *a, **k: mock.Mock()):
@@ -2079,6 +2081,7 @@ class KidsTest(unittest.TestCase):
                 self.assertTrue(brain._to_someone("Kochanie, zrobisz mi herbatę?"))
                 self.assertTrue(brain._to_someone("Tato, pomożesz mi z matmą?"))
                 self.assertTrue(brain._to_someone("Babciu, zobacz, Luna umie rysować!"))
+                self.assertFalse(brain._to_someone("Maja, Emilka i Andrzej — kto jest najstarszy?"))
                 self.assertFalse(brain._to_someone("Totalnie się nudzę."))
                 self.assertFalse(brain._to_someone("Majonez się skończył."))
         finally:
@@ -2587,6 +2590,8 @@ class KidsTest(unittest.TestCase):
             lw = brain._long_weekends(date(2027, 4, 10))
             self.assertIn("Thursday 27.05 only; with Friday 28.05 taken off: 4 days", lw)
             self.assertIn("Saturday 01.05–Monday 03.05", lw)
+            # a long weekend already under way counts (review)
+            self.assertIn("24.12", brain._long_weekends(date(2026, 12, 24)))
         finally:
             brain._TZ = old
 

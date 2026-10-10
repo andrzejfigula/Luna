@@ -694,6 +694,11 @@ def sleep_answer(text, now=None):
     import clockgame
     if not _SLEEP_Q.search(text or ""):
         return None
+    # their own night only — "Ile godzin dziennie powinno spać dziecko?" is a
+    # general question (10 Oct review)
+    if not re.search(r"\b(?:mi|mnie|wyśpię|wyspie|pośpię|pospie|śpię|spie|pójdę|pojde|"
+                     r"położę|poloze|zasnę|zasne|kładę|klade)\b", text, re.I):
+        return None
     now = now or time.time()
     with _lock:
         alarms = sorted(t["due"] for t in _timers

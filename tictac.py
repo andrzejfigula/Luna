@@ -273,10 +273,15 @@ def spoken_cell(text):
     the board never changed)."""
     low = (text or "").lower()
     words = re.findall(r"\w+", low)
-    num = next((int(w) for w in words if w.isdigit() and 1 <= int(w) <= 9), None) or \
-        next((_NUMS[w] for w in words if w in _NUMS), None)
-    if num:
-        return num - 1
+    # a number only when it is the whole move ("7", "siódemka", "pole 7") — not
+    # "Mam 8 lat" / "Dwa razy wygrałam" (10 Oct review)
+    rest = [w for w in words if w not in ("pole", "numer", "kratka", "kratkę", "na", "w",
+                                          "luna", "proszę", "prosze", "to")]
+    if len(rest) == 1:
+        w = rest[0]
+        num = int(w) if w.isdigit() and 1 <= int(w) <= 9 else _NUMS.get(w)
+        if num:
+            return num - 1
     row = 0 if re.search(r"\bgórn|\bgorn|\bgór|\bgor[ae]\b|\bna\s+górze", low) else \
         2 if re.search(r"\bdoln|\bdół|\bdol\b|\bna\s+dole", low) else None
     col = 0 if re.search(r"\blew", low) else 2 if re.search(r"\bpraw", low) else None

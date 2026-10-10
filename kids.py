@@ -221,7 +221,9 @@ def start_routine(name, speak):
         # a Saturday morning: no "spakuj plecak" (the list itself stays as it is)
         steps = [s for s in steps if not _SCHOOL_STEP.search(s)] or steps
     with _lock:
-        _routine = {"name": name, "steps": steps, "i": 0, "t": time.time()}
+        with state.lock:
+            player = state.person[0] if state.person else None
+        _routine = {"name": name, "steps": steps, "i": 0, "t": time.time(), "player": player}
         print(f"[kids] routine {name}: {len(steps)} steps", flush=True)
         _step(speak)
 
@@ -236,10 +238,14 @@ def routine_answer(text, speak, play_sound):
         if r is None:
             return False
         if re.search(r"\b(?:" + "|".join(map(re.escape, _STOP)) + r")\b", low) and len(words) <= 4:
-            _routine = None
+            _routine = None                  # (anyone may end it — a parent too)
             _clear()
             speak("Dobrze, kończymy.")
             return True
+        with state.lock:
+            speaker = state.person[0] if state.person else None
+        if r.get("player") and speaker and speaker != r["player"]:
+            return False         # Emilka's "ok" isn't Maja's step done (10 Oct review)
         # "Powtórz" / "co dalej?" / "pomiń" belong to the routine (7 Oct probe:
         # "Powtórz" ended it, and every "Gotowe" after went to the model)
         if re.match(r"^(?:powtórz|powtorz|jeszcze\s+raz|co\s+(?:teraz|dalej|mam\s+robić)|"

@@ -53,10 +53,10 @@ def _until_clock(low, now=None):
     h, mi = t
     mins_now = now_t.tm_hour * 60 + now_t.tm_min
     target = h * 60 + mi
-    if target <= mins_now and h < 12:
+    if target <= mins_now and h < 12 and target + 12 * 60 > mins_now:
         target += 12 * 60                            # "do trzeciej" at 13:00 → 15:00
     if target <= mins_now:
-        return None
+        target = h * 60 + mi + 24 * 60               # "do ósmej" at 22:00 → tomorrow 8:00
     return (target - mins_now) * 60, set(re.findall(r"\w+", m.group(1)))
 
 
