@@ -1637,6 +1637,12 @@ class KidsTest(unittest.TestCase):
                          "siedem milionów sześć tysięcy sześćset pięćdziesiąt dwa")
         self.assertEqual(polish.number_words(21000), "dwadzieścia jeden tysięcy")
         self.assertEqual(polish.number_words(1001), "tysiąc jeden")
+        # 9 Oct builder answers
+        self.assertIn("GPT pięć kropka cztery mini", polish.spoken_numbers("gpt-5.4-mini"))
+        self.assertEqual(polish.spoken_numbers("IP 192.168.3.43."),
+                         "IP sto dziewięćdziesiąt dwa kropka sto sześćdziesiąt osiem kropka "
+                         "trzy kropka czterdzieści trzy.")
+        self.assertIn("poziomie minus 2", polish.spoken_numbers("na poziomie -2, miejsce 47"))
         s = polish.spoken_numbers("to 86400. Godzina 12:30, rok 2026, 3,14159, tel 600123456.")
         self.assertIn("osiemdziesiąt sześć tysięcy czterysta.", s)
         self.assertIn("tysiąc dwieście trzydzieści cztery", polish.spoken_numbers("Liczba 1234."))

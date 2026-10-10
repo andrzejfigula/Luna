@@ -194,6 +194,14 @@ def _spoken_forms(text):
     12:30." came out in English, "22°C" garbled, "Np." as letters, "15.11" as
     "piętnastego piętnastego". Written out in Polish instead."""
     import clock
+    # 9 Oct builder answers: a model name, an IP address and "poziom -2"
+    text = re.sub(r"\bgpt-(\d)\.(\d)(-mini)?\b",
+                  lambda m: f"GPT {number_words(int(m.group(1)))} kropka "
+                            f"{number_words(int(m.group(2)))}" + (" mini" if m.group(3) else ""),
+                  text, flags=re.I)
+    text = re.sub(r"\b(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\b",
+                  lambda m: " kropka ".join(number_words(int(g)) for g in m.groups()), text)
+    text = re.sub(r"(?<![\w\d])-(\d+)\b(?![.:]\d)", lambda m: "minus " + m.group(1), text)
     for rx, rep in _ABBR:
         text = rx.sub(rep, text)
     # recipe fractions: "1/2 szklanki" came back "jedną poora szklanki"
