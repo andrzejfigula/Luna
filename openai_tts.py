@@ -323,8 +323,15 @@ class OpenAITTS:
             threading.Thread(target=attempt, args=(1,), daemon=True, name="tts-b").start()
             started = 2
         ended, errors = 0, []
+        deadline = time.time() + 60            # one sentence's audio: never forever (10 Oct)
         while ended < started:
-            kind, val = q.get()
+            try:
+                kind, val = q.get(timeout=max(0.1, min(5.0, deadline - time.time())))
+            except queue.Empty:
+                if self._cut.is_set() or time.time() >= deadline:
+                    print("[TTS] audio stream still open — given up", flush=True)
+                    break
+                continue
             if kind == "data":
                 timing.mark("audio")
                 yield val
@@ -613,12 +620,22 @@ class OpenAITTS:
                 out = self._out
                 out.begin(on_start=on_audio_start, prebuffer=AUDIO_PREBUFFER_SECS,
                           record=True)
+
+                def take(qq):
+                    """The next item, or None once she is cut off — a blocking
+                    get() outlived a touch on 10 Oct (stuck "speaking")."""
+                    while not self._cut.is_set():
+                        try:
+                            return qq.get(timeout=0.2)
+                        except queue.Empty:
+                            continue
+                    return None
                 while not self._cut.is_set():
-                    q = parts.get()
+                    q = take(parts)
                     if q is None:
                         break
                     while not self._cut.is_set():
-                        chunk = q.get()
+                        chunk = take(q)
                         if chunk is None:
                             break
                         out.write(chunk)

@@ -7,6 +7,8 @@ checks every WATCH_EVERY seconds that
 
   • state.lock can be taken (a deadlock holds it forever), and
   • the face keeps drawing frames (the main thread is alive),
+  • she doesn't stay "speaking"/"thinking" for BUSY_SECS (10 Oct: stuck in a
+    reply after a touch cut it — she never listened again),
 
 and when either has been stuck for FREEZE_SECS it writes every thread's
 stack to the log (faulthandler — exactly where they are stuck) and ends the
@@ -27,6 +29,7 @@ from shared_state import state
 WATCH_EVERY = 5
 FREEZE_SECS = 30
 GRACE_SECS = 60            # start-up: models load, the face isn't up yet
+BUSY_SECS = 300            # no answer, story or read-aloud page takes this long in one go
 
 
 def _frames():
@@ -51,6 +54,7 @@ def _die(why):
 def _loop():
     time.sleep(GRACE_SECS)
     lock_ok = frames_ok = time.time()
+    busy_since = None
     last_frames = _frames()
     while True:
         time.sleep(WATCH_EVERY)
@@ -65,6 +69,17 @@ def _loop():
             _die(f"state.lock held for {now - lock_ok:.0f} s")
         if now - frames_ok > FREEZE_SECS:
             _die(f"no face frame for {now - frames_ok:.0f} s")
+        # stuck "speaking"/"thinking": the face moves, the lock is free, but she
+        # never comes back to listening (10 Oct 20:20: after a touch cut her
+        # reply, the answer never finished — deaf until a restart by hand)
+        with state.lock:
+            busy = state.speaking or state.luna_mode in ("speaking", "processing")
+        if not busy:
+            busy_since = None
+        elif busy_since is None:
+            busy_since = now
+        elif now - busy_since > BUSY_SECS:
+            _die(f"speaking/thinking for {now - busy_since:.0f} s without coming back")
 
 
 def start_watchdog():

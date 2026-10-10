@@ -13,9 +13,15 @@ import queue
 import threading
 
 
-def hedged(open_stream, after, label="request"):
+def hedged(open_stream, after, label="request", total=90.0):
     """Yield the items of open_stream() — from a second call of it when the
-    first is slow to start. Raises the error when neither produced anything."""
+    first is slow to start. Raises the error when neither produced anything,
+    and TimeoutError when the whole stream takes longer than `total` seconds:
+    the client's timeout is per read, and a stream that stays open (10 Oct
+    20:20 — the answer was spoken, the call never returned) blocked Luna for
+    good."""
+    import time
+    deadline = time.time() + total
     q = queue.Queue()
     lock = threading.Lock()
     owner = [None]
@@ -42,12 +48,18 @@ def hedged(open_stream, after, label="request"):
     start(0)
     started, ended, errors = 1, 0, []
     while True:
+        left = deadline - time.time()
+        if left <= 0:
+            print(f"[hedge] {label}: still open after {total:.0f}s — given up", flush=True)
+            raise TimeoutError(f"{label} stream took over {total:.0f} s")
+        hedge_wait = started == 1 and owner[0] is None
         try:
-            kind, val = q.get(timeout=after if (started == 1 and owner[0] is None) else None)
+            kind, val = q.get(timeout=min(after, left) if hedge_wait else min(left, 5.0))
         except queue.Empty:
-            print(f"[hedge] {label}: nothing after {after:.1f}s — asking again", flush=True)
-            start(1)
-            started = 2
+            if hedge_wait and time.time() < deadline:
+                print(f"[hedge] {label}: nothing after {after:.1f}s — asking again", flush=True)
+                start(1)
+                started = 2
             continue
         if kind == "item":
             yield val

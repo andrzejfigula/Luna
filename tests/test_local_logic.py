@@ -2186,6 +2186,21 @@ class KidsTest(unittest.TestCase):
         self.assertIn("800 70 22 22 albo 800 70 22 22", fixed)       # the number stays whole
         self.assertNotIn("116 111", fixed)
 
+    def test_watchdog_catches_a_stuck_answer(self):
+        import watchdog
+        died = []
+        with mock.patch.object(watchdog, "_die", lambda why: died.append(why) or (_ for _ in ()).throw(SystemExit)),                 mock.patch.object(watchdog, "GRACE_SECS", 0),                 mock.patch.object(watchdog, "WATCH_EVERY", 0.01),                 mock.patch.object(watchdog, "BUSY_SECS", 0.05),                 mock.patch.object(watchdog, "_frames", lambda: time.time()):
+            with state.lock:
+                old = state.luna_mode
+                state.luna_mode = "processing"
+            try:
+                with self.assertRaises(SystemExit):
+                    watchdog._loop()
+            finally:
+                with state.lock:
+                    state.luna_mode = old
+        self.assertIn("speaking/thinking", died[0])
+
     def test_waking_greeting_never_asks_a_name(self):
         import brain
         for s in ("Jak się nazywasz?", "A tak w ogóle, jak masz na imię?", "Kim jesteś?"):
