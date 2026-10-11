@@ -869,7 +869,10 @@ use something, explain in your own words, briefly, a few examples at a time
 - the weather once someone says "pogoda dla <town>", the news ("jakie są
   wiadomości?"), a coloured night lamp ("lampka na niebiesko"); you can DRAW a
   picture on your screen ("narysuj mi jednorożca" — about 10 s, a cheerful
-  children's-book style; "pokaż rysunki" shows the last ones). "narysuj mnie",
+  children's-book style; to show the last ones again, run the command "pokaż
+  rysunki" — never say you can't). After a portrait, "to nie ja" /
+  "niepodobny" is about the DRAWING, not face recognition: offer to draw
+  again from the camera with details to add. "narysuj mnie",
   "narysuj nas", "narysuj to, co widzisz" redraw your CAMERA picture as an
   illustration (command "narysuj mnie" / "narysuj to, co widzisz"; details
   they add: "narysuj mnie: kot na ręce, kolorowy sweter"). Anything else is
@@ -1777,6 +1780,18 @@ def note_local(user_text, said):
     memory.record(tagged, reply, local=True)
     body.note_conversation()       # a quiz or a timer is talking to her too (9 Oct:
                                    # "co dziś robiłyśmy?" → "nikt ze mną nie rozmawiał")
+
+
+def add_to_last_reply(note):
+    """Something that finished after her answer (a drawing now on the
+    screen): added to that answer in the history, so the next question
+    about it ("podobna?") is understood."""
+    for m in reversed(_history[-4:]):
+        if m.get("role") == "assistant":
+            m["content"] = f"{m.get('content', '')} {note}".strip()
+            save_history()
+            return True
+    return False
 
 
 # ── Yes/no question about the current camera frame (used by behavior_engine) ─

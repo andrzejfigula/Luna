@@ -253,6 +253,16 @@ def draw(what, speak, intro="Już rysuję… chwilka!", english=False, photo=Non
             _show(out)
             print(f"[draw] done: {out}", flush=True)
             say("Here you go!" if english else "Gotowe! Proszę bardzo.")
+            try:
+                # the model hears what is on her screen (11 Oct: "Luna, podobna?"
+                # after a portrait → "Jasne, podobnie")
+                import brain
+                brain.add_to_last_reply(
+                    "(Rysunek gotowy, pokazany na ekranie: "
+                    + ("obraz z kamery przerysowany jako ilustracja" if photo
+                       else _subject(what)) + ".)")
+            except Exception:
+                pass
         except Exception as e:
             print(f"[draw] failed: {e}", flush=True)
             with state.lock:
@@ -269,7 +279,25 @@ _SHOW_OF = re.compile(r"^(?:luna,?\s+)?(?:pokaż|pokaz)\s+(?:mi\s+|nam\s+)?(?:ja
                       r"(?!z\s+wczoraj|z\s+dziś)(.{2,60}?)[.!?]*$", re.I)
 
 
+# "Dobra, jeszcze raz ze zdjęcia" just after a drawing (11 Oct 12:02 — it
+# went to the model, two sentences of "zaraz to zrobię" before the drawing)
+_AGAIN = re.compile(r"^(?:(?:no\s+)?dobra,?\s+|dobrze,?\s+)?(?:luna,?\s+)?(?:narysuj\s+)?"
+                    r"(?:jeszcze\s+raz|jeszcze\s+jeden(?:\s+raz)?|znowu|ponownie)"
+                    r"(?:,?\s+(ze\s+zdjęcia|ze\s+zdjecia|z\s+kamery))?[.!?]*$", re.I)
+AGAIN_SECS = 300               # "jeszcze raz ze zdjęcia" — a bare "jeszcze raz"
+BARE_AGAIN_SECS = 90           # only right after (a game's "jeszcze raz" comes later)
+
+
 def handle(text, speak):
+    again = _AGAIN.match((text or "").strip())
+    bare = again and not again.group(1) and not re.search(r"narysuj", text, re.I)
+    if again and _last_what[0] and time.time() - _last[0] < (BARE_AGAIN_SECS if bare
+                                                             else AGAIN_SECS):
+        cam = _last_cam[0] or bool(again.group(1))
+        photo = _camera_jpeg() if cam else None
+        if photo:
+            return draw(_last_what[0], speak, "Rysuję jeszcze raz — chwilka!", photo=photo)
+        return draw(_last_what[0], speak, "Rysuję jeszcze raz — chwilka!")
     of = _SHOW_OF.match((text or "").strip())
     if of and not re.match(r"(?:jeszcze|ostatni|swój|swoj|mój|moj|ten)\b", of.group(1), re.I):
         # "pokaż mi obrazek kota" — a picture of it, drawn (no web pictures)

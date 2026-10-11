@@ -2186,6 +2186,31 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(calls[0][0], "mnie")
         self.assertIn("wyobraźni", calls[0][1])
 
+    def test_drawing_again_from_the_photo(self):
+        import drawing
+        # 11 Oct 12:02: "Dobra, Luna, jeszcze raz ze zdjęcia" went to the model
+        calls = []
+        fake = lambda w, s, intro="", english=False, photo=None: calls.append((w, photo)) or True
+        with mock.patch.object(drawing, "_camera_jpeg", lambda: b"jpg"), \
+                mock.patch.object(drawing, "draw", fake):
+            drawing._last_what[0], drawing._last_cam[0] = "smoka", False
+            drawing._last[0] = time.time() - 200
+            self.assertFalse(drawing.handle("Jeszcze raz", lambda t: None))   # too late, bare
+            self.assertTrue(drawing.handle("Dobra, jeszcze raz ze zdjęcia.", lambda t: None))
+            drawing._last[0] = time.time() - 30
+            self.assertTrue(drawing.handle("Jeszcze raz", lambda t: None))
+            drawing._last[0] = time.time() - 600
+            self.assertFalse(drawing.handle("Jeszcze raz ze zdjęcia", lambda t: None))
+        self.assertEqual(calls, [("smoka", b"jpg"), ("smoka", None)])
+
+    def test_note_added_to_her_last_reply(self):
+        import brain
+        with mock.patch.object(brain, "_history", [{"role": "user", "content": "x"},
+                                                   {"role": "assistant", "content": "Rysuję."}]), \
+                mock.patch.object(brain, "save_history", lambda: None):
+            self.assertTrue(brain.add_to_last_reply("(Rysunek gotowy.)"))
+            self.assertEqual(brain._history[-1]["content"], "Rysuję. (Rysunek gotowy.)")
+
     def test_deep_voice_is_caught(self):
         import numpy as np
         import voicecheck
