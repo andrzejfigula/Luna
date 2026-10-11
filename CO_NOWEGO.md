@@ -29,7 +29,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 > „Opowiedz **dalszy ciąg** bajki” — także następnego dnia · „Narysuj coś” — niespodzianka · „W zagadki!” · quiz Mai czeka, gdy ktoś inny o coś pyta ·
 > rozmowy po angielsku przy biurku (calle) — Luna się nie wtrąca.
 >
-> **Nowe (11.10):** „**Narysuj mnie**”, „Narysuj nas”, „Narysuj to, co widzisz” — Luna przerysowuje **obraz z kamery** na kolorową ilustrację (ok. 10 s); „Narysuj mnie: kot na ręce” — dodaje szczegóły · „**Jeszcze raz ze zdjęcia**” — od razu nowy rysunek · kiedy mówi „rysuję”, naprawdę rysuje ·
+> **Nowe (11.10):** „**Narysuj mnie**”, „Narysuj nas”, „Narysuj to, co widzisz” — Luna przerysowuje **obraz z kamery** na kolorową ilustrację (ok. 10 s); „Narysuj mnie: kot na ręce” albo „**narysuj mnie jako astronautę**”, „narysuj nas w kosmosie” — zmienia tylko to · „**Jeszcze raz ze zdjęcia**” — od razu nowy rysunek · kiedy mówi „rysuję”, naprawdę rysuje ·
 > jej głos nie powinien już schodzić w niski, „męski” ton (sprawdza każdą wypowiedź i w razie czego prosi o nową) ·
 > **kamień, papier, nożyce** — gdy kamera nie widzi ręki, mówi się na głos („Papier!”) · „**Cofnij**” po usunięciu z listy · „**Odwołaj basen**” — odwołuje wiadomość dla Mai · zadanie z matmy: „Osiem?” — Luna mówi, czy dobrze.
 >
