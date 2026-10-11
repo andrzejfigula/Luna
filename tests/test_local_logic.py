@@ -197,6 +197,40 @@ class TimersTest(unittest.TestCase):
                   "Możesz mówić głośniej"):
             self.assertFalse(idle_engine.check_mute(t), t)
 
+    def test_radio_from_abroad(self):
+        import radio
+        # 11 Oct: "more radio stations including abroad, not only a few Polish"
+        self.assertEqual(radio._world_wanted("z francji"), ("FR", None, "z Francji"))
+        self.assertEqual(radio._world_wanted("francuski jazz")[:2], ("FR", "jazz"))
+        self.assertEqual(radio._world_wanted("reggae")[:2], (None, "reggae"))
+        self.assertIsNone(radio._world_wanted("do śniadania"))          # not Denmark
+        self.assertIsNone(radio._world_wanted("jazz"))                  # Nowy Świat, as before
+        self.assertIsNone(radio._world_wanted("trójkę"))
+        self.assertEqual(radio._short("SABROSITA Ciudad de México 590 AM XEPH-AM NRM"),
+                         "SABROSITA Ciudad de México")
+        said, played = [], []
+        found = [("Rai Radio 1", "http://a"), ("Radio 105", "http://b"), ("Virgin", "http://c")]
+        with mock.patch.object(radio, "_world_search", lambda c, t: found), \
+                mock.patch.object(radio, "_alive", lambda u: u != "http://a"), \
+                mock.patch.object(radio, "play", lambda n, u, **k: played.append(n)), \
+                mock.patch.object(radio, "_remember_station", lambda *a: None), \
+                mock.patch.object(radio, "playing", lambda: played[-1] if played else None):
+            self.assertTrue(radio.handle("Włącz radio z Włoch", said.append))
+            self.assertEqual(played, ["Radio 105"])                     # Rai refused us
+            self.assertIn("radio z Włoch", said[-1])
+            self.assertTrue(radio.handle("Następna stacja", said.append))
+            self.assertEqual(played[-1], "Virgin")
+        # a station by its name, not after "radio" (went to the model, refused)
+        played.clear()
+        with mock.patch.object(radio, "_lookup", lambda n: ("Polskie Radio Chopin", "http://x")),                 mock.patch.object(radio, "play", lambda n, u, **k: played.append(n)),                 mock.patch.object(radio, "_remember_station", lambda *a: None):
+            import settings
+            settings.put("radio_found", {})
+            self.assertTrue(radio.handle("Włącz Polskie Radio Chopin", said.append))
+        self.assertEqual(played, ["Polskie Radio Chopin"])
+        import brain
+        self.assertTrue(brain._COMMAND_OK.match("włącz Polskie Radio Chopin"))
+        self.assertTrue(brain._COMMAND_OK.match("włącz BBC Radio 1"))
+
     def test_radio_genres(self):
         import radio
         said = []

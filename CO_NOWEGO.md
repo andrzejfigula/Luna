@@ -29,6 +29,8 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 > „Opowiedz **dalszy ciąg** bajki” — także następnego dnia · „Narysuj coś” — niespodzianka · „W zagadki!” · quiz Mai czeka, gdy ktoś inny o coś pyta ·
 > rozmowy po angielsku przy biurku (calle) — Luna się nie wtrąca.
 >
+> **Radio z całego świata (11.10):** „**Włącz radio z Francji**”, „włoskie radio”, „puść coś z Japonii”, „jakieś radio zagraniczne”, „**francuski jazz**”, „radio reggae”, „muzyka z lat 80” — Luna szuka w katalogu tysięcy stacji; „**następna stacja**” — kolejna z tego kraju; „Jakie to radio?” — powie, skąd. Też dowolna stacja po nazwie: „Włącz BBC Radio 1”, „Włącz Polskie Radio Chopin”.
+>
 > **Nowe (11.10):** „**Narysuj mnie**”, „Narysuj nas”, „Narysuj to, co widzisz” — Luna przerysowuje **obraz z kamery** na kolorową ilustrację (ok. 10 s); „Narysuj mnie: kot na ręce” albo „**narysuj mnie jako astronautę**”, „narysuj nas w kosmosie” — zmienia tylko to · „**Jeszcze raz ze zdjęcia**” — od razu nowy rysunek · kiedy mówi „rysuję”, naprawdę rysuje ·
 > jej głos nie powinien już schodzić w niski, „męski” ton (sprawdza każdą wypowiedź i w razie czego prosi o nową); krótkie zdania, które czasem wychodziły „po słowacku” („Súham” zamiast „Słucham”), nie są już zapamiętywane i powtarzane ·
 > **kamień, papier, nożyce** — gdy kamera nie widzi ręki, mówi się na głos („Papier!”) · „**Cofnij**” po usunięciu z listy · „**Odwołaj basen**” — odwołuje wiadomość dla Mai · zadanie z matmy: „Osiem?” — Luna mówi, czy dobrze.

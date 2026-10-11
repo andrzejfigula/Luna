@@ -475,7 +475,10 @@ def answer_question(text, speak):
     low = text.lower().strip(" .!?")
     if any(k in low for k in _WHAT) and len(low.split()) <= 6:
         now = playing()
-        speak(f"Gra {now}." if now else "Radio nie gra.")
+        with _lock:
+            where = _player.get("from") if _player else None
+        speak((f"Gra {now}" + (f" — radio {where}." if where else ".")) if now
+              else "Radio nie gra.")
         return True
     if playing() and any(k in low for k in _SONG) and len(re.findall(r"\w+", low)) <= 7:
         with _lock:
@@ -512,6 +515,8 @@ def handle(text, speak):
         low = f"włącz {m.group(1)}"
         words = low.split()
     elif any(k in low for k in _NEXT) and len(words) <= 5:
+        if _world_next(speak):             # the next one of "radio z Francji"
+            return True
         names = list(STATIONS.values())
         now = playing()
         i = next((k for k, st in enumerate(names) if st[0] == now), -1)
@@ -583,6 +588,8 @@ def handle(text, speak):
     m = _ON.match(low)
     if not m:
         return False
+    if _world_play(m.group(1) if m.group(1) is not None else m.group(2), speak):
+        return True                        # "…z Francji", "francuski jazz", "reggae"
     if m.group(1) is None:                 # "włącz trójkę" — only a known station
         key = _ALIASES.get(m.group(2).strip(), m.group(2).strip())
         if key in _MUSIC or (key and _ANY.fullmatch(key.strip(" .!?"))):
@@ -591,6 +598,8 @@ def handle(text, speak):
                        key) and any(re.search(rx, key) for rx, _ in _GENRES)):
             what = key                     # "puść muzykę dla dzieci" (7 Oct: went to
                                            # the model) → the genre below picks it
+        elif re.search(r"\bradio\b|\bfm\b", key) and len(key.split()) <= 6:
+            what = key                     # "włącz Polskie Radio Chopin", "włącz BBC Radio 1"
         elif key not in STATIONS:
             return False
         else:
@@ -611,4 +620,165 @@ def handle(text, speak):
     speak(f"Włączam {_acc(name)}.")
     play(name, url)
     _remember_station(name, url)
+    return True
+
+
+# ── the world's radio: by country, by kind of music (11 Oct) ──────────────────
+# "Włącz radio z Francji", "włoskie radio", "francuski jazz", "radio reggae",
+# "jakieś zagraniczne radio" — radio-browser.info's most voted working stations
+# for that country / tag; "następna stacja" then goes through them.
+# (Andrzej: "more radio stations including abroad, not only a few Polish ones")
+
+# (stem, ISO code, "z Francji" — how she says where it is from)
+_COUNTRIES = [
+    (r"franc", "FR", "z Francji"), (r"niemc|niemi|niemie", "DE", "z Niemiec"),
+    (r"włoch|włosk|wloch|wlosk", "IT", "z Włoch"), (r"hiszpa", "ES", "z Hiszpanii"),
+    (r"angli|angiel|brytyj|brytani|londyn", "GB", "z Wielkiej Brytanii"),
+    (r"ameryk|usa\b|stanów\s+zjednoczonych|stanow\s+zjednoczonych|nowego\s+jorku", "US",
+     "z Ameryki"),
+    (r"czech|czesk", "CZ", "z Czech"), (r"słowac|slowac", "SK", "ze Słowacji"),
+    (r"ukrai", "UA", "z Ukrainy"), (r"grec|grek", "GR", "z Grecji"),
+    (r"szwec|szwedz", "SE", "ze Szwecji"), (r"norw", "NO", "z Norwegii"),
+    (r"holand|niderland", "NL", "z Holandii"), (r"japo", "JP", "z Japonii"),
+    (r"brazyl", "BR", "z Brazylii"), (r"irland", "IE", "z Irlandii"),
+    (r"austri", "AT", "z Austrii"), (r"szwajcar", "CH", "ze Szwajcarii"),
+    (r"portugal", "PT", "z Portugalii"), (r"chorwac", "HR", "z Chorwacji"),
+    (r"kanad", "CA", "z Kanady"), (r"australi", "AU", "z Australii"),
+    (r"litw|litew", "LT", "z Litwy"), (r"węgi|węgr|wegi|wegr|węgier", "HU", "z Węgier"),
+    (r"turc|turek|turk", "TR", "z Turcji"), (r"meksyk", "MX", "z Meksyku"),
+    (r"kubań|kuban|z\s+kuby", "CU", "z Kuby"), (r"jamaj", "JM", "z Jamajki"),
+    (r"duńsk|dunsk|\bdani", "DK", "z Danii"), (r"fińsk|finsk|finland", "FI", "z Finlandii"),
+    (r"belgi", "BE", "z Belgii"), (r"island", "IS", "z Islandii"),
+    (r"argent", "AR", "z Argentyny"), (r"indi[ia]|indyjsk", "IN", "z Indii"),
+]
+_ABROAD = re.compile(r"zagranic|z\s+(?:innego|jakiegoś|jakiegos|obcego)\s+kraju|z\s+(?:całego|calego)\s+"
+                     r"świata|ze\s+świata|ze\s+swiata|z\s+daleka", re.I)
+_ABROAD_PICK = ["FR", "IT", "ES", "GB", "US", "DE", "BR", "JP", "GR", "IE", "NL", "CU"]
+# kinds of music → radio-browser tags
+_TAGS = [
+    (r"jazz|dżez|dzez", "jazz"), (r"blues", "blues"), (r"reggae|rege", "reggae"),
+    (r"metal", "metal"), (r"country", "country"), (r"rock", "rock"),
+    (r"klasyczn|poważn|powazn|opera|operow", "classical"),
+    (r"elektron|techno|house", "electronic"), (r"tanecz|dance|disco", "dance"),
+    (r"chill|relaks|lounge|spokojn", "chillout"), (r"ambient", "ambient"),
+    (r"latyn|salsa|samba|bossa", "latin"), (r"hip\s*hop|rap\b", "hiphop"),
+    (r"lat\s+(?:80|osiemdziesiąt\w*)|osiemdziesiąt\w*|80s", "80s"),
+    (r"lat\s+(?:90|dziewięćdziesiąt\w*)|dziewięćdziesiąt\w*|90s", "90s"),
+    (r"stare\s+przeboje|oldies|retro", "oldies"), (r"przebo|hit|pop\b", "pop"),
+    (r"wiadomości|wiadomosci|news|informac", "news"), (r"dla\s+dzieci|dziecięc|dzieciec", "children"),
+    (r"folk|ludow", "folk"), (r"soul|funk", "soul"),
+]
+_GOOD_CODECS = ("MP3", "AAC", "AAC+", "OGG")
+_browse = {}               # {"label", "list": [(name, url, where)], "i"} — the last world search
+
+
+def _world_wanted(what):
+    """(country code or None, tag or None, how she says it) when the words ask
+    for a country's radio or a kind of music abroad — None when they don't
+    (then the Polish stations and genres as before)."""
+    w = (what or "").lower()
+    cc = next(((code, where) for rx, code, where in _COUNTRIES if re.search(rx, w)), None)
+    if not cc and _ABROAD.search(w):
+        import random
+        code = random.choice(_ABROAD_PICK)
+        cc = (code, next(where for _, c, where in _COUNTRIES if c == code))
+    tag = next((t for rx, t in _TAGS if re.search(rx, w)), None)
+    if cc:
+        return cc[0], tag, cc[1]
+    # a kind of music with no Polish station for it (reggae, blues, metal…)
+    if tag in ("blues", "reggae", "metal", "country", "electronic", "ambient", "latin",
+               "hiphop", "80s", "90s", "oldies", "folk", "soul"):
+        return None, tag, ""
+    return None
+
+
+def _world_search(code, tag):
+    """The most voted working stations for a country and/or tag, [(name, url)]."""
+    q = "&".join(x for x in (f"countrycode={code}" if code else "",
+                            f"tag={urllib.parse.quote(tag)}" if tag else "") if x)
+    for host in _MIRRORS:
+        url = (f"https://{host}.api.radio-browser.info/json/stations/search?{q}"
+               "&order=votes&reverse=true&limit=25&hidebroken=true")
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Luna-robot/1.0"})
+            with urllib.request.urlopen(req, timeout=6) as r:
+                found = json.load(r)
+            break
+        except Exception as e:
+            print(f"[radio] world lookup on {host} failed: {e}", flush=True)
+    else:
+        return []
+    out, seen = [], set()
+    for s in found:
+        name = _spoken(s.get("name", ""))
+        if (s.get("url_resolved") and s.get("codec", "").upper() in _GOOD_CODECS
+                and name.lower() not in seen):
+            seen.add(name.lower())
+            out.append((_short(name), s["url_resolved"]))
+    return out[:10]
+
+
+def _alive(url):
+    """The stream answers (Rai Radio 1, the most voted in Italy, says 403 from
+    here — 11 Oct)."""
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Luna-robot/1.0"})
+        with urllib.request.urlopen(req, timeout=4) as r:
+            return r.status < 400 and bool(r.read(2048))
+    except Exception as e:
+        print(f"[radio] {url} doesn't answer ({' '.join(str(e).split())[:60]})", flush=True)
+        return False
+
+
+def _short(name):
+    """A name she can say: "SABROSITA Ciudad de México 590 AM XEPH-AM NRM…" →
+    "SABROSITA Ciudad de México"."""
+    if len(name) <= 30:
+        return name
+    cut = re.split(r"\s+[-–|,:]\s+|,\s*", name)[0]
+    words = cut.split()
+    return " ".join(words[:4]) if len(cut) > 30 else cut
+
+
+def _world_play(what, speak):
+    """"Włącz radio z Francji" → True when it was such a request (handled)."""
+    asked = _world_wanted(what)
+    if not asked:
+        return False
+    code, tag, where = asked
+    speak(f"Szukam radia {where}…" if where else "Szukam takiej stacji…")
+    found = _world_search(code, tag)
+    first = next((i for i, (_, u) in enumerate(found[:5]) if _alive(u)), None)
+    if first is None:
+        speak("Nie udało mi się znaleźć działającej stacji — spróbuj inaczej.")
+        return True
+    _browse.clear()
+    _browse.update(label=where, list=found, i=first)
+    name, url = found[first]
+    speak(f"Włączam {name}" + (f" — radio {where}." if where else "."))
+    play(name, url)
+    _remember_station(name, url)
+    with _lock:
+        if _player:
+            _player["from"] = where
+    return True
+
+
+def _world_next(speak):
+    """"Następna stacja" while a world search's station plays → its next one."""
+    if not _browse or playing() not in [n for n, _ in _browse["list"]]:
+        return False
+    n = len(_browse["list"])
+    for step in range(1, min(n, 5) + 1):          # (a station abroad may refuse us)
+        i = (_browse["i"] + step) % n
+        if _alive(_browse["list"][i][1]):
+            break
+    _browse["i"] = i
+    name, url = _browse["list"][i]
+    speak(f"Teraz {name}.")
+    play(name, url)
+    _remember_station(name, url)
+    with _lock:
+        if _player:
+            _player["from"] = _browse["label"]
     return True

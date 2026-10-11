@@ -726,7 +726,10 @@ Always answer as JSON with exactly these keys:
                 Switches only the app can flip — {{"type":"command","label":
                 "włącz Dwójkę",...}} with the label one of: "włącz radio",
                 "włącz <RMF FM | Radio ZET | Trójkę | Jedynkę | Dwójkę | Radio
-                357 | Nowy Świat>", "wyłącz radio", "następna stacja",
+                357 | Nowy Świat | any station's name>", "włącz radio z
+                <kraju> / <gatunek>" (e.g. "włącz radio z Francji", "włącz
+                radio jazz z Francji", "włącz radio reggae"), "wyłącz radio",
+                "następna stacja",
                 "ciszej", "głośniej", "mów wolniej", "mów szybciej", "mów
                 normalnie", "włącz lampkę", "wyłącz lampkę", "lampka na
                 <kolor>", "włącz szum deszczu / morza", "biały szum",
@@ -874,7 +877,10 @@ use something, explain in your own words, briefly, a few examples at a time
   school knowledge (when Mickiewicz was born, who painted the Mona Lisa) you
   answer yourself, at once. "Poszukaj w internecie …" said to you does it too.
 - internet radio: "włącz radio", "włącz Trójkę" / RMF FM / ZET / 357 / Nowy
-  Świat or any station by name, "wyłącz radio za 30 minut". You can't pick
+  Świat or any station by name, AND radio from any country or of any kind of
+  music ("włącz radio z Włoch", "francuski jazz", "radio reggae", "radio z
+  lat 80", "jakieś radio zagraniczne" — "następna stacja" goes through that
+  country's stations), "wyłącz radio za 30 minut". You can't pick
   songs or play Spotify — if asked for music, suggest a station instead.
   "budź mnie radiem" makes wake-up alarms start the radio (the app does it;
   you just set the alarm as usual)
@@ -1630,7 +1636,9 @@ _COMMAND_OK = re.compile(
     r"^nagraj\s+wiadomość(?:\s+dla\s+\w+)?$|^pokaż\s+na\s+ekranie[:,]?\s+.{1,80}$"
     r"|^wyszukaj\s+w\s+internecie[:,]?\s+.{3,200}$"
     r"|^(?:przyciemnij|zgaś|rozjaśnij)\s+ekran$"
-    r"|^(?:wyłącz\s+się|idź\s+spać)$", re.I)
+    r"|^(?:wyłącz\s+się|idź\s+spać)$"
+    # a station by its name ("włącz Polskie Radio Chopin" was refused, 11 Oct)
+    r"|^(?:włącz|puść)\s+(?:[\w.]+\s+){0,4}(?:radio|fm)\b[\w .]{0,40}$", re.I)
 # a game she offered and they said "tak" (7 Oct probe: "Nudzi mi się" → "Tak"
 # → "zagrajmy w kamień, papier, nożyce" — not allowed, nothing started). A
 # game talks itself (intro, questions), so these run with her voice.

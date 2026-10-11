@@ -8,3 +8,11 @@ Andrzej|Zmień stację
 Andrzej|Włącz radio dla dzieci
 Andrzej|Włącz Polskie Radio Chopin
 Andrzej|Wyłącz muzykę
+Andrzej|Włącz radio z Francji
+Andrzej|Następna stacja
+Andrzej|Puść jakieś radio z Japonii
+Andrzej|Włącz francuski jazz
+Emilka|Włącz radio reggae
+Emilka|Puść muzykę z lat osiemdziesiątych
+Andrzej|Włącz jakieś radio zagraniczne
+Andrzej|Mogłabyś puścić jakąś hiszpańską stację?
