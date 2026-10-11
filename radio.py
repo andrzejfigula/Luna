@@ -36,8 +36,13 @@ from shared_state import state
 
 RATE, CHANNELS = 44100, 2
 CHUNK = RATE * CHANNELS * 2 // 10          # 0.1 s of s16 stereo
-RADIO_GAIN = 0.55                          # music under her voice's level (default;
-                                           # "ciszej" while it plays changes it)
+RADIO_GAIN = 1.0                           # "ciszej" / "głośniej" while it plays: × this
+MUSIC_RMS = 1700                           # the music is levelled to this loudness (s16
+                                           # RMS): ~7 dB under her voice (~3700 when she
+                                           # speaks). 11 Oct: "radio is by default too
+                                           # loud compared to her voice" — at the old
+                                           # fixed 0.55, RMF came out at 4450, louder
+                                           # than her, and Dwójka at half of that
 RADIO_DUCK = 0.12                          # while she listens or speaks
 RETRIES = 3
 
@@ -80,7 +85,7 @@ _GENRES = [
     (r"rock|alternatyw|gitar", "trójka"),
     (r"przebo|hit|pop|disco|tanecz|wesoł|wesol|imprez", "rmf fm"),
     (r"wiadomości|wiadomosci|informac|news|publicyst", "jedynka"),
-    (r"jazz|ambitn|nowoczesn|indie|ciekaw", "nowy świat"),
+    (r"ambitn|nowoczesn|indie|ciekaw", "nowy świat"),     # (jazz: real jazz stations, below)
     # (found online by "włącz radio dla dzieci": RMF Dla Dzieci)
     (r"dla\s+dzieci|dziecięc|dzieciec|dla\s+maj|bajk", "dla dzieci"),
 ]
@@ -237,7 +242,7 @@ def _sink():
 
 def _gain():
     import settings
-    return settings.get("radio_gain", RADIO_GAIN)
+    return settings.get("radio_level", RADIO_GAIN)
 
 
 def _ducked():
@@ -335,6 +340,7 @@ def _play(p):
                 threading.Thread(target=_feed, args=(p, icy[0], icy[1], dec),
                                  daemon=True, name="radio-icy").start()
             got = 0
+            level = MUSIC_RMS                    # the station's loudness, measured as it plays
             while not p["stop"].is_set():
                 if p.get("until") and time.time() > p["until"]:
                     print("[radio] sleep timer — off", flush=True)
@@ -345,7 +351,11 @@ def _play(p):
                     break
                 got += len(data)
                 a = np.frombuffer(data, np.int16).astype(np.float32)
-                target = _gain() * (RADIO_DUCK if _ducked() else 1.0)
+                rms = float(np.sqrt(np.mean(a * a))) if a.size else 0.0
+                if rms > 300:                        # (not a quiet moment between songs)
+                    level += (rms - level) * 0.03    # ~3 s to settle on a station
+                norm = min(2.5, max(0.2, MUSIC_RMS / max(level, 1.0)))
+                target = _gain() * norm * (RADIO_DUCK if _ducked() else 1.0)
                 if p.get("fade"):                    # an alarm: from a whisper up
                     target *= min(1.0, 0.05 + (time.time() - p["t0"]) / p["fade"])
                 new = target if abs(target - gain) < 0.01 else gain + (target - gain) * 0.5
@@ -537,8 +547,8 @@ def handle(text, speak):
             if "dużo" in low or "duzo" in low:
                 step = step ** 2
             g *= step
-        g = round(max(0.05, min(1.0, g)), 3)
-        settings.put("radio_gain", g)
+        g = round(max(0.1, min(2.5, g)), 3)
+        settings.put("radio_level", g)
         print(f"[radio] music volume → {g:.0%}", flush=True)
         return True                        # the music itself is the answer
     m = _SLEEP.search(low)
@@ -669,6 +679,12 @@ _TAGS = [
     (r"folk|ludow", "folk"), (r"soul|funk", "soul"),
 ]
 _GOOD_CODECS = ("MP3", "AAC", "AAC+", "OGG")
+# how she names the kind of music she found ("Włączam Classic Vinyl HD — jazz.")
+_TAG_PL = {"electronic": "muzyka elektroniczna", "latin": "muzyka latynoska",
+           "hiphop": "hip-hop", "80s": "przeboje lat osiemdziesiątych",
+           "90s": "przeboje lat dziewięćdziesiątych", "oldies": "stare przeboje",
+           "classical": "muzyka klasyczna", "chillout": "spokojna muzyka",
+           "children": "radio dla dzieci", "news": "wiadomości", "folk": "muzyka folk"}
 _browse = {}               # {"label", "list": [(name, url, where)], "i"} — the last world search
 
 
@@ -686,7 +702,9 @@ def _world_wanted(what):
     if cc:
         return cc[0], tag, cc[1]
     # a kind of music with no Polish station for it (reggae, blues, metal…)
-    if tag in ("blues", "reggae", "metal", "country", "electronic", "ambient", "latin",
+    # (jazz too — 11 Oct: "jakieś radio z jazzem" took three tries, then Nowy
+    # Świat, which isn't a jazz station)
+    if tag in ("jazz", "blues", "reggae", "metal", "country", "electronic", "ambient", "latin",
                "hiphop", "80s", "90s", "oldies", "folk", "soul"):
         return None, tag, ""
     return None
@@ -755,7 +773,9 @@ def _world_play(what, speak):
     _browse.clear()
     _browse.update(label=where, list=found, i=first)
     name, url = found[first]
-    speak(f"Włączam {name}" + (f" — radio {where}." if where else "."))
+    kind = _TAG_PL.get(tag, tag) if tag and not where else ""
+    speak(f"Włączam {name}" + (f" — radio {where}." if where else f" — {kind}." if kind
+                               else "."))
     play(name, url)
     _remember_station(name, url)
     with _lock:

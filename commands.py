@@ -183,7 +183,7 @@ _SKIP_TOMORROW = re.compile(
     r"\bnie\s+budź\s+mnie\s+jutro|\bnie\s+budz\s+mnie\s+jutro|\bjutro\s+(?:mam\s+)?wolne\b.*budzik",
     re.I)
 _STOP_BARE = re.compile(r"^(?:luna,?\s+|luno,?\s+)?(?:stop|zatrzymaj(?:\s+to)?|przestań|"
-                        r"przestan|wyłącz\s+to|wylacz\s+to|cisza|dość|dosc|wystarczy)$", re.I)
+                        r"przestan|wyłącz(?:\s+to)?|wylacz(?:\s+to)?|cisza|dość|dosc|wystarczy)$", re.I)
 _SLEEP_SELF = re.compile(
     r"^(?:luna,?\s+|luno,?\s+)?(?:(?:to|no|dobra|już|juz|proszę|prosze),?\s+)*"
     r"(?:wyłącz\s+się|wylacz\s+sie|id[źz]\s+(?:już\s+|juz\s+)?spa[ćc]|uśpij\s+się|uspij\s+sie|"
@@ -1512,7 +1512,9 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         return True
 
     # subtitles — "włącz napisy" / "wyłącz napisy"
-    if _bare(text, _CAPTIONS_ON + _CAPTIONS_OFF):
+    # (the word itself — a bare "Wyłącz" with the radio on turned the captions
+    # off, 11 Oct)
+    if _bare(text, _CAPTIONS_ON + _CAPTIONS_OFF) and re.search(r"napis|caption", low):
         on = any(k in low for k in ("włącz", "wlacz", "pokazuj", "on"))
         settings.put("captions", on)
         speak("Dobrze, włączam napisy." if on else "Dobrze, wyłączam napisy.")

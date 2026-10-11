@@ -204,7 +204,8 @@ class TimersTest(unittest.TestCase):
         self.assertEqual(radio._world_wanted("francuski jazz")[:2], ("FR", "jazz"))
         self.assertEqual(radio._world_wanted("reggae")[:2], (None, "reggae"))
         self.assertIsNone(radio._world_wanted("do śniadania"))          # not Denmark
-        self.assertIsNone(radio._world_wanted("jazz"))                  # Nowy Świat, as before
+        # jazz: real jazz stations (11 Oct: three tries, then Nowy Świat)
+        self.assertEqual(radio._world_wanted("jakieś radio z jazzem")[:2], (None, "jazz"))
         self.assertIsNone(radio._world_wanted("trójkę"))
         self.assertEqual(radio._short("SABROSITA Ciudad de México 590 AM XEPH-AM NRM"),
                          "SABROSITA Ciudad de México")
@@ -230,6 +231,11 @@ class TimersTest(unittest.TestCase):
         import brain
         self.assertTrue(brain._COMMAND_OK.match("włącz Polskie Radio Chopin"))
         self.assertTrue(brain._COMMAND_OK.match("włącz BBC Radio 1"))
+
+    def test_radio_is_levelled(self):
+        import radio
+        # 11 Oct: "radio is by default too loud compared to her voice"
+        self.assertLess(radio.MUSIC_RMS, 3700 / 2)          # well under her voice
 
     def test_radio_genres(self):
         import radio
@@ -1955,6 +1961,13 @@ class KidsTest(unittest.TestCase):
         for t in ("zatrzymaj", "stop", "luna, przestań", "wyłącz to"):
             self.assertTrue(commands._STOP_BARE.match(t), t)
         self.assertFalse(commands._STOP_BARE.match("zatrzymaj minutnik"))
+        # a bare "Wyłącz" with the radio on: the radio (11 Oct: "wyłączam napisy")
+        self.assertTrue(commands._STOP_BARE.match("wyłącz"))
+        import radio
+        said = []
+        with mock.patch.object(radio, "playing", lambda: "Jazz Radio"),                 mock.patch.object(radio, "stop", lambda: said.append("stopped") or True):
+            self.assertTrue(commands.handle("Wyłącz.", said.append, lambda *a, **k: True))
+        self.assertEqual(said, ["stopped"])
         display.set_user_override("off")
         self.assertEqual(display._user_override(), "off")
         display.set_user_override(None)
@@ -3643,7 +3656,7 @@ class RadioTest(unittest.TestCase):
             self.assertGreater(radio._gain(), g0)
             self.assertFalse(radio.handle("Mów ciszej", said.append))     # her voice
         self.assertFalse(radio.handle("Ciszej", said.append))            # radio off
-        settings.put("radio_gain", radio.RADIO_GAIN)
+        settings.put("radio_level", radio.RADIO_GAIN)
 
     def test_song_title(self):
         import radio
