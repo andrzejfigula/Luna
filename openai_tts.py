@@ -30,6 +30,7 @@ import time
 import numpy as np
 
 import settings
+from voicecheck import pitch
 
 from openai import OpenAI
 
@@ -77,6 +78,9 @@ def speech_speed():
     return by.get(who) or settings.get("tts_speed", OPENAI_TTS_SPEED)
 
 CACHE_MAX_CHARS = 140
+STEADY_SECS = 0.6              # speech held back to check its pitch (_steady)
+DEEP_HZ = 145                  # her voice sits ~175–255 Hz; a take below is the drift
+
 CACHE_STATS = [0, 0]           # hits, misses since start
 CACHE_MAX_FILES = 400          # ~3 s each at 48 kB/s: about 60 MB at most
 
@@ -98,6 +102,10 @@ def cache_get(key):
     try:
         with open(path, "rb") as f:
             pcm = f.read()
+        low = pitch(pcm)
+        if low and low < DEEP_HZ:                    # a deep take kept before 11 Oct
+            os.remove(path)
+            return None
         os.utime(path)                               # recently used: kept longer
         return pcm or None
     except OSError:
@@ -285,7 +293,7 @@ class OpenAITTS:
         the first one hasn't started within TTS_HEDGE_AFTER. Raises the
         error when no request produced any audio."""
         q, lock, first = queue.Queue(), threading.Lock(), threading.Event()
-        owner = [None]
+        owner, gone = [None], threading.Event()    # gone: the caller dropped this take
         try:                                   # "7006652" → words the voice reads well
             from polish import spoken_numbers
             text = spoken_numbers(text)
@@ -305,7 +313,7 @@ class OpenAITTS:
                             if owner[0] is None:
                                 owner[0] = n
                             mine = owner[0] == n
-                        if not mine:
+                        if not mine or gone.is_set():
                             break                      # the other one was faster
                         first.set()
                         q.put(("data", chunk))
@@ -322,8 +330,16 @@ class OpenAITTS:
             print(f"[TTS] no audio after {TTS_HEDGE_AFTER:.1f}s — asking again", flush=True)
             threading.Thread(target=attempt, args=(1,), daemon=True, name="tts-b").start()
             started = 2
-        ended, errors = 0, []
+        errors = []
         deadline = time.time() + 60            # one sentence's audio: never forever (10 Oct)
+        try:
+            yield from self._drain(q, owner, started, deadline, errors)
+        finally:
+            gone.set()
+
+    def _drain(self, q, owner, started, deadline, errors):
+        import timing
+        ended = 0
         while ended < started:
             try:
                 kind, val = q.get(timeout=max(0.1, min(5.0, deadline - time.time())))
@@ -345,6 +361,31 @@ class OpenAITTS:
             print("[TTS] the second request won", flush=True)
         if owner[0] is None and errors:
             raise errors[0]
+
+    def _steady(self, text, kwargs):
+        """_hedged(), but a take in a man's register is thrown away and asked
+        for once more (11 Oct: "her voice sometimes goes weirdly deep, almost a
+        man's voice" — the voice model drifts now and then; one cached clip
+        sat at 119 Hz against her usual ~195). The first STEADY_SECS of speech
+        are held back to check, then everything flows as before."""
+        need = int(STEADY_SECS * PCM_RATE * 2)
+        for attempt in (0, 1):
+            head, stream = [], self._hedged(text, kwargs)
+            for chunk in stream:
+                head.append(chunk)
+                if sum(map(len, head)) >= need:
+                    break
+            pcm = b"".join(head)
+            low = pitch(pcm)
+            if attempt == 0 and low and low < DEEP_HZ and not self._cut.is_set():
+                print(f"[TTS] deep take ({low:.0f} Hz) — asked again: {text[:40]!r}",
+                      flush=True)
+                stream.close()
+                continue
+            if pcm:
+                yield pcm
+            yield from stream
+            return
 
     def _tts_kwargs(self, style):
         kwargs = dict(model=OPENAI_TTS_MODEL, voice=OPENAI_TTS_VOICE,
@@ -372,7 +413,7 @@ class OpenAITTS:
             out.write(cached)
         else:
             try:
-                for chunk in self._hedged(text, kwargs):
+                for chunk in self._steady(text, kwargs):
                     if self._cut.is_set():
                         break
                     out.write(chunk)
@@ -389,7 +430,9 @@ class OpenAITTS:
         # (a stream that ended early without an error must not be kept: at
         # least ~0.03 s of audio per character)
         if ok and key and played and len(out.last_utterance) >= len(text) * 1500:
-            cache_put(key, out.last_utterance)
+            low = pitch(out.last_utterance)
+            if not (low and low < DEEP_HZ):
+                cache_put(key, out.last_utterance)
 
     _offline_said = 0.0
 
@@ -572,7 +615,7 @@ class OpenAITTS:
 
         def fetch(text, q):
             try:
-                for chunk in self._hedged(text, kwargs):
+                for chunk in self._steady(text, kwargs):
                     if self._cut.is_set():
                         break
                     q.put(chunk)

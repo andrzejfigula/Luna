@@ -29,6 +29,9 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 > „Opowiedz **dalszy ciąg** bajki” — także następnego dnia · „Narysuj coś” — niespodzianka · „W zagadki!” · quiz Mai czeka, gdy ktoś inny o coś pyta ·
 > rozmowy po angielsku przy biurku (calle) — Luna się nie wtrąca.
 >
+> **Nowe (11.10):** „**Narysuj mnie**”, „Narysuj nas”, „Narysuj to, co widzisz” — Luna przerysowuje **obraz z kamery** na kolorową ilustrację (ok. 10 s); „Narysuj mnie: kot na ręce” — dodaje szczegóły · kiedy mówi „rysuję”, naprawdę rysuje ·
+> jej głos nie powinien już schodzić w niski, „męski” ton (sprawdza każdą wypowiedź i w razie czego prosi o nową).
+>
 > **Nowe (10.10):** „**Co?**” zaraz po jej odpowiedzi — powtarza · „Przypomnij Mai **w niedzielę** wieczorem…” (dni tygodnia) ·
 > „**Przepytaj mnie przed sprawdzianem**” — quiz z przedmiotu, o którym jej mówiliście · prezent dla Emilki: Emilka nie usłyszy nawet „to tajemnica” ·
 > mniej powtórzonych „cześć” przy biurku · „Luna, what's the weather?” po angielsku działa.
@@ -284,4 +287,4 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 3. **Twarze gości** — Luna nie zapamiętuje ich sama (tak zdecydowałeś); „jestem Ola” zapamiętuje tylko, gdy ktoś sam się przedstawi.
 4. ~~**Fakt w pamięci „Andrzej mówi po hiszpańsku”**~~ — już go nie ma (codzienne porządki pamięci go usunęły, 10.10).
 5. **Koszt rysunków** — ok. 1 centa (ok. 4 grosze) za obrazek, najwyżej 25 dziennie; limit można zmienić w `drawing.py` (`DRAW_PER_DAY`).
-6. **Portret ze zdjęcia** — „narysuj mnie” rysuje z wyobraźni (żadne zdjęcie nie wychodzi z domu), więc portret nie jest podobny; możesz podać szczegóły („włosy krótkie, okulary, broda”). Mogę zrobić portret na podstawie zdjęcia z kamery (twarz idzie wtedy do OpenAI, jak przy każdej rozmowie z obrazem) — tylko jeśli się zgodzisz.
+6. ~~**Portret ze zdjęcia**~~ — **zrobione 11.10** (Andrzej się zgodził): „narysuj mnie / nas / to, co widzisz” wysyła klatkę z kamery do OpenAI i przerysowuje ją. Inne rysunki („narysuj smoka”) — dalej z wyobraźni. Kamera wyłączona („wyłącz kamerę”) — żadna klatka nie wychodzi.

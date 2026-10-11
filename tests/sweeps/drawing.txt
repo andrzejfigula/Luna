@@ -1,0 +1,9 @@
+Andrzej|Luna, narysuj mnie
+Andrzej|To nie jestem ja
+Andrzej|Dodaj kolorowy sweter, brązowe oczy, brązowe włosy, krótkie spodenki i kota w ręce
+Andrzej|No ale miałaś narysować, pokaż na ekranie
+Andrzej+Maja|Narysuj nas, po prostu zrób nam zdjęcie
+Maja|Narysuj to, co widzisz
+Maja|A teraz narysuj mi smoka, który piecze naleśniki
+Maja|Pokaż moje rysunki
+Maja|Możesz zrobić rysunek kotka na rowerze?

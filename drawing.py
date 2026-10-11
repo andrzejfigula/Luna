@@ -4,6 +4,7 @@ drawing.py — "Luna, narysuj mi jednorożca": a real picture on her screen.
   "narysuj mi kotka na rowerze" / "namaluj smoka" / "draw me a dinosaur"
         → "Już rysuję… chwilka!", ~10 s later the picture, big, for 40 s
   "pokaż rysunki" / "pokaż jeszcze raz rysunek" → the last ones again
+  "narysuj mnie / nas / to, co widzisz" → the camera frame, redrawn (11 Oct)
 
 The picture comes from OpenAI's image model (gpt-image-1-mini, low quality —
 about a cent each), always in a cheerful children's-book style, never anything
@@ -35,12 +36,13 @@ _ASK = re.compile(r"^(?:luna,?\s+)?(?:(?:czy\s+)?(?:możesz|mozesz|mogłabyś|mo
                   r"(?:(?:mi|nam)\s+)?"
                   r"(?:narysuj|narysujesz|narysować|narysowac|namaluj|namalujesz|namalować|"
                   r"namalowac|draw)"
-                  r",?(?:\s+(?:mi|nam|me),?)?(?:\s+(?:a|an))?\s+(.{2,80}?)[.!?]*$", re.I)
+                  r",?(?:\s+(?:mi|nam|me),?)?(?:\s+(?:a|an))?\s+(.{2,200}?)[.!?]*$", re.I)
 _SHOW = re.compile(r"\b(?:pokaż|pokaz)\s+(?:mi\s+)?(?:jeszcze\s+raz\s+)?(?:te\s+|moje\s+|swoje\s+)?"
                    r"(?:rysun\w*|obraz\w*)\b", re.I)
 _lock = threading.Lock()
 _last = [0.0]
 _last_what = [""]              # "narysuj jeszcze raz" — what it was
+_last_cam = [False]            # … and whether it was the camera's picture
 
 
 def wants(text):
@@ -58,16 +60,46 @@ def wants(text):
     what = m.group(1).strip()
     bare = re.sub(r"\s+(?:jeszcze\s+raz|znowu|ponownie|jeszcze\s+jeden\s+raz)\W*$", "", what,
                   flags=re.I)
-    # "narysuj mnie ze zdjęcia" — no photo is ever sent (the family's faces stay
-    # here); drawn from imagination, and handle() says so (10 Oct 20:43)
-    bare = re.sub(r"\s+(?:ze\s+zdjęcia|ze\s+zdjecia|z\s+kamery|z\s+obrazu\s+z\s+kamery|"
-                  r"tak\s+jak\s+wyglądam|jak\s+wyglądam)\W*$", "", bare or what, flags=re.I)
+    # "narysuj mnie ze zdjęcia" — the photo part is how, not what (handle()
+    # takes the camera frame for it)
+    bare = re.sub(r",?\s+(?:ze\s+zdjęcia|ze\s+zdjecia|z\s+kamery|z\s+obrazu\s+z\s+kamery|"
+                  r"tak\s*,?\s+jak\s+wyglądam|jak\s+wyglądam)\W*$", "", bare or what, flags=re.I)
     return bare or what
 
 
+# what the camera sees, asked for in so many words ("ze zdjęcia", "to, co
+# widzisz", "zrób nam zdjęcie") — or a portrait of whoever is in front of her
+_FROM_CAM = re.compile(r"\bze?\s+zdj\w*|\bz\s+kamery|\bz\s+obrazu|\bco\s+(?:teraz\s+)?widzisz|"
+                       r"\bjak\s+wyglądam|\bjak\s+wygladam|\bzrób\s+(?:nam\s+|mi\s+)?zdjęcie|"
+                       r"\bfrom\s+the\s+(?:camera|photo)|\bwhat\s+you\s+see", re.I)
+_IN_FRONT = re.compile(r"(?:mnie|nas)\b|(?:nas\s+)?wszystkich\b|(?:naszą|nasza|całą|cala)?\s*rodzin", re.I)
+
+
+def _camera_jpeg():
+    """The camera's newest frame as JPEG bytes, or None (no camera, or it is
+    switched off for privacy)."""
+    with state.lock:
+        frame, ok = state.frame, state.camera_ok
+        off = time.time() < getattr(state, "camera_off_until", 0.0)
+    if frame is None or not ok or off:
+        return None
+    try:
+        import cv2
+        good, buf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
+        return buf.tobytes() if good else None
+    except Exception:
+        return None
+
+
+def _details(what):
+    """"mnie: okulary, broda" → "okulary, broda" (what to add to a photo)."""
+    m = re.search(r"[:—–]\s*(.{3,})$", what or "")
+    return m.group(1).strip() if m else ""
+
+
 def _subject(what):
-    """"mnie", "siebie", "naszą rodzinę" — words for the picture (no photo is
-    ever sent; the family is drawn from a description)."""
+    """"mnie", "siebie", "naszą rodzinę" — words for a picture drawn without
+    the camera (it is off, or the person isn't in front of her)."""
     low = what.lower().strip()
     det = re.match(r"(mnie|mnie samą|mnie samego)\s*[:,—–-]\s*(.{3,})$", low)
     if det:                    # "mnie: krótkie włosy, okulary" — details they gave
@@ -159,8 +191,29 @@ def show_saved(speak):
     return True
 
 
-def draw(what, speak, intro="Już rysuję… chwilka!", english=False):
-    """Start a drawing in the background; True (handled) either way."""
+_STYLE = ("Pogodna, prosta, kolorowa ilustracja jak z książeczki dla dzieci, łagodne "
+          "kształty, jasne tło, bez żadnych napisów, nic strasznego.")
+
+
+def _from_photo(client, photo, what):
+    """The camera frame redrawn as an illustration (11 Oct: "draw what you
+    see on the camera" — Andrzej's OK to send the frame for it)."""
+    extra = _details(what)
+    return client.images.edit(
+        model=MODEL, size="1024x1024", quality="low", n=1,
+        image=("kamera.jpg", photo, "image/jpeg"),
+        # (no example features in here: a test frame with nobody in it came
+        # back as a bearded man in glasses — the words were drawn, not the photo)
+        prompt=("Przerysuj dokładnie to zdjęcie z kamery jako ilustrację dla dziecka: "
+                "te same osoby z ich prawdziwym wyglądem i ubraniem, ta sama liczba "
+                "osób, te same pozy, ten sam pokój. Niczego i nikogo nie dodawaj ani "
+                "nie zmieniaj, tylko narysuj. "
+                + (f"Dodaj jedynie: {extra}. " if extra else "") + _STYLE))
+
+
+def draw(what, speak, intro="Już rysuję… chwilka!", english=False, photo=None):
+    """Start a drawing in the background; True (handled) either way. photo:
+    JPEG bytes of the camera frame to redraw instead of imagining."""
     os.makedirs(DIR, exist_ok=True)
     path, today, n = _count_today()
     with _lock:
@@ -174,19 +227,20 @@ def draw(what, speak, intro="Już rysuję… chwilka!", english=False):
     _bump(path, today, n)
     speak(intro)
     _card("Rysuję…", 30)
-    print(f"[draw] {what!r}", flush=True)
+    print(f"[draw] {what!r}{' from the camera' if photo else ''}", flush=True)
 
     def run():
         from text_to_speech import speak as say
         try:
             from openai import OpenAI
             from config import OPENAI_API_KEY
-            c = OpenAI(api_key=OPENAI_API_KEY, timeout=60, max_retries=1)
-            r = c.images.generate(
-                model=MODEL, size="1024x1024", quality="low", n=1,
-                prompt=(f"Obrazek dla dziecka: {_subject(what)}. Pogodna, prosta, kolorowa "
-                        "ilustracja jak z książeczki dla dzieci, łagodne kształty, "
-                        "jasne tło, bez żadnych napisów, nic strasznego."))
+            c = OpenAI(api_key=OPENAI_API_KEY, timeout=90, max_retries=1)
+            if photo:
+                r = _from_photo(c, photo, what)
+            else:
+                r = c.images.generate(
+                    model=MODEL, size="1024x1024", quality="low", n=1,
+                    prompt=f"Obrazek dla dziecka: {_subject(what)}. {_STYLE}")
             png = base64.b64decode(r.data[0].b64_json)
             out = os.path.join(DIR, time.strftime("%Y%m%d-%H%M%S") + ".png")
             with open(out, "wb") as f:
@@ -225,23 +279,52 @@ def handle(text, speak):
     if _SHOW.search(text or "") and len(text.split()) <= 6:
         return show_saved(speak)
     what = wants(text)
+    cam = bool(what) and bool(_FROM_CAM.search(text) or _IN_FRONT.match(what)
+                              or _in_view(what))
     if what and re.fullmatch(r"(?:to\s+)?(?:jeszcze(?:\s+raz)?|jeszcze\s+jedn\w*|inn\w*|drugi\w*|again|another(?:\s+one)?)", what, re.I):
         # "narysuj jeszcze raz" — the same thing again, a new picture
         if not _last_what[0]:
             speak("A co mam narysować?")
             return True
-        what = _last_what[0]
+        what, cam = _last_what[0], _last_cam[0]
     if what:
-        _last_what[0] = what
-        if re.match(r"\s*(?:luna,?\s*)?draw\b", text, re.I):    # "Draw me a cat"
+        _last_what[0], _last_cam[0] = what, cam
+        english = bool(re.match(r"\s*(?:luna,?\s*)?draw\b", text, re.I))   # "Draw me a cat"
+        if cam:
+            # "narysuj mnie", "narysuj to, co widzisz" — the camera frame,
+            # redrawn (10–11 Oct: from imagination it was never them)
+            photo = _camera_jpeg()
+            if photo:
+                return draw(what, speak, "Drawing what I see — just a moment!" if english
+                            else "Rysuję to, co widzę w kamerze — chwilka!",
+                            english=english, photo=photo)
+            if not _is_person(what):
+                speak("Kamera jest teraz wyłączona — nic nie widzę. Powiedz, co mam narysować.")
+                return True
+            if _is_person(what):
+                return draw(what, speak, "Kamera jest wyłączona, więc rysuję z wyobraźni — "
+                                         "nie będzie podobny. Chwilka!", english=english)
+        if english:
             return draw(what, speak, "Drawing it now — just a moment!", english=True)
         if _is_person(what):
-            # no photo is ever sent — say it, or "it doesn't look like me" follows
-            # (10 Oct 20:35: Andrzej; she then blamed "the camera")
-            return draw(what, speak, "Rysuję z wyobraźni, nie ze zdjęcia — więc nie "
-                                     "będzie podobny. Chwilka!")
+            # no photo of someone who isn't in front of her — say it, or "it
+            # doesn't look like me" follows (10 Oct 20:35)
+            return draw(what, speak, "Rysuję z wyobraźni — więc nie będzie podobny. Chwilka!")
         return draw(what, speak)
     return False
+
+
+def _in_view(what):
+    """"narysuj Maję" while Maja is in front of the camera."""
+    with state.lock:
+        here = [state.person[0]] if state.person else []
+        if state.others and time.time() - state.others[1] < 10:
+            here += list(state.others[0])
+    try:
+        import faces
+        return bool(here) and faces.match_name(what.lower().split()[0]) in here
+    except Exception:
+        return False
 
 
 def _is_person(what):

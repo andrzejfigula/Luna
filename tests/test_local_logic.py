@@ -2156,6 +2156,57 @@ class KidsTest(unittest.TestCase):
         self.assertIn(drawing._subject("coś ładnego"), drawing._SURPRISES)
         self.assertEqual(drawing._subject("kota"), "kota")
 
+    def test_drawing_from_the_camera(self):
+        import drawing
+        # 11 Oct: "draw what you see on the camera" — the frame is redrawn
+        self.assertEqual(drawing.wants("Narysuj mnie ze zdjęcia"), "mnie")
+        long = ("Narysuj mnie: kolorowy sweter, brązowe oczy, brązowe włosy, krótkie "
+                "spodenki i kot w ręce")
+        self.assertTrue(drawing.wants(long).startswith("mnie: kolorowy"))
+        self.assertEqual(drawing._details(drawing.wants(long))[:15], "kolorowy sweter")
+        self.assertTrue(drawing._FROM_CAM.search("Narysuj to, co widzisz"))
+        self.assertTrue(drawing._FROM_CAM.search("Narysuj nas, po prostu zrób nam zdjęcie"))
+        self.assertTrue(drawing._IN_FRONT.match("nas wszystkich"))
+        self.assertFalse(drawing._IN_FRONT.match("naszego kota"))
+        calls, said = [], []
+        with mock.patch.object(drawing, "_camera_jpeg", lambda: b"jpg"), \
+                mock.patch.object(drawing, "draw", lambda w, s, intro="", english=False,
+                                  photo=None: calls.append((w, photo)) or True):
+            drawing.handle("Narysuj mnie", said.append)
+            drawing.handle("Narysuj mi smoka", said.append)
+            drawing.handle("Narysuj to, co widzisz", said.append)
+        self.assertEqual(calls, [("mnie", b"jpg"), ("smoka", None), ("to, co widzisz", b"jpg")])
+        calls.clear()
+        with mock.patch.object(drawing, "_camera_jpeg", lambda: None), \
+                mock.patch.object(drawing, "draw", lambda w, s, intro="", english=False,
+                                  photo=None: calls.append((w, intro)) or True):
+            drawing.handle("Narysuj to, co widzisz", said.append)   # camera off
+            drawing.handle("Narysuj mnie", said.append)
+        self.assertIn("wyłączona", said[-1])
+        self.assertEqual(calls[0][0], "mnie")
+        self.assertIn("wyobraźni", calls[0][1])
+
+    def test_deep_voice_is_caught(self):
+        import numpy as np
+        import voicecheck
+        # 11 Oct: "her voice sometimes goes weirdly deep" — a cached take sat at 119 Hz
+        t = np.arange(14400) / 24000                     # 0.6 s, as _steady holds back
+        for hz in (119, 195, 250):
+            x = (6000 * np.sin(2 * np.pi * hz * t) + 4000 * np.sin(4 * np.pi * hz * t))
+            self.assertAlmostEqual(voicecheck.pitch(x.astype(np.int16).tobytes()), hz, delta=6)
+        self.assertIsNone(voicecheck.pitch(bytes(28800)))   # silence: no verdict
+
+    def test_model_drawing_commands_are_allowed(self):
+        import brain
+        # 11 Oct: refused for length / wording — she said "rysuję", nothing came
+        started = []
+        with mock.patch.object(brain, "_spoken_command", lambda l, k: started.append(l)):
+            self.assertTrue(brain.run_command("narysuj mnie: kot w ręce, kolorowy sweter, "
+                                              "brązowe oczy, brązowe włosy, krótkie spodenki"))
+            self.assertTrue(brain.run_command("zrób rysunek kotka"))
+            self.assertTrue(brain.run_command("pokaż rysunki"))
+        self.assertEqual(started[1], "narysuj kotka")
+
     def test_secret_line_for_the_one_it_is_kept_from(self):
         import brain
         import faces

@@ -67,6 +67,7 @@ sys.modules["text_to_speech"] = _fake
 import ambience            # noqa: E402
 import brain               # noqa: E402
 import commands            # noqa: E402
+import drawing             # noqa: E402
 import idle_engine         # noqa: E402
 import radio               # noqa: E402
 import screens             # noqa: E402
@@ -77,6 +78,10 @@ radio.play = lambda *a, **k: None
 os.kill = lambda *a, **k: print("[sweep] \"zrestartuj się\" — not really", flush=True)
 ambience.play = lambda *a, **k: True
 screens._take_photo = lambda *a: None
+drawing._camera_jpeg = lambda: b"jpeg"      # no picture is made (it costs) — only said
+drawing.draw = lambda what, speak, intro="Już rysuję… chwilka!", english=False, photo=None: (
+    speak(intro), print(f"[sweep] draw {what!r}{' from the camera' if photo else ''}",
+                        flush=True))[0] or True
 commands.set_volume = lambda v: v
 commands.get_volume = lambda: 0.5
 weather.start_weather()

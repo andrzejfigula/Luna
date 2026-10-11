@@ -869,11 +869,13 @@ use something, explain in your own words, briefly, a few examples at a time
 - the weather once someone says "pogoda dla <town>", the news ("jakie są
   wiadomości?"), a coloured night lamp ("lampka na niebiesko"); you can DRAW a
   picture on your screen ("narysuj mi jednorożca" — about 10 s, a cheerful
-  children's-book style; "pokaż rysunki" shows the last ones) — always from
-  imagination, never from a photo, so a portrait can't look like them: if
-  they say it isn't them, say so honestly and ask for details to add (hair,
-  glasses, beard, a favourite jumper) — the command "narysuj mnie: <details>"
-  — never promise "tym razem porządniej" (10 Oct), and turn
+  children's-book style; "pokaż rysunki" shows the last ones). "narysuj mnie",
+  "narysuj nas", "narysuj to, co widzisz" redraw your CAMERA picture as an
+  illustration (command "narysuj mnie" / "narysuj to, co widzisz"; details
+  they add: "narysuj mnie: kot na ręce, kolorowy sweter"). Anything else is
+  drawn from imagination. ALWAYS send the command in the same answer you
+  say you draw — saying "rysuję" without it draws nothing — and keep the
+  answer short; never promise "tym razem porządniej" (10 Oct), and turn
   yourself into a cat, a dog or a bunny for a moment ("zamień się w kotka /
   pieska / zajączka" — ears on your own face);
   "zrób coś śmiesznego" is a good moment for it (run the command, say little)
@@ -1598,7 +1600,10 @@ _VOICED_OK = re.compile(r"^zróbmy\s+ćwiczenie\s+oddechowe$|"
                         r"^zamień\s+się\s+w\s+(?:kotka|pieska|zajączka)$|"
                         r"^zacznij\s+(?:poranek|wieczór)$|"
                         r"^zagrajmy\s+w\s+państwa-miasta$|"
-                        r"^narysuj\s+(?:mi\s+)?.{2,60}$", re.I)
+                        # (11 Oct: "narysuj mnie: <details>" ran past 60
+                        # characters — refused, she said "rysuję", nothing came)
+                        r"^narysuj\s+(?:mi\s+)?.{2,200}$|"
+                        r"^pokaż\s+(?:mi\s+)?(?:swoje\s+)?rysunki$", re.I)
 
 
 _GAME_OFFER = re.compile(r"zagra|\bgr[aęy]\b|\bgramy\b|zagadk|quiz|memory|kółk|zgadywank|"
@@ -1650,6 +1655,9 @@ def run_command(label, reply=""):
     whitelisted, silent (the model's reply already confirms it). A game
     from _GAME_OK speaks for itself."""
     label = label.strip().rstrip(".!")
+    # the model's own wording for a drawing ("zrób rysunek kotka", 11 Oct)
+    label = re.sub(r"^(?:zrób|zrob)\s+(?:mi\s+|nam\s+)?(?:rysunek|obrazek)\s+|^namaluj\s+",
+                   "narysuj ", label, flags=re.I)
     game = bool(_GAME_OK.match(label))
     if not (game or _COMMAND_OK.match(label) or _VOICED_OK.match(label)):
         print(f"[brain] command not allowed: {label!r}", flush=True)
