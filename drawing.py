@@ -276,6 +276,11 @@ def draw(what, speak, intro="Dobrze, już rysuję. Chwileczkę!", english=False,
             _show(out)
             print(f"[draw] done: {out}", flush=True)
             say("Here you go!" if english else "Dobrze, rysunek jest gotowy. Proszę bardzo!")
+            with state.lock:
+                # a reaction needs no "Luna" (11 Oct: the window closed while
+                # she drew, and "jeszcze raz ze zdjęcia" waited for the wake word)
+                state.conversation_active = True
+                state.last_activity_time = max(state.last_activity_time, time.time())
             try:
                 # the model hears what is on her screen (11 Oct: "Luna, podobna?"
                 # after a portrait → "Jasne, podobnie")
