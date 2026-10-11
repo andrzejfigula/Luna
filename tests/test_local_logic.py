@@ -221,6 +221,17 @@ class TimersTest(unittest.TestCase):
             self.assertIn("radio z Włoch", said[-1])
             self.assertTrue(radio.handle("Następna stacja", said.append))
             self.assertEqual(played[-1], "Virgin")
+            # with a complaint after it (11 Oct: the model asked which one)
+            self.assertTrue(radio.handle("Weź jakieś inne radio, to jest paskudne.",
+                                         said.append))
+            self.assertEqual(played[-1], "Radio 105")
+        for t in ("Zmień radio, bo nudne", "Puść coś innego", "Daj inną stację"):
+            with mock.patch.object(radio, "playing", lambda: "Trójka"):
+                self.assertTrue(radio._next_asked(t.lower()), t)
+        for t in ("Włącz inne radio z jazzem", "Coś innego chciałam powiedzieć"):
+            with mock.patch.object(radio, "playing", lambda: "Trójka"):
+                self.assertFalse(radio._next_asked(t.lower()), t)
+        self.assertFalse(radio._next_asked("weź inne radio"))            # nothing plays
         # a station by its name, not after "radio" (went to the model, refused)
         played.clear()
         with mock.patch.object(radio, "_lookup", lambda n: ("Polskie Radio Chopin", "http://x")),                 mock.patch.object(radio, "play", lambda n, u, **k: played.append(n)),                 mock.patch.object(radio, "_remember_station", lambda *a: None):

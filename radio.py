@@ -110,6 +110,22 @@ _SONG = ("co teraz gra", "co to za piosenka", "co to za utwór", "co to za utwor
          "kto to spiewa", "co leci", "co to leci", "what song is this", "what's playing")
 _NEXT = ("następna stacja", "nastepna stacja", "zmień stację", "zmien stacje",
          "inna stacja", "inną stację", "inna stacje", "next station", "kolejna stacja")
+# "Weź jakieś inne radio, to jest paskudne." (11 Oct: the model asked which
+# station instead) — the first clause alone; a complaint may follow
+_NEXT_RX = re.compile(
+    r"(?:luna\s+)?(?:(?:weź|wez|daj|puść|pusc|włącz|wlacz|zmień|zmien|przełącz|przelacz)\s+)?"
+    r"(?:mi\s+|nam\s+)?(?:jakieś\s+|jakies\s+|jakąś\s+|jakas\s+)?"
+    r"(?:inn[aeąy]|następn[aąe]|nastepn[aae]|kolejn[aąe])\s+(?:stacj[aeę]|radio)"
+    r"|(?:zmień|zmien|przełącz|przelacz)\s+(?:tę\s+|te\s+|to\s+)?(?:stację|stacje|radio)"
+    r"|(?:weź|wez|daj|puść|pusc|włącz|wlacz)\s+(?:mi\s+)?coś\s+innego")
+
+
+def _next_asked(low):
+    """Another station, said with something after it — only while one plays."""
+    first = re.split(r"[,.;!?]|\s+(?:bo|to\s+jest|ta\s+jest|ten\s+jest)\s+", low, maxsplit=1)[0]
+    return bool(playing() and _NEXT_RX.fullmatch(first.strip()))
+
+
 _QUIETER = ("ciszej", "ścisz", "scisz", "przycisz", "quieter")
 _LOUDER = ("głośniej", "glosniej", "podgłośnij", "podglosnij", "pogłośnij", "louder")
 _SLEEP = re.compile(r"(?:wyłącz|wylacz)\s+(?:radio|muzykę|muzyke)\s+za\s+(.+)$|"
@@ -525,7 +541,7 @@ def handle(text, speak):
         # it answered "Teraz Jedynka")
         low = f"włącz {m.group(1)}"
         words = low.split()
-    elif any(k in low for k in _NEXT) and len(words) <= 5:
+    elif (any(k in low for k in _NEXT) and len(words) <= 5) or _next_asked(low):
         if _world_next(speak):             # the next one of "radio z Francji"
             return True
         names = list(STATIONS.values())
