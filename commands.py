@@ -1145,6 +1145,9 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
     import twenty                                  # "czy ma futro?"
     if twenty.active() and twenty.answer(text, speak):
         return True
+    import games                                   # "Papier!" — a match by voice
+    if games.voice_move(text, speak):
+        return True
 
     # she offered games and they name one: "W kółko i krzyżyk!", "Zagadki"
     m = _SHALL_WE.match(low.strip())                   # "Czy zagramy w kółko i krzyżyk?"
@@ -1747,7 +1750,6 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
     if screens.handle(text, speak, _sound_async):
         return True
 
-    import games                                   # rock, paper, scissors
     if games.is_trigger(text) or games.is_rematch(text):
         games.play_match(speak, _sound_async)
         return True

@@ -87,11 +87,16 @@ def _verdict(mine, yours):
 
 
 def play_match(speak, play_sound_async):
-    """Best of three. Blocks until the match is over."""
-    global _rematch_until
+    """Best of three. Blocks until the match is over (or goes on by voice)."""
     from brain import classify_hand, _camera_jpeg_b64
 
     _mood("Excited")
+    if _camera_jpeg_b64() is None:
+        # no camera (switched off, or none): played by voice from the start
+        speak("Super, gramy do dwóch wygranych! Kamery nie mam, więc mów na głos: "
+              "kamień, papier czy nożyce?")
+        _voice_from(0, 0)
+        return
     speak("Super, gramy do dwóch wygranych! Pokaż rękę do kamery, kiedy zobaczysz wykrzyknik.")
     me = you = misses = 0
     while me < 2 and you < 2:
@@ -100,8 +105,12 @@ def play_match(speak, play_sound_async):
             misses += 1
             _mood("Surprised")
             if misses >= 2:
-                speak("Nie widzę twojej ręki. Zagramy, jak będziesz bliżej kamery!")
-                break
+                # by voice then (11 Oct sweep: "Papier" said aloud only
+                # started the game over)
+                speak("Nie widzę twojej ręki — to powiedz na głos: kamień, papier czy nożyce?")
+                _hand(None, 0)
+                _voice_from(me, you)
+                return
             speak("Nie widzę twojej ręki — trzymaj ją przed kamerą. Jeszcze raz!")
             continue
         v = _verdict(mine, yours)
@@ -118,6 +127,12 @@ def play_match(speak, play_sound_async):
             line = random.choice(["remis!", "myślimy tak samo!"])
         score = f"{me} do {you}" if (me < 2 and you < 2) else ""
         speak(f"Ja {PL[mine]}, ty {PL[yours]} — {line}" + (f" {score}." if score else ""))
+    _end(me, you, speak)
+
+
+def _end(me, you, speak):
+    """The final word, and the ear open for "tak" (a rematch)."""
+    global _rematch_until
     if me == 2:
         _mood("Excited")
         speak(f"Wygrałam {me} do {you}! Rewanż?")
@@ -130,3 +145,46 @@ def play_match(speak, play_sound_async):
     with state.lock:                        # keep listening for "tak!"
         state.conversation_active = True
         state.last_activity_time = time.time()
+
+
+# ── by voice: the camera can't see the hand ──────────────────────────────────
+VOICE_SECS = 40
+_voice = {}                    # {"me", "you", "until"} while a match goes on by voice
+_SAID = {"kamień": "rock", "kamien": "rock", "papier": "paper", "nożyce": "scissors",
+         "nozyce": "scissors", "rock": "rock", "paper": "paper", "scissors": "scissors"}
+
+
+def _voice_from(me, you):
+    _voice.clear()
+    _voice.update(me=me, you=you, until=time.time() + VOICE_SECS)
+    with state.lock:                        # her question waits for the answer
+        state.conversation_active = True
+        state.last_activity_time = time.time()
+
+
+def voice_move(text, speak):
+    """"Papier!" during a match by voice → the round played; True when it was one."""
+    if not _voice or time.time() > _voice["until"]:
+        _voice.clear()
+        return False
+    words = re.findall(r"\w+", (text or "").lower())
+    picks = {_SAID[w] for w in words if w in _SAID}
+    if len(picks) != 1 or len(words) > 4:
+        return False
+    yours = picks.pop()
+    mine = random.choice(CHOICES)
+    _hand(mine, 3.0)
+    me, you = _voice["me"], _voice["you"]
+    v = _verdict(mine, yours)
+    me, you = me + (v == "me"), you + (v == "you")
+    line = {"me": "punkt dla mnie!", "you": "punkt dla ciebie.", "draw": "remis!"}[v]
+    print(f"[game] by voice — me: {mine}, you: {yours}", flush=True)
+    if me < 2 and you < 2:
+        speak(f"Ja {PL[mine]}, ty {PL[yours]} — {line} {me} do {you}. "
+              "Następna: kamień, papier czy nożyce?")
+        _voice_from(me, you)
+        return True
+    _voice.clear()
+    speak(f"Ja {PL[mine]}, ty {PL[yours]} — {line}")
+    _end(me, you, speak)
+    return True

@@ -2466,6 +2466,24 @@ class KidsTest(unittest.TestCase):
         with mock.patch.object(errands, "waiting", lambda who: [{"at": None, "words": "x"}]):
             self.assertFalse(idle_engine._timed_errand_ok("Maja", six_thirty))
 
+    def test_rock_paper_scissors_by_voice(self):
+        import games
+        # 11 Oct sweep: the hand unseen → "Papier" said aloud restarted the game
+        said = []
+        self.assertFalse(games.voice_move("Papier", said.append))     # no match on
+        with mock.patch.object(games, "_hand", lambda *a: None), \
+                mock.patch.object(games, "_mood", lambda *a: None):
+            games._voice_from(0, 1)
+            with mock.patch.object(games.random, "choice", lambda c: "rock"):
+                self.assertTrue(games.voice_move("Papier!", said.append))   # paper beats rock
+            self.assertIn("Wygrywasz 2 do 0", said[-1])
+            self.assertFalse(games.voice_move("Papier", said.append))      # match over
+            games._voice_from(0, 0)
+            self.assertFalse(games.voice_move("Kamień czy papier?", said.append))
+            with mock.patch.object(games.random, "choice", lambda c: "rock"):
+                self.assertTrue(games.voice_move("nożyce", said.append))
+            self.assertIn("punkt dla mnie! 1 do 0. Następna", said[-1])
+
     def test_cancel_one_errand_by_what_it_is_about(self):
         import errands
         # 11 Oct sweep: "Odwołaj basen" → "nie mogę odwołać tego wcześniej…"
