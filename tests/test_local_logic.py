@@ -232,6 +232,19 @@ class TimersTest(unittest.TestCase):
             with mock.patch.object(radio, "playing", lambda: "Trójka"):
                 self.assertFalse(radio._next_asked(t.lower()), t)
         self.assertFalse(radio._next_asked("weź inne radio"))            # nothing plays
+        # 11 Oct sweep: "jakieś radio rockowe" → "Nie znalazłam stacji…", "coś
+        # spokojnego do pracy" and "puść BBC" → the model said it can't
+        played.clear()
+        with mock.patch.object(radio, "play", lambda n, u, **k: played.append(n)), \
+                mock.patch.object(radio, "_remember_station", lambda *a: None), \
+                mock.patch.object(radio, "_world_play", lambda w, s: False), \
+                mock.patch.object(radio, "_lookup", lambda n: ("BBC World Service", "http://w")):
+            for t in ("Włącz jakieś radio rockowe", "Włącz radio rockowe",
+                      "Włącz coś spokojnego do pracy", "Puść BBC"):
+                self.assertTrue(radio.handle(t, said.append), t)
+        self.assertEqual(played, ["Trójka", "Trójka", "Dwójka", "BBC World Service"])
+        self.assertEqual(radio._spoken("Radio Paradise Main Mix 320k AAC"),
+                         "Radio Paradise Main Mix")
         # a station by its name, not after "radio" (went to the model, refused)
         played.clear()
         with mock.patch.object(radio, "_lookup", lambda n: ("Polskie Radio Chopin", "http://x")),                 mock.patch.object(radio, "play", lambda n, u, **k: played.append(n)),                 mock.patch.object(radio, "_remember_station", lambda *a: None):

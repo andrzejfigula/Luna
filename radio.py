@@ -90,6 +90,9 @@ _GENRES = [
     # (found online by "włącz radio dla dzieci": RMF Dla Dzieci)
     (r"dla\s+dzieci|dziecięc|dzieciec|dla\s+maj|bajk", "dla dzieci"),
 ]
+# stations known by a broadcaster's name alone ("puść BBC") — looked up online
+_BROADCASTERS = re.compile(r"(?:bbc|npr|kexp|fip|cnn|classic\s+fm|jazz\s+fm|virgin\s+radio|"
+                           r"radio\s+paradise)\b")
 # "puść jakieś radio, obojętnie jakie" — any station is fine (9 Oct model
 # suite: she asked which one)
 _ANY = re.compile(r"(?:(?:jakieś|jakies|jakąś|jakas|dowolne|dowolną|dowolna|byle\s+jakie|"
@@ -185,6 +188,8 @@ def _spoken(name):
     """"Polskie Radio - Chopin (Radio Chopin) (AAC+)" → "Polskie Radio Chopin"."""
     out = re.sub(r"\s*[\(\[][^)\]]*[\)\]]", "", name)
     out = re.sub(r"\s+[-–|]\s+", " ", out).strip(" -|")
+    # "Radio Paradise Main Mix 320k AAC" — she read the bitrate out
+    out = re.sub(r"\s+\d{2,3}\s*k(?:bps)?\b.*$|\s+(?:AAC\+?|MP3|OGG|HQ)$", "", out, flags=re.I)
     return out or name.strip()
 
 
@@ -621,10 +626,14 @@ def handle(text, speak):
         key = _ALIASES.get(m.group(2).strip(), m.group(2).strip())
         if key in _MUSIC or (key and _ANY.fullmatch(key.strip(" .!?"))):
             what = ""                      # "włącz muzykę" → the last station
-        elif (re.match(r"(?:jakąś\s+|jakas\s+|trochę\s+|troche\s+)?(?:muzyk|muzyczk|piosenk)",
+        elif (re.match(r"(?:jakąś|jakas|jakieś|jakies|trochę|troche|coś|cos)\s+|muzyk|muzyczk|piosenk",
                        key) and any(re.search(rx, key) for rx, _ in _GENRES)):
             what = key                     # "puść muzykę dla dzieci" (7 Oct: went to
-                                           # the model) → the genre below picks it
+                                           # the model), "jakieś radio rockowe", "coś
+                                           # spokojnego do pracy" (11 Oct sweep: "Nie
+                                           # znalazłam stacji…", "Nie mogę…") → the genre
+        elif _BROADCASTERS.match(key):
+            what = key                     # "puść BBC" (11 Oct sweep: the model refused)
         elif re.search(r"\bradio\b|\bfm\b", key) and len(key.split()) <= 6:
             what = key                     # "włącz Polskie Radio Chopin", "włącz BBC Radio 1"
         elif key not in STATIONS:
@@ -634,8 +643,10 @@ def handle(text, speak):
     else:
         what = m.group(1)
     genre = next((key for rx, key in _GENRES if re.search(rx, what or "")), None)
-    if genre and (not what or what.split()[0] in ("z", "ze", "jakąś", "jakas", "coś", "cos")
-                  or re.search(r"muzyk|muzyczk|piosenk", what)):
+    if genre and (not what or what.split()[0] in ("z", "ze", "jakąś", "jakas", "jakieś", "jakies",
+                                                  "coś", "cos")
+                  or re.search(r"muzyk|muzyczk|piosenk", what)
+                  or re.fullmatch(r"\w+(?:owe|ową|owa|owego|czne|czną)", what)):   # "radio rockowe"
         what = genre                       # "…z jakąś spokojną muzyką" → Dwójka
     if len(what.split()) > 4:
         return False

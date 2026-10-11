@@ -16,3 +16,6 @@ Emilka|Włącz radio reggae
 Emilka|Puść muzykę z lat osiemdziesiątych
 Andrzej|Włącz jakieś radio zagraniczne
 Andrzej|Mogłabyś puścić jakąś hiszpańską stację?
+Andrzej|Włącz coś spokojnego do pracy
+Andrzej|Włącz jakieś radio rockowe
+Andrzej|Puść BBC
