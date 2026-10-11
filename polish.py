@@ -358,5 +358,15 @@ def fix_vocative(text, vocatives):
             continue
         text = re.sub(rf"^{re.escape(name)}(?=\s*,)", voc, text)
         if not several:
-            text = re.sub(rf"(,\s*){re.escape(name)}(?=\s*[.!?,]|\s*$)", rf"\g<1>{voc}", text)
+            text = re.sub(rf"(\w*)(,\s*){re.escape(name)}(?=\s*[.!?,]|\s*$)",
+                          lambda m: m.group(0) if m.group(1).lower() in _ROLE_WORDS
+                          else m.group(1) + m.group(2) + voc, text)
     return text
+
+
+# "tata, Andrzej, lubi pizzę" — the name explains who, it isn't said to him
+# (11 Oct sweep: "Wiem tylko, że tata, Andrzeju, lubi pizzę")
+_ROLE_WORDS = {"tata", "taty", "tacie", "tatą", "mama", "mamy", "mamie", "mamą", "córka",
+               "córki", "córce", "córką", "siostra", "brat", "mąż", "żona", "babcia",
+               "dziadek", "ciocia", "wujek", "kolega", "koleżanka", "syn", "partner",
+               "partnerka"}

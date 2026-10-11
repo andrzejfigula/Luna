@@ -455,6 +455,17 @@ def _alone_request(text):
     return not (recent and [o for o in (others or []) if o != person[0]])
 
 
+def _how_long_only(text):
+    """"Jak długo gotować jajko?" / "Ile minut piec ciasto?" — asked how long,
+    nothing asked to be set ("…i nastaw minutnik" is both)."""
+    t = (text or "").lower()
+    return (bool(re.search(r"\bjak\s+długo\b|\bjak\s+dlugo\b|\bile\s+(?:minut|czasu|godzin)\b|"
+                           r"\bhow\s+long\b", t))
+            and not re.search(r"\bnastaw|\bustaw|\bwłącz|\bwlacz|\bprzypomnij|\bobudź|\bobudz|"
+                              r"\bzrób\s+(?:mi\s+)?minutnik|\bset\b|\bremind\b|"
+                              r"\bdo\s+(?:budzika|końca|konca|minutnika)|\bzostał|\bzostal", t))
+
+
 def _ideas_only(text):
     """"Wymyśl / podpowiedz, co kupić" — ideas, not "dopisz"."""
     t = (text or "").lower()
@@ -1452,6 +1463,13 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             # (8 Oct probe: the model's suggestions went straight onto the list)
             print("[brain] ideas asked, not a list change — list_add held back", flush=True)
             data["actions"] = [a for a in data["actions"] if a.get("type") != "list_add"]
+        if _how_long_only(text) and any(a.get("type") in ("timer", "reminder", "alarm")
+                                        for a in data.get("actions") or []):
+            # "Jak długo gotować jajko na twardo?" — a question, not "nastaw"
+            # (11 Oct sweep: a 10-minute egg timer nobody asked for)
+            print("[brain] how-long question — timer held back", flush=True)
+            data["actions"] = [a for a in data["actions"]
+                               if a.get("type") not in ("timer", "reminder", "alarm")]
         set_now = timers.apply(data.get("actions") or [], said=text)
         empty_clear = [a for a in data.get("actions") or [] if a.get("type") == "list_clear"
                        and not lists.get(a.get("list"))]

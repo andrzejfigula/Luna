@@ -1112,6 +1112,14 @@ class ListsTest(unittest.TestCase):
         self.assertIn("Nie mam czego",
                       lists.restore("cofnij skreślenie", now=time.time() + 4000))
 
+    def test_bare_undo_right_after(self):
+        # 11 Oct sweep: "Usuń chleb" → "Cofnij" → "potrzebuję wiedzieć którą"
+        self.assertIsNone(lists.restore("Cofnij"))                 # nothing removed
+        self.act("list_add", "chleb")
+        self.act("list_remove", "chleb")
+        self.assertIsNone(lists.restore("Cofnij", now=time.time() + 600))   # too late
+        self.assertEqual(lists.restore("Cofnij"), "Przywróciłam na listę zakupy: chleb.")
+
     def act(self, kind, label="", lst="zakupy"):
         return lists.apply([{"type": kind, "label": label, "list": lst,
                              "seconds": 0, "at": "", "repeat": "none"}])
@@ -2269,6 +2277,14 @@ class KidsTest(unittest.TestCase):
             self.assertEqual(weather._region(), ", województwo dolnośląskie")
         self.assertEqual(asked, ["Kąty Wrocławskie"])          # asked once, then kept
 
+    def test_how_long_question_sets_nothing(self):
+        import brain
+        self.assertTrue(brain._how_long_only("Jak długo gotować jajko na twardo?"))
+        self.assertTrue(brain._how_long_only("Ile minut piec szarlotkę?"))
+        self.assertFalse(brain._how_long_only("Jak długo gotować jajko? Nastaw minutnik"))
+        self.assertFalse(brain._how_long_only("Ile czasu zostało do budzika?"))
+        self.assertFalse(brain._how_long_only("Ugotuj mi jajko"))
+
     def test_no_search_while_answering_a_search(self):
         import brain
         hist = [{"role": "user", "content": "[Emilka] Jaki jest kurs euro?"},
@@ -2367,6 +2383,10 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(f("Dobranoc, Maja!", v), "Dobranoc, Maju!")
         self.assertEqual(f("Maja ma dziś basen.", v), "Maja ma dziś basen.")
         self.assertEqual(f("Byli: Andrzej, Emilka, Maja.", v), "Byli: Andrzej, Emilka, Maja.")
+        # who, not to whom (11 Oct sweep: "tata, Andrzeju, lubi pizzę")
+        self.assertEqual(f("Wiem tylko, że tata, Andrzej, lubi pizzę.", v),
+                         "Wiem tylko, że tata, Andrzej, lubi pizzę.")
+        self.assertEqual(f("Pa, Andrzej.", v), "Pa, Andrzeju.")
 
     def test_third_person_fact(self):
         import memory

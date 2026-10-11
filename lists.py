@@ -18,6 +18,7 @@ from config import LISTS_PATH
 
 _lock = threading.Lock()
 _lists = None
+BARE_UNDO_SECS = 120  # a bare "cofnij" — only this soon after
 _undo = None         # (time, list name, items before) — the last clear or removal
 UNDO_SECS = 3600
 
@@ -165,9 +166,16 @@ _RESTORE = re.compile(r"\b(?:przywróć|przywroc|odzyskaj)\s+(?:t[aąeę]\s+)?(?
 def restore(text, now=None):
     """"przywróć listę" → the reply, or None when the words don't ask for it."""
     global _undo
-    if not _RESTORE.search(text) or len(text.split()) > 8:
-        return None
     now = time.time() if now is None else now
+    bare = re.fullmatch(r"\s*(?:luna,?\s+)?(?:cofnij|odwołaj|odwolaj)(?:\s+to)?[.!]*\s*",
+                        text or "", re.I)
+    if bare:
+        # a bare "Cofnij" right after a removal (11 Oct sweep: "Usuń chleb" →
+        # "Cofnij" → "potrzebuję wiedzieć którą") — later it may mean anything
+        if not _undo or now - _undo[0] > BARE_UNDO_SECS:
+            return None
+    elif not _RESTORE.search(text) or len(text.split()) > 8:
+        return None
     with _lock:
         if _lists is None:
             _load()
