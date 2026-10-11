@@ -2303,6 +2303,13 @@ class KidsTest(unittest.TestCase):
             hist[-1]["content"] = "[Emilka] A ile kosztuje dolar?"
             self.assertTrue(brain.run_command("wyszukaj w internecie: kurs dolara"))
 
+    def test_part_of_day_in_the_time_line(self):
+        import brain
+        # 11 Oct 16:00: "chłodny ten niedzielny wieczór"
+        self.assertIn("NOT evening", brain._daypart(16))
+        self.assertTrue(brain._daypart(19).startswith("evening"))
+        self.assertTrue(brain._daypart(7).startswith("early morning"))
+
     def test_a_promised_drawing_is_drawn(self):
         import brain
         import drawing

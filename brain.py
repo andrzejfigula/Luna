@@ -81,9 +81,18 @@ def _local_now_text():
     """'Sunday, 20 September 2026, 23:30 (Europe/Warsaw, CEST, UTC+02:00)'"""
     now = datetime.now(_TZ) if _TZ else datetime.now().astimezone()
     off = now.strftime("%z")
-    return (f"{now.strftime('%A, %d %B %Y, %H:%M')} "
+    return (f"{now.strftime('%A, %d %B %Y, %H:%M')} — {_daypart(now.hour)} "
             f"({LUNA_TIMEZONE if _TZ else 'system'}, {now.strftime('%Z')}, "
             f"UTC{off[:3]}:{off[3:]})")
+
+
+def _daypart(hour):
+    """The part of the day in words — at 16:00 her hello said "niedzielny
+    wieczór" (11 Oct): the clock alone left it to a guess."""
+    return ("night (noc)" if hour < 5 else "early morning (wczesny ranek)" if hour < 8
+            else "morning (rano)" if hour < 11 else "midday (południe)" if hour < 13
+            else "afternoon (popołudnie — NOT evening yet)" if hour < 18
+            else "evening (wieczór)" if hour < 22 else "late evening / night (późny wieczór)")
 
 # a question about dates: weekdays, "the last Sunday of…", the clock change
 _DATEY = re.compile(
