@@ -91,7 +91,8 @@ def context(query, found, moved=False):
             "question from this in 1–3 spoken sentences — no links, no markdown; numbers "
             "rounded the way people say them (4,37 zł, not 4,3719); name the "
             "source only if asked. If it doesn't answer the question, say what you found "
-            "and that you're not sure.\n")
+            "and that you're not sure — never search again for it, and never say "
+            "\"Sprawdzam w internecie\" now (11 Oct: it searched again, and again).\n")
 
 
 def start(query, speak, announce=True):

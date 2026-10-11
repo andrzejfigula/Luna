@@ -215,6 +215,18 @@ def _all_of(said):
     return kinds or None
 
 
+_GENERIC = {"", "budzik", "alarm", "przypomnienie", "reminder", "pobudka"}
+
+
+def _same_as_set(kind, due, label):
+    """One of this kind at that minute is already set, for the same thing (or
+    the new one names nothing in particular)."""
+    low = label.lower().strip()
+    return any(t["kind"] == kind and abs(t["due"] - due) < 60
+               and (low in _GENERIC or low == t["label"].lower().strip())
+               for t in _timers)
+
+
 def apply(actions, said=""):
     """Carry out the model's timer actions. Returns a short log string.
     said: what the person said — "wszystkie przypomnienia" limits a cancel
@@ -243,9 +255,14 @@ def apply(actions, said=""):
                 if due and repeat == "none" and due < time.time() - 60:
                     print(f"[timers] {kind} at {a.get('at')!r} is in the past — ignored")
                     due = None
-                if due:
-                    if repeat != "none":
-                        due = _next_matching(due, repeat, inclusive=True)
+                if due and repeat != "none":
+                    due = _next_matching(due, repeat, inclusive=True)
+                if due and _same_as_set(kind, due, label):
+                    # "O której mam budzik?" — the model answered AND sent the
+                    # alarm again: a second 07:30 (11 Oct sweep)
+                    print(f"[timers] {kind} {time.strftime('%H:%M', time.localtime(due))} "
+                          "is already set — not doubled", flush=True)
+                elif due:
                     _timers.append({"due": due, "label": label, "kind": kind,
                                     "repeat": repeat, "set": time.time()})
                     done.append(f"{kind} {time.strftime('%d.%m %H:%M', time.localtime(due))} "

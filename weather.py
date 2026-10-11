@@ -52,6 +52,25 @@ def _place():
     return None
 
 
+def _region():
+    """", województwo dolnośląskie" for the home place (asked once, kept in
+    settings) — 11 Oct sweep: "Kiedy są ferie zimowe?" → "podaj województwo",
+    though she knew the town. "" when unknown."""
+    import settings
+    name = (_place() or (None, None, None))[2]
+    if not name:
+        return ""
+    kept = settings.get("place_region") or {}
+    if kept.get("name") != name:
+        try:
+            f = _geocode(name) or {}
+        except Exception:
+            return ""                    # offline: asked again next time
+        kept = {"name": name, "region": f.get("admin1") or ""}
+        settings.put("place_region", kept)
+    return f", {kept['region'].lower()}" if kept.get("region") else ""
+
+
 def enabled():
     return _place() is not None
 
@@ -190,7 +209,8 @@ def _describe(d, where=None):
             break
     week = (" Later: " + "; ".join(later) + ". Beyond these days you don't know the "
             "weather.") if later else ""
-    return (f"Weather in {where or _place()[2]} (open-meteo): now {now}. Today: {day_text(0)}; "
+    home = "" if where else _region()
+    return (f"Weather in {where or _place()[2]}{home} (open-meteo): now {now}. Today: {day_text(0)}; "
             f"{sun}. Tomorrow: {day_text(1)}.{_hours(d)}{week}")
 
 

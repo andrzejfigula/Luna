@@ -77,6 +77,15 @@ class TimersTest(unittest.TestCase):
         timers.apply([{"type": "cancel", "seconds": 0, "at": "", "label": "piekarnik"}])
         self.assertEqual([t["label"] for t in timers._timers], ["makaron"])
 
+    def test_the_same_alarm_is_not_set_twice(self):
+        # 11 Oct sweep: "O której mam budzik?" — answered, and a second 07:30 set
+        timers.apply([{"type": "alarm", "seconds": 0, "at": "07:30", "label": ""}])
+        timers.apply([{"type": "alarm", "seconds": 0, "at": "07:30", "label": "przypomnienie"}])
+        later = (datetime.datetime.now() + datetime.timedelta(minutes=30)).strftime("%H:%M")
+        timers.apply([{"type": "reminder", "seconds": 0, "at": later, "label": "piekarnik"}])
+        timers.apply([{"type": "reminder", "seconds": 0, "at": later, "label": "pranie"}])
+        self.assertEqual(sorted(t["label"] for t in timers._timers), ["", "piekarnik", "pranie"])
+
     def test_cancel_without_label_takes_the_kitchen_timers_only(self):
         for s in (60, 120):
             timers.apply([{"type": "timer", "seconds": s, "at": "", "label": ""}])
@@ -2247,6 +2256,29 @@ class KidsTest(unittest.TestCase):
                     t.start()
                     t.join()
         self.assertEqual(said, ["Już rysuję… chwilka!"])        # only the local one spoke
+
+    def test_home_region_in_the_weather_line(self):
+        import weather
+        import settings
+        asked = []
+        with mock.patch.object(weather, "_place", lambda: (51.0, 16.8, "Kąty Wrocławskie")), \
+                mock.patch.object(weather, "_geocode", lambda n: asked.append(n) or
+                                  {"admin1": "Województwo dolnośląskie"}):
+            settings.put("place_region", None)
+            self.assertEqual(weather._region(), ", województwo dolnośląskie")
+            self.assertEqual(weather._region(), ", województwo dolnośląskie")
+        self.assertEqual(asked, ["Kąty Wrocławskie"])          # asked once, then kept
+
+    def test_no_search_while_answering_a_search(self):
+        import brain
+        hist = [{"role": "user", "content": "[Emilka] Jaki jest kurs euro?"},
+                {"role": "assistant", "content": "Sprawdzam w internecie."},
+                {"role": "user", "content": "[Emilka] (Wynik wyszukiwania: kurs euro PLN)"}]
+        with mock.patch.object(brain, "_history", hist), \
+                mock.patch("commands.handle", lambda *a, **k: True):
+            self.assertFalse(brain.run_command("wyszukaj w internecie: kurs euro"))
+            hist[-1]["content"] = "[Emilka] A ile kosztuje dolar?"
+            self.assertTrue(brain.run_command("wyszukaj w internecie: kurs dolara"))
 
     def test_drawing_requests_in_other_words(self):
         import drawing

@@ -1634,6 +1634,14 @@ def _asks_to_choose(reply):
                                          reply or "", re.I))
 
 
+def _answering_a_search():
+    """This turn is the web search's result coming back (websearch.start)."""
+    for m in reversed(_history[-3:]):
+        if m.get("role") == "user":
+            return "(Wynik wyszukiwania:" in str(m.get("content", ""))
+    return False
+
+
 def _spoken_command(label, kind):
     """A command that talks ("narysuj …", a game) — run on its own thread. It is
     called while her answer is still streaming: on the voice thread its speak()
@@ -1667,6 +1675,11 @@ def run_command(label, reply=""):
     game = bool(_GAME_OK.match(label))
     if not (game or _COMMAND_OK.match(label) or _VOICED_OK.match(label)):
         print(f"[brain] command not allowed: {label!r}", flush=True)
+        return False
+    if re.match(r"wyszukaj\s+w\s+internecie", label, re.I) and _answering_a_search():
+        # the result came back and the model searched again ("kurs euro" →
+        # "Sprawdzam w internecie." → the same search — 11 Oct sweep): a loop
+        print(f"[brain] {label!r} while answering a search — not searched again", flush=True)
         return False
     if re.match(r"przepis\s+na\b", label, re.I):
         try:
