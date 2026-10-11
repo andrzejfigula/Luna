@@ -230,7 +230,11 @@ def draw(what, speak, intro="Już rysuję… chwilka!", english=False, photo=Non
             return True
         _last[0] = time.time()
     _bump(path, today, n)
-    speak(intro)
+    if not (threading.current_thread().name == "command"
+            and not re.search(r"wyłączona|wyobraźni", intro)):
+        # (from the model's answer — brain._spoken_command's thread — her
+        # "Jasne, już rysuję…" was just said: no second "Już rysuję… chwilka!")
+        speak(intro)
     _card("Rysuję…", 30)
     print(f"[draw] {what!r}{' from the camera' if photo else ''}", flush=True)
 

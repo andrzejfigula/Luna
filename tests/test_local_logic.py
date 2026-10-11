@@ -2234,6 +2234,20 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(started[1], "narysuj kotka")
         self.assertEqual(started[3], "zamień się w kotka")
 
+    def test_no_second_intro_after_the_models_answer(self):
+        import drawing
+        said = []
+        with mock.patch.object(drawing, "DIR", tempfile.mkdtemp()), \
+                mock.patch.object(drawing, "_card", lambda *a: None):
+            real = drawing.threading.Thread
+            with mock.patch.object(drawing.threading, "Thread", lambda *a, **k: mock.Mock()):
+                for name in ("command", "voice"):
+                    drawing._last[0] = 0.0
+                    t = real(target=lambda: drawing.draw("kota", said.append), name=name)
+                    t.start()
+                    t.join()
+        self.assertEqual(said, ["Już rysuję… chwilka!"])        # only the local one spoke
+
     def test_drawing_requests_in_other_words(self):
         import drawing
         # 11 Oct: these went to the model ("włącz lampkę" once came back)
