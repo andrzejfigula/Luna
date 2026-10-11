@@ -216,6 +216,9 @@ _SNOOZE = ("drzemka", "drzemkę", "jeszcze chwilę", "jeszcze chwile", "jeszcze 
 _EXTEND = ("dodaj", "przedłuż", "przedluz", "add")
 _CAPTIONS_ON  = ("włącz napisy", "wlacz napisy", "pokazuj napisy", "captions on")
 _CAPTIONS_OFF = ("wyłącz napisy", "wylacz napisy", "bez napisów", "captions off")
+_STATUS_BAR = re.compile(r"^(?:luna,?\s+)?(ukryj|schowaj|wyłącz|wylacz|pokaż|pokaz|włącz|wlacz)\s+"
+                         r"(?:ten\s+|górny\s+|gorny\s+)?(?:pasek|pasek\s+u\s+góry|pasek\s+u\s+gory|"
+                         r"pasek\s+stanu|pasek\s+statusu|status\s+bar)$", re.I)
 _MSG_RECORD = ("nagraj wiadomość", "nagraj wiadomosc", "zostaw wiadomość",
                "nagraj notatkę", "nagraj mi wiadomość", "chcę zostawić wiadomość",
                "record a message")
@@ -1518,6 +1521,14 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         on = any(k in low for k in ("włącz", "wlacz", "pokazuj", "on"))
         settings.put("captions", on)
         speak("Dobrze, włączam napisy." if on else "Dobrze, wyłączam napisy.")
+        return True
+
+    # the status bar along the top (statusbar.py) — "ukryj pasek" / "pokaż pasek"
+    m = _STATUS_BAR.match(low.strip(" .!?"))
+    if m:
+        on = m.group(1).startswith(("pokaż", "pokaz", "włącz", "wlacz"))
+        settings.put("status_bar", on)
+        speak("Dobrze, pokazuję pasek u góry." if on else "Dobrze, chowam pasek.")
         return True
 
     # "Mów do mnie po angielsku" — her replies in English for a while; "mów po

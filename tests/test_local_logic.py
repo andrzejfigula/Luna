@@ -2111,6 +2111,49 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(g("question", "Czy twoje zwierzę jest ssakiem?", "")[0], "question")
         self.assertEqual(g("question", "Czy twoje zwierzę jest kolorowe?", "")[0], "question")
 
+    def test_status_bar_items(self):
+        import statusbar
+        import timers
+        import commands
+        now = time.mktime((2026, 10, 11, 20, 45, 0, 0, 0, -1))
+        self.assertEqual(statusbar.clock_text(now), "niedz. 11 paź   20:45")
+        saved = list(timers._timers)
+        keep = {k: getattr(state, k) for k in ("online", "radio", "conversation_active",
+                                               "luna_mode", "messages_waiting", "speaking",
+                                               "mic_muted_until", "listening")}
+        try:
+            timers._timers[:] = [
+                {"due": now + 299, "label": "", "kind": "timer", "set": now},
+                {"due": now + 36000, "label": "", "kind": "alarm", "set": now},
+                {"due": now + 3 * 86400, "label": "", "kind": "reminder", "set": now}]
+            with state.lock:
+                state.online, state.radio = True, "Radio Nowy Świat"
+                state.conversation_active, state.luna_mode = True, "idle"
+                state.speaking = state.listening = False
+                state.messages_waiting, state.mic_muted_until = 1, 0.0
+            its, voice = statusbar.items(now)
+            self.assertEqual(its, [("online", None), ("radio", "Radio Nowy Świat"),
+                                   ("timer", "4:59"), ("alarm", "6:45"), ("message", None)])
+            self.assertEqual(voice, "listening")
+            with state.lock:                    # muted: no "listening", a crossed mic
+                state.mic_muted_until, state.online = now + 60, False
+                state.radio = "♪ " + "szum fal morskich nad brzegiem morza"
+            its, voice = statusbar.items(now)
+            self.assertIsNone(voice)
+            self.assertIn(("mic_off", None), its)
+            self.assertEqual(its[0], ("offline", None))
+            self.assertTrue(its[1][1].endswith("…") and len(its[1][1]) == 22)
+        finally:
+            timers._timers[:] = saved
+            with state.lock:
+                for k, v in keep.items():
+                    setattr(state, k, v)
+        for t, on in (("Ukryj pasek", False), ("Luna, pokaż pasek u góry.", True),
+                      ("schowaj górny pasek", False), ("włącz pasek stanu", True)):
+            m = commands._STATUS_BAR.match(t.lower().strip(" .!?"))
+            self.assertTrue(m, t)
+        self.assertFalse(commands._STATUS_BAR.match("pokaż pasek czekolady"))
+
     def test_quiz_would_accept(self):
         import quiz
         old = quiz._q

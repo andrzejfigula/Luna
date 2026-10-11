@@ -1319,6 +1319,8 @@ class RobotFace:
         if HIDE_CURSOR:
             pygame.mouse.set_visible(False)
         self.clock  = pygame.time.Clock()
+        import statusbar
+        self.status_bar = statusbar.StatusBar()
 
         self.state        = "neutral"
         self.visual_state = "neutral"
@@ -2254,15 +2256,38 @@ class RobotFace:
         if CAMERA_PREVIEW:
             self._draw_camera_preview()
 
+        # ── subtitles: what she says / what she heard ─────────────────────
+        self._draw_caption()
+
+        # ── the status bar along the top (statusbar.py): clock, radio,
+        #    alarms, listening… — the corner icons below are for it off ──
+        with state.lock:
+            asleep = state.sleep_mode
+        if not self.status_bar.draw(self.screen, AWAKE_COL, asleep=asleep):
+            self._draw_corner_icons()
+
+        # ── whole-screen moments: mirror, photo, clock, flash ─────────────
+        if self._overlay_on():
+            self._draw_overlay()
+
+        t3 = time.perf_counter()
+        pygame.display.flip()
+        t4 = time.perf_counter()
+        st["frames"] += 1
+        st["update"] += t1 - t0
+        st["face"] += t2 - t1
+        st["compose"] += t3 - t2
+        st["flip"] += t4 - t3
+
+    def _draw_corner_icons(self):
+        """The status bar switched off ("ukryj pasek"): the small icons in
+        the corners instead."""
         # ── a running timer: small countdown, top-right corner ───────────
         with state.lock:
             timer_text = state.timer_text
             online     = state.online
         if timer_text:
             self._draw_timer(timer_text)
-
-        # ── subtitles: what she says / what she heard ─────────────────────
-        self._draw_caption()
 
         # ── no cloud: a small crossed-out cloud, top-left ─────────────────
         if not online:
@@ -2291,19 +2316,6 @@ class RobotFace:
         if cam_off:
             self._draw_cam_off(14 + (70 if not online else 0) + (70 if waiting else 0)
                                + (60 if radio_on else 0) + (56 if muted else 0))
-
-        # ── whole-screen moments: mirror, photo, clock, flash ─────────────
-        if self._overlay_on():
-            self._draw_overlay()
-
-        t3 = time.perf_counter()
-        pygame.display.flip()
-        t4 = time.perf_counter()
-        st["frames"] += 1
-        st["update"] += t1 - t0
-        st["face"] += t2 - t1
-        st["compose"] += t3 - t2
-        st["flip"] += t4 - t3
 
     def _draw_big(self, surf, text, fcx, fcy, left):
         """A glowing number between her eyes; it pops in and fades out."""
