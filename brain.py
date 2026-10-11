@@ -1534,11 +1534,14 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             reply = f"{reply} {reading.HINT}"
             import commands
             reading.start(lambda s: None, commands.reading_done, intro=None, question=text)
-        searched = False
+        searched = drew = False
         for a in data.get("actions") or []:
             if a.get("type") == "command":
                 label = str(a.get("label", ""))
                 searched = searched or label.lower().startswith("wyszukaj w internecie")
+                drew = drew or bool(re.match(r"(?:narysuj|namaluj|zrób\s+(?:mi\s+)?rysunek|"
+                                             r"pokaż\s+(?:mi\s+)?(?:swoje\s+)?rysunki)",
+                                             label.strip(), re.I))
                 try:
                     run_command(label, reply)
                 except Exception as e:
@@ -1552,6 +1555,15 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             import websearch
             print("[brain] said she'd check online without the command — searching", flush=True)
             websearch.start(text, lambda *a, **k: None, announce=False)
+
+        if (not drew and not translator() and _promised_drawing(reply)
+                and _ABOUT_DRAWING.search(text or "")):
+            # "Rysuję to teraz, Maju, z kotem na ręce." and no command (10–11 Oct:
+            # "she says she will draw, then nothing happens")
+            label = _drawing_to_keep_promise(text)
+            print(f"[brain] promised a drawing without the command — {label!r}", flush=True)
+            if label:
+                _spoken_command(label, "")
 
         if hw and homework.gives_away(reply, hw):
             if on_head is None:
@@ -1654,6 +1666,59 @@ def _asks_to_choose(reply):
                                          reply or "", re.I))
 
 
+_DRAW_PROMISE = re.compile(r"\b(?:już\s+|zaraz\s+|teraz\s+|to\s+)?(?:rysuję|narysuję|maluję|"
+                           r"namaluję|biorę\s+się\s+do\s+rysowania)\b", re.I)
+_DRAW_NOT = re.compile(r"\bnie\s+(?:na)?(?:rysuj|maluj)|\bjeśli\s+chcesz|\bjesli\s+chcesz|"
+                       r"\bco\s+mam\s+(?:na)?rysować|\bmogę\s+(?:ci\s+)?(?:na)?rysować|"
+                       r"\bmoge\s+(?:ci\s+)?(?:na)?rysowac|\?\s*$", re.I)
+
+
+# what they said is about a drawing (not "Super!" after one, answered "rysuję
+# dla ciebie z przyjemnością")
+_ABOUT_DRAWING = re.compile(r"rysu|rysow|malu|malow|narys|obraz|portret|zdjęci|zdjeci|draw|"
+                            r"picture|\bdoda[jć]|dorysuj|\bpopraw|\bzmień|\bzmien", re.I)
+
+
+def _promised_drawing(reply):
+    """Her answer says she draws now — not an offer, a refusal or a question."""
+    return bool(_DRAW_PROMISE.search(reply or "")) and not _DRAW_NOT.search(reply or "")
+
+
+def _drawing_to_keep_promise(text):
+    """The command that keeps "rysuję…": what they asked, if it can be read;
+    else the last drawing again, with what they just said as details when it
+    reads like them ("Kot ma być w ręce") — or None."""
+    import drawing
+    what = drawing.wants(text)
+    if what:
+        return f"narysuj {what}"
+    last = drawing._last_what[0]
+    if not last or time.time() - drawing._last[0] > 900:
+        return None
+    said = re.sub(r"\b(?:i\s+)?(?:teraz\s+)?(?:możesz|mozesz|masz)\s+(?:to\s+)?"
+                  r"(?:na)?rysować\w*\b.*$", "", (text or "").strip(" .!?"), flags=re.I).strip(" ,.")
+    base = last.split(":")[0].strip()
+    if 3 <= len(said) <= 120 and not re.search(r"\b(?:rysu|narysow|malu|pokaż|pokaz)\w*", said, re.I):
+        return f"narysuj {base}: {said}"
+    return f"narysuj {last}"
+
+
+_PRAISE = re.compile(r"^(?:\W*(?:super|fajn\w*|ładn\w*|ladn\w*|piękn\w*|piekn\w*|śliczn\w*|"
+                     r"sliczn\w*|dzięki|dzieki|dziękuję|dziekuje|wow|ekstra|brawo|"
+                     r"świetn\w*|swietn\w*|cudown\w*|super\w*|hura|łał|"
+                     r"bardzo|ale|luna|haha\w*)\W*){1,4}$", re.I)
+# ("tak", "ok" are not in it: "Tak!" accepts her offer to draw)
+
+
+def _just_praise():
+    """This turn is only a reaction ("Super!", "Ale ładne!", "Dzięki")."""
+    for m in reversed(_history[-3:]):
+        if m.get("role") == "user":
+            said = re.sub(r"^\[[^\]]*\]\s*", "", str(m.get("content", "")))
+            return bool(_PRAISE.match(said.strip()))
+    return False
+
+
 def _answering_a_search():
     """This turn is the web search's result coming back (websearch.start)."""
     for m in reversed(_history[-3:]):
@@ -1695,6 +1760,10 @@ def run_command(label, reply=""):
     game = bool(_GAME_OK.match(label))
     if not (game or _COMMAND_OK.match(label) or _VOICED_OK.match(label)):
         print(f"[brain] command not allowed: {label!r}", flush=True)
+        return False
+    if re.match(r"narysuj\b", label, re.I) and _just_praise():
+        # "Super!" after a picture → the same picture again (11 Oct sweep)
+        print(f"[brain] {label!r} for a reaction — not drawn again", flush=True)
         return False
     if re.match(r"wyszukaj\s+w\s+internecie", label, re.I) and _answering_a_search():
         # the result came back and the model searched again ("kurs euro" →

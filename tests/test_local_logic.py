@@ -2303,6 +2303,32 @@ class KidsTest(unittest.TestCase):
             hist[-1]["content"] = "[Emilka] A ile kosztuje dolar?"
             self.assertTrue(brain.run_command("wyszukaj w internecie: kurs dolara"))
 
+    def test_a_promised_drawing_is_drawn(self):
+        import brain
+        import drawing
+        # 11 Oct 11:11: "Rysuję to teraz, Maju, z kotem na ręce." — no command
+        self.assertTrue(brain._promised_drawing("Aha, kot ma być w ręce. Rysuję to teraz, Maju."))
+        self.assertTrue(brain._promised_drawing("Jasne — zaraz narysuję was razem."))
+        self.assertFalse(brain._promised_drawing("Jeśli chcesz, narysuję kotka."))
+        self.assertFalse(brain._promised_drawing("Tego nie narysuję."))
+        self.assertFalse(brain._promised_drawing("Co mam narysować?"))
+        self.assertTrue(brain._ABOUT_DRAWING.search("Kot ma być w ręce i teraz możesz rysować"))
+        self.assertFalse(brain._ABOUT_DRAWING.search("Super!"))
+        drawing._last_what[0], drawing._last[0] = "mnie", time.time() - 60
+        self.assertEqual(brain._drawing_to_keep_promise("Kot ma być w ręce i teraz możesz "
+                                                        "rysować"), "narysuj mnie: Kot ma być w ręce")
+        self.assertEqual(brain._drawing_to_keep_promise("No to rysuj."), "narysuj mnie")
+        self.assertEqual(brain._drawing_to_keep_promise("Narysuj smoka"), "narysuj smoka")
+        drawing._last[0] = time.time() - 3600
+        self.assertIsNone(brain._drawing_to_keep_promise("No to rysuj."))
+        # "Super!" after a picture — the model drew it again (11 Oct sweep)
+        for said, praise in (("[Maja] Super!", True), ("[Maja] Ale ładne!", True),
+                             ("[Maja] Tak!", False), ("[Maja] Dodaj kota", False)):
+            with mock.patch.object(brain, "_history", [{"role": "user", "content": said}]):
+                self.assertEqual(brain._just_praise(), praise, said)
+        self.assertTrue(brain._ABOUT_DRAWING.search("Masz dodać kolorowy sweter"))
+        self.assertEqual(drawing._first_word("Maja: kot w ręce"), "maja")   # "Maja:" no name
+
     def test_drawing_requests_in_other_words(self):
         import drawing
         # 11 Oct: these went to the model ("włącz lampkę" once came back)

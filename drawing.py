@@ -371,7 +371,7 @@ def _in_view(what):
             here += list(state.others[0])
     try:
         import faces
-        return bool(here) and faces.match_name(what.lower().split()[0]) in here
+        return bool(here) and faces.match_name(_first_word(what)) in here
     except Exception:
         return False
 
@@ -385,6 +385,12 @@ def _is_person(what):
         return True
     try:
         import faces
-        return bool(faces.match_name(low.split()[0]))
+        return bool(faces.match_name(_first_word(low)))
     except Exception:
         return False
+
+
+def _first_word(what):
+    """"Maja: kot w ręce" → "maja" (the colon kept "Maja:" from being a name)."""
+    w = re.findall(r"[^\W\d_]+", (what or "").lower())
+    return w[0] if w else ""
