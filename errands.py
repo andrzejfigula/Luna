@@ -146,6 +146,33 @@ def cancel(text):
     return who, len(items) - len(keep)
 
 
+# (only "odwołaj / anuluj": "usuń chleb" is the shopping list's)
+_CANCEL_ABOUT = re.compile(r"^(?:luna,?\s+)?(?:odwołaj|odwolaj|anuluj)\s+"
+                           r"(?:to\s+)?(?:z\s+|o\s+)?(.{3,50}?)[.!]*$", re.I)
+
+
+def cancel_about(text):
+    """"Odwołaj basen" — the message waiting for someone that is about it is
+    dropped → (to, words), or None (no such message: the model takes it — a
+    timer, a list). 11 Oct sweep: "Nie mogę odwołać tego wcześniej, niż appka
+    sama go poda"."""
+    m = _CANCEL_ABOUT.match((text or "").strip())
+    if not m:
+        return None
+    stems = {w[:4] for w in re.findall(r"[^\W\d_]{4,}", m.group(1).lower())}
+    if not stems:
+        return None
+    with _lock:
+        items = _load()
+        hit = [e for e in items
+               if stems & {w[:4] for w in re.findall(r"[^\W\d_]{4,}", e["words"].lower())}]
+        if len(hit) != 1:
+            return None                  # none, or which one is unclear
+        _save([e for e in items if e is not hit[0]])
+    print(f"[errands] cancelled for {hit[0]['to']}: {hit[0]['words']}", flush=True)
+    return hit[0]["to"], hit[0]["words"]
+
+
 def _due(e, now=None):
     """Is this note to be said now (if its person is here)?"""
     now = now or time.time()

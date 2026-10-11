@@ -2466,6 +2466,27 @@ class KidsTest(unittest.TestCase):
         with mock.patch.object(errands, "waiting", lambda who: [{"at": None, "words": "x"}]):
             self.assertFalse(idle_engine._timed_errand_ok("Maja", six_thirty))
 
+    def test_cancel_one_errand_by_what_it_is_about(self):
+        import errands
+        # 11 Oct sweep: "Odwołaj basen" → "nie mogę odwołać tego wcześniej…"
+        store = [{"to": "Maja", "words": "że jutro ma basen o 16:00", "t": time.time()},
+                 {"to": "Andrzej", "words": "żeby kupił chleb", "t": time.time()}]
+        saved = []
+        with mock.patch.object(errands, "_load", lambda: list(store)), \
+                mock.patch.object(errands, "_save", saved.append):
+            self.assertEqual(errands.cancel_about("Odwołaj basen"),
+                             ("Maja", "że jutro ma basen o 16:00"))
+            self.assertEqual([e["to"] for e in saved[-1]], ["Andrzej"])
+            self.assertIsNone(errands.cancel_about("Odwołaj spotkanie"))   # not a message
+            self.assertIsNone(errands.cancel_about("Usuń chleb"))          # the list's
+        # homework: a bare number answering her question (word problem)
+        import homework
+        self.assertTrue(homework.answer_line("Osiem?", "Ile cukierków jej zostało?"))
+        self.assertEqual(homework.answer_line("Mam osiem lat", "Ile masz lat?"), "")
+        # "Wyłącz się, wychodzimy" — her own sleep, not the model's promise
+        import commands
+        self.assertTrue(commands._SLEEP_SELF.match("wyłącz się, wychodzimy"))
+
     def test_weather_cache(self):
         import weather
         d = tempfile.mkdtemp()

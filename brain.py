@@ -1306,7 +1306,8 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   + _secret_line()
                   + _crisis_line(text, person)
                   + _age_line(text)
-                  + (homework.verdict_line(text) if _child_near(person) else "")
+                  + ((homework.verdict_line(text) or homework.answer_line(text, last_reply()))
+                     if _child_near(person) else "")
                   + _reply_language_line(text)
                   + (_morning_line() if not translator() else "")
                   + ("They have just said your name — this message is for you "
@@ -1607,7 +1608,8 @@ _COMMAND_OK = re.compile(
     r"^przekaż\s+\w+,?\s+(?:że|żeby)\s+.{3,120}$|^zrób\s+(?:mi\s+|nam\s+)?zdjęcie$|"
     r"^nagraj\s+wiadomość(?:\s+dla\s+\w+)?$|^pokaż\s+na\s+ekranie[:,]?\s+.{1,80}$"
     r"|^wyszukaj\s+w\s+internecie[:,]?\s+.{3,200}$"
-    r"|^(?:przyciemnij|zgaś|rozjaśnij)\s+ekran$", re.I)
+    r"|^(?:przyciemnij|zgaś|rozjaśnij)\s+ekran$"
+    r"|^(?:wyłącz\s+się|idź\s+spać)$", re.I)
 # a game she offered and they said "tak" (7 Oct probe: "Nudzi mi się" → "Tak"
 # → "zagrajmy w kamień, papier, nożyce" — not allowed, nothing started). A
 # game talks itself (intro, questions), so these run with her voice.

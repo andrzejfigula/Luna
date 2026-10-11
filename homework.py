@@ -65,6 +65,35 @@ def verdict_line(text):
             "not quite and give one small hint; never say the result.\n")
 
 
+def answer_line(text, asked):
+    """"Osiem?" — nothing but a number, said to her question (a word problem
+    she gave a hint for): the model checks it itself and says plainly if it's
+    right (11 Oct sweep: "Ola miała 15 cukierków, dała 7" → "Osiem?" →
+    "Powiedz mi, do czego to jest w zadaniu"). '' otherwise."""
+    import calc
+    t = (text or "").strip()
+    if (not asked or "?" not in asked or len(t.split()) > 4
+            or calc.number_in(t) is None or not _only_a_number(t)):
+        return ""
+    n = calc.number_in(t)
+    n = int(n) if float(n).is_integer() else n
+    return (f"HOMEWORK CHECK: «{t}» is the child's ANSWER ({n}) to the task in your "
+            f"last reply («{asked[-200:]}»). Work that task out yourself now. If {n} is "
+            f"right, begin with \"Tak, brawo! {n}…\" and praise briefly; if not, say kindly "
+            "it's not quite and give one small hint (never the result). Do NOT ask what "
+            "they already know — they have answered.\n")
+
+
+_FILLER = {"to", "jest", "chyba", "może", "moze", "będzie", "bedzie", "wychodzi", "mi", "no"}
+_NUMBER_WORDS = set(" ".join(number_words(n) for n in range(0, 1000, 1)).split())
+
+
+def _only_a_number(text):
+    """"czterdzieści dwa?", "to chyba 8" — a number and filler words only."""
+    words = re.findall(r"[^\W\d_]+", text.lower())
+    return all(w in _NUMBER_WORDS or w in _FILLER for w in words)
+
+
 def _says(text, r):
     words = number_words(r) if r < 1000 else ""
     return bool(re.search(rf"(?<![\d,.]){r}(?![\d,.]\d)", text or "")) or bool(

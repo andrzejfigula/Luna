@@ -188,7 +188,10 @@ _SLEEP_SELF = re.compile(
     r"^(?:luna,?\s+|luno,?\s+)?(?:(?:to|no|dobra|już|juz|proszę|prosze),?\s+)*"
     r"(?:wyłącz\s+się|wylacz\s+sie|id[źz]\s+(?:już\s+|juz\s+)?spa[ćc]|uśpij\s+się|uspij\s+sie|"
     r"zaśnij|zasnij|śpij|spij|idź\s+lulu|idz\s+lulu)"
-    r"(?:\s+(?:już|juz|proszę|prosze|teraz|luna|luno))*$", re.I)
+    r"(?:\s+(?:już|juz|proszę|prosze|teraz|luna|luno))*"
+    # "Wyłącz się, wychodzimy" (11 Oct sweep — went to the model, refused)
+    r"(?:,?\s+(?:wychodzimy|wychodzę|wychodze|idziemy|na\s+razie|pa|papa|"
+    r"do\s+zobaczenia|do\s+później|do\s+pozniej|dzięki|dzieki))*$", re.I)
 # "dobranoc" must be the whole point of the utterance — "powiedz dobranoc mojej
 # córce" or "co było na dobranockę?" are not her bedtime
 _NIGHT_OK = {"dobranoc", "luna", "luno", "idę", "ide", "spać", "spac", "już", "juz",
@@ -1841,6 +1844,11 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         if to and not items:
             speak("Lista zakupów jest pusta — nie ma czego przekazywać.")
             return True
+    dropped = errands.cancel_about(text)
+    if dropped:
+        to, words = dropped
+        speak(f"Dobrze, odwołane — nie przekażę już: {words}.")
+        return True
     gone = errands.cancel(text)
     if gone:
         who, n = gone

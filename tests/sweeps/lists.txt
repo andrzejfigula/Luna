@@ -1,3 +1,4 @@
+#keep
 Emilka|Dopisz do listy zakupów mleko, chleb i masło
 Emilka|Usuń chleb z listy
 Emilka|Cofnij

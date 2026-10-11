@@ -98,8 +98,11 @@ said = []
 brain.process = lambda t, context=None, **k: said.append(
     (brain._ask_openai(t, context=context) or [""])[0])
 
-lines = [ln.split("|", 1) for ln in open(args.questions, encoding="utf-8").read().splitlines()
-         if "|" in ln]
+_raw = open(args.questions, encoding="utf-8").read().splitlines()
+lines = [ln.split("|", 1) for ln in _raw if "|" in ln]
+# a "#keep" line: one conversation (follow-ups like "Osiem?" or "Cofnij" mean
+# nothing without the turn before — 11 Oct, judged wrong in a fresh history)
+args.keep = args.keep or "#keep" in (ln.strip() for ln in _raw)
 for who, text in lines:
     if not args.keep:
         brain._history.clear()
