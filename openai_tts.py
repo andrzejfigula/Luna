@@ -80,6 +80,7 @@ def speech_speed():
 CACHE_MAX_CHARS = 140
 STEADY_SECS = 0.6              # speech held back to check its pitch (_steady)
 DEEP_HZ = 145                  # her voice sits ~175–255 Hz; a take below is the drift
+HEAD_BYTES = int(STEADY_SECS * PCM_RATE * 2)
 
 CACHE_STATS = [0, 0]           # hits, misses since start
 CACHE_MAX_FILES = 400          # ~3 s each at 48 kB/s: about 60 MB at most
@@ -102,7 +103,7 @@ def cache_get(key):
     try:
         with open(path, "rb") as f:
             pcm = f.read()
-        low = pitch(pcm)
+        low = pitch(pcm[:HEAD_BYTES])                # (the head: a drift is the whole take)
         if low and low < DEEP_HZ:                    # a deep take kept before 11 Oct
             os.remove(path)
             return None
@@ -368,7 +369,7 @@ class OpenAITTS:
         man's voice" — the voice model drifts now and then; one cached clip
         sat at 119 Hz against her usual ~195). The first STEADY_SECS of speech
         are held back to check, then everything flows as before."""
-        need = int(STEADY_SECS * PCM_RATE * 2)
+        need = HEAD_BYTES
         for attempt in (0, 1):
             head, stream = [], self._hedged(text, kwargs)
             for chunk in stream:
@@ -430,7 +431,7 @@ class OpenAITTS:
         # (a stream that ended early without an error must not be kept: at
         # least ~0.03 s of audio per character)
         if ok and key and played and len(out.last_utterance) >= len(text) * 1500:
-            low = pitch(out.last_utterance)
+            low = pitch(out.last_utterance[:HEAD_BYTES])
             if not (low and low < DEEP_HZ):
                 cache_put(key, out.last_utterance)
 

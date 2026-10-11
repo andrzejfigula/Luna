@@ -97,9 +97,19 @@ def _camera_jpeg():
 
 
 def _details(what):
-    """"mnie: okulary, broda" → "okulary, broda" (what to add to a photo)."""
+    """"mnie: okulary, broda" → "okulary, broda"; "mnie jako astronautę" →
+    "jako astronautę" — what to change in the photo ("" for a plain portrait)."""
     m = re.search(r"[:—–]\s*(.{3,})$", what or "")
-    return m.group(1).strip() if m else ""
+    if m:
+        return m.group(1).strip()
+    rest = re.sub(r"^(?:mnie|nas(?:\s+wszystkich)?|(?:naszą|nasza|całą|cala)?\s*rodzin\w*|"
+                  r"to,?\s+co\s+(?:teraz\s+)?widzisz)\b,?\s*", "", (what or "").strip(), flags=re.I)
+    rest = _FROM_CAM.sub("", rest).strip(" ,.")
+    rest = re.sub(r"^(?:tak,?\s+)?(?:po\s+prostu|i\s+tyle|tak)$", "", rest, flags=re.I)
+    if re.search(r"\b(?:narysuj|zapamiętaj|zapamietaj|zrób|zrob|popatrz|patrz|odwzoruj)\b",
+                 rest, re.I):
+        return ""                        # talk to her ("zapamiętaj kilka rzeczy"), not a change
+    return rest if len(rest) >= 3 and rest != (what or "").strip() else ""
 
 
 def _subject(what):
@@ -213,7 +223,7 @@ def _from_photo(client, photo, what):
                 "te same osoby z ich prawdziwym wyglądem i ubraniem, ta sama liczba "
                 "osób, te same pozy, ten sam pokój. Niczego i nikogo nie dodawaj ani "
                 "nie zmieniaj, tylko narysuj. "
-                + (f"Dodaj jedynie: {extra}. " if extra else "") + _STYLE))
+                + (f"Jedyna zmiana, o którą proszą: {extra}. " if extra else "") + _STYLE))
 
 
 def draw(what, speak, intro="Już rysuję… chwilka!", english=False, photo=None):
@@ -341,8 +351,7 @@ def handle(text, speak):
             if not _is_person(what):
                 speak("Kamera jest teraz wyłączona — nic nie widzę. Powiedz, co mam narysować.")
                 return True
-            if _is_person(what):
-                return draw(what, speak, "Kamera jest wyłączona, więc rysuję z wyobraźni — "
+            return draw(what, speak, "Kamera jest wyłączona, więc rysuję z wyobraźni — "
                                          "nie będzie podobny. Chwilka!", english=english)
         if english:
             return draw(what, speak, "Drawing it now — just a moment!", english=True)

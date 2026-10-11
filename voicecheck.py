@@ -20,7 +20,8 @@ def pitch(pcm, sr=PCM_RATE):
         w = x[i:i + fr] - x[i:i + fr].mean()
         if np.sqrt((w * w).mean()) < 800:
             continue                                   # silence or a breath
-        ac = np.correlate(w, w, "full")[fr - 1:]
+        spec = np.fft.rfft(w, 2 * fr)                  # (np.correlate: 5x slower on the Pi)
+        ac = np.fft.irfft(spec * np.conj(spec))[:fr]
         seg = ac[lo:hi]
         # the shortest period nearly as strong as the best: twice the period
         # scores as well and would read an octave too deep

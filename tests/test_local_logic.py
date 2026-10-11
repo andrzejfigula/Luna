@@ -2181,6 +2181,13 @@ class KidsTest(unittest.TestCase):
                 "spodenki i kot w ręce")
         self.assertTrue(drawing.wants(long).startswith("mnie: kolorowy"))
         self.assertEqual(drawing._details(drawing.wants(long))[:15], "kolorowy sweter")
+        # a change asked for without a colon — it was dropped and the prompt
+        # said "change nothing"
+        self.assertEqual(drawing._details("mnie jako astronautę"), "jako astronautę")
+        self.assertEqual(drawing._details("nas w kosmosie"), "w kosmosie")
+        self.assertEqual(drawing._details("nas, po prostu zrób nam zdjęcie"), "")
+        self.assertEqual(drawing._details("nas tak jak jesteśmy, zapamiętaj kilka rzeczy i nas "
+                                          "narysuj"), "")
         self.assertTrue(drawing._FROM_CAM.search("Narysuj to, co widzisz"))
         self.assertTrue(drawing._FROM_CAM.search("Narysuj nas, po prostu zrób nam zdjęcie"))
         self.assertTrue(drawing._IN_FRONT.match("nas wszystkich"))
