@@ -1658,6 +1658,9 @@ def run_command(label, reply=""):
     whitelisted, silent (the model's reply already confirms it). A game
     from _GAME_OK speaks for itself."""
     label = label.strip().rstrip(".!")
+    # the choices copied from the capability text ("zamień się w kotka / pieska
+    # / zajączka", 11 Oct — refused) — the first one
+    label = re.split(r"\s+/\s+", label)[0]
     # the model's own wording for a drawing ("zrób rysunek kotka", 11 Oct)
     label = re.sub(r"^(?:zrób|zrob)\s+(?:mi\s+|nam\s+)?(?:rysunek|obrazek)\s+|^namaluj\s+",
                    "narysuj ", label, flags=re.I)

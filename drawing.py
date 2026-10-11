@@ -32,10 +32,14 @@ DRAW_PER_DAY = 25
 SHOW_SECS = 40
 MODEL = "gpt-image-1-mini"
 
-_ASK = re.compile(r"^(?:luna,?\s+)?(?:(?:czy\s+)?(?:możesz|mozesz|mogłabyś|moglabys)\s+)?"
+# (11 Oct: "No narysuj nas…", "Maluj mnie", "Masz narysować tę postać" went
+# to the model — and it once switched the lamp on instead)
+_ASK = re.compile(r"^(?:(?:no|dobra|dobrze|to|a|okej|ok|więc|wiec|teraz)\s*,?\s+)*"
+                  r"(?:luna,?\s+)?(?:(?:no|to|a|teraz)\s+)?"
+                  r"(?:(?:czy\s+)?(?:możesz|mozesz|mogłabyś|moglabys|masz)\s+)?"
                   r"(?:(?:mi|nam)\s+)?"
                   r"(?:narysuj|narysujesz|narysować|narysowac|namaluj|namalujesz|namalować|"
-                  r"namalowac|draw)"
+                  r"namalowac|maluj|rysuj|draw)"
                   r",?(?:\s+(?:mi|nam|me),?)?(?:\s+(?:a|an))?\s+(.{2,200}?)[.!?]*$", re.I)
 _SHOW = re.compile(r"\b(?:pokaż|pokaz)\s+(?:mi\s+)?(?:jeszcze\s+raz\s+)?(?:te\s+|moje\s+|swoje\s+)?"
                    r"(?:rysun\w*|obraz\w*)\b", re.I)
@@ -69,7 +73,8 @@ def wants(text):
 
 # what the camera sees, asked for in so many words ("ze zdjęcia", "to, co
 # widzisz", "zrób nam zdjęcie") — or a portrait of whoever is in front of her
-_FROM_CAM = re.compile(r"\bze?\s+zdj\w*|\bz\s+kamery|\bz\s+obrazu|\bco\s+(?:teraz\s+)?widzisz|"
+_FROM_CAM = re.compile(r"\bze?\s+zdj\w*|\bjak\s+(?:tu\s+|teraz\s+)?jesteśmy|\bodwzoruj|"
+                       r"\bjak\s+(?:tu\s+|teraz\s+)?jestem\b|\bz\s+kamery|\bz\s+obrazu|\bco\s+(?:teraz\s+)?widzisz|"
                        r"\bjak\s+wyglądam|\bjak\s+wygladam|\bzrób\s+(?:nam\s+|mi\s+)?zdjęcie|"
                        r"\bfrom\s+the\s+(?:camera|photo)|\bwhat\s+you\s+see", re.I)
 _IN_FRONT = re.compile(r"(?:mnie|nas)\b|(?:nas\s+)?wszystkich\b|(?:naszą|nasza|całą|cala)?\s*rodzin", re.I)
@@ -315,6 +320,9 @@ def handle(text, speak):
             speak("A co mam narysować?")
             return True
         what, cam = _last_what[0], _last_cam[0]
+    if what and not cam and re.fullmatch(r"(?:t[ęa]|tego|tą)\s+(?:postać|postac|rzecz|scenę|scene|"
+                                         r"obrazek|rysunek)|to|go|ją|ja|je|tamto|tamtego", what, re.I):
+        return False       # "masz narysować tę postać" — the model knows which (11 Oct)
     if what:
         _last_what[0], _last_cam[0] = what, cam
         english = bool(re.match(r"\s*(?:luna,?\s*)?draw\b", text, re.I))   # "Draw me a cat"

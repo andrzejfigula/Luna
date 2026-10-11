@@ -2230,7 +2230,22 @@ class KidsTest(unittest.TestCase):
                                               "brązowe oczy, brązowe włosy, krótkie spodenki"))
             self.assertTrue(brain.run_command("zrób rysunek kotka"))
             self.assertTrue(brain.run_command("pokaż rysunki"))
+            self.assertTrue(brain.run_command("zamień się w kotka / pieska / zajączka"))
         self.assertEqual(started[1], "narysuj kotka")
+        self.assertEqual(started[3], "zamień się w kotka")
+
+    def test_drawing_requests_in_other_words(self):
+        import drawing
+        # 11 Oct: these went to the model ("włącz lampkę" once came back)
+        self.assertEqual(drawing.wants("Maluj mnie."), "mnie")
+        self.assertEqual(drawing.wants("Masz narysować tę postać"), "tę postać")
+        self.assertTrue(drawing.wants("No narysuj nas tak jak jesteśmy").startswith("nas"))
+        self.assertEqual(drawing.wants("Dobra, Luna, narysuj kotka"), "kotka")
+        self.assertTrue(drawing._FROM_CAM.search("narysuj nas tak jak jesteśmy"))
+        self.assertIsNone(drawing.wants("No to rysuj."))
+        self.assertIsNone(drawing.wants("Masz narysowane?"))
+        self.assertIsNone(drawing.wants("Ona rysuje kota"))
+        self.assertFalse(drawing.handle("Masz narysować tę postać", lambda t: None))
 
     def test_secret_line_for_the_one_it_is_kept_from(self):
         import brain

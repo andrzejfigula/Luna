@@ -7,3 +7,6 @@ Maja|Narysuj to, co widzisz
 Maja|A teraz narysuj mi smoka, który piecze naleśniki
 Maja|Pokaż moje rysunki
 Maja|Możesz zrobić rysunek kotka na rowerze?
+Maja|Zrób kotka
+Andrzej+Maja|No narysuj nas tak jak jesteśmy
+Maja|Maluj mnie
