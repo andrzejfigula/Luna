@@ -7,6 +7,14 @@
 #   ./restart.sh --force  skip the smoke test (tests/smoke_pi.py) — only if
 #                         it's the test itself that is broken
 cd "$(dirname "$0")"
+# one restart at a time: two waiting for the same quiet minute both started a
+# Luna (11 Oct 17:35 — the second had no camera or mic, "no camera preview,
+# she doesn't wake up"). The one already waiting will start the newest code.
+exec 9>/tmp/luna_restart.lock
+if ! flock -n 9; then
+    echo "restart: another restart is already waiting — it will start the new code"
+    exit 0
+fi
 IDLE_SECS=180
 if [ "$1" != "--now" ]; then
     for _ in $(seq 1 180); do
@@ -57,6 +65,6 @@ for pid in $(pgrep -f "^\./venv/bin/python -u main.py"); do
 done
 sleep 1
 echo "===== restart $(date '+%F %T') =====" >> luna.log
-(setsid nohup /usr/bin/lwrespawn "$PWD/run.sh" >> "$PWD/luna.log" 2>&1 < /dev/null &)
+(setsid nohup /usr/bin/lwrespawn "$PWD/run.sh" >> "$PWD/luna.log" 2>&1 < /dev/null 9>&- &)
 sleep 15
 grep -E "Running on|Traceback" luna.log | tail -2
