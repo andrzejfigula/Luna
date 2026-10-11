@@ -37,12 +37,13 @@ from shared_state import state
 RATE, CHANNELS = 44100, 2
 CHUNK = RATE * CHANNELS * 2 // 10          # 0.1 s of s16 stereo
 RADIO_GAIN = 1.0                           # "ciszej" / "głośniej" while it plays: × this
-MUSIC_RMS = 1700                           # the music is levelled to this loudness (s16
+MUSIC_RMS = 1530                           # the music is levelled to this loudness (s16
                                            # RMS): ~7 dB under her voice (~3700 when she
                                            # speaks). 11 Oct: "radio is by default too
                                            # loud compared to her voice" — at the old
                                            # fixed 0.55, RMF came out at 4450, louder
-                                           # than her, and Dwójka at half of that
+                                           # than her, and Dwójka at half of that.
+                                           # (1700 at first; "10% quieter", Andrzej 11 Oct)
 RADIO_DUCK = 0.12                          # while she listens or speaks
 RETRIES = 3
 
