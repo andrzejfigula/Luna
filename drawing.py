@@ -2,7 +2,7 @@
 drawing.py — "Luna, narysuj mi jednorożca": a real picture on her screen.
 
   "narysuj mi kotka na rowerze" / "namaluj smoka" / "draw me a dinosaur"
-        → "Już rysuję… chwilka!", ~10 s later the picture, big, for 40 s
+        → "Dobrze, już rysuję. Chwileczkę!", ~10 s later the picture, big, for 40 s
   "pokaż rysunki" / "pokaż jeszcze raz rysunek" → the last ones again
   "narysuj mnie / nas / to, co widzisz" → the camera frame, redrawn (11 Oct)
 
@@ -226,14 +226,18 @@ def _from_photo(client, photo, what):
                 + (f"Jedyna zmiana, o którą proszą: {extra}. " if extra else "") + _STYLE))
 
 
-def draw(what, speak, intro="Już rysuję… chwilka!", english=False, photo=None):
+# Her lines here open with "Dobrze, …": "Już rysuję… chwilka!" came back from a
+# speech→text round trip as "Jus resuya, fika", "Gotowe!" as "Gotová" — a short
+# start drifts out of Polish; 3 of 3 clean with "Dobrze," (11 Oct). Cached, a
+# bad take would have been said that way on every drawing.
+def draw(what, speak, intro="Dobrze, już rysuję. Chwileczkę!", english=False, photo=None):
     """Start a drawing in the background; True (handled) either way. photo:
     JPEG bytes of the camera frame to redraw instead of imagining."""
     os.makedirs(DIR, exist_ok=True)
     path, today, n = _count_today()
     with _lock:
         if time.time() - _last[0] < DRAW_GAP:
-            speak("Jeszcze kończę poprzedni rysunek — chwilka.")
+            speak("Chwileczkę, jeszcze kończę poprzedni rysunek.")
             return True
         if n >= DRAW_PER_DAY:
             speak("Na dziś mam już dość rysowania — narysuję jutro!")
@@ -243,7 +247,7 @@ def draw(what, speak, intro="Już rysuję… chwilka!", english=False, photo=Non
     if not (threading.current_thread().name == "command"
             and not re.search(r"wyłączona|wyobraźni", intro)):
         # (from the model's answer — brain._spoken_command's thread — her
-        # "Jasne, już rysuję…" was just said: no second "Już rysuję… chwilka!")
+        # "Jasne, już rysuję…" was just said: no second "Dobrze, już rysuję. Chwileczkę!")
         speak(intro)
     _card("Rysuję…", 30)
     print(f"[draw] {what!r}{' from the camera' if photo else ''}", flush=True)
@@ -271,7 +275,7 @@ def draw(what, speak, intro="Już rysuję… chwilka!", english=False, photo=Non
                     pass
             _show(out)
             print(f"[draw] done: {out}", flush=True)
-            say("Here you go!" if english else "Gotowe! Proszę bardzo.")
+            say("Here you go!" if english else "Dobrze, rysunek jest gotowy. Proszę bardzo!")
             try:
                 # the model hears what is on her screen (11 Oct: "Luna, podobna?"
                 # after a portrait → "Jasne, podobnie")
@@ -315,14 +319,14 @@ def handle(text, speak):
         cam = _last_cam[0] or bool(again.group(1))
         photo = _camera_jpeg() if cam else None
         if photo:
-            return draw(_last_what[0], speak, "Rysuję jeszcze raz — chwilka!", photo=photo)
-        return draw(_last_what[0], speak, "Rysuję jeszcze raz — chwilka!")
+            return draw(_last_what[0], speak, "Dobrze, rysuję jeszcze raz. Chwileczkę!", photo=photo)
+        return draw(_last_what[0], speak, "Dobrze, rysuję jeszcze raz. Chwileczkę!")
     of = _SHOW_OF.match((text or "").strip())
     if of and not re.match(r"(?:jeszcze|ostatni|swój|swoj|mój|moj|ten)\b", of.group(1), re.I):
         # "pokaż mi obrazek kota" — a picture of it, drawn (no web pictures)
         photo = re.search(r"zdj", of.group(0), re.I)
         return draw(of.group(1).strip(), speak,
-                    "Zdjęć nie mam, ale narysuję — chwilka!" if photo else "Już rysuję… chwilka!")
+                    "Dobrze, zdjęć nie mam, ale narysuję. Chwileczkę!" if photo else "Dobrze, już rysuję. Chwileczkę!")
     if _SHOW.search(text or "") and len(text.split()) <= 6:
         return show_saved(speak)
     what = wants(text)
@@ -346,19 +350,19 @@ def handle(text, speak):
             photo = _camera_jpeg()
             if photo:
                 return draw(what, speak, "Drawing what I see — just a moment!" if english
-                            else "Rysuję to, co widzę w kamerze — chwilka!",
+                            else "Dobrze, rysuję to, co widzę w kamerze. Chwileczkę!",
                             english=english, photo=photo)
             if not _is_person(what):
                 speak("Kamera jest teraz wyłączona — nic nie widzę. Powiedz, co mam narysować.")
                 return True
-            return draw(what, speak, "Kamera jest wyłączona, więc rysuję z wyobraźni — "
-                                         "nie będzie podobny. Chwilka!", english=english)
+            return draw(what, speak, "Kamera jest teraz wyłączona, więc rysuję z wyobraźni. "
+                                         "Chwileczkę!", english=english)
         if english:
             return draw(what, speak, "Drawing it now — just a moment!", english=True)
         if _is_person(what):
             # no photo of someone who isn't in front of her — say it, or "it
             # doesn't look like me" follows (10 Oct 20:35)
-            return draw(what, speak, "Rysuję z wyobraźni — więc nie będzie podobny. Chwilka!")
+            return draw(what, speak, "Dobrze, rysuję z wyobraźni, więc nie będzie bardzo podobny. Chwileczkę!")
         return draw(what, speak)
     return False
 

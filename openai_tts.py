@@ -433,7 +433,26 @@ class OpenAITTS:
         if ok and key and played and len(out.last_utterance) >= len(text) * 1500:
             low = pitch(out.last_utterance[:HEAD_BYTES])
             if not (low and low < DEEP_HZ):
-                cache_put(key, out.last_utterance)
+                self._cache_if_clear(key, text, out.last_utterance)
+
+    def _cache_if_clear(self, key, text, pcm):
+        """Keep the take only if it can be heard as the text: short lines now
+        and then come out half Slovak ("Súham", "Dobre, začíname deň", "Juž
+        presuja chvílka") — 13 of 147 cached clips (11 Oct), each then said
+        that way every time. Checked by a transcription in the background
+        (after she has spoken: no delay)."""
+        def run():
+            try:
+                import voicecheck
+                heard = voicecheck.transcribe(self._client, pcm)
+                if voicecheck.sounds_like(text, heard):
+                    cache_put(key, pcm)
+                else:
+                    print(f"[TTS] not cached — heard {heard[:50]!r} for {text[:50]!r}",
+                          flush=True)
+            except Exception as e:
+                print(f"[TTS] cache check failed ({e!r}) — not cached", flush=True)
+        threading.Thread(target=run, daemon=True, name="tts-check").start()
 
     _offline_said = 0.0
 

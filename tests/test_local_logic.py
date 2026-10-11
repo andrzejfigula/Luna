@@ -2244,6 +2244,12 @@ class KidsTest(unittest.TestCase):
             x = (6000 * np.sin(2 * np.pi * hz * t) + 4000 * np.sin(4 * np.pi * hz * t))
             self.assertAlmostEqual(voicecheck.pitch(x.astype(np.int16).tobytes()), hz, delta=6)
         self.assertIsNone(voicecheck.pitch(bytes(28800)))   # silence: no verdict
+        # a take heard back before it is cached (11 Oct: "Súham", "Juš resa")
+        self.assertTrue(voicecheck.sounds_like("Słucham.", "Słucham?"))
+        self.assertFalse(voicecheck.sounds_like("Słucham.", "Súham"))
+        self.assertFalse(voicecheck.sounds_like("Już rysuję… chwilka!", "Juš resa"))
+        self.assertTrue(voicecheck.sounds_like("Ja nożyce, ty papier — 1 do 0.",
+                                               "Ja nożyce, ty papier, 1:0."))
 
     def test_model_drawing_commands_are_allowed(self):
         import brain
@@ -2270,7 +2276,7 @@ class KidsTest(unittest.TestCase):
                     t = real(target=lambda: drawing.draw("kota", said.append), name=name)
                     t.start()
                     t.join()
-        self.assertEqual(said, ["Już rysuję… chwilka!"])        # only the local one spoke
+        self.assertEqual(said, ["Dobrze, już rysuję. Chwileczkę!"])        # only the local one spoke
 
     def test_home_region_in_the_weather_line(self):
         import weather
@@ -2604,7 +2610,7 @@ class KidsTest(unittest.TestCase):
             self.assertIn("jutro", said[-1])
             os.remove(os.path.join(d, "count.json"))
             drawing.draw("kota", said.append)
-            self.assertEqual(said[-1], "Już rysuję… chwilka!")
+            self.assertEqual(said[-1], "Dobrze, już rysuję. Chwileczkę!")
             drawing.draw("psa", said.append)               # too soon after
             self.assertIn("kończę", said[-1])
         with state.lock:

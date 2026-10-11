@@ -79,7 +79,7 @@ os.kill = lambda *a, **k: print("[sweep] \"zrestartuj się\" — not really", fl
 ambience.play = lambda *a, **k: True
 screens._take_photo = lambda *a: None
 drawing._camera_jpeg = lambda: b"jpeg"      # no picture is made (it costs) — only said
-drawing.draw = lambda what, speak, intro="Już rysuję… chwilka!", english=False, photo=None: (
+drawing.draw = lambda what, speak, intro="Dobrze, już rysuję. Chwileczkę!", english=False, photo=None: (
     speak(intro), print(f"[sweep] draw {what!r}{' from the camera' if photo else ''}",
                         flush=True))[0] or True
 commands.set_volume = lambda v: v
