@@ -2072,6 +2072,38 @@ class KidsTest(unittest.TestCase):
         finally:
             twenty._next_move = old
             twenty._r = None
+        # 11 Oct game end with Maja: questions left, a near miss, the secret
+        # said out, quitting, "o żadnym" — and Andrzej's face in view too
+        from shared_state import state
+
+        def at(line, guess="bóbr", stage="asking", person="Andrzej"):
+            twenty._r = {"qa": [], "asked": 19, "t": time.time(), "q": "Czy to bóbr?",
+                         "guess": guess, "stage": stage, "player": "Maja"}
+            with state.lock:
+                state.person = (person, 0.6, time.time())
+            said.clear()
+            return twenty.answer(line, said.append)
+        twenty._next_move = lambda qa, asked: ("question", "Czy pływa?", "")
+        try:
+            self.assertTrue(at("Zostało ci dziesięć pytań."))
+            self.assertIn("zostało mi 1", said[0])
+            self.assertTrue(at("Coś podobnego, ale to nie bobr."))
+            self.assertEqual(twenty._r["qa"], [("Czy to bóbr?", "nie")])
+            self.assertTrue(at("Wydra.") and "wydra" in said[0] and not twenty.active())
+            self.assertTrue(at("nie, to sowa") and "sowa" in said[0])
+            self.assertTrue(at("Nie, nie żyje w Afryce.") and said[-1] == "Czy pływa?")
+            for line in ("Luna, już nie gramy.", "Luna, nie gramy już.", "Nie chcę już grać"):
+                self.assertTrue(at(line) and "kończymy" in said[0], line)
+            self.assertFalse(at("Mamo, podasz mi wodę do picia?"))   # someone else
+            self.assertTrue(at("o żadnym", stage="reveal") and "Tajemnica" in said[0])
+            self.assertTrue(at("to była wydra", stage="reveal") and said[0].startswith("Aha, wydra"))
+            self.assertTrue(at("nie", guess="niedźwiedź"))
+            self.assertEqual(twenty._r["qa"][-1][1], "nie")
+        finally:
+            twenty._next_move = old
+            twenty._r = None
+            with state.lock:
+                state.person = None
         g = twenty._as_guess
         self.assertEqual(g("question", "Czy to ślimak?", "")[0], "guess")
         self.assertEqual(g("question", "Czy twoje zwierzę jest sową?", "")[0], "guess")

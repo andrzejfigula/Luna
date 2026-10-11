@@ -67,6 +67,18 @@ _REVERSE = re.compile(
 _GIVE_UP = ("poddaję się", "poddaje sie", "nie wiem", "powiedz co to", "co to było",
             "zdradź", "zdradz")
 _STOP = ("koniec", "kończymy", "konczymy", "stop", "wystarczy")
+# "Luna, już nie gramy" / "nie chcę już grać" — the "nie" read as an answer
+# (11 Oct: "Odpowiedz mi: tak, nie albo nie wiem", then "wygrywasz!")
+_QUIT = re.compile(r"^(?:luna,?\s+|luno,?\s+)?(?:(?:no\s+)?(?:już\s+|juz\s+)?nie\s+(?:gramy|gram|"
+                   r"chcę\s+(?:już\s+)?grać|chce\s+(?:juz\s+)?grac)|koniec\s+(?:gry|zabawy)|"
+                   r"skończmy|skonczmy|przestańmy|przestanmy)\b", re.I)
+# a revealed secret that isn't on Luna's own list ("Wydra." after "Czy to bóbr?")
+_MORE_ANIMALS = ("wydra", "bóbr", "bobr", "foka", "sarna", "jeleń", "dzik", "kret", "borsuk",
+                 "łoś", "nietoperz", "gołąb", "wróbel", "bocian", "kogut", "koza", "osioł",
+                 "hipopotam", "nosorożec", "gepard", "panda", "koala", "wielbłąd", "mors",
+                 "ośmiornica", "meduza", "pająk", "dżdżownica", "kuna", "łasica", "jaszczurka",
+                 "orzeł", "kruk", "sroka", "łabędź", "gęś", "indyk", "świnka morska",
+                 "szczur", "lama", "alpaka", "flaming", "struś", "leniwiec")
 
 _lock = threading.Lock()
 _g = None              # {"animal", "forms", "asked", "t", "said_no": set()}
@@ -140,6 +152,37 @@ def _guessed(text, forms):
 def _names_an_animal(text):
     words = set(re.findall(r"\w+", text.lower()))
     return next((n for n, forms in ANIMALS if words & set(forms)), None)
+
+
+def _revealed(text):
+    """The animal a child just told ("Wydra." / "to jest sowa"), or None."""
+    low = text.lower().strip(" .!?")
+    low = re.sub(r"^(?:luna,?\s+)?(?:nie,?\s+)?(?:no\s+)?(?:a\s+)?(?:to\s+)?(?:jest\s+|był[aoy]?\s+)?", "", low)
+    if len(re.findall(r"\w+", low)) > 2:
+        return None
+    return _names_an_animal(low) or next((a for a in _MORE_ANIMALS if low == a), None)
+
+
+def _for_game(low, game):
+    """Plainly part of this game, whoever says it."""
+    guess = game.get("guess") or game.get("animal") or ""
+    return bool(_QUIT.match(low) or _revealed(low) or re.search(r"\bpyta[ńn]\b", low)
+                or ("q" in game and (_YES.match(low) or _NO.match(low))
+                    and len(low.split()) <= 6)                  # "Nie, nie żyje w Afryce"
+                or (guess and any(_same_animal(w, guess) for w in re.findall(r"\w+", low))))
+
+
+def _same_animal(a, b):
+    """"bóbr" / "bobr" / "bobra" — the same animal, case endings aside."""
+    plain = str.maketrans("ąćęłńóśźż", "acelnoszz")
+    a, b = a.lower().translate(plain), b.lower().translate(plain)
+    if min(len(a), len(b)) < 3 or {a, b} & _COMMON:
+        return False
+    n = min(4, len(a), len(b))                       # "kot" / "kota"
+    return a[:n] == b[:n]
+
+
+_COMMON = {"nie", "tak", "ale", "jest", "cos", "czy", "moze", "jeszcze", "teraz", "tez"}
 
 
 # ── the other way round: the child thinks, Luna asks ─────────────────────────
@@ -251,7 +294,8 @@ def _answer_reverse(text, speak):
     low = text.lower().strip(" .!?")
     words = re.findall(r"\w+", low)
     r["t"] = time.time()
-    if re.search(r"\b(?:" + "|".join(map(re.escape, _STOP)) + r")\b", low) and len(words) <= 4:
+    if (re.search(r"\b(?:" + "|".join(map(re.escape, _STOP)) + r")\b", low) and len(words) <= 4) \
+            or _QUIT.match(low):
         _r = None
         speak("Dobrze, kończymy. Dzięki za grę!")
         return True
@@ -273,6 +317,11 @@ def _answer_reverse(text, speak):
             _listen_longer()
             return True
         _r = None
+        if re.search(r"\b(?:żadnym|zadnym|nic|niczym|nie\s+powiem|tajemnic\w*|sekret\w*)\b", low):
+            # "O żadnym" became "Aha, O żabnie!" (11 Oct)
+            speak("Tajemnica? Dobrze! Następnym razem zgadnę!")
+            return True
+        name = _revealed(text) or (name[:1].lower() + name[1:])
         speak(f"Aha, {name or 'rozumiem'}! Sprytnie. Następnym razem zgadnę!")
         return True
     if any(k in low for k in ("poddajesz", "poddaj się", "poddaj sie")):
@@ -280,7 +329,25 @@ def _answer_reverse(text, speak):
         speak("Dobrze, poddaję się! O jakim zwierzęciu myślisz?")
         _listen_longer()
         return True
+    if re.search(r"\bpyta[ńn]\b|\bpytania\b", low) and not _YES.match(low) and not _NO.match(low):
+        # "Zostało ci dziesięć pytań" went to the model, which guessed on its own
+        left = MAX_QUESTIONS - r["asked"]
+        speak(f"Zadałam już {r['asked']}, zostało mi {left}. " + (r["q"] or ""))
+        _listen_longer()
+        return True
+    told = _revealed(text)
+    if told and not (r["guess"] and _same_animal(told, r["guess"])):
+        # "Wydra." — the secret said straight out (11 Oct: "Odpowiedz mi: tak,
+        # nie albo nie wiem", and the model played on without the game)
+        _r = None
+        speak(f"Aha, {told}! Nie wpadłam na to — sprytnie. Zagramy jeszcze raz?")
+        return True
     yes, no = bool(_YES.match(low)), bool(_NO.match(low))
+    # "Coś podobnego, ale to nie bóbr" — a no to the guess, said in a sentence
+    if r["guess"] and not (yes or no) and any(
+            re.search(r"\bnie\s+(?:\w+\s+)?" + re.escape(w) + r"\b", low)
+            for w in re.findall(r"\w+", low) if _same_animal(w, r["guess"])):
+        no = True
     unsure = bool(_UNSURE.search(low)) and not yes
     if not (yes or no or unsure):
         if len(words) > 8:
@@ -330,8 +397,11 @@ def answer(text, speak):
         with state.lock:
             speaker = state.person[0] if state.person else None
         game = _g or _r
+        # (a game word — "nie gramy", "ale to nie bóbr", "wydra" — is the game's
+        # whoever the camera thinks is talking: with Maja and Andrzej both at
+        # the desk her answers went to the model, 11 Oct)
         if game and game.get("player") and speaker and speaker != game["player"] \
-                and len(low.split()) >= 4:
+                and len(low.split()) >= 4 and not _for_game(low, game):
             return False                         # someone else talks: the game waits (#514)
         if _r is not None:
             return _answer_reverse(text, speak)
@@ -340,7 +410,8 @@ def answer(text, speak):
             return False
         g["t"] = time.time()
         words = re.findall(r"\w+", low)
-        if re.search(r"\b(?:" + "|".join(map(re.escape, _STOP)) + r")\b", low) and len(words) <= 4:
+        if (re.search(r"\b(?:" + "|".join(map(re.escape, _STOP)) + r")\b", low)
+                and len(words) <= 4) or _QUIT.match(low):
             _g = None
             speak(f"Dobrze. Moje zwierzę to {g['animal']}.")
             return True
