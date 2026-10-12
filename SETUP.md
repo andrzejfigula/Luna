@@ -156,7 +156,8 @@ stars, records, dictation words), `relations.json`, `day.json` / `diary.json`
 person was last seen), `history.json` (the last 30 min of conversation, so a
 restart doesn't cut it), `story.json` (the last bedtime story),
 `greeted.json`, `usage.json` (API calls per day), `tts_cache/` (short lines
-she has said, played offline), `backups/`. "Luna, zapomnij wszystko" wipes the
+she has said, played offline), `backups/`, `drawings/`, `webphotos/`, `flags/`
+and `animals/` (pictures for the quizzes). "Luna, zapomnij wszystko" wipes the
 memory and the conversation history.
 
 ## How a conversation flows
@@ -287,6 +288,20 @@ front of the camera for 30 s the face goes to sleep.
 - Drawing (`drawing.py`): "narysuj mi jednorożca" → a picture from OpenAI's
   image model (gpt-image-1-mini, low quality, ~1 cent) in a children's-book
   style, shown as a polaroid; `DRAW_PER_DAY` caps it, kept in `data/drawings`.
+- Real photos (`webphoto.py`): "pokaż mi zdjęcie żyrafy", "jak wygląda Mars?"
+  → the lead photo of the Polish (else English) Wikipedia article the small
+  model names, checked by OpenAI's moderation with child thresholds; "pokaż
+  inne zdjęcie" goes through the article's other photos. No photo / not for
+  a child → she draws it. Kept in `data/webphotos` (the newest 20).
+- Status bar (`statusbar.py`): a thin strip along the top — the weather now
+  (from the last forecast), date and time on the right; internet, listening /
+  thinking / speaking, radio, timers, alarm, reminders, messages, quiet and
+  mic / camera off on the left. "Ukryj pasek" / "pokaż pasek".
+- Picture quizzes (`quiz.py`, kinds "flags" and "animals"): a flag or an
+  animal photo, "jaki to kraj?" / "jakie to zwierzę?"; the pictures are
+  fetched once in the background (`quiz.prefetch_pictures`, from backup.py)
+  into `data/flags`, `data/animals`, then work offline. "Zgadnij, o czym
+  myślę" (20 pytań, she guesses) asks from the animal table in `twenty_kb.py`.
 - A child's sums (`homework.py`): a result in a reply to a child (or with a
   child in view) is swapped for a hint before it is spoken; their own answer
   is judged in code. The Moon (`moon.py`): phase, next full / new moon.
