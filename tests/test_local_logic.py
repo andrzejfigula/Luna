@@ -2140,6 +2140,29 @@ class KidsTest(unittest.TestCase):
             self.assertIsNotNone(quiz._q)
             quiz._q = None
 
+    def test_quiz_pictures_prefetch(self):
+        import quiz
+        import quizdata
+        import twenty
+        # the flag / animal pictures fetched quietly, once; stops when offline
+        d = tempfile.mkdtemp()
+        calls = []
+
+        def flag(c, g):
+            calls.append(c)
+            p = os.path.join(d, "flags", c.lower() + ".png")
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            open(p, "wb").write(b"x" * 600)
+            return p
+        with mock.patch("config.DATA_DIR", d),                 mock.patch.object(quiz, "_flag_image", lambda c, g: flag(c, g)),                 mock.patch.object(quiz, "_animal_image",
+                                  mock.Mock(side_effect=OSError("offline"))),                 mock.patch.object(quizdata, "FLAGS", [("Polska", "Polski", ["polska"]),
+                                                      ("Czechy", "Czech", ["czechy"])]),                 mock.patch.object(twenty, "ANIMALS", [("kot", ["kot"]), ("pies", ["pies"])]):
+            self.assertEqual(quiz.prefetch_pictures(pause=0), 2)      # animals: offline
+            self.assertEqual(calls, ["Polska", "Czechy"])
+            calls.clear()
+            quiz.prefetch_pictures(pause=0)                           # already there
+            self.assertEqual(calls, [])
+
     def test_flag_quiz(self):
         import quiz
         import quizdata

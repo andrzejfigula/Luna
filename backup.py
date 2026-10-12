@@ -49,12 +49,25 @@ def backup_now():
     return dest
 
 
+def _pictures():
+    """The quizzes' flag and animal pictures, fetched once (quiz.py)."""
+    try:
+        import quiz
+        quiz.prefetch_pictures()
+    except Exception as e:
+        print(f"[quiz] pictures failed: {e}", flush=True)
+
+
 def _loop():
     while True:
         try:
             backup_now()
         except Exception as e:
             print(f"[backup] failed: {e}", flush=True)
+        # (10 min after a start: not while she is still waking up)
+        t = threading.Timer(600, _pictures)
+        t.daemon = True
+        t.start()
         time.sleep(3 * 3600)
 
 

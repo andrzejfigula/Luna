@@ -525,6 +525,40 @@ def _animal_image(name):
 _fetching = threading.Lock()
 
 
+def prefetch_pictures(pause=3.0):
+    """The flag and animal pictures not on disk yet, fetched quietly (backup.py
+    runs this now and then): the first quiz is instant then, and works offline.
+    Stops at the first network failure; returns how many were fetched."""
+    import os
+    import quizdata
+    import twenty
+    from config import DATA_DIR
+    got = 0
+    todo = [("flag", c, g) for c, g, _ in quizdata.FLAGS] + \
+           [("animal", n, None) for n, _ in twenty.ANIMALS if n != "ryba"]
+    for what, name, gen in todo:
+        sub = "flags" if what == "flag" else "animals"
+        ext = ".png" if what == "flag" else ".jpg"
+        path = os.path.join(DATA_DIR, sub, re.sub(r"\W+", "_", name.lower()) + ext)
+        if os.path.exists(path) and os.path.getsize(path) > 500:
+            continue
+        try:
+            _flag_image(name, gen) if what == "flag" else _animal_image(name)
+            got += 1
+        except OSError as e:                     # no network: try another day
+            print(f"[quiz] pictures: stopped ({e})", flush=True)
+            break
+        except Exception as e:                   # just this one (not for a child…)
+            if "Connection" in type(e).__name__ or "Timeout" in type(e).__name__:
+                print(f"[quiz] pictures: stopped ({e})", flush=True)   # the API is unreachable
+                break
+            print(f"[quiz] pictures: no {name} ({e})", flush=True)
+        time.sleep(pause)
+    if got:
+        print(f"[quiz] pictures: {got} fetched for the flag / animal quizzes", flush=True)
+    return got
+
+
 def _flag_image(country, gen):
     """The flag's picture: DATA_DIR/flags/<country>.png, from Wikipedia the
     first time (then offline). Raises when it can't be had."""
