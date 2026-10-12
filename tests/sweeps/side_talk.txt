@@ -1,0 +1,8 @@
+Andrzej+Emilka|~Ile mi dziubanku przelałeś?
+Andrzej+Emilka|~Powiedziałbyś, że takie okrągłe jest?
+Andrzej+Emilka|~A widziałeś, gdzie położyłam klucze?
+Emilka|~Co narysowałaś?
+Maja|~Zrobiłaś to, co mówiłam?
+Andrzej|Ile masz lat?
+Maja|Co dziś robiłaś?
+Andrzej|Przypomnij mi, co mówiłeś wczoraj

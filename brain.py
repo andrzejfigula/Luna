@@ -464,6 +464,19 @@ def _alone_request(text):
     return not (recent and [o for o in (others or []) if o != person[0]])
 
 
+# "Ile mi przelałeś?", "powiedziałbyś…" — a man is asked; she is "ty zrobiłaś"
+# (12 Oct 13:32, Andrzej and Emilka after a drawing, the window still open:
+# "Ile mi dziubanku przelałeś?" → "niczego nie przelałam, nie robię przelewów")
+_TO_A_MAN = re.compile(r"\b\w{2,}(?:łeś|łbyś)\b")
+
+
+def _to_a_man(text):
+    """Said to a man, not to her (her name not in it nor just said)."""
+    low = (text or "").lower()
+    return (bool(_TO_A_MAN.search(low)) and not re.search(r"\bluna\b|\bluno\b", low)
+            and not _just_called(text) and not translator())
+
+
 def _how_long_only(text):
     """"Jak długo gotować jajko?" / "Ile minut piec ciasto?" — asked how long,
     nothing asked to be set ("…i nastaw minutnik" is both)."""
@@ -1229,6 +1242,12 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
     the first sentence spoken while the model is still writing the rest."""
     if _client is None:
         return None
+    if not _forced and _to_a_man(text):
+        print("[brain] said to a man (\"…łeś\") — not to me, staying quiet", flush=True)
+        with state.lock:                         # they talk to each other: stop
+            state.conversation_active = False    # listening (next time: "Luna")
+        return "", "neutral", "none"
+
     lang = translator()
     if lang:
         # The rule in the system prompt alone was ignored in testing (she

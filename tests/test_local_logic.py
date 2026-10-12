@@ -2488,6 +2488,30 @@ class KidsTest(unittest.TestCase):
         self.assertTrue(brain._ABOUT_DRAWING.search("Masz dodać kolorowy sweter"))
         self.assertEqual(drawing._first_word("Maja: kot w ręce"), "maja")   # "Maja:" no name
 
+    def test_side_talk_to_a_man(self):
+        import brain
+        # 12 Oct 13:32: "Ile mi dziubanku przelałeś?" (to Andrzej) was answered
+        with mock.patch.object(brain, "_just_called", lambda t="", secs=12: False), \
+                mock.patch.object(brain, "translator", lambda: None):
+            self.assertTrue(brain._to_a_man("Ile mi dziubanku przelałeś?"))
+            self.assertTrue(brain._to_a_man("Powiedziałbyś, że takie okrągłe jest?"))
+            self.assertFalse(brain._to_a_man("Luna, co narysowałeś?"))     # her name
+            self.assertFalse(brain._to_a_man("Co narysowałaś?"))           # to her
+            self.assertFalse(brain._to_a_man("Byłem dziś w sklepie"))
+        with mock.patch.object(brain, "_just_called", lambda t="", secs=12: True):
+            self.assertFalse(brain._to_a_man("Ile mi przelałeś?"))         # "Luna" a moment ago
+        import drawing
+        # "A teraz ze zdjęcia" after "narysuj Emilkę" — Emilka, from the camera
+        drawing._last_what[0], drawing._last_cam[0] = "Emilkę", False
+        drawing._last[0] = time.time() - 30
+        calls = []
+        with mock.patch.object(drawing, "_camera_jpeg", lambda: b"jpg"), \
+                mock.patch.object(drawing, "draw", lambda w, s, intro="", english=False,
+                                  photo=None: calls.append((w, photo)) or True):
+            self.assertTrue(drawing.handle("A teraz ze zdjęcia.", lambda t: None))
+            self.assertFalse(drawing.handle("A teraz", lambda t: None))
+        self.assertEqual(calls, [("Emilkę", b"jpg")])
+
     def test_web_photo(self):
         import drawing
         import webphoto

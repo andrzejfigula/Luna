@@ -312,12 +312,16 @@ _SHOW_OF = re.compile(r"^(?:luna,?\s+)?(?:pokaż|pokaz)\s+(?:mi\s+|nam\s+)?(?:ja
 _AGAIN = re.compile(r"^(?:(?:no\s+)?dobra,?\s+|dobrze,?\s+)?(?:luna,?\s+)?(?:narysuj\s+)?"
                     r"(?:jeszcze\s+raz|jeszcze\s+jeden(?:\s+raz)?|znowu|ponownie)"
                     r"(?:,?\s+(ze\s+zdjęcia|ze\s+zdjecia|z\s+kamery))?[.!?]*$", re.I)
+# "A teraz ze zdjęcia" (12 Oct 13:32, after "narysuj Emilkę": the model drew
+# "mnie" from the camera instead, after two sentences)
+_NOW_PHOTO = re.compile(r"^(?:a\s+)?(?:luna,?\s+)?(?:a\s+)?(?:teraz|to\s+teraz|a\s+może|a\s+moze)"
+                        r",?\s+(ze\s+zdjęcia|ze\s+zdjecia|z\s+kamery)[.!?]*$", re.I)
 AGAIN_SECS = 300               # "jeszcze raz ze zdjęcia" — a bare "jeszcze raz"
 BARE_AGAIN_SECS = 90           # only right after (a game's "jeszcze raz" comes later)
 
 
 def handle(text, speak):
-    again = _AGAIN.match((text or "").strip())
+    again = _AGAIN.match((text or "").strip()) or _NOW_PHOTO.match((text or "").strip())
     bare = again and not again.group(1) and not re.search(r"narysuj", text, re.I)
     if again and _last_what[0] and time.time() - _last[0] < (BARE_AGAIN_SECS if bare
                                                              else AGAIN_SECS):
