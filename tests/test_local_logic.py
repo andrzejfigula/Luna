@@ -2799,6 +2799,24 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(speech_to_text.latin_if_polish("Tak.", "tak"), "Tak.")
         self.assertIsNone(speech_to_text.latin_if_polish(None, "tak"))
 
+    def test_web_photo_again(self):
+        import webphoto
+        # "Pokaż to jeszcze raz" — the photo is gone after 40 s; the same one again
+        f = tempfile.mktemp(suffix=".jpg")
+        open(f, "wb").close()
+        now = time.time()
+        with mock.patch.dict(webphoto._shown, {"title": "Saturn (planeta)", "path": f,
+                                               "at": now - 120}, clear=True):
+            self.assertTrue(webphoto.again_wanted("Pokaż to jeszcze raz", now))
+            self.assertFalse(webphoto.again_wanted("Jeszcze raz", now))       # bare: 90 s only
+            self.assertTrue(webphoto.again_wanted("Jeszcze raz", now - 60))
+            self.assertFalse(webphoto.again_wanted("Narysuj jeszcze raz", now))
+            said = []
+            webphoto.show_again(said.append)
+            self.assertEqual(said[-1], "Proszę — Saturn.")
+        with mock.patch.dict(webphoto._shown, {}, clear=True):
+            self.assertFalse(webphoto.again_wanted("Pokaż to jeszcze raz", now))
+
     def test_web_photo_another(self):
         import drawing
         import webphoto

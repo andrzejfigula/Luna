@@ -180,7 +180,7 @@ def _present(img, title, url, line):
     with state.lock:
         state.overlay = ("photo", time.time() + 40, out)
     print(f"[webphoto] {title} ({url.split('?')[0]})", flush=True)
-    _shown.update(at=time.time())
+    _shown.update(at=time.time(), path=out)
     _shown.setdefault("used", set()).add(_key(url))
     say(line)
     with state.lock:
@@ -245,6 +245,30 @@ _MORE = re.compile(r"^(?:luna,?\s+)?(?:a\s+|i\s+|no\s+to\s+)?(?:(?:pokaż|pokaz)
 # not a photo of the thing: maps, charts, coats of arms, logos
 _NOT_A_PHOTO = re.compile(r"map|diagram|schemat|logo|flag|herb|wykres|chart|interior|range|"
                           r"zasięg|zasieg|distribution|locator|icon|ikona|signature|podpis", re.I)
+
+
+_AGAIN = re.compile(r"^(?:luna,?\s+)?(?:a\s+)?(?:(?:pokaż|pokaz)\s+(?:mi\s+|nam\s+)?"
+                    r"(?:to|je|ją|ja|go|tę\s+\w+|to\s+zdjęcie|zdjęcie)?\s*)?"
+                    r"(?:jeszcze\s+raz|znowu|ponownie)(?:\s+(?:to\s+)?zdjęcie)?[.!?]*$", re.I)
+AGAIN_SECS = 600
+
+
+def again_wanted(text, now=None):
+    """"Pokaż to jeszcze raz" just after a photo of hers (it's gone from the
+    screen after 40 s): the same picture, from disk."""
+    now = now if now is not None else time.time()
+    # a bare "jeszcze raz" only right after (a game's "Zagramy jeszcze raz?" comes later)
+    secs = AGAIN_SECS if re.search(r"pokaż|pokaz|zdję|zdje", text or "", re.I) else 90
+    return bool(_AGAIN.match((text or "").strip()) and _shown.get("path")
+                and os.path.exists(_shown["path"]) and now - _shown.get("at", 0) < secs)
+
+
+def show_again(speak):
+    from shared_state import state
+    with state.lock:
+        state.overlay = ("photo", time.time() + 40, _shown["path"])
+    speak(f"Proszę — {spoken(_shown.get('title', ''))}." if _shown.get("title") else "Proszę.")
+    return True
 
 
 def more_wanted(text, now=None):

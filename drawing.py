@@ -371,6 +371,8 @@ BARE_AGAIN_SECS = 90           # only right after (a game's "jeszcze raz" comes 
 
 def handle(text, speak):
     import webphoto
+    if webphoto.again_wanted(text) and webphoto._shown.get("at", 0) >= _last[0]:
+        return webphoto.show_again(speak)           # "pokaż to jeszcze raz" (the photo)
     if webphoto.more_wanted(text) and webphoto._shown.get("at", 0) >= _last[0]:
         # "pokaż inne zdjęcie" / "jeszcze jedno" after a Wikipedia photo (not
         # after a drawing — then "jeszcze raz" is a new drawing, below)
