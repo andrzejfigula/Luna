@@ -302,6 +302,11 @@ def deliver(who, speak):
         said = _phrase(e)
         print(f"[errands] telling {who}: {said}", flush=True)
         speak(said)
+        try:
+            import brain           # "Dobrze" / "A po co?" to it makes sense then (#583)
+            brain.note_said(said)
+        except Exception:
+            pass
     today = time.strftime("%Y-%m-%d")
     with _lock:
         rest = []
