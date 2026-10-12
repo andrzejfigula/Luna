@@ -2172,6 +2172,8 @@ class KidsTest(unittest.TestCase):
         self.assertTrue(quiz._check(q, "Ameryka"))
         import brain
         self.assertTrue(brain._GAME_OK.match("zagrajmy we flagi"))
+        self.assertTrue(brain._GAME_OK.match("zróbmy quiz ze zwierząt"))
+        self.assertTrue(brain._GAME_OK.match("zagrajmy w zwierzęta"))
 
     def test_twenty_forward_guess_echo_and_facts(self):
         import twenty

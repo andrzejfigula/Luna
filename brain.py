@@ -941,7 +941,8 @@ use something, explain in your own words, briefly, a few examples at a time
   for a person ("nagraj wiadomość dla Emilki")
 - for kids: riddles ("zadaj mi zagadkę"), a dictation checked on paper with
   your camera ("zróbmy dyktando"), maths and English quizzes, a flag quiz with
-  the flag on your screen ("zagrajmy we flagi"), reading a book page aloud
+  the flag on your screen ("zagrajmy we flagi"), an animal quiz with real photos
+  ("zróbmy quiz ze zwierząt"), reading a book page aloud
   ("przeczytaj mi tę stronę"), homework hints
 - the weather once someone says "pogoda dla <town>", the news ("jakie są
   wiadomości?"), a coloured night lamp ("lampka na niebiesko"); you can DRAW a
@@ -1721,7 +1722,8 @@ _GAME_OK = re.compile(
     r"^(?:zagrajmy\s+w\s+(?:kamień,?\s+papier,?\s+nożyce|memory|kółko\s+i\s+krzyżyk|"
     r"20\s+pytań|zegar|zgadywankę|zagadki|flagi)|zagrajmy\s+we\s+flagi|zadaj\s+mi\s+zagadkę|"
     r"zgadnij,?\s+o\s+czym\s+myślę|"
-    r"zróbmy\s+quiz\s+ze?\s+(?:matematyki|angielskiego|stolic))$", re.I)
+    r"zróbmy\s+quiz\s+ze?\s+(?:matematyki|angielskiego|stolic|zwierząt|flag)|"
+    r"zagrajmy\s+w\s+zwierzęta)$", re.I)
 # self-voiced like a game, but not a game (no game offer needed): the breathing
 # circle she invited them to ("Chodź, oddychajmy razem" → "Tak" — 7 Oct probe)
 _VOICED_OK = re.compile(r"^zróbmy\s+ćwiczenie\s+oddechowe$|"
