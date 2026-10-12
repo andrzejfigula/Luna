@@ -58,7 +58,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Koniec rozmowy | „Pa!”, „Do zobaczenia”, „Dzięki, to wszystko” — pomacha i przestanie słuchać |
 | Czeka na odpowiedź | gdy zada pytanie, słucha dłużej (+8 s) |
 | Napisy | „Włącz napisy” — na dole ekranu to, co mówi, i to, co usłyszała od Ciebie („Ty: …”); „wyłącz napisy” |
-| Pasek u góry | Jak w Macu: po prawej pogoda teraz (słońce / księżyc / chmurka / deszcz / śnieg i np. „12°”), data i godzina, po lewej to, co się dzieje — internet, czy słucha / myśli / mówi, radio, minutnik, budzik, przypomnienie, wiadomości, tryb skupienia, wyłączony mikrofon lub kamera. „Ukryj pasek” / „pokaż pasek” |
+| Pasek u góry | Jak w Macu: po prawej pogoda teraz (słońce / księżyc / chmurka / deszcz / śnieg i np. „12°”; **parasolka**, gdy w ciągu 3 godzin ma padać), data i godzina, po lewej to, co się dzieje — internet, czy słucha / myśli / mówi, radio, minutnik, budzik, przypomnienie, wiadomości, tryb skupienia, wyłączony mikrofon lub kamera. „Ukryj pasek” / „pokaż pasek” |
 | Długość odpowiedzi | „Mów krócej” — jedno krótkie zdanie; „Odpowiadaj dłużej” — więcej szczegółów; „Normalne odpowiedzi” — z powrotem |
 | Powtórz | „Powtórz”, „Co powiedziałaś?” — odtwarza ostatnią odpowiedź od razu, bez pytania chmury |
 | Bajki i dłuższe wyjaśnienia | „Opowiedz mi bajkę o smoku”, „Wyjaśnij dokładnie, jak działa…”; „Opowiedz dalszy ciąg bajki” — wczorajsza bajka toczy się dalej |

@@ -136,7 +136,11 @@ def sky(now=None):
     temp, kind, day = got
     if kind in ("clear", "partly"):
         kind += "_day" if day else "_night"
-    return kind, f"{temp}°"
+    try:
+        umbrella = kind not in ("rain", "storm") and weather.rain_soon(now)
+    except Exception:
+        umbrella = False
+    return kind, f"{temp}°", umbrella
 
 
 def _cloud(s, col, dx=0, dy=0, k=1.0):
@@ -144,6 +148,17 @@ def _cloud(s, col, dx=0, dy=0, k=1.0):
         pygame.draw.circle(s, col, (int(dx + cx * k), int(dy + cy * k)), max(2, int(r * k)))
     pygame.draw.rect(s, col, pygame.Rect(int(dx + 6 * k), int(dy + 11 * k),
                                          int(10 * k), int(5 * k)))
+
+
+def _umbrella_icon():
+    """Rain is coming (in the next few hours): a small umbrella."""
+    s = pygame.Surface((ICON, ICON), pygame.SRCALPHA)
+    col = (*DROP, 255)
+    pygame.draw.arc(s, col, pygame.Rect(2, 3, 16, 14), 0, math.pi, 3)      # the canopy
+    pygame.draw.line(s, col, (2, 10), (18, 10), 2)
+    pygame.draw.line(s, (*TEXT, 235), (10, 10), (10, 17), 2)               # the handle
+    pygame.draw.arc(s, (*TEXT, 235), pygame.Rect(6, 14, 5, 5), math.pi, 2 * math.pi, 2)
+    return s
 
 
 def _sky_icon(kind):
@@ -285,10 +300,18 @@ class StatusBar:
         if ic is None:
             ic = self._icons[("sky", weather[0])] = _sky_icon(weather[0])
         deg = self._text(weather[1])
-        w = ic.get_width() + 5 + deg.get_width() + GAP + t.get_width()
+        umb = None
+        if len(weather) > 2 and weather[2]:            # rain on its way: an umbrella first
+            umb = self._icons.get("umbrella")
+            if umb is None:
+                umb = self._icons["umbrella"] = _umbrella_icon()
+        lead = umb.get_width() + 6 if umb else 0
+        w = lead + ic.get_width() + 5 + deg.get_width() + GAP + t.get_width()
         surf = pygame.Surface((w, HEIGHT), pygame.SRCALPHA)
-        surf.blit(ic, (0, (HEIGHT - ICON) // 2))
-        surf.blit(deg, (ic.get_width() + 5, (HEIGHT - deg.get_height()) // 2))
+        if umb:
+            surf.blit(umb, (0, (HEIGHT - ICON) // 2))
+        surf.blit(ic, (lead, (HEIGHT - ICON) // 2))
+        surf.blit(deg, (lead + ic.get_width() + 5, (HEIGHT - deg.get_height()) // 2))
         surf.blit(t, (w - t.get_width(), (HEIGHT - t.get_height()) // 2))
         return surf
 

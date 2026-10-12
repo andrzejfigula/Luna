@@ -289,7 +289,9 @@ def _apply(d):
             _sky.update(hours=dict(zip(h["time"], zip(h["temperature_2m"],
                                                       h.get("weather_code") or [None] * len(h["time"])))),
                         light={t: (r, st) for t, r, st in zip(day["time"], day["sunrise"],
-                                                               day["sunset"])})
+                                                               day["sunset"])},
+                        rain=dict(zip(h["time"], h.get("precipitation_probability")
+                                      or [None] * len(h["time"]))))
         except (KeyError, TypeError):
             pass
         try:
@@ -395,6 +397,19 @@ def now(t=None):
     stamp = time.strftime("%Y-%m-%dT%H:%M", lt)
     day = bool(light) and light[0] <= stamp < light[1]
     return round(temp), kind, day
+
+
+def rain_soon(t=None, hours=3, chance=60):
+    """Rain likely in the next few hours (this one included) — the status bar's
+    umbrella. False without a forecast or with the weather off."""
+    if not enabled():
+        return False
+    t = t if t is not None else time.time()
+    with _lock:
+        rain = _sky.get("rain", {})
+        probs = [rain.get(time.strftime("%Y-%m-%dT%H:00", time.localtime(t + 3600 * i)))
+                 for i in range(hours)]
+    return any(p is not None and p >= chance for p in probs)
 
 
 def morning_note(now=None):

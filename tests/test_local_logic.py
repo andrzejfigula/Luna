@@ -2308,8 +2308,14 @@ class KidsTest(unittest.TestCase):
             self.assertEqual(weather.now(t + 7200), (-1, "snow", True))
             self.assertEqual(weather.now(t + 6 * 3600), (7, "partly", False))
             self.assertIsNone(weather.now(t + 86400))                   # no forecast for it
-            self.assertEqual(statusbar.sky(t), ("clear_day", "12°"))
-            self.assertEqual(statusbar.sky(t + 6 * 3600), ("partly_night", "7°"))
+            self.assertEqual(statusbar.sky(t), ("clear_day", "12°", False))
+            self.assertEqual(statusbar.sky(t + 6 * 3600), ("partly_night", "7°", False))
+        # rain on its way in the next hours: an umbrella beside the sun
+        with mock.patch.dict(weather._sky, dict(sky, rain={"2026-10-12T17:00": 70}), clear=True),                 mock.patch.object(weather, "enabled", lambda: True):
+            self.assertTrue(weather.rain_soon(t))                      # 15:20 → 17:00 in 3 h
+            self.assertFalse(weather.rain_soon(t - 3 * 3600))
+            self.assertEqual(statusbar.sky(t), ("clear_day", "12°", True))
+            self.assertEqual(statusbar.sky(t + 3600)[2], False)         # raining: no umbrella
         with mock.patch.object(weather, "enabled", lambda: False):
             self.assertIsNone(statusbar.sky(t))                          # "wyłącz pogodę"
 
