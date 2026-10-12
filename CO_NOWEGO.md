@@ -5,7 +5,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 
 > **Nowe (12–13.10) — warto wypróbować:**
 > „Luna, **pokaż mi zdjęcie żyrafy**”, „**jak wygląda** Mars?”, „pokaż mi słonia” — **prawdziwe zdjęcie z Wikipedii** (sprawdzone, czy nadaje się dla dzieci; jeśli nie — rysuje) · potem „**pokaż inne zdjęcie**” / „jeszcze jedno” ·
-> „**Zagrajmy we flagi**” — flaga na ekranie, zgadujesz kraj (35 krajów) ·
+> „**Zagrajmy we flagi**” — flaga na ekranie, zgadujesz kraj (35 krajów) · „**Quiz ze zwierząt**” — zdjęcie zwierzęcia, zgadujesz, co to ·
 > „**Zgadnij, o czym myślę**” — Luna zgaduje zwierzę **zwykle w ok. 10 pytaniach** i rozumie „trochę”, „raczej tak” ·
 > **pasek u góry**: po prawej pogoda (słońce / księżyc / chmurka / deszcz i temperatura), data i godzina; po lewej: internet, czy słucha / myśli / mówi, radio, minutnik, budzik… („ukryj pasek” / „pokaż pasek”) ·
 > „**Głośność na pięćdziesiąt procent**” — słownie też działa · powitania mniej powtarzalne, bez „u nas na biurku” ·
@@ -81,6 +81,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Dyktando | „Zróbmy dyktando” — Luna mówi słowo (ó/u, rz/ż, ch/h), piszesz je na kartce, pokazujesz kamerze i mówisz „gotowe”; sprawdza i podpowiada; słowa z zeszytu: „Zapamiętaj słowa do dyktanda: rzeka, góra i żaba” |
 | Dyktando z angielskiego | „Zróbmy dyktando z angielskiego” — Luna mówi słowo po polsku, piszesz je po angielsku na kartce i pokazujesz kamerze |
 | 20 pytań | „Zagrajmy w 20 pytań” — Luna myśli o zwierzęciu, pytasz „czy ma futro?”, zgadujesz „czy to kot?”; „poddaję się” |
+| Zwierzęta ze zdjęć | „**Quiz ze zwierząt**” / „zagrajmy w zwierzęta” — na ekranie prawdziwe zdjęcie zwierzęcia (39 zwierząt), mówisz, co to jest; podpowiedź: pierwsza litera |
 | Flagi | „**Zagrajmy we flagi**” / „zgadnij flagę” / „quiz z flag” — na ekranie flaga (35 krajów), mówisz, jaki to kraj; podpowiedź: pierwsza litera |
 | Zagadki | „Zadaj mi zagadkę”, „Pobawmy się w zagadki” — 3 zagadki, po złej odpowiedzi podpowiedź; „nie wiem”, „koniec” |
 | Zgadywanka | „Zagrajmy w zgadywankę” — Luna myśli o liczbie od 1 do 100, Ty zgadujesz, ona mówi „więcej” / „mniej” |

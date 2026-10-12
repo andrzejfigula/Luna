@@ -188,6 +188,12 @@ def trigger(text):
             r"\b(?:zgad\w*|quiz\w*|kwiz\w*|zagraj\w*|pobaw\w*|przepytaj|sprawdź|sprawdz|"
             r"pytaj|ucz\w*|naucz\w*|poćwicz\w*|pocwicz\w*|gra\w*)\b", low):
         return "flags"                         # "zgadnij flagę", "quiz z flag" (13 Oct)
+    if re.search(r"\bzwierz", low) and (
+            re.search(r"\bquiz\w*|\bkwiz\w*", low) or (
+                re.search(r"zdję|zdjec|obrazk", low) and re.search(
+                    r"\b(?:zgad\w*|zagraj\w*|pobaw\w*|przepytaj|pokaż|pokaz|gra\w*)\b", low))
+            or re.match(r"(?:luna,?\s+)?(?:zagrajmy|pobawmy\s+się)\s+w\s+zwierzęta\W*$", low)):
+        return "animals"                       # "quiz ze zwierząt" — a photo, "jakie to zwierzę?"
     if any(g in low for g in _GUESS):
         return "guess"
     if re.search(r"\b(?:czytani\w*|poczytaj\w*|czytać|czytac)\b", low) and re.search(
@@ -430,6 +436,12 @@ def _new_question(q):
         q.update(card="stolica?", say=question, answer=[a.lower() for a in accept],
                  reveal=accept[0], right=f"To {accept[0]}.")
         return
+    if q["kind"] == "animals":
+        name, forms = (q.get("upcoming") or [None]).pop(0) or _pick_animal(seen)
+        seen.add(name)
+        q.update(card="?", say="Jakie to zwierzę?", answer=[f.lower() for f in forms],
+                 image=_animal_image(name), reveal=name, right=f"To {name}!")
+        return
     if q["kind"] == "flags":
         import quizdata
         country, gen, accept = quizdata.pick_flag(seen)
@@ -476,6 +488,41 @@ def _new_question(q):
     q.update(card=f"{a} {_SYM[op]} {b} = ?", say=f"Ile to jest {a} {_WORD[op]} {b}?",
              answer=res, reveal=f"{a} {_SYM[op]} {b} = {res}",
              right=f"{a} {_WORD[op]} {b} to {res}.")
+
+
+def _pick_animal(seen):
+    import twenty
+    pool = [a for a in twenty.ANIMALS if a[0] not in seen and a[0] != "ryba"]
+    return random.choice(pool or twenty.ANIMALS[:-1])
+
+
+def _animal_image(name):
+    """A photo of the animal: DATA_DIR/animals/<name>.jpg, found on Wikipedia
+    (webphoto.py — the child moderation too) the first time, then offline."""
+    import os
+    import webphoto
+    from config import DATA_DIR
+    d = os.path.join(DATA_DIR, "animals")
+    path = os.path.join(d, re.sub(r"\W+", "_", name.lower()) + ".jpg")
+    if os.path.exists(path) and os.path.getsize(path) > 500:
+        return path
+    with _fetching:
+        if os.path.exists(path) and os.path.getsize(path) > 500:
+            return path                    # (the prefetch got there first)
+        c = webphoto._client()
+        found = webphoto.pick(c, name)
+        if not found:
+            raise ValueError(f"no photo of {name}")
+        img = webphoto._download(found[1])
+        if not webphoto.safe(c, name, img):
+            raise ValueError(f"the photo of {name} isn't for a child")
+        os.makedirs(d, exist_ok=True)
+        with open(path, "wb") as f:
+            f.write(img)
+    return path
+
+
+_fetching = threading.Lock()
 
 
 def _flag_image(country, gen):
@@ -529,7 +576,7 @@ def _check(q, text):
         if q["streak"] >= 2 and q.get("level", 1) < 2:
             q["level"] = 2                     # two right in a row: five-minute steps
         return ok
-    if q["kind"] in ("capitals", "flags"):
+    if q["kind"] in ("capitals", "flags", "animals"):
         # every letter, not only Polish ones: "Brasília", "Reykjavík" (_norm
         # dropped the í and a right answer didn't count)
         said = " ".join(w for w in re.findall(r"\w+", text.lower()) if w not in _EN_FILL)
@@ -612,10 +659,11 @@ def _ask(speak):
         with state.lock:
             state.overlay = ("clockface", time.time() + EXPIRE_SECS,
                              {"h": h, "m": m, "sub": f"zegar · {q['n']} z {q['total']}"})
-    elif q["kind"] == "flags":               # the flag itself, in the photo frame
+    elif q["kind"] in ("flags", "animals"):  # the picture itself, in the photo frame
         with state.lock:
             state.overlay = ("photo", time.time() + EXPIRE_SECS,
-                             {"path": q["image"], "sub": f"flagi · {sub}"})
+                             {"path": q["image"], "sub": ("flagi" if q["kind"] == "flags"
+                                                          else "zwierzęta") + f" · {sub}"})
     else:
         _card(q["card"], ("po angielsku · " if q["kind"] == "words" else "") + sub)
     speak(q["say"])
@@ -644,6 +692,19 @@ def start(kind, text, speak, play_sound_async):
             if words:
                 _q["words"] = words
                 _q["total"] = min(len(words), 10)
+        if kind == "animals":                    # all five now, their photos fetched
+            picks = []                           # meanwhile (the first time ~3 s each)
+            for _ in range(_q["total"]):
+                picks.append(_pick_animal({p[0] for p in picks}))
+            _q["upcoming"] = list(picks)
+
+            def prefetch(names=[p[0] for p in picks]):
+                for n in names:
+                    try:
+                        _animal_image(n)
+                    except Exception as e:
+                        print(f"[quiz] no photo of {n}: {e}", flush=True)
+            threading.Thread(target=prefetch, daemon=True, name="animals").start()
         if kind in ("mul", "div", "add", "sub", "mix", "words", "capitals", "flags") and re.search(
                 r"\b(na\s+czas|szybk\w*|wyścig\w*|wyscig\w*|na\s+wyścigi)\b", text.lower()):
             _q["race"] = True                  # a race: the time counts, records kept
@@ -673,6 +734,8 @@ def start(kind, text, speak, play_sound_async):
         speak(f"Quiz ze stolic! {total} pytań.")
     elif kind == "flags":
         speak(f"Quiz z flag! Pokażę flagę, a ty powiedz, jaki to kraj. {total} pytań.")
+    elif kind == "animals":
+        speak(f"Quiz ze zwierząt! Pokażę zdjęcie, a ty powiedz, jakie to zwierzę. {total} pytań.")
     elif kind == "clock":
         speak(f"Uczymy się zegara! Krótka wskazówka to godziny, długa to minuty. "
               f"{total} pytań.")
@@ -991,6 +1054,8 @@ def _hint_for(q):
         return f"Podpowiedź: to miasto zaczyna się na literę {ans[0][0].upper()}."
     if kind == "flags" and isinstance(ans, list) and ans:
         return f"Podpowiedź: ten kraj zaczyna się na literę {ans[0][0].upper()}."
+    if kind == "animals" and isinstance(ans, list) and ans:
+        return f"Podpowiedź: to zwierzę zaczyna się na literę {ans[0][0].upper()}."
     if isinstance(ans, list) and ans and isinstance(ans[0], str):
         return f"Podpowiedź: to słowo zaczyna się na literę {ans[0][0].upper()}."
     if isinstance(ans, str) and ans:

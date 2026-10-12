@@ -2106,6 +2106,37 @@ class KidsTest(unittest.TestCase):
         qa = [(q, "tak") for _, q in twenty_kb.QUESTIONS[:12]]
         self.assertIsNone(twenty._table_move(qa, 12))
 
+    def test_animal_photo_quiz(self):
+        import quiz
+        import twenty
+        from shared_state import state
+        # 13 Oct: a photo of an animal, "Jakie to zwierzę?"
+        for t in ("Quiz ze zwierząt", "Zagrajmy w zwierzęta", "Zgadywanie zwierząt ze zdjęć",
+                  "Pokaż mi zdjęcia zwierząt, a ja zgadnę"):
+            self.assertEqual(quiz.trigger(t), "animals", t)
+            self.assertFalse(twenty.wants(t), t)
+        for t in ("Zgadnij, o jakim zwierzęciu myślę", "Zagrajmy w 20 pytań",
+                  "Zgadnij jakie zwierzę"):
+            self.assertNotEqual(quiz.trigger(t), "animals", t)
+            self.assertTrue(twenty.wants(t), t)
+        said = []
+        with mock.patch.object(quiz, "_animal_image", lambda n: f"/tmp/{n}.jpg"), \
+                mock.patch.object(quiz, "_pick_animal",
+                                  lambda seen: ("żyrafa", ["żyrafa", "żyrafę"])), \
+                mock.patch.object(quiz.threading, "Thread", lambda *a, **k: mock.Mock()):
+            quiz.start("animals", "Quiz ze zwierząt", said.append, lambda n: None)
+            self.assertIn("Quiz ze zwierząt", said[0])
+            self.assertEqual(said[-1], "Jakie to zwierzę?")
+            with state.lock:
+                kind, _, data = state.overlay
+            self.assertEqual((kind, data["path"]), ("photo", "/tmp/żyrafa.jpg"))
+            self.assertIn("zwierzęta", data["sub"])
+            q = quiz._q
+            self.assertTrue(quiz._check(q, "To żyrafa!"))
+            self.assertFalse(quiz._check(q, "zebra"))
+            self.assertIn("literę Ż", quiz._hint_for(q))
+            quiz._q = None
+
     def test_flag_quiz(self):
         import quiz
         import quizdata

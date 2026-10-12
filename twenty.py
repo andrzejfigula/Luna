@@ -87,6 +87,8 @@ _g = None              # {"animal", "forms", "asked", "t", "said_no": set()}
 
 def wants(text):
     low = text.lower()
+    if re.search(r"zdję|zdjec|obrazk|\bquiz|\bkwiz", low):
+        return False                       # the photo quiz (quiz.py, "animals")
     return ((any(k in low for k in _START) or bool(_REVERSE.search(low)))
             and len(re.findall(r"\w+", low)) <= 10)
 
