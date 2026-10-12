@@ -2864,6 +2864,9 @@ class KidsTest(unittest.TestCase):
             self.assertTrue(webphoto.more_wanted("pokaż inne zdjęcie", now + 200))
         with mock.patch.dict(webphoto._shown, {}, clear=True):
             self.assertFalse(webphoto.more_wanted("Pokaż inne zdjęcie", now))      # no photo yet
+            said = []
+            self.assertTrue(drawing.handle("Pokaż inne zdjęcie", said.append))
+            self.assertIn("Najpierw powiedz", said[-1])
         a = ("https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9f/Giraffe_standing.jpg/"
              "960px-Giraffe_standing.jpg?utm_source=x")
         b = "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/Giraffe_standing.jpg/960px-x.jpg"

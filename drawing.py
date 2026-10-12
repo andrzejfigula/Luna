@@ -373,6 +373,13 @@ def handle(text, speak):
     import webphoto
     if webphoto.again_wanted(text) and webphoto._shown.get("at", 0) >= _last[0]:
         return webphoto.show_again(speak)           # "pokaż to jeszcze raz" (the photo)
+    if not webphoto._shown.get("title") and webphoto._MORE.match((text or "").strip()) \
+            and re.search(r"zdję|zdje", text or "", re.I):
+        # "Pokaż inne zdjęcie" with none shown yet: the model said "Jasne —
+        # pokazuję inne zdjęcie" and nothing came (13 Oct sweep)
+        speak("Najpierw powiedz, czego zdjęcie mam pokazać — na przykład: "
+              "pokaż mi zdjęcie żyrafy.")
+        return True
     if webphoto.more_wanted(text) and webphoto._shown.get("at", 0) >= _last[0]:
         # "pokaż inne zdjęcie" / "jeszcze jedno" after a Wikipedia photo (not
         # after a drawing — then "jeszcze raz" is a new drawing, below)

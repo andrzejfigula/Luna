@@ -1,0 +1,13 @@
+Maja|Pokaż mi flagę Francji
+Maja|Jak wygląda flaga Niemiec?
+Maja|Pokaż inne zdjęcie
+Andrzej|Jak wygląda Kopernik?
+Andrzej|Pokaż mi Kraków
+Maja|Jak wygląda pogoda jutro?
+Maja|Zagrajmy we flagi
+Maja|Koniec
+Maja|Quiz ze zwierząt
+Maja|Koniec
+Maja|Zgadnij, o czym myślę
+Maja|Koniec
+Maja|Pokaż mi zdjęcie dinozaura
