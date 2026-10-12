@@ -141,8 +141,25 @@ def _yes_no(animal, question):
         messages=[{"role": "user", "content":
                    f"Gra w 20 pytań. Sekretne zwierzę to: {animal}. Dziecko pyta: "
                    f"\"{question}\". Odpowiedz zgodnie z prawdą o typowym przedstawicielu "
-                   "tego gatunku. Zwróć JSON {\"answer\": \"tak\" | \"nie\" | \"czasem\"}."}])
+                   "tego gatunku, tak jak zrozumie to 8-latek. " + _kb_facts(animal) +
+                   "Zwróć JSON {\"answer\": \"tak\" | \"nie\" | \"czasem\"}."}])
     return json.loads(r.choices[0].message.content).get("answer", "?")
+
+
+def _kb_facts(animal):
+    """What a child would answer about it (twenty_kb), for the model to stay
+    consistent: "Czy ma długie uszy?" → "Tak!" for a mouse (11 Oct, Maja then
+    guessed a rabbit)."""
+    try:
+        import twenty_kb
+        row = twenty_kb.ANIMALS.get(animal)
+        if not row:
+            return ""
+        said = [f"{q} {'tak' if v == 1 else 'nie'}" for (_, q), v in zip(twenty_kb.QUESTIONS, row)
+                if v in (0, 1)]
+        return "Jak odpowiada dziecko o tym zwierzęciu: " + "; ".join(said) + ". "
+    except Exception:
+        return ""
 
 
 def _guessed(text, forms):
@@ -553,7 +570,12 @@ def answer(text, speak):
                 speak(f"Tak! To {g['animal']}! Udało się w {g['asked']} pytaniach." +
                       (f" Za tak szybkie zgadnięcie gwiazdka! Masz już {stars}." if stars else ""))
                 return True
-            speak(f"Nie, to nie {named}. Pytaj dalej!")
+            # their own words: "Czy to jest świnka morska?" got "Nie, to nie świnia"
+            # (11 Oct — "świnka" is one of świnia's forms)
+            m = re.search(r"(?:\bto(?:\s+jest)?|zgaduj\w*|może\s+to|moze\s+to)\s+"
+                          r"((?:\w+\s+){0,2}\w+)\s*\W*$", low)
+            said = m.group(1) if m and _names_an_animal(m.group(1)) else named
+            speak(f"Nie, to nie {said}. Pytaj dalej!")
             _listen_longer()
             return True
         # hint / questions left / repeat are part of the game (7 Oct probe:

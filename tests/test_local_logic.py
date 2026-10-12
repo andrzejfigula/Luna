@@ -2142,6 +2142,29 @@ class KidsTest(unittest.TestCase):
         import brain
         self.assertTrue(brain._GAME_OK.match("zagrajmy we flagi"))
 
+    def test_twenty_forward_guess_echo_and_facts(self):
+        import twenty
+        from shared_state import state
+        # 11 Oct (mysz): "Czy to jest świnka morska?" → "Nie, to nie świnia"
+        said = []
+        twenty._g = {"animal": "mysz", "forms": ["mysz", "myszka", "myszkę"], "asked": 0,
+                     "t": time.time(), "player": "Maja"}
+        with state.lock:
+            state.person = ("Maja", 0.7, time.time())
+        try:
+            twenty.answer("Czy to jest świnka morska?", said.append)
+            self.assertEqual(said[-1], "Nie, to nie świnka morska. Pytaj dalej!")
+            twenty.answer("Czy to kot?", said.append)
+            self.assertEqual(said[-1], "Nie, to nie kot. Pytaj dalej!")
+        finally:
+            twenty._g = None
+        # …and "Czy ma długie uszy?" → "Tak!" for a mouse: the model is told what
+        # a child would say about it
+        facts = twenty._kb_facts("mysz")
+        self.assertIn("Czy ma długie uszy? nie", facts)
+        self.assertIn("Czy twoje zwierzę ma futro albo sierść? tak", facts)
+        self.assertEqual(twenty._kb_facts("pancernik"), "")
+
     def test_twenty_reverse(self):
         import twenty
         for t in ("Zgadnij, o czym myślę", "Zgadnij, o jakim zwierzęciu myślę",
