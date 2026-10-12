@@ -170,7 +170,7 @@ def _fetch(lat=None, lon=None):
         "current": "temperature_2m,apparent_temperature,weather_code,wind_speed_10m,precipitation",
         "daily": "weather_code,temperature_2m_max,temperature_2m_min,"
                  "precipitation_probability_max,sunrise,sunset",
-        "hourly": "temperature_2m,precipitation_probability",
+        "hourly": "temperature_2m,precipitation_probability,weather_code",
         # a week: "czy będzie padać w weekend?" was answered from today and
         # tomorrow only — the model invented Saturday and Sunday (7 Oct probe)
         "timezone": "auto", "forecast_days": 7,
@@ -284,6 +284,15 @@ def _apply(d):
     with _lock:
         _summary, _fetched = s, time.time()
         try:
+            h, day = d["hourly"], d["daily"]
+            _sky.clear()
+            _sky.update(hours=dict(zip(h["time"], zip(h["temperature_2m"],
+                                                      h.get("weather_code") or [None] * len(h["time"])))),
+                        light={t: (r, st) for t, r, st in zip(day["time"], day["sunrise"],
+                                                               day["sunset"])})
+        except (KeyError, TypeError):
+            pass
+        try:
             _today.update(rain=d["daily"]["precipitation_probability_max"][0],
                           tmax=d["daily"]["temperature_2m_max"][0],
                           date=d["daily"]["time"][0],
@@ -354,6 +363,38 @@ def _loop():
 
 
 _today = {}        # today's rain chance and max temperature (the last fetch)
+_sky = {}          # hour → (temperature, WMO code); day → (sunrise, sunset)
+
+# WMO code → the status bar's little picture (statusbar.py)
+_KIND = {0: "clear", 1: "clear", 2: "partly", 3: "cloud", 45: "fog", 48: "fog",
+         95: "storm", 96: "storm", 99: "storm"}
+
+
+def now(t=None):
+    """(temperature, kind, daytime) for this hour, from the last forecast —
+    "kind" one of clear / partly / cloud / fog / rain / snow / storm; None
+    without a forecast (or with the weather switched off)."""
+    if not enabled():
+        return None
+    lt = time.localtime(t if t is not None else time.time())
+    hour = time.strftime("%Y-%m-%dT%H:00", lt)
+    with _lock:
+        got = _sky.get("hours", {}).get(hour)
+        light = _sky.get("light", {}).get(hour[:10])
+    if not got or got[0] is None:
+        return None
+    temp, code = got
+    if code is None:
+        kind = "cloud"
+    elif code in _KIND:
+        kind = _KIND[code]
+    elif 71 <= code <= 77 or code in (85, 86):
+        kind = "snow"
+    else:
+        kind = "rain"                       # drizzle, rain, showers
+    stamp = time.strftime("%Y-%m-%dT%H:%M", lt)
+    day = bool(light) and light[0] <= stamp < light[1]
+    return round(temp), kind, day
 
 
 def morning_note(now=None):

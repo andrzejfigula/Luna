@@ -2111,6 +2111,26 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(g("question", "Czy twoje zwierzę jest ssakiem?", "")[0], "question")
         self.assertEqual(g("question", "Czy twoje zwierzę jest kolorowe?", "")[0], "question")
 
+    def test_status_bar_weather(self):
+        import statusbar
+        import weather
+        # the weather by the clock: this hour's forecast, sun or moon by daylight
+        t = time.mktime((2026, 10, 12, 15, 20, 0, 0, 0, -1))
+        sky = {"hours": {"2026-10-12T15:00": (11.6, 1), "2026-10-12T21:00": (7.2, 2),
+                         "2026-10-12T16:00": (10.4, 63), "2026-10-12T17:00": (-0.6, 73)},
+               "light": {"2026-10-12": ("2026-10-12T07:10", "2026-10-12T18:06")}}
+        with mock.patch.dict(weather._sky, sky, clear=True), \
+                mock.patch.object(weather, "enabled", lambda: True):
+            self.assertEqual(weather.now(t), (12, "clear", True))
+            self.assertEqual(weather.now(t + 3600), (10, "rain", True))
+            self.assertEqual(weather.now(t + 7200), (-1, "snow", True))
+            self.assertEqual(weather.now(t + 6 * 3600), (7, "partly", False))
+            self.assertIsNone(weather.now(t + 86400))                   # no forecast for it
+            self.assertEqual(statusbar.sky(t), ("clear_day", "12°"))
+            self.assertEqual(statusbar.sky(t + 6 * 3600), ("partly_night", "7°"))
+        with mock.patch.object(weather, "enabled", lambda: False):
+            self.assertIsNone(statusbar.sky(t))                          # "wyłącz pogodę"
+
     def test_status_bar_items(self):
         import statusbar
         import timers

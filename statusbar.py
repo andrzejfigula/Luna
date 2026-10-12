@@ -5,7 +5,8 @@ statusbar.py — a thin bar along the top of her screen, like a Mac's menu bar.
           speaking, the radio, a timer or the stopwatch, the next wake-up
           alarm and reminder, unheard voice messages, focus or quiet time,
           and the microphone or camera switched off
-  right:  the date and the time ("niedz. 11 paź  20:45")
+  right:  the weather now (a little sun / cloud / rain and "12°", from the
+          last forecast) and the date and the time ("niedz. 11 paź  20:45")
 
 "Ukryj pasek" / "pokaż pasek" (commands.py) switch it off and on; with it
 off, the old corner icons come back (robot_face.py).
@@ -34,6 +35,8 @@ _MONTHS = ("sty", "lut", "mar", "kwi", "maj", "cze", "lip", "sie", "wrz", "paź"
 TEXT = (232, 232, 240)
 DIM = (150, 150, 165)
 RED = (255, 110, 90)
+SUN = (255, 204, 77)
+DROP = (110, 175, 255)
 
 
 def enabled():
@@ -120,6 +123,65 @@ def items(now=None):
     return out, voice
 
 
+def sky(now=None):
+    """(kind, "12°") for the corner — kind "clear_day", "partly_night", "rain"…
+    — or None (no forecast yet, the weather switched off)."""
+    try:
+        import weather
+        got = weather.now(now)
+    except Exception:
+        return None
+    if not got:
+        return None
+    temp, kind, day = got
+    if kind in ("clear", "partly"):
+        kind += "_day" if day else "_night"
+    return kind, f"{temp}°"
+
+
+def _cloud(s, col, dx=0, dy=0, k=1.0):
+    for cx, cy, r in ((6, 12, 4.5), (11, 9, 5.5), (15, 12, 4)):
+        pygame.draw.circle(s, col, (int(dx + cx * k), int(dy + cy * k)), max(2, int(r * k)))
+    pygame.draw.rect(s, col, pygame.Rect(int(dx + 6 * k), int(dy + 11 * k),
+                                         int(10 * k), int(5 * k)))
+
+
+def _sky_icon(kind):
+    """The weather in one little picture, ICON × ICON."""
+    s = pygame.Surface((ICON, ICON), pygame.SRCALPHA)
+    grey = (*TEXT, 225)
+    if kind.startswith(("clear", "partly")):
+        if kind.endswith("_day"):                         # a sun with rays
+            cx, cy, r = (10, 10, 4) if kind.startswith("clear") else (7, 7, 3)
+            pygame.draw.circle(s, (*SUN, 255), (cx, cy), r)
+            for i in range(8):
+                a = math.radians(i * 45)
+                pygame.draw.line(s, (*SUN, 255),
+                                 (cx + (r + 2) * math.cos(a), cy + (r + 2) * math.sin(a)),
+                                 (cx + (r + 4) * math.cos(a), cy + (r + 4) * math.sin(a)), 1)
+        else:                                             # a crescent moon
+            cx, cy, r = (10, 10, 6) if kind.startswith("clear") else (7, 7, 5)
+            pygame.draw.circle(s, (*SUN, 235), (cx, cy), r)
+            pygame.draw.circle(s, (0, 0, 0, 0), (cx + r // 2 + 1, cy - r // 2), r)
+        if kind.startswith("partly"):
+            _cloud(s, grey, 3, 5, 0.85)
+    elif kind == "fog":                                   # three soft lines
+        for i, y in enumerate((6, 10, 14)):
+            pygame.draw.line(s, (*DIM, 235), (3 + 2 * (i % 2), y), (17 - 2 * (i % 2), y), 2)
+    else:
+        _cloud(s, grey, 0, -2)
+        if kind == "rain":                                # drops under it
+            for x in (6, 10, 14):
+                pygame.draw.line(s, (*DROP, 255), (x, 15), (x - 1, 18), 2)
+        elif kind == "snow":
+            for x in (6, 10, 14):
+                pygame.draw.circle(s, (255, 255, 255, 255), (x, 17), 1)
+        elif kind == "storm":                             # a little bolt
+            pygame.draw.polygon(s, (*SUN, 255), ((11, 13), (8, 17), (10, 17), (9, 20),
+                                                 (13, 15), (11, 15)))
+    return s
+
+
 # ── icons: drawn with pygame shapes (the fonts have no emoji) ────────────────
 
 def _icon(kind, accent):
@@ -184,6 +246,7 @@ class StatusBar:
         self._items = ([], None)
         self._polled = 0.0
         self._on = (True, 0.0)
+        self._sky = (None, -1e9)              # (sky(), when asked)
 
     def _text(self, text, col=TEXT):
         if self._font is None:
@@ -211,6 +274,22 @@ class StatusBar:
                 surf.blit(t, (x + 6, (HEIGHT - t.get_height()) // 2))
                 x += 6 + t.get_width()
             x += GAP
+        return surf
+
+    def _render_right(self, clock, weather):
+        """"☀ 12°   niedz. 11 paź   20:45" — the weather only when known."""
+        t = self._text(clock)
+        if not weather:
+            return t
+        ic = self._icons.get(("sky", weather[0]))
+        if ic is None:
+            ic = self._icons[("sky", weather[0])] = _sky_icon(weather[0])
+        deg = self._text(weather[1])
+        w = ic.get_width() + 5 + deg.get_width() + GAP + t.get_width()
+        surf = pygame.Surface((w, HEIGHT), pygame.SRCALPHA)
+        surf.blit(ic, (0, (HEIGHT - ICON) // 2))
+        surf.blit(deg, (ic.get_width() + 5, (HEIGHT - deg.get_height()) // 2))
+        surf.blit(t, (w - t.get_width(), (HEIGHT - t.get_height()) // 2))
         return surf
 
     def _voice(self, screen, kind, accent, alpha):
@@ -253,9 +332,12 @@ class StatusBar:
         sig = (tuple(rest), accent)
         if self._left[0] != sig:
             self._left = (sig, self._render_left(rest, accent))
+        if now - self._sky[1] > 30:                 # the hour's forecast: rarely changes
+            self._sky = (sky(now), now)
         clock = clock_text(now)
-        if self._right[0] != clock:
-            self._right = (clock, self._text(clock))
+        sig = (clock, self._sky[0])
+        if self._right[0] != sig:
+            self._right = (sig, self._render_right(clock, self._sky[0]))
 
         # the strip itself: a faint veil, lighter than her black face
         veil = getattr(self, "_veil", None)
