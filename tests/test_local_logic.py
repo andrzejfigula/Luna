@@ -2139,6 +2139,8 @@ class KidsTest(unittest.TestCase):
         q = {"kind": "flags", "answer": [a.lower() for a in flag[2]]}
         self.assertTrue(quiz._check(q, "USA"))
         self.assertTrue(quiz._check(q, "Ameryka"))
+        import brain
+        self.assertTrue(brain._GAME_OK.match("zagrajmy we flagi"))
 
     def test_twenty_reverse(self):
         import twenty
