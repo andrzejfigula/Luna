@@ -2070,6 +2070,42 @@ class KidsTest(unittest.TestCase):
             twenty._next_move = old
             twenty._r = None
 
+    def test_twenty_reverse_table(self):
+        import twenty
+        import twenty_kb
+        # 13 Oct: her questions from a table of animals — every one is found
+        # well within 20 when the answers match the table, a child's slip is
+        # survived, and an animal it doesn't know goes to the model
+        keys = [k for k, _ in twenty_kb.QUESTIONS]
+        self.assertTrue(all(len(r) == len(keys) for r in twenty_kb.ANIMALS.values()))
+        by_text = {q: i for i, (_, q) in enumerate(twenty_kb.QUESTIONS)}
+        by_text[twenty._FIRST_Q] = keys.index("fur")
+
+        def play(animal, slip_at=None):
+            row = twenty_kb.ANIMALS[animal]
+            kind, q, guess = "question", twenty._FIRST_Q, ""
+            qa = []
+            for asked in range(1, twenty.MAX_QUESTIONS + 1):
+                if kind == "guess":
+                    if guess == animal:
+                        return asked
+                    qa.append((q, "nie"))
+                else:
+                    ans = "tak" if row[by_text[q]] >= 0.5 else "nie"
+                    if asked == slip_at:
+                        ans = "nie" if ans == "tak" else "tak"
+                    qa.append((q, ans))
+                kind, q, guess = twenty._table_move(qa, asked)
+            return None
+
+        for animal in ("bóbr", "wydra", "kot", "pies", "koń", "biedronka", "sowa", "żyrafa"):
+            n = play(animal)
+            self.assertTrue(n and n <= 15, (animal, n))
+        self.assertTrue(play("chomik", slip_at=3), "a slip")
+        # answers no table animal fits → None (the model takes over)
+        qa = [(q, "tak") for _, q in twenty_kb.QUESTIONS[:12]]
+        self.assertIsNone(twenty._table_move(qa, 12))
+
     def test_twenty_reverse(self):
         import twenty
         for t in ("Zgadnij, o czym myślę", "Zgadnij, o jakim zwierzęciu myślę",

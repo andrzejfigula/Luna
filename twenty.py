@@ -20,6 +20,7 @@ game above, so Maja's "guess what I'm thinking of" got Luna's own animal).
 """
 
 import json
+import math
 import random
 import re
 import threading
@@ -169,6 +170,9 @@ def _for_game(low, game):
     return bool(_QUIT.match(low) or _revealed(low) or re.search(r"\bpyta[ńn]\b", low)
                 or ("q" in game and (_YES.match(low) or _NO.match(low))
                     and len(low.split()) <= 6)                  # "Nie, nie żyje w Afryce"
+                # "Czasem żyję w górach…", "Prawie takie samo jak kot" (11 Oct: to the
+                # model, which played its own game — "Czy ma rogi?", "Czy to niedźwiedź?")
+                or ("q" in game and _UNSURE.search(low) and len(low.split()) <= 9)
                 or (guess and any(_same_animal(w, guess) for w in re.findall(r"\w+", low))))
 
 
@@ -223,6 +227,19 @@ def _start_reverse(speak):
 
 
 def _next_move(qa, asked):
+    """The next question or a guess: ("question" | "guess", text, animal) —
+    from the table of animals, or the model's when the table has none."""
+    try:
+        move = _table_move(qa, asked)
+        if move:
+            return move
+        print("[twenty] reverse: not an animal from the table — the model asks", flush=True)
+    except Exception as e:
+        print(f"[twenty] reverse: table failed ({e}) — the model asks", flush=True)
+    return _model_move(qa, asked)
+
+
+def _model_move(qa, asked):
     """The model's next question or a guess: ("question" | "guess", text, animal)."""
     from openai import OpenAI
     from config import OPENAI_API_KEY, CRAFT_MODEL
@@ -257,6 +274,90 @@ def _next_move(qa, asked):
     if not text:
         raise ValueError("empty move")
     return _as_guess(kind, text, (d.get("animal") or "").strip())
+
+
+# ── her questions from a table of animals (13 Oct) ────────────────────────────
+# The model alone asked 15–17 questions for an otter or a beaver, spent half of
+# them on where it lives (11 Oct with Maja: lost on the 20th). twenty_kb has
+# what a child would answer about ~110 animals; each answer reweighs them (a
+# child's slip costs an animal weight, it doesn't rule it out) and the next
+# question is the one that splits what is left best. An animal not in the
+# table (too many answers against every one) → the model asks, as before.
+
+def _kb():
+    import twenty_kb
+    keys = [k for k, _ in twenty_kb.QUESTIONS]
+    by_text = {q.lower(): i for i, (_, q) in enumerate(twenty_kb.QUESTIONS)}
+    by_text[_FIRST_Q.lower()] = keys.index("fur")
+    return twenty_kb, by_text
+
+
+_FANTASY = {"smok", "jednorożec", "dinozaur"}
+_P_SLIP = 0.12         # a child's answer against the table: that likely
+
+
+def _weights(qa):
+    """{animal: weight} after the answers so far (wrong guesses: 0), and the
+    fewest answers any animal contradicts outright."""
+    kb, by_text = _kb()
+    w = {a: (0.4 if a in _FANTASY else 1.0) for a in kb.ANIMALS}
+    against = dict.fromkeys(kb.ANIMALS, 0)
+    for q, ans in qa:
+        i = by_text.get((q or "").lower())
+        if i is None:
+            m = re.match(r"czy\s+to\s+(?:jest\s+)?(.+?)\s*\?*$", (q or "").lower())
+            if m and ans == "nie":                     # a wrong guess
+                for a in w:
+                    if _same_animal(a, m.group(1)) and len(a.split()) == len(m.group(1).split()):
+                        w[a] = 0.0
+            continue
+        if ans not in ("tak", "nie"):
+            continue                                   # "nie wiem": no news
+        for a, row in kb.ANIMALS.items():
+            v = row[i]
+            p = _P_SLIP + (1 - 2 * _P_SLIP) * v
+            p = p if ans == "tak" else 1 - p
+            w[a] *= p
+            if (v == 1 and ans == "nie") or (v == 0 and ans == "tak"):
+                against[a] += 1
+    return w, min(against[a] for a in w if w[a] > 0) if any(w.values()) else 99
+
+
+def _entropy(ps):
+    return -sum(p * math.log2(p) for p in ps if p > 0)
+
+
+def _table_move(qa, asked):
+    """("question" | "guess", text, animal) from the table, or None (→ the model)."""
+    kb, by_text = _kb()
+    w, least_against = _weights(qa)
+    total = sum(w.values())
+    if total <= 0 or least_against >= 4:
+        return None                                    # not an animal it knows
+    post = sorted(((v / total, a) for a, v in w.items() if v > 0), reverse=True)
+    p1, top = post[0]
+    p2 = post[1][0] if len(post) > 1 else 0.0
+    if p1 >= 0.5 or (p1 >= 0.3 and p1 > 3 * p2) or asked >= MAX_QUESTIONS - 1:
+        return "guess", f"Czy to {top}?", top
+    asked_i = {by_text.get((q or "").lower()) for q, _ in qa}
+    best, best_h = None, None
+    for i, (_, q) in enumerate(kb.QUESTIONS):
+        if i in asked_i:
+            continue
+        yes = sum((w[a] / total) * (_P_SLIP + (1 - 2 * _P_SLIP) * kb.ANIMALS[a][i])
+                  for a in w if w[a] > 0)
+        h = 0.0
+        for ans_p, lik in ((yes, lambda v: _P_SLIP + (1 - 2 * _P_SLIP) * v),
+                           (1 - yes, lambda v: 1 - _P_SLIP - (1 - 2 * _P_SLIP) * v)):
+            if ans_p <= 0:
+                continue
+            ps = [(w[a] / total) * lik(kb.ANIMALS[a][i]) / ans_p for a in w if w[a] > 0]
+            h += ans_p * _entropy(ps)
+        if best_h is None or h < best_h:
+            best, best_h = q, h
+    if best is None:
+        return "guess", f"Czy to {top}?", top
+    return "question", best, ""
 
 
 def _as_guess(kind, text, animal):
