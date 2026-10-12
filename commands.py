@@ -483,6 +483,11 @@ _WHERE = re.compile(r"\b(?:gdzie\s+(?:jest|się\s+podziała?|podziała?\s+się)\
 _WHERE2 = re.compile(r"\bczy\s+(\w+)\s+(?:już\s+|juz\s+|dziś\s+|dzis\s+|dzisiaj\s+)*"
                      r"(?:był[aoy]?|byl[aoy]?|wrócił[aoy]?|wrocil[aoy]?|przyszedł|przyszla|"
                      r"przyszła|jest\s+w\s+domu)\b", re.I)
+# "Była tutaj Emilka?" (12 Oct 13:28 — the model answered about the camera
+# picture: "nie widziałam Emilki na tym zdjęciu")
+_WHERE3 = re.compile(r"^(?:luna,?\s+)?(?:a\s+)?(?:czy\s+)?(?:był[aoy]?|byl[aoy]?)\s+"
+                     r"(?:tu\s+|tutaj\s+)?(?:dziś\s+|dzisiaj\s+|dzis\s+|już\s+|juz\s+)?"
+                     r"(\w+)\W*$", re.I)
 _ABOUT = re.compile(r"\bco\s+(?:(?:wiesz|pamiętasz|pamietasz)\s+o\s+(\w+)|"
                     r"o\s+(\w+)\s+(?:wiesz|pamiętasz|pamietasz))\b", re.I)
 # "zapomnij, że …" and "zapomnij o rozmiarze buta" (7 Oct probe: the second went
@@ -1463,7 +1468,8 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
     if not said:
         said = timers.sleep_answer(text)           # "ile godzin snu mi zostało?"
     if not said:
-        m = _WHERE.search(text) or _WHERE2.search(text)    # "gdzie jest Maja?"
+        m = (_WHERE.search(text) or _WHERE2.search(text)   # "gdzie jest Maja?"
+             or _WHERE3.match(text.strip()))
         if m and _short(text, 8) and not _stranger_here():   # a stranger: the model refuses
             import faces
             who = faces.match_name(m.group(1)) or faces.match_role(m.group(1))

@@ -543,10 +543,11 @@ class RoutingTest(unittest.TestCase):
         import faces
         with mock.patch.object(faces, "names", lambda: ["Andrzej", "Emilka", "Maja"]):
             for text in ("Gdzie jest Emilka?", "Widziałaś dziś Maję?",
-                         "Czy była już Maja?"):
+                         "Czy była już Maja?", "Luna, była tutaj Emilka?", "Była tu Maja?"):
                 with self.subTest(text=text):
                     self.assertEqual(self.route(text), "asked")
             self.assertEqual(self.route("Gdzie jest pilot?"), "model")
+            self.assertEqual(self.route("Była tu wczoraj ładna pogoda?"), "model")
 
     def test_mute(self):
         self.assertEqual(self.route("Luna, cicho"), "mute")
