@@ -97,6 +97,31 @@ def reverse_wanted(text):
     return bool(_REVERSE.search(text.lower()))
 
 
+_REMATCH_YES = re.compile(r"^(?:luna,?\s+)?(?:no\s+)?(?:tak|taak|jasne|pewnie|dobrze|dobra|ok|okej|"
+                          r"gramy|zagrajmy|jeszcze\s+raz|jeszcze|chętnie|chetnie|rewanż|rewanz|"
+                          r"poproszę|poprosze)(?:\W+(?:tak|gramy|jeszcze\s+raz|zagrajmy|proszę|"
+                          r"prosze))*\W*$", re.I)
+_again = [None, 0.0]       # "Zagramy jeszcze raz?" — which game, until when
+
+
+def _offer_again(kind):
+    _again[:] = [kind, time.time() + 60]
+
+
+def rematch(text, speak):
+    """"Tak" to her "Zagramy jeszcze raz?" — the same game again (13 Oct: it
+    went to the model, which started the number game instead)."""
+    kind, until = _again
+    if not kind or time.time() > until or active() or not _REMATCH_YES.match((text or "").strip()):
+        return False
+    _again[:] = [None, 0.0]
+    if kind == "reverse":
+        _start_reverse(speak)
+    else:
+        start(speak)
+    return True
+
+
 def active():
     global _g, _r
     with _lock:
@@ -465,6 +490,7 @@ def _answer_reverse(text, speak):
         # "Wydra." — the secret said straight out (11 Oct: "Odpowiedz mi: tak,
         # nie albo nie wiem", and the model played on without the game)
         _r = None
+        _offer_again("reverse")
         speak(f"Aha, {told}! Nie wpadłam na to — sprytnie. Zagramy jeszcze raz?")
         return True
     yes, no = bool(_YES.match(low)), bool(_NO.match(low))
@@ -494,6 +520,7 @@ def _answer_reverse(text, speak):
                              {"text": r["guess"], "sub": f"zgadłam w {r['asked']} pytaniach",
                               "tone": "ok"})
             state.emotion = "Happy"
+        _offer_again("reverse")
         speak(f"Hurra! Zgadłam w {r['asked']} pytaniach! Zagramy jeszcze raz?")
         return True
     r["qa"].append((r["q"], "tak" if yes else "nie wiem" if unsure else "nie"))
@@ -551,6 +578,7 @@ def answer(text, speak):
             with state.lock:
                 state.overlay = ("card", time.time() + 5,
                                  {"text": g["animal"], "sub": "to było to zwierzę", "tone": None})
+            _offer_again("forward")
             speak(f"Myślałam o zwierzęciu: {g['animal']}! Zagramy jeszcze raz?")
             return True
         named = _names_an_animal(low)

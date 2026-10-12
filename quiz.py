@@ -808,6 +808,23 @@ def race_result(kind, perfect, secs, who=None):
     return said + f" Rekord to {sek(old)}."
 
 
+_REMATCH_YES = re.compile(r"^(?:luna,?\s+)?(?:no\s+)?(?:tak|taak|jasne|pewnie|dobrze|dobra|ok|okej|"
+                          r"gramy|zagrajmy|jeszcze\s+raz|jeszcze|chętnie|chetnie|rewanż|rewanz|"
+                          r"poproszę|poprosze)(?:\W+(?:tak|gramy|jeszcze\s+raz|zagrajmy|proszę|"
+                          r"prosze))*\W*$", re.I)
+_again = [None, 0.0]       # "Zagramy jeszcze raz?" after a round: which quiz
+
+
+def rematch(text, speak, play_sound_async):
+    """"Tak" to her "Zagramy jeszcze raz?" — the same quiz again."""
+    kind, until = _again
+    if not kind or time.time() > until or active() or not _REMATCH_YES.match((text or "").strip()):
+        return False
+    _again[:] = [None, 0.0]
+    start(kind, "", speak, play_sound_async)
+    return True
+
+
 def _finish(speak, play_sound_async, early=False):
     global _q
     score, total = _q["score"], _q["total"]
@@ -845,6 +862,7 @@ def _finish(speak, play_sound_async, early=False):
     else:
         said, emo = (f"{score} na {total}. Nic nie szkodzi — ćwiczenie czyni mistrza. "
                      "Zagramy jeszcze raz?"), "Neutral"
+        _again[:] = [kind, time.time() + 60]
     if timed:
         said += " " + race_result(kind, score == total, time.time() - timed)
     print(f"[quiz] done: {score}/{total}", flush=True)

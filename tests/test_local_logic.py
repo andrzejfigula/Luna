@@ -2070,6 +2070,25 @@ class KidsTest(unittest.TestCase):
             twenty._next_move = old
             twenty._r = None
 
+    def test_rematch_after_a_game(self):
+        import twenty
+        import quiz
+        # 13 Oct: "Hurra! Zgadłam…! Zagramy jeszcze raz?" → "Tak" → the number game
+        said = []
+        twenty._r = {"qa": [], "asked": 5, "t": time.time(), "q": "Czy to kot?", "guess": "kot",
+                     "stage": "asking", "player": None}
+        twenty.answer("Tak", said.append)
+        self.assertIn("Zagramy jeszcze raz?", said[-1])
+        self.assertFalse(twenty.active())
+        self.assertTrue(twenty.rematch("Tak", said.append))
+        self.assertIn("Pomyśl sobie zwierzę", said[-1])
+        self.assertTrue(twenty.active())
+        self.assertFalse(twenty.rematch("Tak", said.append))          # once
+        twenty._r = None
+        twenty._again[:] = ["forward", time.time() - 1]                # too late
+        self.assertFalse(twenty.rematch("Tak", said.append))
+        self.assertFalse(quiz.rematch("Tak", said.append, lambda n: None))  # no quiz asked
+
     def test_twenty_reverse_table(self):
         import twenty
         import twenty_kb

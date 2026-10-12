@@ -1158,6 +1158,11 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
     if cooking.active() and cooking.answer(text, speak):
         return True
     import twenty                                  # "czy ma futro?"
+    if twenty.rematch(text, speak):               # "Tak" to "Zagramy jeszcze raz?"
+        return True
+    import quiz as _quiz
+    if _quiz.rematch(text, speak, _sound_async):
+        return True
     if twenty.active() and twenty.answer(text, speak):
         return True
     import games                                   # "Papier!" — a match by voice
