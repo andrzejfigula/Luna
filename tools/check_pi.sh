@@ -7,21 +7,24 @@
 #
 #     tools/check_pi.sh            # all four
 #     tools/check_pi.sh unit       # just one: unit | routing | smoke | dialog
+#     LUNA_CHECK_DIR=/tmp/lunacheck2 tools/check_pi.sh   # beside a sweep running
+#                                  # in /tmp/lunacheck (it would be swept away)
 set -euo pipefail
 PI="${LUNA_PI:-raspberry@raspberrypi.local}"
 SSH=(ssh -o HostKeyAlias=raspberrypi.local "$PI")
+DIR="${LUNA_CHECK_DIR:-/tmp/lunacheck}"
 cd "$(dirname "$0")/.."
 
 git ls-files | grep -v -E '\.md$|^\.git' | tar -cf - -T - \
-    | "${SSH[@]}" 'rm -rf /tmp/lunacheck && mkdir -p /tmp/lunacheck && tar -xf - -C /tmp/lunacheck'
+    | "${SSH[@]}" "rm -rf $DIR && mkdir -p $DIR && tar -xf - -C $DIR"
 # what isn't in git: the key (.env — linked, never read here), the speech model,
 # the face models and sounds; and what scenario-style tests copy
-"${SSH[@]}" 'cd /tmp/lunacheck && for p in .env vosk-model-small-pl-0.22 data/models data/sounds; do
+"${SSH[@]}" "cd $DIR" ' && for p in .env vosk-model-small-pl-0.22 data/models data/sounds; do
     [ -e ~/luna/$p ] && [ ! -e $p ] && ln -s ~/luna/$p $p; done
     cp ~/luna/data/people.json ~/luna/data/settings.json data/ 2>/dev/null || true'
 
 which="${1:-all}"
-"${SSH[@]}" "cd /tmp/lunacheck && export LUNA_DATA_DIR=\$(mktemp -d) && PY=~/luna/venv/bin/python
+"${SSH[@]}" "cd $DIR && export LUNA_DATA_DIR=\$(mktemp -d) && PY=~/luna/venv/bin/python
   ok=0
   if [ $which = all ] || [ $which = unit ]; then
     r=\$(\$PY -X utf8 -m unittest -q tests.test_local_logic 2>&1); echo \"\$r\" | tail -1 | sed 's/^/unit:    /'

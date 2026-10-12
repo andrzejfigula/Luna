@@ -162,6 +162,9 @@ LOCAL = {
     "Lampka na niebiesko": "fun",
     "Zmień kolor lampki na zielony": "fun",
     "Włącz lampkę na 20 minut": "fun",
+    "Jak wygląda żyrafa?": "photo",
+    "Luna, a jak wygląda Mars?": "photo",
+    "Pokaż mi zdjęcie słonia": "photo",
     "Luna, odpowiadaj dłużej": "length",
     "Normalne odpowiedzi proszę": "length",
 }
@@ -306,6 +309,9 @@ MODEL = [
     "O której pora spać dla sześciolatka?",
     "To wszystko co wiesz o kotach?",
     "Ile kosztuje lampka nocna?",
+    "Jak wygląda twój dzień?",
+    "Jak wyglądam?",
+    "Jak wygląda u was w szkole?",
 ]
 
 
@@ -321,6 +327,7 @@ class RoutingTest(unittest.TestCase):
         import kids
         import cooking
         import twenty
+        import webphoto
         import radio
         import ambience
         import fun
@@ -339,6 +346,7 @@ class RoutingTest(unittest.TestCase):
             (commands, "DONE_REPLIES", ["<BYE>"]),
             (commands, "GOODBYE_REPLIES_EN", ["<BYE>"]),
             (screens, "_take_photo", lambda *a: self._mark("screen")),
+            (webphoto, "show", lambda *a: self._mark("photo") or True),
             (screens, "_show", lambda *a, **k: self._mark("screen")),
             (games, "play_match", lambda *a: self._mark("game")),
             (games, "_rematch_until", 0),

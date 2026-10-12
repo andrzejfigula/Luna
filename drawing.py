@@ -307,6 +307,28 @@ _SHOW_OF = re.compile(r"^(?:luna,?\s+)?(?:pokaż|pokaz)\s+(?:mi\s+|nam\s+)?(?:ja
                       r"(?!z\s+wczoraj|z\s+dziś)(.{2,60}?)[.!?]*$", re.I)
 
 
+# "Jak wygląda żyrafa?" — a photo answers it (13 Oct sweep: words about a long
+# neck and spots); not the weather, a plan, a list, nor a person
+_LOOKS = re.compile(r"^(?:luna,?\s+)?(?:a\s+|i\s+|no\s+to\s+)?jak\s+(?:właściwie\s+|wlasciwie\s+)?"
+                    r"(?:wygląda|wyglada)\s+(.{2,40}?)[.!?]*$", re.I)
+_NOT_A_THING = re.compile(r"^(?:on|ona|ono|oni|one|to|ten|ta|tamt\w*|tw\w*|moj\w*|mój|lun[aey]|"
+                          r"nasz\w*|wasz\w*|jej|jego|ich|pogoda|pogod\w*|dzień|dzien|dzisiaj|dziś|"
+                          r"dzis|jutro|plan\w*|sytuacja|sprawa|lista|kalendarz|zakupy|tydzień|"
+                          r"tydzien|weekend|wynik\w*|kurs\w*|stan|wszystko|życie|zycie|"
+                          r"teraz|u\s+\w+|w\s+\w+|na\s+\w+)\b", re.I)
+
+
+def looks_wanted(text):
+    """"Jak wygląda żyrafa?" → "żyrafa"; None for "jak wygląda pogoda", a person."""
+    m = _LOOKS.match((text or "").strip())
+    if not m:
+        return None
+    what = m.group(1).strip(" ,")
+    if _NOT_A_THING.match(what) or _is_person(what) or len(what.split()) > 4:
+        return None
+    return what
+
+
 # "Dobra, jeszcze raz ze zdjęcia" just after a drawing (11 Oct 12:02 — it
 # went to the model, two sentences of "zaraz to zrobię" before the drawing)
 _AGAIN = re.compile(r"^(?:(?:no\s+)?dobra,?\s+|dobrze,?\s+)?(?:luna,?\s+)?(?:narysuj\s+)?"
@@ -335,6 +357,11 @@ def handle(text, speak):
         if photo:
             return draw(_last_what[0], speak, "Dobrze, rysuję jeszcze raz. Chwileczkę!", photo=photo)
         return draw(_last_what[0], speak, "Dobrze, rysuję jeszcze raz. Chwileczkę!")
+    looks = looks_wanted(text)
+    if looks:
+        import webphoto
+        return webphoto.show(looks, speak, lambda intro="Dobrze, już rysuję. Chwileczkę!":
+                             draw(looks, speak, intro))
     of = _SHOW_OF.match((text or "").strip())
     if of and not re.match(r"(?:jeszcze|ostatni|swój|swoj|mój|moj|ten)\b", of.group(1), re.I):
         # "pokaż mi obrazek kota" — a picture of it, drawn; "pokaż mi zdjęcie

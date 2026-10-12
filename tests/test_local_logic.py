@@ -2712,6 +2712,25 @@ class KidsTest(unittest.TestCase):
             self.assertTrue(drawing.handle("Pokaż inne zdjęcie", lambda t: None))
         self.assertEqual(got, ["more"])
 
+    def test_looks_like_shows_a_photo(self):
+        import drawing
+        import webphoto
+        # "Jak wygląda żyrafa?" — a photo (13 Oct sweep: words about the neck)
+        self.assertEqual(drawing.looks_wanted("Jak wygląda żyrafa?"), "żyrafa")
+        self.assertEqual(drawing.looks_wanted("Luna, a jak wygląda Mars?"), "Mars")
+        import faces
+        with mock.patch.object(faces, "match_name",
+                               lambda w: "Maja" if w.lower().startswith("maj") else None):
+            for t in ("Jak wygląda pogoda jutro?", "Jak wygląda twoja twarz?", "Jak wygląda Maja?",
+                      "Jak wygląda u nas w domu?", "Jak wygląda dzień w szkole?", "Jak wygląda?",
+                      "Jak wygląda lista zakupów?", "Jak wygląda Luna?", "Jak wyglądam?",
+                      "Jak wygląda mama?"):
+                self.assertIsNone(drawing.looks_wanted(t), t)
+        got = []
+        with mock.patch.object(webphoto, "show", lambda w, s, fb: got.append(w) or True):
+            self.assertTrue(drawing.handle("Jak wygląda żyrafa?", lambda t: None))
+        self.assertEqual(got, ["żyrafa"])
+
     def test_web_photo(self):
         import drawing
         import webphoto

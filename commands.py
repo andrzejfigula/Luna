@@ -1492,6 +1492,10 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
     if reading.is_request(text) and not reading.armed():
         return reading.start(speak, reading_done)
 
+    import drawing                                 # "jak wygląda żyrafa?" — a photo
+    if drawing.looks_wanted(text):
+        return drawing.handle(text, speak)
+
     # everything below acts on a request — never on a question about it
     if question:
         return False
