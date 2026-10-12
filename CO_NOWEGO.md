@@ -240,7 +240,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 | Prywatność przy rozmowach po angielsku | gdy w pokoju trwa rozmowa/wideorozmowa po angielsku, Luna przez 10 minut nie wysyła dźwięku do chmury; na wyraźne „Luna” dalej reaguje; w tym czasie też sama się nie odzywa |
 | Więcej zagadek | „Luna, zadaj mi zagadkę” — teraz 59 zagadek zamiast 31 (zwierzęta, jedzenie, pojazdy, pogoda), dłużej się nie powtarzają |
 | Gwiazdka dla Mai | gdy Maja gra razem z dorosłym, gwiazdkę za grę dostaje Maja (wcześniej dostawał ją ten, kogo Luna rozpoznała pierwszego) |
-| Luna zgaduje zwierzę | „Luna, zgadnij, o czym myślę” — pomyśl o zwierzęciu, powiedz „gotowe” i odpowiadaj tak / nie / nie wiem; Luna zgaduje w 20 pytaniach. Możesz też od razu zdradzić: „wydra!”, a „już nie gramy” kończy grę. (Odwrotnie: „pomyśl sobie zwierzę” — wtedy Ty zgadujesz) |
+| Luna zgaduje zwierzę | „Luna, zgadnij, o czym myślę” — pomyśl o zwierzęciu, powiedz „gotowe” i odpowiadaj tak / nie / nie wiem; Luna zgaduje w 20 pytaniach — **teraz zwykle w ok. 10** (zna ok. 110 zwierząt, pyta mądrzej i od razu); rozumie też „trochę”, „raczej tak”, „chyba nie”. Możesz też od razu zdradzić: „wydra!”, a „już nie gramy” kończy grę. (Odwrotnie: „pomyśl sobie zwierzę” — wtedy Ty zgadujesz) |
 | Muzyka dla dzieci, czytanie | „Puść muzykę dla dzieci” włącza RMF Dla Dzieci; „Poczytaj ze mną” / „Chcę poczytać” — Luna słucha czytania |
 | „Wyłącz się” | „Luna, wyłącz się” / „idź spać” — Luna naprawdę zasypia (ekran przygasa), o każdej porze |
 | Cisza i ekran | „Bądź cicho przez godzinę”, „nie przeszkadzaj do rana” — Luna sama się nie odzywa tyle, ile chcecie; „zatrzymaj” wyłącza radio/szum; „zgaś ekran”, „przyciemnij ekran”, „rozjaśnij ekran” (na 2 godziny, potem znów automatycznie) |
