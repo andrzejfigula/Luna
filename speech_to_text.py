@@ -660,6 +660,27 @@ FAST_COMMANDS = {
 _NIE_MISHEARD = {"me", "ni", "nee", "knee", "nay", "nye", "nie"}
 
 
+def _stems(text):
+    import unicodedata
+    t = unicodedata.normalize("NFKD", (text or "").lower())
+    t = "".join(c for c in t if not unicodedata.combining(c)).replace("ł", "l")
+    return {w[:4] for w in re.findall(r"[a-z]+", t) if len(w) >= 3}
+
+
+def latin_if_polish(cloud, vosk_text):
+    """The cloud wrote a Polish word in Cyrillic ("Макарон." for Maja's
+    "makaron", 9 Oct) and Vosk — Polish only — heard the same word: Latin
+    letters, or the model answers in Russian. Real Russian stays as it is."""
+    if not cloud or not re.search(r"[Ѐ-ӿ]", cloud):
+        return cloud
+    from polish import to_latin
+    lat = to_latin(cloud)
+    if _stems(lat) & _stems(vosk_text):
+        print(f"[STT] Cyrillic for a Polish word: \"{cloud}\" → \"{lat}\"", flush=True)
+        return lat
+    return cloud
+
+
 def fix_lone_nie(cloud, vosk_text, conf):
     """"Me." → "Nie." when Vosk heard exactly "nie" and was sure of it."""
     word = re.sub(r"[^\w]", "", (cloud or "").lower())
@@ -1418,6 +1439,7 @@ def listen():
                     return fast
                 cloud = fix_lone_nie(_cloud_transcribe(utt_pcm, short_lang(text.split())),
                                      text, conf)
+                cloud = latin_if_polish(cloud, text)
                 if cloud == "" and conf >= 0.98 and len(text.split()) >= 2:
                     # the cloud returns nothing for short sounds it can't place
                     # ("puk puk"); Vosk was sure of every word — believe it

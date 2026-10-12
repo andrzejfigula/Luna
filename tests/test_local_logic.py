@@ -2574,6 +2574,40 @@ class KidsTest(unittest.TestCase):
             self.assertEqual(brain._hellos, ["Cześć, Andrzeju 1!", "Cześć, Andrzeju 2!"])
         self.assertIn("Don't mention", brain._HELLO_AGAIN)
 
+    def test_hello_without_desk_or_guessed_name(self):
+        import brain
+        import speech_to_text
+        # 12 Oct evening: "Jak mija wieczór u nas na biurku?", and a face she
+        # didn't recognise greeted as "Emilko"
+        self.assertEqual(brain._no_desk("Dobry wieczór, Andrzeju! Jak mija wieczór u nas na biurku?"),
+                         "Dobry wieczór, Andrzeju! Jak mija wieczór?")
+        self.assertEqual(brain._no_desk("Dobry wieczór! U nas na biurku już chłodno i spokojnie."),
+                         "Dobry wieczór! Już chłodno i spokojnie.")
+        self.assertEqual(brain._no_desk("Cześć, Andrzeju, fajne popołudnie u nas na biurku!"),
+                         "Cześć, Andrzeju, fajne popołudnie!")
+        self.assertEqual(brain._no_desk("O, Andrzeju, znowu jesteś!"), "O, Andrzeju, znowu jesteś!")
+        self.assertEqual(brain._no_desk("Dobry wieczór na biurku! Dziś już spokojny czas."),
+                         "Dobry wieczór! Dziś już spokojny czas.")
+        self.assertEqual(brain._no_desk("Andrzeju, wieczór się rozwinął na biurku, pora odpocząć."),
+                         "Andrzeju, wieczór się rozwinął, pora odpocząć.")
+        self.assertEqual(brain._no_desk("O, znowu przy biurku!"), "O, znowu przy biurku!")
+        seen = []
+        c = mock.Mock()
+        c.chat.completions.create.side_effect = lambda **kw: seen.append(
+            kw["messages"][1]["content"]) or mock.Mock(choices=[mock.Mock(
+                message=mock.Mock(content="Dobry wieczór!"))])
+        with mock.patch.object(brain, "_client", c), mock.patch.object(brain, "_hellos", []):
+            brain.greeting(True)
+            brain.greeting(True, waking=True)
+        self.assertIn("WITHOUT any name", seen[0])
+        self.assertNotIn("WITHOUT any name", seen[1])
+        # "Макарон." from the cloud for Maja's "makaron" (Vosk heard "makaron")
+        self.assertEqual(speech_to_text.latin_if_polish("Макарон.", "makaron"), "Makaron.")
+        self.assertEqual(speech_to_text.latin_if_polish("Привет, как дела?", "przyjdę"),
+                         "Привет, как дела?")
+        self.assertEqual(speech_to_text.latin_if_polish("Tak.", "tak"), "Tak.")
+        self.assertIsNone(speech_to_text.latin_if_polish(None, "tak"))
+
     def test_web_photo(self):
         import drawing
         import webphoto

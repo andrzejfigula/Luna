@@ -594,12 +594,7 @@ def _year_facts(today=None):
 
 
 from polish import (feminize, offer_only, empty_promise, neutral_you,   # (polish.py)
-                    looks_english, is_secret, fix_vocative, fix_desk)
-
-
-_CYR = dict(zip("абвгдезийклмнопрстуфыэіґ", "abwgdezijklmnoprstufyeig"),
-            ё="jo", ж="ż", х="ch", ц="c", ч="cz", ш="sz", щ="szcz", ъ="", ь="", ю="ju",
-            я="ja", ї="ji", є="je")
+                    looks_english, is_secret, fix_vocative, fix_desk, to_latin)
 
 
 def _latin(text):
@@ -610,10 +605,7 @@ def _latin(text):
     if not cyr or translator() or cyr > 0.3 * len(re.findall(r"[^\W\d_]", text)):
         return text
 
-    def one(m):
-        w = "".join(_CYR.get(c.lower(), c) for c in m.group(0))
-        return w[:1].upper() + w[1:] if m.group(0)[:1].isupper() else w
-    return re.sub(r"[Ѐ-ӿ]+", one, text)
+    return to_latin(text)
 
 
 def _feminize(text):
@@ -2004,8 +1996,8 @@ def confirm_wave():
 
 # ── The first greeting of the day, written with real context ─────────────────
 
-_BRIEFING = """You greet someone who just came back to their desk — the
-first time you see them today. Write ONE short spoken greeting in Polish,
+_BRIEFING = """You greet someone who has just come in — the first time you
+see them today. Write ONE short spoken greeting in Polish,
 1-2 sentences, warm and natural, no lists, no emoji. Fit it to the time of
 day. If you know the weather, say in a few words what matters (rain →
 umbrella, cold → dress warmly). If a timer or reminder is set for today,
@@ -2051,6 +2043,17 @@ _ASKS_NAME = re.compile(r"jak\s+(?:się\s+)?(?:nazywasz|masz\s+na\s+imię)|kim\s
 _hellos = []          # her last few hellos (this run), so the next one differs
 
 
+def _no_desk(text):
+    """"Jak mija wieczór u nas na biurku?" → "Jak mija wieczór?" — in every
+    second hello on 11-12 Oct, and still with the prompt saying not to."""
+    # (any "na biurku": "Dobry wieczór na biurku!", "wieczór się rozgościł na
+    # biurku" — the persona's "desktop robot"; "przy biurku" is about them)
+    t = re.sub(r",?\s*(?:tu\s+|tutaj\s+)?(?:u\s+nas\s+)?na\s+(?:naszym\s+)?biurku\b", "",
+               text or "", flags=re.I)
+    t = re.sub(r"(^|[.!?]\s+)([a-ząćęłńóśźż])", lambda m: m.group(1) + m.group(2).upper(), t)
+    return re.sub(r"\s+([,.!?])", r"\1", t).strip()
+
+
 def greeting(first_today, waking=False, who=None, stranger=False):
     """A context-aware hello (weather, reminders, memory), or None when the
     model can't be reached — the caller then uses a fixed phrase.
@@ -2064,6 +2067,10 @@ def greeting(first_today, waking=False, who=None, stranger=False):
         context = (f"Local time: {_local_now_text()}.\n"
                    + (f"The person you greet: {who} (use their name, in the vocative).\n"
                       if who else
+                      "You can't tell who this is right now (the face isn't recognised "
+                      "this time) — most likely someone of this family: greet them "
+                      "WITHOUT any name and do NOT ask their name.\n"
+                      if not waking and not stranger else
                       "You can't see who is waking up (dark, still in bed) — it is "
                       "someone of this family: NEVER ask their name or who they are, "
                       "just greet without a name.\n" if waking else "")
@@ -2080,25 +2087,27 @@ def greeting(first_today, waking=False, who=None, stranger=False):
             # (12 Oct: "Cześć, Andrzeju, fajne popołudnie… / miłe popołudnie… /
             # miłego popołudnia!" — each hello alone, they came out alike)
             context += ("Your last hellos were: " + " / ".join(f'"{h}"' for h in _hellos[-4:])
-                        + " — say this one differently: other words, another opening.\n")
+                        + " — only so you don't repeat them: use other words and another "
+                        "opening, and take nothing else from them.\n")
         if weekly:            # "Dziś basen!" on a Thursday (8 Oct probe: never said)
             context += (f"For TODAY ({_local_now_text()}) you remember: {' / '.join(weekly)} — "
                         f"this is the thing to mention for their day.\n")
         r = _client.chat.completions.create(
             model=OPENAI_MODEL,
-            messages=[{"role": "system", "content": _PERSONA.strip() + "\n\n" + prompt},
+            messages=[{"role": "system", "content": _PERSONA.strip() + "\n\n" + prompt
+                        + "\nNever mention the desk (no \"na biurku\")."},
                       {"role": "user", "content": context}],
             max_tokens=90,
             temperature=0.8,
         )
-        text = _feminize((r.choices[0].message.content or "").strip().strip('"'))
+        text = _no_desk(_feminize((r.choices[0].message.content or "").strip().strip('"')))
         if waking and not who:
             # the alarm asked "Jak się nazywasz?" 2 of 3 times (9 Oct probe) — it
             # is someone of this family, unseen in the dark
             text = " ".join(s for s in re.split(r"(?<=[.!?])\s+", text)
                             if not _ASKS_NAME.search(s)).strip()
         print(f"[brain] greeting{' for ' + who if who else ''}: {text}")
-        if text:
+        if text and who:                 # (a nameless hello isn't one to vary from)
             _hellos[:] = (_hellos + [text])[-6:]
         return text or None
     except Exception as e:

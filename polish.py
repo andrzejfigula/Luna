@@ -370,3 +370,16 @@ _ROLE_WORDS = {"tata", "taty", "tacie", "tatą", "mama", "mamy", "mamie", "mamą
                "córki", "córce", "córką", "siostra", "brat", "mąż", "żona", "babcia",
                "dziadek", "ciocia", "wujek", "kolega", "koleżanka", "syn", "partner",
                "partnerka"}
+
+
+_CYR = dict(zip("абвгдезийклмнопрстуфыэіґ", "abwgdezijklmnoprstufyeig"),
+            ё="jo", ж="ż", х="ch", ц="c", ч="cz", ш="sz", щ="szcz", ъ="", ь="", ю="ju",
+            я="ja", ї="ji", є="je")
+
+
+def to_latin(text):
+    """Cyrillic words in Latin letters, Polish-style ("корпус" → "korpus")."""
+    def one(m):
+        w = "".join(_CYR.get(c.lower(), c) for c in m.group(0))
+        return w[:1].upper() + w[1:] if m.group(0)[:1].isupper() else w
+    return re.sub(r"[Ѐ-ӿ]+", one, text or "")
