@@ -2962,6 +2962,17 @@ class KidsTest(unittest.TestCase):
             drawing.handle("Pokaż mi obrazek kota", lambda t: None)        # still drawn
             drawing.handle("Pokaż mi zdjęcie mamy", lambda t: None)        # a person: drawn
         self.assertEqual(got, ["żyrafy", ("draw", "kota"), ("draw", "mamy")])
+        # no internet: said at once (the drawing would need it too)
+        from shared_state import state
+        said = []
+        with state.lock:
+            state.online = False
+        try:
+            self.assertTrue(webphoto.show("żyrafy", said.append, lambda *a: None))
+            self.assertIn("Nie mam teraz internetu", said[-1])
+        finally:
+            with state.lock:
+                state.online = True
 
         def client(title, scores, flagged=False):
             c = mock.Mock()

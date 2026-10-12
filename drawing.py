@@ -233,6 +233,12 @@ def _from_photo(client, photo, what):
 def draw(what, speak, intro="Dobrze, już rysuję. Chwileczkę!", english=False, photo=None):
     """Start a drawing in the background; True (handled) either way. photo:
     JPEG bytes of the camera frame to redraw instead of imagining."""
+    with state.lock:
+        online = state.online
+    if not online:
+        # the image model is in the cloud: say so now, not after a 90 s timeout
+        speak("Nie mam teraz internetu, więc nie narysuję. Spróbujmy później!")
+        return True
     os.makedirs(DIR, exist_ok=True)
     path, today, n = _count_today()
     with _lock:

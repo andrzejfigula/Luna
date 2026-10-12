@@ -199,6 +199,13 @@ def _present(img, title, url, line):
 def show(what, speak, fallback):
     """Find and show a photo of `what` in the background; `fallback()` (her
     drawing) when there is none or it isn't for a child. True (handled)."""
+    from shared_state import state
+    with state.lock:
+        online = state.online
+    if not online:
+        # (the drawing needs the internet too — two failures in a row otherwise)
+        speak("Nie mam teraz internetu, więc nie pokażę zdjęcia. Spróbujmy później!")
+        return True
     if not _busy.acquire(blocking=False):
         # still finding the last one (13 Oct sweep: a second request within 5 s
         # was drawn instead)
