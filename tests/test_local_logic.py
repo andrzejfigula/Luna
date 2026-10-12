@@ -2638,7 +2638,7 @@ class KidsTest(unittest.TestCase):
                 {"mime": "image/jpeg", "width": 1200, "height": 800, "thumburl": "t.jpg"}]},
             {"title": "Plik:Giraffe big.jpg", "imageinfo": [
                 {"mime": "image/jpeg", "width": 4000, "height": 3000, "thumburl": "b.jpg"}]}]}}
-        with mock.patch.object(webphoto, "_get", lambda p, timeout=6: pages):
+        with mock.patch.object(webphoto, "_get", lambda p, timeout=6, api=None: pages):
             self.assertEqual(webphoto._photos("Żyrafa"), ["b.jpg", "t.jpg"])
         # after a photo: "jeszcze jedno" is another photo, not a new drawing
         got = []
@@ -2671,11 +2671,35 @@ class KidsTest(unittest.TestCase):
             return c
         page = {"query": {"pages": [{"title": "Żyrafa", "thumbnail": {
             "source": "https://upload.wikimedia.org/g.jpg?x"}}]}}
-        with mock.patch.object(webphoto, "_get", lambda p, timeout=6: page):
+        with mock.patch.object(webphoto, "_get", lambda p, timeout=6, api=None: page):
             self.assertEqual(webphoto.pick(client("„Żyrafa”", {}), "żyrafy"),
-                             ("Żyrafa", "https://upload.wikimedia.org/g.jpg?x"))
+                             ("Żyrafa", "https://upload.wikimedia.org/g.jpg?x", webphoto._API,
+                              "Żyrafa"))
             self.assertIsNone(webphoto.pick(client("BRAK", {}), "czegoś"))
-        with mock.patch.object(webphoto, "_get", lambda p, timeout=6: {"query": {"pages": [
+        self.assertEqual(webphoto._title(client("Pająk | Spider", {}), "pająka"), ("Pająk", "Spider"))
+        self.assertEqual(webphoto.spoken("Saturn (planeta)"), "Saturn")
+        self.assertEqual(webphoto.spoken("Lama (zwierzę)"), "Lama")
+        # 13 Oct: no photo on the Polish article ("Wiewiórka zwyczajna") → the English one
+        asked = []
+
+        def two_wikis(p, timeout=6, api=None):
+            asked.append((api, p.get("titles") or p.get("gsrsearch")))
+            if api == webphoto._EN:
+                return {"query": {"pages": [{"title": "Red squirrel", "thumbnail": {
+                    "source": "https://upload.wikimedia.org/s.jpg"}}]}}
+            return {"query": {"pages": [{"title": "Wiewiórka zwyczajna"}]}}
+        with mock.patch.object(webphoto, "_get", two_wikis):
+            self.assertEqual(webphoto.pick(client("Wiewiórka zwyczajna | Red squirrel", {}),
+                                           "wiewiórki"),
+                             ("Wiewiórka zwyczajna", "https://upload.wikimedia.org/s.jpg",
+                              webphoto._EN, "Red squirrel"))
+        self.assertEqual([a for a, _ in asked], [webphoto._API, webphoto._EN])
+        # the search fallback takes only an article sharing a word ("lwa" → "Mostwa")
+        with mock.patch.object(webphoto, "_get", lambda p, timeout=6, api=None: {"query": {"pages": [
+                {"title": "Mostwa", "index": 1, "thumbnail": {"source": "m.jpg"}},
+                {"title": "Lew afrykański", "index": 2, "thumbnail": {"source": "l.jpg"}}]}}):
+            self.assertEqual(webphoto._search("Lew afrykański"), ("Lew afrykański", "l.jpg"))
+        with mock.patch.object(webphoto, "_get", lambda p, timeout=6, api=None: {"query": {"pages": [
                 {"title": "Lew", "pageprops": {"disambiguation": ""},
                  "thumbnail": {"source": "x.jpg"}}]}}):
             self.assertIsNone(webphoto.pick(client("Lew", {}), "lwa"))   # a disambiguation page

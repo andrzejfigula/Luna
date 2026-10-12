@@ -29,6 +29,7 @@ DIR = os.path.join(DATA_DIR, "webphotos")
 KEEP = 20
 GAP = 5
 _API = "https://pl.wikipedia.org/w/api.php?"
+_EN = "https://en.wikipedia.org/w/api.php?"
 _UA = {"User-Agent": "Luna-robot/1.0 (https://github.com/andrzejfigula/Luna; home robot)"}
 # a photo shown to a child: far stricter than the moderation's own "flagged"
 _LIMITS = {"sexual": 0.02, "sexual_minors": 0.01, "violence": 0.35, "violence_graphic": 0.05,
@@ -38,32 +39,45 @@ _LIMITS = {"sexual": 0.02, "sexual_minors": 0.01, "violence": 0.35, "violence_gr
 _last = [0.0]
 
 
-def _get(params, timeout=6):
-    url = _API + urllib.parse.urlencode(dict(params, format="json", formatversion="2"))
+def _get(params, timeout=6, api=_API):
+    url = api + urllib.parse.urlencode(dict(params, format="json", formatversion="2"))
     with urllib.request.urlopen(urllib.request.Request(url, headers=_UA), timeout=timeout) as r:
         return json.load(r)
 
 
 def _title(client, what):
-    """"żyrafy" → "Żyrafa" (the small model knows Polish cases and Wikipedia)."""
+    """"żyrafy" → ("Żyrafa", "Giraffe"): the article in the Polish and the
+    English Wikipedia (the small model knows Polish cases and Wikipedia)."""
     from config import OPENAI_MODEL
     r = client.chat.completions.create(
-        model=OPENAI_MODEL, temperature=0.0, max_tokens=20,
+        model=OPENAI_MODEL, temperature=0.0, max_tokens=40,
         messages=[{"role": "user", "content":
-                   "Dziecko prosi robota: „pokaż mi zdjęcie " + what + "”. Podaj dokładny "
-                   "tytuł artykułu w polskiej Wikipedii, którego główne zdjęcie najlepiej to "
-                   "pokazuje (np. „żyrafy” → Żyrafa, „lwa” → Lew afrykański, „wieży Eiffla” → "
-                   "Wieża Eiffla). Jeśli to nie jest rzecz, zwierzę, roślina, miejsce ani "
-                   "zjawisko, które da się sfotografować, napisz: BRAK. Tylko tytuł."}])
-    t = (r.choices[0].message.content or "").strip().strip("„”\"'.")
-    return None if not t or t.upper() == "BRAK" or len(t) > 60 else t
+                   "Dziecko prosi robota: „pokaż mi zdjęcie " + what + "”. Podaj dokładne "
+                   "tytuły artykułu o tym (nie strony ujednoznaczniającej) w polskiej i w "
+                   "angielskiej Wikipedii, którego główne zdjęcie najlepiej to pokazuje, w "
+                   "jednej linii: polski | angielski (np. „żyrafy” → Żyrafa | Giraffe, „lwa” → "
+                   "Lew afrykański | Lion, „T-rexa” → Tyranozaur | Tyrannosaurus). Jeśli to nie "
+                   "jest rzecz, zwierzę, roślina, miejsce ani zjawisko, które da się "
+                   "sfotografować, napisz: BRAK. Tylko ta linia."}])
+    line = (r.choices[0].message.content or "").strip()
+    if not line or line.upper().startswith("BRAK"):
+        return None
+    parts = [t.strip().strip("„”\"'.") for t in line.split("|")]
+    pl = parts[0] if parts and 0 < len(parts[0]) <= 60 else None
+    en = parts[1] if len(parts) > 1 and 0 < len(parts[1]) <= 60 else None
+    return (pl, en) if pl or en else None
 
 
-def _page(title):
+def spoken(title):
+    """"Saturn (planeta)" → "Saturn" — the bracket is Wikipedia's, not hers."""
+    return re.sub(r"\s*\([^)]*\)", "", title or "").strip() or title
+
+
+def _page(title, api=_API):
     """(title, thumbnail url) of that article, redirects followed; None without a photo."""
     d = _get({"action": "query", "titles": title, "redirects": "1",
               "prop": "pageimages|pageprops", "piprop": "thumbnail", "pithumbsize": "960",
-              "ppprop": "disambiguation"})
+              "ppprop": "disambiguation"}, api=api)
     for p in d.get("query", {}).get("pages", []):
         src = (p.get("thumbnail") or {}).get("source")
         if p.get("missing") or "pageprops" in p or not src:
@@ -74,12 +88,45 @@ def _page(title):
     return None
 
 
+def _stems(text):
+    import unicodedata
+    t = unicodedata.normalize("NFKD", (text or "").lower())
+    t = "".join(c for c in t if not unicodedata.combining(c)).replace("ł", "l")
+    return {w[:4] for w in re.findall(r"[a-z]+", t) if len(w) >= 3}
+
+
+def _search(words, api=_API):
+    """Wikipedia's own search, but only an article sharing a word with what
+    was asked ("lwa" alone found "Mostwa")."""
+    d = _get({"action": "query", "generator": "search", "gsrsearch": words, "gsrlimit": "5",
+              "prop": "pageimages|pageprops", "piprop": "thumbnail", "pithumbsize": "960",
+              "ppprop": "disambiguation"}, api=api)
+    want = _stems(words)
+    for p in sorted(d.get("query", {}).get("pages", []), key=lambda p: p.get("index", 99)):
+        src = (p.get("thumbnail") or {}).get("source")
+        if src and "pageprops" not in p and "logo" not in src.lower() \
+                and _stems(p.get("title")) & want:
+            return p["title"], src
+    return None
+
+
 def pick(client, what):
-    """(title, url) of the photo for `what`, or None."""
-    title = _title(client, what)
-    found = title and _page(title)
-    # her word for it, not the redirect's ("Żyrafa", not "Giraffinae")
-    return (title, found[1]) if found else None
+    """(her name for it, photo url, api, article) for `what`, or None. The
+    Polish article first, then the English one (richer in photos — 13 Oct:
+    pająk, wiewiórka, lama, T-rex, rakieta had no photo on the Polish one),
+    then a Polish search."""
+    titles = _title(client, what)
+    if not titles:
+        return None
+    pl, en = titles
+    tries = ([(_API, pl, _page)] if pl else []) + ([(_EN, en, _page)] if en else []) \
+        + ([(_API, pl, _search)] if pl else [])
+    for api, title, how in tries:
+        found = how(title, api)
+        if found:
+            # her word for it, not the redirect's ("Żyrafa", not "Giraffinae")
+            return pl or found[0], found[1], api, found[0]
+    return None
 
 
 def safe(client, what, img):
@@ -164,13 +211,13 @@ def show(what, speak, fallback):
             if not found:
                 print(f"[webphoto] no photo for {what!r}", flush=True)
                 return fallback("Dobrze, zdjęcia nie znalazłam, ale narysuję. Chwileczkę!")
-            title, url = found
+            title, url, api, article = found
             img = _download(url)
             if not safe(c, what, img):
                 return fallback("Dobrze, tego zdjęcia nie pokażę, ale narysuję. Chwileczkę!")
             _shown.clear()
-            _shown.update(what=what, title=title)
-            _present(img, title, url, f"Dobrze, proszę — {title}, zdjęcie z Wikipedii.")
+            _shown.update(what=what, title=title, api=api, article=article)
+            _present(img, title, url, f"Dobrze, proszę — {spoken(title)}, zdjęcie z Wikipedii.")
         except Exception as e:
             print(f"[webphoto] failed: {e}", flush=True)
             fallback("Dobrze, zdjęcia nie znalazłam, ale narysuję. Chwileczkę!")
@@ -201,11 +248,11 @@ def more_wanted(text, now=None):
     return now - _shown.get("at", 0) < (MORE_SECS if photo_said else BARE_MORE_SECS)
 
 
-def _photos(title):
+def _photos(title, api=_API):
     """The article's other photos: [url], biggest first; maps and logos left out."""
     d = _get({"action": "query", "titles": title, "redirects": "1", "generator": "images",
               "gimlimit": "40", "prop": "imageinfo", "iiprop": "url|size|mime",
-              "iiurlwidth": "960"}, timeout=8)
+              "iiurlwidth": "960"}, timeout=8, api=api)
     out = []
     for p in d.get("query", {}).get("pages", []):
         ii = (p.get("imageinfo") or [{}])[0]
@@ -230,14 +277,14 @@ def more(speak):
         try:
             c = _client()
             used = _shown.setdefault("used", set())
-            for url in _photos(title):
+            for url in _photos(_shown.get("article") or title, _shown.get("api") or _API):
                 if _key(url) in used:
                     continue
                 used.add(_key(url))
                 img = _download(url)
                 if not safe(c, what or title, img):
                     continue
-                return _present(img, title, url, f"Dobrze, proszę — jeszcze jedno: {title}.")
+                return _present(img, title, url, f"Dobrze, proszę — jeszcze jedno: {spoken(title)}.")
             say("Więcej zdjęć tego nie mam — to były wszystkie z Wikipedii.")
         except Exception as e:
             print(f"[webphoto] more failed: {e}", flush=True)
