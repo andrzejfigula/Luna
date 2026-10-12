@@ -2024,7 +2024,8 @@ warm, fitted to the time of day and to how you feel about them. No emoji.
 Just a hello: NO question about their work, project, plans or anything from
 your memory — the first hello of the day already did that, and asking again
 at every return gets tiresome ("Jak idzie projekt?" three times a day).
-Feminine forms about yourself; THEIR gender from their name."""
+Feminine forms about yourself; THEIR gender from their name. Don't mention
+the desk ("u nas na biurku" came back in five hellos running, 11-12 Oct)."""
 
 
 _STRANGER = """Someone you don't recognise has just come to the desk (you know
@@ -2045,6 +2046,9 @@ implies; if you don't know it, phrase it so it needs no gender."""
 
 _ASKS_NAME = re.compile(r"jak\s+(?:się\s+)?(?:nazywasz|masz\s+na\s+imię)|kim\s+jesteś|"
                         r"twoje\s+imię|przedstaw\s+się", re.I)
+
+
+_hellos = []          # her last few hellos (this run), so the next one differs
 
 
 def greeting(first_today, waking=False, who=None, stranger=False):
@@ -2072,6 +2076,11 @@ def greeting(first_today, waking=False, who=None, stranger=False):
                    + memory.prompt_block())
         weekly = memory.weekday_facts(who, known=faces.names()) if (
             first_today or waking) and not stranger else []
+        if _hellos:
+            # (12 Oct: "Cześć, Andrzeju, fajne popołudnie… / miłe popołudnie… /
+            # miłego popołudnia!" — each hello alone, they came out alike)
+            context += ("Your last hellos were: " + " / ".join(f'"{h}"' for h in _hellos[-4:])
+                        + " — say this one differently: other words, another opening.\n")
         if weekly:            # "Dziś basen!" on a Thursday (8 Oct probe: never said)
             context += (f"For TODAY ({_local_now_text()}) you remember: {' / '.join(weekly)} — "
                         f"this is the thing to mention for their day.\n")
@@ -2089,6 +2098,8 @@ def greeting(first_today, waking=False, who=None, stranger=False):
             text = " ".join(s for s in re.split(r"(?<=[.!?])\s+", text)
                             if not _ASKS_NAME.search(s)).strip()
         print(f"[brain] greeting{' for ' + who if who else ''}: {text}")
+        if text:
+            _hellos[:] = (_hellos + [text])[-6:]
         return text or None
     except Exception as e:
         print(f"[brain] greeting failed: {e}")

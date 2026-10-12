@@ -2553,6 +2553,27 @@ class KidsTest(unittest.TestCase):
         with mock.patch.object(brain, "translator", lambda: "rosyjski"):
             self.assertEqual(brain._latin("To jest корпус"), "To jest корпус")
 
+    def test_hellos_differ(self):
+        import brain
+        # 12 Oct: "Cześć, Andrzeju, fajne / miłe popołudnie u nas na biurku" — each
+        # hello is now told the last ones
+        seen = []
+        c = mock.Mock()
+
+        def create(**kw):
+            seen.append(kw["messages"][1]["content"])
+            return mock.Mock(choices=[mock.Mock(message=mock.Mock(
+                content=f"Cześć, Andrzeju {len(seen)}!"))])
+        c.chat.completions.create.side_effect = create
+        with mock.patch.object(brain, "_client", c), \
+                mock.patch.object(brain, "_hellos", []):
+            brain.greeting(False, who="Andrzej")
+            brain.greeting(False, who="Andrzej")
+            self.assertNotIn("Your last hellos", seen[0])
+            self.assertIn('"Cześć, Andrzeju 1!"', seen[1])
+            self.assertEqual(brain._hellos, ["Cześć, Andrzeju 1!", "Cześć, Andrzeju 2!"])
+        self.assertIn("Don't mention", brain._HELLO_AGAIN)
+
     def test_web_photo(self):
         import drawing
         import webphoto
