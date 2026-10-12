@@ -4,7 +4,7 @@
 zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 
 > **Nowe (12–13.10) — warto wypróbować:**
-> „Luna, **pokaż mi zdjęcie żyrafy**”, „**jak wygląda** Mars?”, „pokaż mi słonia” — **prawdziwe zdjęcie z Wikipedii** (sprawdzone, czy nadaje się dla dzieci; jeśli nie — rysuje) · potem „**pokaż inne zdjęcie**” / „jeszcze jedno” ·
+> „Luna, **pokaż mi zdjęcie żyrafy**”, „**jak wygląda** Mars?”, „pokaż mi słonia” — **prawdziwe zdjęcie z Wikipedii** (sprawdzone, czy nadaje się dla dzieci; jeśli nie — rysuje) · potem „**pokaż inne zdjęcie**” / „jeszcze jedno” / „pokaż to jeszcze raz” (pod zdjęciem jego nazwa) ·
 > „**Zagrajmy we flagi**” — flaga na ekranie, zgadujesz kraj (35 krajów) · „**Quiz ze zwierząt**” — zdjęcie zwierzęcia, zgadujesz, co to ·
 > „**Zgadnij, o czym myślę**” — Luna zgaduje zwierzę **zwykle w ok. 10 pytaniach** i rozumie „trochę”, „raczej tak” ·
 > **pasek u góry**: po prawej pogoda (słońce / księżyc / chmurka / deszcz i temperatura), data i godzina; po lewej: internet, czy słucha / myśli / mówi, radio, minutnik, budzik… („ukryj pasek” / „pokaż pasek”) ·
