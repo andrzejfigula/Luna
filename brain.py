@@ -1984,6 +1984,19 @@ def note_local(user_text, said):
                                    # "co dziś robiłyśmy?" → "nikt ze mną nie rozmawiał")
 
 
+def note_said(text):
+    """Something she said on her own (a hello, "Jak mija wieczór?") — her turn
+    in the history, so the answer to it makes sense to the model (12 Oct
+    19:15: "Jak mija wieczór?" → "W porządku." → "Jasne.", the hello unseen)."""
+    text = (text or "").strip()
+    if not text:
+        return
+    _history.append({"role": "assistant", "content": text})
+    while len(_history) > OPENAI_MAX_HISTORY:
+        _history.pop(0)
+    save_history()
+
+
 def add_to_last_reply(note):
     """Something that finished after her answer (a drawing now on the
     screen): added to that answer in the history, so the next question

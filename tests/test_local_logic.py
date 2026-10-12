@@ -2712,6 +2712,15 @@ class KidsTest(unittest.TestCase):
         with mock.patch.object(brain, "translator", lambda: "rosyjski"):
             self.assertEqual(brain._latin("To jest корпус"), "To jest корпус")
 
+    def test_her_own_words_in_the_history(self):
+        import brain
+        # 12 Oct 19:15: "Jak mija wieczór?" → "W porządku." → "Jasne." (the hello unseen)
+        with mock.patch.object(brain, "_history", []),                 mock.patch.object(brain, "save_history", lambda: None):
+            brain.note_said("Dobry wieczór, Andrzeju! Jak mija wieczór?")
+            brain.note_said("")
+            self.assertEqual(brain._history, [{"role": "assistant",
+                                               "content": "Dobry wieczór, Andrzeju! Jak mija wieczór?"}])
+
     def test_hellos_differ(self):
         import brain
         # 12 Oct: "Cześć, Andrzeju, fajne / miłe popołudnie u nas na biurku" — each

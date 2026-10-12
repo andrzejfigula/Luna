@@ -370,6 +370,11 @@ def idle_loop():
                                 hello = (greeting(first_today, who=who) or
                                          _greeting(first_today))
                         speak(hello, can_drop=True)
+                        try:
+                            import brain           # the answer to it needs its context
+                            brain.note_said(hello)
+                        except Exception:
+                            pass
                         if "?" in hello and not stranger:
                             # she asked something ("…opowiesz mi żart?"): the answer
                             # needs no "Luna" — "puk puk" was lost on 6 Oct

@@ -157,7 +157,13 @@ def _behavior_step(speak, confirm_wave):
                         idle_engine.mark_greeted(who)
             except Exception as e:
                 print(f"[behavior] first hello failed: {e}", flush=True)
-            speak(hello or random.choice(WAVE_REPLIES), can_drop=True)
+            said = hello or random.choice(WAVE_REPLIES)
+            speak(said, can_drop=True)
+            try:
+                import brain
+                brain.note_said(said)
+            except Exception:
+                pass
 
 
 def start_behavior():
