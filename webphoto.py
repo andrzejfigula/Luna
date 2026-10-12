@@ -178,7 +178,9 @@ def _present(img, title, url, line):
         except OSError:
             pass
     with state.lock:
-        state.overlay = ("photo", time.time() + 40, out)
+        # its name under it — Maja reads it ("Żyrafa · Wikipedia")
+        state.overlay = ("photo", time.time() + 40,
+                         {"path": out, "sub": f"{spoken(title)} · Wikipedia"})
     print(f"[webphoto] {title} ({url.split('?')[0]})", flush=True)
     _shown.update(at=time.time(), path=out)
     _shown.setdefault("used", set()).add(_key(url))
@@ -266,7 +268,9 @@ def again_wanted(text, now=None):
 def show_again(speak):
     from shared_state import state
     with state.lock:
-        state.overlay = ("photo", time.time() + 40, _shown["path"])
+        state.overlay = ("photo", time.time() + 40,
+                         {"path": _shown["path"],
+                          "sub": f"{spoken(_shown.get('title', ''))} · Wikipedia"})
     speak(f"Proszę — {spoken(_shown.get('title', ''))}." if _shown.get("title") else "Proszę.")
     return True
 
