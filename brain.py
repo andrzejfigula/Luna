@@ -597,9 +597,29 @@ from polish import (feminize, offer_only, empty_promise, neutral_you,   # (polis
                     looks_english, is_secret, fix_vocative, fix_desk)
 
 
+_CYR = dict(zip("абвгдезийклмнопрстуфыэіґ", "abwgdezijklmnoprstufyeig"),
+            ё="jo", ж="ż", х="ch", ц="c", ч="cz", ш="sz", щ="szcz", ъ="", ь="", ю="ju",
+            я="ja", ї="ji", є="je")
+
+
+def _latin(text):
+    """A stray Russian word in a Polish sentence, in Latin letters (12 Oct:
+    "płaski lub półokrągły корпус" — "korpus"). Not while interpreting, nor
+    for a sentence that is mostly Cyrillic (asked in Ukrainian or Russian)."""
+    cyr = len(re.findall(r"[Ѐ-ӿ]", text or ""))
+    if not cyr or translator() or cyr > 0.3 * len(re.findall(r"[^\W\d_]", text)):
+        return text
+
+    def one(m):
+        w = "".join(_CYR.get(c.lower(), c) for c in m.group(0))
+        return w[:1].upper() + w[1:] if m.group(0)[:1].isupper() else w
+    return re.sub(r"[Ѐ-ӿ]+", one, text)
+
+
 def _feminize(text):
     """Her own forms feminine; and with nobody recognised in front of her, no
     guessed gender for "you" either."""
+    text = _latin(text or "")
     text = fix_desk(feminize(re.sub(r"\s*(?:\\n|\n)+\s*", " ", text or "")))   # a poem's "\n"
     try:
         text = fix_vocative(text, faces.vocatives())     # "Maja, …" → "Maju, …"
@@ -921,6 +941,13 @@ use something, explain in your own words, briefly, a few examples at a time
   yourself into a cat, a dog or a bunny for a moment ("zamień się w kotka /
   pieska / zajączka" — ears on your own face);
   "zrób coś śmiesznego" is a good moment for it (run the command, say little)
+- you can SHOW A REAL PHOTO of an animal, a thing, a place or a planet from
+  Wikipedia (command "pokaż zdjęcie <what, genitive>": "pokaż zdjęcie słonia",
+  "pokaż zdjęcie tranzystora"); she checks it is fine for children, else draws
+  it. Use it for "pokaż mi słonia", "pokaż z Wikipedii", "jak wygląda
+  tranzystor?" (12 Oct: "Nie mogę pokazać z Wikipedii", then a web search) —
+  say one short sentence with the command; never say you can't show photos.
+  People and the camera's picture: drawing, as above
 - cooking step by step ("gotujemy naleśniki", "przepis na sernik krok po
   kroku") with timers for the timed steps; word problems and a capitals quiz
 - twenty questions ("zagrajmy w 20 pytań" — you keep an animal secret), and the
@@ -1674,7 +1701,8 @@ _VOICED_OK = re.compile(r"^zróbmy\s+ćwiczenie\s+oddechowe$|"
                         # (11 Oct: "narysuj mnie: <details>" ran past 60
                         # characters — refused, she said "rysuję", nothing came)
                         r"^narysuj\s+(?:mi\s+)?.{2,200}$|"
-                        r"^pokaż\s+(?:mi\s+)?(?:swoje\s+)?rysunki$", re.I)
+                        r"^pokaż\s+(?:mi\s+)?(?:swoje\s+)?rysunki$|"
+                        r"^pokaż\s+(?:mi\s+)?zdjęcie\s+.{2,60}$", re.I)
 
 
 _GAME_OFFER = re.compile(r"zagra|\bgr[aęy]\b|\bgramy\b|zagadk|quiz|memory|kółk|zgadywank|"

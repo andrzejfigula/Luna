@@ -2512,6 +2512,27 @@ class KidsTest(unittest.TestCase):
             self.assertFalse(drawing.handle("A teraz", lambda t: None))
         self.assertEqual(calls, [("Emilkę", b"jpg")])
 
+    def test_photo_from_the_model_and_latin(self):
+        import brain
+        import drawing
+        import webphoto
+        # 12 Oct 13:40: "pokaż mi słonia", "pokaż z Wikipedii" — the model can
+        # now send "pokaż zdjęcie słonia"
+        self.assertTrue(brain._VOICED_OK.match("pokaż zdjęcie słonia"))
+        self.assertTrue(brain._VOICED_OK.match("pokaż mi zdjęcie tranzystora"))
+        got = []
+        with mock.patch.object(webphoto, "show", lambda w, s, fb: got.append(w) or True):
+            drawing.handle("pokaż zdjęcie słonia", lambda t: None)
+        self.assertEqual(got, ["słonia"])
+        # "płaski lub półokrągły корпус" (12 Oct)
+        with mock.patch.object(brain, "translator", lambda: None):
+            self.assertEqual(brain._latin("Ma płaski lub półokrągły корпус, a na nim napis."),
+                             "Ma płaski lub półokrągły korpus, a na nim napis.")
+            self.assertEqual(brain._latin("Привет, как дела?"), "Привет, как дела?")
+            self.assertEqual(brain._latin("Zwykłe zdanie."), "Zwykłe zdanie.")
+        with mock.patch.object(brain, "translator", lambda: "rosyjski"):
+            self.assertEqual(brain._latin("To jest корпус"), "To jest корпус")
+
     def test_web_photo(self):
         import drawing
         import webphoto

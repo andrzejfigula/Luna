@@ -103,7 +103,9 @@ def show(what, speak, fallback):
     if time.time() - _last[0] < GAP:
         return fallback()
     _last[0] = time.time()
-    speak("Dobrze, szukam zdjęcia. Chwileczkę!")
+    if threading.current_thread().name != "command":
+        # (from the model's answer her "Pokażę ci słonia" was just said)
+        speak("Dobrze, szukam zdjęcia. Chwileczkę!")
 
     def run():
         from text_to_speech import speak as say

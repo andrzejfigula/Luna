@@ -1,0 +1,8 @@
+Andrzej|Pokaż mi słonia.
+Andrzej|Luna, a pokaż mi z Wikipedii.
+Andrzej|Co to jest tranzystor?
+Andrzej|A jak wygląda?
+Maja|Narysuj mi słonia
+Maja|Jak wygląda żyrafa?
+Maja|Pokaż mi Marsa
+Andrzej|Jak wygląda Emilka?
