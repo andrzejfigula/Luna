@@ -49,6 +49,11 @@ _last_what = [""]              # "narysuj jeszcze raz" — what it was
 _last_cam = [False]            # … and whether it was the camera's picture
 
 
+_MAKE = re.compile(r"^(?:luna,?\s+)?(?:(?:czy\s+)?(?:możesz|mozesz|mogłabyś|moglabys)\s+)?"
+                   r"(?:mi\s+|nam\s+)?(?:zrobić|zrobic|zrób|zrob)\s+(?:mi\s+|nam\s+)?"
+                   r"(?:rysunek|rysuneczek|obrazek|obrazka|obrazki)\s+(.{2,150}?)[.!?]*$", re.I)
+
+
 def wants(text):
     """The thing to draw, or None. "Jeszcze raz mnie narysuj" (verb last) and
     "narysuj mnie jeszcze raz" too — 10 Oct 20:36: the first went to the
@@ -58,6 +63,11 @@ def wants(text):
                     r"((?:\w+\s+){0,3}?\w+)\s+(?:narysuj|namaluj)\W*$", t, re.I)
     if last:
         t = f"narysuj {last.group(1)}"
+    # "Możesz zrobić rysunek kotka na rowerze?" (13 Oct sweep: "Jasne — zrobię
+    # kotka na rowerze." and nothing drawn) — the same as "narysuj kotka…"
+    make = _MAKE.match(t)
+    if make:
+        t = f"narysuj {make.group(1)}"
     m = _ASK.match(t)
     if not m:
         return None

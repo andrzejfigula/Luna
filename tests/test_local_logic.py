@@ -3318,6 +3318,11 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(drawing.wants("Luna, możesz mi narysować pieska?"), "pieska")
         self.assertEqual(drawing.wants("Narysujesz mi kotka?"), "kotka")
         self.assertIsNone(drawing.wants("Narysowałam dom"))
+        # "Możesz zrobić rysunek kotka na rowerze?" (13 Oct sweep — nothing drawn)
+        self.assertEqual(drawing.wants("Możesz zrobić rysunek kotka na rowerze?"),
+                         "kotka na rowerze")
+        self.assertEqual(drawing.wants("Zrób mi obrazek psa"), "psa")
+        self.assertIsNone(drawing.wants("Zrobiłam rysunek w szkole"))
         self.assertIn("robota", drawing._subject("siebie"))
         self.assertIn("robota", drawing._subject(drawing.wants("Narysuj, jak wyglądasz")))
         self.assertIn("rodzinę", drawing._subject("naszą rodzinę"))

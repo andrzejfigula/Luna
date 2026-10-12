@@ -1804,7 +1804,9 @@ def _asks_to_choose(reply):
 
 
 _DRAW_PROMISE = re.compile(r"\b(?:już\s+|zaraz\s+|teraz\s+|to\s+)?(?:rysuję|narysuję|maluję|"
-                           r"namaluję|biorę\s+się\s+do\s+rysowania)\b", re.I)
+                           r"namaluję|biorę\s+się\s+do\s+rysowania|zrobię|robię)\b", re.I)
+# ("zrobię" counts only for a drawing asked for — _ABOUT_DRAWING — 13 Oct:
+# "Jasne — zrobię kotka na rowerze.")
 _DRAW_NOT = re.compile(r"\bnie\s+(?:na)?(?:rysuj|maluj)|\bjeśli\s+chcesz|\bjesli\s+chcesz|"
                        r"\bco\s+mam\s+(?:na)?rysować|\bmogę\s+(?:ci\s+)?(?:na)?rysować|"
                        r"\bmoge\s+(?:ci\s+)?(?:na)?rysowac|\?\s*$", re.I)
