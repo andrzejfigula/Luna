@@ -35,6 +35,7 @@ from config import (IDLE_ABSENCE_SECS, IDLE_PRESENCE_GRACE, IDLE_DEBUG,
 
 _last_proactive = 0.0
 present_since = [0.0]   # when the person in front of her sat down (0: nobody)
+SEATED_AWAY_SECS = 120  # gone this long → they really left
 
 
 # ── quiet / mute ──────────────────────────────────────────────────────────────
@@ -390,9 +391,12 @@ def idle_loop():
                                   can_drop=True)
             elif was_present and not present:
                 left_at = now
-            if present and not was_present:
+            # sat down: a glance away (face lost for 8 s+) is not leaving — the
+            # wave guard in behavior_engine kept restarting its 10 minutes
+            # (12 Oct 11:28: "Hej, hej!" to Andrzej at his desk since 10:00)
+            if present and not present_since[0]:
                 present_since[0] = now
-            elif not present:
+            elif not present and now - last_face > SEATED_AWAY_SECS:
                 present_since[0] = 0.0
             was_present = present
 

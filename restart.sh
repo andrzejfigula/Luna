@@ -16,16 +16,18 @@ if ! flock -n 9; then
     exit 0
 fi
 IDLE_SECS=180
-if [ "$1" != "--now" ]; then
+wait_idle() {
+    [ "$1" = "--now" ] && return
     for _ in $(seq 1 180); do
         last=$(cat /tmp/luna_last_activity 2>/dev/null || echo 0)
         now=$(date +%s)
         busy=$(cut -d" " -f1 /tmp/luna_busy 2>/dev/null || echo 0)
         # idle, and not in the middle of a game, a reading, cooking or the radio
-        if [ $(( now - ${last%.*} )) -ge $IDLE_SECS ] && [ "$now" -ge "${busy:-0}" ]; then break; fi
+        if [ $(( now - ${last%.*} )) -ge $IDLE_SECS ] && [ "$now" -ge "${busy:-0}" ]; then return; fi
         sleep 10
     done
-fi
+}
+wait_idle "$1"
 # the new code must pass the smoke test (real modules, silent) — a broken
 # version is never started; the running Luna stays as she is
 if [ "$1" != "--force" ] && [ -f tests/smoke_pi.py ]; then
@@ -53,6 +55,9 @@ if [ "$1" != "--force" ] && [ -f tests/smoke_pi.py ]; then
         exit 1
     fi
 fi
+# the tests take a minute or two — someone may have started talking to her
+# meanwhile (11 Oct 16:31: stopped while answering "włącz radio z jazzem")
+wait_idle "$1"
 ./stop.sh >/dev/null 2>&1
 # a Luna that doesn't go within 5 s is killed — two of them fight over the mic
 for _ in 1 2 3 4 5; do

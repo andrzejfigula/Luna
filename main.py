@@ -118,6 +118,7 @@ def voice_loop():
             try:
                 if text == WAKE_ACK:
                     commands.wake_up("wake word")
+                    _stamp_activity()           # "Luna!" — the question comes next
                     with state.lock:
                         state.bare_wake = True
                     # wake word alone ("Luna!") — short acknowledgement; a
