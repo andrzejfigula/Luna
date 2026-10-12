@@ -130,7 +130,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 | Wiadomość dla kogoś | „Nagraj wiadomość dla Emilki” — powie Emilce, gdy ją zobaczy, i kto ją zostawił |
 | Dla Mai | mówi do niej wolniej i cieplej; przy lekcjach naprowadza zamiast podawać wynik; bajki mogą być o niej; wiadomości tylko lekkie |
 | Radio każdego | „Włącz radio” włącza stację, której ta osoba słuchała ostatnio |
-| Zdjęcia z imionami | po „zrób nam zdjęcie” powie, kto jest na zdjęciu; „pokaż zdjęcia Mai” — tylko te z Mają; w galerii imiona pod zdjęciem |
+| Zdjęcia z imionami | po „zrób nam zdjęcie” powie, kto jest na zdjęciu; „pokaż zdjęcia Mai” / „**pokaż mi zdjęcie Mai**” / „**jak wygląda Maja?**” — tylko te z Mają (gdy nie ma żadnego — narysuje); w galerii imiona pod zdjęciem |
 | Gość | nieznaną twarz Luna przywita i zapyta o imię — wystarczy odpowiedzieć „Jestem Ola” albo samo „Ola” |
 | Przekaż komuś | „Przekaż Mai, żeby posprzątała pokój”, „Jak zobaczysz Emilkę, powiedz jej, że dzwoniła babcia” — Luna powie to tej osobie, gdy ją rozpozna |
 | Przypomnienie dla kogoś | „O 18 powiedz Emilce, żeby zadzwoniła do mamy”, „Codziennie o 20:30 przypominaj Mai, że pora spać” — powie tej osobie po tej godzinie, gdy ją zobaczy; „Usuń przypomnienia dla Mai” |
