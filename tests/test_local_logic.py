@@ -2106,6 +2106,40 @@ class KidsTest(unittest.TestCase):
         qa = [(q, "tak") for _, q in twenty_kb.QUESTIONS[:12]]
         self.assertIsNone(twenty._table_move(qa, 12))
 
+    def test_flag_quiz(self):
+        import quiz
+        import quizdata
+        from shared_state import state
+        # 13 Oct: a flag on the screen, "Jaki to kraj?"
+        for t in ("Zagrajmy we flagi", "Zgadnij flagę", "Quiz z flag",
+                  "Przepytaj mnie z flag państw"):
+            self.assertEqual(quiz.trigger(t), "flags", t)
+        for t in ("Pokaż mi flagę Francji", "Jaka jest flaga Niemiec?"):
+            self.assertNotEqual(quiz.trigger(t), "flags", t)
+        self.assertEqual(len({f[0] for f in quizdata.FLAGS}), len(quizdata.FLAGS))
+        said = []
+        with mock.patch.object(quiz, "_flag_image", lambda c, g: f"/tmp/{c}.png"), \
+                mock.patch.object(quizdata, "pick_flag",
+                                  lambda seen: ("Niemcy", "Niemiec", ["niemcy", "niemiec"])):
+            quiz.start("flags", "Zagrajmy we flagi", said.append, lambda n: None)
+            self.assertIn("Quiz z flag", said[0])
+            self.assertEqual(said[-1], "Jaki to kraj?")
+            with state.lock:
+                kind, _, data = state.overlay
+            self.assertEqual(kind, "photo")
+            self.assertEqual(data["path"], "/tmp/Niemcy.png")
+            self.assertIn("1 z", data["sub"])
+            q = quiz._q
+            self.assertTrue(quiz._check(q, "To Niemcy!"))
+            self.assertTrue(quiz._check(q, "niemiec"))
+            self.assertFalse(quiz._check(q, "Austria"))
+            self.assertIn("literę N", quiz._hint_for(q))
+            quiz._q = None
+        flag = quizdata.FLAGS[[f[0] for f in quizdata.FLAGS].index("Stany Zjednoczone")]
+        q = {"kind": "flags", "answer": [a.lower() for a in flag[2]]}
+        self.assertTrue(quiz._check(q, "USA"))
+        self.assertTrue(quiz._check(q, "Ameryka"))
+
     def test_twenty_reverse(self):
         import twenty
         for t in ("Zgadnij, o czym myślę", "Zgadnij, o jakim zwierzęciu myślę",

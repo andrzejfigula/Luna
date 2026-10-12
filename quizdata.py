@@ -97,3 +97,56 @@ def word_problem(seen):
 def pick_capital(seen):
     pool = [c for c in CAPITALS if c[0] not in seen] or CAPITALS
     return random.choice(pool)
+
+
+# flag quiz (13 Oct): (country, "flaga …" in the genitive, words accepted) —
+# countries an 8-year-old might know; the picture is Wikipedia's "Flaga …"
+FLAGS = [
+    ("Polska", "Polski", ["polska", "polski", "polsk"]),
+    ("Niemcy", "Niemiec", ["niemcy", "niemiec", "niemiecka"]),
+    ("Francja", "Francji", ["francja", "francji", "francuska"]),
+    ("Włochy", "Włoch", ["włochy", "wlochy", "włoska", "wloska", "italia"]),
+    ("Hiszpania", "Hiszpanii", ["hiszpania", "hiszpanii", "hiszpańska"]),
+    ("Wielka Brytania", "Wielkiej Brytanii", ["wielka brytania", "brytania", "anglia",
+                                              "brytyjska", "anglii"]),
+    ("Czechy", "Czech", ["czechy", "czech", "czeska"]),
+    ("Słowacja", "Słowacji", ["słowacja", "slowacja", "słowacji", "słowacka"]),
+    ("Ukraina", "Ukrainy", ["ukraina", "ukrainy", "ukraińska"]),
+    ("Litwa", "Litwy", ["litwa", "litwy", "litewska"]),
+    ("Austria", "Austrii", ["austria", "austrii", "austriacka"]),
+    ("Węgry", "Węgier", ["węgry", "wegry", "węgier", "węgierska"]),
+    ("Szwecja", "Szwecji", ["szwecja", "szwecji", "szwedzka"]),
+    ("Norwegia", "Norwegii", ["norwegia", "norwegii", "norweska"]),
+    ("Finlandia", "Finlandii", ["finlandia", "finlandii", "fińska"]),
+    ("Dania", "Danii", ["dania", "danii", "duńska"]),
+    ("Holandia", "Holandii", ["holandia", "holandii", "holenderska", "niderlandy"]),
+    ("Belgia", "Belgii", ["belgia", "belgii", "belgijska"]),
+    ("Szwajcaria", "Szwajcarii", ["szwajcaria", "szwajcarii", "szwajcarska"]),
+    ("Grecja", "Grecji", ["grecja", "grecji", "grecka"]),
+    ("Portugalia", "Portugalii", ["portugalia", "portugalii", "portugalska"]),
+    ("Irlandia", "Irlandii", ["irlandia", "irlandii", "irlandzka"]),
+    ("Chorwacja", "Chorwacji", ["chorwacja", "chorwacji", "chorwacka"]),
+    ("Japonia", "Japonii", ["japonia", "japonii", "japońska"]),
+    ("Chiny", "Chin", ["chiny", "chin", "chińska"]),
+    ("Korea Południowa", "Korei Południowej", ["korea", "korei", "koreańska"]),
+    ("Indie", "Indii", ["indie", "indii", "indyjska"]),
+    ("Stany Zjednoczone", "Stanów Zjednoczonych", ["stany zjednoczone", "stany", "usa",
+                                                   "ameryka", "ameryki", "amerykańska"]),
+    ("Kanada", "Kanady", ["kanada", "kanady", "kanadyjska"]),
+    ("Meksyk", "Meksyku", ["meksyk", "meksyku", "meksykańska"]),
+    ("Brazylia", "Brazylii", ["brazylia", "brazylii", "brazylijska"]),
+    ("Argentyna", "Argentyny", ["argentyna", "argentyny", "argentyńska"]),
+    ("Australia", "Australii", ["australia", "australii", "australijska"]),
+    ("Egipt", "Egiptu", ["egipt", "egiptu", "egipska"]),
+    ("Turcja", "Turcji", ["turcja", "turcji", "turecka"]),
+]
+
+
+def pick_flag(seen):
+    pool = [f for f in FLAGS if f[0] not in seen] or FLAGS
+    return random.choice(pool)
+
+
+# the article's title when it isn't "Flaga <genitive>"
+FLAG_TITLES = {"Chiny": "Flaga Chińskiej Republiki Ludowej"}
+

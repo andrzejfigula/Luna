@@ -118,7 +118,7 @@ _GAME_PL = {"mul": "tabliczka mnożenia", "add": "dodawanie", "sub": "odejmowani
             "mix": "rachunki", "words": "angielskie słówka", "riddle": "zagadki",
             "dictation": "dyktando", "dictation_en": "dyktando angielskie", "div": "dzielenie",
             "read": "czytanie", "clock": "zegar", "story": "zadania z treścią",
-            "capitals": "stolice"}
+            "capitals": "stolice", "flags": "flagi"}
 
 
 def note_game(who, kind, score, total, misses):

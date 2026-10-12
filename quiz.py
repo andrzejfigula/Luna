@@ -50,6 +50,7 @@ _KINDS = [("div", ("dzieleni", "dzielić", "dzielic")),
           ("sub", ("odejmowani", "odejmować", "odejmowac")),
           ("story", ("z treścią", "z trescia", "tekstow", "zadań z", "zadan z")),
           ("capitals", ("stolic", "stolica")),
+          ("flags", ("flag",)),
           ("words", ("słówek", "słówka", "slowek", "slowka", "słówkach",
                      "angielskiego", "angielskich", "angielski", "english")),
           ("mix", ("rachunk", "matematyk", "matm", "liczeni", "liczyć", "liczyc",
@@ -183,6 +184,10 @@ def trigger(text):
     low = text.lower()
     if len(re.findall(r"\w+", low)) > 10:
         return None
+    if re.search(r"\bflag", low) and re.search(
+            r"\b(?:zgad\w*|quiz\w*|kwiz\w*|zagraj\w*|pobaw\w*|przepytaj|sprawdź|sprawdz|"
+            r"pytaj|ucz\w*|naucz\w*|poćwicz\w*|pocwicz\w*|gra\w*)\b", low):
+        return "flags"                         # "zgadnij flagę", "quiz z flag" (13 Oct)
     if any(g in low for g in _GUESS):
         return "guess"
     if re.search(r"\b(?:czytani\w*|poczytaj\w*|czytać|czytac)\b", low) and re.search(
@@ -425,6 +430,13 @@ def _new_question(q):
         q.update(card="stolica?", say=question, answer=[a.lower() for a in accept],
                  reveal=accept[0], right=f"To {accept[0]}.")
         return
+    if q["kind"] == "flags":
+        import quizdata
+        country, gen, accept = quizdata.pick_flag(seen)
+        seen.add(country)
+        q.update(card="?", say="Jaki to kraj?", answer=[a.lower() for a in accept],
+                 image=_flag_image(country, gen), reveal=country, right=f"To flaga {gen}.")
+        return
     if q["kind"] == "clock":
         import clockgame
         h, m = clockgame.question(seen, q.get("level", 1))
@@ -466,6 +478,27 @@ def _new_question(q):
              right=f"{a} {_WORD[op]} {b} to {res}.")
 
 
+def _flag_image(country, gen):
+    """The flag's picture: DATA_DIR/flags/<country>.png, from Wikipedia the
+    first time (then offline). Raises when it can't be had."""
+    import os
+    import quizdata
+    import webphoto
+    from config import DATA_DIR
+    d = os.path.join(DATA_DIR, "flags")
+    path = os.path.join(d, re.sub(r"\W+", "_", country.lower()) + ".png")
+    if os.path.exists(path) and os.path.getsize(path) > 500:
+        return path
+    found = webphoto._page(quizdata.FLAG_TITLES.get(country, f"Flaga {gen}"))
+    if not found:
+        raise ValueError(f"no flag for {country}")
+    img = webphoto._download(found[1])
+    os.makedirs(d, exist_ok=True)
+    with open(path, "wb") as f:
+        f.write(img)
+    return path
+
+
 def would_accept(text):
     """Would `text` be the right answer to the question on now? (a copy is
     judged — the game is untouched). speech_to_text: when the cloud hears
@@ -496,7 +529,7 @@ def _check(q, text):
         if q["streak"] >= 2 and q.get("level", 1) < 2:
             q["level"] = 2                     # two right in a row: five-minute steps
         return ok
-    if q["kind"] == "capitals":
+    if q["kind"] in ("capitals", "flags"):
         # every letter, not only Polish ones: "Brasília", "Reykjavík" (_norm
         # dropped the í and a right answer didn't count)
         said = " ".join(w for w in re.findall(r"\w+", text.lower()) if w not in _EN_FILL)
@@ -579,6 +612,10 @@ def _ask(speak):
         with state.lock:
             state.overlay = ("clockface", time.time() + EXPIRE_SECS,
                              {"h": h, "m": m, "sub": f"zegar · {q['n']} z {q['total']}"})
+    elif q["kind"] == "flags":               # the flag itself, in the photo frame
+        with state.lock:
+            state.overlay = ("photo", time.time() + EXPIRE_SECS,
+                             {"path": q["image"], "sub": f"flagi · {sub}"})
     else:
         _card(q["card"], ("po angielsku · " if q["kind"] == "words" else "") + sub)
     speak(q["say"])
@@ -607,7 +644,7 @@ def start(kind, text, speak, play_sound_async):
             if words:
                 _q["words"] = words
                 _q["total"] = min(len(words), 10)
-        if kind in ("mul", "div", "add", "sub", "mix", "words", "capitals") and re.search(
+        if kind in ("mul", "div", "add", "sub", "mix", "words", "capitals", "flags") and re.search(
                 r"\b(na\s+czas|szybk\w*|wyścig\w*|wyscig\w*|na\s+wyścigi)\b", text.lower()):
             _q["race"] = True                  # a race: the time counts, records kept
     with state.lock:
@@ -634,6 +671,8 @@ def start(kind, text, speak, play_sound_async):
         speak(f"Zadania z treścią! Słuchaj uważnie, {total} zadań.")
     elif kind == "capitals":
         speak(f"Quiz ze stolic! {total} pytań.")
+    elif kind == "flags":
+        speak(f"Quiz z flag! Pokażę flagę, a ty powiedz, jaki to kraj. {total} pytań.")
     elif kind == "clock":
         speak(f"Uczymy się zegara! Krótka wskazówka to godziny, długa to minuty. "
               f"{total} pytań.")
@@ -950,6 +989,8 @@ def _hint_for(q):
     ans = q.get("answer")
     if kind == "capitals" and isinstance(ans, list) and ans:
         return f"Podpowiedź: to miasto zaczyna się na literę {ans[0][0].upper()}."
+    if kind == "flags" and isinstance(ans, list) and ans:
+        return f"Podpowiedź: ten kraj zaczyna się na literę {ans[0][0].upper()}."
     if isinstance(ans, list) and ans and isinstance(ans[0], str):
         return f"Podpowiedź: to słowo zaczyna się na literę {ans[0][0].upper()}."
     if isinstance(ans, str) and ans:

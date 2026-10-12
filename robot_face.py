@@ -2411,11 +2411,16 @@ class RobotFace:
                 if who:
                     counter = f"{who}   {counter}"
                 data = data["paths"][data["i"]]
+            elif isinstance(data, dict):            # {"path", "sub"}: the flag quiz
+                counter, data = data.get("sub"), data["path"]
             else:
                 counter = None
             if getattr(self, "_photo_cache", (None,))[0] != data:
                 try:
                     pic = pygame.image.load(data)
+                    # a palette PNG (Wikipedia's flags) can't be smoothscaled:
+                    # "Only 24-bit or 32-bit surfaces" — 13 Oct, the flag of Greece
+                    pic = pic.convert_alpha() if pic.get_alpha() else pic.convert()
                 except Exception:
                     return
                 # fits both ways — a wide Wikipedia photo (webphoto.py) ran off the sides
@@ -2424,7 +2429,13 @@ class RobotFace:
                 card = pygame.Surface((pw + 24, ph + 50))
                 card.fill((250, 246, 236))                       # a polaroid
                 card.blit(pygame.transform.smoothscale(pic, (pw, ph)), (12, 12))
-                self._photo_cache = (data, pygame.transform.rotate(card, -3))
+                card = pygame.transform.rotate(card, -3)
+                # tilted, it grows: a wide flag's frame ran off the top and bottom
+                f = min(1.0, (WIDTH - 8) / card.get_width(), (HEIGHT - 8) / card.get_height())
+                if f < 1.0:
+                    card = pygame.transform.smoothscale(
+                        card, (int(card.get_width() * f), int(card.get_height() * f)))
+                self._photo_cache = (data, card)
             card = self._photo_cache[1]
             scr.fill(BG)
             scr.blit(card, card.get_rect(center=(WIDTH // 2, HEIGHT // 2)))
