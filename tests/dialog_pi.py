@@ -127,6 +127,10 @@ CASES = [
     ("Wyłącz radio", ""),
     ("Włącz napisy", "napisy"),
     ("Wyłącz napisy", "napisy"),
+    # 12-13 Oct
+    ("Głośność na pięćdziesiąt procent", ""),            # the number in words: local
+    ("Ukryj pasek", "chowam pasek"),                     # statusbar.py
+    ("Pokaż pasek", "pokazuję pasek"),
     ("Włącz tryb skupienia", "skupi"),
     ("Koniec skupienia", ""),
     ("Tłumacz na angielski", "angielski"),
