@@ -318,6 +318,33 @@ _NOT_A_THING = re.compile(r"^(?:on|ona|ono|oni|one|to|ten|ta|tamt\w*|tw\w*|moj\w
                           r"teraz|u\s+\w+|w\s+\w+|na\s+\w+)\b", re.I)
 
 
+def person_photos(what):
+    """("Maja", [her photos]) when `what` is someone of the family with photos
+    of hers taken here ("zrób nam zdjęcie"), else None."""
+    try:
+        import faces
+        import screens
+        name = faces.match_name(_first_word(what)) or faces.match_role(_first_word(what))
+        paths = screens.photos_of(name) if name else []
+        return (name, paths) if paths else None
+    except Exception:
+        return None
+
+
+def show_person(what, speak):
+    """"Pokaż mi zdjęcie Mai" / "Jak wygląda Maja?" — her real photos, if any
+    (13 Oct: she was always drawn "z wyobraźni", with photos of her on disk)."""
+    got = person_photos(what)
+    if not got:
+        return False
+    import screens
+    name, paths = got
+    screens.show_photos(paths[:8], [name] * len(paths[:8]))
+    speak(f"Proszę, tak wygląda {name}." if len(paths) == 1
+          else f"Proszę, zdjęcia, na których jest {name}.")
+    return True
+
+
 def looks_wanted(text):
     """"Jak wygląda żyrafa?" → "żyrafa"; None for "jak wygląda pogoda", a person."""
     m = _LOOKS.match((text or "").strip())
@@ -357,6 +384,9 @@ def handle(text, speak):
         if photo:
             return draw(_last_what[0], speak, "Dobrze, rysuję jeszcze raz. Chwileczkę!", photo=photo)
         return draw(_last_what[0], speak, "Dobrze, rysuję jeszcze raz. Chwileczkę!")
+    m = _LOOKS.match((text or "").strip())
+    if m and _is_person(m.group(1).strip(" ,")) and show_person(m.group(1), speak):
+        return True                                # "Jak wygląda Maja?" — her photos
     looks = looks_wanted(text)
     if looks:
         import webphoto
@@ -367,6 +397,8 @@ def handle(text, speak):
         # "pokaż mi obrazek kota" — a picture of it, drawn; "pokaż mi zdjęcie
         # żyrafy" — a real one, from Wikipedia (webphoto.py), else drawn
         what = of.group(1).strip()
+        if re.search(r"zdj", of.group(0), re.I) and _is_person(what) and show_person(what, speak):
+            return True                            # "pokaż mi zdjęcie Mai" — a real one
         if re.search(r"zdj", of.group(0), re.I) and not _is_person(what):
             import webphoto
             return webphoto.show(what, speak, lambda intro="Dobrze, już rysuję. Chwileczkę!":

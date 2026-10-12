@@ -2826,6 +2826,39 @@ class KidsTest(unittest.TestCase):
             self.assertTrue(drawing.handle("Jak wygląda żyrafa?", lambda t: None))
         self.assertEqual(got, ["żyrafa"])
 
+    def test_person_photos(self):
+        import drawing
+        import faces
+        import screens
+        from shared_state import state
+        # "Pokaż mi zdjęcie Mai" / "Jak wygląda Maja?" — her real photos, if any
+        d = tempfile.mkdtemp()
+        for f in ("20261010-120000.jpg", "20261011-120000.jpg", "20261012-120000.jpg"):
+            open(os.path.join(d, f), "wb").close()
+        with open(os.path.join(d, "people.json"), "w", encoding="utf-8") as f:
+            json.dump({"20261010-120000.jpg": ["Maja"], "20261012-120000.jpg": ["Maja", "Andrzej"],
+                       "20261011-120000.jpg": ["Andrzej"]}, f)
+        said, drawn = [], []
+        with mock.patch.object(screens, "PHOTOS_DIR", d), \
+                mock.patch.object(screens, "_TAGS", os.path.join(d, "people.json")), \
+                mock.patch.object(faces, "match_name",
+                                  lambda w, known=None: {"mai": "Maja", "maja": "Maja",
+                                                         "emilki": "Emilka"}.get(w.lower())), \
+                mock.patch.object(drawing, "draw", lambda w, s, intro="": drawn.append(w) or True):
+            self.assertEqual([os.path.basename(p) for p in screens.photos_of("Maja")],
+                             ["20261012-120000.jpg", "20261010-120000.jpg"])
+            self.assertTrue(drawing.handle("Pokaż mi zdjęcie Mai", said.append))
+            self.assertEqual(said[-1], "Proszę, zdjęcia, na których jest Maja.")
+            with state.lock:
+                kind, _, data = state.overlay
+            self.assertEqual((kind, len(data["paths"]), data["names"][0]), ("gallery", 2, "Maja"))
+            self.assertTrue(drawing.handle("Jak wygląda Maja?", said.append))
+            self.assertEqual(said[-1], "Proszę, zdjęcia, na których jest Maja.")
+            drawing.handle("Pokaż mi zdjęcie Emilki", said.append)   # no photos of her: drawn
+            self.assertEqual(drawn, ["Emilki"])
+            with state.lock:
+                state.overlay = None
+
     def test_web_photo(self):
         import drawing
         import webphoto

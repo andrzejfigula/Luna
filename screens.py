@@ -124,6 +124,22 @@ def _tag(path):
     return names
 
 
+def photos_of(name):
+    """Her own photos with `name` in them ("zrób nam zdjęcie"), newest first."""
+    if not os.path.isdir(PHOTOS_DIR):
+        return []
+    tags = _tags()
+    shots = sorted((f for f in os.listdir(PHOTOS_DIR) if f.endswith(".jpg")), reverse=True)
+    return [os.path.join(PHOTOS_DIR, f) for f in shots if name in tags.get(f, [])]
+
+
+def show_photos(paths, names=None):
+    """The gallery of these photos (a name under each, if given)."""
+    _show("gallery", len(paths) * GALLERY_STEP + 1,
+          {"paths": paths, "i": 0, "next": time.time() + GALLERY_STEP,
+           "names": names or [""] * len(paths)})
+
+
 def _and(names):
     return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " i " + names[-1]
 
