@@ -2042,6 +2042,34 @@ class KidsTest(unittest.TestCase):
             self.assertIn("Andrzej pytał o czas.", memory.day_line("O czym dziś rozmawialiśmy?"))
             self.assertEqual(memory.day_line("Jaka pogoda wczoraj była?"[:0] + "Co tam?"), "")
 
+    def test_twenty_reverse_unclear(self):
+        import twenty
+        from shared_state import state
+        # 11 Oct: "Troszeczkę jego ma." → "Odpowiedz mi…", and "Czy to bóbr?" three times
+        for t in ("Troszeczkę jego ma", "Prawie", "Nie do końca", "Po części"):
+            self.assertTrue(twenty._UNSURE.search(t.lower()), t)
+        self.assertTrue(twenty._YES.match("raczej tak"))
+        self.assertTrue(twenty._NO.match("chyba nie"))
+        self.assertFalse(twenty._NO.match("nie wiem"))
+        said, moves = [], iter([("question", "Czy jest duże?", ""), ("question", "Czy pływa?", "")])
+        old = twenty._next_move
+        twenty._next_move = lambda qa, asked: next(moves)
+        try:
+            twenty._r = {"qa": [], "asked": 3, "t": time.time(), "q": "Czy ma ogon?",
+                         "guess": None, "stage": "asking", "player": "Maja"}
+            with state.lock:
+                state.person = ("Maja", 0.7, time.time())
+            twenty.answer("Hmm, ja wiem", said.append)
+            self.assertTrue(said[-1].startswith("Odpowiedz mi"))
+            twenty.answer("Hmm, ja wiem", said.append)            # the second time: on
+            self.assertEqual(said[-1], "Czy jest duże?")
+            self.assertEqual(twenty._r["qa"], [("Czy ma ogon?", "nie wiem")])
+            twenty.answer("Troszeczkę jego ma.", said.append)
+            self.assertEqual(twenty._r["qa"][-1], ("Czy jest duże?", "nie wiem"))
+        finally:
+            twenty._next_move = old
+            twenty._r = None
+
     def test_twenty_reverse(self):
         import twenty
         for t in ("Zgadnij, o czym myślę", "Zgadnij, o jakim zwierzęciu myślę",

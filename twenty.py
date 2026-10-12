@@ -188,11 +188,16 @@ _COMMON = {"nie", "tak", "ale", "jest", "cos", "czy", "moze", "jeszcze", "teraz"
 # ── the other way round: the child thinks, Luna asks ─────────────────────────
 _r = None              # {"qa": [(question, answer)], "asked", "t", "q", "guess", "stage"}
 
-_YES = re.compile(r"^(?:no\s+)?(?:tak|taak|jasne|pewnie|zgadza\s+się|dokładnie|owszem|"
-                  r"zgadłaś|zgadlas|brawo|udało\s+ci\s+się)\b", re.I)
-_NO = re.compile(r"^(?:no\s+)?(?:nie|pudło|pudlo)\b(?!\s+wiem)", re.I)
-_UNSURE = re.compile(r"\b(?:nie\s+wiem|czasem|czasami|trochę|troche|nie\s+jestem\s+pew\w+|"
-                     r"może|moze|to\s+zależy|zalezy)\b", re.I)
+# "raczej tak", "chyba nie" — a yes / no all the same
+_YES = re.compile(r"^(?:no\s+)?(?:(?:raczej|chyba|prawie\s+że|chyba\s+że)\s+)?(?:tak|taak|jasne|"
+                  r"pewnie|zgadza\s+się|dokładnie|owszem|zgadłaś|zgadlas|brawo|"
+                  r"udało\s+ci\s+się)\b", re.I)
+_NO = re.compile(r"^(?:no\s+)?(?:(?:raczej|chyba)\s+)?(?:nie|pudło|pudlo)\b(?!\s+wiem)", re.I)
+# (11 Oct: "Troszeczkę jego ma." — "Odpowiedz mi: tak, nie albo nie wiem")
+_UNSURE = re.compile(r"\b(?:nie\s+wiem|czasem|czasami|trochę|troche|troszkę|troszke|troszeczkę|"
+                     r"troszeczke|nie\s+jestem\s+pew\w+|może|moze|to\s+zależy|zalezy|prawie|"
+                     r"tak\s+jakby|po\s+części|po\s+czesci|nie\s+do\s+końca|nie\s+do\s+konca)\b",
+                     re.I)
 _READY = re.compile(r"\b(?:gotowe|gotowa|gotowy|już|juz|mam|wymyśli\w*|pomyśla\w*|dobra|ok|"
                     r"okej|tak|start|zaczynaj)\b", re.I)
 _FIRST_Q = "Czy twoje zwierzę ma futro?"
@@ -353,9 +358,15 @@ def _answer_reverse(text, speak):
         if len(words) > 8:
             _r = None                                 # not an answer: something else
             return False
-        speak("Odpowiedz mi: tak, nie albo nie wiem. " + (r["q"] or ""))
-        _listen_longer()
-        return True
+        r["unclear"] = r.get("unclear", 0) + 1
+        if r["unclear"] < 2:
+            speak("Odpowiedz mi: tak, nie albo nie wiem. " + (r["q"] or ""))
+            _listen_longer()
+            return True
+        # the second time: taken as "nie wiem", and on (11 Oct: "Czy to bóbr?"
+        # asked three times running)
+        unsure = True
+    r["unclear"] = 0
     if r["guess"] and yes:
         _r = None
         with state.lock:
