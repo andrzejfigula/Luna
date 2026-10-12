@@ -426,6 +426,32 @@ _AGE_Q = re.compile(r"\bile\s+masz\s+lat|\bjak\w*\s+(?:jesteś\s+)?star[aey]|\bj
                     r"\burodzin\w*|\bhow\s+old|\bbirthday|\bkiedy\s+się\s+urodził", re.I)
 
 
+_WHATSNEW_Q = re.compile(r"\bco\s+(?:jest\s+)?now\w*\s+(?:potrafisz|umiesz|się\s+nauczyłaś|"
+                         r"sie\s+nauczylas|masz|u\s+ciebie)|\bczego\s+now\w*\s+się|"
+                         r"\bjakie\s+(?:są\s+)?nowości|\bco\s+nowego\s*\?*$|"
+                         r"\bwhat'?s\s+new\b|\bwhat\s+can\s+you\s+do\s+now\b", re.I)
+
+
+def _whatsnew_line(text):
+    """"Co nowego potrafisz?" — the newest things from data/whatsnew.txt (the
+    model's generic list didn't know about the Wikipedia photos or the flag
+    quiz, 13 Oct sweep)."""
+    if not _WHATSNEW_Q.search(text or ""):
+        return ""
+    try:
+        import os
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "whatsnew.txt")
+        with open(path, encoding="utf-8") as f:
+            lines = [ln.rstrip() for ln in f if not ln.startswith("#")]
+    except OSError:
+        return ""
+    sections = "\n".join(lines).strip().split("\n== ")
+    news = "\n== ".join(sections[:2]).strip()
+    return ("What is NEW in you (newest first) — when they ask what's new, tell them "
+            "two or three of these in your own words, with a sentence they can say to "
+            "try it:\n" + news + "\n") if news else ""
+
+
 def _age_line(text, today=None):
     """"Ile masz lat?" — her age counted here (8 Oct probe: "trochę ponad
     tydzień" at 20 days, with the birthday and the date in front of it)."""
@@ -1393,6 +1419,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   + _secret_line()
                   + _crisis_line(text, person)
                   + _age_line(text)
+                  + _whatsnew_line(text)
                   + ((homework.verdict_line(text) or homework.answer_line(text, last_reply()))
                      if _child_near(person) else "")
                   + _reply_language_line(text)

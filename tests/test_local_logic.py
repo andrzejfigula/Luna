@@ -2773,6 +2773,15 @@ class KidsTest(unittest.TestCase):
         with mock.patch.object(brain, "translator", lambda: "rosyjski"):
             self.assertEqual(brain._latin("To jest корпус"), "To jest корпус")
 
+    def test_whats_new(self):
+        import brain
+        # "Co nowego potrafisz?" — told from data/whatsnew.txt
+        for t in ("Luna, co nowego potrafisz?", "Co nowego umiesz?", "Jakie są nowości?",
+                  "Czego nowego się nauczyłaś?", "What's new?"):
+            self.assertIn("Wikipedii", brain._whatsnew_line(t), t)
+        self.assertEqual(brain._whatsnew_line("Co nowego w szkole, Maju?"), "")
+        self.assertEqual(brain._whatsnew_line("Ile masz lat?"), "")
+
     def test_her_own_words_in_the_history(self):
         import brain
         # 12 Oct 19:15: "Jak mija wieczór?" → "W porządku." → "Jasne." (the hello unseen)

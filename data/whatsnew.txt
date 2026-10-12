@@ -1,0 +1,15 @@
+# Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
+# brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
+
+== 12–13 października ==
+- Prawdziwe zdjęcia z Wikipedii: „pokaż mi zdjęcie żyrafy”, „jak wygląda Mars?”, „pokaż mi słonia”; potem „pokaż inne zdjęcie”, „jeszcze jedno” albo „pokaż to jeszcze raz”. Sprawdzam, czy zdjęcie nadaje się dla dzieci — jeśli nie, rysuję.
+- Quiz z flag: „zagrajmy we flagi” — pokazuję flagę, a ty mówisz, jaki to kraj.
+- Quiz ze zwierząt: „quiz ze zwierząt” — pokazuję zdjęcie zwierzęcia, a ty zgadujesz.
+- „Zgadnij, o czym myślę” — zgaduję twoje zwierzę zwykle w około dziesięciu pytaniach.
+- Pasek u góry ekranu: pogoda, parasolka, gdy ma padać, data i godzina, a po lewej: radio, minutnik, budzik, czy słucham. „Ukryj pasek” / „pokaż pasek”.
+- „Pokaż mi zdjęcie Mai” albo „jak wygląda Maja?” — pokazuję zdjęcia z Mają, które zrobiliśmy.
+- „Głośność na pięćdziesiąt procent” — liczby słownie też działają.
+
+== 11 października ==
+- „Narysuj mnie”, „narysuj nas”, „narysuj to, co widzisz” — rysuję z kamery; „narysuj mnie jako astronautę”.
+- Radio z całego świata: „włącz radio z Francji”, „francuski jazz”, „radio reggae”.
