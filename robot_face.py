@@ -2418,8 +2418,9 @@ class RobotFace:
                     pic = pygame.image.load(data)
                 except Exception:
                     return
-                ph = HEIGHT - 70
-                pw = int(pic.get_width() * ph / pic.get_height())
+                # fits both ways — a wide Wikipedia photo (webphoto.py) ran off the sides
+                k = min((HEIGHT - 70) / pic.get_height(), (WIDTH - 60) / pic.get_width())
+                ph, pw = int(pic.get_height() * k), int(pic.get_width() * k)
                 card = pygame.Surface((pw + 24, ph + 50))
                 card.fill((250, 246, 236))                       # a polaroid
                 card.blit(pygame.transform.smoothscale(pic, (pw, ph)), (12, 12))

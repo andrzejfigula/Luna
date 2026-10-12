@@ -2488,6 +2488,42 @@ class KidsTest(unittest.TestCase):
         self.assertTrue(brain._ABOUT_DRAWING.search("Masz dodać kolorowy sweter"))
         self.assertEqual(drawing._first_word("Maja: kot w ręce"), "maja")   # "Maja:" no name
 
+    def test_web_photo(self):
+        import drawing
+        import webphoto
+        # 9 Oct: "pokaż mi zdjęcie żyrafy" — a real photo now, from Wikipedia
+        got = []
+        with mock.patch.object(webphoto, "show", lambda w, s, fb: got.append(w) or True), \
+                mock.patch.object(drawing, "draw", lambda w, s, intro="": got.append(("draw", w))
+                                  or True):
+            drawing.handle("Luna, pokaż mi zdjęcie żyrafy", lambda t: None)
+            drawing.handle("Pokaż mi obrazek kota", lambda t: None)        # still drawn
+            drawing.handle("Pokaż mi zdjęcie mamy", lambda t: None)        # a person: drawn
+        self.assertEqual(got, ["żyrafy", ("draw", "kota"), ("draw", "mamy")])
+
+        def client(title, scores, flagged=False):
+            c = mock.Mock()
+            c.chat.completions.create.return_value.choices = [
+                mock.Mock(message=mock.Mock(content=title))]
+            res = mock.Mock(flagged=flagged)
+            res.category_scores.model_dump.return_value = scores
+            c.moderations.create.return_value.results = [res]
+            return c
+        page = {"query": {"pages": [{"title": "Żyrafa", "thumbnail": {
+            "source": "https://upload.wikimedia.org/g.jpg?x"}}]}}
+        with mock.patch.object(webphoto, "_get", lambda p, timeout=6: page):
+            self.assertEqual(webphoto.pick(client("„Żyrafa”", {}), "żyrafy"),
+                             ("Żyrafa", "https://upload.wikimedia.org/g.jpg?x"))
+            self.assertIsNone(webphoto.pick(client("BRAK", {}), "czegoś"))
+        with mock.patch.object(webphoto, "_get", lambda p, timeout=6: {"query": {"pages": [
+                {"title": "Lew", "pageprops": {"disambiguation": ""},
+                 "thumbnail": {"source": "x.jpg"}}]}}):
+            self.assertIsNone(webphoto.pick(client("Lew", {}), "lwa"))   # a disambiguation page
+        self.assertTrue(webphoto.safe(client("", {"violence": 0.01}), "żyrafy", b"jpg"))
+        self.assertFalse(webphoto.safe(client("", {"violence_graphic": 0.2}), "x", b"jpg"))
+        self.assertFalse(webphoto.safe(client("", {"sexual": 0.05}), "x", b"jpg"))
+        self.assertFalse(webphoto.safe(client("", {}, flagged=True), "x", b"jpg"))
+
     def test_drawing_requests_in_other_words(self):
         import drawing
         # 11 Oct: these went to the model ("włącz lampkę" once came back)

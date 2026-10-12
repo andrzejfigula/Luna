@@ -328,10 +328,14 @@ def handle(text, speak):
         return draw(_last_what[0], speak, "Dobrze, rysuję jeszcze raz. Chwileczkę!")
     of = _SHOW_OF.match((text or "").strip())
     if of and not re.match(r"(?:jeszcze|ostatni|swój|swoj|mój|moj|ten)\b", of.group(1), re.I):
-        # "pokaż mi obrazek kota" — a picture of it, drawn (no web pictures)
-        photo = re.search(r"zdj", of.group(0), re.I)
-        return draw(of.group(1).strip(), speak,
-                    "Dobrze, zdjęć nie mam, ale narysuję. Chwileczkę!" if photo else "Dobrze, już rysuję. Chwileczkę!")
+        # "pokaż mi obrazek kota" — a picture of it, drawn; "pokaż mi zdjęcie
+        # żyrafy" — a real one, from Wikipedia (webphoto.py), else drawn
+        what = of.group(1).strip()
+        if re.search(r"zdj", of.group(0), re.I) and not _is_person(what):
+            import webphoto
+            return webphoto.show(what, speak, lambda intro="Dobrze, już rysuję. Chwileczkę!":
+                                 draw(what, speak, intro))
+        return draw(what, speak, "Dobrze, już rysuję. Chwileczkę!")
     if _SHOW.search(text or "") and len(text.split()) <= 6:
         return show_saved(speak)
     what = wants(text)
