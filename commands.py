@@ -944,6 +944,13 @@ def _volume_command(text):
     m = re.search(r"(\d{1,3})\s*(%|procent)?", low)
     if m and any(k in low for k in _VOLUME):
         return int(m.group(1)) / 100.0
+    if any(k in low for k in _VOLUME):
+        # "Głośność na pięćdziesiąt procent" — the number in words (13 Oct sweep:
+        # to the model, which said "ustawiam" and changed nothing)
+        import calc
+        n = calc.number_in(low)
+        if n is not None and 0 <= n <= 100:
+            return n / 100.0
     if _bare(text, _LOUDER + _QUIETER):
         cur = get_volume()
         if cur is None:

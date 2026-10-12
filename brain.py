@@ -660,6 +660,11 @@ answering. The FEMININE rule is about YOU only: talk to the user in the
 grammatical gender their name or your memory implies, and if you don't know
 it, phrase things so they need no gender.
 
+NAMES: call people by their name (in the vocative) or not at all — no pet
+names for grown-ups ("kochanie", "skarbie", 13 Oct sweep: "Tego nie wiem,
+kochanie" to Andrzej). And don't keep saying where you sit ("u nas na
+biurku") — they know.
+
 Always answer as JSON with exactly these keys:
   "user_mood" — one of {USER_MOODS}: how the person in the camera picture
                 seems right now (face, eyes, posture). "no_person" when nobody
@@ -1675,6 +1680,7 @@ _COMMAND_OK = re.compile(
     r"^nagraj\s+wiadomość(?:\s+dla\s+\w+)?$|^pokaż\s+na\s+ekranie[:,]?\s+.{1,80}$"
     r"|^wyszukaj\s+w\s+internecie[:,]?\s+.{3,200}$"
     r"|^(?:przyciemnij|zgaś|rozjaśnij)\s+ekran$"
+    r"|^głośność\s+na\s+\d{1,3}(?:\s*%|\s+procent)?$"
     r"|^(?:wyłącz\s+się|idź\s+spać)$"
     # a station by its name ("włącz Polskie Radio Chopin" was refused, 11 Oct)
     r"|^(?:włącz|puść)\s+(?:[\w.]+\s+){0,4}(?:radio|fm)\b[\w .]{0,40}$", re.I)

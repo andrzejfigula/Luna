@@ -343,6 +343,9 @@ def fix_desk(text):
     # any preposition: "z desk... z biurka" too (9 Oct, again)
     text = re.sub(r"\b(?:na|z|ze|przy|do)\s+desk\w*\W*\s*(?=(?:na|z|ze|przy|do)\s+biurk)",
                   "", text or "", flags=re.I)
+    # her tic, from the persona's "desktop robot": "Zbudował mnie Andrzej, a
+    # mieszkam u nas na biurku" (13 Oct sweep) — "u nas" says it
+    text = re.sub(r"\bu\s+nas\s+na\s+biurku\b", "u nas", text, flags=re.I)
     return re.sub(r"\bna\s+desk\b", "na biurku", text, flags=re.I)
 
 

@@ -2870,6 +2870,17 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(fix_desk("Siedzę na desk."), "Siedzę na biurku.")
         self.assertEqual(fix_desk("jestem małą robotką z desk... z biurka."),
                          "jestem małą robotką z biurka.")
+        # 13 Oct sweep: "Zbudował mnie Andrzej, a mieszkam u nas na biurku"
+        self.assertEqual(fix_desk("Zbudował mnie Andrzej, a mieszkam u nas na biurku."),
+                         "Zbudował mnie Andrzej, a mieszkam u nas.")
+        self.assertEqual(fix_desk("Telefon leży na biurku."), "Telefon leży na biurku.")
+        # …and "Głośność na pięćdziesiąt procent" (the model said "ustawiam" — nothing)
+        import commands
+        self.assertEqual(commands._volume_command("Głośność na pięćdziesiąt procent"), 0.5)
+        self.assertEqual(commands._volume_command("Ustaw głośność na trzydzieści"), 0.3)
+        self.assertEqual(commands._volume_command("Głośność na 40"), 0.4)
+        import brain
+        self.assertTrue(brain._COMMAND_OK.match("głośność na 50"))
 
     def test_fix_vocative(self):
         from polish import fix_vocative as f
