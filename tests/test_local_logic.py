@@ -2690,6 +2690,38 @@ class KidsTest(unittest.TestCase):
         self.assertTrue(brain._ABOUT_DRAWING.search("Masz dodać kolorowy sweter"))
         self.assertEqual(drawing._first_word("Maja: kot w ręce"), "maja")   # "Maja:" no name
 
+    def test_side_talk_tone_not_held_against_anyone(self):
+        import brain
+        import relationship
+        # 9-11 Oct: "Wstań z łóżka, ty zdychasz" (to someone else) → "rude" to her
+        noted = []
+
+        def answer(to_luna, tone):
+            c = mock.Mock()
+            c.chat.completions.create.return_value.choices = [mock.Mock(message=mock.Mock(
+                refusal=None, content=json.dumps({
+                    "reply": "" if not to_luna else "Oj.", "to_luna": to_luna,
+                    "user_tone": tone, "user_mood": "no_person", "emotion": "neutral",
+                    "gesture": "none", "mood_comment": False, "actions": []})))]
+            return c
+        with mock.patch.object(relationship, "note", lambda t, s="": noted.append(t)), \
+                mock.patch.object(brain, "_history", []), \
+                mock.patch.object(brain, "save_history", lambda: None), \
+                mock.patch.object(brain, "_just_called", lambda t="", secs=12: False), \
+                mock.patch.object(brain, "_alone_request", lambda t: False), \
+                mock.patch.object(brain.memory, "record", lambda *a, **k: None):
+            with mock.patch.object(brain, "_client", answer(False, "rude")):
+                brain._ask_openai("Wstań z łóżka, ty zdychasz.")
+            self.assertEqual(noted, [])
+            with mock.patch.object(brain, "_client", answer(True, "rude")):
+                brain._ask_openai("Jesteś głupia.")
+            self.assertEqual(noted, ["rude"])
+            # swearing at the situation is not at her (13 Oct sweep: "insulting")
+            noted.clear()
+            with mock.patch.object(brain, "_client", answer(True, "insulting")):
+                brain._ask_openai("Ja pierdzielę, znowu ten błąd w kodzie")
+            self.assertEqual(noted, ["neutral"])
+
     def test_side_talk_to_a_man(self):
         import brain
         # 12 Oct 13:32: "Ile mi dziubanku przelałeś?" (to Andrzej) was answered

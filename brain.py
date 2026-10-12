@@ -470,6 +470,12 @@ def _alone_request(text):
 _TO_A_MAN = re.compile(r"\b\w{2,}(?:łeś|łbyś)\b")
 
 
+# words that put a remark AT her: "ty", "jesteś", "zamknij się", "nudzisz", her name
+_TO_HER = re.compile(r"\b(?:ty|ci|cię|cie|ciebie|tobie|tobą|twój|twoj\w*|twoja|twoje|"
+                     r"jesteś|jestes|luna|luno|zamknij|spadaj|odczep|\w{2,}isz|\w{2,}ysz|"
+                     r"\w{2,}asz|\w{2,}esz)\b", re.I)
+
+
 def _to_a_man(text):
     """Said to a man, not to her (her name not in it nor just said)."""
     low = (text or "").lower()
@@ -1486,11 +1492,6 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
         mood = str(data.get("user_mood", "no_person")).lower()
         _note_mood(mood if mood in USER_MOODS else "no_person",
                    bool(data.get("mood_comment", False)))
-        if not translator():                 # interpreting: the words aren't for her
-            tone = str(data.get("user_tone", "neutral")).lower()
-            relationship.note(tone, text)
-            luna_mood.note(relationship.who() if relationship.who() != relationship.SOMEONE
-                      else None, tone)
         if data.get("to_luna") is False and _just_called(text):
             if not reply.strip() and not _forced:
                 # asked once more, told it's for her — a canned "Jestem tutaj.
@@ -1543,6 +1544,18 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             if _history and _history[-1]["role"] == "user":
                 _history.pop()                   # side talk is not our conversation
             return "", "neutral", "none"
+        if not translator():                 # interpreting: the words aren't for her
+            # (only now: side talk said its tone to someone else — "Wstań z łóżka,
+            # ty zdychasz", "…a nie jakieś chipsy" counted as rude to her, 9-11 Oct)
+            tone = str(data.get("user_tone", "neutral")).lower()
+            if tone in ("rude", "insulting") and not _TO_HER.search(text or ""):
+                # swearing at the situation, a complaint about the radio — not at her
+                # ("Ja pierdzielę, znowu ten błąd w kodzie" → insulting, 13 Oct sweep)
+                print(f"[brain] {tone} — but not said at her: neutral", flush=True)
+                tone = "neutral"
+            relationship.note(tone, text)
+            luna_mood.note(relationship.who() if relationship.who() != relationship.SOMEONE
+                      else None, tone)
         if data.get("actions") and offer_only(reply):
             # "Może dopiszmy warzywa?" — still asking: nothing happens yet (the
             # prompt says so, but the model added the items anyway now and then)
