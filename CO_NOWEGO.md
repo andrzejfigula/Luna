@@ -3,6 +3,14 @@
 Ściąga: co Luna teraz potrafi i jak to wywołać. Wszystko po polsku, zwykłymi
 zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 
+> **Nowe (12–13.10) — warto wypróbować:**
+> „Luna, **pokaż mi zdjęcie żyrafy**”, „**jak wygląda** Mars?”, „pokaż mi słonia” — **prawdziwe zdjęcie z Wikipedii** (sprawdzone, czy nadaje się dla dzieci; jeśli nie — rysuje) · potem „**pokaż inne zdjęcie**” / „jeszcze jedno” ·
+> „**Zagrajmy we flagi**” — flaga na ekranie, zgadujesz kraj (35 krajów) ·
+> „**Zgadnij, o czym myślę**” — Luna zgaduje zwierzę **zwykle w ok. 10 pytaniach** i rozumie „trochę”, „raczej tak” ·
+> **pasek u góry**: po prawej pogoda (słońce / księżyc / chmurka / deszcz i temperatura), data i godzina; po lewej: internet, czy słucha / myśli / mówi, radio, minutnik, budzik… („ukryj pasek” / „pokaż pasek”) ·
+> „**Głośność na pięćdziesiąt procent**” — słownie też działa · powitania mniej powtarzalne, bez „u nas na biurku” ·
+> gdy rozmawiacie między sobą („Ile mi przelałeś?”) — Luna się nie wtrąca · „A teraz ze zdjęcia” po rysunku — rysuje z kamery.
+>
 > **Nowe (8.10) — warto wypróbować:**
 > „Luna, **narysuj mi jednorożca**” — prawdziwy obrazek na ekranie! · „**pokaż mi kotka**” / „zamień się w pieska” (uszy na buzi!) ·
 > „**Zacznij wieczór**” — Maja krok po kroku do łóżka, na koniec „co dziś było najfajniejsze?” ·
