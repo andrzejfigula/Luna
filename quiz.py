@@ -1173,6 +1173,15 @@ def answer(text, speak, play_sound_async):
                         if again and _same_word(again, q["answer"]):
                             ok, written = True, again
                     q["last_try"] = f"„{written}”"
+            elif q["kind"] in ("flags", "animals", "capitals") and re.fullmatch(
+                    r"(?:tak|nie|no|ok|okej|dobrze|jasne|dobra)", low.strip(" .!?")):
+                # "Tak" right after "Jaki to kraj?" was a wrong country ("Hmm,
+                # nie tak", 13 Oct sweep): ask for the name instead
+                q["asked"] = time.time()
+                speak({"flags": "Powiedz, jaki to kraj.", "animals": "Powiedz, jakie to zwierzę.",
+                       "capitals": "Powiedz nazwę miasta."}[q["kind"]])
+                _listen_longer()
+                return True
             else:
                 ok = _check(q, text)
             if ok is None:

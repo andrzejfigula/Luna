@@ -2135,6 +2135,9 @@ class KidsTest(unittest.TestCase):
             self.assertTrue(quiz._check(q, "To żyrafa!"))
             self.assertFalse(quiz._check(q, "zebra"))
             self.assertIn("literę Ż", quiz._hint_for(q))
+            quiz.answer("Tak", said.append, lambda n: None)        # no name: asked for one
+            self.assertEqual(said[-1], "Powiedz, jakie to zwierzę.")
+            self.assertIsNotNone(quiz._q)
             quiz._q = None
 
     def test_flag_quiz(self):
