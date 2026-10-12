@@ -2608,6 +2608,46 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(speech_to_text.latin_if_polish("Tak.", "tak"), "Tak.")
         self.assertIsNone(speech_to_text.latin_if_polish(None, "tak"))
 
+    def test_web_photo_another(self):
+        import drawing
+        import webphoto
+        # "pokaż inne zdjęcie" — the next photo from the same article
+        now = time.time()
+        with mock.patch.dict(webphoto._shown, {"title": "Żyrafa", "what": "żyrafy", "at": now - 30},
+                             clear=True):
+            self.assertTrue(webphoto.more_wanted("Pokaż inne zdjęcie", now))
+            self.assertTrue(webphoto.more_wanted("A jeszcze jedno!", now))
+            self.assertTrue(webphoto.more_wanted("Luna, pokaż więcej zdjęć", now))
+            self.assertFalse(webphoto.more_wanted("Pokaż mi zdjęcie słonia", now))
+            self.assertFalse(webphoto.more_wanted("jeszcze jedno", now + 200))     # bare, too late
+            self.assertTrue(webphoto.more_wanted("pokaż inne zdjęcie", now + 200))
+        with mock.patch.dict(webphoto._shown, {}, clear=True):
+            self.assertFalse(webphoto.more_wanted("Pokaż inne zdjęcie", now))      # no photo yet
+        a = ("https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9f/Giraffe_standing.jpg/"
+             "960px-Giraffe_standing.jpg?utm_source=x")
+        b = "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/Giraffe_standing.jpg/960px-x.jpg"
+        self.assertEqual(webphoto._key(a), webphoto._key(b))
+        pages = {"query": {"pages": [
+            {"title": "Plik:Giraffe range map.jpg", "imageinfo": [
+                {"mime": "image/jpeg", "width": 2000, "height": 1500, "thumburl": "m.jpg"}]},
+            {"title": "Plik:Logo.svg", "imageinfo": [
+                {"mime": "image/svg+xml", "width": 900, "height": 900, "thumburl": "l.png"}]},
+            {"title": "Plik:Small.jpg", "imageinfo": [
+                {"mime": "image/jpeg", "width": 200, "height": 150, "thumburl": "s.jpg"}]},
+            {"title": "Plik:Two giraffes.jpg", "imageinfo": [
+                {"mime": "image/jpeg", "width": 1200, "height": 800, "thumburl": "t.jpg"}]},
+            {"title": "Plik:Giraffe big.jpg", "imageinfo": [
+                {"mime": "image/jpeg", "width": 4000, "height": 3000, "thumburl": "b.jpg"}]}]}}
+        with mock.patch.object(webphoto, "_get", lambda p, timeout=6: pages):
+            self.assertEqual(webphoto._photos("Żyrafa"), ["b.jpg", "t.jpg"])
+        # after a photo: "jeszcze jedno" is another photo, not a new drawing
+        got = []
+        with mock.patch.dict(webphoto._shown, {"title": "Żyrafa", "at": time.time()}, clear=True), \
+                mock.patch.object(webphoto, "more", lambda s: got.append("more") or True), \
+                mock.patch.object(drawing, "_last", [time.time() - 100]):
+            self.assertTrue(drawing.handle("Pokaż inne zdjęcie", lambda t: None))
+        self.assertEqual(got, ["more"])
+
     def test_web_photo(self):
         import drawing
         import webphoto

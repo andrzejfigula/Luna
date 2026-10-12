@@ -17,6 +17,7 @@ these. Anything unsure, missing or failed → she draws it instead, as before.
 import base64
 import json
 import os
+import re
 import threading
 import time
 import urllib.parse
@@ -97,6 +98,55 @@ def safe(client, what, img):
     return not bad
 
 
+def _client():
+    from openai import OpenAI
+    from config import OPENAI_API_KEY
+    return OpenAI(api_key=OPENAI_API_KEY, timeout=20, max_retries=1)
+
+
+def _download(url):
+    with urllib.request.urlopen(urllib.request.Request(url, headers=_UA), timeout=10) as r:
+        return r.read(4_000_000)
+
+
+def _key(url):
+    """The file behind a thumbnail URL — the lead photo and the article's list
+    give it from different hosts and sizes."""
+    m = re.search(r"/commons/(?:thumb/)?[0-9a-f]/[0-9a-f]{2}/([^/?]+)", url or "")
+    return m.group(1) if m else (url or "").split("?")[0]
+
+
+def _present(img, title, url, line):
+    """Save, show for 40 s, say `line`; the model hears what is on the screen."""
+    from text_to_speech import speak as say
+    from shared_state import state
+    os.makedirs(DIR, exist_ok=True)
+    ext = ".png" if img[:4] == b"\x89PNG" else ".jpg"
+    out = os.path.join(DIR, time.strftime("%Y%m%d-%H%M%S") + ext)
+    with open(out, "wb") as f:
+        f.write(img)
+    for name in sorted(os.listdir(DIR))[:-KEEP]:
+        try:
+            os.remove(os.path.join(DIR, name))
+        except OSError:
+            pass
+    with state.lock:
+        state.overlay = ("photo", time.time() + 40, out)
+    print(f"[webphoto] {title} ({url.split('?')[0]})", flush=True)
+    _shown.update(at=time.time())
+    _shown.setdefault("used", set()).add(_key(url))
+    say(line)
+    with state.lock:
+        # "a lwa?", "pokaż inne" next need no "Luna"
+        state.conversation_active = True
+        state.last_activity_time = max(state.last_activity_time, time.time())
+    try:
+        import brain       # the model knows what is on her screen
+        brain.add_to_last_reply(f"(Na ekranie zdjęcie z Wikipedii: {title}.)")
+    except Exception:
+        pass
+
+
 def show(what, speak, fallback):
     """Find and show a photo of `what` in the background; `fallback()` (her
     drawing) when there is none or it isn't for a child. True (handled)."""
@@ -108,48 +158,89 @@ def show(what, speak, fallback):
         speak("Dobrze, szukam zdjęcia. Chwileczkę!")
 
     def run():
-        from text_to_speech import speak as say
-        from shared_state import state
         try:
-            from openai import OpenAI
-            from config import OPENAI_API_KEY
-            c = OpenAI(api_key=OPENAI_API_KEY, timeout=20, max_retries=1)
+            c = _client()
             found = pick(c, what)
             if not found:
                 print(f"[webphoto] no photo for {what!r}", flush=True)
                 return fallback("Dobrze, zdjęcia nie znalazłam, ale narysuję. Chwileczkę!")
             title, url = found
-            with urllib.request.urlopen(urllib.request.Request(url, headers=_UA),
-                                        timeout=10) as r:
-                img = r.read(4_000_000)
+            img = _download(url)
             if not safe(c, what, img):
                 return fallback("Dobrze, tego zdjęcia nie pokażę, ale narysuję. Chwileczkę!")
-            os.makedirs(DIR, exist_ok=True)
-            ext = ".png" if img[:4] == b"\x89PNG" else ".jpg"
-            out = os.path.join(DIR, time.strftime("%Y%m%d-%H%M%S") + ext)
-            with open(out, "wb") as f:
-                f.write(img)
-            old = sorted(os.listdir(DIR))[:-KEEP]
-            for name in old:
-                try:
-                    os.remove(os.path.join(DIR, name))
-                except OSError:
-                    pass
-            with state.lock:
-                state.overlay = ("photo", time.time() + 40, out)
-            print(f"[webphoto] {what!r} → {title} ({url.split('?')[0]})", flush=True)
-            say(f"Dobrze, proszę — {title}, zdjęcie z Wikipedii.")
-            with state.lock:
-                # "a lwa?" next needs no "Luna"
-                state.conversation_active = True
-                state.last_activity_time = max(state.last_activity_time, time.time())
-            try:
-                import brain       # the model knows what is on her screen
-                brain.add_to_last_reply(f"(Na ekranie zdjęcie z Wikipedii: {title}.)")
-            except Exception:
-                pass
+            _shown.clear()
+            _shown.update(what=what, title=title)
+            _present(img, title, url, f"Dobrze, proszę — {title}, zdjęcie z Wikipedii.")
         except Exception as e:
             print(f"[webphoto] failed: {e}", flush=True)
             fallback("Dobrze, zdjęcia nie znalazłam, ale narysuję. Chwileczkę!")
+    threading.Thread(target=run, daemon=True, name="webphoto").start()
+    return True
+
+
+# ── "pokaż inne zdjęcie": the next photo from the same article (13 Oct) ───────
+
+_shown = {}            # the last photo: what, title, at, used (urls already shown)
+MORE_SECS = 300        # "inne zdjęcie" this long after a photo
+BARE_MORE_SECS = 120   # a bare "jeszcze jedno" only right after
+_MORE = re.compile(r"^(?:luna,?\s+)?(?:a\s+|i\s+|no\s+to\s+)?(?:(?:pokaż|pokaz)\s+(?:mi\s+|nam\s+)?)?"
+                   r"(?:(?:jakieś\s+|jakies\s+)?inne|jeszcze\s+jedno|następne|nastepne|kolejne|"
+                   r"drugie|więcej|wiecej)(?:\s+zdjęci[ea]|\s+zdjęć|\s+zdjec)?[.!?]*$", re.I)
+# not a photo of the thing: maps, charts, coats of arms, logos
+_NOT_A_PHOTO = re.compile(r"map|diagram|schemat|logo|flag|herb|wykres|chart|interior|range|"
+                          r"zasięg|zasieg|distribution|locator|icon|ikona|signature|podpis", re.I)
+
+
+def more_wanted(text, now=None):
+    """"Pokaż inne zdjęcie" / "jeszcze jedno" just after a photo of hers."""
+    now = now if now is not None else time.time()
+    m = _MORE.match((text or "").strip())
+    if not m or not _shown.get("title"):
+        return False
+    photo_said = re.search(r"zdj|pokaż|pokaz", m.group(0), re.I)
+    return now - _shown.get("at", 0) < (MORE_SECS if photo_said else BARE_MORE_SECS)
+
+
+def _photos(title):
+    """The article's other photos: [url], biggest first; maps and logos left out."""
+    d = _get({"action": "query", "titles": title, "redirects": "1", "generator": "images",
+              "gimlimit": "40", "prop": "imageinfo", "iiprop": "url|size|mime",
+              "iiurlwidth": "960"}, timeout=8)
+    out = []
+    for p in d.get("query", {}).get("pages", []):
+        ii = (p.get("imageinfo") or [{}])[0]
+        if (ii.get("mime") == "image/jpeg" and ii.get("width", 0) >= 500
+                and ii.get("height", 0) >= 300 and not _NOT_A_PHOTO.search(p.get("title", ""))):
+            out.append((ii["width"] * ii["height"], ii.get("thumburl") or ii.get("url")))
+    return [u for _, u in sorted(out, reverse=True) if u]
+
+
+def more(speak):
+    """The next photo of the same thing. True (handled)."""
+    if time.time() - _last[0] < GAP:
+        speak("Chwileczkę, jeszcze szukam.")
+        return True
+    _last[0] = time.time()
+    title, what = _shown["title"], _shown.get("what", "")
+    if threading.current_thread().name != "command":
+        speak("Dobrze, szukam innego. Chwileczkę!")
+
+    def run():
+        from text_to_speech import speak as say
+        try:
+            c = _client()
+            used = _shown.setdefault("used", set())
+            for url in _photos(title):
+                if _key(url) in used:
+                    continue
+                used.add(_key(url))
+                img = _download(url)
+                if not safe(c, what or title, img):
+                    continue
+                return _present(img, title, url, f"Dobrze, proszę — jeszcze jedno: {title}.")
+            say("Więcej zdjęć tego nie mam — to były wszystkie z Wikipedii.")
+        except Exception as e:
+            print(f"[webphoto] more failed: {e}", flush=True)
+            say("Nie udało mi się znaleźć innego zdjęcia.")
     threading.Thread(target=run, daemon=True, name="webphoto").start()
     return True

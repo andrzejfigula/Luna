@@ -321,6 +321,11 @@ BARE_AGAIN_SECS = 90           # only right after (a game's "jeszcze raz" comes 
 
 
 def handle(text, speak):
+    import webphoto
+    if webphoto.more_wanted(text) and webphoto._shown.get("at", 0) >= _last[0]:
+        # "pokaż inne zdjęcie" / "jeszcze jedno" after a Wikipedia photo (not
+        # after a drawing — then "jeszcze raz" is a new drawing, below)
+        return webphoto.more(speak)
     again = _AGAIN.match((text or "").strip()) or _NOW_PHOTO.match((text or "").strip())
     bare = again and not again.group(1) and not re.search(r"narysuj", text, re.I)
     if again and _last_what[0] and time.time() - _last[0] < (BARE_AGAIN_SECS if bare

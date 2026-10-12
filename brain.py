@@ -939,6 +939,7 @@ use something, explain in your own words, briefly, a few examples at a time
   it. Use it for "pokaż mi słonia", "pokaż z Wikipedii", "jak wygląda
   tranzystor?" (12 Oct: "Nie mogę pokazać z Wikipedii", then a web search) —
   say one short sentence with the command; never say you can't show photos.
+  "Pokaż inne / jeszcze jedno" after a photo: command "pokaż inne zdjęcie".
   People and the camera's picture: drawing, as above
 - cooking step by step ("gotujemy naleśniki", "przepis na sernik krok po
   kroku") with timers for the timed steps; word problems and a capitals quiz
@@ -1694,7 +1695,8 @@ _VOICED_OK = re.compile(r"^zróbmy\s+ćwiczenie\s+oddechowe$|"
                         # characters — refused, she said "rysuję", nothing came)
                         r"^narysuj\s+(?:mi\s+)?.{2,200}$|"
                         r"^pokaż\s+(?:mi\s+)?(?:swoje\s+)?rysunki$|"
-                        r"^pokaż\s+(?:mi\s+)?zdjęcie\s+.{2,60}$", re.I)
+                        r"^pokaż\s+(?:mi\s+)?zdjęcie\s+.{2,60}$|"
+                        r"^pokaż\s+(?:mi\s+)?(?:inne|jeszcze\s+jedno|następne)\s+zdjęcie$", re.I)
 
 
 _GAME_OFFER = re.compile(r"zagra|\bgr[aęy]\b|\bgramy\b|zagadk|quiz|memory|kółk|zgadywank|"
