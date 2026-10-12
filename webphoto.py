@@ -27,7 +27,8 @@ from config import DATA_DIR
 
 DIR = os.path.join(DATA_DIR, "webphotos")
 KEEP = 20
-GAP = 5
+_busy = threading.Lock()   # one search at a time (a request and the model's
+                           # command for it came together — 12 Oct)
 _API = "https://pl.wikipedia.org/w/api.php?"
 _EN = "https://en.wikipedia.org/w/api.php?"
 _UA = {"User-Agent": "Luna-robot/1.0 (https://github.com/andrzejfigula/Luna; home robot)"}
@@ -36,7 +37,6 @@ _LIMITS = {"sexual": 0.02, "sexual_minors": 0.01, "violence": 0.35, "violence_gr
            "self_harm": 0.05, "self_harm_intent": 0.05, "self_harm_instructions": 0.05,
            "harassment": 0.3, "harassment_threatening": 0.1, "hate": 0.1,
            "hate_threatening": 0.05, "illicit": 0.3, "illicit_violent": 0.1}
-_last = [0.0]
 
 
 def _get(params, timeout=6, api=_API):
@@ -197,14 +197,23 @@ def _present(img, title, url, line):
 def show(what, speak, fallback):
     """Find and show a photo of `what` in the background; `fallback()` (her
     drawing) when there is none or it isn't for a child. True (handled)."""
-    if time.time() - _last[0] < GAP:
-        return fallback()
-    _last[0] = time.time()
+    if not _busy.acquire(blocking=False):
+        # still finding the last one (13 Oct sweep: a second request within 5 s
+        # was drawn instead)
+        if threading.current_thread().name != "command":
+            speak("Chwileczkę, jeszcze szukam.")
+        return True
     if threading.current_thread().name != "command":
         # (from the model's answer her "Pokażę ci słonia" was just said)
         speak("Dobrze, szukam zdjęcia. Chwileczkę!")
 
     def run():
+        try:
+            _find()
+        finally:
+            _busy.release()
+
+    def _find():
         try:
             c = _client()
             found = pick(c, what)
@@ -264,15 +273,21 @@ def _photos(title, api=_API):
 
 def more(speak):
     """The next photo of the same thing. True (handled)."""
-    if time.time() - _last[0] < GAP:
-        speak("Chwileczkę, jeszcze szukam.")
+    if not _busy.acquire(blocking=False):
+        if threading.current_thread().name != "command":
+            speak("Chwileczkę, jeszcze szukam.")
         return True
-    _last[0] = time.time()
     title, what = _shown["title"], _shown.get("what", "")
     if threading.current_thread().name != "command":
         speak("Dobrze, szukam innego. Chwileczkę!")
 
     def run():
+        try:
+            _next()
+        finally:
+            _busy.release()
+
+    def _next():
         from text_to_speech import speak as say
         try:
             c = _client()

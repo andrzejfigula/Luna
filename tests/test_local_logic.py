@@ -2862,6 +2862,19 @@ class KidsTest(unittest.TestCase):
             self.assertTrue(brain._ASKS_NAME.search(s), s)
         self.assertFalse(brain._ASKS_NAME.search("Jak się czujesz?"))
 
+    def test_json_inside_the_reply(self):
+        import brain
+        # 13 Oct sweep: "Pokaż mi słonia." → the reply was "{\n  …" — never read out
+        inner = brain._json_in_reply('{\n  "reply": "Jasne — pokazuję słonia.", "emotion": "happy"}')
+        self.assertEqual(inner["reply"], "Jasne — pokazuję słonia.")
+        cut = brain._json_in_reply('{"reply": "Pokazuję \\"słonia\\".", "emotion": "ha')
+        self.assertEqual(cut["reply"], 'Pokazuję "słonia".')
+        self.assertIsNone(brain._json_in_reply("Jasne — pokazuję słonia."))
+        self.assertTrue(brain._looks_like_json('{"reply": "x"'))
+        self.assertTrue(brain._looks_like_json('"emotion": "happy",'))
+        self.assertFalse(brain._looks_like_json("[Luna] Cześć!"))
+        self.assertFalse(brain._looks_like_json("Mówi się „dziękuję”."))
+
     def test_fix_desk(self):
         from polish import fix_desk
         self.assertEqual(fix_desk("I wiesz co, na desk… na biurku, lampka świeci."),

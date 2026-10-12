@@ -608,6 +608,26 @@ def _latin(text):
     return to_latin(text)
 
 
+def _json_in_reply(reply):
+    """The model's whole answer as text inside "reply" → that object, else None."""
+    t = (reply or "").strip()
+    if not (t.startswith("{") and '"reply"' in t):
+        return None
+    try:
+        inner = json.loads(t)
+    except ValueError:
+        m = re.search(r'"reply"\s*:\s*"((?:[^"\\]|\\.)*)"', t)
+        return {"reply": json.loads(f'"{m.group(1)}"')} if m else {"reply": ""}
+    return inner if isinstance(inner, dict) else None
+
+
+def _looks_like_json(sentence):
+    """A streamed "sentence" that is JSON, not words: never said aloud."""
+    t = (sentence or "").strip()
+    # (not "[": a "[Luna] …" tag is cut off the sentence after this)
+    return bool(t) and (t[0] == "{" or bool(re.search(r'"\w+"\s*:', t)))
+
+
 def _feminize(text):
     """Her own forms feminine; and with nobody recognised in front of her, no
     guessed gender for "you" either."""
@@ -1440,6 +1460,15 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
 
         data    = json.loads(raw)
         reply   = str(data.get("reply", "")).strip()
+        inner = _json_in_reply(reply)
+        if inner is not None:
+            # the whole answer again, as text inside "reply" (13 Oct sweep: the
+            # reply was "{\n  …" — read out, braces and all)
+            print(f"[brain] JSON inside the reply — unwrapped: {reply[:60]!r}", flush=True)
+            reply = str(inner.get("reply", "")).strip()
+            for k in ("emotion", "gesture", "actions", "to_luna"):
+                if k in inner and not data.get(k):
+                    data[k] = inner[k]
         # the history tags speakers ("[Maja] …"); a reply must never copy that
         reply   = re.sub(r"^\[[^\]]{1,40}\]\s*", "", reply)    # ("[Andrzej, with Maja]")
         fixed   = _feminize(reply)
@@ -2272,6 +2301,9 @@ def _process(text, context=None):
         speaker.append(t)
 
     def on_sentence(sentence):
+        if _looks_like_json(sentence):
+            print(f"[brain] not spoken (JSON): {sentence[:60]!r}", flush=True)
+            return
         import timing
         timing.mark("sentence")
         sentence = re.sub(r"^\[[^\]]{1,40}\]\s*", "", sentence)    # no "[Luna] " spoken
