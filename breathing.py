@@ -18,24 +18,38 @@ TRIGGERS = ("ćwiczenie oddechowe", "cwiczenie oddechowe", "ćwiczenia oddechowe
             "breathing exercise", "oddychajmy razem",
             # 9 Oct sweep: "Pomóż mi się zrelaksować" got three breaths in words
             "pomóż mi się zrelaksować", "pomoz mi sie zrelaksowac", "pomóż mi się odprężyć",
-            "pomoz mi sie odprezyc", "pomóż mi zasnąć", "pomoz mi zasnac", "help me relax")
+            "pomoz mi sie odprezyc", "pomóż mi zasnąć", "pomoz mi zasnac", "help me relax",
+            # 13 Oct probe: "Medytacja", "Zróbmy medytację" went to the model
+            "medytacj", "pomedytuj", "medytujmy")
 
 
 def is_trigger(low):
     return any(k in low for k in TRIGGERS)
 
 
-def run(speak, play_sound):
+def cycles_for(low):
+    """Breaths for "ćwiczenie oddechowe na 3 minuty" (13 Oct probe: to the
+    model), or None when no length is said."""
+    import timers
+    secs, _ = timers.parse_duration(low)
+    if not secs:
+        return None
+    cycle = BREATH_IN + BREATH_HOLD + BREATH_OUT
+    return max(2, min(50, round(secs / cycle)))
+
+
+def run(speak, play_sound, cycles=None):
     """Blocks for the whole exercise (voice thread)."""
+    cycles = cycles or BREATH_CYCLES
     with state.lock:
         state.emotion = "Love"
     speak("Dobrze. Usiądź wygodnie i oddychaj razem ze mną.")
     cycle = BREATH_IN + BREATH_HOLD + BREATH_OUT
     t0 = time.time() + 0.3
     with state.lock:
-        state.overlay = ("breath", t0 + BREATH_CYCLES * cycle + 0.6,
+        state.overlay = ("breath", t0 + cycles * cycle + 0.6,
                          (t0, BREATH_IN, BREATH_HOLD, BREATH_OUT))
-    for i in range(BREATH_CYCLES):
+    for i in range(cycles):
         start = t0 + i * cycle
         for at, sound in ((0.0, "inhale"), (BREATH_IN + BREATH_HOLD, "exhale")):
             while time.time() < start + at:

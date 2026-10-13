@@ -70,7 +70,11 @@ _FASTER  = ("szybciej", "faster")
 # how much she says: "mów krócej" / "odpowiadaj dłużej" / "normalne odpowiedzi"
 _SHORTER = ("mów krócej", "mow krocej", "odpowiadaj krócej", "odpowiadaj krocej",
             "krótsze odpowiedzi", "krotsze odpowiedzi", "krócej proszę", "za długo mówisz",
-            "mówisz za długo", "gadasz za dużo", "mniej gadaj", "shorter answers")
+            "mówisz za długo", "gadasz za dużo", "mniej gadaj", "shorter answers",
+            # 13 Oct probe: to the model
+            "odpowiadaj krótko", "odpowiadaj krotko", "mów krótko", "mow krotko",
+            "za dużo gadasz", "za duzo gadasz", "za dużo mówisz", "za duzo mowisz",
+            "mówisz za dużo", "krótko proszę", "krótko prosze", "krótsze zdania")
 _LONGER = ("mów dłużej", "mow dluzej", "odpowiadaj dłużej", "odpowiadaj dluzej",
            "dłuższe odpowiedzi", "dluzsze odpowiedzi", "odpowiadaj szerzej",
            "mów więcej szczegółów", "longer answers")
@@ -519,6 +523,22 @@ def local_alarm(text):
               "weekdays" if re.search(r"dni robocze|w tygodniu|od poniedziałku", low) else
               "weekends" if re.search(r"weekend|soboty i niedziele", low) else "none")
     return f"{h:02d}:{mi:02d}", repeat
+
+
+_ALARM_IN = re.compile(r"^(?:luna,?\s+)?(?:a\s+)?(?:obudź|obudz|zbudź|zbudz)\s+(?:mnie|nas)\s+"
+                       r"za\s+(.+?)[.!]*$", re.I)
+
+
+def alarm_in(text):
+    """Seconds for "obudź mnie za 20 minut" (a nap — 13 Oct probe: to the
+    model; "o 6:30" is local_alarm), else None."""
+    m = _ALARM_IN.match(text.strip())
+    if not m:
+        return None
+    import timers
+    secs, used = timers.parse_duration(m.group(1))
+    rest = set(re.findall(r"\w+", m.group(1).lower())) - used - {"proszę", "prosze"}
+    return secs if secs and not rest and secs <= 12 * 3600 else None
 
 
 _WHERE = re.compile(r"\b(?:gdzie\s+(?:jest|się\s+podziała?|podziała?\s+się)\s+|"
@@ -1777,8 +1797,8 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         return True
 
     import breathing                               # guided breathing
-    if breathing.is_trigger(low) and intent.asked(low, 3):
-        breathing.run(speak, play_sound)
+    if breathing.is_trigger(low) and (intent.asked(low, 3) or breathing.cycles_for(low)):
+        breathing.run(speak, play_sound, breathing.cycles_for(low))
         return True
 
     import counting                                # "policz do 20", stopwatch
@@ -1845,6 +1865,13 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         when = {"daily": " codziennie", "weekdays": " w dni robocze",
                 "weekends": " w weekendy"}.get(repeat, "")
         speak(f"Dobrze, budzik{when} na {clock.hour_accusative(h, m)}.{moved}")
+        return True
+    nap = alarm_in(text)                           # "obudź mnie za 20 minut"
+    if nap:
+        import timers
+        timers.apply([{"type": "alarm", "seconds": nap, "at": "", "label": "",
+                       "repeat": "none", "list": ""}])
+        speak(f"Dobrze, obudzę cię za {timers.say_duration(nap)}.")
         return True
 
     import drawing                                 # "narysuj mi jednorożca" — a real picture
