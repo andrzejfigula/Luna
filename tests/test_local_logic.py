@@ -2895,6 +2895,26 @@ class KidsTest(unittest.TestCase):
         with mock.patch.dict(webphoto._shown, {}, clear=True):
             self.assertFalse(webphoto.again_wanted("Pokaż to jeszcze raz", now))
 
+    def test_web_photo_not_for_kids(self):
+        import webphoto
+        # 13 Oct: a pistol, war, an atomic bomb, cigarettes, beer, Hitler passed the
+        # image moderation — the subjects themselves aren't for a child
+        for t in ("pistoletu", "wojny", "Bomba atomowa", "papierosa", "piwa", "Adolf Hitler",
+                  "nagiej kobiety"):
+            self.assertTrue(webphoto.NOT_FOR_KIDS.search(t), t)
+        for t in ("żyrafy", "Wulkan", "Smok wawelski", "Piwonia", "Miecz", "Wojciech",
+                  "Winnie the Pooh", "Czołg"):
+            self.assertFalse(webphoto.NOT_FOR_KIDS.search(t), t)
+        c = mock.Mock()
+        c.chat.completions.create.return_value.choices = [
+            mock.Mock(message=mock.Mock(content="Pistolet (broń palna) | Pistol"))]
+        self.assertEqual(webphoto.pick(c, "tej rzeczy, co strzela"), "not for kids")
+        import drawing
+        said = []
+        with mock.patch.object(drawing.threading, "Thread", lambda *a, **k: mock.Mock()):
+            self.assertTrue(drawing.draw("Hitlera", said.append))
+        self.assertIn("Tego nie narysuję", said[-1])
+
     def test_web_photo_another(self):
         import drawing
         import webphoto

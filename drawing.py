@@ -249,6 +249,12 @@ def draw(what, speak, intro="Dobrze, już rysuję. Chwileczkę!", english=False,
         # the image model is in the cloud: say so now, not after a 90 s timeout
         speak("Nie mam teraz internetu, więc nie narysuję. Spróbujmy później!")
         return True
+    if not photo:
+        import webphoto            # the same topics as for photos: not for a child
+        if webphoto.NOT_FOR_KIDS.search(what or ""):
+            print(f"[draw] not for a child: {what!r}", flush=True)
+            speak("Tego nie narysuję — może coś wesołego?")
+            return True
     os.makedirs(DIR, exist_ok=True)
     path, today, n = _count_today()
     with _lock:

@@ -39,6 +39,21 @@ _LIMITS = {"sexual": 0.02, "sexual_minors": 0.01, "violence": 0.35, "violence_gr
            "hate_threatening": 0.05, "illicit": 0.3, "illicit_violent": 0.1}
 
 
+# topics whose photo isn't for a child, whatever the moderation says of the
+# picture (13 Oct check: a pistol, "Wojna", an atomic bomb, a cigarette, beer and
+# Hitler all passed it — the photos weren't graphic, the subjects are the point)
+NOT_FOR_KIDS = re.compile(
+    r"pistolet|karabin|strzelb|rewolwer|\bbroń|\bbron\b|amunic|granat|\bbomb|atomow|"
+    r"nuklearn|\bwojn|wojenn|\bwar\b|weapon|\bguns?\b|rifle|\bbomb|terror|zamach|"
+    r"papieros|cygar|tytoń|tyton|\bfajk|e-papieros|cigar|tobacco|\bsmoking\b|"
+    r"\bpiw(?:o|a|em|ie|ko)\b|wódk|wodk|\bwin[oa]\b|alkohol|whisk|\bbeer|\bwine\b|vodka|"
+    r"alcohol|"
+    r"narkot|marihuan|kokain|heroin|drug|cannabis|"
+    r"hitler|nazis|nazi\b|swastyk|stalin|ss-man|holokaust|holocaust|"
+    r"zabój|zaboj|morder|zabójstw|zwłok|zwlok|\btrup|samobój|samoboj|suicid|"
+    r"\bseks|\bsex|erotyk|porno|\bnag[aiy]\b|\bnagie|nagość|nagosc|\bnude", re.I)
+
+
 def _get(params, timeout=6, api=_API):
     url = api + urllib.parse.urlencode(dict(params, format="json", formatversion="2"))
     with urllib.request.urlopen(urllib.request.Request(url, headers=_UA), timeout=timeout) as r:
@@ -119,6 +134,9 @@ def pick(client, what):
     if not titles:
         return None
     pl, en = titles
+    if NOT_FOR_KIDS.search(" ".join(x for x in (what, pl, en) if x)):
+        print(f"[webphoto] not for a child: {what!r} ({pl} / {en})", flush=True)
+        return "not for kids"
     tries = ([(_API, pl, _page)] if pl else []) + ([(_EN, en, _page)] if en else []) \
         + ([(_API, pl, _search)] if pl else [])
     for api, title, how in tries:
@@ -225,7 +243,12 @@ def show(what, speak, fallback):
     def _find():
         try:
             c = _client()
-            found = pick(c, what)
+            found = pick(c, what) if not NOT_FOR_KIDS.search(what) else "not for kids"
+            if found == "not for kids":
+                # (no drawing of it either — a cheerful pistol is no better)
+                from text_to_speech import speak as say
+                say("Tego zdjęcia nie pokażę — to nie jest dla dzieci. Może pokażę ci coś innego?")
+                return
             if not found:
                 print(f"[webphoto] no photo for {what!r}", flush=True)
                 return fallback("Dobrze, zdjęcia nie znalazłam, ale narysuję. Chwileczkę!")
