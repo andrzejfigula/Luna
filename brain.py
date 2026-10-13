@@ -975,6 +975,8 @@ use something, explain in your own words, briefly, a few examples at a time
   your camera ("zróbmy dyktando"), maths and English quizzes, a flag quiz with
   the flag on your screen ("zagrajmy we flagi"), an animal quiz with real photos
   ("zróbmy quiz ze zwierząt"), reading a book page aloud
+  (the English quiz asks RANDOM words — "naucz mnie kolorów / zwierząt po
+  angielsku": teach a few of those yourself, don't start the quiz)
   ("przeczytaj mi tę stronę"), homework hints
 - the weather once someone says "pogoda dla <town>", the news ("jakie są
   wiadomości?"), a coloured night lamp ("lampka na niebiesko"); you can DRAW a
@@ -1791,8 +1793,14 @@ def game_was_offered(before=2):
     said = str(m.get("content", ""))
     # an offer, not a mention ("wczoraj była zabawa w zagadki" offers nothing)
     return (m.get("role") == "assistant" and bool(_GAME_OFFER.search(said))
-            and bool(re.search(r"\?|\bchcesz|\bmożemy|\bmozemy|\bwybierz|\bzagramy|"
-                               r"\bzagrajmy|\bmogę\s+(?:zaproponować|zadać)", said, re.I)))
+            # (not a bare "?": a quiz's own question — "…quiz z angielskich słówek!
+            # Jak jest po angielsku: kot?" — let the model start another quiz for
+            # "Powiedz coś do mnie po angielsku", 13 Oct sweep)
+            and (bool(re.search(r"\bchcesz|\bmożemy|\bmozemy|\bwybierz|\bzagramy|"
+                                r"\bzagrajmy|\bmogę\s+(?:zaproponować|zadać)", said, re.I))
+                 # a question that itself names games: "Kółko i krzyżyk, zagadki albo memory?"
+                 or any(s.strip().endswith("?") and _GAME_OFFER.search(s)
+                        for s in re.split(r"(?<=[.!?])\s+", said))))
 
 
 def _game_asked_for():

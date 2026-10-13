@@ -1968,6 +1968,11 @@ class KidsTest(unittest.TestCase):
                                  {"role": "user", "content": "Pobawimy się?"}]
             self.assertFalse(brain.game_was_offered())
             self.assertIsNone(commands._game_choice("w kółko i krzyżyk"))
+            # a quiz's own question is no offer (13 Oct: another quiz for "powiedz coś…")
+            brain._history[:] = [{"role": "assistant", "content": "Super, quiz z angielskich "
+                                  "słówek! 5 pytań — zaczynamy! Jak jest po angielsku: kot?"},
+                                 {"role": "user", "content": "Powiedz coś po angielsku"}]
+            self.assertFalse(brain.game_was_offered())
             self.assertTrue(brain._asks_to_choose(
                 "Super, to zagramy. Wybierz: kamień, papier, nożyce, zgaduj liczbę albo zagadka."))
             self.assertFalse(brain._asks_to_choose("Super, gramy w kółko i krzyżyk!"))
@@ -2196,6 +2201,14 @@ class KidsTest(unittest.TestCase):
                 self.assertAlmostEqual(state.camera_off_until, now + 600, delta=1)
                 state.camera_off_until = 0.0
             self.assertEqual(holds.load(now=now + 700), [])           # over by then
+
+    def test_words_quiz_not_an_answer(self):
+        import quiz
+        q = {"kind": "words", "answer": ["big", "large"]}
+        self.assertIsNone(quiz._check(q, "Co znaczy rainbow?"))
+        self.assertIsNone(quiz._check(q, "Powiedz coś do mnie po angielsku"))
+        self.assertTrue(quiz._check(q, "big"))
+        self.assertFalse(quiz._check(q, "dog"))
 
     def test_variations_13_oct(self):
         import brain

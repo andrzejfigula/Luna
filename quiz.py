@@ -654,6 +654,12 @@ def _check(q, text):
         said = _norm(text)
         if not said:
             return None
+        # a question or a request, not an answer (13 Oct sweep: "Co znaczy rainbow?"
+        # → "Niestety nie", "Powiedz coś do mnie po angielsku" → "Hmm, nie powiedz…")
+        if len(said.split()) >= 2 and ("?" in text or re.search(
+                r"\b(?:powiedz|naucz|co|jak|czy|przeliteruj|znaczy|pokaż|pokaz|włącz|wlacz|"
+                r"opowiedz|zagrajmy)\b", said)):
+            return None
         for en in q["answer"]:
             if en in said.split() or difflib.SequenceMatcher(None, said, en).ratio() >= 0.8:
                 return True

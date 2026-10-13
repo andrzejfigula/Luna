@@ -1,0 +1,11 @@
+#keep
+Maja|Przepytaj mnie ze słówek angielskich
+Maja|Dog
+Maja|Nie wiem
+Maja|Koniec
+Maja|Naucz mnie kolorów po angielsku
+Maja|Powiedz coś do mnie po angielsku
+Maja|Co znaczy rainbow?
+Maja|Jak przeliterować apple?
+Maja|Zróbmy dyktando z angielskiego
+Maja|Koniec
