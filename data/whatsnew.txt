@@ -1,6 +1,15 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
+== 13 października (przed południem) ==
+- „Jak zrobić naleśniki krok po kroku?” — prowadzę przez przepis krok po kroku.
+- „Usuń budzik na 6:40” — usuwam ten budzik.
+- „Daj jakąś muzykę”, „puść coś do biegania” — włączam radio.
+- „Ile dni do wakacji?” — liczę do końca roku szkolnego.
+- „Jestem Kasia, zapamiętaj mnie” — uczę się twarzy.
+- „Czy mam jakieś wiadomości?” — mówię też, co ktoś prosił ci przekazać.
+- „Nie patrz na mnie” wyłącza kamerę, „wycisz się” — jestem cicho; to zostaje nawet po moim restarcie.
+
 == 12–13 października ==
 - Prawdziwe zdjęcia z Wikipedii: „pokaż mi zdjęcie żyrafy”, „jak wygląda Mars?”, „pokaż mi słonia”; potem „pokaż inne zdjęcie”, „jeszcze jedno” albo „pokaż to jeszcze raz”. Sprawdzam, czy zdjęcie nadaje się dla dzieci — jeśli nie, rysuję.
 - Quiz z flag: „zagrajmy we flagi” — pokazuję flagę, a ty mówisz, jaki to kraj.

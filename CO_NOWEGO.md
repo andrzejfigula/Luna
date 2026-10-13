@@ -3,6 +3,8 @@
 Ściąga: co Luna teraz potrafi i jak to wywołać. Wszystko po polsku, zwykłymi
 zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
 
+> **Nowe (13.10, przed południem):** „Jak zrobić naleśniki **krok po kroku**?” · „**Usuń budzik** na 6:40” · „**Daj** jakąś muzykę”, „puść coś do biegania” · „Ile dni do **wakacji**?” · „Jestem Kasia, **zapamiętaj mnie**” · „Czy mam jakieś wiadomości?” — także to, co ktoś prosił przekazać · „**Nie patrz na mnie**”, „wycisz się”, „przestań gadać” · „bądź cicho do 15” i wyłączona kamera **zostają po restarcie** · zdjęcia i rysunki: broń, wojna, alkohol, papierosy itp. — „to nie jest dla dzieci” · „zagrajmy w zwierzaki”, „jak wyglądają pingwiny?” · „Umyłam zęby” w wieczornej liście = krok zrobiony.
+>
 > **Nowe (12–13.10) — warto wypróbować:**
 > „Luna, **pokaż mi zdjęcie żyrafy**”, „**jak wygląda** Mars?”, „pokaż mi słonia” — **prawdziwe zdjęcie z Wikipedii** (sprawdzone, czy nadaje się dla dzieci; jeśli nie — rysuje) · potem „**pokaż inne zdjęcie**” / „jeszcze jedno” / „pokaż to jeszcze raz” (pod zdjęciem jego nazwa) ·
 > „**Zagrajmy we flagi**” — flaga na ekranie, zgadujesz kraj (35 krajów) · „**Quiz ze zwierząt**” — zdjęcie zwierzęcia, zgadujesz, co to ·
