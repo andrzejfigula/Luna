@@ -4556,7 +4556,8 @@ class RadioTest(unittest.TestCase):
             self.assertTrue(drawing.bare_show("Pokaż mi słonia.", lambda *a, **k: None))
             self.assertEqual(show.call_args[0][0], "słonia")
             for t in ("pokaż mi coś", "pokaż mi jak to zrobić", "pokaż mi to",
-                      "pokaż mi listę zakupów", "pokaż mi siebie", "pokaż mi pogodę"):
+                      "pokaż mi listę zakupów", "pokaż mi siebie", "pokaż mi pogodę",
+                      "Luna, a pokaż mi z Wikipedii."):
                 self.assertFalse(drawing.bare_show(t, lambda *a, **k: None), t)
             self.assertEqual(show.call_count, 1)
 

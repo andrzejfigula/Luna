@@ -380,6 +380,7 @@ _NOT_TO_SEE = re.compile(r"^(?:co[śs]?|jak|gdzie|kiedy|ile|kto|któr\w*|ktor\w*
                          r"słow\w*|slow\w*|liczb\w*|lustr\w*|kamer\w*|oczy|oko|twarz\w*|"
                          r"min[ęey]|emocj\w*|sztuczk\w*|drog\w*|przepis\w*|notatk\w*|"
                          r"zadani\w*|lekcj\w*|wiadomo\w*|histori\w*|przykład\w*|przyklad\w*|"
+                         r"z|ze|od|do|o|po|przez|dla|bez|pod|nad|przy|"   # "z Wikipedii"
                          r"list\w*|zakup\w*|kalendarz\w*|przypomn\w*|minutnik\w*|budzik\w*|"
                          r"jak\w*|tak\w*|ten|tę|te|tego|tamt\w*)\b", re.I)
 
