@@ -289,6 +289,12 @@ def _easter(y):
     return date(y, month, day)
 
 
+def _school_end(y):
+    """The school year ends on the last Friday of June (Polish rule)."""
+    d = date(y, 6, 30)
+    return d - timedelta((d.weekday() - 4) % 7)
+
+
 # stem in "do …" → (date for a year, genitive "do X", nominative "dziś jest X")
 _DAYS_OF = [
     # Easter first: "świąt wielkanocnych" must not be taken for Christmas
@@ -318,6 +324,12 @@ _DAYS_OF = [
     (("wiosny",), lambda y: date(y, 3, 21), "pierwszego dnia wiosny",
      "pierwszy dzień wiosny"),
     (("prima aprilis",), lambda y: date(y, 4, 1), "prima aprilis", "prima aprilis"),
+    # "Ile dni do wakacji?" (13 Oct sweep: "jeszcze sporo… mogę policzyć dokładnie")
+    (("końca roku szkolnego", "konca roku szkolnego", "zakończenia roku szkolnego",
+      "zakonczenia roku szkolnego"), _school_end, "końca roku szkolnego",
+     "koniec roku szkolnego"),
+    (("wakacji", "wakacje", "wakacyj"), lambda y: _school_end(y) + timedelta(1), "wakacji",
+     "pierwszy dzień wakacji"),
     (("dnia matki",), lambda y: date(y, 5, 26), "Dnia Matki", "Dzień Matki"),
     (("dnia dziecka",), lambda y: date(y, 6, 1), "Dnia Dziecka", "Dzień Dziecka"),
     (("lata",), lambda y: date(y, 6, 21), "lata", "pierwszy dzień lata"),

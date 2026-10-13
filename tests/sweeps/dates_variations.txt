@@ -1,0 +1,9 @@
+Maja|Za ile dni są święta?
+Maja|Ile dni do wakacji?
+Maja|Kiedy jest Dzień Matki?
+Andrzej|Która godzina jest w Nowym Jorku?
+Andrzej|Jaki dzień będzie za tydzień?
+Andrzej|Którego jest dzisiaj?
+Maja|Ile dni do moich urodzin?
+Andrzej|Kiedy jest najbliższy piątek trzynastego?
+Emilka|Ile dni ma luty w przyszłym roku?

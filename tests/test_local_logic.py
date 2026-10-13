@@ -2140,6 +2140,14 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(cooking.wants("Luna, jak upiec sernik krok po kroku"), "sernik")
         self.assertIsNone(cooking.wants("Jak zrobić naleśniki?"))         # a question
 
+    def test_days_to_holidays(self):
+        import calc
+        from datetime import date
+        # 13 Oct sweep: "Ile dni do wakacji?" → "jeszcze sporo…"
+        self.assertEqual(calc._school_end(2027), date(2027, 6, 25))       # last Friday of June
+        self.assertEqual(calc._school_end(2026), date(2026, 6, 26))
+        self.assertIn("Do wakacji", calc.answer("Ile dni do wakacji?") or "")
+
     def test_variations_13_oct(self):
         import brain
         import drawing
