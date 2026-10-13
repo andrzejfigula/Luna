@@ -23,6 +23,11 @@ LOCAL = {
     "Mów wolniej": "speed",
     "Luna, mów trochę szybciej proszę": "speed",
     "Jeszcze trochę głośniej": "volume",
+    "Ścisz": "volume",                              # (13 Oct probe: to the model)
+    "Przycisz trochę": "volume",
+    "Pogłośnij radio": "volume",
+    "Minutnik na makaron 9 minut": "timer",
+    "Nastaw minutnik 9 minut makaron": "timer",
     "Dobranoc, Luna": "sleep",
     "No to dobranoc, idę już spać": "sleep",
     "Czy możesz pokazać zegar?": "screen",

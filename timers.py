@@ -466,7 +466,7 @@ def local_labelled_timer(text):
     na 8 minut do jajek"; None otherwise (no label, or anything more)."""
     m = _LABEL.match(text.strip())
     if not m:
-        return None
+        return _label_elsewhere(text.strip())
     label = m.group(3).lower()
     if parse_duration(label)[0] or set(label.split()) & {"minut", "minuty", "minutę",
                                                          "godzin", "godzinę", "sekund"}:
@@ -474,6 +474,38 @@ def local_labelled_timer(text):
     if m.group(2).lower() != "na":                   # "do jajek": the word stays as said
         label = f"{m.group(2).lower()} {label}"
     secs = local_timer(m.group(1))
+    return (secs, label) if secs else None
+
+
+# the label before the time ("minutnik na makaron 9 minut", "minutnik do jajek
+# na 8 minut") or after it with no "na" ("nastaw minutnik 9 minut makaron") —
+# 13 Oct probe: both went to the model
+_LABEL_FIRST = re.compile(r"^(.*?\b(?:minutnik\w*|timer|odlicz\w*))\s+(na|do|dla)\s+"
+                          r"([a-ząćęłńóśźż]+(?:\s+(?!na\b)[a-ząćęłńóśźż]+)?)\s+(?:na\s+)?"
+                          r"(\d.*?)[.!]*$",
+                          re.I)
+_LABEL_LAST = re.compile(r"^(.*?\b(?:minutnik\w*|timer|odlicz\w*)\b.*?\d+\s*"
+                         r"(?:minut\w*|sekund\w*|godzin\w*))\s+"
+                         r"([a-ząćęłńóśźż]+(?:\s+[a-ząćęłńóśźż]+)?)[.!]*$", re.I)
+_NOT_LABEL = {"proszę", "prosze", "luna", "luno", "teraz", "już", "juz", "dobrze", "ok",
+              "okej", "dzięki", "dzieki", "minut", "minuty", "sekund", "godzin", "godziny"}
+
+
+def _label_elsewhere(text):
+    m = _LABEL_FIRST.match(text)
+    if m:
+        prep, label = m.group(2).lower(), m.group(3).lower()
+        secs = local_timer(f"{m.group(1)} na {m.group(4)}")
+    else:
+        m = _LABEL_LAST.match(text)
+        if not m:
+            return None
+        prep, label = "na", m.group(2).lower()
+        secs = local_timer(m.group(1))
+    if set(label.split()) & _NOT_LABEL or parse_duration(label)[0]:
+        return None
+    if prep != "na":
+        label = f"{prep} {label}"
     return (secs, label) if secs else None
 
 

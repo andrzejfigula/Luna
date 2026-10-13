@@ -886,6 +886,12 @@ class TimersTest(unittest.TestCase):
         self.assertIsNone(t("minutnik na pół godziny"))            # no label
         self.assertIsNone(t("minutnik na 10 minut"))
         self.assertIsNone(t("Ile zostało na minutniku na makaron?"))
+        # 13 Oct probe: the label first, or after the time with no "na"
+        self.assertEqual(t("Minutnik na makaron 9 minut"), (540, "makaron"))
+        self.assertEqual(t("minutnik do jajek na 8 minut"), (480, "do jajek"))
+        self.assertEqual(t("Nastaw minutnik 9 minut makaron"), (540, "makaron"))
+        self.assertIsNone(t("minutnik na 10 minut proszę"))
+        self.assertIsNone(t("minutnik 10 minut"))
 
     def test_say_duration(self):
         self.assertEqual([timers.say_duration(s) for s in (60, 300, 120, 1800, 3600, 5400, 45)],
@@ -1378,6 +1384,16 @@ class CalcTest(unittest.TestCase):
         self.assertEqual(calc.time_until("ile do 15:20?", now), "Do 15:20 zostało 5 minut.")
         self.assertIsNone(calc.time_until("ile dni do Wigilii?", now))
         self.assertIsNone(calc.time_until("ile kosztuje bilet do Krakowa?", now))
+        # 13 Oct probe: "do północy" was noon
+        eve = datetime.datetime(2026, 10, 13, 19, 20)
+        self.assertEqual(calc.time_until("Ile minut do północy?", eve),
+                         "Do północy zostały 4 godziny i 40 minut.")
+        self.assertEqual(calc.time_until("ile zostało do dwunastej w nocy", eve),
+                         "Do północy zostały 4 godziny i 40 minut.")
+        self.assertEqual(calc.time_until("ile do północy?", datetime.datetime(2026, 10, 13, 3, 0)),
+                         "Do północy zostało 21 godzin.")
+        self.assertEqual(calc.time_until("ile do południa?", datetime.datetime(2026, 10, 13, 9, 0)),
+                         "Do 12:00 zostały 3 godziny.")
 
     def test_goodnight_mentions_the_alarm(self):
         timers._timers.clear()
