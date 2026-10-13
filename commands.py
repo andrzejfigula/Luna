@@ -1355,6 +1355,16 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
 
     # voice messages — "nagraj wiadomość", "odtwórz wiadomość", "usuń wiadomości"
     import messages
+    if re.fullmatch(r"(?:luna\W+)?(?:a\s+)?(?:jakieś\s+|jakies\s+)?(?:wiadomości|wiadomosci)"
+                    r"(?:\s+prosz[eę])?\W*", low.strip()):
+        # "Wiadomości." alone (13 Oct probe: to the model, which has no news):
+        # her voice messages when one waits for them, else the headlines
+        with state.lock:
+            who = state.person[0] if state.person else None
+        if messages.unheard(who):
+            low = "odtwórz wiadomości"
+        else:
+            text = "Jakie są wiadomości?"
     said_it = re.search(r"\bdla\s+(\w+)\W+(że|ze|żeby|zeby)\s+(.+)$", text, re.I)
     if said_it:
         import faces                                # someone she knows, or a recording
