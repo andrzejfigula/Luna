@@ -205,7 +205,10 @@ def handle(text, speak, play_sound):
         return True
     c = parse_count(text)
     if c:
-        hide = True if re.search(r"chowa|chowan|kryj", low) else None
+        # "Policz ze mną do dziesięciu" is counting practice, not hide and seek
+        # (13 Oct sweep: "Chowajcie się! … Kto się nie schował, ten kryje!")
+        hide = (True if re.search(r"chowa|chowan|kryj", low) else
+                False if re.search(r"\bze\s+mn[ąa]\b|\brazem\b|\bnaucz|\bucz\w*", low) else None)
         count(c[0], c[1], speak, play_sound, hide=hide)
         return True
     return False

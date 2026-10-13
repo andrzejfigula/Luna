@@ -2089,6 +2089,16 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(next(k for rx, k in radio._GENRES
                               if __import__("re").search(rx, "coś do biegania")), "rmf fm")
 
+    def test_count_with_me_is_no_hide_and_seek(self):
+        import counting
+        # 13 Oct sweep: "Policz ze mną do dziesięciu" → "Chowajcie się!"
+        got = []
+        with mock.patch.object(counting, "count",
+                               lambda d, n, s, p, hide=None: got.append(hide)):
+            counting.handle("Policz ze mną do dziesięciu", lambda t: None, lambda *a: None)
+            counting.handle("Policz do dziesięciu", lambda t: None, lambda *a: None)
+        self.assertEqual(got, [False, None])
+
     def test_variations_13_oct(self):
         import brain
         import drawing

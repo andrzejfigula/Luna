@@ -1,0 +1,20 @@
+#keep
+Maja|Pobawimy się w kółko i krzyżyk?
+Maja|Koniec
+Maja|Papier kamień nożyce
+Maja|Koniec
+Maja|Pytaj mnie z mnożenia
+Maja|Koniec
+Maja|Chcę zagadkę
+Maja|Nie wiem
+Maja|Koniec
+Maja|Zagrajmy w memory
+Maja|Koniec
+Maja|Policz ze mną do dziesięciu
+Maja|Zróbmy dyktando
+Maja|Koniec
+Maja|Już umyłam zęby
+Maja|Ile mam gwiazdek?
+Maja|Pokaż moje gwiazdki
+Maja|Opowiedz mi bajkę o smoku
+Maja|Jeszcze jedną
