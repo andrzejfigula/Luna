@@ -174,6 +174,15 @@ def _may_speak():
     return time.time() > muted and time.time() - _last_proactive >= PROACTIVE_MIN_GAP_SECS
 
 
+def _just_said_hello():
+    """A wave hello in the last minute (behavior_engine) — no second hello."""
+    try:
+        import behavior_engine
+        return time.time() - behavior_engine._last_wave_said < 60
+    except Exception:
+        return False
+
+
 def _busy():
     with state.lock:
         return (state.speaking or state.conversation_active
@@ -364,7 +373,9 @@ def idle_loop():
                     else:
                         _set_face("happy", GESTURE_DURATION["wave"] + 2.0)
                         _gesture("wave")
-                    if _may_speak():
+                    # she has just said hello to a wave (13 Oct 11:09: "Hejka!",
+                    # then "Cześć, Andrzeju, miłego południa!" two seconds later)
+                    if _may_speak() and not _just_said_hello():
                         _last_proactive = now
                         greeted_days[who] = today
                         if first_today:

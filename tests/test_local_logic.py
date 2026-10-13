@@ -4530,5 +4530,15 @@ class RadioTest(unittest.TestCase):
         self.assertEqual(said[-1], "Teraz gra: Beck - In the Night.")
 
 
+    def test_no_second_hello_after_a_wave(self):
+        # 13 Oct 11:09: "Hejka!" to a wave, then "Cześć, Andrzeju…" right after
+        import behavior_engine
+        import idle_engine
+        with mock.patch.object(behavior_engine, "_last_wave_said", time.time() - 5):
+            self.assertTrue(idle_engine._just_said_hello())
+        with mock.patch.object(behavior_engine, "_last_wave_said", time.time() - 600):
+            self.assertFalse(idle_engine._just_said_hello())
+
+
 if __name__ == "__main__":
     unittest.main()
