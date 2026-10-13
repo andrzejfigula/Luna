@@ -371,7 +371,8 @@ def show_person(what, speak):
 # "Pokaż mi słonia." — what's left of "pokaż mi …" after every handler (screens,
 # lists, games) had its turn: a thing to see (12 Oct: the model looked for an
 # elephant in the camera frame — "słonia na tym zdjęciu nie widzę")
-_BARE_SHOW = re.compile(r"^(?:luna,?\s+)?(?:a\s+|no\s+to\s+)?(?:pokaż|pokaz)\s+(?:mi|nam)\s+"
+# ("mi" may be left out: "Pokaż pandę" went to the model — 13 Oct probe)
+_BARE_SHOW = re.compile(r"^(?:luna,?\s+)?(?:a\s+|no\s+to\s+)?(?:pokaż|pokaz)\s+(?:(?:mi|nam)\s+)?"
                         r"([^\W\d_]+(?:\s+[^\W\d_]+){0,2})[.!?]*$", re.I)
 _NOT_TO_SEE = re.compile(r"^(?:co[śs]?|jak|gdzie|kiedy|ile|kto|któr\w*|ktor\w*|czy|się|sie|"
                          r"siebie|jeszcze|ostatni\w*|wszystk\w*|inn\w*|now\w*|"
@@ -382,7 +383,11 @@ _NOT_TO_SEE = re.compile(r"^(?:co[śs]?|jak|gdzie|kiedy|ile|kto|któr\w*|ktor\w*
                          r"zadani\w*|lekcj\w*|wiadomo\w*|histori\w*|przykład\w*|przyklad\w*|"
                          r"z|ze|od|do|o|po|przez|dla|bez|pod|nad|przy|"   # "z Wikipedii"
                          r"list\w*|zakup\w*|kalendarz\w*|przypomn\w*|minutnik\w*|budzik\w*|"
-                         r"jak\w*|tak\w*|ten|tę|te|tego|tamt\w*)\b", re.I)
+                         r"jak\w*|tak\w*|ten|tę|te|tego|tamt\w*|"
+                         # her own face and body: "Pokaż język", "pokaż serduszko"
+                         r"język|jezyk|języczek|serduszk\w*|serce|uśmiech|usmiech|zęby|zeby|"
+                         r"ząbki|zabki|rękę|reke|łapkę|lapke|brzuch\w*|nos|nosek|ucho|uszy|"
+                         r"uszka|mnie|nas|go|ją|ja|je)\b", re.I)
 
 
 def bare_show(text, speak):
