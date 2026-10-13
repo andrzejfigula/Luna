@@ -11,7 +11,9 @@ scratch data. A quick way to see how she answers a batch of everyday things:
 questions.txt: one "Who|What they say" per line ("Maja|Ile masz lat?"; "?|…" a face
 she doesn't know, "|…" nobody in view, "Andrzej+Maja|…" Maja in view beside him; "Maja|~…" overheard, said without "Luna").
 Without --keep every line starts a fresh conversation. With --hello the
-first-talk-of-the-day briefing is left on. It costs a few cents per batch.
+first-talk-of-the-day briefing is left on. It costs a few cents per batch —
+and stops at --max-calls API calls (default 80): on 7–13 Oct whole batteries
+of sweeps were ~90% of the bill and once emptied the account.
 (8 Oct: these sweeps found the costume, the age, the name days, "to wszystko".)
 """
 
@@ -29,6 +31,7 @@ ap.add_argument("--at", help="pretend local time HH:MM (today)")
 ap.add_argument("--day", help="pretend date YYYY-MM-DD (with --at; default today)")
 ap.add_argument("--keep", action="store_true", help="one conversation, history kept")
 ap.add_argument("--hello", action="store_true", help="leave the morning briefing on")
+ap.add_argument("--max-calls", type=int, default=80, help="stop after this many API calls")
 args = ap.parse_args()
 
 if args.at:                          # before Luna's modules read the clock
@@ -68,6 +71,7 @@ import ambience            # noqa: E402
 import brain               # noqa: E402
 import commands            # noqa: E402
 import drawing             # noqa: E402
+import health              # noqa: E402
 import idle_engine         # noqa: E402
 import radio               # noqa: E402
 import screens             # noqa: E402
@@ -91,6 +95,14 @@ for _ in range(30):
     time.sleep(0.5)
 if not args.hello:
     idle_engine.first_hello_due = lambda who: False
+
+health._count_api_calls()            # every OpenAI call, counted (the cap below)
+
+
+def _calls():
+    with health._lock:
+        return sum(health._day.values())
+
 
 said = []
 # answers that go through brain.process (another town's weather, the news, a
@@ -116,6 +128,9 @@ lines = [ln.split("|", 1) for ln in _raw if "|" in ln]
 # nothing without the turn before — 11 Oct, judged wrong in a fresh history)
 args.keep = args.keep or "#keep" in (ln.strip() for ln in _raw)
 for who, text in lines:
+    if _calls() >= args.max_calls:
+        print(f"[sweep] STOPPED: {_calls()} API calls (--max-calls {args.max_calls})", flush=True)
+        break
     if not args.keep:
         brain._history.clear()
     who, *beside = who.split("+")    # "Andrzej+Maja|…" — Maja in view too
@@ -144,6 +159,7 @@ for who, text in lines:
         brain.note_local(text, said)
     print(f"{who}: {text}\n   → {' | '.join(said) or '(' + str(h) + ')'}", flush=True)
 
+print(f"[sweep] {_calls()} API calls", flush=True)
 shutil.rmtree(DATA, ignore_errors=True)
 sys.stdout.flush()
 os._exit(0)
