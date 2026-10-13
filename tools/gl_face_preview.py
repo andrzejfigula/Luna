@@ -124,8 +124,8 @@ def live(out, gpu=True):
     if gpu:
         face.gl = gl_face.GLFace(W, H)
         face.gl.target_fbo = fbo
-        face.screen = pygame.Surface((W, H), pygame.SRCALPHA)
-        face.base = pygame.Surface((W, H), pygame.SRCALPHA)
+        face.screen = gl_face.layer_surface(W, H)
+        face.base = gl_face.layer_surface(W, H)
     face.clock = type("NoWait", (), {"tick": lambda self, fps: 0})()
     tiles, costs = [], []
     for emo in ("neutral", "happy", "sad", "angry", "surprised", "love", "sleeping"):
@@ -189,7 +189,7 @@ def main():
         tiles.append(img)
     # a pygame layer on top (as robot_face will lay its particles, captions…)
     pygame.init()
-    layer = pygame.Surface((W, H), pygame.SRCALPHA)
+    layer = gl_face.layer_surface(W, H)
     pygame.draw.circle(layer, (255, 120, 150, 220), (640, 90), 26)
     pygame.draw.rect(layer, (0, 0, 0, 170), pygame.Rect(0, H - 60, W, 60))
     face.pose(emotion="happy", blush=150)
@@ -210,13 +210,25 @@ def main():
         g.render(u)
     GL.glFinish()
     ms = (time.perf_counter() - t0) / n * 1000
+    # the upload as in use: a status bar that stays, a particle that moves
     t0 = time.perf_counter()
-    for _ in range(n):
+    for i in range(n):
+        layer.fill((0, 0, 0, 0))
+        pygame.draw.rect(layer, (20, 20, 20, 230), pygame.Rect(0, 0, W, 30))
+        pygame.draw.circle(layer, (255, 120, 150, 220), (100 + i * 8, 300), 14)
         g.upload_layer(layer)
     GL.glFinish()
     up = (time.perf_counter() - t0) / n * 1000
-    print(f"[preview] {ms:.1f} ms per face frame, {up:.1f} ms per layer upload "
-          f"(800x480; 30 fps = 33 ms)")
+    # the worst case: the whole layer changes every frame (a photo overlay)
+    t0 = time.perf_counter()
+    for i in range(n):
+        layer.fill((i * 4 % 255, 40, 80, 255))
+        g.upload_layer(layer)
+    GL.glFinish()
+    full = (time.perf_counter() - t0) / n * 1000
+    print(f"[preview] {ms:.1f} ms per face frame; layer upload {up:.1f} ms "
+          f"(status bar + a particle), {full:.1f} ms (all of it changing); "
+          f"30 fps = 33 ms")
 
     cols = 4
     rows = (len(tiles) + cols - 1) // cols

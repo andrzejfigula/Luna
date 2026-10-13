@@ -47,8 +47,10 @@ from config import (RENDER_FPS, FACE_STYLE, SCREEN_WIDTH, SCREEN_HEIGHT,
 WIDTH  = SCREEN_WIDTH
 HEIGHT = SCREEN_HEIGHT
 
-# PoC: the Loona face drawn by the GPU (gl_face.py) — LUNA_FACE_GL=1 to try it
+# the Loona face drawn by the GPU (gl_face.py) — LUNA_FACE_GL=1 in .env
 FACE_GL = os.environ.get("LUNA_FACE_GL") == "1"
+if FACE_GL:
+    import gl_face
 
 BG        = (0, 0, 0)
 PUPIL_COL = (0, 0, 0)
@@ -1325,13 +1327,12 @@ class RobotFace:
             try:
                 pygame.display.set_mode((WIDTH, HEIGHT),
                                         flags | pygame.OPENGL | pygame.DOUBLEBUF)
-                import gl_face
                 self.gl = gl_face.GLFace(WIDTH, HEIGHT)
             except Exception as e:                     # noqa: BLE001
                 print(f"[gl] no OpenGL face ({e!r}) — the usual one", flush=True)
                 self.gl = None
         if self.gl:
-            self.screen = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            self.screen = gl_face.layer_surface(WIDTH, HEIGHT)
         else:
             self.screen = pygame.display.set_mode((WIDTH, HEIGHT), flags)
         pygame.display.set_caption("Luna")
@@ -1385,7 +1386,7 @@ class RobotFace:
 
         # reused every frame — allocating a full-screen Surface per frame
         # was measurable on the Pi
-        self.base = (pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA) if self.gl
+        self.base = (gl_face.layer_surface(WIDTH, HEIGHT) if self.gl
                      else pygame.Surface((WIDTH, HEIGHT)))
 
         # particle systems
@@ -2264,13 +2265,14 @@ class RobotFace:
         t2 = time.perf_counter()
         # ── head tilt ─────────────────────────────────────────────────────
         if self.gl:
+            # the GPU turns `base` itself (its own texture): the screen layer
+            # keeps only what stays put — status bar, captions, overlays
             self.screen.fill((0, 0, 0, 0))
-        if abs(self.head_angle) > 0.4:      # below that the rotation can't be seen,
+        elif abs(self.head_angle) > 0.4:    # below that the rotation can't be seen,
             st["tilted"] += 1               # but it costs ~4 ms of a full-screen turn
             rotated = pygame.transform.rotate(base, self.head_angle)
             rect    = rotated.get_rect(center=(WIDTH // 2, HEIGHT // 2))
-            if not self.gl:
-                self.screen.fill(BG)
+            self.screen.fill(BG)
             self.screen.blit(rotated, rect)
         else:
             self.screen.blit(base, (0, 0))
@@ -2300,7 +2302,7 @@ class RobotFace:
         t3 = time.perf_counter()
         if self.gl:
             u = self.gl.face_uniforms(self, sys.modules[__name__], fcx, fcy)
-            self.gl.render(u, self.gl.upload_layer(self.screen))
+            self.gl.render(u, face_layer=base, screen_layer=self.screen)
         pygame.display.flip()
         t4 = time.perf_counter()
         st["frames"] += 1

@@ -59,8 +59,10 @@ uniform float uMouthSlant;    // px the right end is higher (angry)
 uniform vec4  uBlush;         // fcx, fcy, alpha 0..1, spread
 uniform vec3  uBlushCol;
 
-uniform sampler2D uLayer;
+uniform sampler2D uLayer;       // what stays put on the screen (status bar, captions…)
 uniform float uHasLayer;
+uniform sampler2D uFaceLayer;   // what moves with the face (particles, hands, scenes)
+uniform float uHasFaceLayer;
 uniform float uPass;          // 0: the soft part (glow, blush, screen) at half size
 uniform sampler2D uSoft;      // 1: the sharp shapes over that, full size
 uniform vec2  uSoftRes;
@@ -241,12 +243,12 @@ void main() {
     }
     vec2 uv = fc / uRes;
     vec3 col = vec3(0.0);
+    // the head's tilt: turn the face (and its layer) about the screen centre
+    vec2 c0 = uRes * 0.5;
+    vec2 dv = fc - c0;
+    float cs = cos(uTilt), sn = sin(uTilt);
+    vec2 p = c0 + vec2(cs * dv.x - sn * dv.y, sn * dv.x + cs * dv.y);
     if (uFace > 0.5) {
-        // the head's tilt: turn the face about the screen centre
-        vec2 c0 = uRes * 0.5;
-        vec2 dv = fc - c0;
-        float cs = cos(uTilt), sn = sin(uTilt);
-        vec2 p = c0 + vec2(cs * dv.x - sn * dv.y, sn * dv.x + cs * dv.y);
         if (uPass < 0.5) {
             // a deep, faintly warm screen with a vignette
             vec2 vq = uv - vec2(0.5, 0.46);
@@ -280,6 +282,13 @@ void main() {
         col = drawMouth(p, col, glow);
         col += (hash(fc + fract(uTime)) - 0.5) / 255.0;    // dither: no banding
     }
+    if (uPass > 0.5 && uHasFaceLayer > 0.5) {
+        vec2 lu = p / uRes;
+        if (lu.x >= 0.0 && lu.x <= 1.0 && lu.y >= 0.0 && lu.y <= 1.0) {
+            vec4 l = texture2D(uFaceLayer, lu);
+            col = mix(col, l.rgb, l.a);
+        }
+    }
     if (uHasLayer > 0.5) {
         vec4 l = texture2D(uLayer, uv);
         col = mix(col, l.rgb, l.a);
@@ -302,6 +311,42 @@ def _pick_platform():
         pass
     if drv in ("wayland", "kmsdrm") or (not drv and os.environ.get("WAYLAND_DISPLAY")):
         os.environ["PYOPENGL_PLATFORM"] = "egl"
+
+
+class _Layer:
+    """A pygame layer's texture and the bytes last sent, per 32-row band."""
+    BAND = 32
+
+    def __init__(self, tex, width, height):
+        self.tex = tex
+        self.w = width
+        self.bands = [(y, min(self.BAND, height - y)) for y in range(0, height, self.BAND)]
+        self.sent = [None] * len(self.bands)      # the band's bytes on the texture
+        self.zero = {h: bytes(width * 4 * h) for _, h in self.bands}
+
+
+def layer_surface(width, height):
+    """A transparent pygame surface whose memory is R, G, B, A — what the
+    GPU takes as it is. pygame's usual layout (B, G, R, A) made Mesa swap
+    every pixel on the CPU: 26 ms for a whole layer instead of ~2 (Pi 4)."""
+    import pygame
+    if sys.byteorder == "little":
+        return pygame.Surface((width, height), pygame.SRCALPHA, 32,
+                              masks=(0xFF, 0xFF00, 0xFF0000, 0xFF000000))
+    return pygame.Surface((width, height), pygame.SRCALPHA)
+
+
+def _gl_format(GL, surface):
+    """The GL format of a 32-bit pygame surface's own memory, or None when
+    it isn't one GL reads directly (or its rows are padded)."""
+    if surface.get_bytesize() != 4 or surface.get_pitch() != surface.get_width() * 4:
+        return None
+    masks = tuple(surface.get_masks())
+    if masks == (0xFF0000, 0xFF00, 0xFF, 0xFF000000) and sys.byteorder == "little":
+        return GL.GL_BGRA
+    if masks == (0xFF, 0xFF00, 0xFF0000, 0xFF000000) and sys.byteorder == "little":
+        return GL.GL_RGBA
+    return None
 
 
 def _rgb(c):
@@ -339,16 +384,11 @@ class GLFace:
         GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.vbo)
         GL.glBufferData(GL.GL_ARRAY_BUFFER, ctypes.sizeof(quad), quad, GL.GL_STATIC_DRAW)
         self.apos = GL.glGetAttribLocation(self.prog, "aPos")
-        self.tex = GL.glGenTextures(1)
-        GL.glBindTexture(GL.GL_TEXTURE_2D, self.tex)
-        for k, v in ((GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST),
-                     (GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST),
-                     (GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE),
-                     (GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE)):
-            GL.glTexParameteri(GL.GL_TEXTURE_2D, k, v)
         GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)
-        GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA, width, height, 0,
-                        GL.GL_RGBA, GL.GL_UNSIGNED_BYTE, bytes(width * height * 4))
+        # the two pygame layers: fixed to the screen (sharp), and turning with
+        # the face (smoothed, it is sampled turned)
+        self.screen_l = _Layer(self._texture(width, height, GL.GL_NEAREST), width, height)
+        self.face_l = _Layer(self._texture(width, height, GL.GL_LINEAR), width, height)
         # the soft part's framebuffer: half size, smoothed when stretched
         self.sw, self.sh = max(1, width // 2), max(1, height // 2)
         self.soft = GL.glGenTextures(1)
@@ -366,10 +406,22 @@ class GLFace:
                                   GL.GL_TEXTURE_2D, self.soft, 0)
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
         self.target_fbo = 0              # where the frame goes (0: the window)
-        self._layer_rect = None          # what of the layer is on the texture
+        self.uploaded = 0                # bytes sent to the GPU (the preview's numbers)
         self.k = {"happy": 0.0, "sad": 0.0, "angry": 0.0}   # eased shape weights
         print(f"[gl] face shader ready (GLSL {self.glsl}, "
               f"{GL.glGetString(GL.GL_RENDERER).decode(errors='replace')})", flush=True)
+
+    def _texture(self, w, h, filt):
+        GL = self.GL
+        tex = GL.glGenTextures(1)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, tex)
+        for k, v in ((GL.GL_TEXTURE_MIN_FILTER, filt), (GL.GL_TEXTURE_MAG_FILTER, filt),
+                     (GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE),
+                     (GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE)):
+            GL.glTexParameteri(GL.GL_TEXTURE_2D, k, v)
+        GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA, w, h, 0,
+                        GL.GL_RGBA, GL.GL_UNSIGNED_BYTE, bytes(w * h * 4))
+        return tex
 
     def _program(self, vs, fs):
         GL = self.GL
@@ -403,26 +455,45 @@ class GLFace:
         else:
             GL.glUniform4f(loc, *map(float, value))
 
-    def upload_layer(self, surface):
-        """The pygame layer (SRCALPHA, the screen's size) → the texture; only
-        the part with something on it (and what was there last frame).
-        Returns True when there is anything to lay over the face."""
-        import pygame
+    def upload(self, layer, surface):
+        """A pygame layer (SRCALPHA, the screen's size) → its texture: its
+        memory read as it is (no conversion), and only the 32-row bands whose
+        bytes changed are sent — the status bar is redrawn every frame but
+        changes once a minute. (Finding the drawn area with
+        get_bounding_rect() cost 3 ms for the screen, 8 ms band by band —
+        more than sending it all; 13 Oct, Pi 4.) True when anything is on it."""
         GL = self.GL
-        rect = surface.get_bounding_rect()
-        if rect.w == 0 or rect.h == 0:
-            rect = None
-        area = rect
-        if self._layer_rect is not None:
-            area = self._layer_rect if area is None else area.union(self._layer_rect)
-        self._layer_rect = rect
-        if area is not None:
-            area = area.clip(surface.get_rect())
-            data = pygame.image.tobytes(surface.subsurface(area), "RGBA")
-            GL.glBindTexture(GL.GL_TEXTURE_2D, self.tex)
-            GL.glTexSubImage2D(GL.GL_TEXTURE_2D, 0, area.x, area.y, area.w, area.h,
-                               GL.GL_RGBA, GL.GL_UNSIGNED_BYTE, data)
-        return rect is not None
+        fmt = _gl_format(GL, surface)
+        if fmt is None:                          # an unusual layout: convert it
+            import pygame
+            raw, fmt = pygame.image.tobytes(surface, "RGBA"), GL.GL_RGBA
+        else:
+            raw = surface.get_view("2").raw
+        pitch = layer.w * 4
+        any_ = bound = False
+        for i, (y, h) in enumerate(layer.bands):
+            # (bytes, not a memoryview: comparing those goes item by item —
+            # 21 ms a frame; bytes compare at memcmp speed)
+            chunk = raw[y * pitch:(y + h) * pitch]
+            empty = chunk == layer.zero[h]
+            any_ = any_ or not empty
+            if layer.sent[i] is None and empty:
+                continue                          # (a new texture is clear already)
+            if layer.sent[i] is not None and chunk == layer.sent[i]:
+                continue                          # the same pixels are there already
+            if not bound:
+                GL.glBindTexture(GL.GL_TEXTURE_2D, layer.tex)
+                bound = True
+            data = chunk
+            GL.glTexSubImage2D(GL.GL_TEXTURE_2D, 0, 0, y, layer.w, h, fmt,
+                               GL.GL_UNSIGNED_BYTE, data)
+            self.uploaded += len(data)
+            layer.sent[i] = None if empty else data
+        return any_
+
+    def upload_layer(self, surface):
+        """(the preview's call) the screen layer."""
+        return self.upload(self.screen_l, surface)
 
     def _sampler(self, name, unit, tex):
         GL = self.GL
@@ -440,20 +511,27 @@ class GLFace:
         GL.glVertexAttribPointer(self.apos, 2, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
 
-    def render(self, uniforms, has_layer=False):
+    def render(self, uniforms, has_layer=False, face_layer=None, screen_layer=None):
+        """face_layer / screen_layer: pygame surfaces to upload first (or
+        has_layer: the screen layer was uploaded already)."""
         GL = self.GL
+        has_face = face_layer is not None and self.upload(self.face_l, face_layer)
+        if screen_layer is not None:
+            has_layer = self.upload(self.screen_l, screen_layer)
         GL.glUseProgram(self.prog)
         self._u("uRes", (self.w, self.h))
         self._u("uSoftRes", (self.sw, self.sh))
         for k, v in uniforms.items():
             self._u(k, v)
         self._u("uHasLayer", 1.0 if has_layer else 0.0)
+        self._u("uHasFaceLayer", 1.0 if has_face else 0.0)
         # pass 0: glow, blush and the screen, half size
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.soft_fbo)
         GL.glViewport(0, 0, self.sw, self.sh)
         self._u("uPass", 0.0)
-        self._sampler("uLayer", 0, self.tex)
+        self._sampler("uLayer", 0, self.screen_l.tex)
         self._sampler("uSoft", 1, 0)
+        self._sampler("uFaceLayer", 2, self.face_l.tex)
         self._quad()
         # pass 1: the sharp shapes over it, and the pygame layer on top
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.target_fbo)
@@ -471,7 +549,7 @@ class GLFace:
         for name, on in (("happy", face._happy), ("sad", face._sad), ("angry", face._angry)):
             k[name] = _lerp(k[name], 1.0 if on else 0.0, 0.18)
         u = {"uTime": (face.breath_phase if hasattr(face, "breath_phase") else 0.0),
-             "uTilt": math.radians(face.head_angle) if abs(face.head_angle) > 0.05 else 0.0,
+             "uTilt": math.radians(face.head_angle),
              "uFace": 1.0 if rf.EYE_MODE == "block" else 0.0,
              "uRadius": float(rf.EYE_RADIUS) * 1.15,
              "uTop": _rgb(rf.EYE_GRAD_TOP), "uBottom": _rgb(rf.EYE_GRAD_BOTTOM),
