@@ -24,7 +24,12 @@ import sys
 
 _VERT = """
 attribute vec2 aPos;
-void main() { gl_Position = vec4(aPos, 0.0, 1.0); }
+uniform vec4 uRect;           // x0, y0, x1, y1 in pixels, top-left origin
+uniform vec2 uRes;
+void main() {
+    vec2 px = mix(uRect.xy, uRect.zw, aPos * 0.5 + 0.5);
+    gl_Position = vec4(px.x / uRes.x * 2.0 - 1.0, 1.0 - px.y / uRes.y * 2.0, 0.0, 1.0);
+}
 """
 
 _FRAG = """
@@ -63,9 +68,13 @@ uniform sampler2D uLayer;       // what stays put on the screen (status bar, cap
 uniform float uHasLayer;
 uniform sampler2D uFaceLayer;   // what moves with the face (particles, hands, scenes)
 uniform float uHasFaceLayer;
-uniform float uPass;          // 0: the soft part (glow, blush, screen) at half size
-uniform sampler2D uSoft;      // 1: the sharp shapes over that, full size
-uniform vec2  uSoftRes;
+uniform float uPass;          // 0: the soft part (glow, blush, screen), small
+uniform sampler2D uSoft;      // 1: that, stretched over the screen (+ dither)
+uniform vec2  uSoftRes;       // 2: one sharp shape (uShape) in its own box, blended
+uniform float uShape;         // 3: a pygame layer (uLayerSel) over its rows, blended
+uniform float uLayerSel;      //    0 the screen's, 1 the one turning with the face
+
+float gA;                     // the coverage of the shape just drawn (stage 2)
 
 float sdRoundBox(vec2 p, vec2 b, float r) {
     vec2 q = abs(p) - b + vec2(r);
@@ -149,6 +158,7 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 sh, vec4 pu, float 
     }
     float a = clamp(0.5 - d, 0.0, 1.0);
     if (a <= 0.0) return col;
+    gA = a;
     vec3 c = eyeColour(q, b, d);
     // pupil: a soft dark rounded square with two catch-lights
     if (pu.w > 0.01) {
@@ -182,6 +192,7 @@ vec3 drawBrow(vec2 p, vec3 col, inout vec3 glow, vec4 s, float bend) {
         return col;
     }
     float a = clamp(0.5 - d, 0.0, 1.0) * uBrowK.w;
+    gA = a;
     float v = clamp((pp.y - m.y) / uBrowK.z + 0.5, 0.0, 1.0);
     vec3 c = mix(uTop, uBottom, v * 0.8);
     c = mix(c, uShine, 0.35 * exp(-pow((v - 0.25) / 0.18, 2.0)));
@@ -217,6 +228,7 @@ vec3 drawMouth(vec2 p, vec3 col, inout vec3 glow) {
         return col;
     }
     float a = clamp(0.5 - d, 0.0, 1.0) * alpha;
+    gA = a;
     float v = clamp(q.y / max(uMouth.w, 10.0) + 0.5, 0.0, 1.0);
     vec3 c = mix(uTop, uBottom, 0.35 + 0.55 * v);
     if (inner < 1e4) {                        // the dark inside: teeth, a tongue
@@ -242,58 +254,61 @@ void main() {
         fc = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y);
     }
     vec2 uv = fc / uRes;
-    vec3 col = vec3(0.0);
     // the head's tilt: turn the face (and its layer) about the screen centre
     vec2 c0 = uRes * 0.5;
     vec2 dv = fc - c0;
     float cs = cos(uTilt), sn = sin(uTilt);
     vec2 p = c0 + vec2(cs * dv.x - sn * dv.y, sn * dv.x + cs * dv.y);
-    if (uFace > 0.5) {
-        if (uPass < 0.5) {
-            // a deep, faintly warm screen with a vignette
-            vec2 vq = uv - vec2(0.5, 0.46);
-            col = vec3(0.030, 0.020, 0.016) * (1.0 - 1.6 * dot(vq, vq));
-            // glass: a faint diagonal sheen across the panel
-            float sheen = exp(-pow((uv.x + uv.y * 0.6 - 0.35) / 0.10, 2.0));
-            col += vec3(0.010, 0.009, 0.012) * sheen;
-            // blush under the eyes
-            if (uBlush.z > 0.01) {
+    vec3 glow = vec3(0.0);
+    if (uPass < 0.5) {
+        // a deep, faintly warm screen with a vignette
+        vec2 vq = uv - vec2(0.5, 0.46);
+        vec3 col = vec3(0.030, 0.020, 0.016) * (1.0 - 1.6 * dot(vq, vq));
+        // glass: a faint diagonal sheen across the panel
+        float sheen = exp(-pow((uv.x + uv.y * 0.6 - 0.35) / 0.10, 2.0));
+        col += vec3(0.010, 0.009, 0.012) * sheen;
+        if (uFace > 0.5) {
+            if (uBlush.z > 0.01) {                       // blush under the eyes
                 vec2 bq = (p - uBlush.xy - vec2(-240.0, 80.0)) / vec2(uBlush.w * 1.3, uBlush.w);
                 col += uBlushCol * 0.55 * uBlush.z * exp(-dot(bq, bq) * 2.2);
                 bq = (p - uBlush.xy - vec2(240.0, 80.0)) / vec2(uBlush.w * 1.3, uBlush.w);
                 col += uBlushCol * 0.55 * uBlush.z * exp(-dot(bq, bq) * 2.2);
             }
-            vec3 glow = vec3(0.0);
             col = drawEye(p, col, glow, uEye0, uShape0, uPupil0, -1.0);
             col = drawEye(p, col, glow, uEye1, uShape1, uPupil1, 1.0);
             col = drawBrow(p, col, glow, uBrow0, uBrowK.x);
             col = drawBrow(p, col, glow, uBrow1, uBrowK.y);
             col = drawMouth(p, col, glow);
             col += glow * 0.55;
-            gl_FragColor = vec4(col, 1.0);
-            return;
+        } else {
+            col = vec3(0.0);
         }
-        col = texture2D(uSoft, vec2(uv.x, 1.0 - uv.y)).rgb;   // (drawn bottom row first)
-        vec3 glow = vec3(0.0);
-        col = drawEye(p, col, glow, uEye0, uShape0, uPupil0, -1.0);
-        col = drawEye(p, col, glow, uEye1, uShape1, uPupil1, 1.0);
-        col = drawBrow(p, col, glow, uBrow0, uBrowK.x);
-        col = drawBrow(p, col, glow, uBrow1, uBrowK.y);
-        col = drawMouth(p, col, glow);
-        col += (hash(fc + fract(uTime)) - 0.5) / 255.0;    // dither: no banding
-    }
-    if (uPass > 0.5 && uHasFaceLayer > 0.5) {
-        vec2 lu = p / uRes;
-        if (lu.x >= 0.0 && lu.x <= 1.0 && lu.y >= 0.0 && lu.y <= 1.0) {
-            vec4 l = texture2D(uFaceLayer, lu);
-            col = mix(col, l.rgb, l.a);
+        gl_FragColor = vec4(col, 1.0);
+    } else if (uPass < 1.5) {
+        vec3 col = texture2D(uSoft, vec2(uv.x, 1.0 - uv.y)).rgb;   // (drawn bottom row first)
+        col += (hash(fc + fract(uTime)) - 0.5) / 255.0;            // dither: no banding
+        gl_FragColor = vec4(col, 1.0);
+    } else if (uPass < 2.5) {
+        // one shape, premultiplied: blended over what is there
+        gA = 0.0;
+        vec3 c = vec3(0.0);
+        if (uShape < 0.5)      c = drawEye(p, c, glow, uEye0, uShape0, uPupil0, -1.0);
+        else if (uShape < 1.5) c = drawEye(p, c, glow, uEye1, uShape1, uPupil1, 1.0);
+        else if (uShape < 2.5) c = drawBrow(p, c, glow, uBrow0, uBrowK.x);
+        else if (uShape < 3.5) c = drawBrow(p, c, glow, uBrow1, uBrowK.y);
+        else                   c = drawMouth(p, c, glow);
+        gl_FragColor = vec4(c, gA);
+    } else {
+        vec4 l = vec4(0.0);
+        if (uLayerSel < 0.5) {
+            l = texture2D(uLayer, uv);
+        } else {
+            vec2 lu = p / uRes;
+            if (lu.x >= 0.0 && lu.x <= 1.0 && lu.y >= 0.0 && lu.y <= 1.0)
+                l = texture2D(uFaceLayer, lu);
         }
+        gl_FragColor = vec4(l.rgb * l.a, l.a);
     }
-    if (uHasLayer > 0.5) {
-        vec4 l = texture2D(uLayer, uv);
-        col = mix(col, l.rgb, l.a);
-    }
-    gl_FragColor = vec4(col, 1.0);
 }
 """
 
@@ -323,6 +338,18 @@ class _Layer:
         self.bands = [(y, min(self.BAND, height - y)) for y in range(0, height, self.BAND)]
         self.sent = [None] * len(self.bands)      # the band's bytes on the texture
         self.zero = {h: bytes(width * 4 * h) for _, h in self.bands}
+
+    def runs(self):
+        """(y0, y1) of the runs of bands with something on them."""
+        out = []
+        for (y, h), data in zip(self.bands, self.sent):
+            if data is None:
+                continue
+            if out and out[-1][1] == y:
+                out[-1] = (out[-1][0], y + h)
+            else:
+                out.append((y, y + h))
+        return out
 
 
 def layer_surface(width, height):
@@ -389,8 +416,9 @@ class GLFace:
         # the face (smoothed, it is sampled turned)
         self.screen_l = _Layer(self._texture(width, height, GL.GL_NEAREST), width, height)
         self.face_l = _Layer(self._texture(width, height, GL.GL_LINEAR), width, height)
-        # the soft part's framebuffer: half size, smoothed when stretched
-        self.sw, self.sh = max(1, width // 2), max(1, height // 2)
+        # the soft part's framebuffer: a quarter of the size (it is all
+        # glow and gradients), smoothed when stretched
+        self.sw, self.sh = max(1, width // 4), max(1, height // 4)
         self.soft = GL.glGenTextures(1)
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.soft)
         for k, v in ((GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR),
@@ -408,6 +436,7 @@ class GLFace:
         self.target_fbo = 0              # where the frame goes (0: the window)
         self.uploaded = 0                # bytes sent to the GPU (the preview's numbers)
         self.k = {"happy": 0.0, "sad": 0.0, "angry": 0.0}   # eased shape weights
+        self.shape_rects = []            # each shape's box on the screen (face_uniforms)
         print(f"[gl] face shader ready (GLSL {self.glsl}, "
               f"{GL.glGetString(GL.GL_RENDERER).decode(errors='replace')})", flush=True)
 
@@ -513,7 +542,10 @@ class GLFace:
 
     def render(self, uniforms, has_layer=False, face_layer=None, screen_layer=None):
         """face_layer / screen_layer: pygame surfaces to upload first (or
-        has_layer: the screen layer was uploaded already)."""
+        has_layer: the screen layer was uploaded already). The stages: the
+        soft part small, stretched over the screen, each shape in its own
+        box, the layers over their rows — every pixel is worked on only where
+        something is (one full-screen shader for all of it: 16 ms a frame)."""
         GL = self.GL
         has_face = face_layer is not None and self.upload(self.face_l, face_layer)
         if screen_layer is not None:
@@ -523,22 +555,88 @@ class GLFace:
         self._u("uSoftRes", (self.sw, self.sh))
         for k, v in uniforms.items():
             self._u(k, v)
-        self._u("uHasLayer", 1.0 if has_layer else 0.0)
-        self._u("uHasFaceLayer", 1.0 if has_face else 0.0)
-        # pass 0: glow, blush and the screen, half size
-        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.soft_fbo)
-        GL.glViewport(0, 0, self.sw, self.sh)
-        self._u("uPass", 0.0)
+        full = (0.0, 0.0, float(self.w), float(self.h))
         self._sampler("uLayer", 0, self.screen_l.tex)
         self._sampler("uSoft", 1, 0)
         self._sampler("uFaceLayer", 2, self.face_l.tex)
+        GL.glDisable(GL.GL_BLEND)
+        # 0: glow, blush and the screen, small
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.soft_fbo)
+        GL.glViewport(0, 0, self.sw, self.sh)
+        self._u("uPass", 0.0)
+        self._u("uRect", full)
         self._quad()
-        # pass 1: the sharp shapes over it, and the pygame layer on top
+        # 1: stretched over the whole screen
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.target_fbo)
         GL.glViewport(0, 0, self.w, self.h)
-        self._u("uPass", 1.0)
         self._sampler("uSoft", 1, self.soft)
+        self._u("uPass", 1.0)
         self._quad()
+        GL.glEnable(GL.GL_BLEND)
+        GL.glBlendFunc(GL.GL_ONE, GL.GL_ONE_MINUS_SRC_ALPHA)    # premultiplied
+        # 2: the sharp shapes, each in its own box
+        if uniforms.get("uFace", 0.0) > 0.5:
+            self._u("uPass", 2.0)
+            for i, rect in enumerate(self.shape_rects):
+                if rect is None:
+                    continue
+                self._u("uShape", float(i))
+                self._u("uRect", rect)
+                self._quad()
+        # 3: the pygame layers — the face's (turned) and the screen's, by rows
+        self._u("uPass", 3.0)
+        if has_face:
+            self._u("uLayerSel", 1.0)
+            self._u("uRect", full)
+            self._quad()
+        if has_layer:
+            self._u("uLayerSel", 0.0)
+            for y0, y1 in self.screen_l.runs():
+                self._u("uRect", (0.0, float(y0), float(self.w), float(y1)))
+                self._quad()
+        GL.glDisable(GL.GL_BLEND)
+
+    def _box(self, cx, cy, hx, hy, tilt):
+        """A shape's box (centre, half sizes, in the face's own coordinates)
+        → the box it covers on the screen with the head turned, or None."""
+        if hx <= 0 or hy <= 0:
+            return None
+        c0x, c0y = self.w / 2.0, self.h / 2.0
+        cs, sn = math.cos(tilt), math.sin(tilt)
+        xs, ys = [], []
+        for dx, dy in ((-hx, -hy), (hx, -hy), (-hx, hy), (hx, hy)):
+            qx, qy = cx + dx - c0x, cy + dy - c0y
+            xs.append(c0x + cs * qx + sn * qy)
+            ys.append(c0y - sn * qx + cs * qy)
+        x0, x1 = max(0.0, min(xs) - 1), min(float(self.w), max(xs) + 1)
+        y0, y1 = max(0.0, min(ys) - 1), min(float(self.h), max(ys) + 1)
+        return (x0, y0, x1, y1) if x1 > x0 and y1 > y0 else None
+
+    def _shape_boxes(self, u):
+        """Where stage 2 draws: the eyes, the brows, the mouth."""
+        tilt = u["uTilt"]
+        boxes = []
+        for i in (0, 1):
+            ex, ey, w, h = u[f"uEye{i}"]
+            boxes.append(self._box(ex, ey, w / 2 + 3, h / 2 + 3, tilt))
+        bend0, bend1, thick, alpha = u["uBrowK"]
+        for i, bend in ((0, bend0), (1, bend1)):
+            x0, y0, x1, y1 = u[f"uBrow{i}"]
+            if alpha <= 0.01:
+                boxes.append(None)
+                continue
+            pad = thick + abs(bend) + 2
+            boxes.append(self._box((x0 + x1) / 2, (y0 + y1) / 2,
+                                   abs(x1 - x0) / 2 + thick, abs(y1 - y0) / 2 + pad, tilt))
+        mx, my, w, h = u["uMouth"]
+        bend, open_, alpha, kind = u["uMouthK"]
+        if alpha <= 0.01:
+            boxes.append(None)
+        else:
+            hx = w / 2 + h / 2 + 4
+            hy = max(h, w if kind > 1.5 else 0.0) / 2 + abs(bend) + abs(u["uMouthSlant"]) + 4
+            boxes.append(self._box(mx, my, hx, hy, tilt))
+        return boxes
 
     # ── Luna's animation state → the shader's inputs ──────────────────────
     def face_uniforms(self, face, rf, fcx, fcy):
@@ -599,6 +697,7 @@ class GLFace:
         u.update(self._mouth(face, rf, fcx, fcy))
         bl = max(face.left_blush.alpha, face.right_blush.alpha) / 255.0
         u["uBlush"] = (fcx, fcy, min(1.0, bl * 1.4), 30.0)
+        self.shape_rects = self._shape_boxes(u)
         return u
 
     def _mouth(self, face, rf, fcx, fcy):
