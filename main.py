@@ -60,6 +60,9 @@ start_weather()
 from health import start_health
 start_health()
 
+from holds import start_holds          # "bądź cicho do 15", camera off… survive a restart
+start_holds()
+
 from watchdog import start_watchdog    # a freeze ends in a restart, with the stacks logged
 start_watchdog()
 

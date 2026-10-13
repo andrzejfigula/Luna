@@ -2177,6 +2177,26 @@ class KidsTest(unittest.TestCase):
             self.assertEqual(idle_engine._load_seated(now=5060.0), 1000.0)   # seen a minute ago
             self.assertEqual(idle_engine._load_seated(now=5300.0), 0.0)      # gone since
 
+    def test_holds_survive_a_restart(self):
+        import holds
+        from shared_state import state
+        f = tempfile.mktemp(suffix=".json")
+        now = time.time()
+        with mock.patch.object(holds, "PATH", f):
+            with state.lock:
+                state.camera_off_until = now + 600
+                state.mic_muted_until = 0.0
+            holds._last.clear()
+            self.assertTrue(holds.save_if_changed())
+            self.assertFalse(holds.save_if_changed())                 # nothing new
+            with state.lock:
+                state.camera_off_until = 0.0                          # "a restart"
+            self.assertEqual(holds.load(), ["camera_off_until"])
+            with state.lock:
+                self.assertAlmostEqual(state.camera_off_until, now + 600, delta=1)
+                state.camera_off_until = 0.0
+            self.assertEqual(holds.load(now=now + 700), [])           # over by then
+
     def test_variations_13_oct(self):
         import brain
         import drawing

@@ -155,7 +155,7 @@ stars, records, dictation words), `relations.json`, `day.json` / `diary.json`
 (her day, game results), `errands.json`, `messages/`, `seen.json` (when each
 person was last seen), `history.json` (the last 30 min of conversation, so a
 restart doesn't cut it), `story.json` (the last bedtime story),
-`greeted.json`, `usage.json` (API calls per day), `tts_cache/` (short lines
+`greeted.json`, `usage.json` (API calls per day), `holds.json` (quiet / mic off / camera off / focus still running — kept over a restart), `tts_cache/` (short lines
 she has said, played offline), `backups/`, `drawings/`, `webphotos/`, `flags/`
 and `animals/` (pictures for the quizzes). "Luna, zapomnij wszystko" wipes the
 memory and the conversation history.
