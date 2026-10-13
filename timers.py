@@ -363,7 +363,7 @@ _REMIND_LATER = re.compile(r"\b(codziennie|co\s+\w+|w\s+weekend|"
                            r"czerwca|lipca|sierpnia|września|października|listopada|grudnia)\b",
                            re.I)
 # a day said with it: "jutro", "pojutrze", "w piątek" (→ days ahead)
-_REMIND_DAY = re.compile(r"\b(jutro|pojutrze|w\s+(poniedziałek|wtorek|środę|czwartek|piątek|"
+_REMIND_DAY = re.compile(r"\b(jutro|pojutrze|we?\s+(poniedziałek|wtorek|środę|czwartek|piątek|"
                          r"sobotę|niedzielę))\b\s*,?\s*", re.I)
 _WD_ACC = ["poniedziałek", "wtorek", "środę", "czwartek", "piątek", "sobotę", "niedzielę"]
 # "żebym zadzwonił", "że mam…": would need turning round ("zadzwoń") — the model
@@ -403,7 +403,7 @@ def local_reminder(text, now=None):
         else:
             wd = _WD_ACC.index(d.group(2).lower())
             day = (wd - now_dt.weekday()) % 7 or 7
-            day_said = f"w {d.group(2).lower()}"
+            day_said = f"{'we' if wd == 1 else 'w'} {d.group(2).lower()}"
         rest = (rest[:d.start()] + rest[d.end():]).strip(" ,")
     span, action, said = None, None, None
     z = re.search(r"\bza\s+((?:\w+\s+){0,3}?(?:sekund\w*|minut\w*|godzin\w*|kwadrans))\b",

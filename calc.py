@@ -431,9 +431,17 @@ _WEEKDAY_Q = re.compile(
     r"\b(?:jaki\s+dzień\s+(?:tygodnia\s+)?|w\s+jakim\s+dniu\s+(?:tygodnia\s+)?|"
     r"w\s+jaki\s+dzień\s+(?:tygodnia\s+)?|"
     r"jaki\s+to\s+dzień\s+(?:tygodnia\s+)?)"
-    r"(?:będzie|bedzie|jest|wypada|wypadnie|przypada|przypadnie)\s+(?:w\s+)?(.+?)[?.!]*$",
+    r"(będzie|bedzie|jest|wypada|wypadnie|przypada|przypadnie|był|była|było|byl|byla|bylo|"
+    r"wypadł|wypadła|wypadl|wypadla|przypadł|przypadła)\s+(?:w\s+)?(.+?)[?.!]*$",
     re.I)
+_PAST = {"był", "była", "było", "byl", "byla", "bylo", "wypadł", "wypadła", "wypadl",
+         "wypadla", "przypadł", "przypadła"}
 _WD_ACC = ["poniedziałek", "wtorek", "środę", "czwartek", "piątek", "sobotę", "niedzielę"]
+
+
+def _on_day(d):
+    """"w czwartek", but "we wtorek" (it was "wypada w wtorek")."""
+    return ("we " if d.weekday() == 1 else "w ") + _WD_ACC[d.weekday()]
 
 
 _WHEN_Q = re.compile(r"\bkiedy\s+(?:w\s+tym\s+roku\s+)?(?:jest|będzie|bedzie|wypada|"
@@ -587,7 +595,7 @@ def holiday_when(text, today=None):
             far = ("— to dzisiaj!" if days == 0 else "— już jutro." if days == 1 else
                    f"— za {days} dni.")
             return (f"{nom[0].upper()}{nom[1:]} wypada {d.day} {_MONTHS_GEN[d.month - 1]}"
-                    f"{year}, w {_WD_ACC[d.weekday()]} {far}")
+                    f"{year}, {_on_day(d)} {far}")
     return None
 
 
@@ -598,7 +606,8 @@ def weekday_of(text, today=None):
     if not m:
         return None
     today = today or _today()
-    what = m.group(1).strip()
+    past = m.group(1).lower() in _PAST       # "jaki dzień był 1 stycznia?" (13 Oct probe)
+    what = m.group(2).strip()
     hit = _target("do " + what, today)
     if hit is None:                        # a holiday said in the nominative
         for stems, when, gen, nom in _DAYS_OF:
@@ -610,14 +619,27 @@ def weekday_of(text, today=None):
         return None                        # "jaki dzień będzie w piątek?" — no question
     d, gen, nom, used = hit
     rest = what.replace(used, " ", 1)
-    if re.search(r"[^\W\d_]", rest.replace("roku", "").replace(str(d.year), "")):
+    said_year = re.search(r"\b(1[89]\d\d|20\d\d|21\d\d)\b", rest)
+    if re.search(r"[^\W\d_]", re.sub(r"\d+", " ", rest).replace("roku", "")):
         return None                        # more than a date: the model
+    try:
+        if said_year:                      # "24 grudnia 2030" — that year's, not the next
+            d = d.replace(year=int(said_year.group(1)))
+        elif past and d > today:           # "był 1 stycznia" — this year's, gone by
+            d = d.replace(year=d.year - 1)
+            if d > today:
+                d = d.replace(year=d.year - 1)
+    except ValueError:                     # 29 lutego in a year without it
+        return None
     label = nom or f"{d.day} {_MONTHS_GEN[d.month - 1]}"
     year = f" {d.year}" if d.year != today.year else ""
     day = _WEEKDAY_NOM[d.weekday()]
     if d == today:
         return f"{label[0].upper()}{label[1:]} to dzisiaj — {day}."
-    return f"{label[0].upper()}{label[1:]}{year} wypada w {_WD_ACC[d.weekday()]}."
+    if d < today:
+        verb = "była" if d.weekday() in (2, 5, 6) else "był"
+        return f"{label[0].upper()}{label[1:]}{year} {verb} {day}."
+    return f"{label[0].upper()}{label[1:]}{year} wypada {_on_day(d)}."
 
 
 def days_until(text, today=None):
