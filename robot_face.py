@@ -25,6 +25,7 @@ All transitions smooth lerp — no snapping.
 """
 
 import os
+import sys
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")   # pygame must not open an audio
                                                    # stream: hers run through pw-play
 import pygame
@@ -45,6 +46,9 @@ from config import (RENDER_FPS, FACE_STYLE, SCREEN_WIDTH, SCREEN_HEIGHT,
 # relative to the screen — which suits a desktop-robot face.
 WIDTH  = SCREEN_WIDTH
 HEIGHT = SCREEN_HEIGHT
+
+# PoC: the Loona face drawn by the GPU (gl_face.py) — LUNA_FACE_GL=1 to try it
+FACE_GL = os.environ.get("LUNA_FACE_GL") == "1"
 
 BG        = (0, 0, 0)
 PUPIL_COL = (0, 0, 0)
@@ -1314,7 +1318,22 @@ class RobotFace:
     def __init__(self):
         pygame.init()
         flags = pygame.FULLSCREEN if FULLSCREEN else 0
-        self.screen = pygame.display.set_mode((WIDTH, HEIGHT), flags)
+        self.gl = None
+        if FACE_GL:
+            # the window is OpenGL's; everything pygame draws goes to a
+            # transparent layer (self.screen) laid over the GPU face
+            try:
+                pygame.display.set_mode((WIDTH, HEIGHT),
+                                        flags | pygame.OPENGL | pygame.DOUBLEBUF)
+                import gl_face
+                self.gl = gl_face.GLFace(WIDTH, HEIGHT)
+            except Exception as e:                     # noqa: BLE001
+                print(f"[gl] no OpenGL face ({e!r}) — the usual one", flush=True)
+                self.gl = None
+        if self.gl:
+            self.screen = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        else:
+            self.screen = pygame.display.set_mode((WIDTH, HEIGHT), flags)
         pygame.display.set_caption("Luna")
         if HIDE_CURSOR:
             pygame.mouse.set_visible(False)
@@ -1366,7 +1385,8 @@ class RobotFace:
 
         # reused every frame — allocating a full-screen Surface per frame
         # was measurable on the Pi
-        self.base = pygame.Surface((WIDTH, HEIGHT))
+        self.base = (pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA) if self.gl
+                     else pygame.Surface((WIDTH, HEIGHT)))
 
         # particle systems
         self.zzz_particles   = []
@@ -2118,7 +2138,9 @@ class RobotFace:
         t1 = time.perf_counter()
 
         base = self.base   # reused surface — no per-frame allocation
-        base.fill(BG)
+        # with the GPU face, pygame draws only what goes over it, on clear glass
+        gl_face_on = self.gl is not None and EYE_MODE == "block"
+        base.fill((0, 0, 0, 0) if self.gl else BG)
 
         fcx = int(self.face_cx + self.face_ox)
         fcy = int(self.face_cy + self.face_oy)
@@ -2134,8 +2156,9 @@ class RobotFace:
             draw_costume_back(base, fcx, fcy, costume[0], self.head_angle)
 
         # ── blush (behind eyes) ───────────────────────────────────────────
-        self.left_blush.draw(base, fcx, fcy)
-        self.right_blush.draw(base, fcx, fcy)
+        if not gl_face_on:
+            self.left_blush.draw(base, fcx, fcy)
+            self.right_blush.draw(base, fcx, fcy)
 
         # ── sound waves (behind mouth) ────────────────────────────────────
         for w in self.sound_waves:
@@ -2151,22 +2174,23 @@ class RobotFace:
         rx = fcx + self.right_eye.rel_x
         ry = fcy + self.right_eye.rel_y
 
-        self.left_eye.draw(base, lx, ly,
-                           angry=self._angry, happy=self._happy,
-                           sad=self._sad, listening=self._listen,
-                           color_override=self._eye_color,
-                           angry_pulse=self.angry_pulse)
-        self.right_eye.draw(base, rx, ry,
-                            angry=self._angry, happy=self._happy,
-                            sad=self._sad, listening=self._listen,
-                            color_override=self._eye_color,
-                            angry_pulse=self.angry_pulse)
+        if not gl_face_on:                  # (the GPU draws eyes, brows, mouth)
+            self.left_eye.draw(base, lx, ly,
+                               angry=self._angry, happy=self._happy,
+                               sad=self._sad, listening=self._listen,
+                               color_override=self._eye_color,
+                               angry_pulse=self.angry_pulse)
+            self.right_eye.draw(base, rx, ry,
+                                angry=self._angry, happy=self._happy,
+                                sad=self._sad, listening=self._listen,
+                                color_override=self._eye_color,
+                                angry_pulse=self.angry_pulse)
 
-        # ── mouth ─────────────────────────────────────────────────────────
-        mx = fcx + self.mouth.rel_x
-        my = fcy + self.mouth.rel_y
-        self.mouth.draw(base, mx, my, self._emotion,
-                        self._speaking, self._audio_energy)
+            # ── mouth ─────────────────────────────────────────────────────
+            mx = fcx + self.mouth.rel_x
+            my = fcy + self.mouth.rel_y
+            self.mouth.draw(base, mx, my, self._emotion,
+                            self._speaking, self._audio_energy)
         if costume:
             draw_costume_front(base, fcx, fcy, costume[0])
 
@@ -2239,11 +2263,14 @@ class RobotFace:
 
         t2 = time.perf_counter()
         # ── head tilt ─────────────────────────────────────────────────────
+        if self.gl:
+            self.screen.fill((0, 0, 0, 0))
         if abs(self.head_angle) > 0.4:      # below that the rotation can't be seen,
             st["tilted"] += 1               # but it costs ~4 ms of a full-screen turn
             rotated = pygame.transform.rotate(base, self.head_angle)
             rect    = rotated.get_rect(center=(WIDTH // 2, HEIGHT // 2))
-            self.screen.fill(BG)
+            if not self.gl:
+                self.screen.fill(BG)
             self.screen.blit(rotated, rect)
         else:
             self.screen.blit(base, (0, 0))
@@ -2271,6 +2298,9 @@ class RobotFace:
             self._draw_overlay()
 
         t3 = time.perf_counter()
+        if self.gl:
+            u = self.gl.face_uniforms(self, sys.modules[__name__], fcx, fcy)
+            self.gl.render(u, self.gl.upload_layer(self.screen))
         pygame.display.flip()
         t4 = time.perf_counter()
         st["frames"] += 1
