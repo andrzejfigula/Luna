@@ -68,11 +68,12 @@ uniform sampler2D uLayer;       // what stays put on the screen (status bar, cap
 uniform float uHasLayer;
 uniform sampler2D uFaceLayer;   // what moves with the face (particles, hands, scenes)
 uniform float uHasFaceLayer;
+uniform sampler2D uBackLayer;   // …and what goes behind it (costume ears, steam, hair)
 uniform float uPass;          // 0: the soft part (glow, blush, screen), small
 uniform sampler2D uSoft;      // 1: that, stretched over the screen (+ dither)
 uniform vec2  uSoftRes;       // 2: one sharp shape (uShape) in its own box, blended
 uniform float uShape;         // 3: a pygame layer (uLayerSel) over its rows, blended
-uniform float uLayerSel;      //    0 the screen's, 1 the one turning with the face
+uniform float uLayerSel;      //    0 the screen's, 1 the face's, 2 the one behind it
 
 uniform vec2  uGlitch;        // (on, seed): the "glitch" scene tears the picture
 
@@ -325,7 +326,7 @@ void main() {
         } else {
             vec2 lu = p / uRes;
             if (lu.x >= 0.0 && lu.x <= 1.0 && lu.y >= 0.0 && lu.y <= 1.0)
-                l = texture2D(uFaceLayer, lu);
+                l = (uLayerSel < 1.5) ? texture2D(uFaceLayer, lu) : texture2D(uBackLayer, lu);
         }
         gl_FragColor = vec4(l.rgb * l.a, l.a);
     }
@@ -436,6 +437,7 @@ class GLFace:
         # the face (smoothed, it is sampled turned)
         self.screen_l = _Layer(self._texture(width, height, GL.GL_NEAREST), width, height)
         self.face_l = _Layer(self._texture(width, height, GL.GL_LINEAR), width, height)
+        self.back_l = _Layer(self._texture(width, height, GL.GL_LINEAR), width, height)
         # the soft part's framebuffer: a quarter of the size (it is all
         # glow and gradients), smoothed when stretched
         self.sw, self.sh = max(1, width // 4), max(1, height // 4)
@@ -560,7 +562,8 @@ class GLFace:
         GL.glVertexAttribPointer(self.apos, 2, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
 
-    def render(self, uniforms, has_layer=False, face_layer=None, screen_layer=None):
+    def render(self, uniforms, has_layer=False, face_layer=None, screen_layer=None,
+               back_layer=None):
         """face_layer / screen_layer: pygame surfaces to upload first (or
         has_layer: the screen layer was uploaded already). The stages: the
         soft part small, stretched over the screen, each shape in its own
@@ -568,6 +571,7 @@ class GLFace:
         something is (one full-screen shader for all of it: 16 ms a frame)."""
         GL = self.GL
         has_face = face_layer is not None and self.upload(self.face_l, face_layer)
+        has_back = back_layer is not None and self.upload(self.back_l, back_layer)
         if screen_layer is not None:
             has_layer = self.upload(self.screen_l, screen_layer)
         GL.glUseProgram(self.prog)
@@ -579,6 +583,7 @@ class GLFace:
         self._sampler("uLayer", 0, self.screen_l.tex)
         self._sampler("uSoft", 1, 0)
         self._sampler("uFaceLayer", 2, self.face_l.tex)
+        self._sampler("uBackLayer", 3, self.back_l.tex)
         GL.glDisable(GL.GL_BLEND)
         # 0: glow, blush and the screen, small
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.soft_fbo)
@@ -594,6 +599,11 @@ class GLFace:
         self._quad()
         GL.glEnable(GL.GL_BLEND)
         GL.glBlendFunc(GL.GL_ONE, GL.GL_ONE_MINUS_SRC_ALPHA)    # premultiplied
+        if has_back:                         # behind the face: costume ears, steam…
+            self._u("uPass", 3.0)
+            self._u("uLayerSel", 2.0)
+            self._u("uRect", full)
+            self._quad()
         # 2: the sharp shapes, each in its own box
         if uniforms.get("uFace", 0.0) > 0.5:
             self._u("uPass", 2.0)

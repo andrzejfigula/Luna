@@ -128,11 +128,16 @@ def live(out, gpu=True):
         face.gl.target_fbo = fbo
         face.screen = gl_face.layer_surface(W, H)
         face.base = gl_face.layer_surface(W, H)
+        face.back = gl_face.layer_surface(W, H)
     face.clock = type("NoWait", (), {"tick": lambda self, fps: 0})()
     tiles, costs = [], []
-    for emo in ("neutral", "happy", "sad", "angry", "surprised", "love", "sleeping"):
+    looks = [(e, None) for e in ("neutral", "happy", "sad", "angry", "surprised", "love",
+                                 "sleeping")]
+    looks += [("happy", c) for c in rf.COSTUMES]          # "zamień się w kotka"…
+    for emo, costume in looks:
         with state.lock:
             state.face_detected = emo != "sleeping"
+            state.costume = (costume, time.time() + 600) if costume else None
         for i in range(40):
             face.set_state(emo)              # (face_renderer.py does this per frame)
             t0 = time.perf_counter()
@@ -146,7 +151,7 @@ def live(out, gpu=True):
             size = face.screen.get_size()         # (the dummy window may be bigger)
             img = Image.frombytes("RGB", size, pygame.image.tobytes(face.screen, "RGB"))
             img = img.crop((0, 0, W, H))
-        ImageDraw.Draw(img).text((10, 8), emo, fill=(255, 255, 255))
+        ImageDraw.Draw(img).text((10, 8), costume or emo, fill=(255, 255, 255))
         tiles.append(img)
     costs.sort()
     print(f"[live] whole frame: median {costs[len(costs) // 2] * 1000:.1f} ms, "

@@ -1388,6 +1388,9 @@ class RobotFace:
         # was measurable on the Pi
         self.base = (gl_face.layer_surface(WIDTH, HEIGHT) if self.gl
                      else pygame.Surface((WIDTH, HEIGHT)))
+        # with the GPU face: what pygame draws behind it (costume ears, hair,
+        # steam, sound waves) — the face goes between this and `base`
+        self.back = gl_face.layer_surface(WIDTH, HEIGHT) if self.gl else None
 
         # particle systems
         self.zzz_particles   = []
@@ -2142,19 +2145,23 @@ class RobotFace:
         # with the GPU face, pygame draws only what goes over it, on clear glass
         gl_face_on = self.gl is not None and EYE_MODE == "block"
         base.fill((0, 0, 0, 0) if self.gl else BG)
+        behind = base
+        if self.back is not None:
+            self.back.fill((0, 0, 0, 0))
+            behind = self.back
 
         fcx = int(self.face_cx + self.face_ox)
         fcy = int(self.face_cy + self.face_oy)
 
         # ── hair (behind everything) ──────────────────────────────────────
         if HAIR:
-            draw_hair(base, fcx, fcy, self.head_angle)
+            draw_hair(behind, fcx, fcy, self.head_angle)
         with state.lock:
             costume = state.costume
         if costume and time.time() > costume[1]:
             costume = None
         if costume:
-            draw_costume_back(base, fcx, fcy, costume[0], self.head_angle)
+            draw_costume_back(behind, fcx, fcy, costume[0], self.head_angle)
 
         # ── blush (behind eyes) ───────────────────────────────────────────
         if not gl_face_on:
@@ -2163,11 +2170,11 @@ class RobotFace:
 
         # ── sound waves (behind mouth) ────────────────────────────────────
         for w in self.sound_waves:
-            w.draw(base)
+            w.draw(behind)
 
         # ── steam (behind eyes) ───────────────────────────────────────────
         for p in self.steam_particles:
-            p.draw(base)
+            p.draw(behind)
 
         # ── eyes ──────────────────────────────────────────────────────────
         lx = fcx + self.left_eye.rel_x
@@ -2302,7 +2309,8 @@ class RobotFace:
         t3 = time.perf_counter()
         if self.gl:
             u = self.gl.face_uniforms(self, sys.modules[__name__], fcx, fcy)
-            self.gl.render(u, face_layer=base, screen_layer=self.screen)
+            self.gl.render(u, face_layer=base, screen_layer=self.screen,
+                           back_layer=self.back)
         pygame.display.flip()
         t4 = time.perf_counter()
         st["frames"] += 1
