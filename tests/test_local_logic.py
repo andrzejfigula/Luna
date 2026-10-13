@@ -2596,6 +2596,17 @@ class KidsTest(unittest.TestCase):
         s._call_until = 0.0
         s._talk_heard.clear()
 
+    def test_one_look_ahead_per_sentence(self):
+        import speech_to_text as s
+        # 13 Oct: one long meeting sentence sent three times, at each pause
+        with mock.patch.object(s, "_energy_gate", lambda: 1000), \
+                mock.patch.object(s, "_wake_check_worth", lambda w: True), \
+                mock.patch.object(s, "_wake_budget", lambda: True):
+            words = "no dla tego konkretnego".split()
+            self.assertTrue(s._passive_spec_ok(False, 5000, words))
+            self.assertFalse(s._passive_spec_ok(True, 5000, words))     # looked already
+            self.assertFalse(s._passive_spec_ok(False, 1500, words))    # not loud
+
     def test_cloud_wake_plausible(self):
         import speech_to_text as s
         self.assertFalse(s._cloud_wake_plausible("Luna, wstań z łóżka, ty zdychasz.", ["usa"]))

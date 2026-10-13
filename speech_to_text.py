@@ -955,6 +955,15 @@ def _wake_check_worth(words):
     return words is None or _maybe_wake(words) or _face_invites(words)
 
 
+def _passive_spec_ok(looked, peak_rms, words):
+    """Send this pause ahead to look for "Luna"? Only clear, loud speech, and
+    once per utterance: 13 Oct a meeting at the desk sent one long sentence
+    three times, at each pause in it ("No dla tego konkretnego landlorda…") —
+    the end-of-utterance check still hears the whole of it."""
+    return (not looked and peak_rms >= 2.0 * _energy_gate() and len(words) >= 2
+            and _wake_check_worth(words) and _wake_budget())
+
+
 def _wake_budget():
     """One more cloud wake check allowed now? (spends it) — a room with the TV
     on would otherwise send every sentence to the cloud."""
@@ -1176,6 +1185,7 @@ def listen():
     utt_max      = int(CLOUD_STT_MAX_SECS * VOSK_SAMPLE_RATE * 2)
     utt_t0       = None  # when the current utterance's speech began
     spec_tried   = False # this pause already sent ahead (see SPEC_AFTER)
+    spec_looked  = False # this utterance already sent ahead once to look for "Luna"
 
     while True:
         try:
@@ -1258,9 +1268,10 @@ def listen():
                 and silent_run >= SPEC_AFTER and not spec_tried):
             spec_tried = True                    # once per pause
             words = json.loads(rec.PartialResult()).get("partial", "").split()
-            if (active or _find_wake_word(words) is not None
-                    or (utt_peak_rms >= 2.0 * _energy_gate() and len(words) >= 2
-                        and _wake_check_worth(words) and _wake_budget())):
+            look = (not active and _find_wake_word(words) is None
+                    and _passive_spec_ok(spec_looked, utt_peak_rms, words))
+            spec_looked = spec_looked or look
+            if active or _find_wake_word(words) is not None or look:
                 # (passive: only clear, loud speech — room noise sent ahead ate
                 # the 2 s wake budget on 6 Oct 19:00, and "Luna, śpisz?" waited)
                 # (the last: the end-of-utterance wake check would ask the
@@ -1286,7 +1297,7 @@ def listen():
             if msg_parts:                # a recorded message: all its parts
                 result = {"text": " ".join(msg_parts + [result.get("text", "")]).strip()}
                 msg_parts = []
-            voiced, silent_run, spec_tried = False, 0.0, False
+            voiced, silent_run, spec_tried, spec_looked = False, 0.0, False, False
             started, utt_t0 = utt_t0, None
             text     = result.get("text", "").strip()
             peak_rms = utt_peak_rms
