@@ -1,0 +1,9 @@
+#keep
+Maja|Luna, to jest Ola, moja koleżanka
+?|Cześć Luna
+?|Jestem Kasia, zapamiętaj mnie
+Maja|Kto to jest?
+Andrzej|Kogo znasz?
+Andrzej|Ile osób znasz?
+Maja|Jak mam na imię?
+Emilka|Kim jestem?

@@ -2148,6 +2148,14 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(calc._school_end(2026), date(2026, 6, 26))
         self.assertIn("Do wakacji", calc.answer("Ile dni do wakacji?") or "")
 
+    def test_intro_with_remember_me(self):
+        import commands
+        # 13 Oct sweep: "Jestem Kasia, zapamiętaj mnie" → "Powiedz: … jestem…"
+        self.assertEqual(commands._intro_name("Jestem Kasia, zapamiętaj mnie"), "Kasia")
+        self.assertEqual(commands._intro_name("Zapamiętaj mnie, jestem Kasia"), "Kasia")
+        self.assertEqual(commands._intro_name("Luna, mam na imię Ola, zapamiętaj mnie."), "Ola")
+        self.assertIsNone(commands._intro_name("Jestem zmęczona, zapamiętaj to"))
+
     def test_variations_13_oct(self):
         import brain
         import drawing

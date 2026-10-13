@@ -308,7 +308,14 @@ _INTRO = [re.compile(r"^(?i:(?:a\s+)?(?:to jest|to|poznaj|przedstawiam ci|oto))\
           re.compile(r"^(?i:(?:a\s+)?(?:ja\s+)?(?:jestem|mam na imię|mam na imie|nazywam się))\s+"
                      + _NAME + r"(?:\s+[A-ZĄĆĘŁŃÓŚŹŻ]\w+)?[.!]?$"),
           re.compile(r"(?:zapamiętaj|zapamietaj|naucz się|poznaj)\s+(?:moją\s+|moja\s+)?twarz\w*"
-                     r"[,.]?\s+(?:jestem|mam na imię|nazywam się|to)\s+" + _NAME, re.I)]
+                     r"[,.]?\s+(?:jestem|mam na imię|nazywam się|to)\s+" + _NAME, re.I),
+          # "Jestem Kasia, zapamiętaj mnie" / "Zapamiętaj mnie, jestem Kasia" (13 Oct
+          # sweep: "Powiedz: zapamiętaj moją twarz, jestem…" — the name was said)
+          re.compile(r"^(?i:(?:ja\s+)?(?:jestem|mam na imię|mam na imie|nazywam się))\s+"
+                     + _NAME + r"[,.]?\s+(?i:zapamiętaj|zapamietaj)\s+(?i:mnie|moją\s+twarz|"
+                     r"moja\s+twarz)\W*$"),
+          re.compile(r"^(?i:zapamiętaj|zapamietaj)\s+(?i:mnie)[,.]?\s+(?i:jestem|mam na imię|"
+                     r"mam na imie|nazywam się)\s+" + _NAME + r"\W*$")]
 _FACE_BARE = ("zapamiętaj moją twarz", "zapamietaj moja twarz", "naucz się mojej twarzy",
               "zapamiętaj mnie", "zapamiętaj jak wyglądam")
 _FACE_FORGET = re.compile(r"zapomnij\s+(?:moją\s+twarz|mnie|twarz\s+(\w+))", re.I)
