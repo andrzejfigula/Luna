@@ -60,8 +60,10 @@ from config import (SPEED_STEP, SPEED_MIN, SPEED_MAX, OPENAI_TTS_SPEED,
                     FOCUS_MINUTES, BREAK_MINUTES, SNOOZE_MINUTES,
                     AUDIO_OUTPUT_DEVICE)
 
-_LOUDER  = ("głośniej", "glosniej", "louder", "volume up")
-_QUIETER = ("ciszej", "quieter", "volume down")
+# (13 Oct probe: "Ścisz", "Przycisz trochę", "Pogłośnij radio" went to the model)
+_LOUDER  = ("głośniej", "glosniej", "louder", "volume up", "pogłośnij", "poglosnij",
+            "podgłośnij", "podglosnij", "zgłośnij", "zglosnij")
+_QUIETER = ("ciszej", "quieter", "volume down", "ścisz", "scisz", "przycisz", "zcisz")
 _VOLUME  = ("głośność", "glosnosc", "volume")
 _SLOWER  = ("wolniej", "slower")
 _FASTER  = ("szybciej", "faster")
@@ -1000,7 +1002,8 @@ def _volume_command(text):
         n = calc.number_in(low)
         if n is not None and 0 <= n <= 100:
             return n / 100.0
-    if _bare(text, _LOUDER + _QUIETER):
+    if _bare(re.sub(r"\b(?:radio|muzyk[ęe]|dźwięk|dzwiek|to)\b", " ", low),
+             _LOUDER + _QUIETER):
         cur = get_volume()
         if cur is None:
             return None
