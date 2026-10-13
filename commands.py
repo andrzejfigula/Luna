@@ -452,6 +452,8 @@ _ALARM = re.compile(r"\b(?:obudź|obudz|zbudź|zbudz|budź|budz|budzik|budzenie)
                     r"\s+(?:o|na)\s+(.+?)[.!?]*$", re.I)
 
 
+_CODE_TOLD = re.compile(r"\b(?:kod\w*(?!\s+pocztow)|pin\w*|hasł\w*|hasl\w*|password)\b[^?]{0,40}?"
+                        r"\b(?:to|jest|brzmi|:)\s*[\w-]*\d[\w-]{2,}", re.I)
 _REMOVE = re.compile(r"\b(?:usuń|usun|skasuj|kasuj|wyłącz|wylacz|odwołaj|odwolaj|anuluj|"
                      r"wywal|zlikwiduj|nie\s+(?:chcę|chce|potrzebuję|potrzebuje))\b", re.I)
 
@@ -1495,6 +1497,13 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
     if said:
         print(f"[cmd] calc: {said}", flush=True)
         speak(said)
+        return True
+
+    # "Kod do furtki to 4321" — codes aren't kept (memory.py never stores them);
+    # she said "Zapamiętam to" and then "Tego nie powiem na głos" (13 Oct sweep)
+    if _CODE_TOLD.search(text) and not is_question(text):
+        speak("Kodów, PIN-ów i haseł nie zapamiętuję — tak jest bezpieczniej. "
+              "Zapisz go w telefonie albo w bezpiecznym miejscu.")
         return True
 
     # questions she answers herself, exactly (they must come before the guard)

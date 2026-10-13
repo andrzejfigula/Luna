@@ -2099,6 +2099,14 @@ class KidsTest(unittest.TestCase):
             counting.handle("Policz do dziesięciu", lambda t: None, lambda *a: None)
         self.assertEqual(got, [False, None])
 
+    def test_codes_not_kept(self):
+        import commands
+        # 13 Oct sweep: "Kod do furtki to 4321" → "Zapamiętam to", then "Tego nie powiem"
+        for t in ("Kod do furtki to 4321", "PIN do karty to 1234", "Hasło do wifi to kotek123"):
+            self.assertTrue(commands._CODE_TOLD.search(t), t)
+        for t in ("Kod pocztowy to 55-080", "Mam kod rabatowy", "Jaki jest kod do furtki?"):
+            self.assertFalse(commands._CODE_TOLD.search(t) and not commands.is_question(t), t)
+
     def test_variations_13_oct(self):
         import brain
         import drawing

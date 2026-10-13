@@ -1,0 +1,13 @@
+#keep
+Emilka|Zapisz numer do hydraulika 600 100 200
+Emilka|Jaki jest numer do hydraulika?
+Emilka|Śmieci wywożą w każdy wtorek
+Emilka|Kiedy wywożą śmieci?
+Andrzej|Paszporty są w szufladzie w sypialni
+Andrzej|Gdzie są paszporty?
+Emilka|Kod do furtki to 4321
+Emilka|Jaki jest kod do furtki?
+Andrzej|Pożyczyłem Markowi wiertarkę
+Andrzej|Komu pożyczyłem wiertarkę?
+Emilka|Co dziś na obiad?
+Andrzej|Ile kosztuje litr benzyny?
