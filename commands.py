@@ -1565,6 +1565,12 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
     import drawing                                 # "jak wygląda żyrafa?" — a photo
     if drawing.looks_wanted(text):
         return drawing.handle(text, speak)
+    if question and re.search(r"krok\s+po\s+kroku", text, re.I):
+        import cooking                             # "Jak zrobić naleśniki krok po kroku?"
+        dish = cooking.wants(text)
+        if dish:
+            cooking.start(dish, speak)
+            return True
     m = drawing._LOOKS.match(text.strip())         # "jak wygląda Maja?" — her photos
     if m and drawing._is_person(m.group(1).strip(" ,")) and drawing.show_person(m.group(1), speak):
         return True

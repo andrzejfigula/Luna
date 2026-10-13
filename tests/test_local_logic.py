@@ -2133,6 +2133,13 @@ class KidsTest(unittest.TestCase):
         self.assertFalse(kids._did_this_step(["chcę", "bajkę"], "umyj zęby"))
         self.assertFalse(kids._did_this_step(["zęby", "bolą"], "umyj zęby"))
 
+    def test_cooking_how_to_step_by_step(self):
+        import cooking
+        # 13 Oct sweep: "Jak zrobić naleśniki krok po kroku?" — no cooking mode
+        self.assertEqual(cooking.wants("Jak zrobić naleśniki krok po kroku?"), "naleśniki")
+        self.assertEqual(cooking.wants("Luna, jak upiec sernik krok po kroku"), "sernik")
+        self.assertIsNone(cooking.wants("Jak zrobić naleśniki?"))         # a question
+
     def test_variations_13_oct(self):
         import brain
         import drawing

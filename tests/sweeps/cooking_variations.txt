@@ -1,0 +1,10 @@
+#keep
+Emilka|Jak zrobić naleśniki krok po kroku?
+Emilka|Dobra, dalej
+Emilka|Wróć
+Emilka|Jakie były składniki?
+Emilka|Ile mleka?
+Emilka|Następny krok
+Emilka|Nastaw minutnik na 3 minuty
+Emilka|Co dalej?
+Emilka|Skończyłam gotować

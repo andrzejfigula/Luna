@@ -27,6 +27,10 @@ STEP_IDLE = 30 * 60
 _START = re.compile(r"\b(?:gotujemy|ugotujmy|upieczmy|pieczemy|przepis\s+na|"
                     r"pomóż\s+mi\s+(?:ugotować|upiec)|pomoz\s+mi\s+(?:ugotowac|upiec))\s+"
                     r"(.+?)(?:\s+krok\s+po\s+kroku)?[.!?]*$", re.I)
+# "Jak zrobić naleśniki krok po kroku?" (13 Oct sweep: the model told it all at
+# once, and "dalej" / "wróć" after it meant nothing) — only WITH "krok po kroku"
+_HOWTO = re.compile(r"\bjak\s+(?:się\s+)?(?:zrobić|zrobic|ugotować|ugotowac|upiec|przygotować|"
+                    r"przygotowac|robi\s+się|robi\s+sie)\s+(.+?)\s+krok\s+po\s+kroku\W*$", re.I)
 _NEXT = ("dalej", "następny", "nastepny", "następne", "kolejny", "gotowe", "zrobione",
          "już", "juz", "ok", "okej", "next")
 _BACK = ("wróć", "wroc", "poprzedni", "cofnij", "wcześniej")
@@ -42,7 +46,7 @@ def wants(text):
     """The dish asked for, or None. ("zróbmy dyktando" is a quiz, not food.)"""
     if len(re.findall(r"\w+", text)) > 12:
         return None
-    m = _START.search(text.strip())
+    m = _START.search(text.strip()) or _HOWTO.search(text.strip())
     if not m:
         return None
     import intent                      # not "w sobotę gotujemy naleśniki u babci"
