@@ -61,8 +61,18 @@ def verdict_line(text):
     if theirs == r:
         return (f"The child's answer {theirs} for {a} {op} {b} is RIGHT — say so warmly "
                 "(\"Tak, brawo!\"), no hint.\n")
+    # the hint worked out here (13 Oct sweep: "45 plus 38 to 73?" → "dodaj najpierw
+    # czterdzieści do czterdziestu pięciu, a potem dołóż resztę" — 38 isn't 40)
+    hint = ""
+    try:
+        import quiz
+        sym = {"mul": "×", "add": "+", "sub": "−", "div": ":"}[op]
+        hint = quiz._hint_for({"card": f"{a} {sym} {b} = ?"})
+    except Exception:
+        pass
     return (f"The child's answer {theirs} for {a} {op} {b} is NOT right — say kindly it's "
-            "not quite and give one small hint; never say the result.\n")
+            "not quite and give one small hint; never say the result."
+            + (f" Use this hint, in your words: «{hint}»" if hint else "") + "\n")
 
 
 def answer_line(text, asked):

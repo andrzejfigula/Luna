@@ -3640,6 +3640,8 @@ class KidsTest(unittest.TestCase):
         import homework as h
         self.assertIn("RIGHT", h.verdict_line("36 podzielić na 4 to 9?"))
         self.assertIn("NOT right", h.verdict_line("7 razy 8 to 54?"))
+        # the hint is worked out here (13 Oct: "45 plus 38" → "dodaj 40", wrong)
+        self.assertIn("dziesiątki — 30, a potem jeszcze 8", h.verdict_line("A 45 plus 38 to 73?"))
         self.assertEqual(h.verdict_line("Ile to 7 razy 8?"), "")
 
     def test_ideas_only(self):

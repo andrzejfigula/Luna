@@ -633,8 +633,10 @@ def prompt_line():
                 "not contain the result either, nor the multiplication that gives it "
                 "away (for a division, not \"a razy b to c\"); a hint fits THIS task "
                 "and its numbers; no \"prawie\"/\"dobrze\" before they have said an "
-                "answer, and they speak, so \"powiedz mi\", never \"napisz\". "
-                + _CHILD_SAFE)
+                "answer, and they speak, so \"powiedz mi\", never \"napisz\". You are "
+                f"talking TO {person[0]}: \"spróbuj sama\", never about them in the third "
+                f"person (\"jeśli to dla {person[0]}, niech najpierw spróbuje sama\" — 13 "
+                "Oct sweep). " + _CHILD_SAFE)
     return (f"People you know by face: {who}. {now} Talk to the "
             "recognised person by name now and then (in the right Polish case), "
             "not in every sentence.\n")
