@@ -661,9 +661,15 @@ def time_until(text, now=None):
     if t is None:
         return None
     h, mi = t
+    # "do północy", "do dwunastej w nocy": 0:00, not noon (13 Oct probe: "Ile
+    # minut do północy?" at 19:20 → "Do 12:00 zostało 16 godzin i 40 minut")
+    midnight = h % 12 == 0 and mi == 0 and bool(
+        re.search(r"p[óo]łno|w\s+nocy", target))
+    if midnight:
+        h = 0
     now = now or datetime.now()
     goal = now.replace(hour=h % 24, minute=mi, second=0, microsecond=0)
-    if goal <= now and h < 12:                       # "do ósmej" in the evening: 20:00
+    if goal <= now and h < 12 and not midnight:      # "do ósmej" in the evening: 20:00
         later = goal.replace(hour=h + 12)
         goal = later if later > now else goal
     if goal <= now:
@@ -678,7 +684,8 @@ def time_until(text, now=None):
     verb = _plural(hh if hh else mm, "został", "zostały", "zostało")
     if hh and mm:
         verb = _plural(hh, "została", "zostały", "zostało")
-    return f"Do {goal.hour}:{goal.minute:02d} {verb} {' i '.join(parts)}."
+    when = "północy" if midnight else f"{goal.hour}:{goal.minute:02d}"
+    return f"Do {when} {verb} {' i '.join(parts)}."
 
 
 def answer(text):
