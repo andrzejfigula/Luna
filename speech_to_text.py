@@ -626,6 +626,11 @@ def _cloud_transcribe_now(pcm16k, lang=None):
         return text
     except Exception as e:
         print(f"[STT] cloud transcription failed ({e}) — using Vosk text")
+        try:
+            import health
+            health.note_error(e)
+        except Exception:
+            pass
         return None
 
 

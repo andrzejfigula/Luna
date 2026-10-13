@@ -1740,6 +1740,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
 
     except Exception as e:
         print(f"[brain] OpenAI error: {e}")
+        health.note_error(e)
         if _history and _history[-1]["role"] == "user":
             _history.pop()
         return None

@@ -113,13 +113,35 @@ def usage_line(day):
 
 def note_reply(ok, secs=0.0):
     """brain.process reports every answer (ok) or failure."""
+    global _no_credits
     with _lock:
         if ok:
+            _no_credits = 0.0
             _stats["replies"] += 1
             _stats["secs"] += secs
         else:
             _stats["failures"] += 1
     _set_online(ok)
+
+
+_no_credits = 0.0            # when the OpenAI account last said it had no credits
+
+
+def note_error(e):
+    """brain/STT report a failed cloud call. An empty OpenAI account (13 Oct
+    12:06: 429 "You have no credits remaining") looks like a network outage to
+    the family — her apology is the same — so the status screen says which."""
+    global _no_credits
+    msg = str(e)
+    if "insufficient_quota" in msg or "no credits remaining" in msg:
+        if not _no_credits:
+            print("[health] the OpenAI account has NO CREDITS — every answer fails "
+                  "until someone adds them (platform.openai.com → Billing)", flush=True)
+        _no_credits = time.time()
+
+
+def no_credits():
+    return bool(_no_credits)
 
 
 def _set_online(ok):
@@ -160,7 +182,8 @@ def status_rows():
     rows.append(("Działa", f"{body._span(time.time() - body._STARTED)}, RAM {_mem_used()}%"))
     with state.lock:
         online = state.online
-    rows.append(("Chmura", "połączona" if online else "BRAK POŁĄCZENIA"))
+    rows.append(("Chmura", "BRAK ŚRODKÓW na koncie OpenAI" if no_credits()
+                 else "połączona" if online else "BRAK POŁĄCZENIA"))
     try:
         import memory
         m = memory._load()

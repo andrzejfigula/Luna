@@ -4548,6 +4548,19 @@ class RadioTest(unittest.TestCase):
             self.assertTrue(websearch._same_running("dobry mikrofon USB do komputera opinie"))
             self.assertFalse(websearch._same_running("przepis na ciasto marchewkowe"))
 
+    def test_no_credits_on_the_status_screen(self):
+        # 13 Oct 12:06: the account ran dry; she only said "can't reach my brain"
+        import health
+        with mock.patch.object(health, "_no_credits", 0.0):
+            health.note_error(Exception("Error code: 429 - {'error': {'message': "
+                                        "'You have no credits remaining.', 'code': 'insufficient_quota'}}"))
+            self.assertTrue(health.no_credits())
+            self.assertIn("BRAK ŚRODKÓW", dict(health.status_rows())["Chmura"])
+            health.note_reply(True)
+            self.assertFalse(health.no_credits())
+            health.note_error(Exception("Connection error."))
+            self.assertFalse(health.no_credits())
+
 
 if __name__ == "__main__":
     unittest.main()
