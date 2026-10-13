@@ -242,9 +242,65 @@ _FOLLOW = re.compile(r"^\W*(?:a|i|to)\s+(?:jak\s+|gdyby\s+)?((?:razy|plus|minus|
                      r"podzielić|przez)\b.*)$", re.I)
 
 
+_N = r"(\d+(?:[.,]\d+)?)"
+# a sum said as an order — 13 Oct probe, all to the model ("Pomnóż 12 przez 12",
+# "Odejmij 8 od 20" — the way homework is read out)
+_ORDERS = [
+    (re.compile(rf"^(?:luna,?\s+)?(?:pomnóż|pomnoz)\s+{_N}\s+(?:przez|razy|i)\s+{_N}\W*$", re.I),
+     r"\1 razy \2"),
+    (re.compile(rf"^(?:luna,?\s+)?podziel\s+{_N}\s+(?:przez|na)\s+{_N}\W*$", re.I),
+     r"\1 przez \2"),
+    (re.compile(rf"^(?:luna,?\s+)?(?:dodaj|zsumuj)\s+{_N}\s+(?:i|do|plus|oraz)\s+{_N}\W*$", re.I),
+     r"\1 plus \2"),
+    (re.compile(rf"^(?:luna,?\s+)?odejmij\s+{_N}\s+od\s+{_N}\W*$", re.I), r"\2 minus \1"),
+    (re.compile(rf"^(?:luna,?\s+)?odejmij\s+od\s+{_N}\s+{_N}\W*$", re.I), r"\1 minus \2"),
+]
+_FRACTIONS = {"połowa": (1, 2), "polowa": (1, 2), "pół": (1, 2), "pol": (1, 2),
+              "ćwierć": (1, 4), "cwierc": (1, 4), "jedna trzecia": (1, 3),
+              "jedna czwarta": (1, 4), "jedna piąta": (1, 5), "dwie trzecie": (2, 3),
+              "trzy czwarte": (3, 4), "dwie piąte": (2, 5), "trzy piąte": (3, 5),
+              "jedna dziesiąta": (1, 10)}
+_FRACTION_OF = re.compile(r"^(?:luna,?\s+)?(?:ile\s+(?:to\s+)?(?:jest\s+)?|policz\s+|"
+                          r"oblicz\s+)?(?:(\d+)\s*/\s*(\d+)|([^\W\d_]+(?:\s+[^\W\d_]+)?))"
+                          rf"\s+(?:z|ze)\s+{_N}\W*$", re.I)
+
+
+def fraction_of(text):
+    """"Ile to jest trzy czwarte z 80?", "ćwierć z 200", "1/4 z 200" → the
+    answer, or None (13 Oct probe: to the model)."""
+    m = _FRACTION_OF.match(text.strip())
+    if not m:
+        return None
+    if m.group(1):
+        a, b = int(m.group(1)), int(m.group(2))
+        said = f"{a}/{b}"
+    else:
+        said = m.group(3).lower()
+        if said not in _FRACTIONS:
+            return None
+        a, b = _FRACTIONS[said]
+    if not b:
+        return "Przez zero nie da się dzielić."
+    n = float(m.group(4).replace(",", "."))
+    value = n * a / b
+    shown = round(value, 2)
+    about = "około " if abs(shown - value) > 1e-9 else ""
+    return f"{said[0].upper()}{said[1:]} z {_fmt(n)} to {about}{_fmt(shown)}."
+
+
 def arithmetic(text):
     """The spoken answer to a bare arithmetic question, or None."""
     import time as _t
+    frac = fraction_of(text)
+    if frac:
+        return frac
+    for rx, said in _ORDERS:
+        if rx.match(text.strip()):
+            text = rx.sub(said, text.strip())
+            break
+    # "100 podzielić na 3" (13 Oct probe: to the model; "przez" worked)
+    text = re.sub(r"\b(podzieli[ćc]|podzielone|dzielone|dzieli[ćc])\s+na\b", r"\1 przez", text,
+                  flags=re.I)
     f = _FOLLOW.match(text.strip())
     if f and _last_sum["first"] is not None and _t.time() - _last_sum["t"] < 120:
         # "A razy 5?" right after "15 razy 4" → 15 razy 5 (7 Oct probe: the model
@@ -342,6 +398,9 @@ _DAYS_OF = [
     (("mikołajek", "mikolajek", "mikołajków"), lambda y: date(y, 12, 6),
      "mikołajek", "mikołajki"),
     (("zimy",), lambda y: date(y, 12, 22), "zimy", "pierwszy dzień zimy"),
+    # (13 Oct probe: "Ile dni do końca roku?" went to the model; after the
+    # school year above, which starts the same)
+    (("końca roku", "konca roku"), lambda y: date(y, 12, 31), "końca roku", "koniec roku"),
 ]
 _WEEKDAYS = [("poniedziałku", "poniedzialku"), ("wtorku",), ("środy", "srody"),
              ("czwartku",), ("piątku", "piatku"), ("soboty",), ("niedzieli",)]
@@ -393,6 +452,10 @@ def _target(low, today):
                 if d < today:
                     d = when(today.year + 1)
                 return d, gen, nom, s
+    for s in ("końca miesiąca", "konca miesiaca"):
+        if after.startswith(s):
+            nxt = date(today.year + today.month // 12, today.month % 12 + 1, 1)
+            return nxt - timedelta(1), "końca miesiąca", "koniec miesiąca", s
     if after.startswith("weekendu"):
         if today.weekday() >= 5:
             return "weekend", None, None, "weekendu"
@@ -437,6 +500,17 @@ _WEEKDAY_Q = re.compile(
 _PAST = {"był", "była", "było", "byl", "byla", "bylo", "wypadł", "wypadła", "wypadl",
          "wypadla", "przypadł", "przypadła"}
 _WD_ACC = ["poniedziałek", "wtorek", "środę", "czwartek", "piątek", "sobotę", "niedzielę"]
+
+
+# plural names take a plural verb: "Andrzejki wypadają…" (13 Oct probe: "wypada")
+_PLURAL_NOM = {"Zielone Świątki", "Walentynki", "andrzejki", "mikołajki"}
+
+
+def _falls(label, past=False):
+    plural = label in _PLURAL_NOM
+    if past:
+        return "były" if plural else None
+    return "wypadają" if plural else "wypada"
 
 
 def _on_day(d):
@@ -594,7 +668,7 @@ def holiday_when(text, today=None):
             year = f" {d.year}" if d.year != today.year else ""
             far = ("— to dzisiaj!" if days == 0 else "— już jutro." if days == 1 else
                    f"— za {days} dni.")
-            return (f"{nom[0].upper()}{nom[1:]} wypada {d.day} {_MONTHS_GEN[d.month - 1]}"
+            return (f"{nom[0].upper()}{nom[1:]} {_falls(nom)} {d.day} {_MONTHS_GEN[d.month - 1]}"
                     f"{year}, {_on_day(d)} {far}")
     return None
 
@@ -602,7 +676,10 @@ def holiday_when(text, today=None):
 def weekday_of(text, today=None):
     """"Jaki dzień tygodnia będzie 24 grudnia?", "w jaki dzień wypada Wigilia?"
     → "24 grudnia 2026 to czwartek." None when it isn't that."""
-    m = _WEEKDAY_Q.search(text.lower())
+    # "Jaki był dzień tygodnia 13 października 2000?" — the verb first (13 Oct probe)
+    low = re.sub(r"\bjaki\s+(był|będzie|bedzie|jest)\s+dzień(\s+tygodnia)?",
+                 r"jaki dzień\2 \1", text.lower())
+    m = _WEEKDAY_Q.search(low)
     if not m:
         return None
     today = today or _today()
@@ -637,9 +714,9 @@ def weekday_of(text, today=None):
     if d == today:
         return f"{label[0].upper()}{label[1:]} to dzisiaj — {day}."
     if d < today:
-        verb = "była" if d.weekday() in (2, 5, 6) else "był"
+        verb = _falls(label, past=True) or ("była" if d.weekday() in (2, 5, 6) else "był")
         return f"{label[0].upper()}{label[1:]}{year} {verb} {day}."
-    return f"{label[0].upper()}{label[1:]}{year} wypada {_on_day(d)}."
+    return f"{label[0].upper()}{label[1:]}{year} {_falls(label)} {_on_day(d)}."
 
 
 def days_until(text, today=None):
@@ -710,6 +787,38 @@ def time_until(text, now=None):
     return f"Do {when} {verb} {' i '.join(parts)}."
 
 
+_CLOCK_CHANGE = re.compile(
+    r"\b(?:zmian\w*\s+czasu|przestawi\w*\s+(?:zegar\w*|czas\w*)|przestawia\w*\s+zegar\w*|"
+    r"zmienia\w*\s+(?:się\s+)?czas|zmieni\w*\s+(?:się\s+)?czas|cofa\w*\s+zegar\w*|"
+    r"czas\w*\s+(?:zimow\w*|letni\w*)|przesuwa\w*\s+zegar\w*)", re.I)
+
+
+def _last_sunday(y, month):
+    d = date(y, month, 31)
+    return d - timedelta((d.weekday() + 1) % 7)
+
+
+def clock_change(text, today=None):
+    """"Kiedy zmiana czasu?", "kiedy przestawiamy zegarki?" → the next one (13 Oct
+    probe: to the model, which guesses). None when it isn't that question."""
+    low = text.lower()
+    if not _CLOCK_CHANGE.search(low) or not re.search(r"\b(?:kiedy|którego|ktorego|"
+                                                      r"jak|czy|o\s+której)\b", low):
+        return None
+    today = today or _today()
+    y = today.year
+    changes = sorted([(_last_sunday(y, 3), "letni"), (_last_sunday(y, 10), "zimowy"),
+                      (_last_sunday(y + 1, 3), "letni")])
+    d, kind = next((d, k) for d, k in changes if d >= today)
+    days = (d - today).days
+    when = ("tej nocy" if days == 0 else "w nocy z soboty na niedzielę, "
+            f"{d.day} {_MONTHS_GEN[d.month - 1]}{f' {d.year}' if d.year != y else ''}")
+    how = ("o trzeciej cofamy zegarki na drugą — śpimy godzinę dłużej" if kind == "zimowy"
+           else "o drugiej przestawiamy zegarki na trzecią — śpimy godzinę krócej")
+    return f"Zmiana na czas {kind} jest {when}: {how}."
+
+
 def answer(text):
     return (arithmetic(text) or days_until(text) or time_until(text) or weekday_of(text)
-            or holiday_when(text) or days_since(text) or convert(text))
+            or holiday_when(text) or days_since(text) or convert(text)
+            or clock_change(text))
