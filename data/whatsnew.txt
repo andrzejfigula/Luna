@@ -1,6 +1,14 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
+== 13 października (wieczorem) ==
+- „Obudź mnie za 20 minut” — nastawiam budzik na drzemkę.
+- „Ćwiczenie oddechowe na 3 minuty” albo po prostu „Medytacja” — oddychamy razem.
+- „Jaki jutro dzień?”, „Jaki dzień tygodnia był 1 stycznia?” — mówię od razu.
+- „Ścisz”, „Przycisz”, „Pogłośnij” — zmieniam głośność.
+- „Minutnik na makaron 9 minut” — nastawiam i pamiętam, że to makaron.
+- „Pokaż pandę” — pokazuję zdjęcie, nawet bez „mi”.
+
 == 13 października (po południu) ==
 - „Pokaż mi słonia” — pokazuję prawdziwe zdjęcie z Wikipedii.
 - Lepiej rozpoznaję twarze w różnym świetle: pamiętam i poranne, i wieczorne.
