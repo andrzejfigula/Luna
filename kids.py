@@ -45,6 +45,16 @@ DEFAULT_STEPS = {"poranek": ["umyj buzię", "ubierz się", "zjedz śniadanie", "
                              "spakuj plecak"],
                  "wieczór": ["umyj się", "umyj zęby", "przygotuj ubranie na jutro",
                              "piżama", "do łóżka"]}
+def _did_this_step(words, step):
+    """"Umyłam zęby" / "założyłam piżamę" — a past-tense verb and a word of
+    the step on now ("umyj zęby", "piżama")."""
+    past = any(w.endswith(("łam", "łem", "łaś", "łeś", "łyśmy", "liśmy", "lam", "lem"))
+               for w in words)
+    step_words = {w[:4] for w in re.findall(r"\w+", step.lower()) if len(w) >= 4}
+    said = {w[:4] for w in words if len(w) >= 4}
+    return past and bool(step_words & said) and len(words) <= 6
+
+
 _DONE = ("gotowe", "gotowy", "gotowa", "zrobione", "zrobiłem", "zrobiłam", "zrobilem",
          "zrobilam", "dalej", "następne", "nastepne", "następny", "już", "juz",
          "skończyłem", "skończyłam", "done", "next", "ok", "okej", "jest")
@@ -274,6 +284,9 @@ def routine_answer(text, speak, play_sound):
                        and len(words) <= 4)
         if skipped:
             words = list(_DONE)[:1]          # the next step, without the praise
+        elif _did_this_step(words, r["steps"][r["i"]]):
+            words = ["zrobione"]             # "Umyłam zęby" for "umyj zęby" (13 Oct sweep:
+                                             # "not a step", and "co teraz?" → zęby again)
         if not (set(words) & set(_DONE)) or len(words) > 6:
             # something else ("opowiedz bajkę", a question): answered as usual,
             # and the routine waits — it ends with "koniec" or after a while

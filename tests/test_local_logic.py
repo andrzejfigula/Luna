@@ -2125,6 +2125,14 @@ class KidsTest(unittest.TestCase):
         import commands
         self.assertTrue(any(k in "nie patrz na mnie" for k in commands._CAM_OFF))
 
+    def test_routine_step_named_as_done(self):
+        import kids
+        # 13 Oct sweep: "Umyłam zęby" during "umyj zęby" → "not a step"
+        self.assertTrue(kids._did_this_step(["umyłam", "zęby"], "umyj zęby"))
+        self.assertTrue(kids._did_this_step(["założyłam", "piżamę"], "piżama"))
+        self.assertFalse(kids._did_this_step(["chcę", "bajkę"], "umyj zęby"))
+        self.assertFalse(kids._did_this_step(["zęby", "bolą"], "umyj zęby"))
+
     def test_variations_13_oct(self):
         import brain
         import drawing
