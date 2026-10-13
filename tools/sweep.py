@@ -95,8 +95,20 @@ if not args.hello:
 said = []
 # answers that go through brain.process (another town's weather, the news, a
 # story) are heard too, not just "(recorded)"
-brain.process = lambda t, context=None, **k: said.append(
-    (brain._ask_openai(t, context=context) or [""])[0])
+# (under brain._process_lock, as in main.py: a photo's or a search's thread
+# answering while the next line is asked tangled the history — 13 Oct sweeps
+# printed a reply "{" twice, never seen live)
+def _process(t, context=None, **k):
+    with brain._process_lock:
+        said.append((brain._ask_openai(t, context=context) or [""])[0])
+
+
+brain.process = _process
+
+
+def _ask(t):
+    with brain._process_lock:
+        return brain._ask_openai(t)
 
 _raw = open(args.questions, encoding="utf-8").read().splitlines()
 lines = [ln.split("|", 1) for ln in _raw if "|" in ln]
@@ -123,10 +135,10 @@ for who, text in lines:
         continue
     h = commands.handle(text, lambda t, **k: said.append(t), lambda *a, **k: True)
     if isinstance(h, tuple) and h[0] == "ask":
-        r = brain._ask_openai(h[1])
+        r = _ask(h[1])
         said.append(r[0] if r else "")
     elif not h:
-        r = brain._ask_openai(text)
+        r = _ask(text)
         said.append(r[0] if r else "")
     elif h != "recorded":
         brain.note_local(text, said)
