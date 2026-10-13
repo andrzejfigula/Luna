@@ -3101,9 +3101,14 @@ class KidsTest(unittest.TestCase):
     def test_whats_new(self):
         import brain
         # "Co nowego potrafisz?" — told from data/whatsnew.txt
+        # the newest section's first line (a fixed old line drops out as new ones come)
+        path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                            "data", "whatsnew.txt")
+        lines = open(path, encoding="utf-8").read().splitlines()
+        newest = next(l for l in lines if l.startswith("- "))
         for t in ("Luna, co nowego potrafisz?", "Co nowego umiesz?", "Jakie są nowości?",
                   "Czego nowego się nauczyłaś?", "What's new?"):
-            self.assertIn("Wikipedii", brain._whatsnew_line(t), t)
+            self.assertIn(newest, brain._whatsnew_line(t), t)
         self.assertEqual(brain._whatsnew_line("Co nowego w szkole, Maju?"), "")
         self.assertEqual(brain._whatsnew_line("Ile masz lat?"), "")
 
