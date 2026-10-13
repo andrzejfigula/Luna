@@ -2086,6 +2086,7 @@ class KidsTest(unittest.TestCase):
             self.assertIn("Nie mam budzika na siódmą", said[-1])
             self.assertFalse(commands.alarm_removed("Budzik na siódmą", said.append))
         import radio
+        self.assertTrue(radio._ON.match("daj jakąś muzykę"))          # (13 Oct: an offer)
         self.assertEqual(next(k for rx, k in radio._GENRES
                               if __import__("re").search(rx, "coś do biegania")), "rmf fm")
 

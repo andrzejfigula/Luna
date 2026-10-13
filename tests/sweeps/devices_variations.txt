@@ -1,0 +1,14 @@
+#keep
+Andrzej|Daj jakąś muzykę
+Andrzej|Przełącz na inne radio
+Andrzej|Co to za stacja?
+Andrzej|Wyłącz to radio
+Maja|Zapal lampkę na różowo
+Maja|Zrób kolor zielony
+Maja|Zgaś światło
+Emilka|Puść szum morza
+Emilka|Wyłącz szum
+Andrzej|Czy będzie dziś padać?
+Andrzej|Ile jest stopni?
+Andrzej|Jaka pogoda w weekend?
+Andrzej|Potrzebuję parasol?

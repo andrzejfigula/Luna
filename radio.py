@@ -78,7 +78,8 @@ _ALIASES = {"rmf": "rmf fm", "rmfu": "rmf fm", "rmf-u": "rmf fm", "zet": "radio 
             "nowego świata": "nowy świat",
             "rmf dla dzieci": "dla dzieci", "radio dla dzieci": "dla dzieci"}
 
-_ON = re.compile(r"^(?:luna,? |luno,? )?(?:włącz|wlacz|puść|pusc|zagraj|odpal|graj)\s+"
+# ("daj": "Daj jakąś muzykę" got an offer, nothing played — 13 Oct sweep)
+_ON = re.compile(r"^(?:luna,? |luno,? )?(?:włącz|wlacz|puść|pusc|zagraj|odpal|graj|daj)\s+"
                  r"(?:(?:mi|nam)\s+)?(?:(?:radio|radijko|radyjko|radyjka|stację|stacje)\s*(.*)|(.+))$")
 # "włącz radio z jakąś spokojną muzyką" — a kind of music, not a station name
 _GENRES = [
