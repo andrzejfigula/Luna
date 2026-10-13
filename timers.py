@@ -406,7 +406,9 @@ def local_reminder(text, now=None):
             day_said = f"{'we' if wd == 1 else 'w'} {d.group(2).lower()}"
         rest = (rest[:d.start()] + rest[d.end():]).strip(" ,")
     span, action, said = None, None, None
-    z = re.search(r"\bza\s+((?:\w+\s+){0,3}?(?:sekund\w*|minut\w*|godzin\w*|kwadrans))\b",
+    # (…and the rest of it: "za godzinę i kwadrans" was "za godzinę" — 13 Oct probe)
+    z = re.search(r"\bza\s+((?:\w+\s+){0,3}?(?:sekund\w*|minut\w*|godzin\w*|kwadrans)"
+                  r"(?:\s+i\s+(?:\w+\s+){0,2}?(?:sekund\w*|minut\w*|kwadrans))?)\b",
                   rest, re.I)
     if z and day:
         return None                                # "jutro za 20 minut": the model
@@ -523,6 +525,9 @@ def say_duration(secs):
         return "godzinę" if h == 1 else f"{h} {_pl(h, 'godzinę', 'godziny', 'godzin')}"
     if secs == 5400:
         return "półtorej godziny"
+    if secs > 3600 and secs % 60 == 0:           # "godzinę i 15 minut", not "75 minut"
+        h, rest = divmod(secs, 3600)
+        return f"{say_duration(h * 3600)} i {say_duration(rest)}"
     if secs % 60 == 0:
         m = secs // 60
         return "minutę" if m == 1 else f"{m} {_minutes_pl(m) if m != 1 else 'minuta'}"
