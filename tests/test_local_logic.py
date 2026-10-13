@@ -4540,5 +4540,14 @@ class RadioTest(unittest.TestCase):
             self.assertFalse(idle_engine._just_said_hello())
 
 
+    def test_same_search_not_twice(self):
+        # 13 Oct sweep: "No poszukaj" while the microphone search was running
+        import websearch
+        with mock.patch.object(websearch, "_running",
+                               {"dobry mikrofon USB do komputera opinie i polecane modele": time.time()}):
+            self.assertTrue(websearch._same_running("dobry mikrofon USB do komputera opinie"))
+            self.assertFalse(websearch._same_running("przepis na ciasto marchewkowe"))
+
+
 if __name__ == "__main__":
     unittest.main()

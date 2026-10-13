@@ -15,6 +15,7 @@ Claude'owi, żeby dał ci opcję wyszukiwania w internecie".)
 
 import re
 import threading
+import time
 
 from config import OPENAI_API_KEY, SEARCH_MODEL, SEARCH_TIMEOUT
 
@@ -95,8 +96,29 @@ def context(query, found, moved=False):
             "\"Sprawdzam w internecie\" now (11 Oct: it searched again, and again).\n")
 
 
+_running = {}          # query → when its search started (cleared when it ends)
+
+
+def _same_running(query):
+    """A search for (nearly) the same thing still running? (13 Oct sweep: "No
+    poszukaj" right after she had started the microphone search — two searches,
+    two answers about the same microphones)"""
+    words = set(re.findall(r"\w{3,}", query.lower()))
+    for q, t in list(_running.items()):
+        if time.time() - t > 90:
+            continue
+        other = set(re.findall(r"\w{3,}", q.lower()))
+        if words and other and len(words & other) / min(len(words), len(other)) >= 0.6:
+            return True
+    return False
+
+
 def start(query, speak, announce=True):
     """Look it up in the background; the answer is spoken when it comes."""
+    if _same_running(query):
+        print(f"[search] {query!r}: the same search is still running — not again", flush=True)
+        return True
+    _running[query] = time.time()
     if announce:
         speak("Sprawdzam w internecie…")
 
@@ -105,7 +127,10 @@ def start(query, speak, announce=True):
                                       # was said while searching (9 Oct replay)
 
     def run():
-        found = search(query)
+        try:
+            found = search(query)
+        finally:
+            _running.pop(query, None)
         if found:
             moved = len(brain._history) > turns + 2
             brain.process(f"(Wynik wyszukiwania: {query})",
