@@ -174,6 +174,26 @@ def _may_speak():
     return time.time() > muted and time.time() - _last_proactive >= PROACTIVE_MIN_GAP_SECS
 
 
+HELLO_AGAIN_SECS = 7200        # a spoken "welcome back" to the same person
+HELLO_AWAY_SECS = 3600         # …unless they were away this long
+_hello_said = {}               # who (None: a face not recognised) → when
+
+
+def _hello_due(who, away, first_today, now=None):
+    """Say the welcome-back out loud? The face and the wave come every time;
+    the words don't. 12 Oct: Andrzej at his desk was greeted after 33, 73 and
+    43 minutes away, Emilka twice in 27 minutes (the second time as a face not
+    recognised, family all around)."""
+    now = now or time.time()
+    if first_today or away >= HELLO_AWAY_SECS:
+        return True
+    if who is None:
+        import faces
+        return not (faces.probably_family()
+                    and now - max(_hello_said.values(), default=0.0) < 1800)
+    return now - _hello_said.get(who, 0.0) >= HELLO_AGAIN_SECS
+
+
 def _just_said_hello():
     """A wave hello in the last minute (behavior_engine) — no second hello."""
     try:
@@ -301,6 +321,17 @@ def mark_greeted(who):
         save_greeted(_greeted)
 
 
+def _tell_messages(who, speak):
+    """Voice messages waiting for them — said with or without a hello."""
+    import messages
+    waiting = messages.unheard(who)
+    if waiting:
+        frm = {m.get("from") for m in waiting} - {None, who}
+        speak("Masz wiadomość głosową" + (f" od: {', '.join(sorted(frm))}"
+              if frm else "") + ". Powiedz: odtwórz wiadomość.",
+              can_drop=True)
+
+
 def idle_loop():
     # she has been alone since start-up, so the first person to show up after
     # a long boot-time absence gets greeted too. Stamped BEFORE the import
@@ -375,7 +406,13 @@ def idle_loop():
                         _gesture("wave")
                     # she has just said hello to a wave (13 Oct 11:09: "Hejka!",
                     # then "Cześć, Andrzeju, miłego południa!" two seconds later)
-                    if _may_speak() and not _just_said_hello():
+                    due = _hello_due(who, away, first_today, now)
+                    if not due:
+                        print(f"[idle] greeted {who or 'them'} not long ago — "
+                              f"only a wave", flush=True)
+                    if _may_speak() and not _just_said_hello() and not due:
+                        _tell_messages(who, speak)
+                    elif _may_speak() and not _just_said_hello():
                         _last_proactive = now
                         greeted_days[who] = today
                         if first_today:
@@ -411,6 +448,7 @@ def idle_loop():
                                 hello = (greeting(first_today, who=who) or
                                          _greeting(first_today))
                         speak(hello, can_drop=True)
+                        _hello_said[who] = time.time()
                         try:
                             import brain           # the answer to it needs its context
                             brain.note_said(hello)
@@ -428,13 +466,7 @@ def idle_loop():
                             with state.lock:
                                 state.conversation_active = True
                                 state.last_activity_time = time.time() + 8
-                        import messages
-                        waiting = messages.unheard(who)
-                        if waiting:
-                            frm = {m.get("from") for m in waiting} - {None, who}
-                            speak("Masz wiadomość głosową" + (f" od: {', '.join(sorted(frm))}"
-                                  if frm else "") + ". Powiedz: odtwórz wiadomość.",
-                                  can_drop=True)
+                        _tell_messages(who, speak)
             elif was_present and not present:
                 left_at = now
             # sat down: a glance away (face lost for 8 s+) is not leaving — the

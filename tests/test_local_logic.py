@@ -4569,6 +4569,22 @@ class RadioTest(unittest.TestCase):
             self.assertTrue(brain._wants_vision(t), t)
         self.assertFalse(brain._wants_vision("co robisz?"))
 
+    def test_welcome_back_said_now_and_then(self):
+        # 12 Oct: Andrzej greeted after 33, 73, 43 min away; Emilka twice in 27 min
+        import faces
+        import idle_engine as ie
+        now = 1_000_000.0
+        with mock.patch.object(ie, "_hello_said", {"Andrzej": now - 2400, "Emilka": now - 1600}), \
+                mock.patch.object(faces, "probably_family", return_value=True):
+            self.assertFalse(ie._hello_due("Andrzej", 2580, False, now))
+            self.assertTrue(ie._hello_due("Andrzej", 4400, False, now))      # away over an hour
+            self.assertTrue(ie._hello_due("Andrzej", 700, True, now))        # first of the day
+            self.assertTrue(ie._hello_due("Maja", 700, False, now))          # not greeted yet
+            self.assertFalse(ie._hello_due(None, 960, False, now))           # family's blurry face
+        with mock.patch.object(ie, "_hello_said", {}), \
+                mock.patch.object(faces, "probably_family", return_value=False):
+            self.assertTrue(ie._hello_due(None, 700, False, now))            # a stranger: the name
+
     def test_no_credits_on_the_status_screen(self):
         # 13 Oct 12:06: the account ran dry; she only said "can't reach my brain"
         import health
