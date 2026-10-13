@@ -74,7 +74,10 @@ uniform vec2  uSoftRes;       // 2: one sharp shape (uShape) in its own box, ble
 uniform float uShape;         // 3: a pygame layer (uLayerSel) over its rows, blended
 uniform float uLayerSel;      //    0 the screen's, 1 the one turning with the face
 
+uniform vec2  uGlitch;        // (on, seed): the "glitch" scene tears the picture
+
 float gA;                     // the coverage of the shape just drawn (stage 2)
+
 
 float sdRoundBox(vec2 p, vec2 b, float r) {
     vec2 q = abs(p) - b + vec2(r);
@@ -96,6 +99,22 @@ float corner(vec2 q, vec2 A, vec2 B, vec2 C) {
 
 float hash(vec2 p) {
     return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+// the "glitch" scene: a few bands of rows slide sideways (reply_scenes.Glitch
+// does it to the pygame picture; the face is the GPU's now)
+float glitchShift(float y) {
+    if (uGlitch.x < 0.5) return 0.0;
+    float dx = 0.0;
+    for (int k = 0; k < 5; k++) {
+        float fk = float(k);
+        if (hash(vec2(uGlitch.y, fk * 7.1)) > 0.75 && k > 1) continue;   // 2-5 bands
+        float y0 = hash(vec2(uGlitch.y + 3.3, fk)) * (uRes.y - 20.0);
+        float bh = 8.0 + hash(vec2(fk, uGlitch.y + 1.7)) * 38.0;
+        if (y >= y0 && y < y0 + bh)
+            dx = (hash(vec2(uGlitch.y * 1.3, fk + 9.0)) - 0.5) * 84.0;
+    }
+    return dx;
 }
 
 // the eye's shape: a rounded block, cut into a smile arc / worried or cross
@@ -252,6 +271,7 @@ void main() {
         fc = vec2(gl_FragCoord.x, uSoftRes.y - gl_FragCoord.y) * (uRes / uSoftRes);
     } else {
         fc = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y);
+        fc.x -= glitchShift(fc.y);
     }
     vec2 uv = fc / uRes;
     // the head's tilt: turn the face (and its layer) about the screen centre
@@ -616,6 +636,8 @@ class GLFace:
         """Where stage 2 draws: the eyes, the brows, the mouth."""
         tilt = u["uTilt"]
         boxes = []
+        if u["uGlitch"][0] > 0.5:                  # torn sideways: anywhere in the rows
+            return [(0.0, 0.0, float(self.w), float(self.h))] * 5
         for i in (0, 1):
             ex, ey, w, h = u[f"uEye{i}"]
             boxes.append(self._box(ex, ey, w / 2 + 3, h / 2 + 3, tilt))
@@ -697,6 +719,9 @@ class GLFace:
         u.update(self._mouth(face, rf, fcx, fcy))
         bl = max(face.left_blush.alpha, face.right_blush.alpha) / 255.0
         u["uBlush"] = (fcx, fcy, min(1.0, bl * 1.4), 30.0)
+        sp = getattr(face, "_scene_p", 0.0)
+        tearing = (getattr(face, "_scene_name", None) == "glitch" and 0.12 < sp < 0.82)
+        u["uGlitch"] = (1.0, float(int(sp * 24))) if tearing else (0.0, 0.0)
         self.shape_rects = self._shape_boxes(u)
         return u
 

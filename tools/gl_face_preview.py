@@ -70,7 +70,8 @@ class FakeFace:
 
     def pose(self, emotion="neutral", w=206, h=147, blink=1.0, ox=0.0, oy=0.0,
              squint=0.0, widen=0.0, droop=0.0, listen=False, speak=0.0, tilt=0.0,
-             blush=0.0, mouth_vis=None, tint=None):
+             blush=0.0, mouth_vis=None, tint=None, scene=None, scene_p=0.0):
+        self._scene_name, self._scene_p = scene, scene_p
         self._emotion = emotion
         self._happy = emotion in ("happy", "excited", "love")
         self._sad, self._angry = emotion == "sad", emotion == "angry"
@@ -104,6 +105,7 @@ POSES = [
     ("glance", dict(ox=-40, oy=-14)),
     ("squint", dict(squint=0.7, blush=120)),
     ("tilt", dict(emotion="happy", tilt=8.0)),
+    ("glitch", dict(scene="glitch", scene_p=0.4, widen=0.5)),
 ]
 
 
@@ -193,8 +195,10 @@ def main():
     pygame.draw.circle(layer, (255, 120, 150, 220), (640, 90), 26)
     pygame.draw.rect(layer, (0, 0, 0, 170), pygame.Rect(0, H - 60, W, 60))
     face.pose(emotion="happy", blush=150)
+    for _ in range(30):                         # (the eased shapes settle)
+        u = g.face_uniforms(face, rf, fcx, fcy)
     has = g.upload_layer(layer)
-    g.render(g.face_uniforms(face, rf, fcx, fcy), has_layer=has)
+    g.render(u, has_layer=has)
     px = GL.glReadPixels(0, 0, W, H, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE)
     img = Image.frombytes("RGBA", (W, H), px).transpose(Image.FLIP_TOP_BOTTOM)
     ImageDraw.Draw(img).text((10, 8), "layer", fill=(255, 255, 255, 255))
