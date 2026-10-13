@@ -192,7 +192,8 @@ def trigger(text):
             re.search(r"\bquiz\w*|\bkwiz\w*", low) or (
                 re.search(r"zdję|zdjec|obrazk", low) and re.search(
                     r"\b(?:zgad\w*|zagraj\w*|pobaw\w*|przepytaj|pokaż|pokaz|gra\w*)\b", low))
-            or re.match(r"(?:luna,?\s+)?(?:zagrajmy|pobawmy\s+się)\s+w\s+zwierzęta\W*$", low)):
+            or re.match(r"(?:luna,?\s+)?(?:zagrajmy|pobawmy\s+się)\s+w\s+(?:zwierzęta|zwierzaki)\W*$",
+                        low)):
         return "animals"                       # "quiz ze zwierząt" — a photo, "jakie to zwierzę?"
     if any(g in low for g in _GUESS):
         return "guess"

@@ -1,0 +1,16 @@
+Maja|Pokaż mi prawdziwego kotka
+Maja|Masz zdjęcie lwa?
+Maja|Chcę zobaczyć tygrysa
+Maja|Jak wyglądają pingwiny?
+Maja|Zagrajmy w zgadywanie flag
+Maja|Koniec
+Maja|Pobawmy się flagami
+Maja|Koniec
+Maja|Chcę quiz z flagami
+Maja|Koniec
+Maja|Zagrajmy w zwierzaki
+Maja|Koniec
+Maja|Zrób mi quiz o zwierzętach
+Maja|Koniec
+Maja|Pokaż mi zdjęcie mamy
+Maja|Jaki jest największy ptak? Pokaż go

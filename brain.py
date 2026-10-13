@@ -1795,6 +1795,19 @@ def game_was_offered(before=2):
                                r"\bzagrajmy|\bmogę\s+(?:zaproponować|zadać)", said, re.I)))
 
 
+def _game_asked_for():
+    """They asked for a game by name ("Zagrajmy w zwierzaki") — as good as her
+    offer taken (13 Oct sweep: "Super, gramy! Pomyśl o zwierzaku…" and the
+    command refused, nothing started). Not "Pobawimy się?" (7 Oct: a list is
+    the answer to that)."""
+    for m in reversed(_history[-3:]):
+        if m.get("role") == "user":
+            said = str(m.get("content", ""))
+            return bool(re.search(r"\b(?:zagrajmy|zagraj|pobawmy\s+się|pobaw\s+się|zagramy)"
+                                  r"(?:\s+ze?\s+mną)?\s+w\s+\w+", said, re.I))
+    return False
+
+
 def _asks_to_choose(reply):
     """Her reply still lists games to pick from ("Wybierz: kamień, papier,
     nożyce, zgadywanka albo zagadka") — then no game has been chosen yet."""
@@ -1926,7 +1939,7 @@ def run_command(label, reply=""):
     if game and _asks_to_choose(reply):
         print(f"[brain] game {label!r} while her reply asks to choose — not started", flush=True)
         return False
-    if game and not game_was_offered():
+    if game and not game_was_offered() and not _game_asked_for():
         # (7 Oct probe: "Pobawimy się?" → she listed three games AND started
         # one; a game only follows her offer and their answer)
         print(f"[brain] game {label!r} without an offer first — not started", flush=True)

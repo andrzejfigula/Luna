@@ -2070,6 +2070,18 @@ class KidsTest(unittest.TestCase):
             twenty._next_move = old
             twenty._r = None
 
+    def test_variations_13_oct(self):
+        import brain
+        import drawing
+        import quiz
+        # 13 Oct sweep of new-feature phrasings
+        self.assertEqual(quiz.trigger("Zagrajmy w zwierzaki"), "animals")
+        self.assertEqual(drawing.looks_wanted("Jak wyglądają pingwiny?"), "pingwiny")
+        with mock.patch.object(brain, "_history", [{"role": "user", "content": "[Maja] Zagrajmy w zgadywankę"}]):
+            self.assertTrue(brain._game_asked_for())
+        with mock.patch.object(brain, "_history", [{"role": "user", "content": "[Maja] Pobawimy się?"}]):
+            self.assertFalse(brain._game_asked_for())
+
     def test_rematch_after_a_game(self):
         import twenty
         import quiz

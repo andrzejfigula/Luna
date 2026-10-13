@@ -326,7 +326,7 @@ _SHOW_OF = re.compile(r"^(?:luna,?\s+)?(?:pokaż|pokaz)\s+(?:mi\s+|nam\s+)?(?:ja
 # "Jak wygląda żyrafa?" — a photo answers it (13 Oct sweep: words about a long
 # neck and spots); not the weather, a plan, a list, nor a person
 _LOOKS = re.compile(r"^(?:luna,?\s+)?(?:a\s+|i\s+|no\s+to\s+)?jak\s+(?:właściwie\s+|wlasciwie\s+)?"
-                    r"(?:wygląda|wyglada)\s+(.{2,40}?)[.!?]*$", re.I)
+                    r"(?:wygląda|wyglada|wyglądają|wygladaja)\s+(.{2,40}?)[.!?]*$", re.I)
 _NOT_A_THING = re.compile(r"^(?:on|ona|ono|oni|one|to|ten|ta|tamt\w*|tw\w*|moj\w*|mój|lun[aey]|"
                           r"nasz\w*|wasz\w*|jej|jego|ich|pogoda|pogod\w*|dzień|dzien|dzisiaj|dziś|"
                           r"dzis|jutro|plan\w*|sytuacja|sprawa|lista|kalendarz|zakupy|tydzień|"
@@ -428,6 +428,11 @@ def handle(text, speak):
             import webphoto
             return webphoto.show(what, speak, lambda intro="Dobrze, już rysuję. Chwileczkę!":
                                  draw(what, speak, intro))
+        if _is_person(what):
+            # no photo of them here: say it's from imagination (13 Oct sweep:
+            # "pokaż mi zdjęcie mamy" → "Dobrze, już rysuję")
+            return draw(what, speak, "Dobrze, zdjęcia nie mam, więc narysuję z wyobraźni. "
+                                     "Chwileczkę!")
         return draw(what, speak, "Dobrze, już rysuję. Chwileczkę!")
     if _SHOW.search(text or "") and len(text.split()) <= 6:
         return show_saved(speak)
