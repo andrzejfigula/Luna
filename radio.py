@@ -84,7 +84,9 @@ _ON = re.compile(r"^(?:luna,? |luno,? )?(?:włącz|wlacz|puść|pusc|zagraj|odpa
 _GENRES = [
     (r"spokojn|relaks|klasyczn|poważn|powazn|wycisz|do\s+snu|chill|łagodn|lagodn", "dwójka"),
     (r"rock|alternatyw|gitar", "trójka"),
-    (r"przebo|hit|pop|disco|tanecz|wesoł|wesol|imprez", "rmf fm"),
+    # (13 Oct sweep: "Puść coś do biegania" — an offer, nothing played)
+    (r"przebo|hit|pop|disco|tanecz|wesoł|wesol|imprez|biega|bieg\b|trening|ćwicz|cwicz|"
+     r"energi|sport|siłown|silown|rower", "rmf fm"),
     (r"wiadomości|wiadomosci|informac|news|publicyst", "jedynka"),
     (r"ambitn|nowoczesn|indie|ciekaw", "nowy świat"),     # (jazz: real jazz stations, below)
     # (found online by "włącz radio dla dzieci": RMF Dla Dzieci)

@@ -452,6 +452,38 @@ _ALARM = re.compile(r"\b(?:obudź|obudz|zbudź|zbudz|budź|budz|budzik|budzenie)
                     r"\s+(?:o|na)\s+(.+?)[.!?]*$", re.I)
 
 
+_REMOVE = re.compile(r"\b(?:usuń|usun|skasuj|kasuj|wyłącz|wylacz|odwołaj|odwolaj|anuluj|"
+                     r"wywal|zlikwiduj|nie\s+(?:chcę|chce|potrzebuję|potrzebuje))\b", re.I)
+
+
+def alarm_removed(text, speak):
+    """"Usuń budzik na 6:40" — that alarm gone (13 Oct sweep: it was SET again,
+    "Dobrze, budzik na szóstą czterdzieści")."""
+    import clockgame
+    low = text.lower()
+    m = _ALARM.search(low)
+    if not m or not _REMOVE.search(low) or not re.search(r"budzik|budzeni", low):
+        return False
+    when = re.sub(r"\b(codziennie|w dni robocze|jutro|rano|proszę|prosze)\b", " ", m.group(1))
+    t = clockgame.parse(when) if len(when.split()) <= 4 else None
+    if t is None:
+        return False
+    import clock
+    import timers
+    h, mi = t
+    with timers._lock:
+        hits = [e for e in timers._timers if e["kind"] == "alarm" and
+                time.strftime("%H:%M", time.localtime(e["due"])) == f"{h:02d}:{mi:02d}"]
+    when_said = clock.hour_accusative(h, mi)
+    if not hits:
+        speak(f"Nie mam budzika na {when_said}.")
+        return True
+    timers.remove_entries(hits)
+    print(f"[timers] alarm {h:02d}:{mi:02d} removed ({len(hits)})", flush=True)
+    speak(f"Dobrze, usunęłam budzik na {when_said}.")
+    return True
+
+
 def local_alarm(text):
     """("HH:MM", repeat) for "obudź mnie o 6:30", "budzik na wpół do ósmej w dni
     robocze" — set here, so an alarm works without the internet. None else."""
@@ -460,6 +492,8 @@ def local_alarm(text):
     m = _ALARM.search(low)
     if not m or is_question(text) or "za " in f" {low} ":   # "za 20 minut": a timer
         return None
+    if _REMOVE.search(low):
+        return None                        # "usuń budzik na 6:40" — alarm_removed()
     when = m.group(1)
     when = re.sub(r"\b(codziennie|w dni robocze|w tygodniu|od poniedziałku do piątku|"
                   r"w weekendy?|w soboty i niedziele|jutro|rano|proszę|prosze)\b", " ", when)
@@ -1754,6 +1788,8 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         speak(said)
         return True
 
+    if alarm_removed(text, speak):                 # "usuń budzik na 6:40"
+        return True
     alarm = local_alarm(text)                      # "obudź mnie o 6:30" — even offline
     if alarm:
         import clock

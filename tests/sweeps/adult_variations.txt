@@ -1,0 +1,21 @@
+#keep
+Andrzej|Obudź mnie za 20 minut
+Andrzej|Drzemka 15 minut
+Andrzej|Ustaw budzik na jutro na 6:40
+Andrzej|Budzik w dni robocze na siódmą
+Andrzej|Jakie mam budziki?
+Andrzej|Usuń budzik na 6:40
+Emilka|Przypomnij mi jutro rano o tabletkach
+Emilka|Przypomnij mi w piątek o urodzinach Kasi
+Emilka|Za kwadrans szósta przypomnij mi o pizzy w piekarniku
+Emilka|Ile zostało do przypomnienia o pizzy?
+Emilka|Odwołaj przypomnienie o pizzy
+Andrzej|Minutnik na makaron
+Andrzej|Ile jeszcze?
+Andrzej|Dodaj 5 minut
+Andrzej|Stop minutnik
+Emilka|Dopisz do zakupów jajka, mąkę i coś na obiad
+Emilka|Co mamy kupić?
+Emilka|Wszystko kupione oprócz chleba
+Andrzej|Puść coś do biegania
+Andrzej|Za głośno

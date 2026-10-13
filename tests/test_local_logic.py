@@ -2070,6 +2070,25 @@ class KidsTest(unittest.TestCase):
             twenty._next_move = old
             twenty._r = None
 
+    def test_alarm_removed_by_time(self):
+        import commands
+        import timers
+        # 13 Oct sweep: "Usuń budzik na 6:40" SET it again
+        self.assertIsNone(commands.local_alarm("Usuń budzik na 6:40"))
+        due = time.mktime(time.localtime()[:3] + (6, 40, 0, 0, 0, -1)) + 86400
+        entry = {"kind": "alarm", "due": due, "label": "", "repeat": "none"}
+        said = []
+        with mock.patch.object(timers, "_timers", [entry]),                 mock.patch.object(timers, "_save", lambda: None):
+            self.assertTrue(commands.alarm_removed("Usuń budzik na 6:40", said.append))
+            self.assertEqual(timers._timers, [])
+            self.assertIn("usunęłam budzik na szóstą czterdzieści", said[-1])
+            self.assertTrue(commands.alarm_removed("Skasuj budzik na siódmą", said.append))
+            self.assertIn("Nie mam budzika na siódmą", said[-1])
+            self.assertFalse(commands.alarm_removed("Budzik na siódmą", said.append))
+        import radio
+        self.assertEqual(next(k for rx, k in radio._GENRES
+                              if __import__("re").search(rx, "coś do biegania")), "rmf fm")
+
     def test_variations_13_oct(self):
         import brain
         import drawing
