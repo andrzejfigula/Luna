@@ -1352,7 +1352,14 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         return True
     if any(k in low for k in _MSG_PLAY) and _short(text, 8):
         from text_to_speech import play_clip
-        if not messages.play(speak, play_clip):
+        played = messages.play(speak, play_clip)
+        # …and the notes left for whoever asks (13 Oct sweep: Emilka "Czy mam
+        # jakieś wiadomości?" → "Nie ma", with "wrócę późno" waiting for her)
+        with state.lock:
+            who = state.person[0] if state.person else None
+        import errands
+        told = bool(who) and errands.deliver(who, speak)
+        if not played and not told:
             speak("Nie ma żadnych wiadomości.")
         return True
     if any(k in low for k in _MSG_DELETE) and _short(text, 6):

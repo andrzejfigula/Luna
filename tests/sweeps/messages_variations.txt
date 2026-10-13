@@ -1,0 +1,9 @@
+#keep
+Andrzej|Powiedz Emilce, że wrócę późno
+Andrzej|Przekaż Mai, żeby posprzątała pokój
+Andrzej|Jak zobaczysz Maję, powiedz jej, że ją kocham
+Andrzej|Co masz przekazać Mai?
+Andrzej|Nie mów jednak Mai o pokoju
+Emilka|Czy mam jakieś wiadomości?
+Emilka|Nagraj wiadomość dla Andrzeja
+Emilka|Odtwórz wiadomość
