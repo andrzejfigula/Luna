@@ -4548,6 +4548,18 @@ class RadioTest(unittest.TestCase):
             self.assertTrue(websearch._same_running("dobry mikrofon USB do komputera opinie"))
             self.assertFalse(websearch._same_running("przepis na ciasto marchewkowe"))
 
+    def test_bare_show_me_is_a_photo(self):
+        # 12 Oct: "Pokaż mi słonia." — she looked for an elephant in the camera frame
+        import drawing
+        import webphoto
+        with mock.patch.object(webphoto, "show", return_value=True) as show:
+            self.assertTrue(drawing.bare_show("Pokaż mi słonia.", lambda *a, **k: None))
+            self.assertEqual(show.call_args[0][0], "słonia")
+            for t in ("pokaż mi coś", "pokaż mi jak to zrobić", "pokaż mi to",
+                      "pokaż mi listę zakupów", "pokaż mi siebie", "pokaż mi pogodę"):
+                self.assertFalse(drawing.bare_show(t, lambda *a, **k: None), t)
+            self.assertEqual(show.call_count, 1)
+
     def test_no_credits_on_the_status_screen(self):
         # 13 Oct 12:06: the account ran dry; she only said "can't reach my brain"
         import health

@@ -2053,6 +2053,8 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
             speak(f"Głośność {round(v * 100)} procent.")
         return True
 
+    if drawing.bare_show(text, speak):             # "pokaż mi słonia" — a photo
+        return True
     return False
 
 

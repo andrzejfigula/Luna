@@ -368,6 +368,38 @@ def show_person(what, speak):
     return True
 
 
+# "Pokaż mi słonia." — what's left of "pokaż mi …" after every handler (screens,
+# lists, games) had its turn: a thing to see (12 Oct: the model looked for an
+# elephant in the camera frame — "słonia na tym zdjęciu nie widzę")
+_BARE_SHOW = re.compile(r"^(?:luna,?\s+)?(?:a\s+|no\s+to\s+)?(?:pokaż|pokaz)\s+(?:mi|nam)\s+"
+                        r"([^\W\d_]+(?:\s+[^\W\d_]+){0,2})[.!?]*$", re.I)
+_NOT_TO_SEE = re.compile(r"^(?:co[śs]?|jak|gdzie|kiedy|ile|kto|któr\w*|ktor\w*|czy|się|sie|"
+                         r"siebie|jeszcze|ostatni\w*|wszystk\w*|inn\w*|now\w*|"
+                         r"swo\w*|zdj\w*|rysun\w*|obraz\w*|galeri\w*|zegar\w*|godzin\w*|"
+                         r"czas|dat\w*|status|film\w*|bajk\w*|quiz\w*|gr[aęy]|ekran|menu|"
+                         r"słow\w*|slow\w*|liczb\w*|lustr\w*|kamer\w*|oczy|oko|twarz\w*|"
+                         r"min[ęey]|emocj\w*|sztuczk\w*|drog\w*|przepis\w*|notatk\w*|"
+                         r"zadani\w*|lekcj\w*|wiadomo\w*|histori\w*|przykład\w*|przyklad\w*|"
+                         r"list\w*|zakup\w*|kalendarz\w*|przypomn\w*|minutnik\w*|budzik\w*|"
+                         r"jak\w*|tak\w*|ten|tę|te|tego|tamt\w*)\b", re.I)
+
+
+def bare_show(text, speak):
+    """"Pokaż mi słonia" → a photo from Wikipedia (else drawn); a person → their
+    photos. Called last in commands.handle. False when it isn't that."""
+    m = _BARE_SHOW.match((text or "").strip())
+    if not m:
+        return False
+    what = m.group(1).strip()
+    if _NOT_A_THING.match(what) or _NOT_TO_SEE.match(what):
+        return False
+    if _is_person(what):
+        return show_person(what, speak)
+    import webphoto
+    return webphoto.show(what, speak, lambda intro="Dobrze, już rysuję. Chwileczkę!":
+                         draw(what, speak, intro))
+
+
 def looks_wanted(text):
     """"Jak wygląda żyrafa?" → "żyrafa"; None for "jak wygląda pogoda", a person."""
     m = _LOOKS.match((text or "").strip())
