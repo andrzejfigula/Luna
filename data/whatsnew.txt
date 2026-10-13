@@ -1,6 +1,14 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
+== 13 października (późnym wieczorem) ==
+- „Kiedy zmiana czasu?” — mówię, kiedy i w którą stronę przestawiamy zegarki.
+- „Pomnóż 12 przez 12”, „Odejmij 8 od 20”, „Trzy czwarte z 80” — liczę od razu.
+- „Ile dni do końca roku?” — liczę dokładnie.
+- „Zadanie z dodawania”, „Tabliczka mnożenia do 100” — przepytuję.
+- „Ja myślę o zwierzęciu” — zgaduję, o jakim.
+- „Wiadomości” — odtwarzam wiadomość głosową, a jak żadnej nie ma, czytam nagłówki.
+
 == 13 października (wieczorem) ==
 - „Obudź mnie za 20 minut” — nastawiam budzik na drzemkę.
 - „Ćwiczenie oddechowe na 3 minuty” albo po prostu „Medytacja” — oddychamy razem.
