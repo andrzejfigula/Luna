@@ -549,6 +549,36 @@ class TimersTest(unittest.TestCase):
                                          today), "5 października to dzisiaj — poniedziałek.")
         self.assertIsNone(calc.weekday_of("Jaki dzień będzie w piątek?", today))
         self.assertIsNone(calc.weekday_of("Jaki dzień był wczoraj?", today))
+        # 13 Oct probe: the past and a year said went to the model / the wrong year
+        self.assertEqual(calc.weekday_of("Jaki dzień tygodnia był 1 stycznia?", today),
+                         "1 stycznia był czwartek.")
+        self.assertEqual(calc.weekday_of("jaki dzień była Wigilia?", today),
+                         "Wigilia 2025 była środa.")
+        self.assertEqual(calc.weekday_of("Jaki dzień tygodnia będzie 24 grudnia 2030?", today),
+                         "24 grudnia 2030 wypada we wtorek.")         # "we", not "w wtorek"
+
+    def test_tomorrow_and_yesterday(self):
+        import clock
+        now = datetime.datetime(2026, 10, 13, 19, 0)               # a Tuesday
+        self.assertEqual(clock.spoken_other_day(1, now), "Jutro będzie środa, czternasty października.")
+        self.assertEqual(clock.spoken_other_day(-1, now),
+                         "Wczoraj był poniedziałek, dwunasty października.")
+        self.assertEqual(clock.spoken_other_day(-1, datetime.datetime(2026, 10, 11, 9, 0)),
+                         "Wczoraj była sobota, dziesiąty października.")
+        for t in ("Jaki jutro dzień?", "Luna, jaki był wczoraj dzień?", "Który dzisiaj jest?"):
+            self.assertIsNotNone(clock.answer(t), t)
+        self.assertIsNone(clock.answer("Jaki jutro dzień będzie na spacer?"))
+
+    def test_breathing_length_and_nap(self):
+        import breathing
+        import commands
+        self.assertEqual(breathing.cycles_for("ćwiczenie oddechowe na 3 minuty"), 15)
+        self.assertIsNone(breathing.cycles_for("ćwiczenie oddechowe"))
+        self.assertTrue(breathing.is_trigger("zróbmy medytację"))
+        self.assertEqual(commands.alarm_in("Obudź mnie za 20 minut"), 1200)
+        self.assertEqual(commands.alarm_in("Luna, obudź mnie za pół godziny proszę"), 1800)
+        self.assertIsNone(commands.alarm_in("Obudź mnie za 20 minut, jak Maja wróci"))
+        self.assertIsNone(commands.alarm_in("obudź mnie o 6:30"))
 
     def test_days_since(self):
         import calc
@@ -4651,6 +4681,11 @@ class RadioTest(unittest.TestCase):
                       "Luna, a pokaż mi z Wikipedii."):
                 self.assertFalse(drawing.bare_show(t, lambda *a, **k: None), t)
             self.assertEqual(show.call_count, 1)
+            self.assertTrue(drawing.bare_show("Pokaż pandę", lambda *a, **k: None))
+            self.assertEqual(show.call_args[0][0], "pandę")
+            for t in ("pokaż język", "pokaż serduszko", "pokaż mnie", "pokaż co umiesz",
+                      "pokaż zegar", "pokaż status", "pokaż nosek"):
+                self.assertFalse(drawing.bare_show(t, lambda *a, **k: None), t)
 
     def test_clothes_questions_get_a_sharp_frame(self):
         # 12 Oct 16:34: "Dzieci jakie mają koszulki?" — a low-detail frame, "nie widzę dzieci"
