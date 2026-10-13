@@ -557,6 +557,51 @@ class TimersTest(unittest.TestCase):
         self.assertEqual(calc.weekday_of("Jaki dzień tygodnia będzie 24 grudnia 2030?", today),
                          "24 grudnia 2030 wypada we wtorek.")         # "we", not "w wtorek"
 
+    def test_calendar_and_sums_probe_13_oct(self):
+        import calc
+        today = datetime.date(2026, 10, 13)
+        self.assertEqual(calc.holiday_when("Kiedy są Andrzejki?", today),
+                         "Andrzejki wypadają 30 listopada, w poniedziałek — za 48 dni.")
+        self.assertEqual(calc.clock_change("Kiedy zmiana czasu?", today),
+                         "Zmiana na czas zimowy jest w nocy z soboty na niedzielę, 25 października:"
+                         " o trzeciej cofamy zegarki na drugą — śpimy godzinę dłużej.")
+        self.assertIn("28 marca 2027", calc.clock_change("Kiedy przestawiamy zegarki?",
+                                                         datetime.date(2026, 10, 26)))
+        self.assertIsNone(calc.clock_change("Zmiana czasu to bez sensu"))
+        self.assertEqual(calc.weekday_of("Jaki był dzień tygodnia 13 października 2000?", today),
+                         "13 października 2000 był piątek.")
+        self.assertEqual(calc.days_until("Ile dni do końca roku?", today),
+                         "Do końca roku zostało 79 dni, czyli około 11 tygodni.")
+        self.assertEqual(calc.days_until("Ile dni do końca miesiąca?", today),
+                         "Do końca miesiąca zostało 18 dni, czyli około 3 tygodni.")
+        self.assertEqual(calc.days_until("Ile dni do końca roku szkolnego?", today)[:28],
+                         "Do końca roku szkolnego zost")
+        for said, want in (("Pomnóż 12 przez 12", "12 razy 12 to 144."),
+                           ("Podziel 144 przez 12", "144 przez 12 to 12."),
+                           ("Dodaj 15 i 27", "15 plus 27 to 42."),
+                           ("Odejmij 8 od 20", "20 minus 8 to 12."),
+                           ("Ile to jest 100 podzielić na 3?", "100 przez 3 to około 33,33."),
+                           ("Ile to jest ćwierć z 200?", "Ćwierć z 200 to 50."),
+                           ("Ile to jest 1/4 z 200?", "1/4 z 200 to 50."),
+                           ("Ile to jest trzy czwarte z 80?", "Trzy czwarte z 80 to 60."),
+                           ("Ile to jest połowa z 90?", "Połowa z 90 to 45.")):
+            self.assertEqual(calc.answer(said), said and want, said)
+        self.assertIsNone(calc.answer("Dodaj 2 minuty"))
+        self.assertIsNone(calc.fraction_of("Ile to jest coś z 90?"))
+
+    def test_probe_13_oct_evening_routes(self):
+        import drawing
+        import quiz
+        import twenty
+        self.assertTrue(drawing._SHOW.search("Pokaż ostatni rysunek"))
+        self.assertEqual(quiz.trigger("Zadaj mi pytanie z matematyki"), "mix")
+        self.assertEqual(quiz.trigger("Zadanie z dodawania"), "add")
+        self.assertEqual(quiz.trigger("Tabliczka mnożenia do 100"), "mul")
+        self.assertIsNone(quiz.trigger("Zadanie z matematyki mam trudne"))
+        self.assertTrue(twenty.reverse_wanted("Ja myślę o zwierzęciu"))
+        self.assertTrue(twenty.reverse_wanted("Wymyśliłam zwierzę"))
+        self.assertFalse(twenty.reverse_wanted("Myślę o zwierzęciu dla Mai na urodziny"))
+
     def test_tomorrow_and_yesterday(self):
         import clock
         now = datetime.datetime(2026, 10, 13, 19, 0)               # a Tuesday
@@ -859,6 +904,12 @@ class TimersTest(unittest.TestCase):
                           "label": "o praniu"})
         self.assertEqual(r("Przypomnij mi o wpół do ósmej o bajce", at15)[0]["at"], "19:30")
         self.assertEqual(r("przypomnij mi o praniu za pół godziny", at15)[0]["seconds"], 1800)
+        # 13 Oct probe: "za godzinę i kwadrans" was an hour
+        self.assertEqual(r("Przypomnij mi za godzinę i kwadrans o pizzy", at15),
+                         ({"type": "timer", "seconds": 4500, "label": "o pizzy"},
+                          "Dobrze, przypomnę za godzinę i 15 minut."))
+        self.assertEqual(r("przypomnij mi za 2 godziny i 10 minut o praniu", at15)[0]["seconds"],
+                         7800)
         mon = datetime.datetime(2026, 10, 5, 15, 0).timestamp()      # a Monday
         self.assertEqual(r("Przypomnij mi jutro o 8 o dentyście", mon),
                          ({"type": "reminder", "at": "2026-10-06 08:00", "repeat": "none",
