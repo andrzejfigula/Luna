@@ -162,6 +162,7 @@ LOCAL = {
     "Lampka na niebiesko": "fun",
     "Zmień kolor lampki na zielony": "fun",
     "Włącz lampkę na 20 minut": "fun",
+    "Luna, pokaż galerię": "screen",
     "Jak wygląda żyrafa?": "photo",
     "Luna, a jak wygląda Mars?": "photo",
     "Pokaż mi zdjęcie słonia": "photo",

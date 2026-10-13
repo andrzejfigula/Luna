@@ -34,7 +34,10 @@ _LIST   = ("pokaż przypomnienia", "pokaż minutniki", "pokaż budziki",
 _GALLERY = ("pokaż zdjęcia", "pokaż ostatnie zdjęcie", "pokaż moje zdjęcia",
             "pokaż fotki", "pokaz zdjecia", "pokaż zdjęcie", "show my photos",
             "show the photos", "pokaż dzisiejsze zdjęcia", "pokaż wczorajsze zdjęcia",
-            "pokaż zdjęcia z dzisiaj", "pokaż zdjęcia z wczoraj")
+            "pokaż zdjęcia z dzisiaj", "pokaż zdjęcia z wczoraj",
+            # (13 Oct 11:42, Andrzej: "pokaż galerię" → "nie mam dostępu do galerii")
+            "pokaż galerię", "pokaz galerie", "pokaż galerie", "otwórz galerię",
+            "otworz galerie", "galeria zdjęć", "pokaż swoje zdjęcia")
 # ("co mamy dzisiaj?" is left alone: it may mean "what day is it")
 _TODAY = ("plan dnia", "plan na dziś", "plan na dzisiaj", "co mamy w planie",
           "dzisiejszy plan", "plany na dziś", "plany na dzisiaj")
