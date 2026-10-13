@@ -389,7 +389,9 @@ _NOT_TO_SEE = re.compile(r"^(?:co[śs]?|jak|gdzie|kiedy|ile|kto|któr\w*|ktor\w*
                          # her own face and body: "Pokaż język", "pokaż serduszko"
                          r"język|jezyk|języczek|serduszk\w*|serce|uśmiech|usmiech|zęby|zeby|"
                          r"ząbki|zabki|rękę|reke|łapkę|lapke|brzuch\w*|nos|nosek|ucho|uszy|"
-                         r"uszka|mnie|nas|go|ją|ja|je)\b", re.I)
+                         r"uszka|mnie|nas|go|ją|ja|je|"
+                         # "pokaż statystyki" is her status screen (13 Oct 22:17: drawn)
+                         r"statystyk\w*|diagnostyk\w*|ustawieni\w*)\b", re.I)
 
 
 def bare_show(text, speak):

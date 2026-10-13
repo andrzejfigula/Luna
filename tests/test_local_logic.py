@@ -602,6 +602,28 @@ class TimersTest(unittest.TestCase):
         self.assertTrue(twenty.reverse_wanted("Wymyśliłam zwierzę"))
         self.assertFalse(twenty.reverse_wanted("Myślę o zwierzęciu dla Mai na urodziny"))
 
+    def test_probe_13_oct_night(self):
+        import brain
+        import drawing
+        import fun
+        import screens
+        # "Jasne, przekażę Maji…" → "Mai"
+        with mock.patch.object(brain.faces, "vocatives", lambda: {}):
+            self.assertIn("przekażę Mai,", brain._feminize("Jasne, przekażę Maji, że tak."))
+        # "pokaż statystyki" is the status screen, not a photo to look for
+        self.assertTrue(any(k in "no pokaż statystyki" for k in screens._STATUS))
+        self.assertFalse(drawing.bare_show("Pokaż statystyki", lambda *a, **k: None))
+        # "Zrób kotka" — the costume at once
+        said = []
+        with state.lock:
+            state.costume = None
+        self.assertTrue(fun.costume("zrób kotka", said.append))
+        with state.lock:
+            self.assertEqual(state.costume[0], "cat")
+            state.costume = None
+        self.assertFalse(fun.costume("zrób kotka z papieru dla mamy", said.append))
+        self.assertFalse(fun.costume("zrób zdjęcie kotka", said.append))
+
     def test_names_said_in_one_breath(self):
         from polish import flowing_names
         voc = {"Andrzej": "Andrzeju", "Maja": "Maju", "Emilka": "Emilko"}

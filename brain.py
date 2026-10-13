@@ -669,6 +669,9 @@ def _feminize(text):
         text = fix_vocative(text, faces.vocatives())     # "Maja, …" → "Maju, …"
     except Exception:
         pass
+    # "przekażę Maji" — Maja's genitive/dative is "Mai" (13 Oct 22:33; the
+    # transcriber writes "Maji" too, and the model copies it)
+    text = re.sub(r"\bMaji\b", "Mai", text)
     with state.lock:
         known = state.person is not None
     return text if known else neutral_you(text)

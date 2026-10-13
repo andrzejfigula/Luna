@@ -47,7 +47,10 @@ GALLERY_STEP = 6.0          # seconds per photo; a tap shows the next one
 _SHOW_LIST = ("pokaż listę", "pokaz liste", "pokaż mi listę", "show the list",
               "show my list")
 _STATUS = ("pokaż status", "pokaz status", "status systemu", "jaki masz status",
-           "show status", "show your status")
+           "show status", "show your status",
+           # 13 Oct 22:17: "pokaż statystyki" — a photo search, then a drawing
+           "pokaż statystyki", "pokaz statystyki", "pokaż swoje statystyki",
+           "pokaż mi statystyki", "pokaż diagnostykę", "pokaż diagnostyke")
 _CLOCK  = ("pokaż zegar", "pokaż godzinę", "pokaz zegar", "pokaz godzine",
            "show the clock", "show me the time")
 

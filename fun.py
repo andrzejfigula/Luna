@@ -316,6 +316,8 @@ def panstwa(speak):
 _COSTUME = re.compile(r"\b(?:pokaż|pokaz|pokazać|pokazac|zamień\s+się\s+w|zamien\s+sie\s+w|"
                       r"zamienić\s+się\s+w|zamienic\s+sie\s+w|bądź|badz|być|byc|"
                       r"zrób\s+się\s+na|zrob\s+sie\s+na|udawaj|udawać|udawac|"
+                      # "Zrób kotka" (13 Oct 22:19: the model, then the costume)
+                      r"zrób\s+z\s+siebie|zrob\s+z\s+siebie|zrób|zrob|"
                       r"przebierz\s+się\s+za|przebierz\s+sie\s+za|przebrać\s+się\s+za|"
                       r"przebrac\s+sie\s+za|zrób\s+minę|zrob\s+mine|zrobić\s+minę|zrobic\s+mine|"
                       r"narysuj|narysować|narysowac)"
