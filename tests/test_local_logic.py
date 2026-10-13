@@ -4561,6 +4561,14 @@ class RadioTest(unittest.TestCase):
                 self.assertFalse(drawing.bare_show(t, lambda *a, **k: None), t)
             self.assertEqual(show.call_count, 1)
 
+    def test_clothes_questions_get_a_sharp_frame(self):
+        # 12 Oct 16:34: "Dzieci jakie mają koszulki?" — a low-detail frame, "nie widzę dzieci"
+        import brain
+        for t in ("dzieci jakie mają koszulki?", "w co jestem ubrana?", "co mam na sobie?",
+                  "czy maja ma okulary?"):
+            self.assertTrue(brain._wants_vision(t), t)
+        self.assertFalse(brain._wants_vision("co robisz?"))
+
     def test_no_credits_on_the_status_screen(self):
         # 13 Oct 12:06: the account ran dry; she only said "can't reach my brain"
         import health

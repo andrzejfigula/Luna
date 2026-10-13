@@ -403,6 +403,10 @@ VISION_KEYWORDS = [
     "co mam na", "kto to", "ile osób", "ile osob", "ile palc", "co jest na",
     "jaki kolor", "jakiego koloru", "rozpoznaj", "pokaż", "pokaz", "obraz",
     "zdjęci", "zdjeci", "ekran", "etykiet",
+    # clothes and looks: a small low-detail frame missed the children entirely
+    # (12 Oct 16:34 "Dzieci jakie mają koszulki?" → "Nie widzę dzieci")
+    "koszul", "ubran", "ubrany", "ubrana", "na sobie", "bluz", "sukienk",
+    "spodni", "czapk", "okular", "fryzur", "włosy", "wlosy", "co robię", "co robie",
     # homework held up to the camera: the task must be readable (high detail)
     "zadani", "ćwiczeni", "cwiczeni", "zeszyt", "książk", "ksiazk", "stron",
     "kartk", "rysun", "obrazek", "obrazku",
