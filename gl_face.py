@@ -142,7 +142,7 @@ float eyeSDF(vec2 q, vec4 e, vec4 sh, float side) {
     return d;
 }
 
-vec3 eyeColour(vec2 q, vec2 b, float d) {
+vec3 eyeColour(vec2 q, vec2 b, float d, vec2 look) {
     vec3 top = mix(uTop, uTint, uTintAmt);
     vec3 bot = mix(uBottom, uTint, uTintAmt * 0.85);
     float v = clamp((q.y + b.y) / (2.0 * b.y), 0.0, 1.0);
@@ -150,9 +150,11 @@ vec3 eyeColour(vec2 q, vec2 b, float d) {
     float rx = q.x / b.x;
     col *= 1.0 - 0.20 * rx * rx;                         // a dome: darker sides
     col += top * 0.22 * exp(d / 4.0);                    // lit rim along the edge
-    vec2 hp = (q - vec2(-0.36 * b.x, -0.56 * b.y)) / vec2(0.30 * b.x, 0.15 * b.y);
+    // the highlights drift a little against the gaze: lit glass, not paint
+    vec2 sq = q + look * 0.22;
+    vec2 hp = (sq - vec2(-0.36 * b.x, -0.56 * b.y)) / vec2(0.30 * b.x, 0.15 * b.y);
     col = mix(col, uShine, 0.60 * exp(-dot(hp, hp) * 1.4));   // specular
-    vec2 hp2 = (q - vec2(0.42 * b.x, -0.50 * b.y)) / vec2(0.07 * b.x, 0.07 * b.y);
+    vec2 hp2 = (sq - vec2(0.42 * b.x, -0.50 * b.y)) / vec2(0.07 * b.x, 0.07 * b.y);
     col = mix(col, uShine, 0.45 * exp(-dot(hp2, hp2) * 1.8)); // a small glint
     float band = exp(-pow((q.y - 0.66 * b.y) / (0.10 * b.y), 2.0)) * (1.0 - rx * rx);
     col += uShine * band * 0.10;                         // light from below
@@ -173,13 +175,15 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 sh, vec4 pu, float 
                                    min(uRadius, 0.55 * b.y)), 0.0);
         float dg = mix(dd, top, sh.x);
         vec3 gc = mix(uGlow, uTint, uTintAmt);
-        glow += gc * (0.50 * exp(-dg / 13.0) + 0.22 * exp(-dg / 45.0)) * smoothstep(0.0, 8.0, e.w);
+        float breath = 1.0 + 0.07 * sin(uTime);          // she breathes: so does the light
+        glow += gc * (0.50 * exp(-dg / 13.0) + 0.22 * breath * exp(-dg / 45.0))
+                * smoothstep(0.0, 8.0, e.w);
         return col;
     }
     float a = clamp(0.5 - d, 0.0, 1.0);
     if (a <= 0.0) return col;
     gA = a;
-    vec3 c = eyeColour(q, b, d);
+    vec3 c = eyeColour(q, b, d, pu.xy);
     // pupil: a soft dark rounded square with two catch-lights
     if (pu.w > 0.01) {
         vec2 pq = q - pu.xy;
