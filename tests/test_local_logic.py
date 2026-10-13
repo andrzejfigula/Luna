@@ -2564,6 +2564,29 @@ class KidsTest(unittest.TestCase):
         s._call_until = 0.0
         s._en_heard.clear()
 
+    def test_a_meeting_pauses_wake_checks(self):
+        import speech_to_text as s
+        s._en_heard.clear()
+        s._talk_heard.clear()
+        s._call_until = 0.0
+        t = 1000.0
+        for i in range(7):
+            s._note_wake_check_result("No ale to jest, czekaj, ten template.", t + i * 20)
+        s._note_wake_check_result("Luna, która godzina?", t + 150)   # for her…
+        s._note_wake_check_result("Dobra, a te maile?", t + 160)
+        self.assertFalse(s.call_pause(t + 161))                  # …starts it over
+        for i in range(7):
+            s._note_wake_check_result("Aha, dobra.", t + 170 + i * 10)
+        self.assertTrue(s.call_pause(t + 231))
+        self.assertTrue(s.call_pause(t + 230 + 599))
+        end = t + 230 + 600
+        self.assertFalse(s.call_pause(end + 30))
+        s._note_wake_check_result("No tak.", end + 30)           # still at it
+        self.assertTrue(s.call_pause(end + 31))
+        s._note_wake_check_result("", end + 40)                  # silence: nothing
+        s._call_until = 0.0
+        s._talk_heard.clear()
+
     def test_cloud_wake_plausible(self):
         import speech_to_text as s
         self.assertFalse(s._cloud_wake_plausible("Luna, wstań z łóżka, ty zdychasz.", ["usa"]))

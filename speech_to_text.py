@@ -890,7 +890,13 @@ def _note_wake_check_result(cloud, now=None):
     still works meanwhile."""
     global _call_until
     now = now or time.time()
-    if not cloud or not english_side_talk(cloud):
+    if cloud and _cloud_has_wake(cloud):
+        _talk_heard.clear()                    # they do talk to her
+        return
+    if cloud and not english_side_talk(cloud):
+        _note_side_talk(now)
+        return
+    if not cloud:
         return
     _en_heard.append(now)
     _en_heard[:] = [t for t in _en_heard if now - t < CALL_EN_WINDOW]
@@ -899,6 +905,28 @@ def _note_wake_check_result(cloud, now=None):
             print(f"[STT] English call/video in the room — no cloud wake checks for "
                   f"{CALL_PAUSE // 60} min (Vosk still hears \"Luna\")", flush=True)
         _call_until = now + CALL_PAUSE
+
+
+_talk_heard = []                       # times a wake check found talk, no "Luna"
+TALK_COUNT, TALK_WINDOW, TALK_AGAIN = 8, 300, 120
+
+
+def _note_side_talk(now):
+    """Any language: eight sentences in five minutes, none with "Luna" — a
+    meeting or people talking to each other at her desk; the same pause as
+    for an English call. 12 Oct 9:44–10:33, Andrzej's Polish work meeting:
+    80 transcriptions (mostly pauses mid-sentence, his face in view), not one
+    for her. Right after a pause, one such sentence starts the next."""
+    global _call_until
+    _talk_heard.append(now)
+    _talk_heard[:] = [t for t in _talk_heard if now - t < TALK_WINDOW]
+    again = 0 < now - _call_until < TALK_AGAIN
+    if len(_talk_heard) >= TALK_COUNT or again:
+        if now >= _call_until:
+            print(f"[STT] people talking, not to her — no cloud wake checks for "
+                  f"{CALL_PAUSE // 60} min (Vosk still hears \"Luna\")", flush=True)
+        _call_until = now + CALL_PAUSE
+        _talk_heard.clear()
 
 
 def call_pause(now=None):
