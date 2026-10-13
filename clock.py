@@ -43,7 +43,16 @@ _TIME_Q = ("która godzina", "która jest godzina", "jaka jest godzina", "jaka g
 _DATE_Q = ("jaki dziś dzień", "jaki dzisiaj dzień", "jaki jest dzisiaj dzień",
            "jaki jest dziś dzień", "jaki mamy dzień", "którego dzisiaj", "którego dziś",
            "jaka jest data", "jaka jest dzisiaj data", "jaka dziś data",
-           "what day is it", "what's the date")
+           "what day is it", "what's the date",
+           # 13 Oct probe: "Który dzisiaj jest?" went to the model
+           "który dzisiaj", "który dziś", "ktory dzisiaj", "ktory dzis", "który mamy")
+# the day before and after (13 Oct probe: to the model, which may miss the weekday)
+_TOMORROW_Q = ("jaki jutro dzień", "jaki jutro jest dzień", "jaki będzie jutro dzień",
+               "jaki dzień będzie jutro", "jaki dzień jest jutro", "którego jest jutro",
+               "którego jutro", "który jest jutro", "który jutro", "co jest jutro za dzień")
+_YESTERDAY_Q = ("jaki był wczoraj dzień", "jaki wczoraj był dzień", "jaki dzień był wczoraj",
+                "którego było wczoraj", "którego wczoraj", "który był wczoraj",
+                "który wczoraj", "co było wczoraj za dzień")
 # what may surround the bare question
 _FILL = {"luna", "luno", "a", "powiedz", "mi", "proszę", "prosze", "teraz", "hej",
          "no", "to", "czy", "wiesz", "możesz", "mozesz", "jest", "mamy", "dziś",
@@ -101,6 +110,19 @@ def spoken_date(now=None):
     now = now or (datetime.now(_TZ) if _TZ else datetime.now())
     return (f"Dziś jest {_DAYS[now.weekday()]}, {_ordinal_day(now.day)} "
             f"{_MONTHS[now.month - 1]}.")
+
+
+def spoken_other_day(delta, now=None):
+    """"Jutro będzie środa, czternasty października." / "Wczoraj był poniedziałek…"."""
+    from datetime import timedelta
+    now = now or (datetime.now(_TZ) if _TZ else datetime.now())
+    d = now + timedelta(days=delta)
+    day = _DAYS[d.weekday()]
+    if delta > 0:
+        lead = "Jutro będzie"
+    else:
+        lead = "Wczoraj była" if day in ("środa", "sobota", "niedziela") else "Wczoraj był"
+    return f"{lead} {day}, {_ordinal_day(d.day)} {_MONTHS[d.month - 1]}."
 
 
 def _bare(low, phrases):
@@ -245,4 +267,8 @@ def answer(text):
             now = datetime.now(_TZ) if _TZ else datetime.now()
             return now.strftime("It's %A, %B %d.")
         return spoken_date()
+    if not english and _bare(low, _TOMORROW_Q):
+        return spoken_other_day(1)
+    if not english and _bare(low, _YESTERDAY_Q):
+        return spoken_other_day(-1)
     return None
