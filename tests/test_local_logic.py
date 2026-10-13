@@ -2107,6 +2107,23 @@ class KidsTest(unittest.TestCase):
         for t in ("Kod pocztowy to 55-080", "Mam kod rabatowy", "Jaki jest kod do furtki?"):
             self.assertFalse(commands._CODE_TOLD.search(t) and not commands.is_question(t), t)
 
+    def test_quiet_and_camera_variations(self):
+        import idle_engine
+        from shared_state import state
+        # 13 Oct sweep: "Wycisz się", "Przestań gadać" → the model's "będę cicho";
+        # "Możesz znowu mówić" left the quiet on
+        for t in ("Wycisz się", "Przestań gadać"):
+            with state.lock:
+                state.proactive_muted_until = 0.0
+            self.assertTrue(idle_engine.check_mute(t), t)
+            with state.lock:
+                self.assertGreater(state.proactive_muted_until, time.time())
+            self.assertTrue(idle_engine.check_mute("Możesz znowu mówić"))
+            with state.lock:
+                self.assertLess(state.proactive_muted_until, time.time() + 1)
+        import commands
+        self.assertTrue(any(k in "nie patrz na mnie" for k in commands._CAM_OFF))
+
     def test_variations_13_oct(self):
         import brain
         import drawing

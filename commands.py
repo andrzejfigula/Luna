@@ -260,7 +260,8 @@ _DOORBELL = re.compile(r"\b(?:ktoś|ktos|ktoś\s+tu)\s+(?:dzwoni\s+(?:do\s+drzwi
                        r"\bdzwonek\s+do\s+drzwi\b|\bpukanie\s+do\s+drzwi", re.I)
 _CAM_OFF = ("wyłącz kamerę", "wylacz kamere", "wyłącz kamere", "wyłącz oczy", "wylacz oczy",
             "przestań patrzeć", "przestan patrzec", "nie nagrywaj mnie", "turn off the camera",
-            "camera off")
+            "camera off", "nie patrz", "nie podglądaj", "nie podgladaj", "zamknij oczy")
+# (13 Oct sweep: "Nie patrz na mnie" → "Jasne, nie patrzę" — and the camera on)
 _CAM_ON = ("włącz kamerę", "wlacz kamere", "włącz kamere", "możesz patrzeć", "mozesz patrzec",
            "możesz już patrzeć", "turn on the camera", "camera on")
 _RESTART = ("zrestartuj się", "zrestartuj sie", "uruchom się ponownie",
@@ -1134,7 +1135,8 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
     if any(k in low for k in _MIC_OFF) and _short(text, 8) and not question:
         import timers
         secs, _ = timers.parse_duration(low)
-        secs = secs or 3600
+        # "przez chwilę" is a few minutes, not the hour (13 Oct sweep)
+        secs = secs or (300 if re.search(r"\bchwil|\bmoment", low) else 3600)
         speak(f"Dobrze, nie słucham przez {timers.say_duration(secs)}. Żeby mnie "
               "obudzić, przytrzymaj palec na ekranie.")
         with state.lock:

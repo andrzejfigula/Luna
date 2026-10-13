@@ -541,8 +541,15 @@ PROACTIVE_QUIET_TO     = 8
 MUTE_SECS              = 3600  # "Luna, cicho" silences her for this long
 MUTE_PHRASES   = ["cicho", "bądź cicho", "badz cicho", "nie odzywaj się",
                   "nie odzywaj sie", "zamilcz", "be quiet", "hush",
-                  "nie przeszkadzaj", "nie przeszkadzaj mi"]
+                  "nie przeszkadzaj", "nie przeszkadzaj mi",
+                  # (13 Oct sweep: these went to the model — "będę cicho" and
+                  # its command refused, nothing muted)
+                  "wycisz się", "wycisz sie", "przestań gadać", "przestan gadac",
+                  "przestań mówić", "przestan mowic", "nie gadaj", "zamknij buzię"]
 UNMUTE_PHRASES = ["możesz mówić", "mozesz mowic", "odzywaj się", "odzywaj sie",
+                  # (13 Oct sweep: these got a model "już mówię", the quiet stayed)
+                  "możesz znowu mówić", "mozesz znowu mowic", "możesz już mówić",
+                  "już możesz mówić", "już możesz", "juz mozesz", "koniec ciszy",
                   "you can talk", "unmute"]
 
 # (without gender: these are for someone she doesn't recognise)
