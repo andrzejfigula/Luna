@@ -1,0 +1,9 @@
+#keep
+Maja|Opowiedz mi krótką bajkę o kotku
+Maja|Opowiedz dalej
+Maja|A co było potem?
+Andrzej|Co słychać w świecie?
+Andrzej|Jakieś wiadomości o sporcie?
+Emilka|Przetłumacz na niemiecki: dzień dobry, jak się masz?
+Maja|Jak jest po hiszpańsku kot?
+Andrzej|Opowiedz dowcip dla dorosłych

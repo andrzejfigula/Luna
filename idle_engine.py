@@ -36,6 +36,36 @@ from config import (IDLE_ABSENCE_SECS, IDLE_PRESENCE_GRACE, IDLE_DEBUG,
 _last_proactive = 0.0
 present_since = [0.0]   # when the person in front of her sat down (0: nobody)
 SEATED_AWAY_SECS = 120  # gone this long → they really left
+_SEATED_FILE = "/tmp/luna_seated.json"   # survives a restart (not a reboot): 13 Oct 10:29
+                                         # "Hej, hej!" in Andrzej's call, 6 min after one
+
+
+def _load_seated(now=None):
+    """When they sat down, kept from before a restart — if a face was seen
+    just before it (else: nobody, as at a cold start)."""
+    now = now or time.time()
+    try:
+        import json
+        with open(_SEATED_FILE) as f:
+            d = json.load(f)
+        if now - float(d.get("seen", 0)) < SEATED_AWAY_SECS:
+            return float(d.get("since", 0.0))
+    except Exception:
+        pass
+    return 0.0
+
+
+def _save_seated(since, seen):
+    try:
+        import json
+        with open(_SEATED_FILE, "w") as f:
+            json.dump({"since": since, "seen": seen}, f)
+    except Exception:
+        pass
+
+
+present_since[0] = _load_seated()
+_seated_saved = [0.0]
 
 
 # ── quiet / mute ──────────────────────────────────────────────────────────────
@@ -403,6 +433,9 @@ def idle_loop():
                 present_since[0] = now
             elif not present and now - last_face > SEATED_AWAY_SECS:
                 present_since[0] = 0.0
+            if present_since[0] and now - _seated_saved[0] > 30:
+                _seated_saved[0] = now                 # (every half minute while seated)
+                _save_seated(present_since[0], last_face)
             was_present = present
 
             # ── a note to pass on, and its person is right here ──────────

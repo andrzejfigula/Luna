@@ -140,6 +140,17 @@ def _behavior_step(speak, confirm_wave):
         except Exception:
             pass
         if not in_convo and not muted and time.time() - _last_wave_said > WAVE_SPEAK_GAP:
+            # why she may speak — for the log (13 Oct 10:29: "Hej, hej!" in a call)
+            try:
+                import idle_engine
+                import speech_to_text
+                seated = (time.time() - idle_engine.present_since[0]
+                          if idle_engine.present_since[0] else 0)
+                print(f"[behavior] wave hello: seated {seated:.0f}s, side talk "
+                      f"{sum(1 for t in speech_to_text._side if time.time() - t < 120)}/2 min",
+                      flush=True)
+            except Exception:
+                pass
             _last_wave_said = time.time()
             _save_wave()
             # someone she knows waving, who hasn't had their first hello today:

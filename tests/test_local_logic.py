@@ -2168,6 +2168,15 @@ class KidsTest(unittest.TestCase):
         self.assertTrue(drawing._SHOW.search("Pokaż nam swoje ostatnie rysunki") or
                         drawing._SHOW.search("Pokaż nam ostatnie swoje rysunki"))
 
+    def test_seated_survives_a_restart(self):
+        import idle_engine
+        # 13 Oct 10:29: "Hej, hej!" in a call, 6 minutes after a restart reset "seated"
+        f = tempfile.mktemp(suffix=".json")
+        with mock.patch.object(idle_engine, "_SEATED_FILE", f):
+            idle_engine._save_seated(1000.0, 5000.0)
+            self.assertEqual(idle_engine._load_seated(now=5060.0), 1000.0)   # seen a minute ago
+            self.assertEqual(idle_engine._load_seated(now=5300.0), 0.0)      # gone since
+
     def test_variations_13_oct(self):
         import brain
         import drawing
