@@ -83,18 +83,20 @@ def neutral_you(text):
     return _NEUTRAL_YOU_RE.sub(swap, text or "")
 
 
+# (drawing verbs too — 13 Oct sweep: "Mogę spróbować jeszcze raz i zrobić go ładniej,
+# jeśli chcesz." came with a new drawing attached, drawn before any "tak")
 _OFFER = re.compile(r"(?:chcesz|może|moze|czy|mam)\b[^.!?]*\b(?:dopis|doda|włącz|wlacz|nastaw|"
-                    r"przypomn|zapis|ustaw|puści|pusci|skreśl|skresl|usun)\w*[^.!?]*\?|"
+                    r"przypomn|zapis|ustaw|puści|pusci|skreśl|skresl|usun|narysow|namalow|rysow|spróbow|sprobow|zrobi|pokaza)\w*[^.!?]*\?|"
                     # "Mogę za to włączyć szum deszczu, jeśli chcesz." / "Mogę włączyć…?"
                     # (7 Oct probe: an offer like this came with the command attached)
                     r"\bmogę\b[^.!?]*\b(?:dopis|doda|włącz|wlacz|nastaw|przypomn|zapis|ustaw|"
-                    r"puści|pusci|skreśl|skresl|usun)\w*[^.!?]*(?:\?|\b(?:jeśli|jeżeli|jesli)\s+"
+                    r"puści|pusci|skreśl|skresl|usun|narysow|namalow|rysow|spróbow|sprobow|zrobi|pokaza)\w*[^.!?]*(?:\?|\b(?:jeśli|jeżeli|jesli)\s+"
                     r"(?:chcesz|zechcesz|wolisz))|"
                     # "Jeśli chcesz, mogę to od razu skreślić." (8 Oct: said after
                     # the milk was already crossed off)
                     r"\b(?:jeśli|jeżeli|jesli)\s+(?:chcesz|zechcesz|wolisz)\W+(?:to\s+)?mogę\b"
                     r"[^.!?]*\b(?:dopis|doda|włącz|wlacz|nastaw|przypomn|zapis|ustaw|puści|"
-                    r"pusci|skreśl|skresl|usun)", re.I)
+                    r"pusci|skreśl|skresl|usun|narysow|namalow|rysow|spróbow|sprobow|zrobi|pokaza)", re.I)
 _DONE_VERB = (r"dodałam|dopisałam|włączam|wlaczam|nastawiam|nastawiłam|ustawiam|ustawiłam|"
               r"zapisałam|przypomnę|skreśliłam|usunęłam|puszczam|gotowe|dopisuję|dodaję|"
               r"zapisuję|usuwam|skreślam")

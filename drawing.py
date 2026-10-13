@@ -41,7 +41,8 @@ _ASK = re.compile(r"^(?:(?:no|dobra|dobrze|to|a|okej|ok|więc|wiec|teraz)\s*,?\s
                   r"(?:narysuj|narysujesz|narysować|narysowac|namaluj|namalujesz|namalować|"
                   r"namalowac|maluj|rysuj|draw)"
                   r",?(?:\s+(?:mi|nam|me),?)?(?:\s+(?:a|an))?\s+(.{2,200}?)[.!?]*$", re.I)
-_SHOW = re.compile(r"\b(?:pokaż|pokaz)\s+(?:mi\s+)?(?:jeszcze\s+raz\s+)?(?:te\s+|moje\s+|swoje\s+)?"
+_SHOW = re.compile(r"\b(?:pokaż|pokaz)\s+(?:mi\s+|nam\s+)?(?:jeszcze\s+raz\s+)?"
+                   r"(?:wszystkie\s+|ostatnie\s+)?(?:te\s+|moje\s+|swoje\s+|twoje\s+)?"
                    r"(?:rysun\w*|obraz\w*)\b", re.I)
 _lock = threading.Lock()
 _last = [0.0]

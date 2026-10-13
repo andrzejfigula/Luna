@@ -2156,6 +2156,18 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(commands._intro_name("Luna, mam na imię Ola, zapamiętaj mnie."), "Ola")
         self.assertIsNone(commands._intro_name("Jestem zmęczona, zapamiętaj to"))
 
+    def test_drawing_offer_holds_the_drawing(self):
+        from polish import offer_only
+        # 13 Oct sweep: an offer to draw again came with the drawing attached
+        self.assertTrue(offer_only("Mogę spróbować jeszcze raz i zrobić go ładniej, jeśli chcesz."))
+        self.assertTrue(offer_only("Chcesz, żebym narysowała jeszcze raz?"))
+        self.assertFalse(offer_only("Dobrze, już rysuję. Chwileczkę!"))
+        self.assertFalse(offer_only("Jasne — dodaję kapelusz do tańczącego konia."))
+        import drawing
+        self.assertTrue(drawing._SHOW.search("Pokaż wszystkie rysunki"))     # (went to the model)
+        self.assertTrue(drawing._SHOW.search("Pokaż nam swoje ostatnie rysunki") or
+                        drawing._SHOW.search("Pokaż nam ostatnie swoje rysunki"))
+
     def test_variations_13_oct(self):
         import brain
         import drawing
