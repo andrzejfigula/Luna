@@ -1670,11 +1670,12 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             reply = f"{reply} {reading.HINT}"
             import commands
             reading.start(lambda s: None, commands.reading_done, intro=None, question=text)
-        searched = drew = False
+        searched = drew = tuned = False
         for a in data.get("actions") or []:
             if a.get("type") == "command":
                 label = str(a.get("label", ""))
                 searched = searched or label.lower().startswith("wyszukaj w internecie")
+                tuned = tuned or bool(re.match(r"(?:włącz|wlacz)\s", label.strip(), re.I))
                 drew = drew or bool(re.match(r"(?:narysuj|namaluj|zrób\s+(?:mi\s+)?rysunek|"
                                              r"pokaż\s+(?:mi\s+)?(?:swoje\s+)?rysunki)",
                                              label.strip(), re.I))
@@ -1691,6 +1692,14 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             import websearch
             print("[brain] said she'd check online without the command — searching", flush=True)
             websearch.start(text, lambda *a, **k: None, announce=False)
+
+        station = None if tuned or translator() else _promised_station(reply)
+        if station:
+            # "Włączam Trójkę z spokojną muzyką." and no command — silence
+            # (13 Oct 10:46: Andrzej said "Tak." to her offer of Trójka)
+            print(f"[brain] said she'd play {station!r} without the command — playing",
+                  flush=True)
+            run_command(f"włącz {station}", reply)
 
         if (not drew and not translator() and _promised_drawing(reply)
                 and _ABOUT_DRAWING.search(text or "")):
@@ -1842,6 +1851,20 @@ _DRAW_NOT = re.compile(r"\bnie\s+(?:na)?(?:rysuj|maluj)|\bjeśli\s+chcesz|\bjesl
 # dla ciebie z przyjemnością")
 _ABOUT_DRAWING = re.compile(r"rysu|rysow|malu|malow|narys|obraz|portret|zdjęci|zdjeci|draw|"
                             r"picture|\bdoda[jć]|dorysuj|\bpopraw|\bzmień|\bzmien", re.I)
+
+
+_RADIO_PROMISE = re.compile(
+    r"(?:^|[.!]\s+)(?:\w+,\s+)?(?:już\s+|juz\s+|dobrze,?\s+|jasne,?\s+|ok,?\s+)?"
+    r"(?:włączam|wlaczam|puszczam)\s+(?:ci\s+|wam\s+)?(?:teraz\s+)?"
+    r"(trójkę|trojke|dwójkę|dwojke|jedynkę|jedynke|rmf(?:\s+fm)?|radio\s+zet|"
+    r"radio\s+357|nowy\s+świat|nowy\s+swiat|radio)\b(?![^.!?]*\?)", re.I)
+
+
+def _promised_station(reply):
+    """The station her answer says she turns on now ("Włączam Trójkę…"), or
+    None — not an offer ("Mogę włączyć…"), not a question."""
+    m = _RADIO_PROMISE.search(reply or "")
+    return m.group(1).lower() if m else None
 
 
 def _promised_drawing(reply):

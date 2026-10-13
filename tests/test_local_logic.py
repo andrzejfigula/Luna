@@ -1159,6 +1159,15 @@ class ListsTest(unittest.TestCase):
         self.assertEqual(own.get("do zrobienia"), "Andrzej")
         self.assertNotIn("zakupy", own)                    # shopping: everyone's
         self.assertIn("do zrobienia (started by Andrzej)", lists.prompt_block())
+        with state.lock:                                   # Emilka asks (13 Oct)
+            state.person = ("Emilka", 0.9, time.time())
+        try:
+            self.assertIn("do zrobienia (ANDRZEJ'S list — NOT Emilka's)",
+                          lists.prompt_block())
+            self.assertNotIn("zakupy (", lists.prompt_block())
+        finally:
+            with state.lock:
+                state.person = None
         self.act("list_clear", "", "do zrobienia")
         self.assertNotIn("do zrobienia", lists.owners())
 
@@ -2889,6 +2898,20 @@ class KidsTest(unittest.TestCase):
                 self.assertEqual(brain._just_praise(), praise, said)
         self.assertTrue(brain._ABOUT_DRAWING.search("Masz dodać kolorowy sweter"))
         self.assertEqual(drawing._first_word("Maja: kot w ręce"), "maja")   # "Maja:" no name
+
+    def test_a_promised_station_plays(self):
+        import brain
+        # 13 Oct 10:46: "Włączam Trójkę z spokojną muzyką." — no command, silence
+        p = brain._promised_station
+        self.assertEqual(p("Włączam Trójkę z spokojną muzyką. Miłego słuchania, Andrzeju!"),
+                         "trójkę")
+        self.assertEqual(p("Jasne, puszczam RMF FM."), "rmf fm")
+        self.assertEqual(p("Dobrze. Już włączam radio."), "radio")
+        self.assertIsNone(p("Mogę włączyć radio, na przykład Trójkę. Chcesz?"))
+        self.assertIsNone(p("Włączam Trójkę czy Dwójkę?"))
+        self.assertIsNone(p("Nie włączam teraz radia."))
+        self.assertTrue(brain._COMMAND_OK.match("włącz trójkę"))
+        self.assertTrue(brain._COMMAND_OK.match("włącz rmf fm"))
 
     def test_side_talk_tone_not_held_against_anyone(self):
         import brain

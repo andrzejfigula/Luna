@@ -278,8 +278,18 @@ def prompt_block():
     if not lists:
         return "Your lists (shopping, to-do…): all empty.\n"
     own = owners()
-    body = "; ".join(f"{k}{f' (started by {own[k]})' if own.get(k) else ''}: {', '.join(v)}"
-                     for k, v in lists.items())
+    who = _speaker()
+
+    def whose(k):
+        # spelled out for the one asking — 13 Oct 11:32: Emilka's "Co mam
+        # dzisiaj zrobić?" got Andrzej's to-do list read as hers
+        if not own.get(k):
+            return ""
+        if who and who != own[k]:
+            return f" ({own[k].upper()}'S list — NOT {who}'s)"
+        return f" (started by {own[k]})"
+
+    body = "; ".join(f"{k}{whose(k)}: {', '.join(v)}" for k, v in lists.items())
     return (f"Your lists: {body}. A list started by someone is theirs: when another "
             "person asks what THEY have to do, don't read it as theirs.\n")
 
