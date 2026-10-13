@@ -64,7 +64,11 @@ _REVERSE = re.compile(
     r"\b(?:o\s+(?:czym|kim|jakim\s+\w+)\s+(?:teraz\s+)?myśl[eę]|"
     r"pomyśla[łl](?:am|em)\s+(?:sobie\s+)?(?:jakieś\s+|o\s+)?zwierz\w*|"
     r"ty\s+zgaduj|ty\s+zgadnij|zgadnij\s+jakie\s+zwierz\w*|"
-    r"(?:co|kogo)\s+mam\s+na\s+myśli)", re.I)
+    r"(?:co|kogo)\s+mam\s+na\s+myśli|"
+    # "Ja myślę o zwierzęciu" said alone (13 Oct probe: to the model)
+    r"^(?:luna,?\s+)?(?:a\s+|no\s+to\s+)?(?:ja\s+)?(?:teraz\s+|już\s+|juz\s+)?"
+    r"(?:myśl[eę]|mysle|wymyśli[łl](?:am|em))\s+(?:sobie\s+)?(?:o\s+)?(?:jakimś\s+|jakies\s+|"
+    r"jakieś\s+)?zwierz\w*[.!]*$)", re.I)
 _GIVE_UP = ("poddaję się", "poddaje sie", "nie wiem", "powiedz co to", "co to było",
             "zdradź", "zdradz")
 _STOP = ("koniec", "kończymy", "konczymy", "stop", "wystarczy")

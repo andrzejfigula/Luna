@@ -219,6 +219,18 @@ def trigger(text):
             and not re.search(r"\b(?:powtórz|powtorz|wyrecytuj|powiedz|przeczytaj|pokaż|"
                               r"pokaz)\b", low)):        # "powtórz mi tabliczkę": recite it
         return "mul"                           # "tabliczka przez 7" — a request already
+    words = re.findall(r"\w+", low)
+    # 13 Oct probe, to the model: "Zadaj mi pytanie z matematyki", "Zadanie z
+    # dodawania", "Tabliczka mnożenia do 100" — a request said as its subject
+    if ((re.match(r"(?:luna\s+)?zadaj\s+mi\s+(?:jakieś\s+|jakies\s+)?(?:pytani|zadani)", low)
+         and len(words) <= 7)
+            or (re.match(r"(?:luna\s+)?(?:zadanie|zadania|pytanie|pytania|tabliczka)\b", low)
+                and len(words) <= 5
+                and not re.search(r"\b(?:mam|mamy|masz|jest|było|bylo|miała\w*|miala\w*|"
+                                  r"nie|trudn\w*|domow\w*|na\s+jutro)\b", low))):
+        for kind, stems in _KINDS:
+            if kind not in ("story",) and any(s in low for s in stems):
+                return kind
     if not any(t in low for t in _TRIGGERS):
         return None
     # "quiz"/"test z" alone is often just told ("w szkole robili quiz ze
