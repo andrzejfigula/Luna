@@ -26,7 +26,9 @@ import time
 from shared_state import state
 from config import MIRROR_SECS, CLOCK_SECS, PHOTO_SHOW_SECS, PHOTOS_DIR, PHOTOS_KEEP
 
-_MIRROR = ("lustro", "lusterko", "mirror", "pokaż mnie", "pokaz mnie")
+_MIRROR = ("lustro", "lusterko", "mirror", "pokaż mnie", "pokaz mnie",
+           # 13 Oct probe: "Pokaż mi mnie" went to the model
+           "pokaż mi mnie", "pokaz mi mnie", "pokaż nas", "pokaż mi nas")
 _PHOTO  = ("zrób mi zdjęcie", "zrób zdjęcie", "zrób nam zdjęcie", "zrób fotkę",
            "zrob mi zdjecie", "zrob zdjecie", "take a photo", "take a picture")
 _LIST   = ("pokaż przypomnienia", "pokaż minutniki", "pokaż budziki",
