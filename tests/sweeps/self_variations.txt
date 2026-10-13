@@ -1,0 +1,8 @@
+Maja|Kim jesteś?
+Maja|Masz uczucia?
+Maja|Kto cię zbudował?
+Maja|Czego się boisz?
+Maja|Jaki jest twój ulubiony film?
+Andrzej|Opowiedz coś o sobie
+Maja|Śpisz w nocy?
+Maja|Jesteś dziewczynką czy chłopcem?

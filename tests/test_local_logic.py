@@ -2393,7 +2393,7 @@ class KidsTest(unittest.TestCase):
         facts = twenty._kb_facts("mysz")
         self.assertIn("Czy ma długie uszy? nie", facts)
         self.assertIn("Czy twoje zwierzę ma futro albo sierść? tak", facts)
-        self.assertEqual(twenty._kb_facts("pancernik"), "")
+        self.assertEqual(twenty._kb_facts("wombat"), "")
 
     def test_twenty_reverse(self):
         import twenty
