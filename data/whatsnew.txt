@@ -2,6 +2,8 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 13 października (po południu) ==
+- „Pokaż mi słonia” — pokazuję prawdziwe zdjęcie z Wikipedii.
+- Lepiej rozpoznaję twarze w różnym świetle: pamiętam i poranne, i wieczorne.
 - Gdy wracasz do biurka, zawsze macham, ale „cześć” mówię rzadziej — nie co pół godziny.
 
 == 13 października (przed południem) ==

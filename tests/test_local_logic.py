@@ -4117,6 +4117,24 @@ class FacesTest(unittest.TestCase):
         self.assertTrue(faces.forget("kasia"))
         self.assertEqual(faces.names(), ["Ola"])
 
+    def test_learned_faces_keep_their_variety(self):
+        import numpy as np
+        import faces
+        faces.PEOPLE_PATH = os.path.join(TMP, "people.json")
+        rng = np.random.default_rng(2)
+        base = rng.normal(size=128)
+        morning = base + rng.normal(scale=0.6, size=128)           # other light
+        desk = [base + rng.normal(scale=0.35, size=128) for _ in range(faces.AUTO_MAX)]
+        faces._people = {"Kasia": {"samples": [list(base)], "added": 0,
+                                   "auto": [list(morning)]}}
+        for f in desk:                                  # a long sit at the desk
+            faces._last_auto.clear()
+            faces.learn("Kasia", f)
+        auto = faces._people["Kasia"]["auto"]
+        self.assertEqual(len(auto), faces.AUTO_MAX)
+        self.assertEqual(auto[0], list(morning))        # the morning is still there
+        self.assertEqual(faces._most_alike([[1, 0], [0, 1], [1, 0.01]]), 2)
+
     def test_everyone_in_view(self):
         import faces
         with mock.patch.object(faces, "names", lambda: ["Andrzej", "Maja"]), \

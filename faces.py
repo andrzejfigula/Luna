@@ -44,7 +44,7 @@ ENROLL_SECS = 4.0
 AUTO_MIN = 0.50            # self-learning: only from a sure recognition…
 AUTO_MARGIN = 0.25         # …well ahead of the second-best person…
 AUTO_EVERY = 60            # …at most one sample a minute per person…
-AUTO_MAX = 15              # …and at most this many (the oldest go first)…
+AUTO_MAX = 15              # …and at most this many (the most alike go first)…
 AUTO_NEW = 0.92            # …and only one that adds something: a near-copy of a
                            # kept sample (same chair, same lamp) is skipped, so
                            # the 15 cover different light and angles
@@ -335,6 +335,23 @@ def probably_family(now=None, near_secs=8, seen_secs=180):
         return any(now - t < seen_secs for t in _seen.values())
 
 
+def _most_alike(samples):
+    """Index of the sample closest to another one — the one the set can lose
+    with the least lost. 13 Oct: webcam samples of one person never came
+    closer than 0.89 to each other (AUTO_NEW 0.92), so each one counted as
+    new and the oldest went out every minute: the 15 were always the last
+    quarter of an hour at the desk, the morning light and the evening lamp
+    long gone. Now the most alike pair loses one and the variety stays."""
+    k = np.asarray(samples, np.float32)
+    k = k / (np.linalg.norm(k, axis=1, keepdims=True) + 1e-9)
+    m = k @ k.T
+    np.fill_diagonal(m, -1.0)
+    near = m.max(axis=1)
+    best = float(near.max())
+    # of a pair equally alike, keep the older (it has been checked longer)
+    return max(i for i, v in enumerate(near) if v >= best - 1e-6)
+
+
 def learn(name, feature):
     """Self-learning: keep a few webcam samples of a surely recognised face —
     the photos were taken by a phone in other light; this is how she sees
@@ -354,7 +371,13 @@ def learn(name, feature):
             f = feature / (np.linalg.norm(feature) + 1e-9)
             if float(np.max(k @ f)) >= AUTO_NEW:
                 return                         # nothing new about this face
-        p["auto"] = (kept + [[round(float(v), 5) for v in feature]])[-AUTO_MAX:]
+        new = kept + [[round(float(v), 5) for v in feature]]
+        if len(new) > AUTO_MAX:
+            drop = _most_alike(new)
+            if drop == len(new) - 1:
+                return                         # the kept ones already cover it
+            del new[drop]
+        p["auto"] = new
         _save()
     print(f"[faces] learned a little more of {name} ({len(p['auto'])} webcam samples)",
           flush=True)
