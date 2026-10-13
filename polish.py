@@ -382,6 +382,24 @@ _CYR = dict(zip("абвгдезийклмнопрстуфыэіґ", "abwgdezijkl
             я="ja", ї="ji", є="je")
 
 
+# words said to someone, like a name: "Jasne, kochanie."
+_ADDRESS = ("kochanie", "skarbie", "słoneczko", "sloneczko", "mamo", "tato", "babciu",
+            "dziadku", "ciociu", "wujku")
+
+
+def flowing_names(text, vocatives):
+    """For the voice only: "Jasne, Andrzeju." → "Jasne Andrzeju." — the comma
+    before a name inside or at the end of a sentence made the voice stop
+    before it, the name sounding stuck on (13 Oct, Andrzej). A name opening
+    the sentence ("Andrzeju, chodź!") keeps its pause; the text on screen and
+    in the history keeps its commas."""
+    names = {v for v in (vocatives or {}).values() if v} | set(_ADDRESS)
+    if not names or not text:
+        return text
+    alt = "|".join(sorted((re.escape(n) for n in names), key=len, reverse=True))
+    return re.sub(rf"(\w)\s*,\s+((?:{alt})\b)", r"\1 \2", text, flags=re.I)
+
+
 def to_latin(text):
     """Cyrillic words in Latin letters, Polish-style ("корпус" → "korpus")."""
     def one(m):

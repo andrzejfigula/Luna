@@ -602,6 +602,18 @@ class TimersTest(unittest.TestCase):
         self.assertTrue(twenty.reverse_wanted("Wymyśliłam zwierzę"))
         self.assertFalse(twenty.reverse_wanted("Myślę o zwierzęciu dla Mai na urodziny"))
 
+    def test_names_said_in_one_breath(self):
+        from polish import flowing_names
+        voc = {"Andrzej": "Andrzeju", "Maja": "Maju", "Emilka": "Emilko"}
+        # 13 Oct: "…, Andrzeju." — the voice stopped before the name
+        self.assertEqual(flowing_names("Jasne, Andrzeju.", voc), "Jasne Andrzeju.")
+        self.assertEqual(flowing_names("Dobrze, Maju, zaraz to zrobię.", voc),
+                         "Dobrze Maju, zaraz to zrobię.")
+        self.assertEqual(flowing_names("Śpij dobrze, kochanie!", voc), "Śpij dobrze kochanie!")
+        self.assertEqual(flowing_names("Emilko, chodź tutaj.", voc), "Emilko, chodź tutaj.")
+        self.assertEqual(flowing_names("Wiem, Andrzej to lubi.", voc), "Wiem, Andrzej to lubi.")
+        self.assertEqual(flowing_names("Tak, majonez.", voc), "Tak, majonez.")
+
     def test_tomorrow_and_yesterday(self):
         import clock
         now = datetime.datetime(2026, 10, 13, 19, 0)               # a Tuesday

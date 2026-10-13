@@ -314,7 +314,10 @@ OPENAI_TTS_INSTRUCTIONS = (
     "husky or masculine register, even for serious or calm sentences. "
     "Delivery: natural, warm, relaxed conversation with a friend, a smile in "
     "the voice, natural pace and intonation, no exaggerated acting. Native "
-    "Polish pronunciation; switch to natural English when the text is English."
+    "Polish pronunciation; switch to natural English when the text is English. "
+    "A name or a word like 'kochanie' inside or at the end of a sentence is said "
+    "in the same breath as the words before it — no pause before it, no extra "
+    "stress on it."
 )
 OPENAI_TTS_TIMEOUT      = 8.0 
 # The reply's emotion (the one her face shows) colours the voice too: this is

@@ -300,6 +300,12 @@ class OpenAITTS:
             text = spoken_numbers(text)
         except Exception:
             pass
+        try:                                   # "Jasne, Andrzeju." said in one breath
+            import faces
+            from polish import flowing_names
+            text = flowing_names(text, faces.vocatives())
+        except Exception:
+            pass
 
         def attempt(n):
             try:
