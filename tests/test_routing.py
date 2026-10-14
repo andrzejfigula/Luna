@@ -29,6 +29,10 @@ LOCAL = {
     "Minutnik na makaron 9 minut": "timer",
     "Nastaw minutnik 9 minut makaron": "timer",
     "Pokaż pandę": "photo",
+    "Zrób selfie": "screen",                         # (14 Oct probe: to the model)
+    "Pokaż kalendarz": "screen",
+    "Ekran ciemniej": "handled-but-unknown",
+    "Odliczaj do startu rakiety": "count",
     "Obudź mnie za 20 minut": "timer",
     "Medytacja": "breath",
     "Ćwiczenie oddechowe na 3 minuty": "breath",

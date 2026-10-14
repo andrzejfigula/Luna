@@ -391,7 +391,11 @@ _NOT_TO_SEE = re.compile(r"^(?:co[śs]?|jak|gdzie|kiedy|ile|kto|któr\w*|ktor\w*
                          r"ząbki|zabki|rękę|reke|łapkę|lapke|brzuch\w*|nos|nosek|ucho|uszy|"
                          r"uszka|mnie|nas|go|ją|ja|je|"
                          # "pokaż statystyki" is her status screen (13 Oct 22:17: drawn)
-                         r"statystyk\w*|diagnostyk\w*|ustawieni\w*)\b", re.I)
+                         r"statystyk\w*|diagnostyk\w*|ustawieni\w*|"
+                         # "Pokaż prognozę", "pokaż kciuk" looked for photos (14 Oct probe)
+                         r"prognoz\w*|pogod\w*|kciuk\w*|kalendarz\w*|plan|planu|notatk\w*|"
+                         r"buzi\w*|swoją|swoja)\b",
+                         re.I)
 
 
 def bare_show(text, speak):

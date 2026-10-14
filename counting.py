@@ -82,10 +82,13 @@ def parse_count(text):
     low = text.lower().strip(" ?!.")
     if any(u in low for u in _TIME_UNITS):
         return None                                   # "odlicz 10 minut" is a timer
+    if re.search(r"\b(?:odlicz\w*|policz\w*)\b.*\b(?:startu|start|rakiet\w*)\b", low):
+        return "down", 10                             # "odliczaj do startu rakiety"
     m = _COUNT.search(low)
     if not m:
         return None
-    rest = m.group(2)
+    # "policz od dziesięciu do zera" (14 Oct probe: the end said, to the model)
+    rest = re.sub(r"\s+do\s+(?:zera|0|jednego|jedynki|1)$", "", m.group(2))
     words = re.findall(r"\w+", rest)
     if not words or len(words) > 3 or not all(
             w.isdigit() or w in calc._ONES or w in calc._SCALES for w in words):

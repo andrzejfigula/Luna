@@ -15,6 +15,7 @@ health.py — is Luna's cloud reachable, and how is she doing?
 """
 
 import os
+import re
 import shutil
 import socket
 import sys
@@ -170,6 +171,29 @@ def _mem_used():
         return round(100 * (1 - info["MemAvailable"] / info["MemTotal"]))
     except (OSError, KeyError, ValueError):
         return None
+
+
+_TEMP_Q = re.compile(r"\b(?:temperatur\w*\s+(?:procesora|cpu|twojego\s+procesora)|"
+                     r"(?:jak|czy)\s+(?:bardzo\s+)?(?:gorąca|goraca|ciepła|ciepla)\s+jesteś|"
+                     r"czy\s+się\s+nie\s+przegrzewasz|przegrzewasz\s+się|"
+                     r"obciążeni\w*\s+(?:procesora|cpu))\b", re.I)
+
+
+def temp_answer(text):
+    """"Jaka jest temperatura procesora?" — said here (14 Oct probe: to the
+    model, which can't know it). None when it isn't that question."""
+    if not _TEMP_Q.search(text or ""):
+        return None
+    t = body.cpu_temp()
+    if t is None:
+        return "Nie umiem teraz zmierzyć swojej temperatury."
+    import calc
+    n = round(t)
+    hot = (" Trochę mi gorąco." if t >= 75 else " Wszystko w normie." if t < 70 else "")
+    if body.throttled():
+        hot = " Jest mi za gorąco — zwalniam, żeby się nie przegrzać."
+    return (f"Mój procesor ma {n} {calc._plural(n, 'stopień', 'stopnie', 'stopni')}, "
+            f"obciążenie {body.load_percent()} procent.{hot}")
 
 
 def status_rows():

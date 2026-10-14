@@ -30,7 +30,10 @@ _MIRROR = ("lustro", "lusterko", "mirror", "pokaż mnie", "pokaz mnie",
            # 13 Oct probe: "Pokaż mi mnie" went to the model
            "pokaż mi mnie", "pokaz mi mnie", "pokaż nas", "pokaż mi nas")
 _PHOTO  = ("zrób mi zdjęcie", "zrób zdjęcie", "zrób nam zdjęcie", "zrób fotkę",
-           "zrob mi zdjecie", "zrob zdjecie", "take a photo", "take a picture")
+           "zrob mi zdjecie", "zrob zdjecie", "take a photo", "take a picture",
+           # (14 Oct probe: "Zrób selfie" went to the model)
+           "zrób selfie", "zrob selfie", "zróbmy selfie", "zrobmy selfie", "zrób nam selfie",
+           "zróbmy sobie zdjęcie", "zrobmy sobie zdjecie", "take a selfie")
 _LIST   = ("pokaż przypomnienia", "pokaż minutniki", "pokaż budziki",
            "pokaz przypomnienia", "pokaż mi przypomnienia", "show my reminders")
 _GALLERY = ("pokaż zdjęcia", "pokaż ostatnie zdjęcie", "pokaż moje zdjęcia",
@@ -42,10 +45,18 @@ _GALLERY = ("pokaż zdjęcia", "pokaż ostatnie zdjęcie", "pokaż moje zdjęcia
             "otworz galerie", "galeria zdjęć", "pokaż swoje zdjęcia")
 # ("co mamy dzisiaj?" is left alone: it may mean "what day is it")
 _TODAY = ("plan dnia", "plan na dziś", "plan na dzisiaj", "co mamy w planie",
-          "dzisiejszy plan", "plany na dziś", "plany na dzisiaj")
+          "dzisiejszy plan", "plany na dziś", "plany na dzisiaj",
+          # (14 Oct probe: to the model / a photo search)
+          "pokaż kalendarz", "pokaz kalendarz", "pokaż mój kalendarz", "co mam dzisiaj w planie",
+          "co mam dziś w planie", "co mam w planie")
 GALLERY_STEP = 6.0          # seconds per photo; a tap shows the next one
 _SHOW_LIST = ("pokaż listę", "pokaz liste", "pokaż mi listę", "show the list",
               "show my list")
+# "pokaż pogodę" — the days of the forecast (14 Oct probe: "pokaż prognozę"
+# looked for a photo; "pokaż pogodę" went to the model)
+_WEATHER = re.compile(r"^(?:luna,?\s+)?(?:pokaż|pokaz)\s+(?:mi\s+)?(?:pogodę|pogode|prognozę|"
+                      r"prognoze|prognozę\s+pogody|pogodę\s+na\s+(?:tydzień|tydzien|"
+                      r"weekend|jutro))\W*$")
 _STATUS = ("pokaż status", "pokaz status", "status systemu", "jaki masz status",
            "show status", "show your status",
            # 13 Oct 22:17: "pokaż statystyki" — a photo search, then a drawing
@@ -301,6 +312,16 @@ def handle(text, speak, play_sound_async):
     if any(k in low for k in _STATUS):
         import health
         _show("list", 15, ("Status", health.status_rows()))
+        return True
+    if _WEATHER.match(low.strip()):
+        import weather
+        rows = weather.forecast_rows()
+        if not rows:
+            speak("Nie mam teraz prognozy pogody.")
+        else:
+            _show("list", 20, ("Pogoda", rows))
+            speak(f"Dziś {rows[0][1].split(',')[0]}, "
+                  f"{rows[0][1].split(',')[1].strip().replace('–', ' do ').replace('°C', ' stopni')}.")
         return True
     if any(k in low for k in _CLOCK):
         _show("clock", CLOCK_SECS)

@@ -602,6 +602,82 @@ class TimersTest(unittest.TestCase):
         self.assertTrue(twenty.reverse_wanted("Wymyśliłam zwierzę"))
         self.assertFalse(twenty.reverse_wanted("Myślę o zwierzęciu dla Mai na urodziny"))
 
+    def test_probe_14_oct(self):
+        import commands
+        import counting
+        import drawing
+        import fun
+        import health
+        import screens
+        import weather
+        said = []
+        # gestures at once; "pokaż kciuk" / "pokaż prognozę" are not photos
+        for text, name in (("Pomachaj mi", "wave"), ("Luna, kiwnij głową", "nod"),
+                           ("Pokręć głową", "shake"), ("Pokaż kciuk", "thumbs_up"),
+                           ("Zrób serduszko", "heart")):
+            self.assertTrue(fun.gesture(text, said.append), text)
+            with state.lock:
+                self.assertEqual(state.gesture_anim, name, text)
+        self.assertFalse(fun.gesture("Pomachaj babci, jak przyjdzie jutro", said.append))
+        for t in ("Pokaż prognozę", "Pokaż kciuk", "Pokaż kalendarz", "Pokaż buzię"):
+            self.assertFalse(drawing.bare_show(t, lambda *a, **k: None), t)
+        self.assertTrue(drawing._BARE_SHOW.match("Pokaż planety"))
+        self.assertIsNone(drawing._NOT_TO_SEE.match("planety"))
+        # animal sounds (and the costume)
+        for text, sound in (("Zamiaucz", "Miau"), ("Jak robi krowa?", "Muuu"),
+                            ("Ryknij jak lew", "Wrrr"), ("Jaki dźwięk wydaje kaczka?", "Kwa")):
+            said.clear()
+            self.assertTrue(fun.animal_sound(text, said.append), text)
+            self.assertTrue(said[0].startswith(sound), (text, said))
+        self.assertFalse(fun.animal_sound("Co robi kot?", said.append))
+        self.assertFalse(fun.animal_sound("Jak mówi kot po angielsku?", said.append))
+        with state.lock:
+            state.costume = None
+        # countdowns
+        self.assertEqual(counting.parse_count("Policz od dziesięciu do zera"), ("down", 10))
+        self.assertEqual(counting.parse_count("Odliczaj do startu rakiety"), ("down", 10))
+        # letters
+        self.assertEqual(commands.letters_answer("Ile liter ma słowo kot?"),
+                         "Słowo kot ma 3 litery: ka, o, te.")
+        self.assertEqual(commands.letters_answer("Na jaką literę zaczyna się słowo jabłko?"),
+                         "Słowo jabłko zaczyna się na literę jot.")
+        self.assertIn("dwuznak cz",
+                      commands.letters_answer("Na jaką literę zaczyna się czapka?"))
+        self.assertIsNone(commands.letters_answer("Ile liter ma alfabet po angielsku?"))
+        # the processor's temperature
+        with mock.patch.object(health.body, "cpu_temp", lambda: 52.4), \
+                mock.patch.object(health.body, "load_percent", lambda: 23), \
+                mock.patch.object(health.body, "throttled", lambda: False):
+            self.assertEqual(health.temp_answer("Jaka jest temperatura procesora?"),
+                             "Mój procesor ma 52 stopnie, obciążenie 23 procent. "
+                             "Wszystko w normie.")
+        self.assertIsNone(health.temp_answer("Jaka jest temperatura na dworze?"))
+        # the forecast as rows
+        d = {"daily": {"time": ["2026-10-14", "2026-10-15", "2026-10-16"],
+                       "weather_code": [3, 61, 0], "temperature_2m_min": [7, 6, 4],
+                       "temperature_2m_max": [13, 12, 15],
+                       "precipitation_probability_max": [40, 80, 0]}}
+        rows = weather.forecast_rows(d)
+        self.assertEqual(rows[0], ("Dziś", "pochmurno, 7–13°C, deszcz 40%"))
+        self.assertEqual(rows[2][0], "piątek 16.10")
+        self.assertTrue(screens._WEATHER.match("pokaż prognozę"))
+        # a page closed by voice — only a page, only those words
+        with state.lock:
+            state.overlay = ("clock", time.time() + 30, None)
+        self.assertTrue(commands.close_page("Zamknij", said.append))
+        with state.lock:
+            self.assertIsNone(state.overlay)
+            state.overlay = ("ttt", time.time() + 30, None)
+        self.assertFalse(commands.close_page("Koniec", said.append))   # a game: its own
+        with state.lock:
+            state.overlay = ("list", time.time() + 30, None)
+        self.assertFalse(commands.close_page("Zamknij okno w kuchni", said.append))
+        with state.lock:
+            state.overlay = None
+        # the screen the other way round
+        self.assertTrue(commands._SCREEN_AFTER.match("ekran ciemniej"))
+        self.assertEqual(commands._SCREEN_AFTER.match("jasność ekranu na 50").group(2), "50")
+
     def test_fire_and_forest_sounds(self):
         import numpy as np
         import ambience

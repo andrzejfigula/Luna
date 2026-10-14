@@ -135,6 +135,11 @@ _SCREEN = re.compile(
     r"włącz|wlacz|zapal|ciemniej|jaśniej|jasniej)\s+(?:(?:mi|ten|swój|swoj|trochę|troche)\s+)?"
     r"(?:ekran|wyświetlacz|wyswietlacz|ekranik)(?:\s+(?:proszę|prosze|trochę|troche))?$",
     re.I)
+# the other way round: "ekran ciemniej", "jasność ekranu na 50" (14 Oct probe: the model)
+_SCREEN_AFTER = re.compile(
+    r"^(?:luna,?\s+|luno,?\s+)?(?:(?:ekran|wyświetlacz|wyswietlacz)\s+(?:trochę\s+|troche\s+)?"
+    r"(ciemniej|jaśniej|jasniej)|(?:jasność|jasnosc)\s+(?:ekranu\s+)?na\s+(\d{1,3})"
+    r"(?:\s*%|\s+procent)?)(?:\s+(?:proszę|prosze))?$", re.I)
 _GAME_NAMES = [
     (r"kółk\w*|kolk\w*|krzyżyk", "zagrajmy w kółko i krzyżyk"),
     (r"memory|memo\b|pary|karty", "zagrajmy w memory"),
@@ -188,7 +193,7 @@ _SKIP_TOMORROW = re.compile(
     r"(?:na\s+|tylko\s+na\s+)?jutr\w*|\bjutro\s+(?:bez\s+budzika|nie\s+budź|nie\s+budz)|"
     r"\bnie\s+budź\s+mnie\s+jutro|\bnie\s+budz\s+mnie\s+jutro|\bjutro\s+(?:mam\s+)?wolne\b.*budzik",
     re.I)
-_STOP_BARE = re.compile(r"^(?:luna,?\s+|luno,?\s+)?(?:stop|zatrzymaj(?:\s+to)?|przestań|"
+_STOP_BARE = re.compile(r"^(?:luna,?\s+|luno,?\s+)?(?:stop|pauza|zatrzymaj(?:\s+to)?|przestań|"
                         r"przestan|wyłącz(?:\s+to)?|wylacz(?:\s+to)?|cisza|dość|dosc|wystarczy)$", re.I)
 _SLEEP_SELF = re.compile(
     r"^(?:luna,?\s+|luno,?\s+)?(?:(?:to|no|dobra|już|juz|proszę|prosze),?\s+)*"
@@ -747,6 +752,42 @@ def _spell_word(text):
     return word
 
 
+# "Ile liter ma słowo kot?", "Na jaką literę zaczyna się jabłko?" — homework
+# about letters (14 Oct probe: to the model, which miscounts now and then)
+_HOW_MANY_LETTERS = re.compile(r"^(?:luna,?\s+)?ile\s+(?:jest\s+)?liter\s+(?:ma|jest\s+w)\s+"
+                               r"(?:słowo|slowo|słowie|slowie|wyraz|wyrazie)?\s*[„\"']?"
+                               r"([^\W\d_]+)[”\"']?\W*$", re.I)
+_WHICH_LETTER = re.compile(r"^(?:luna,?\s+)?(?:na\s+jaką|na\s+jaka|od\s+jakiej)\s+(?:literę|litere|"
+                           r"litery)\s+(zaczyna|kończy|konczy)\s+się\s+(?:słowo|slowo|wyraz)?\s*"
+                           r"[„\"']?([^\W\d_]+)[”\"']?\W*$", re.I)
+_DIGRAPHS = ("ch", "cz", "dz", "dź", "dż", "rz", "sz")
+
+
+def letters_answer(text):
+    """The answer to a question about the letters of one word, or None."""
+    t = text.strip()
+    m = _HOW_MANY_LETTERS.match(t)
+    if m:
+        word = m.group(1)
+        n = sum(c.isalpha() for c in word)
+        import calc
+        names = ", ".join(_LETTERS.get(c, c) for c in word.lower() if c.isalpha())
+        return (f"Słowo {word.lower()} ma {n} {calc._plural(n, 'literę', 'litery', 'liter')}: "
+                f"{names}.")
+    m = _WHICH_LETTER.match(t)
+    if m:
+        word = m.group(2).lower()
+        start = m.group(1).lower().startswith("zaczyna")
+        c = word[0] if start else word[-1]
+        pair = word[:2] if start else word[-2:]
+        out = (f"Słowo {word} {'zaczyna' if start else 'kończy'} się na literę "
+               f"{_LETTERS.get(c, c)}.")
+        if pair in _DIGRAPHS:
+            out += f" Razem z następną to dwuznak {pair}." if start else f" Razem z poprzednią to dwuznak {pair}."
+        return out
+    return None
+
+
 _SHOW_TEXT = re.compile(r"^(?:luna,?\s+)?(?:pokaż|pokaz|wyświetl|wyswietl|napisz)"
                         r"(?:\s+mi)?\s+na\s+ekranie[:,]?\s+(.{1,80}?)[.!]?$", re.I)
 SHOW_TEXT_SECS = 30
@@ -1091,9 +1132,37 @@ _LATER_OFF = re.compile(r"^(?:luna,?\s+)?(za\s+(?:\w+\s+){0,2}?(?:minut\w*|godzi
                         r"sekund\w*))[,]?\s+((?:wyłącz|wylacz|zgaś|zgas)\s+.+?)[.!]?$", re.I)
 
 
+# "Zamknij", "wróć do buzi", "schowaj to" while a page is on her screen (14 Oct
+# probe: only a tap closed one; "pokaż buzię" looked for a photo of a face)
+_CLOSE = re.compile(r"^(?:luna,?\s+)?(?:dobra,?\s+|ok,?\s+|okej,?\s+|już,?\s+|juz,?\s+)?"
+                    r"(?:zamknij(?:\s+to|\s+ekran)?|schowaj(?:\s+to)?|ukryj(?:\s+to|\s+zegar|"
+                    # (not "koniec" / "wystarczy": a game's question card is a page
+                    # too, and those end the game — dialog test, 14 Oct)
+                    r"\s+listę|\s+liste|\s+zdjęcia|\s+zdjecia)?|wyjdź|wyjdz|"
+                    r"wróć(?:\s+do\s+(?:buzi|twarzy|siebie))?|wroc(?:\s+do\s+(?:buzi|twarzy))?|"
+                    r"pokaż\s+(?:swoją\s+|swoja\s+)?(?:buzię|buzie|twarz|minę)|"
+                    r"pokaz\s+buzie)(?:\s+(?:proszę|prosze|dzięki|dzieki))?\W*$", re.I)
+_CLOSABLE = ("clock", "clockface", "list", "gallery", "photo", "card", "memo", "stars",
+             "mirror", "dice", "coin", "lamp")
+
+
+def close_page(text, speak):
+    """A page on the screen (clock, list, photos, a card…) closed by voice."""
+    with state.lock:
+        ov = state.overlay
+        if not ov or ov[0] not in _CLOSABLE or not _CLOSE.match(text.strip()):
+            return False
+        state.overlay = None
+    print(f"[cmd] closed the {ov[0]} page by voice", flush=True)
+    speak("Dobrze.")
+    return True
+
+
 def handle(text, speak, play_sound, _polite=True, _split=True):
     """Handle a local command. Returns True when the utterance was one (and
     must not go to the model)."""
+    if close_page(text, speak):
+        return True
     later = _LATER_OFF.match(text.strip()) if _split else None
     if later:
         # "Za 10 minut wyłącz radio" stopped it at once (8 Oct sweep): the time
@@ -1258,9 +1327,15 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
 
     # "zgaś ekran" / "przyciemnij ekran" / "rozjaśnij ekran" (display.py)
     m = _SCREEN.match(low.strip(" .!?"))
-    if m:
+    m2 = _SCREEN_AFTER.match(low.strip(" .!?"))
+    if m or m2:
         import display
-        verb = m.group(1)
+        if m:
+            verb = m.group(1)
+        elif m2.group(1):
+            verb = m2.group(1)
+        else:                              # "jasność ekranu na 50": dim or bright, that's all
+            verb = "ciemniej" if int(m2.group(2)) < 60 else "jaśniej"
         if re.match(r"przyciemnij|ściemnij|sciemnij|ciemniej", verb):
             display.set_user_override("dim")
             speak("Dobrze, przyciemniam.")
@@ -1432,6 +1507,11 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
             return websearch.start(m.group(1), speak, announce=False)
     else:
         return websearch.start(query, speak)
+    import health
+    said = letters_answer(text) or health.temp_answer(text)
+    if said:
+        speak(said)
+        return True
     word = _spell_word(text)
     if word:
         _spell(word, speak, english=bool(re.match(r"\s*(?:luna,?\s*)?(?:how|spell)\b", text,

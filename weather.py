@@ -277,12 +277,40 @@ def _school_note():
 _started = [False]
 
 
+_days = []          # [(label, text)] per day — "pokaż pogodę" (screens.py)
+
+
+def forecast_rows(d=None):
+    """The days of the last forecast as rows for her screen: ("Dziś",
+    "pochmurno, 7–13°C, deszcz 40%"). [] without one."""
+    if d is None:
+        with _lock:
+            return list(_days)
+    rows = []
+    try:
+        day = d["daily"]
+        for i, t in enumerate(day["time"][:7]):
+            dt = datetime.strptime(t, "%Y-%m-%d")
+            label = ("Dziś" if i == 0 else "Jutro" if i == 1
+                     else f"{_WD_PL[dt.weekday()]} {dt.day}.{dt.month:02d}")
+            rain = day["precipitation_probability_max"][i]
+            rows.append((label, f"{_WMO.get(day['weather_code'][i], '?')}, "
+                                f"{day['temperature_2m_min'][i]:.0f}–"
+                                f"{day['temperature_2m_max'][i]:.0f}°C"
+                                + (f", deszcz {rain}%" if rain else "")))
+    except (KeyError, IndexError, TypeError, ValueError):
+        pass
+    return rows
+
+
 def _apply(d):
     """A forecast (fresh or the cached one) into the summary and today's notes."""
     global _summary, _fetched
     s = _describe(d)
+    rows = forecast_rows(d)
     with _lock:
         _summary, _fetched = s, time.time()
+        _days[:] = rows
         try:
             h, day = d["hourly"], d["daily"]
             _sky.clear()

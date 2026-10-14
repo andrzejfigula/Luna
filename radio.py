@@ -109,6 +109,11 @@ _ALARM_OFF = ("budź mnie dzwonkiem", "budz mnie dzwonkiem", "budzik bez radia",
 _MUSIC = {"muzykę", "muzyke", "jakąś muzykę", "jakas muzyke", "muzyczkę", "coś do słuchania"}
 _OFF = ("wyłącz radio", "wylacz radio", "stop radio", "zatrzymaj radio", "wyłącz muzykę",
         "wylacz muzyke", "zatrzymaj muzykę", "koniec radia", "radio stop", "ścisz radio do zera")
+# "Wznów radio", "wróć do radia" — the last station again (14 Oct probe: to the model)
+_RESUME = re.compile(r"^(?:luna,?\s+)?(?:wznów|wznow|wróć\s+do|wroc\s+do|puść\s+dalej|"
+                     r"pusc\s+dalej|graj\s+dalej|włącz\s+z\s+powrotem|wlacz\s+z\s+powrotem|"
+                     r"włącz\s+znowu|wlacz\s+znowu|włącz\s+jeszcze\s+raz)\s+"
+                     r"(?:radio|radia|muzykę|muzyke|muzyki)\W*$")
 _WHAT = ("jakie to radio", "jaka to stacja", "co to za radio", "co to za stacja",
          "jakie radio gra", "jakie radio leci")
 _SONG = ("co teraz gra", "co to za piosenka", "co to za utwór", "co to za utwor",
@@ -529,6 +534,8 @@ def handle(text, speak):
     import settings
     _say[0] = speak
     low = text.lower().strip(" .!?")
+    if _RESUME.match(low):
+        text = low = "włącz radio"             # your last station (_station)
     if any(k in low for k in _ALARM_ON + _ALARM_OFF):
         on = any(k in low for k in _ALARM_ON)
         settings.put("alarm_radio", on)

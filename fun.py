@@ -11,6 +11,8 @@ fun.py — small on-request games and gadgets (all local, no model call).
   "rzuć monetą" / "orzeł czy reszka" → a coin flips
   "pokaż mi kotka" / "zamień się w pieska" / "bądź zajączkiem" → cat / dog /
                              bunny ears (and whiskers) on her face for 25 s
+  "pomachaj", "kiwnij głową", "pokręć głową", "pokaż kciuk", "pokaż serce"
+                           → the gesture at once (robot_face's hands and head)
 
 robot_face.py draws the overlays ("lamp", "dice", "coin"); see screens.py for
 the overlay mechanism. None of these run on their own.
@@ -52,6 +54,92 @@ LAMP_COLOURS = {
 def _overlay(kind, secs, data=None):
     with state.lock:
         state.overlay = (kind, time.time() + secs, data)
+
+
+# "Pomachaj mi", "kiwnij głową"… — the gestures robot_face animates (14 Oct
+# probe: all went to the model; "pokaż kciuk" even looked for a photo)
+_GESTURES = [
+    ("wave", re.compile(r"^(?:pomachaj|pomachasz|machnij|pomachaj\s+ręką|pomachaj\s+rączką)"
+                        r"(?:\s+(?:mi|nam|ręką|rączką|do\s+\w+|na\s+do\s+widzenia|proszę))*$"),
+     ("Hej, hej!", "Pa, pa!", "Cześć!")),
+    ("nod", re.compile(r"^(?:kiwnij|pokiwaj|skiń|przytaknij)(?:\s+(?:mi|głową|glowa|głowa|"
+                       r"proszę))*$"), ("Mhm, tak!", "Tak, tak!")),
+    ("shake", re.compile(r"^(?:pokręć|pokrec|pokiwaj\s+przecząco|zaprzecz)(?:\s+(?:mi|głową|"
+                         r"glowa|głowa|proszę))*$"), ("Nie, nie!", "O nie!")),
+    ("thumbs_up", re.compile(r"^(?:pokaż|pokaz|daj)\s+(?:mi\s+)?(?:kciuka?|kciuk\s+w\s+górę)"
+                             r"(?:\s+w\s+górę)?(?:\s+proszę)?$|^kciuk\s+w\s+górę$"),
+     ("Super!", "Ekstra!")),
+    ("heart", re.compile(r"^(?:pokaż|pokaz|zrób|zrob)\s+(?:mi\s+|nam\s+)?(?:serce|serduszko|"
+                         r"serduszko\s+rękami|serce\s+rękami)(?:\s+proszę)?$"),
+     ("Dla ciebie!", "Kocham was!")),
+]
+
+
+# "Jak robi krowa?", "zamiaucz", "ryknij jak lew" — said at once (14 Oct probe:
+# all to the model). stem → (the sound, the costume she puts on with it)
+_ANIMAL_SOUNDS = [
+    (r"kot|kotek|kotka|kici", "Miau, miau!", "cat"),
+    (r"pies|piesek|psa|pieska|szczeni", "Hau, hau!", "dog"),
+    (r"zając|zajac|zajączek|zajaczek|królik|krolik", "Kic, kic!", "bunny"),
+    (r"krow", "Muuu!", None), (r"koń|kon\b|konik|konia|konika", "Iiihaha!", None),
+    (r"kur[ay]?\b|kurk|kurczak|kurczaczek", "Ko, ko, ko!", None),
+    (r"kogut", "Kukuryku!", None), (r"kacz", "Kwa, kwa!", None),
+    (r"owc|owieczk|baran", "Beee!", None), (r"koz", "Meee!", None),
+    (r"świn|swin|prosiak|prosiaczek", "Chrum, chrum!", None),
+    (r"lew|lwa|lwem|lwica|tygrys", "Wrrraaau!", None), (r"żab|zab", "Kum, kum!", None),
+    (r"sow|puszczyk", "Hu, hu!", None), (r"wilk|wilka", "Auuuuu!", None),
+    (r"mysz|myszk", "Pi, pi, pi!", None), (r"osioł|osiol|osła|osla", "I-o, i-o!", None),
+    (r"indyk", "Gul, gul, gul!", None), (r"gęś|ges\b|gęsi|gesi", "Gę, gę, gę!", None),
+    (r"pszcz|trzmiel|mucha|much", "Bzzzzz!", None), (r"wąż|waz\b|węż|wez", "Ssssss!", None),
+    (r"słoń|slon|słonia|slonia", "Tuuuuu!", None), (r"kukułk|kukulk", "Ku-ku, ku-ku!", None),
+    (r"ptak|ptaszek|ptaszk|wróbel|wrobel", "Ćwir, ćwir!", None),
+]
+_SOUND_Q = re.compile(r"^jak\s+(?:robi|mówi|mowi)\s+(\w+(?:\s+\w+)?)$|"
+                      r"^jaki\s+(?:dźwięk|dzwiek|odgłos|odglos)\s+(?:wydaje|robi)\s+(\w+(?:\s+\w+)?)$|"
+                      r"^(?:zrób|zrob|udawaj|naśladuj|nasladuj)\s+(?:mi\s+)?(?:jak|dźwięk|dzwiek|"
+                      r"odgłos|odglos)\s+(\w+(?:\s+\w+)?)$|"
+                      r"^(?:ryknij|zaryknij|zarycz)(?:\s+jak)?\s*(\w+)?$")
+_SOUND_VERBS = {"zamiaucz": "kot", "miaucz": "kot", "zaszczekaj": "pies", "szczekaj": "pies",
+                "zamucz": "krowa", "zabecz": "owca", "zakwacz": "kaczka", "zapiej": "kogut",
+                "zachrumkaj": "świnia", "zawyj": "wilk", "zarżyj": "koń", "zarzyj": "koń"}
+
+
+def animal_sound(text, speak):
+    """The animal's sound at once (and the cat's or dog's ears with it)."""
+    low = re.sub(r"^(?:luna|luno)\W+", "", text.lower().strip(" .!?"))
+    low = re.sub(r"\s+(?:proszę|prosze)$", "", low)
+    animal = _SOUND_VERBS.get(low.split(" ")[0]) if len(low.split()) <= 3 else None
+    if animal is None:
+        m = _SOUND_Q.match(low)
+        if not m:
+            return False
+        animal = next((g for g in m.groups() if g), None) or "lew"   # "ryknij!" alone
+        if re.search(r"\bpo\b", animal):
+            return False                       # "jak mówi kot po angielsku?" — the model
+    for stem, sound, costume in _ANIMAL_SOUNDS:
+        if re.match(r"(?:" + stem + ")", animal):
+            if costume:
+                with state.lock:
+                    state.costume = (costume, time.time() + COSTUME_SECS)
+            _mood("happy")
+            print(f"[fun] animal sound: {animal}", flush=True)
+            speak(sound)
+            return True
+    return False
+
+
+def gesture(text, speak):
+    """The gesture asked for, at once. True when it was one."""
+    low = re.sub(r"^(?:luna|luno)\W+", "", text.lower().strip(" .!?"))
+    for name, rx, lines in _GESTURES:
+        if rx.match(low):
+            with state.lock:
+                state.gesture_anim = name
+                state.gesture_anim_start = time.time()
+            print(f"[fun] gesture: {name}", flush=True)
+            speak(random.choice(lines))
+            return True
+    return False
 
 
 def _mood(emotion):
@@ -191,6 +279,8 @@ def handle(text, speak, play_sound, play_sound_async):
     said = random_answer(text)
     if said:
         speak(said)
+        return True
+    if gesture(text, speak) or animal_sound(text, speak):
         return True
     low = text.lower()
     words = re.findall(r"\w+", low)
