@@ -29,14 +29,12 @@ LINE, OPEN, O, GRIN, GRIT, WAVY = 0, 1, 2, 3, 4, 5
 # ── the layout: one face, every mood ───────────────────────────────────────
 # Relative to the face's centre (robot_face: fcx, fcy — 400, 212 on the
 # 800×480 panel, moving with the head). Everything is placed from here: the
-# eyes (and the brows over them), the mouth, the faceplate and the darker
-# band behind the eyes, and the anchors the props and costumes hang from.
+# eyes (and the brows over them), the mouth, and the anchors the props and
+# costumes hang from. No plate behind them: they float (15 Oct, pass 3).
 LAYOUT = {
     "eye_x": 158.0,               # each eye's centre, left and right of the middle
     "eye_y": -30.0,               # …and their baseline
     "mouth_y": 120.0,             # the mouth's centre
-    "plate": (0.0, 24.0, 372.0, 210.0, 168.0),   # the faceplate: dx, dy, half w, half h, radius
-    "band": (22.0, 30.0, 96.0),   # the eye band: margin round the eyes (x, y), radius
     "nose_y": 84.0,               # costumes: the nose between the eyes and the mouth
     "prop": (232.0, -150.0),      # props of a reply (weather, an idea): above, right
     "chin": (112.0, 196.0),       # a finger on the chin (thinking)

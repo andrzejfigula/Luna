@@ -71,11 +71,6 @@ uniform vec4  uMouth;         // cx, cy, w, h
 uniform vec4  uMouthK;        // bend (+ = smile), open 0..1, alpha, kind (face_spec: 0 line,
 uniform float uMouthSlant;    //   1 open, 2 O, 3 grin, 4 gritted teeth, 5 wavy); slant px
 
-uniform vec4  uPlate;         // the faceplate: cx, cy, half w, half h
-uniform vec4  uPlateK;        // its corner radius, alpha
-uniform vec4  uBand;          // the darker band behind the eyes: cx, cy, half w, half h
-uniform vec4  uBandK;         // its corner radius, alpha
-
 uniform vec4  uBlush;         // fcx, fcy, alpha 0..1, spread
 uniform vec3  uBlushCol;
 
@@ -150,6 +145,27 @@ float glitchShift(float y) {
     return dx;
 }
 
+// ── the light ────────────────────────────────────────────────────────────
+// One key light, warm, from above and a little in front (y is down), a faint
+// amber fill. Every feature is a small rounded object: its edge rolls over in
+// a bevel `bw` wide (the normal there leans outward, along the outline — the
+// SDF's gradient), its middle is a gentle dome. The tops catch the light, the
+// undersides turn deep orange.
+vec3 lit(vec3 albedo, vec2 grad, float d, float bw, vec2 dome) {
+    vec3 L = normalize(vec3(-0.28, -0.80, 0.55));
+    float t = clamp(-d / bw, 0.0, 1.0);
+    float slope = 1.7 * (1.0 - t) * (1.0 - t);
+    vec3 n = normalize(vec3(grad * slope + dome, 1.0));
+    float diff = max(dot(n, L), 0.0);
+    vec3 c = albedo * (0.62 + 0.56 * diff) + albedo * vec3(0.05, 0.03, 0.0);   // key + fill
+    c *= mix(1.0, 0.68, smoothstep(0.05, 0.75, n.y));                   // the underside
+    float spec = pow(max(dot(n, normalize(L + vec3(0.0, 0.0, 1.0))), 0.0), 34.0);
+    return c + uShine * spec * 0.42;
+}
+
+// the outward direction of a shape at q (its SDF's gradient, by differences)
+#define GRAD(F, q, d) normalize(vec2(F(q + vec2(1.0, 0.0)) - d, F(q + vec2(0.0, 1.0)) - d) + 1e-6)
+
 // ── the eye ──────────────────────────────────────────────────────────────
 // A rounded block (round when surprised, a heart in love), cut by two lids:
 // the upper one comes down (tilted, arched), the lower one comes up (pushed
@@ -219,10 +235,6 @@ vec3 eyeColour(vec2 q, vec2 b, float d, vec2 look, vec4 la, float side) {
     // a little above the middle — lit from inside
     float v = clamp((q.y + b.y) / (2.0 * b.y), 0.0, 1.0);
     vec3 col = mix(top, bot, smoothstep(0.05, 1.0, v));
-    vec2 cq = (q - vec2(0.0, -0.18 * b.y)) / b;
-    col *= 1.08 - 0.30 * clamp(dot(cq, cq) * 0.7, 0.0, 1.0);   // a dome: darker sides
-    col *= 0.86 + 0.14 * smoothstep(0.0, 9.0, -d);             // the very edge in shadow…
-    col += top * 0.30 * exp(d / 2.5);                          // …under a thin lit rim
     // the upper lid's shadow on the eye below it
     vec2 t = lidTop(q.x, b, la, side);
     float lidded = smoothstep(0.02, 0.12, la.x);
@@ -230,10 +242,7 @@ vec3 eyeColour(vec2 q, vec2 b, float d, vec2 look, vec4 la, float side) {
     // glass: a soft highlight up and to the left, drifting against the gaze
     vec2 gq = q + look * 0.22;
     vec2 hp = (gq - vec2(-0.38 * b.x, -0.58 * b.y)) / vec2(0.32 * b.x, 0.14 * b.y);
-    col = mix(col, uShine, 0.55 * exp(-dot(hp, hp) * 1.6) * (1.0 - 0.7 * lidded));
-    float rx = q.x / b.x;
-    float band = exp(-sq((q.y - 0.70 * b.y) / (0.10 * b.y))) * (1.0 - rx * rx);
-    col += uShine * band * 0.10;                               // light from below
+    col = mix(col, uShine, 0.50 * exp(-dot(hp, hp) * 1.6) * (1.0 - 0.7 * lidded));
     return col;
 }
 
@@ -291,7 +300,7 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
         vec3 gc = mix(mix(uGlow, uTint, uTintAmt), uHeartBottom, uMorph.x);
         float breath = 1.0 + 0.07 * sin(uTime);          // she breathes: so does the light
         float dg = max(min(d, mix(1e5, ds, sa)), 0.0);
-        glow += gc * (0.46 * exp(-dg / 12.0) + 0.20 * breath * exp(-dg / 42.0))
+        glow += gc * (0.40 * exp(-dg / 10.0) + 0.17 * breath * exp(-dg / 40.0))
                 * smoothstep(0.0, 8.0, e.w);
         return col;
     }
@@ -299,6 +308,12 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
     float as_ = clamp(0.5 - ds, 0.0, 1.0) * sa;
     if (a <= 0.0 && as_ <= 0.0) return col;
     vec3 c = eyeColour(q, b, d, pu.xy, la, side);
+    // its volume: a bevel round the edge (lids too), a dome over the middle
+    vec2 g = vec2(0.0);                   // (only the bevel needs the edge's direction)
+    if (d > -16.0)
+        g = normalize(vec2(eyeSDF(q + vec2(1.0, 0.0), e, la, lb, side) - d,
+                           eyeSDF(q + vec2(0.0, 1.0), e, la, lb, side) - d) + 1e-6);
+    c = lit(c, g, d, 16.0, q / b * 0.30);
     c = drawIris(q, c, pu);
     // the seam: lit like the top of the eye
     vec3 sc = mix(mix(uTop, uTint, uTintAmt), uShine, 0.25);
@@ -308,42 +323,45 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
     return mix(col, outc, cov);
 }
 
+float browSDF(vec2 p, vec4 s, float bend) {
+    vec2 m = (s.xy + s.zw) * 0.5;
+    float hl = max(1.0, length(s.zw - s.xy) * 0.5);
+    float x = clamp((p.x - m.x) / hl, -1.0, 1.0);
+    vec2 pp = vec2(p.x, p.y + bend * (1.0 - x * x));
+    float taper = 0.62 + 0.38 * (1.0 - x * x);                  // fuller in the middle
+    return sdSeg(pp, s.xy, s.zw) - uBrowK.z * 0.5 * taper;
+}
+
 vec3 drawBrow(vec2 p, vec3 col, inout vec3 glow, vec4 s, float bend) {
     if (uBrowK.w <= 0.01) return col;
     vec2 m = (s.xy + s.zw) * 0.5;
     float hl = max(1.0, length(s.zw - s.xy) * 0.5);
     if (uPass > 0.5 && (abs(p.x - m.x) > hl + uBrowK.z
                         || abs(p.y - m.y) > abs(s.w - s.y) * 0.5 + uBrowK.z + abs(bend))) return col;
-    float x = clamp((p.x - m.x) / hl, -1.0, 1.0);
-    vec2 pp = vec2(p.x, p.y + bend * (1.0 - x * x));
-    float taper = 0.62 + 0.38 * (1.0 - x * x);                  // fuller in the middle
-    float d = sdSeg(pp, s.xy, s.zw) - uBrowK.z * 0.5 * taper;
+    float d = browSDF(p, s, bend);
     if (uPass < 0.5) {
-        glow += uGlow * 0.40 * exp(-max(d, 0.0) / 10.0) * uBrowK.w;
+        glow += uGlow * 0.32 * exp(-max(d, 0.0) / 9.0) * uBrowK.w;
         return col;
     }
     float a = clamp(0.5 - d, 0.0, 1.0) * uBrowK.w;
     gA = a;
-    float v = clamp((pp.y - m.y) / (uBrowK.z * taper) + 0.5, 0.0, 1.0);
-    vec3 c = mix(mix(uTop, uTint, uTintAmt * 0.8), mix(uBottom, uTint, uTintAmt * 0.6), v * 0.8);
-    c = mix(c, uShine, 0.40 * exp(-sq((v - 0.22) / 0.16)));
+    vec2 g = normalize(vec2(browSDF(p + vec2(1.0, 0.0), s, bend) - d,
+                            browSDF(p + vec2(0.0, 1.0), s, bend) - d) + 1e-6);
+    vec3 c = mix(mix(uTop, uTint, uTintAmt * 0.8), mix(uBottom, uTint, uTintAmt * 0.6), 0.25);
+    c = lit(c, g, d, uBrowK.z * 0.5, vec2(0.0));                 // a rounded tube
     return mix(col, c, a);
 }
 
-vec3 drawMouth(vec2 p, vec3 col, inout vec3 glow) {
-    float alpha = uMouthK.z;
-    if (alpha <= 0.01) return col;
-    vec2 q = p - uMouth.xy;
+// the mouth's shape at q (from its centre): its SDF, and inside it the dark
+// (inner < 0), the teeth and the tongue
+float mouthSDF(vec2 q, out float inner, out float teeth, out float tongue) {
     float hw = uMouth.z * 0.5;
     float h = uMouth.w;
     float kind = uMouthK.w;
-    if (uPass > 0.5 && (abs(q.x) > hw + h * 0.5 + 6.0
-                        || abs(q.y) > max(h, uMouth.z * step(1.5, kind) * step(kind, 2.5)) * 0.5
-                                      + h * step(2.5, kind) + abs(uMouthK.x)
-                                      + abs(uMouthSlant) + 6.0)) return col;
     float d;
-    float inner = 1e5;
-    float teeth = 0.0, tongue = 0.0;
+    inner = 1e5;
+    teeth = 0.0;
+    tongue = 0.0;
     if (kind < 0.5) {                         // a line: smile / frown / slant
         float x = clamp(q.x / hw, -1.0, 1.0);
         vec2 pq = vec2(q.x, q.y - uMouthK.x * (1.0 - x * x));
@@ -389,51 +407,90 @@ vec3 drawMouth(vec2 p, vec3 col, inout vec3 glow) {
         float sl = 7.0 * k * cos(x * k);
         d = length(vec2(q.x - x, (q.y - y) / sqrt(1.0 + sl * sl))) - h * 0.5;
     }
+    return d;
+}
+
+float mouthD(vec2 q) {
+    float i, t, g;
+    return mouthSDF(q, i, t, g);
+}
+
+vec3 drawMouth(vec2 p, vec3 col, inout vec3 glow) {
+    float alpha = uMouthK.z;
+    if (alpha <= 0.01) return col;
+    vec2 q = p - uMouth.xy;
+    float hw = uMouth.z * 0.5;
+    float h = uMouth.w;
+    float kind = uMouthK.w;
+    if (uPass > 0.5 && (abs(q.x) > hw + h * 0.5 + 6.0
+                        || abs(q.y) > max(h, uMouth.z * step(1.5, kind) * step(kind, 2.5)) * 0.5
+                                      + h * step(2.5, kind) + abs(uMouthK.x)
+                                      + abs(uMouthSlant) + 6.0)) return col;
+    float inner, teeth, tongue;
+    float d = mouthSDF(q, inner, teeth, tongue);
     if (uPass < 0.5) {
-        glow += mix(uGlow, uTint, uTintAmt) * 0.40 * exp(-max(d, 0.0) / 12.0) * alpha;
+        glow += mix(uGlow, uTint, uTintAmt) * 0.32 * exp(-max(d, 0.0) / 10.0) * alpha;
         return col;
     }
     float a = clamp(0.5 - d, 0.0, 1.0) * alpha;
+    if (a <= 0.0) return col;
     gA = a;
-    float v = clamp(q.y / max(h, 10.0) + 0.5, 0.0, 1.0);
-    vec3 c = mix(mix(uTop, uTint, uTintAmt), mix(uBottom, uTint, uTintAmt), 0.30 + 0.55 * v);
-    c += uShine * 0.18 * exp(d / 2.5);                       // a lit rim
+    vec2 g = GRAD(mouthD, q, d);
+    vec3 c = mix(mix(uTop, uTint, uTintAmt), mix(uBottom, uTint, uTintAmt), 0.35);
+    // the lips: a line is a rounded tube; an open mouth's rim rolls over
+    c = lit(c, g, d, kind < 0.5 || kind > 4.5 ? h * 0.5 : 8.0, vec2(0.0));
     if (inner < 1e4) {                        // the dark inside: teeth, a tongue
         float ia = clamp(0.5 - inner, 0.0, 1.0);
-        vec3 inside = vec3(0.07, 0.025, 0.012) + vec3(0.10, 0.03, 0.02) * (1.0 - v);
-        inside *= 0.7 + 0.3 * smoothstep(-14.0, 0.0, inner);  // deeper toward the middle
-        inside = mix(inside, vec3(0.86, 0.32, 0.30), tongue * 0.9);
-        inside = mix(inside, vec3(1.0, 0.95, 0.86), teeth * 0.92);
+        float v = clamp(q.y / max(h, 10.0) + 0.5, 0.0, 1.0);
+        vec3 inside = vec3(0.06, 0.02, 0.010) + vec3(0.09, 0.03, 0.02) * (1.0 - v);
+        inside *= 0.55 + 0.45 * smoothstep(-16.0, 0.0, inner);   // deeper toward the middle
+        vec3 tg = vec3(0.86, 0.32, 0.30) * (0.70 + 0.45 * smoothstep(0.6, 0.2, v));
+        inside = mix(inside, tg, tongue * 0.9);
+        vec3 th = vec3(1.0, 0.95, 0.86) * (0.80 + 0.20 * smoothstep(1.0, 0.0, v));
+        inside = mix(inside, th, teeth * 0.92);
+        inside *= 1.0 - 0.45 * exp(inner / 5.0);                 // shadowed under the lips
         c = mix(c, inside, ia);
     }
     return mix(col, c, a);
 }
 
-// ── the faceplate ────────────────────────────────────────────────────────
-// Her head: a rounded plate of warm dark glass, lit from above, shaded toward
-// its edges, a thin luminous rim — and a darker band behind the eyes with a
-// lit bevel under it, so the eyes sit in something. Drawn at full size in
-// the pass that stretches the soft layer (it runs over every pixel anyway).
-vec3 faceplate(vec2 p, float soft) {
-    vec2 q = p - uPlate.xy;
-    float d = sdRoundBox(q, uPlate.zw, uPlateK.x);
-    vec2 bq = p - uBand.xy;
-    float db = sdRoundBox(bq, uBand.zw, uBandK.x);
-    vec3 rimc = mix(uGlow, uShine, 0.25);
-    if (soft > 0.5) {                     // the glass itself: all gradients (quarter size)
-        float inside = smoothstep(4.0, -4.0, d);
-        float v = clamp(q.y / (2.0 * uPlate.w) + 0.5, 0.0, 1.0);
-        vec3 fill = mix(vec3(0.080, 0.050, 0.030), vec3(0.030, 0.017, 0.011), v);
-        fill *= mix(0.50, 1.0, smoothstep(0.0, 46.0, -d));         // shade at the edges
-        float sheen = exp(-sq((q.x * 0.30 + q.y + uPlate.w * 0.62) / (uPlate.w * 0.16)));
-        fill += vec3(0.030, 0.022, 0.016) * sheen * smoothstep(0.0, 40.0, -d);
-        fill *= 1.0 - 0.72 * smoothstep(10.0, -10.0, db) * uBandK.y;   // the eye band: darker
-        return fill * inside * uPlateK.y + rimc * 0.045 * exp(-max(d, 0.0) / 16.0) * uPlateK.y;
+// ── shadows and the floor ────────────────────────────────────────────────
+// (the soft pass) Each feature floats a little in front of a dark surface:
+// a contact shadow right under it, in its own shape, and a wider soft one;
+// under the eyes, past the shadow, a faint warm reflection of the eye. The
+// glow round a feature is what the shadow darkens — that is how it shows on
+// a nearly black screen.
+float eyeShadow(vec2 p, vec4 e, vec4 la, vec4 lb, float side) {
+    if (e.w < 8.0) return 0.0;
+    vec2 b = e.zw * 0.5;
+    vec2 q = eyeLocal(p - vec2(0.0, 0.06 * e.w + 4.0), e, lb, side);
+    float d = max(eyeSDF(q, e, la, lb, side), 0.0);
+    float below = smoothstep(e.y - 0.2 * b.y, e.y + 0.9 * b.y, p.y);
+    return (0.85 * exp(-d / 5.0) + 0.35 * exp(-d / 18.0)) * below;
+}
+
+vec3 eyeFloor(vec2 p, vec4 e, vec4 la, vec4 lb, float side) {
+    float yf = e.y + e.w * 0.5 + 9.0;                  // the floor, just under the eye
+    if (p.y < yf || e.w < 30.0 || uMorph.x > 0.5) return vec3(0.0);
+    vec2 q = eyeLocal(vec2(p.x, 2.0 * yf - p.y), e, lb, side);
+    float d = eyeSDF(q, e, la, lb, side);
+    float k = smoothstep(6.0, -14.0, d) * exp(-(p.y - yf) / 30.0);
+    return mix(uBottom, uTint, uTintAmt) * 0.34 * k;
+}
+
+float featureShadow(vec2 p) {
+    float s = max(eyeShadow(p, uEye0, uLidA0, uLidB0, -1.0),
+                  eyeShadow(p, uEye1, uLidA1, uLidB1, 1.0));
+    if (uBrowK.w > 0.01) {
+        vec2 o = vec2(0.0, 7.0);
+        float d = max(min(browSDF(p - o, uBrow0, uBrowK.x), browSDF(p - o, uBrow1, uBrowK.y)), 0.0);
+        s = max(s, (0.75 * exp(-d / 4.0) + 0.25 * exp(-d / 12.0)) * uBrowK.w);
     }
-    // the crisp lines (full size): the plate's luminous rim, and the band's
-    // lower edge catching the light — a bevel
-    return rimc * 0.16 * exp(-abs(d) / 1.4) * uPlateK.y
-           + rimc * 0.07 * exp(-abs(db) / 2.2) * smoothstep(0.2, 1.0, bq.y / uBand.w) * uBandK.y;
+    if (uMouthK.z > 0.01) {
+        float d = max(mouthD(p - uMouth.xy - vec2(0.0, 7.0)), 0.0);
+        s = max(s, (0.75 * exp(-d / 4.0) + 0.25 * exp(-d / 12.0)) * uMouthK.z);
+    }
+    return s;
 }
 
 void main() {
@@ -459,7 +516,6 @@ void main() {
         float sheen = exp(-sq((uv.x + uv.y * 0.6 - 0.35) / 0.10));
         col += vec3(0.010, 0.009, 0.012) * sheen;
         if (uFace > 0.5) {
-            if (uPlateK.y > 0.01) col += faceplate(fc, 1.0);   // (upright: not tilted)
             if (uBlush.z > 0.01) {                       // blush under the eyes
                 vec2 bq = (p - uBlush.xy - vec2(-232.0, 70.0)) / vec2(uBlush.w * 1.5, uBlush.w);
                 col += uBlushCol * 0.60 * uBlush.z * exp(-dot(bq, bq) * 2.0);
@@ -471,14 +527,17 @@ void main() {
             col = drawBrow(p, col, glow, uBrow0, uBrowK.x);
             col = drawBrow(p, col, glow, uBrow1, uBrowK.y);
             col = drawMouth(p, col, glow);
-            col += glow * 0.55;
+            float sh = featureShadow(p);
+            col += glow * 0.55 * (1.0 - 0.9 * sh);
+            col *= 1.0 - 0.6 * sh;
+            col += (eyeFloor(p, uEye0, uLidA0, uLidB0, -1.0)
+                    + eyeFloor(p, uEye1, uLidA1, uLidB1, 1.0)) * (1.0 - sh);
         } else {
             col = vec3(0.0);
         }
         gl_FragColor = vec4(col, 1.0);
     } else if (uPass < 1.5) {
         vec3 col = texture2D(uSoft, vec2(uv.x, 1.0 - uv.y)).rgb;   // (drawn bottom row first)
-        if (uFace > 0.5 && uPlateK.y > 0.01) col += faceplate(fc, 0.0);   // (upright)
         col += (hash(fc + fract(uTime)) - 0.5) / 255.0;            // dither: no banding
         gl_FragColor = vec4(col, 1.0);
     } else if (uPass < 2.5) {
@@ -952,21 +1011,9 @@ class GLFace:
             else:
                 brows.append((ex - bw / 2, by + t, ex + bw / 2, by - t))
         u["uBrow0"], u["uBrow1"] = brows
-        u["uBrowK"] = (cur["brow_bend"], cur["brow_bend"], 17.0, cur["brow_a"])
+        u["uBrowK"] = (cur["brow_bend"], cur["brow_bend"], 21.0, cur["brow_a"])
         u.update(self._mouth(face, rf, fcx, fcy, cur))
         u["uBlush"] = (fcx, fcy, cur["blush"], 30.0)
-        # the faceplate follows the head a little, the band behind the eyes fully
-        L = face_spec.LAYOUT
-        pdx, pdy, phw, phh, pr = L["plate"]
-        ox, oy = getattr(face, "face_ox", 0.0), getattr(face, "face_oy", 0.0)
-        u["uPlate"] = (fcx - ox * 0.6 + pdx, fcy - oy * 0.6 + pdy, phw, phh)
-        u["uPlateK"] = (pr, 1.0, 0.0, 0.0)
-        bx, by, br = L["band"]
-        e0, e1 = u["uEye0"], u["uEye1"]
-        u["uBand"] = ((e0[0] + e1[0]) / 2, (e0[1] + e1[1]) / 2,
-                      (e1[0] - e0[0]) / 2 + max(e0[2], e1[2]) / 2 + bx,
-                      max(e0[3], e1[3]) / 2 + by)
-        u["uBandK"] = (br, 1.0, 0.0, 0.0)
         sp = getattr(face, "_scene_p", 0.0)
         tearing = (getattr(face, "_scene_name", None) == "glitch" and 0.12 < sp < 0.82)
         u["uGlitch"] = (1.0, float(int(sp * 24))) if tearing else (0.0, 0.0)
