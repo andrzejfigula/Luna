@@ -248,6 +248,8 @@ vec3 eyeColour(vec2 q, vec2 b, float d, vec2 look, vec4 la, float side) {
     vec2 gq = q + look * 0.22;
     vec2 hp = (gq - vec2(-0.38 * b.x, -0.58 * b.y)) / vec2(0.32 * b.x, 0.14 * b.y);
     col = mix(col, uShine, 0.50 * exp(-dot(hp, hp) * 1.6) * (1.0 - 0.7 * lidded));
+    // light coming through the glass: the lower edge glows
+    col += bot * 0.28 * exp(min(d, 0.0) / 7.0) * smoothstep(0.55, 1.0, v);
     return col;
 }
 
@@ -266,6 +268,8 @@ vec3 drawIris(vec2 q, vec3 c, vec4 pu) {
     iris += uIrisCol * 0.30 * exp(-sq((pq.y - 0.62 * pr) / (0.18 * pr)))
             * smoothstep(1.0, 0.75, k);
     iris += uIrisCol * 0.55 * uWarm * smoothstep(0.70, 0.97, k);         // a warm rim
+    iris += uShine * 0.08 * exp(-sq((k - 0.80) / 0.05))                   // a glassy ring
+            * clamp(0.5 - (pq.x + pq.y) / (2.0 * pr), 0.0, 1.0);
     vec3 o = mix(c, iris, ia);
     // a soft shadow the iris throws on the eye round it
     float irs = length((pq - vec2(0.05 * pr, 0.12 * pr)) / vec2(0.93, 1.0));
@@ -694,18 +698,34 @@ class _Life:
         self.near = 0.0                   # how close the person is (eased, 0..1)
         self.listen = 0.0                 # listening (eased) — one brow cocked
         self.cock = 0                     # …which one
+        self.flash_t = -9.0               # someone appears: an eyebrow flash
+        self.contact = 0.0                # since when someone's been in view
+        self.shy_t, self.shy_next, self.shy_side = -9.0, 0.0, 1.0
+        self.lost = (-9.0, 0.0, 0.0)      # they left: (when, where the eyes were)
+        self.last_look = (0.0, 0.0)
+        self.aha_t = -9.0                 # done thinking: "aha!"
+        self.sigh_t, self.sigh_next = -9.0, time.monotonic() + random.uniform(25, 45)
+        self.hmm_t, self.hmm_next = -9.0, 0.0     # thinking: a "hmm" purse of the lips
+        self.rem_t = time.monotonic() + random.uniform(20, 40)   # asleep: dreaming
+        self.closed_at = -9.0             # the last blink: a fresh wet glint after
+        self.touched = 0.0                # the last touch we reacted to
 
-    def lid(self, now):
+    def lid(self, now, i=-1):
         """The extra lid moves on top of the blinks: quick to close, slower
-        to open (0 open … 1 shut)."""
+        to open (0 open … 1 shut). An entry's 4th item, if any, is the one
+        eye it shuts (0 left, 1 right)."""
         v = 0.0
-        for t0, dur, depth in self.lids:
-            el = (now - t0) / dur
+        for b in self.lids:
+            if len(b) > 3 and i >= 0 and b[3] != i:
+                continue
+            el = (now - b[0]) / b[1]
             if 0.0 <= el < 1.0:
                 c = el / 0.3 if el < 0.3 else 1.0 - (el - 0.3) / 0.7
-                v = max(v, depth * c * c * (3.0 - 2.0 * c))
-        self.lids = [b for b in self.lids if now - b[0] < b[1]]
+                v = max(v, b[2] * c * c * (3.0 - 2.0 * c))
         return v
+
+    def prune(self, now):
+        self.lids = [b for b in self.lids if now - b[0] < b[1]]
 
     def yawn(self, now):
         """0 → 1 → 0 over a yawn's 2.8 s: slow to open, a hold, a close."""
@@ -750,6 +770,10 @@ class _Life:
             self.yawned = False
         if listening and self.listen < 0.05:
             self.cock = random.choice((0, 1))
+        if emo == "thinking" and now > self.hmm_next:
+            self.hmm_next = now + random.uniform(4, 7)
+            self.hmm_t = now
+        self.prune(now)
 
     def step(self, now, dt, calm, steady=False, jitter=False):
         if now > self.sacc_t:
@@ -1101,6 +1125,8 @@ class GLFace:
         if emo != life.mood:
             if life.mood is not None and emo != "sleeping":
                 life.pop_t = now
+                if life.mood == "thinking":       # got it: "aha!"
+                    life.aha_t = now
                 if emo == "surprised":            # a take: squeeze shut, then pop wide
                     life.lids.append((now, 0.18, 0.9))
                     life.pop_t = now + 0.12
@@ -1115,7 +1141,47 @@ class GLFace:
         fw = getattr(st, "face_w", 0.0) if seen and st is not None else 0.0
         life.near += (max(0.0, min(1.0, (fw - 0.25) / 0.25)) - life.near) * k6
         life.listen += ((1.0 if face._listen and not talking else 0.0) - life.listen) * k6
-        extra_lid = life.lid(now)
+        if seen and life.contact <= 0.0:          # someone appears: brows flash up
+            life.contact = now
+            life.flash_t = now
+        elif not seen and life.contact > 0.0:     # they left: keep looking where they were
+            life.contact = 0.0
+            life.lost = (now, *life.last_look)
+        glow_on = getattr(face, "awake_glow", 0.0)
+        if (seen and not talking and glow_on < 0.3 and emo in ("neutral", "happy")
+                and now - life.contact > 12.0 and now > life.shy_next):
+            life.shy_t, life.shy_next = now, now + 40.0   # looked at a long while: shy
+            life.shy_side = random.choice((-1.0, 1.0))
+        if (not seen and not talking and glow_on < 0.3 and emo == "neutral"
+                and drowsy <= 0.0 and now > life.sigh_next):
+            life.sigh_t, life.sigh_next = now, now + random.uniform(25, 45)   # alone: a sigh
+        if emo == "sleeping" and now > life.rem_t + 3.0:
+            life.rem_t = now + random.uniform(20, 40)
+        rem = 1.0 if emo == "sleeping" and life.rem_t <= now else 0.0
+        shy = life.bump(now, life.shy_t, 2.5)
+        sigh = life.bump(now, life.sigh_t, 1.8)
+        flash = life.bump(now, life.flash_t, 0.45)
+        aha = life.bump(now, life.aha_t, 0.5)
+        lost = max(0.0, min(1.0, 2.5 - (now - life.lost[0]))) if not seen else 0.0
+        # a touch: the eyes glance at it; a tap on an eye shuts that one;
+        # a stroke half closes them, contented; a poke shakes them
+        tkind = getattr(face, "_touch_kind", None)
+        tel = time.time() - getattr(face, "_touch_react_t", -99.0)
+        tpt = getattr(face, "_touch_pt", None)
+        if tpt and getattr(face, "_touch_react_t", 0.0) != life.touched:
+            life.touched = face._touch_react_t
+            if getattr(face, "_touch_zone", None) == "eye" and tkind == "tap":
+                near_eye = 0 if tpt[0] < fcx else 1
+                life.lids.append((now, 0.35, 1.0, near_eye))
+        glance = (min(1.0, tel / 0.08) * max(0.0, min(1.0, (1.4 - tel) / 0.3))
+                  if tpt and tkind in ("tap", "stroke") and tel >= 0.0 else 0.0)
+        content = (max(0.0, min(1.0, tel / 0.3, (2.5 - tel) / 0.6))
+                   if tkind == "stroke" and tel >= 0.0 else 0.0)
+        poke = (max(0.0, 1.0 - tel / 0.5) if tkind == "multi" and tel >= 0.0 else 0.0)
+        # after a blink: a fresh wet glint
+        glint = life.bump(now, life.closed_at + 0.12, 0.7)
+        hour = time.localtime().tm_hour
+        night = 1.0 if (hour >= 22 or hour < 6) else 0.0     # late: softer, warmer eyes
         yawn = life.yawn(now)
         away = life.bump(now, life.away[0], 0.9)
         up = life.bump(now, life.up_at, 1.4)
@@ -1128,7 +1194,7 @@ class GLFace:
              "uFace": 1.0 if rf.EYE_MODE == "block" else 0.0,
              "uTop": _rgb(rf.EYE_GRAD_TOP), "uBottom": _rgb(rf.EYE_GRAD_BOTTOM),
              "uGlow": _rgb(_lerp_col(_lerp_col(rf.GLOW_COL, (90, 150, 255), 0.30 * cur["wet"]),
-                                     (255, 160, 120), 0.22 * min(1.0, cur["blush"]))),
+                                     (255, 160, 120), 0.22 * min(1.0, cur["blush"]) + 0.15 * night)),
              "uShine": _rgb(rf.IRIS_SHINE),
              "uPupilCol": _rgb(rf.PUPIL_DARK),
              "uIrisCol": _rgb(getattr(rf, "IRIS_COL", (120, 52, 10))),
@@ -1138,7 +1204,7 @@ class GLFace:
              "uEnergy": min(1.0, max(0.0, voice)),
              # warm moods warm the pupils' rims; asleep, the eyes dim
              "uWarm": min(1.0, cur["blush"] * 1.2),
-             "uDim": 0.70 if emo == "sleeping" else 1.0}
+             "uDim": (0.70 if emo == "sleeping" else 1.0) * (1.0 - 0.12 * night)}
         tint = face._eye_color
         amt = 0.45 if tint else 0.0
         heat = cur["tint"] + 0.45 * face.angry_pulse          # angry: red, and pulsing
@@ -1147,7 +1213,7 @@ class GLFace:
             amt = max(amt, heat)
         u["uTint"] = _rgb(tint or rf.EYE_GRAD_TOP)
         u["uTintAmt"] = min(0.85, amt)
-        u["uMorph"] = (cur["heart"], cur["wet"], cur["round"], cur["star"])
+        u["uMorph"] = (cur["heart"], max(cur["wet"], 0.35 * glint), cur["round"], cur["star"])
         look = COSTUME_EYES.get(costume)
         if look:                                  # a costume's own eyes (googly, robot…)
             u.update(look)
@@ -1162,6 +1228,7 @@ class GLFace:
             h = eye.h * (1.0 + 0.15 * eye.widen)
             w, h = w * (1.0 + 0.008 * breath), h * (1.0 + 0.008 * breath)   # breathing
             w, h = w * (1.0 + pop), h * (1.0 + pop)                        # a new mood: pop
+            w, h = w * (1.0 + 0.05 * aha), h * (1.0 + 0.07 * aha)          # aha: wide
             if cur["heart"] > 0.5:                # hearts beat (~70 a minute)
                 beat = 0.05 * max(0.0, math.sin(now * math.tau * 1.15)) ** 4
                 w, h = w * (1.0 + beat), h * (1.0 + beat)
@@ -1177,6 +1244,10 @@ class GLFace:
             ex, ey = cx + eye.pupil_ox * 0.30, cy + eye.pupil_oy * 0.30
             if cur["tint"] > 0.3:                 # angry: a faint tremble
                 ex += 0.9 * math.sin(now * 47.0 + i)
+            ex += 7.0 * poke * math.sin(now * 60.0)   # poked: a shake
+            if emo == "excited":                  # excited: the eyes hop
+                ey -= 4.0 * abs(math.sin(now * 2.5 * math.pi))
+            ey += 4.0 * sigh                      # a sigh: the eyes sink…
             top, tilt, bend = cur["lid_top"][i], cur["lid_tilt"][i], cur["lid_bend"][i]
             bot, bbend = cur["lid_bot"][i], cur["lid_bot_bend"][i]
             # the lids follow the gaze: looking down, the upper lid comes down
@@ -1191,6 +1262,11 @@ class GLFace:
             top += heavy * (1.0 - top - bot)
             if talking and emo in ("happy", "excited"):   # laughing: the cheeks push up
                 bot += 0.25 * min(1.0, voice) * (1.0 - top - bot)
+            top += (0.25 * sigh + 0.35 * content + 0.10 * shy) * max(0.0, 1.0 - top - bot)
+            bot += 0.15 * content * max(0.0, 1.0 - top - bot)     # (stroked: contented)
+            if rem:                               # dreaming: the shut lids flicker
+                f = 0.02 * math.sin(now * 14.0 + i)
+                top, bot = top + f, bot - f
             if yawn > 0.0:                        # a yawn screws the eyes up
                 top, bot = top + 0.45 * yawn * (1.0 - top - bot), bot + 0.25 * yawn * (1.0 - top - bot)
             # squints (reply scenes, idle micro-expressions) bring both lids
@@ -1200,7 +1276,9 @@ class GLFace:
             top, bot = top * (1.0 - 0.7 * eye.widen), bot * (1.0 - 0.7 * eye.widen)
             # a blink: the lids meet ~60 % of the way down, their curves meet too
             shut = 1.0 - max(0.0, min(1.0, eye.blink_t))
-            shut = max(shut, extra_lid)           # half blinks, slow blinks, a take
+            shut = max(shut, life.lid(now, i))    # half blinks, slow blinks, a take
+            if shut > 0.8 and not asleep:
+                life.closed_at = now
             if i == 1:                            # the right eye a frame behind the left
                 shut, life.shut_prev = 0.5 * (shut + life.shut_prev), life.shut_prev
             else:
@@ -1223,10 +1301,23 @@ class GLFace:
             pr *= 1.0 + 0.03 * math.sin(now * 0.8)                 # pupils breathe too
             pr *= 1.0 + 0.06 * getattr(face, "awake_glow", 0.0)    # interested: a bit wider
             pr *= 1.0 + 0.15 * life.bump(now, life.seen_t, 1.6)    # someone's there: wide
+            pr *= 1.0 + 0.06 * life.listen                          # listening hard
             dx = eye.pupil_ox * 0.85 + cur["gaze_x"] - side * conv * 0.6   # cross-eyed: in
             dy = eye.pupil_oy * 0.85 + cur["gaze_y"]
             if not asleep:                        # micro-saccades
                 dx, dy = dx + life.sacc_now[0], dy + life.sacc_now[1]
+            if i == 0 and seen:
+                life.last_look = (eye.pupil_ox, eye.pupil_oy)
+            if lost > 0.0:                        # they left: still looking there
+                dx += (life.lost[1] - eye.pupil_ox) * 0.85 * lost
+                dy += (life.lost[2] - eye.pupil_oy) * 0.85 * lost
+            if glance > 0.0:                      # a touch: a glance at it
+                gx, gy = tpt[0] - cx, tpt[1] - cy
+                gn = max(1.0, math.hypot(gx, gy))
+                dx += (gx / gn * 0.45 * w - dx) * glance
+                dy += (gy / gn * 0.45 * h - dy) * glance
+            dx += life.shy_side * 26.0 * shy      # shy: a look aside and down
+            dy += 14.0 * shy
             dx -= side * 6.0 * life.near          # someone close: the eyes converge
             dx += life.away[1] * 24.0 * away      # talking: a glance aside…
             dy += 6.0 * away                      # …and a little down
@@ -1253,6 +1344,8 @@ class GLFace:
             by -= 6.0 * emph * (-0.8 if cur["tint"] > 0.3 else 1.0)   # a stressed syllable
             by -= 5.0 * life.listen * (i == life.cock)             # listening: one cocked
             by -= 10.0 * yawn
+            by -= 14.0 * flash + 10.0 * aha       # a greeting flash; "aha!"
+            by += 6.0 * sigh
             t = cur["brow_tilt"][i] * 0.5
             if talking and cur["wet"] > 0.5:      # sad, talking: the inner brows quiver
                 t -= 2.5 * cur["wet"] * math.sin(now * 13.0 + i)
@@ -1265,7 +1358,7 @@ class GLFace:
                        21.0 + 6.0 * cur["tint"] - 7.0 * max(0.0, 1.0 - cur["brow_a"]),
                        cur["brow_a"])
         u.update(self._mouth(face, rf, fcx, fcy, cur))
-        u["uBlush"] = (fcx, fcy, cur["blush"], 30.0)
+        u["uBlush"] = (fcx, fcy, min(1.0, cur["blush"] + 0.55 * shy), 30.0)
         sp = getattr(face, "_scene_p", 0.0)
         tearing = (getattr(face, "_scene_name", None) == "glitch" and 0.12 < sp < 0.82)
         u["uGlitch"] = (1.0, float(int(sp * 24))) if tearing else (0.0, 0.0)
@@ -1322,6 +1415,19 @@ class GLFace:
             w, h = _lerp(w, 96.0, y), _lerp(16.0, 118.0, y)
             bend, slant = bend * (1.0 - y), 0.0
             alpha = max(alpha, y)
+        if not talking:
+            emo = face._emotion
+            if emo == "sad":                      # a trembling lip, now and then
+                slant += 1.6 * max(0.0, math.sin(now * 0.8)) ** 4 * math.sin(now * 22.0)
+            elif kind == face_spec.O:             # surprised: the "o" breathes
+                w, h = w * (1.0 + 0.06 * math.sin(now * 2.2)), h * (1.0 + 0.06 * math.sin(now * 2.2))
+            elif kind == face_spec.GRIT:          # angry: grinding the teeth
+                w += 3.0 * math.sin(now * 9.0)
+                mx += 1.5 * math.sin(now * 4.5)
+            hm = life.bump(now, life.hmm_t, 1.0)  # thinking: "hmm" — the lips purse
+            w *= 1.0 - 0.25 * hm
+            bend -= 3.0 * hm
+            bend -= 8.0 * life.bump(now, life.sigh_t, 1.8)   # a sigh
         pr = life.bump(now, life.press_t, 0.5)    # a sentence ends: the lips press
         if talking:
             e = m.talk_open

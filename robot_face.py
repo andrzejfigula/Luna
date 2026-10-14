@@ -2140,6 +2140,7 @@ class RobotFace:
             self._touch_zone = self._zone_at(*touch_pt)
             self._touch_kind = touch_kind
             self._touch_react_t = now_t
+            self._touch_pt = touch_pt                   # (the eyes glance at it)
             # The mood must go through face_override: face_renderer calls
             # set_state() every frame, so setting it here would last 1 frame.
             if touch_kind in ("hold", "stop"):

@@ -5651,7 +5651,11 @@ class FaceSpecTest(unittest.TestCase):
             self.assertTrue(0.0 <= life.lid(t) <= 1.0)
             self.assertTrue(0.0 <= life.yawn(t) <= 1.0)
         self.assertEqual(life.lid(5.0), 0.0)                  # all done…
+        life.prune(5.0)
         self.assertEqual(life.lids, [])                       # …and forgotten
+        life.lids.append((6.0, 0.35, 1.0, 1))                 # one eye only
+        self.assertEqual(life.lid(6.1, 0), 0.0)
+        self.assertGreater(life.lid(6.1, 1), 0.5)
         self.assertEqual(life.yawn(5.0), 0.0)
         life.moods(10.0, "neutral", True, 0.0, False)         # starts talking
         life.moods(11.0, "neutral", False, 0.0, False)        # …and stops
@@ -5677,6 +5681,37 @@ class FaceSpecTest(unittest.TestCase):
                 for i in (0, 1):
                     top, _, _, bot = u[f"uLidA{i}"]
                     self.assertLessEqual(top + bot, 1.001, (mood, i))
+
+    def test_a_touch_draws_the_eyes(self):
+        import time as _t
+        gl = self._gl()
+        face = self._face("neutral")
+        u0 = self._settle(gl, face, 10)
+        face._touch_kind, face._touch_zone = "tap", "eye"
+        face._touch_pt, face._touch_react_t = (640, 100), _t.time() - 0.3
+        self._settle(gl, face, 1)
+        _t.sleep(0.1)                                         # (the habits run on real time)
+        u = self._settle(gl, face, 1)
+        self.assertGreater(u["uPupil1"][0], u0["uPupil1"][0] + 10)   # a glance right…
+        self.assertLess(u["uPupil1"][1], u0["uPupil1"][1])           # …and up
+        self.assertGreater(u["uLidA1"][0], u0["uLidA1"][0] + 0.1)    # the tapped eye shuts
+        self.assertLess(u["uLidA0"][0], u0["uLidA0"][0] + 0.05)      # (not the other)
+
+    def test_people_coming_and_going(self):
+        gl = self._gl()
+        face = self._face("neutral")
+        u0 = self._settle(gl, face, 10)
+        import time as _t
+        face._face_seen = True
+        self._settle(gl, face, 1)
+        _t.sleep(0.2)                                         # (the habits run on real time)
+        u = self._settle(gl, face, 1)
+        self.assertLess(u["uBrow0"][1], u0["uBrow0"][1] - 4)       # an eyebrow flash
+        face.left_eye.pupil_ox = 60.0
+        self._settle(gl, face, 2)
+        face._face_seen, face.left_eye.pupil_ox = False, 0.0
+        u = self._settle(gl, face, 2)
+        self.assertGreater(u["uPupil0"][0], 25.0)                  # still looking there
 
     def test_reply_scenes_set_only_known_settings(self):
         try:
