@@ -287,6 +287,43 @@ def apply(actions, said=""):
     return done
 
 
+# "Anuluj minutnik", "Wyłącz wszystkie budziki" — here, not through the model
+# (14 Oct probe). A bare "wyłącz budzik" still goes there: for a weekday alarm
+# it may mean tomorrow only (#361).
+_CANCEL_KIND = re.compile(r"^(?:luna,?\s+)?(?:wyłącz|wylacz|anuluj|odwołaj|odwolaj|skasuj|kasuj|"
+                          r"usuń|usun|zatrzymaj|zresetuj)\s+(?:mi\s+)?(?:(wszystkie)\s+)?"
+                          r"(minutnik[i]?|timer[y]?|budziki|alarmy|przypomnienia)\W*$", re.I)
+_CANCEL_NONE = {"timer": "Nie mam teraz żadnego minutnika.",
+                "alarm": "Nie mam teraz żadnego budzika.",
+                "reminder": "Nie mam teraz żadnych przypomnień."}
+
+
+def cancel_answer(text):
+    """What she says after cancelling a kind of timer, or None if the text
+    isn't such a command."""
+    m = _CANCEL_KIND.match(text.lower().strip())
+    if not m:
+        return None
+    word = m.group(2)
+    kind = "timer" if word.startswith(("minutnik", "timer")) else \
+        "alarm" if word.startswith(("budzik", "alarm")) else "reminder"
+    with _lock:
+        gone = [t for t in _timers if t["kind"] == kind]
+        if gone:
+            _timers[:] = [t for t in _timers if t["kind"] != kind]
+            _save()
+    print(f"[timers] cancelled {len(gone)} {kind}(s) by voice", flush=True)
+    if not gone:
+        return _CANCEL_NONE[kind]
+    n = len(gone)
+    if kind == "timer":
+        return "Dobrze, wyłączyłam minutnik." if n == 1 else f"Dobrze, wyłączyłam {n} minutniki."
+    import calc
+    noun = calc._plural(n, "budzik", "budziki", "budzików") if kind == "alarm" else \
+        calc._plural(n, "przypomnienie", "przypomnienia", "przypomnień")
+    return f"Dobrze, usunęłam {n} {noun}." if n > 1 else f"Dobrze, usunęłam {noun}."
+
+
 # ── "minutnik na 10 minut" without the model ─────────────────────────────────
 
 _NUM = {"jeden": 1, "jedna": 1, "jedną": 1, "jedno": 1, "dwa": 2, "dwie": 2,
@@ -833,6 +870,16 @@ _REMS_Q = re.compile(r"\b(?:jakie|co)\s+(?:mam\s+|są\s+|masz\s+)?(?:\w+\s+)?prz
                      r"\bmoje\s+przypomnienia\b|\bile\s+(?:mam\s+|jest\s+)?przypomnie\w*|"
                      r"\bo\s+czym\s+(?:masz\s+)?mi\s+przypomnie\w*",
                      re.I)
+# "Jakie mam budziki?", "Na którą mam budzik?" — only the alarms (14 Oct probe:
+# to the model)
+_ALARMS_Q = re.compile(r"\b(?:jakie|jaki|co)\s+(?:mam\s+|są\s+|masz\s+)?(?:\w+\s+)?"
+                       r"(?:budzik\w*|alarm\w*)\b(?!\s+(?:ustawić|ustawic|nastawić|wybrać))|"
+                       r"\bna\s+(?:któr[aą]|ktora)\s+(?:godzinę\s+)?(?:mam|jest)\s+(?:\w+\s+)?budzik|"
+                       r"\bmoje\s+budziki\b|\bile\s+(?:mam\s+)?budzik\w*|"
+                       r"\bczy\s+(?:mam\s+)?(?:jakiś\s+|jakis\s+)?(?:nastawiony\s+|ustawiony\s+)?"
+                       r"budzik\w*(?:\s+na\s+jutro)?\W*$", re.I)
+# said aloud: "pn–pt" was read letter by letter
+_REPEAT_SAID = {"weekdays": "w dni robocze", "weekends": "w weekendy"}
 _WD_LOC = ["w poniedziałek", "we wtorek", "w środę", "w czwartek", "w piątek", "w sobotę",
            "w niedzielę"]
 
@@ -842,14 +889,16 @@ def reminders_answer(text, now=None):
     read from the list itself (7 Oct probe: the model left out "wyjąć pranie
     za godzinę", kept as a labelled timer). None if it isn't that question."""
     import clock
-    if not _REMS_Q.search(text) or len(text.split()) > 8:
+    alarms = bool(_ALARMS_Q.search(text)) and not _REMS_Q.search(text)
+    if not (alarms or _REMS_Q.search(text)) or len(text.split()) > 8:
         return None
     now = now or time.time()
     with _lock:
         items = sorted((t for t in _timers if t["due"] > now
-                        and (t["kind"] != "timer" or t["label"])), key=lambda t: t["due"])
+                        and (t["kind"] != "timer" or t["label"])
+                        and (t["kind"] == "alarm" or not alarms)), key=lambda t: t["due"])
     if not items:
-        return "Nie masz teraz żadnych przypomnień."
+        return "Nie masz teraz żadnego budzika." if alarms else "Nie masz teraz żadnych przypomnień."
     today = datetime.fromtimestamp(now).date()
     out = []
     for t in items[:5]:
@@ -871,7 +920,7 @@ def reminders_answer(text, now=None):
         elif rep == "hourly":
             when = "co godzinę"
         elif rep != "none":
-            when = f"{_REPEAT_PL.get(rep, '')} {at}"
+            when = f"{_REPEAT_SAID.get(rep) or _REPEAT_PL.get(rep, '')} {at}"
         elif due.date() == today:
             when = f"dziś {at}"
         elif (due.date() - today).days == 1:
@@ -880,8 +929,14 @@ def reminders_answer(text, now=None):
             when = f"{_WD_LOC[due.weekday()]} {at}"
         else:
             when = f"{due.day}.{due.month:02d} {at}"
-        out.append(f"{what} — {when}")
+        if alarms:                           # "jutro o siódmej", "w dni robocze o …"
+            out.append(when + (f" — {t['label']}" if t["label"] else ""))
+        else:
+            out.append(f"{what} — {when}")
     more = f" I jeszcze {len(items) - 5}." if len(items) > 5 else ""
+    if alarms:
+        return ("Masz budzik " if len(out) == 1 else "Masz budziki: ") + \
+            "; ".join(out) + "." + more
     return ("Masz przypomnienie: " if len(out) == 1 else "Masz przypomnienia: ") + \
         "; ".join(out) + "." + more
 

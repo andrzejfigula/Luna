@@ -420,12 +420,22 @@ class OpenAITTS:
             out.write(cached)
         else:
             try:
+                # a take far longer than its words is the voice model rambling
+                # (14 Oct: "Hej, hej!" played 4 s of something else, and the
+                # family said "stop", "cicho") — cut it off
+                limit, got, runaway = int((2.5 + 0.15 * len(text)) * 48000), 0, False
                 for chunk in self._steady(text, kwargs):
                     if self._cut.is_set():
                         break
+                    got += len(chunk)
+                    if got > limit:
+                        runaway = True
+                        print(f"[TTS] runaway take ({got / 48000:.1f}s for {len(text)} chars) — "
+                              f"cut: {text[:40]!r}", flush=True)
+                        break
                     out.write(chunk)
                     wrote = True
-                ok = not self._cut.is_set()
+                ok = not self._cut.is_set() and not runaway
             except Exception as e:
                 if not self._cut.is_set():
                     print(f"[TTS] streaming error: {e}")

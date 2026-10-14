@@ -13,6 +13,7 @@ every request: now, today, tomorrow.
 
 from datetime import datetime, timedelta
 import json
+import re
 import os
 import threading
 import time
@@ -425,6 +426,52 @@ def now(t=None):
     stamp = time.strftime("%Y-%m-%dT%H:%M", lt)
     day = bool(light) and light[0] <= stamp < light[1]
     return round(temp), kind, day
+
+
+_SUN_Q = re.compile(r"\b(wschód|wschod|zachód|zachod)\s+słońca|\b(wschodzi|zachodzi)\s+słońce|"
+                    r"\bsłońce\s+(wschodzi|zachodzi|wstaje)|\b(ściemnia|sciemnia|robi\s+się\s+ciemno|"
+                    r"zrobi\s+się\s+ciemno|zapada\s+zmrok|zmrok|zmierzch)\b|"
+                    r"\b(robi\s+się\s+jasno|zrobi\s+się\s+jasno|rozjaśnia|świta|swita|świt|swit)\b",
+                    re.I)
+
+
+def sun_answer(text, now=None):
+    """"O której zachód słońca?", "kiedy się ściemnia?", "o której jutro
+    wschód?" → from the forecast (14 Oct probe: to the model). None when it
+    isn't that question or there is no forecast."""
+    low = text.lower()
+    m = _SUN_Q.search(low)
+    if not m or len(low.split()) > 10 or not re.search(r"\b(?:o\s+której|o\s+ktorej|kiedy|"
+                                                      r"która|jaka\s+godzin|godzin\w*)\b", low):
+        return None
+    said = next(g for g in m.groups() if g)
+    rise = said.startswith(("wsch", "wsta", "robi się jasno", "zrobi się jasno", "rozja",
+                            "świt", "swit"))
+    now = now or time.time()
+    lt = time.localtime(now)
+    tomorrow = "jutro" in low
+    day = time.strftime("%Y-%m-%d", time.localtime(now + (86400 if tomorrow else 0)))
+    with _lock:
+        light = _sky.get("light", {}).get(day)
+    if not light:
+        return None
+    at = light[0 if rise else 1][-5:]
+    import clock
+    h, mi = int(at[:2]), int(at[3:])
+    when = clock.hour_locative(h, mi)
+    gone = not tomorrow and at < time.strftime("%H:%M", lt)
+    what = "Wschód słońca" if rise else "Zachód słońca"
+    if gone:
+        verb = "wzeszło" if rise else "zaszło"
+        nxt = None
+        with _lock:
+            nxt = _sky.get("light", {}).get(time.strftime("%Y-%m-%d", time.localtime(now + 86400)))
+        tail = ""
+        if nxt:
+            a = nxt[0 if rise else 1][-5:]
+            tail = f" Jutro o {clock.hour_locative(int(a[:2]), int(a[3:]))}."
+        return f"Słońce {verb} dziś o {when}.{tail}"
+    return f"{what} {'jutro' if tomorrow else 'dziś'} o {when}."
 
 
 def rain_soon(t=None, hours=3, chance=60):

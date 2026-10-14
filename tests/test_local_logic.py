@@ -5010,5 +5010,104 @@ class RadioTest(unittest.TestCase):
             self.assertFalse(health.no_credits())
 
 
+class Oct14EveningTest(unittest.TestCase):
+    """14 Oct probe (#679–#688): asked here, without the model."""
+
+    def setUp(self):
+        timers._timers.clear()
+        self.said = []
+
+    def speak(self, text, **k):
+        self.said.append(text)
+
+    def test_faces_on_request(self):
+        import fun
+        for text, scene, emotion in (("Mrugnij", "wink", "Happy"), ("Puść oczko", "wink", "Happy"),
+                                     ("Zrób zeza", "cross_eyes", "Happy"),
+                                     ("Zatańcz", "dance", "Happy"),
+                                     ("Zrób smutną minę", "sigh", "Sad"),
+                                     ("Luna, pokaż mi swój język", "cross_eyes", "Happy"),
+                                     ("Uśmiechnij się", "slow_blink", "Happy")):
+            with state.lock:
+                state.reply_scene = None
+            self.assertTrue(fun.face_play(text, self.speak), text)
+            with state.lock:
+                self.assertEqual((state.reply_scene, state.emotion), (scene, emotion), text)
+        for text in ("Mrugnij do Mai i powiedz jej dobranoc", "Zatańczmy w salonie jutro",
+                     "Jaką minę ma pies?"):
+            self.assertFalse(fun.face_play(text, self.speak), text)
+        import drawing
+        self.assertTrue(drawing._NOT_TO_SEE.match("swój język"))
+
+    def test_alarms_listed(self):
+        now = datetime.datetime(2026, 10, 14, 18, 0).timestamp()
+        self.assertEqual(timers.reminders_answer("Jakie mam budziki?", now),
+                         "Nie masz teraz żadnego budzika.")
+        timers._timers.append({"kind": "alarm", "label": "", "repeat": "weekdays",
+                               "due": datetime.datetime(2026, 10, 15, 6, 40).timestamp()})
+        timers._timers.append({"kind": "reminder", "label": "leki", "repeat": "none",
+                               "due": datetime.datetime(2026, 10, 14, 20, 0).timestamp()})
+        said = timers.reminders_answer("Jakie mam budziki?", now)
+        self.assertTrue(said.startswith("Masz budzik w dni robocze o szóstej czterdzieści"), said)
+        self.assertNotIn("leki", said)
+        self.assertIn("leki", timers.reminders_answer("Jakie mam przypomnienia?", now))
+        self.assertIsNotNone(timers.reminders_answer("Na którą mam budzik?", now))
+        self.assertIsNone(timers.reminders_answer("Jaki budzik ustawić dla dziecka?", now))
+
+    def test_cancel_by_kind(self):
+        t = time.time()
+        timers._timers.extend([{"kind": "timer", "label": "", "repeat": "none", "due": t + 300},
+                               {"kind": "alarm", "label": "", "repeat": "daily", "due": t + 9000},
+                               {"kind": "alarm", "label": "", "repeat": "none", "due": t + 9900}])
+        with mock.patch.object(timers, "_save", lambda: None):
+            self.assertIsNone(timers.cancel_answer("Wyłącz budzik"))     # may mean tomorrow only
+            self.assertEqual(timers.cancel_answer("Anuluj minutnik"), "Dobrze, wyłączyłam minutnik.")
+            self.assertEqual(timers.cancel_answer("Anuluj minutnik"), "Nie mam teraz żadnego minutnika.")
+            self.assertEqual(timers.cancel_answer("Wyłącz wszystkie budziki"),
+                             "Dobrze, usunęłam 2 budziki.")
+        self.assertEqual(timers._timers, [])
+
+    def test_volume_max_and_min(self):
+        import commands
+        self.assertEqual(commands._volume_command("Głośność na maksa"), 1.0)
+        self.assertEqual(commands._volume_command("Najgłośniej"), 1.0)
+        self.assertEqual(commands._volume_command("Ścisz na minimum"), 0.0)
+        self.assertIsNone(commands._volume_command("Biegnę na maksa"))
+
+    def test_calendar(self):
+        import calc
+        t = datetime.date(2026, 10, 14)
+        for q, want in (("Ile dni ma luty?", "Luty 2027 ma 28 dni."),
+                        ("Ile dni ma luty 2028?", "Luty 2028 ma 29 dni — to rok przestępny."),
+                        ("Czy rok 2028 jest przestępny?", "Tak, 2028 jest przestępny"),
+                        ("Czy ten rok jest przestępny?", "Nie, 2026 nie jest przestępny"),
+                        ("Który mamy tydzień?", "Mamy tydzień numer 42."),
+                        ("Który dziś dzień roku?", "Dziś jest dzień numer 287."),
+                        ("Jaki dzień będzie za tydzień?", "Za tydzień będzie środa, 21 października.")):
+            self.assertTrue((calc.calendar_answer(q, t) or "").startswith(want), q)
+        with mock.patch.object(calc, "_today", return_value=t):
+            self.assertTrue(calc.answer("Za ile dni jest 24 grudnia?").startswith("Do 24 grudnia"))
+
+    def test_sunset(self):
+        import weather
+        now = datetime.datetime(2026, 10, 14, 12, 0).timestamp()
+        light = {"2026-10-14": ("2026-10-14T07:12", "2026-10-14T17:58"),
+                 "2026-10-15": ("2026-10-15T07:14", "2026-10-15T17:56")}
+        with mock.patch.dict(weather._sky, {"light": light}):
+            self.assertEqual(weather.sun_answer("O której zachód słońca?", now),
+                             "Zachód słońca dziś o siedemnastej pięćdziesiąt osiem.")
+            self.assertTrue(weather.sun_answer("Kiedy jutro wschód słońca?", now)
+                            .startswith("Wschód słońca jutro o siódmej"))
+            self.assertTrue(weather.sun_answer("O której słońce wschodzi?", now)
+                            .startswith("Słońce wzeszło dziś o siódmej"))
+            self.assertIsNone(weather.sun_answer("Lubię zachód słońca nad morzem", now))
+
+    def test_short_line_heard_in_english_spelling_is_kept(self):
+        import voicecheck
+        self.assertTrue(voicecheck.sounds_like("Hej, hej!", "Hey, hey."))
+        self.assertFalse(voicecheck.sounds_like("Hej, hej!", "嘿嘿。"))
+        self.assertFalse(voicecheck.sounds_like("Łaskocze!", "Wasgota?"))
+
+
 if __name__ == "__main__":
     unittest.main()

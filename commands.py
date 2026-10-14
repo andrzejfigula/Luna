@@ -1057,6 +1057,16 @@ def _volume_command(text):
     low = text.lower()
     if not _short(text, 7):
         return None
+    # "Głośność na maksa", "najgłośniej", "ścisz na minimum" (14 Oct probe: the
+    # model) — set_volume keeps it within VOLUME_MIN..VOLUME_MAX
+    vol_word = any(k in low for k in _VOLUME + _LOUDER + _QUIETER)
+    if re.search(r"\bnajgłośniej\b|\bnajglosniej\b|\bna\s+(?:maksa|maxa|max|maksimum|full|fula|"
+                 r"cał[ąa]\s+(?:parę|pare))\b|\bdo\s+(?:maksa|maksimum|oporu)\b", low) and (
+            vol_word or re.match(r"^(?:luna,?\s+)?(?:najgłośniej|najglosniej)\b", low)):
+        return 1.0
+    if re.search(r"\bnajciszej\b|\bna\s+minimum\b|\bdo\s+minimum\b", low) and (
+            vol_word or re.match(r"^(?:luna,?\s+)?najciszej\b", low)):
+        return 0.0
     m = re.search(r"(\d{1,3})\s*(%|procent)?", low)
     if m and any(k in low for k in _VOLUME):
         return int(m.group(1)) / 100.0
@@ -1669,7 +1679,10 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
 
     # questions she answers herself, exactly (they must come before the guard)
     import timers
-    said = timers.reminders_answer(text)           # "jakie mam przypomnienia?"
+    import weather
+    said = (timers.reminders_answer(text)          # "jakie mam przypomnienia / budziki?"
+            or timers.cancel_answer(text)          # "anuluj minutnik"
+            or weather.sun_answer(text))           # "o której zachód słońca?"
     if said:
         speak(said)
         return True

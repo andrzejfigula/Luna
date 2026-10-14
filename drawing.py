@@ -378,7 +378,7 @@ _BARE_SHOW = re.compile(r"^(?:luna,?\s+)?(?:a\s+|no\s+to\s+)?(?:pokaż|pokaz)\s+
                         r"([^\W\d_]+(?:\s+[^\W\d_]+){0,2})[.!?]*$", re.I)
 _NOT_TO_SEE = re.compile(r"^(?:co[śs]?|jak|gdzie|kiedy|ile|kto|któr\w*|ktor\w*|czy|się|sie|"
                          r"siebie|jeszcze|ostatni\w*|wszystk\w*|inn\w*|now\w*|"
-                         r"swo\w*|zdj\w*|rysun\w*|obraz\w*|galeri\w*|zegar\w*|godzin\w*|"
+                         r"swo\w*|swó\w*|zdj\w*|rysun\w*|obraz\w*|galeri\w*|zegar\w*|godzin\w*|"
                          r"czas|dat\w*|status|film\w*|bajk\w*|quiz\w*|gr[aęy]|ekran|menu|"
                          r"słow\w*|slow\w*|liczb\w*|lustr\w*|kamer\w*|oczy|oko|twarz\w*|"
                          r"min[ęey]|emocj\w*|sztuczk\w*|drog\w*|przepis\w*|notatk\w*|"

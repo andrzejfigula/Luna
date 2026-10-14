@@ -818,7 +818,115 @@ def clock_change(text, today=None):
     return f"Zmiana na czas {kind} jest {when}: {how}."
 
 
+# ── the calendar itself (14 Oct probe: all to the model) ─────────────────────
+
+_MONTHS_NOM = ["styczeń", "luty", "marzec", "kwiecień", "maj", "czerwiec", "lipiec",
+               "sierpień", "wrzesień", "październik", "listopad", "grudzień"]
+_MONTH_STEMS = ["stycz", "lut", "mar", "kwie", "maj", "czerw", "lip", "sierp", "wrze",
+                "październik|pazdziernik|październik", "listopad", "grud"]
+_MONTH_LEN_Q = re.compile(r"^(?:luna,?\s+)?ile\s+(?:dni\s+)?(?:ma|liczy|trwa)\s+(?:dni\s+)?"
+                          r"(?:ten\s+|obecny\s+)?(?:miesiąc\s+|miesiac\s+)?(\w+)(?:\s+(?:w\s+tym\s+roku|"
+                          r"(?:w\s+)?(?:roku\s+)?(\d{4})))?(?:\s+dni)?\W*$", re.I)
+_LEAP_Q = re.compile(r"\b(?:czy|jest)\s+(?:rok\s+)?(\d{4}|ten\s+rok|w\s+tym\s+roku|"
+                     r"(?:przyszły|przyszly|następny|nastepny)\s+rok)\s+(?:rok\s+)?"
+                     r"(?:jest\s+|będzie\s+|bedzie\s+|był\s+|byl\s+)?(?:rokiem\s+)?"
+                     r"przestępn\w*|\bkiedy\s+(?:będzie\s+|bedzie\s+|jest\s+)?"
+                     r"(?:następny\s+|nastepny\s+|najbliższy\s+|najblizszy\s+)?rok\s+przestępn\w*",
+                     re.I)
+_WEEK_NO_Q = re.compile(r"^(?:luna,?\s+)?(?:który|ktory|jaki)\s+(?:mamy|jest|to)\s+(?:teraz\s+|dziś\s+|"
+                        r"dzis\s+)?(?:numer\s+)?tydzień(?:\s+roku)?\W*$|^(?:luna,?\s+)?(?:który|ktory|"
+                        r"jaki)\s+(?:to\s+|jest\s+)?(?:numer\s+)?tygodnia\W*$", re.I)
+_DAY_NO_Q = re.compile(r"^(?:luna,?\s+)?(?:który|ktory)\s+(?:dziś|dzis|dzisiaj|to|jest|mamy)\s+"
+                       r"(?:jest\s+|mamy\s+)?(?:dziś\s+|dzis\s+|dzisiaj\s+)?dzień\s+roku\W*$", re.I)
+_DAYS_AHEAD_Q = re.compile(r"^(?:luna,?\s+)?(?:jaki|jaka|który|ktory)\s+(?:dzień|dzien|data|"
+                           r"dzień\s+tygodnia)\s+(?:będzie|bedzie|jest)\s+za\s+(.+?)\W*$", re.I)
+
+
+def _leap(y):
+    return y % 4 == 0 and (y % 100 != 0 or y % 400 == 0)
+
+
+def _month_of(word):
+    word = word.lower()
+    for i, stem in enumerate(_MONTH_STEMS):
+        if re.match(rf"(?:{stem})", word):
+            return i + 1
+    return None
+
+
+def calendar_answer(text, today=None):
+    """"Ile dni ma luty?", "Czy 2028 jest przestępny?", "Który mamy tydzień?",
+    "Który dziś dzień roku?", "Jaki dzień będzie za tydzień?" → the answer, or
+    None."""
+    import calendar
+    today = today or _today()
+    low = text.lower().strip()
+    m = _MONTH_LEN_Q.match(low)
+    if m and m.group(1) in ("miesiąc", "miesiac"):
+        n = calendar.monthrange(today.year, today.month)[1]
+        return f"{_MONTHS_NOM[today.month - 1].capitalize()} ma {n} dni."
+    if m and (m.group(1) == "rok" or _month_of(m.group(1))):
+        y = int(m.group(2)) if m.group(2) else today.year
+        if m.group(1) == "rok":
+            return f"Rok {y} ma {366 if _leap(y) else 365} dni."
+        mo = _month_of(m.group(1))
+        if not m.group(2) and mo < today.month and mo == 2:
+            y += 1                                # "luty" in October: the next one
+        n = calendar.monthrange(y, mo)[1]
+        name = _MONTHS_NOM[mo - 1].capitalize()
+        when = f" {y}" if m.group(2) or y != today.year else ""
+        extra = " — to rok przestępny" if mo == 2 and n == 29 else ""
+        return f"{name}{when} ma {n} dni{extra}."
+    m = _LEAP_Q.search(low)
+    if m:
+        what = (m.group(1) or "").lower()
+        if what.isdigit():
+            y = int(what)
+        elif what.startswith(("przyszły", "przyszly", "następny", "nastepny")):
+            y = today.year + 1
+        elif what:
+            y = today.year
+        else:                                     # "kiedy następny rok przestępny?"
+            y = today.year + 1
+            while not _leap(y):
+                y += 1
+            return f"Następny rok przestępny to {y}."
+        past = y < today.year
+        if _leap(y):
+            return f"Tak, {y} {'był' if past else 'jest'} przestępny — luty ma wtedy 29 dni."
+        nxt = y + 1
+        while not _leap(nxt):
+            nxt += 1
+        return f"Nie, {y} {'nie był' if past else 'nie jest'} przestępny. Najbliższy po nim to {nxt}."
+    if _WEEK_NO_Q.match(low):
+        return f"Mamy tydzień numer {today.isocalendar()[1]}."
+    if _DAY_NO_Q.match(low):
+        n = today.timetuple().tm_yday
+        left = (date(today.year, 12, 31) - today).days
+        return (f"Dziś jest dzień numer {n}. Do końca roku "
+                f"{'zostało' if left != 1 else 'został'} {left} {_plural(left, 'dzień', 'dni', 'dni')}.")
+    m = _DAYS_AHEAD_Q.match(low)
+    if m:
+        span = m.group(1)
+        k = {"tydzień": 7, "tydzien": 7, "dwa tygodnie": 14, "miesiąc": None,
+             "jutro": 1, "pojutrze": 2}.get(span)
+        if k is None:
+            mm = re.match(r"(\w+(?:\s+\w+)?)\s+(dni|dzień|dzien|tygodnie|tygodni)$", span)
+            n = number_in(mm.group(1)) if mm else None
+            if not n or n > 3660:
+                return None
+            k = int(n) * (7 if mm.group(2).startswith("tygod") else 1)
+        d = today + timedelta(k)
+        year = f" {d.year}" if d.year != today.year else ""
+        return (f"Za {span} będzie {_WEEKDAY_NOM[d.weekday()]}, "
+                f"{d.day} {_MONTHS_GEN[d.month - 1]}{year}.")
+    return None
+
+
 def answer(text):
-    return (arithmetic(text) or days_until(text) or time_until(text) or weekday_of(text)
+    # "za ile dni jest 24 grudnia?" — the same as "ile dni do 24 grudnia?"
+    alt = re.sub(r"^(luna,?\s+)?za\s+ile\s+dni\s+(?:jest|będzie|bedzie|mamy|są|sa|wypada)\s+",
+                 r"\1ile dni do ", text.strip(), flags=re.I)
+    return (arithmetic(text) or days_until(alt) or time_until(text) or weekday_of(text)
             or holiday_when(text) or days_since(text) or convert(text)
-            or clock_change(text))
+            or clock_change(text) or calendar_answer(text))

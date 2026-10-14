@@ -128,6 +128,69 @@ def animal_sound(text, speak):
     return False
 
 
+# "Mrugnij", "Zrób zeza", "Zatańcz", "Zrób smutną minę" — her face at once
+# (14 Oct probe: all to the model, ~3 s for a wink). → (scene, emotion, lines)
+_MIN = r"(?:\s+(?:mi|nam|proszę|prosze|do\s+mnie|jeszcze\s+raz))*$"
+_FACES = [
+    (re.compile(r"^(?:mrugnij|mrugaj|puść\s+(?:mi\s+)?oczko|pusc\s+(?:mi\s+)?oczko|"
+                r"zrób\s+oczko|oczko)" + _MIN), "wink", "happy", ("Hihi!", "Oczko!")),
+    (re.compile(r"^(?:zrób|zrob)\s+(?:mi\s+)?(?:zeza|zeza\s+oczami)" + _MIN + r"|^zezuj" + _MIN),
+     "cross_eyes", "happy", ("Ale mam zeza!", "Zez!")),
+    (re.compile(r"^(?:zatańcz|zatancz|zatańczysz|tańcz|tancz|potańcz|potancz)"
+                r"(?:\s+(?:mi|nam|ze\s+mną|dla\s+mnie|coś|cos|proszę))*$"),
+     "dance", "happy", ("Tańczę!", "Patrz, jak tańczę!")),
+    (re.compile(r"^(?:zaśmiej|zasmiej|pośmiej|posmiej)\s+się" + _MIN), "laugh", "happy",
+     ("Ha, ha, ha!", "Hihihi!")),
+    (re.compile(r"^(?:zasalutuj|salutuj)" + _MIN), "salute", "happy", ("Melduję się!",)),
+    (re.compile(r"^(?:klaśnij|klasnij|klaszcz|pokaż\s+jak\s+klaszczesz|zaklaszcz)"
+                r"(?:\s+w\s+(?:dłonie|rączki|ręce))?" + _MIN), "clap", "happy", ("Brawo!",)),
+    (re.compile(r"^(?:przewróć|przewroc)\s+oczami" + _MIN), "eye_roll", "neutral", ("No weź…",)),
+    (re.compile(r"^(?:uśmiechnij|usmiechnij)\s+się" + _MIN + r"|^(?:zrób|zrob)\s+(?:mi\s+)?"
+                r"(?:wesołą|wesola|uśmiechniętą|usmiechnieta|szczęśliwą|szczesliwa)\s+minę$"),
+     "slow_blink", "happy", ("Proszę bardzo!", "Uśmiecham się!")),
+    (re.compile(r"^(?:zrób|zrob)\s+(?:mi\s+)?(?:smutną|smutna)\s+(?:minę|mine|minkę|minke)$"
+                r"|^(?:posmutniej|bądź\s+smutna)$"), "sigh", "sad", ("Oj…", "Smutno mi…")),
+    (re.compile(r"^(?:zrób|zrob)\s+(?:mi\s+)?(?:złą|zla|groźną|grozna|gniewną)\s+(?:minę|mine|minkę)$"
+                r"|^(?:zezłość|zezlosc)\s+się$"), None, "angry", ("Grrr!",)),
+    (re.compile(r"^(?:zrób|zrob)\s+(?:mi\s+)?(?:zdziwioną|zdziwiona|zaskoczoną|zaskoczona)\s+"
+                r"(?:minę|mine|minkę)$|^(?:zdziw|zdziwić)\s+się$"), "big_pupils", "surprised",
+     ("Oooo!", "Coo?!")),
+    (re.compile(r"^(?:zrób|zrob)\s+(?:mi\s+)?(?:przestraszoną|przestraszona|wystraszoną)\s+"
+                r"(?:minę|mine|minkę)$|^(?:przestrasz|wystrasz)\s+się$"), "scared", "surprised",
+     ("Aaa! Boję się!",)),
+    (re.compile(r"^(?:zrób|zrob)\s+(?:mi\s+)?(?:śmieszną|smieszna|głupią|glupia|zabawną|zabawna)\s+"
+                r"(?:minę|mine|minkę|minke)$|^(?:pokaż|pokaz)\s+(?:mi\s+)?(?:swój\s+)?język$"
+                r"|^(?:wystaw|pokaż)\s+język$"), "cross_eyes", "happy", ("Bleee!",)),
+    (re.compile(r"^(?:zrób|zrob)\s+(?:mi\s+)?(?:zakochaną|zakochana)\s+(?:minę|mine|minkę)$"
+                r"|^(?:zrób|zrob)\s+(?:serduszka|serca)\s+(?:w\s+)?oczach$"), "heart_eyes", "love",
+     ("Ojej!",)),
+    (re.compile(r"^(?:zawstydź|zawstydz|zarumień|zarumien)\s+się$"), "shy", "love",
+     ("Oj, przestań…",)),
+    (re.compile(r"^(?:zakręć|zakrec)\s+się$|^(?:zrób|zrob)\s+(?:mi\s+)?(?:zawroty|zakręconą)\s+"
+                r"(?:głowy|minę)$"), "dizzy", "surprised", ("Wszystko się kręci!",)),
+]
+
+
+def face_play(text, speak):
+    """A face asked for — wink, cross-eyes, a dance, a sad face — at once.
+    True when it was one."""
+    low = re.sub(r"^(?:luna|luno)\W+", "", text.lower().strip(" .!?"))
+    for rx, scene, emotion, lines in _FACES:
+        if rx.match(low):
+            now = time.time()
+            with state.lock:
+                if scene:
+                    state.reply_scene = scene
+                    state.reply_scene_start = now
+                state.emotion = emotion.capitalize()
+                state.face_override = emotion if emotion != "neutral" else None
+                state.face_override_until = now + 6.0
+            print(f"[fun] face: {scene or emotion}", flush=True)
+            speak(random.choice(lines))
+            return True
+    return False
+
+
 def gesture(text, speak):
     """The gesture asked for, at once. True when it was one."""
     low = re.sub(r"^(?:luna|luno)\W+", "", text.lower().strip(" .!?"))
@@ -280,7 +343,7 @@ def handle(text, speak, play_sound, play_sound_async):
     if said:
         speak(said)
         return True
-    if gesture(text, speak) or animal_sound(text, speak):
+    if gesture(text, speak) or face_play(text, speak) or animal_sound(text, speak):
         return True
     low = text.lower()
     words = re.findall(r"\w+", low)

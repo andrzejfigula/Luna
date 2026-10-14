@@ -65,6 +65,11 @@ SOUNDS = {
     "offline": ("Przepraszam, nie mogę teraz połączyć się z moim mózgiem w chmurze. "
                 "Sprawdź proszę internet.",
                 "Normal speech, apologetic and gentle, a little sad.", 7.0),
+    # the OpenAI account is empty (13-14 Oct: "no credits remaining") — the
+    # network is fine, so "sprawdź internet" sent the family the wrong way
+    "no_credits": ("Przepraszam, skończyły mi się środki na koncie OpenAI. Budzik, minutnik "
+                   "i radio działają, ale do rozmowy trzeba doładować konto.",
+                   "Normal speech, apologetic and gentle, a little sad.", 12.0),
     # a local command did its job, but its spoken confirmation can't be made
     # (TTS needs the cloud): said instead of silence (openai_tts.py)
     "offline_done": ("Zrobione! Tylko nie mam teraz internetu, więc mówię krótko.",

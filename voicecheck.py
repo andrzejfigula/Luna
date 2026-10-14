@@ -70,4 +70,10 @@ def sounds_like(text, heard, least=0.5):
     got = [w for w in _words(heard) if not w.isdigit()]
     if not want:
         return True                     # only numbers: nothing to compare
-    return difflib.SequenceMatcher(None, want, got).ratio() >= least
+    if difflib.SequenceMatcher(None, want, got).ratio() >= least:
+        return True
+    # a short line heard with English spelling ("Hey, hey." for "Hej, hej!") is
+    # still the line — letter by letter (14 Oct: never cached, so made again
+    # each time, and one take came out as a 4 s Chinese "嘿嘿")
+    a, b = "".join(want), "".join(got)
+    return len(a) <= 24 and difflib.SequenceMatcher(None, a, b).ratio() >= 0.6

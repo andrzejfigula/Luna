@@ -1,6 +1,14 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
+== 14 października (wieczorem) ==
+- „Mrugnij”, „Zrób zeza”, „Zatańcz”, „Zrób smutną minę” — robię to od razu.
+- „Jakie mam budziki?”, „Anuluj minutnik”, „Wyłącz wszystkie budziki”.
+- „Głośność na maksa” albo „ścisz na minimum”.
+- „Ile dni ma luty?”, „Czy 2028 jest przestępny?”, „Który mamy tydzień?”, „Jaki dzień będzie za tydzień?”.
+- „O której zachód słońca?” — mówię z prognozy.
+- Gdy skończą mi się środki w OpenAI, mówię to wprost, a nie „sprawdź internet”.
+
 == 14 października ==
 - „Włącz kominek” albo „szum lasu” — trzaskający ogień albo las z ptakami do zasypiania.
 - „Pomachaj”, „kiwnij głową”, „pokaż serduszko” — robię to od razu.

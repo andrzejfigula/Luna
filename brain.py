@@ -2451,7 +2451,9 @@ def _process(text, context=None):
         elif reply == OFFLINE_REPLY:
             # the network is the likely culprit — and TTS needs it too, so
             # say the apology that was recorded while the cloud was up
-            if not play_sound("offline", can_drop=False):
+            # (an empty account isn't a network fault: say which it is)
+            if not play_sound("no_credits" if health.no_credits() else "offline",
+                              can_drop=False) and not play_sound("offline", can_drop=False):
                 speak(reply)
         else:
             speak(reply)

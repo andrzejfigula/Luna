@@ -24,7 +24,9 @@ git ls-files | grep -v -E '\.md$|^\.git' | tar -cf - -T - \
     cp ~/luna/data/people.json ~/luna/data/settings.json data/ 2>/dev/null || true'
 
 which="${1:-all}"
-"${SSH[@]}" "cd $DIR && export LUNA_DATA_DIR=\$(mktemp -d) && PY=~/luna/venv/bin/python
+# every temp dir the tests make goes under one TMPDIR, removed at the end (14 Oct:
+# 3764 /tmp/luna-photos-* left on the Pi by earlier runs)
+"${SSH[@]}" "cd $DIR && export TMPDIR=\$(mktemp -d /tmp/lunatest-XXXXXX) && export LUNA_DATA_DIR=\$(mktemp -d) && PY=~/luna/venv/bin/python
   ok=0
   if [ $which = all ] || [ $which = unit ]; then
     r=\$(\$PY -X utf8 -m unittest -q tests.test_local_logic 2>&1); echo \"\$r\" | tail -1 | sed 's/^/unit:    /'
@@ -42,5 +44,5 @@ which="${1:-all}"
     r=\$(timeout 400 \$PY -X utf8 tests/dialog_pi.py 2>&1); echo \"\$r\" | grep -a 'FAIL\|\[dialog\]' | tail -8
     echo \"\$r\" | grep -q '\[dialog\] OK' || ok=1
   fi
-  rm -rf \$LUNA_DATA_DIR
+  rm -rf \$LUNA_DATA_DIR \$TMPDIR
   [ \$ok = 0 ] && echo 'check: ALL OK' || { echo 'check: FAILED'; exit 1; }"
