@@ -602,6 +602,39 @@ class TimersTest(unittest.TestCase):
         self.assertTrue(twenty.reverse_wanted("Wymyśliłam zwierzę"))
         self.assertFalse(twenty.reverse_wanted("Myślę o zwierzęciu dla Mai na urodziny"))
 
+    def test_photos_by_voice_and_quiet_stop(self):
+        import commands
+        import screens
+        d = tempfile.mkdtemp()
+        said = []
+        with mock.patch.object(screens, "PHOTOS_DIR", d), \
+                mock.patch.object(screens, "BIN", os.path.join(d, "kosz")), \
+                mock.patch.object(screens, "_show", lambda *a, **k: None):
+            self.assertTrue(screens.photo_command("ile masz zdjęć", said.append))
+            self.assertIn("żadnych", said[-1])
+            for n in ("20261014-100000.jpg", "20261014-110000.jpg"):
+                open(os.path.join(d, n), "wb").close()
+            self.assertTrue(screens.photo_command("ile masz zdjęć", said.append))
+            self.assertTrue(said[-1].startswith("Mam 2 zdjęcia."))
+            self.assertTrue(screens.photo_command("usuń ostatnie zdjęcie", said.append))
+            self.assertEqual(screens._shots(), ["20261014-100000.jpg"])        # into the bin
+            self.assertTrue(os.path.exists(os.path.join(d, "kosz", "20261014-110000.jpg")))
+            self.assertTrue(screens.photo_command("przywróć zdjęcie", said.append))
+            self.assertEqual(len(screens._shots()), 2)
+            self.assertFalse(screens.photo_command("usuń zdjęcie babci z facebooka", said.append))
+        # "Obudź się" — her own answer; a bare "Cisza" with nothing on — quiet
+        said.clear()
+        self.assertTrue(commands.handle("Luna, obudź się", said.append, lambda *a, **k: None))
+        self.assertTrue(said)
+        said.clear()
+        with state.lock:
+            state.conversation_active = True
+        self.assertTrue(commands.handle("Cisza", said.append, lambda *a, **k: None))
+        self.assertEqual(said, [])
+        with state.lock:
+            self.assertFalse(state.conversation_active)
+            state.convo_closed_hard = False
+
     def test_evening_and_morning_said(self):
         import clockgame
         import commands

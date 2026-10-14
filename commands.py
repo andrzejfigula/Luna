@@ -1162,10 +1162,22 @@ def close_page(text, speak):
     return True
 
 
+# "Obudź się", "wstawaj", "pobudka" — any word wakes her; these get a reply of
+# their own (14 Oct probe: to the model)
+_WAKE_UP = re.compile(r"^(?:luna,?\s+|luno,?\s+)?(?:obudź\s+się|obudz\s+sie|wstawaj|pobudka|"
+                      r"nie\s+śpij|nie\s+spij|zbudź\s+się|zbudz\s+sie|wstań|wstan)"
+                      r"(?:,?\s+(?:luna|luno|już|juz|proszę|prosze|śpiochu|spiochu))*\W*$", re.I)
+
+
 def handle(text, speak, play_sound, _polite=True, _split=True):
     """Handle a local command. Returns True when the utterance was one (and
     must not go to the model)."""
     if close_page(text, speak):
+        return True
+    if _WAKE_UP.match(text.strip()):
+        with state.lock:
+            state.emotion = "Happy"
+        speak(random.choice(("Już nie śpię!", "Jestem, jestem!", "Dzień dobry! Słucham.")))
         return True
     later = _LATER_OFF.match(text.strip()) if _split else None
     if later:
@@ -1366,6 +1378,22 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
             # "Stop!" after a timer rang: it already stopped (the model would
             # "cancel" the gone timer and then say there was none)
             speak("Dobrze.")
+            return True
+        # nothing plays and she is quiet: "Cisza!", "Przestań" — she understood;
+        # the model answered such a word with more talk (14 Oct probe). A game,
+        # a recipe or a reading in progress hears its "stop" further on.
+        import cooking
+        import memo
+        import quiz
+        import reading
+        import tictac
+        import twenty
+        if not (quiz.active() or twenty.active() or cooking.active() or memo.active()
+                or tictac.active() or reading.armed() or kids.routine_active()):
+            with state.lock:
+                state.conversation_active = False
+                state.convo_closed_hard = True
+            print("[cmd] a bare stop with nothing on — quiet, window closed", flush=True)
             return True
     import timers
     if (time.time() - timers._last_rang["t"] < 120 and _short(text, 4)

@@ -256,11 +256,76 @@ def today_rows():
     return rows[:14]                   # two pages on her screen
 
 
+# her photos by voice (14 Oct probe: "Usuń ostatnie zdjęcie", "Ile masz zdjęć?"
+# went to the model, which can't do either). Deleting moves it to a bin —
+# "przywróć zdjęcie" brings it back; nothing is lost by a misheard word.
+_PHOTO_COUNT = re.compile(r"^(?:luna,?\s+)?ile\s+(?:masz|mamy|jest)\s+(?:już\s+)?(?:zdjęć|zdjec|"
+                          r"fotek|fotografii)\W*$")
+_PHOTO_DELETE = re.compile(r"^(?:luna,?\s+)?(?:usuń|usun|skasuj|wyrzuć|wyrzuc|wykasuj)\s+"
+                           r"(?:to|ostatnie|tamto|te)\s+(?:zdjęcie|zdjecie|fotkę|fotke)\W*$")
+_PHOTO_RESTORE = re.compile(r"^(?:luna,?\s+)?(?:przywróć|przywroc|odzyskaj)\s+(?:to\s+|ostatnie\s+)?"
+                            r"(?:zdjęcie|zdjecie|fotkę|fotke)\W*$")
+BIN = os.path.join(PHOTOS_DIR, "kosz")
+
+
+def _shots():
+    try:
+        return sorted(f for f in os.listdir(PHOTOS_DIR) if f.endswith(".jpg"))
+    except OSError:
+        return []
+
+
+def photo_command(low, speak):
+    """"Ile masz zdjęć?", "Usuń to / ostatnie zdjęcie", "Przywróć zdjęcie"."""
+    import calc
+    low = low.strip()
+    if _PHOTO_COUNT.match(low):
+        n = len(_shots())
+        speak("Nie mam jeszcze żadnych zdjęć. Powiedz: zrób zdjęcie." if not n else
+              f"Mam {n} {calc._plural(n, 'zdjęcie', 'zdjęcia', 'zdjęć')}. "
+              "Powiedz: pokaż zdjęcia.")
+        return True
+    if _PHOTO_DELETE.match(low):
+        with state.lock:
+            ov = state.overlay
+        shown = ov[2] if ov and ov[0] == "photo" and isinstance(ov[2], str) else None
+        shots = _shots()
+        name = os.path.basename(shown) if shown else (shots[-1] if shots else None)
+        if not name or name not in shots:
+            speak("Nie mam żadnego zdjęcia do usunięcia.")
+            return True
+        os.makedirs(BIN, exist_ok=True)
+        os.replace(os.path.join(PHOTOS_DIR, name), os.path.join(BIN, name))
+        with state.lock:
+            if state.overlay and state.overlay[0] in ("photo", "gallery"):
+                state.overlay = None
+        print(f"[screens] photo {name} moved to the bin", flush=True)
+        speak("Dobrze, usunęłam to zdjęcie. Gdyby co — powiedz: przywróć zdjęcie.")
+        return True
+    if _PHOTO_RESTORE.match(low):
+        try:
+            binned = sorted(f for f in os.listdir(BIN) if f.endswith(".jpg"))
+        except OSError:
+            binned = []
+        if not binned:
+            speak("Nie mam czego przywrócić.")
+            return True
+        name = max(binned, key=lambda f: os.path.getmtime(os.path.join(BIN, f)))
+        os.replace(os.path.join(BIN, name), os.path.join(PHOTOS_DIR, name))
+        print(f"[screens] photo {name} back from the bin", flush=True)
+        _show("photo", PHOTO_SHOW_SECS, os.path.join(PHOTOS_DIR, name))
+        speak("Proszę, wróciło.")
+        return True
+    return False
+
+
 def handle(text, speak, play_sound_async):
     """A screen request? Show it and return True."""
     low = text.lower().replace("pokazać", "pokaż").replace("pokazac", "pokaz")
     if len(re.findall(r"\w+", low)) > 7:
         return False
+    if photo_command(low.strip(" .!?"), speak):
+        return True
     if any(k in low for k in _PHOTO):
         _take_photo(speak, play_sound_async)
         return True
