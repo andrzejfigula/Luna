@@ -1107,6 +1107,16 @@ def _muted():
         return time.time() < state.mic_muted_until
 
 
+def _page_open():
+    """A gallery or the weather on her screen: she keeps listening, so "dalej"
+    and "zamknij" need no "Luna" (gallery.py)."""
+    try:
+        import gallery
+        return gallery.page_open()
+    except Exception:
+        return False
+
+
 def _expire_conversation():
     """Conversation window ran out — back to wake-word mode.
     Stamps convo_expired_time so the face can play its subtle 'rest' cue."""
@@ -1166,7 +1176,7 @@ def listen():
         active        = state.conversation_active
         last_activity = state.last_activity_time
 
-    if active and (time.time() - last_activity) > CONVO_TIMEOUT:
+    if active and (time.time() - last_activity) > CONVO_TIMEOUT and not _page_open():
         _expire_conversation()
         active = False
 
@@ -1198,7 +1208,7 @@ def listen():
                     state.luna_mode = "idle"
                 return ""
             # conversation window can also run out mid-silence
-            if active and (time.time() - last_activity) > CONVO_TIMEOUT:
+            if active and (time.time() - last_activity) > CONVO_TIMEOUT and not _page_open():
                 _expire_conversation()
                 active = False
                 with state.lock:
@@ -1313,7 +1323,7 @@ def listen():
 
             if not text:
                 # silence chunk — also the spot to notice a timed-out window
-                if active and (time.time() - last_activity) > CONVO_TIMEOUT:
+                if active and (time.time() - last_activity) > CONVO_TIMEOUT and not _page_open():
                     _expire_conversation()
                     active = False
                 with state.lock:

@@ -220,14 +220,49 @@ def _keep_title(path, what):
         pass
 
 
-def _gallery(auto, secs=None):
+def _gallery(auto, secs=None, start=0):
     """Her drawings in the gallery, newest first (gallery.py)."""
     import gallery
     pics, titles = saved()[::-1], _titles()
     items = [{"path": p, "caption": titles.get(os.path.basename(p), ""),
-              "sub": gallery.when(p)} for p in pics]
-    gallery.show(items, "Rysunki", auto=auto, secs=secs)
+              "sub": gallery.when(p), "kind": "drawing"} for p in pics]
+    gallery.show(items, "Rysunki", start=start, auto=auto, secs=secs)
     return len(items)
+
+
+BIN = os.path.join(DIR, "kosz")
+
+
+def bin_drawing(item):
+    """A drawing into the bin (gallery.py: the bin button, "usuń ten rysunek")."""
+    path = item["path"] if isinstance(item, dict) else item
+    if not os.path.exists(path):
+        return False
+    os.makedirs(BIN, exist_ok=True)
+    os.replace(path, os.path.join(BIN, os.path.basename(path)))
+    print(f"[draw] {os.path.basename(path)} moved to the bin", flush=True)
+    return True
+
+
+def restore_drawing():
+    """The drawing binned last, back; its path (None: nothing in the bin)."""
+    try:
+        binned = [os.path.join(BIN, f) for f in os.listdir(BIN) if f.endswith(".png")]
+    except OSError:
+        return None
+    if not binned:
+        return None
+    last = max(binned, key=os.path.getmtime)
+    out = os.path.join(DIR, os.path.basename(last))
+    os.replace(last, out)
+    return out
+
+
+def show_one(path):
+    """The gallery of drawings, standing at this one."""
+    pics = saved()[::-1]
+    _gallery(auto=False, secs=SHOW_SECS,
+             start=pics.index(path) if path in pics else 0)
 
 
 def show_saved(speak):

@@ -49,6 +49,22 @@ def main(out):
     pygame.image.save(scr, os.path.join(out, "gallery_slide.png"))
     ui_screens.draw_gallery(scr, g, 21.0, W, H)
     pygame.image.save(scr, os.path.join(out, "gallery_drawing.png"))
+    g.update(confirm=21.0, toast=("Usunięto · „przywróć rysunek”", 30.0))
+    for it in items:
+        it["kind"] = "drawing"
+    ui_screens.draw_gallery(scr, g, 21.5, W, H)
+    pygame.image.save(scr, os.path.join(out, "gallery_confirm.png"))
+    people = [{"path": pics[0], "caption": "Maja", "sub": "córka, 8 lat · widziałam dziś, 17:39",
+               "kind": "person", "name": "Maja", "round": True},
+              {"path": None, "caption": "Kasia", "sub": "widziałam wczoraj, 9:05",
+               "kind": "person", "name": "Kasia", "round": True}]
+    pg = {"items": people, "i": 0, "title": "Kogo znam", "auto": False, "next": 0.0,
+          "t_nav": 0.0, "dir": 0, "from": None, "confirm": 0.0, "toast": None}
+    ui_screens.draw_gallery(scr, pg, 10.0, W, H)
+    pygame.image.save(scr, os.path.join(out, "people.png"))
+    pg["i"] = 1
+    ui_screens.draw_gallery(scr, pg, 10.0, W, H)
+    pygame.image.save(scr, os.path.join(out, "people_letter.png"))
     ui_screens.draw_photo(scr, pics[3], "Tatry · Wikipedia", W, H)
     pygame.image.save(scr, os.path.join(out, "photo.png"))
     kinds = ("partly", "rain", "clear", "storm", "snow", "fog", "drizzle")

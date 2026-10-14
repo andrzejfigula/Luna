@@ -2,6 +2,9 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 14 października (późnym wieczorem) ==
+- „Kogo znasz?” — pokazuję osoby, które znam, z ich twarzami. „Zapomnij tę osobę” (albo kosz na ekranie) — zapominam; „przywróć osobę” — pamiętam znowu.
+- W galerii jest kosz: „usuń to zdjęcie”, „usuń ten rysunek”; „przywróć zdjęcie” albo „przywróć rysunek” je oddaje.
+- Gdy galeria jest na ekranie, słucham dalej — „dalej” i „zamknij” działają bez „Luna”.
 - Galeria zdjęć i rysunków: „następne”, „poprzednie”, „zamknij” — albo strzałki i krzyżyk na ekranie, albo przesuń palcem.
 - Galeria jest ładniejsza: zdjęcie na rozmytym tle, podpis, kto jest na zdjęciu i kiedy je zrobiłam.
 - „Pokaż pogodę” — teraz z obrazkami: słońce, chmury, deszcz, temperatura na najbliższe godziny i cały tydzień.

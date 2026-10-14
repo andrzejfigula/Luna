@@ -168,33 +168,30 @@ def shadow(w, h, r, spread=16, alpha=150):
 
 # ── pictures: the card and the blurred backdrop ─────────────────────────────
 
-_pics = {}                   # path → (backdrop, card) for the last few
+_pics = {}                   # (path, size…) → (backdrop, card) for the last few
+_AVATAR = ((92, 120, 220), (226, 98, 140), (64, 170, 140), (230, 150, 50), (150, 100, 210),
+           (60, 150, 200))
 
 
-def _picture(path, W, H, maxw, maxh):
-    key = (path, W, H, maxw, maxh)
-    got = _pics.get(key)
-    if got is not None:
-        return got
+def _src(it):
+    """(path, round, name) of a gallery item or a plain path."""
+    if isinstance(it, dict):
+        return it.get("path"), bool(it.get("round")), it.get("caption") or ""
+    return it, False, ""
+
+
+def _load(path):
     try:
         pic = pygame.image.load(path)
         # (a palette PNG — Wikipedia's flags — can't be smoothscaled)
-        pic = pic.convert_alpha() if pic.get_alpha() else pic.convert()
+        return pic.convert_alpha() if pic.get_alpha() else pic.convert()
     except Exception:
         return None
+
+
+def _backdrop(pic, W, H):
+    """The picture covering the screen, blurred and dimmed."""
     pw, ph = pic.get_size()
-    k = min(maxw / pw, maxh / ph)
-    cw, chh = max(1, int(pw * k)), max(1, int(ph * k))
-    img = pygame.transform.smoothscale(pic, (cw, chh)).convert_alpha()
-    mask = rrect(cw, chh, 18, (255, 255, 255, 255))
-    card = pygame.Surface((cw, chh), pygame.SRCALPHA)
-    card.fill((240, 240, 240, 255))           # (a transparent flag on light grey)
-    card.blit(img, (0, 0))
-    card.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-    edge = pygame.Surface((cw * SS, chh * SS), pygame.SRCALPHA)
-    pygame.draw.rect(edge, (255, 255, 255, 70), edge.get_rect(), SS * 2, border_radius=18 * SS)
-    card.blit(_down(edge, cw, chh), (0, 0))
-    # the backdrop: the same picture, covering the screen, blurred and dimmed
     kc = max(W / pw, H / ph)
     cover = pygame.transform.smoothscale(pic.convert(), (int(pw * kc) + 1, int(ph * kc) + 1))
     cover = cover.subsurface(pygame.Rect((cover.get_width() - W) // 2,
@@ -204,10 +201,104 @@ def _picture(path, W, H, maxw, maxh):
     dark = pygame.Surface((W, H))
     dark.set_alpha(120)
     back.blit(dark, (0, 0))
-    if len(_pics) >= 6:
+    return back
+
+
+def _avatar_col(name):
+    return _AVATAR[sum(map(ord, name)) % len(_AVATAR)]
+
+
+def _round_card(pic, name, D):
+    """A person: their face in a circle with a light ring; without a picture,
+    a coloured circle with the first letter."""
+    S = D * SS
+    card = pygame.Surface((D, D), pygame.SRCALPHA)
+    if pic is not None:
+        pw, ph = pic.get_size()
+        side = min(pw, ph)
+        sq = pic.subsurface(pygame.Rect((pw - side) // 2, max(0, (ph - side) // 3), side, side))
+        card.blit(pygame.transform.smoothscale(sq.convert(), (D, D)), (0, 0))
+    else:
+        col = _avatar_col(name)
+        card.blit(vgrad(D, D, _mix(col, WHITE, 0.25), _mix(col, (0, 0, 0), 0.25)), (0, 0))
+        letter = text((name[:1] or "?").upper(), int(D * 0.5), WHITE, "ExtraBold")
+        card.blit(letter, letter.get_rect(center=(D // 2, D // 2 + D // 40)))
+    mask = pygame.Surface((S, S), pygame.SRCALPHA)
+    pygame.draw.circle(mask, (255, 255, 255, 255), (S // 2, S // 2), S // 2)
+    card.blit(_down(mask, D, D), (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+    ring = pygame.Surface((S, S), pygame.SRCALPHA)
+    pygame.draw.circle(ring, (255, 255, 255, 210), (S // 2, S // 2), S // 2, 5 * SS)
+    card.blit(_down(ring, D, D), (0, 0))
+    return card
+
+
+def _edge(w, h):
+    key = ("edge", w, h)
+    s = _cache.get(key)
+    if s is None:
+        big = pygame.Surface((w * SS, h * SS), pygame.SRCALPHA)
+        pygame.draw.rect(big, (255, 255, 255, 70), big.get_rect(), SS * 2, border_radius=18 * SS)
+        s = _cache[key] = _down(big, w, h)
+    return s
+
+
+def _picture(it, W, H, maxw, maxh, load=True):
+    """(backdrop, card) for a gallery item (or a plain path); None when it
+    can't be read — or isn't made yet and load is False."""
+    path, rnd, name = _src(it)
+    key = (path, rnd, name if rnd else "", W, H, maxw, maxh)
+    got = _pics.get(key)
+    if got is not None or not load:
+        return got
+    pic = _load(path) if path else None
+    if rnd:
+        card = _round_card(pic, name, min(maxw, maxh, 290))
+        if pic is not None:
+            back = _backdrop(pic, W, H)
+        else:
+            col = _avatar_col(name)
+            back = vgrad(W, H, _mix(col, (0, 0, 0), 0.55), _mix(col, (0, 0, 0), 0.8)).copy()
+    else:
+        if pic is None:
+            return None
+        pw, ph = pic.get_size()
+        k = min(maxw / pw, maxh / ph)
+        cw, chh = max(1, int(pw * k)), max(1, int(ph * k))
+        img = pygame.transform.smoothscale(pic, (cw, chh)).convert_alpha()
+        card = pygame.Surface((cw, chh), pygame.SRCALPHA)
+        card.fill((240, 240, 240, 255))           # (a transparent flag on light grey)
+        card.blit(img, (0, 0))
+        card.blit(rrect(cw, chh, 18, (255, 255, 255, 255)), (0, 0),
+                  special_flags=pygame.BLEND_RGBA_MULT)
+        card.blit(_edge(cw, chh), (0, 0))
+        back = _backdrop(pic, W, H)
+    if len(_pics) >= 8:
         _pics.pop(next(iter(_pics)))
     _pics[key] = (back, card)
     return _pics[key]
+
+
+def bin_button(r=24):
+    """A dark round button with a white bin."""
+    key = ("bin", r)
+    s = _cache.get(key)
+    if s is None:
+        d = 2 * r * SS
+        big = pygame.Surface((d, d), pygame.SRCALPHA)
+        c = d // 2
+        pygame.draw.circle(big, (12, 14, 24, 110), (c, c), c)
+        pygame.draw.circle(big, (255, 255, 255, 60), (c, c), c, SS * 2)
+        u = r * SS / 24
+        lw = int(2.6 * u)
+        _line(big, WHITE, (c - 9 * u, c - 7 * u), (c + 9 * u, c - 7 * u), lw)      # the lid
+        _line(big, WHITE, (c - 3 * u, c - 10 * u), (c + 3 * u, c - 10 * u), lw)    # its handle
+        body = [(c - 7 * u, c - 4 * u), (c + 7 * u, c - 4 * u), (c + 5.5 * u, c + 10 * u),
+                (c - 5.5 * u, c + 10 * u)]
+        pygame.draw.polygon(big, WHITE, body, lw)
+        for x in (-2.5, 2.5):
+            _line(big, WHITE, (c + x * u, c - 1 * u), (c + x * u, c + 7 * u), int(2 * u))
+        s = _cache[key] = _down(big, 2 * r, 2 * r)
+    return s
 
 
 def _ease(t):
@@ -249,18 +340,25 @@ def draw_gallery(scr, g, now, W, H):
     """The gallery page: backdrop, the picture (sliding when turned), ‹ › ✕,
     the caption, dots, and the slideshow's progress."""
     items, i = g["items"], g["i"]
-    maxw, maxh = W - 190, H - 116
-    got = _picture(items[i]["path"], W, H, maxw, maxh)
-    if got is None:
+    if not items:
         scr.fill((0, 0, 0))
         return
-    back, card = got
+    i = max(0, min(i, len(items) - 1))
+    rnd = _src(items[i])[1]
+    maxw, maxh = W - 190, H - 116
+    got = _picture(items[i], W, H, maxw, maxh)
     cy = (H - 70) // 2 + 12
     t = (now - g.get("t_nav", 0.0)) / gallery.SLIDE
     old = g.get("from")
-    prev = (_picture(items[old]["path"], W, H, maxw, maxh)
-            if 0 <= t < 1 and old is not None and 0 <= old < len(items) and old != i else None)
-    if prev:
+    prev = (_picture(items[old], W, H, maxw, maxh)
+            if got and 0 <= t < 1 and old is not None and 0 <= old < len(items) and old != i
+            else None)
+    if got is None:                    # gone from the disk: say so, keep the buttons
+        scr.fill((14, 16, 26))
+        msg = text("Nie mogę otworzyć tego obrazka", 26, DIM, "Bold")
+        scr.blit(msg, msg.get_rect(center=(W // 2, cy)))
+    elif prev:
+        back, card = got
         e, d = _ease(t), g.get("dir", 1) or 1
         scr.blit(prev[0], (0, 0))
         back.set_alpha(int(255 * e))
@@ -271,16 +369,20 @@ def draw_gallery(scr, g, now, W, H):
         for (bk, cd), x in ((prev, W // 2 - int(d * shift * e)),
                             ((back, card), W // 2 + int(d * shift * (1 - e)))):
             r = cd.get_rect(center=(x, cy))
-            scr.blit(shadow(*r.size, 18), (r.x - 16, r.y - 10))
+            if not rnd:
+                scr.blit(shadow(*r.size, 18), (r.x - 16, r.y - 10))
             scr.blit(cd, r)
     else:
+        back, card = got
         scr.blit(back, (0, 0))
         _chrome(scr, W, H)
         r = card.get_rect(center=(W // 2, cy))
-        scr.blit(shadow(*r.size, 18), (r.x - 16, r.y - 10))
+        if not rnd:                    # (a round portrait has its ring instead)
+            scr.blit(shadow(*r.size, 18), (r.x - 16, r.y - 10))
         scr.blit(card, r)
     n = len(items)
-    # the title and how many, top left; ✕ top right
+    it = items[i]
+    # the title and how many, top left; ✕ and the bin top right
     if g.get("title"):
         label = shadowed(f"{g['title']}", 24, WHITE, "ExtraBold")
         scr.blit(label, (18, 10))
@@ -288,6 +390,16 @@ def draw_gallery(scr, g, now, W, H):
         scr.blit(cnt, (18 + label.get_width() + 4, 15))
     btn = circle_button("close", 24)
     scr.blit(btn, btn.get_rect(center=(W - 38, 38)))
+    if gallery.deletable(it):
+        if now - g.get("confirm", 0.0) < gallery.CONFIRM:     # tapped once: sure?
+            pill = rrect(108, 44, 22, (214, 52, 52, 235))
+            pr = pill.get_rect(center=(W - 120, 38))
+            scr.blit(pill, pr)
+            q = text("Usunąć?", 21, WHITE, "ExtraBold")
+            scr.blit(q, q.get_rect(center=pr.center))
+        else:
+            b = bin_button(24)
+            scr.blit(b, b.get_rect(center=(W - 100, 38)))
     if n > 1:
         for kind, x, on in (("prev", 46, i > 0), ("next", W - 46, i < n - 1)):
             b = circle_button(kind, 28, 110 if on else 40)
@@ -295,7 +407,6 @@ def draw_gallery(scr, g, now, W, H):
                 b = b.copy()
                 b.set_alpha(90)
             scr.blit(b, b.get_rect(center=(x, cy)))
-    it = items[i]
     _caption(scr, W, H, it.get("caption") or "", it.get("sub") or "")
     # dots (or nothing: past 15 the count says it)
     if 1 < n <= 15:
@@ -309,6 +420,20 @@ def draw_gallery(scr, g, now, W, H):
     if g.get("auto"):                          # the slideshow runs: a thin line
         k = 1 - max(0.0, min(1.0, (g["next"] - now) / gallery.STEP))
         pygame.draw.rect(scr, (255, 255, 255), pygame.Rect(0, H - 3, int(W * k), 3))
+    toast = g.get("toast")
+    if toast and now < toast[1]:                # "Usunięto · „przywróć zdjęcie”"
+        img = text(toast[0], 20, WHITE, "Bold")
+        pill = rrect(img.get_width() + 36, 40, 20, (20, 22, 34, 220))
+        pr = pill.get_rect(center=(W // 2, H - 130))
+        scr.blit(pill, pr)
+        scr.blit(img, img.get_rect(center=pr.center))
+    # the neighbours made ahead, one a frame, while nothing moves: turning
+    # then never waits for a 1 MB drawing to load (~150 ms on the Pi)
+    if not 0 <= t < 1.5:
+        for j in (i + 1, i - 1):
+            if 0 <= j < n and _picture(items[j], W, H, maxw, maxh, load=False) is None:
+                _picture(items[j], W, H, maxw, maxh)
+                break
 
 
 def moving(kind, data, now):

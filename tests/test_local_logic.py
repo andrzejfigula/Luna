@@ -5171,7 +5171,7 @@ class GalleryWeatherScreensTest(unittest.TestCase):
         gallery.show(self._items(2))
         self.assertTrue(commands.close_page("Zamknij", self.speak))
 
-    def test_slideshow_ends_after_the_last(self):
+    def test_slideshow_stands_after_the_last(self):
         import gallery
         gallery.show(self._items(2))
         with state.lock:
@@ -5180,8 +5180,8 @@ class GalleryWeatherScreensTest(unittest.TestCase):
         self.assertTrue(gallery.tick(g, now + 1))
         self.assertTrue(gallery.tick(g, now + gallery.STEP + 0.1))
         self.assertEqual(g["i"], 1)
-        self.assertFalse(gallery.tick(g, now + 2 * gallery.STEP + 0.2))
-        g["auto"] = False                                 # standing: never turns
+        self.assertTrue(gallery.tick(g, now + 2 * gallery.STEP + 0.2))   # the end: it stands
+        self.assertEqual((g["i"], g["auto"]), (1, False))
         self.assertTrue(gallery.tick(g, now + 99))
 
     def test_captions(self):
@@ -5229,6 +5229,132 @@ class GalleryWeatherScreensTest(unittest.TestCase):
             kind, _, data = state.overlay
         self.assertEqual((kind, data["now"]["temp"]), ("weather", 13))
         self.assertTrue(commands.close_page("Zamknij", self.speak))
+
+
+class GalleryDeletePeopleTest(unittest.TestCase):
+    """Deleting photos, drawings and people from the gallery (into a bin),
+    getting them back, and the gallery of the people she knows."""
+
+    def setUp(self):
+        self.said = []
+        self.d = tempfile.mkdtemp()
+
+    def tearDown(self):
+        with state.lock:
+            state.overlay = None
+        shutil.rmtree(self.d, ignore_errors=True)
+
+    def speak(self, text, **k):
+        self.said.append(text)
+
+    def _people(self):
+        import faces
+        p = mock.patch.multiple(faces, PEOPLE_PATH=os.path.join(self.d, "people.json"),
+                                FORGOTTEN_PATH=os.path.join(self.d, "forgotten.json"),
+                                PORTRAITS=os.path.join(self.d, "faces"), _people=None)
+        with open(os.path.join(self.d, "people.json"), "w", encoding="utf-8") as f:
+            json.dump({"Maja": {"samples": [[0.1] * 4], "note": "córka, 8 lat — dziecko"},
+                       "Kasia": {"samples": [[0.2] * 4]}}, f)
+        return p
+
+    def test_bin_tapped_twice_deletes_a_photo(self):
+        import gallery
+        for f in ("20261012-120000.jpg", "20261013-120000.jpg"):
+            open(os.path.join(self.d, f), "wb").close()
+        with mock.patch.object(screens, "PHOTOS_DIR", self.d),                 mock.patch.object(screens, "BIN", os.path.join(self.d, "kosz")):
+            gallery.show(screens._items(["20261013-120000.jpg", "20261012-120000.jpg"], {}),
+                         auto=False)
+            self.assertEqual(gallery.touch("tap", 0.86, 0.08, item={"kind": "photo"}), "delete")
+            self.assertEqual(gallery.touch("tap", 0.86, 0.08, item={"kind": None}), "next")
+            gallery.on_touch("tap", 0.86, 0.08)            # "Usunąć?"
+            self.assertEqual(sorted(os.listdir(self.d)), ["20261012-120000.jpg", "20261013-120000.jpg"])
+            gallery.on_touch("tap", 0.86, 0.08)            # yes
+            self.assertEqual(sorted(os.listdir(self.d)), ["20261012-120000.jpg", "kosz"])
+            with state.lock:
+                kind, _, g = state.overlay
+            self.assertEqual((kind, len(g["items"]), g["i"]), ("gallery", 1, 0))
+            self.assertIn("przywróć zdjęcie", g["toast"][0])
+            # by voice: the last one, and the gallery closes
+            self.assertTrue(commands.handle("Usuń to zdjęcie", self.speak, lambda *a: None))
+            self.assertEqual(self.said[-1], "Usunęłam zdjęcie. Gdyby co — powiedz: przywróć zdjęcie.")
+            with state.lock:
+                self.assertIsNone(state.overlay)
+            self.assertTrue(screens.photo_command("przywróć zdjęcie", self.speak))
+        self.assertIn("20261012-120000.jpg", os.listdir(self.d))
+
+    def test_drawing_deleted_and_back(self):
+        import drawing
+        import gallery
+        with mock.patch.object(drawing, "DIR", self.d),                 mock.patch.object(drawing, "BIN", os.path.join(self.d, "kosz")):
+            for f in ("20261012-120000.png", "20261013-120000.png"):
+                open(os.path.join(self.d, f), "wb").close()
+            drawing._keep_title(os.path.join(self.d, "20261013-120000.png"), "kotek")
+            self.assertTrue(drawing.show_saved(self.speak))
+            with state.lock:
+                g = state.overlay[2]
+            self.assertEqual((g["items"][0]["caption"], g["items"][0]["kind"]), ("kotek", "drawing"))
+            self.assertTrue(gallery.voice("Usuń ten rysunek", self.speak))
+            self.assertEqual(os.listdir(os.path.join(self.d, "kosz")), ["20261013-120000.png"])
+            self.assertTrue(commands.handle("Przywróć rysunek", self.speak, lambda *a: None))
+            self.assertEqual(self.said[-1], "Proszę, wrócił.")
+            self.assertTrue(os.path.exists(os.path.join(self.d, "20261013-120000.png")))
+            with state.lock:
+                g = state.overlay[2]
+            self.assertEqual(os.path.basename(g["items"][g["i"]]["path"]), "20261013-120000.png")
+
+    def test_people_gallery_forget_and_restore(self):
+        import faces
+        import gallery
+        with self._people():
+            self.assertTrue(screens.handle("Kogo znasz?", self.speak, lambda *a: None))
+            self.assertEqual(self.said[-1], "Znam 2 osoby: Kasia i Maja.")
+            with state.lock:
+                g = state.overlay[2]
+            first = g["items"][0]
+            self.assertEqual((first["caption"], first["kind"], first["round"], first["path"]),
+                             ("Kasia", "person", True, None))
+            self.assertEqual(g["items"][1]["sub"], "córka, 8 lat")
+            for t in ("Pokaż osoby, które znasz", "Luna, pokaż galerię osób", "Kogo pamiętasz?"):
+                self.assertTrue(screens._PEOPLE.match(t.lower()), t)
+            self.assertFalse(screens._PEOPLE.match("kogo znasz w szkole"))
+            gallery.step(1)                                  # Maja
+            self.assertTrue(gallery.voice("Zapomnij tę osobę", self.speak))
+            self.assertEqual(faces.names(), ["Kasia"])
+            self.assertEqual(self.said[-1], "Zapomniałam: Maja. Gdyby co — powiedz: przywróć osobę.")
+            self.assertTrue(commands.handle("Przywróć osobę", self.speak, lambda *a: None))
+            self.assertEqual(faces.names(), ["Kasia", "Maja"])
+            self.assertEqual(faces.notes()["Maja"], "córka, 8 lat — dziecko")
+            self.assertEqual(self.said[-1], "Dobrze, znowu pamiętam: Maja.")
+
+    def test_portrait_kept_once_a_day(self):
+        import numpy as np
+        import faces
+        frame = np.zeros((480, 640, 3), np.uint8)
+        row = np.array([100, 60, 60, 70] + [0] * 11, np.float32)     # half-size frame
+        with self._people():
+            now = time.time()
+            self.assertFalse(faces.keep_portrait("Maja", 0.45, frame, row, 2.0, now))  # not sure
+            self.assertTrue(faces.keep_portrait("Maja", 0.6, frame, row, 2.0, now))
+            self.assertTrue(faces.portrait("Maja"))
+            self.assertFalse(faces.keep_portrait("Maja", 0.6, frame, row, 2.0, now + 60))
+            items = screens.people_items()
+            self.assertEqual(items[1]["path"], faces.portrait("Maja"))
+            faces.forget("Maja")                             # the portrait goes too…
+            self.assertIsNone(faces.portrait("Maja"))
+            faces.restore("Maja")                            # …and comes back
+            self.assertTrue(faces.portrait("Maja"))
+
+    def test_slideshow_stops_after_ten_and_keeps_listening(self):
+        import gallery
+        gallery.show([{"path": f"/x/{k}.jpg"} for k in range(14)])
+        with state.lock:
+            g = state.overlay[2]
+            self.assertTrue(state.conversation_active)
+        t = time.time()
+        for k in range(1, 12):
+            gallery.tick(g, t + k * gallery.STEP + 0.01)
+        self.assertEqual((g["i"], g["auto"]), (gallery.AUTO_MAX - 1, False))
+        self.assertTrue(gallery.page_open())
 
 
 if __name__ == "__main__":

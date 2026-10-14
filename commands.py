@@ -1187,6 +1187,8 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         return True
     if gallery.voice(text, speak):      # "następne", "poprzednie" — with it on the screen
         return True
+    if gallery.restore_voice(text, speak):   # "przywróć rysunek / osobę"
+        return True
     if _WAKE_UP.match(text.strip()):
         with state.lock:
             state.emotion = "Happy"

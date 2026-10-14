@@ -15,9 +15,14 @@ moją twarz, mam na imię Ola"): for a few seconds every frame with exactly one
 face adds a sample; the samples (numbers only, never the picture) go to
 data/people.json. From then on the face is recognised (state.person) and
 the model is told who it is talking to. "Zapomnij moją twarz" / "zapomnij
-twarz Kasi" removes them.
+twarz Kasi" (or the bin in "kogo znasz?", gallery.py) puts them in a bin —
+"przywróć osobę" brings them back.
 
-Nothing leaves the Pi: detection, recognition and the samples are local.
+For "kogo znasz?" she keeps one small portrait each (data/faces/<name>.jpg),
+cut from the camera when she is sure who it is, renewed now and then.
+
+Nothing leaves the Pi: detection, recognition, the samples and the portraits
+are local.
 """
 
 import json
@@ -35,6 +40,10 @@ MODELS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "model
 YUNET = os.path.join(MODELS, "face_detection_yunet_2023mar.onnx")
 SFACE = os.path.join(MODELS, "face_recognition_sface_2021dec.onnx")
 PEOPLE_PATH = os.path.join(DATA_DIR, "people.json")
+FORGOTTEN_PATH = os.path.join(DATA_DIR, "people_forgotten.json")   # the bin
+PORTRAITS = os.path.join(DATA_DIR, "faces")
+PORTRAIT_EVERY = 24 * 3600   # a new portrait at most this often…
+PORTRAIT_MIN_W = 70          # …of a face at least this wide (full frame, px)
 
 DETECT_SCORE = 0.75        # YuNet confidence for a face
 MATCH_COSINE = 0.40        # SFace: same person above this (paper: 0.363; a bit
@@ -529,19 +538,113 @@ def match_name(word, known=None):
     return None
 
 
+def _read_bin():
+    try:
+        with open(FORGOTTEN_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def _write_bin(b):
+    tmp = FORGOTTEN_PATH + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(b, f, ensure_ascii=False)
+    os.replace(tmp, FORGOTTEN_PATH)
+
+
 def forget(name):
-    """Remove someone. True if they were known."""
+    """Remove someone — into the bin (people_forgotten.json, their portrait
+    too). True if they were known."""
     with _lock:
         people = _load()
         key = next((n for n in people if n.lower() == name.lower()), None)
         if key is None:
             return False
+        b = _read_bin()
+        b[key] = dict(people[key], forgotten=time.time())
+        _write_bin(b)
         del people[key]
         _save()
+    pic = portrait(key)
+    if pic:
+        try:
+            os.replace(pic, os.path.join(PORTRAITS, f".{os.path.basename(pic)}.forgotten"))
+        except OSError:
+            pass
     with state.lock:
         if state.person and state.person[0] == key:
             state.person = None
-    print(f"[faces] forgot {key}", flush=True)
+    print(f"[faces] forgot {key} (in the bin)", flush=True)
+    return True
+
+
+def restore(name=None):
+    """The person forgotten last (or `name`) remembered again; their name, or None."""
+    with _lock:
+        b = _read_bin()
+        if not b:
+            return None
+        key = (next((n for n in b if n.lower() == name.lower()), None) if name
+               else max(b, key=lambda n: b[n].get("forgotten", 0)))
+        if key is None:
+            return None
+        rec = b.pop(key)
+        rec.pop("forgotten", None)
+        people = _load()
+        people[key] = rec
+        _save()
+        _write_bin(b)
+    hidden = os.path.join(PORTRAITS, f".{_portrait_file(key)}.forgotten")
+    if os.path.exists(hidden):
+        try:
+            os.replace(hidden, os.path.join(PORTRAITS, _portrait_file(key)))
+        except OSError:
+            pass
+    print(f"[faces] remembered {key} again", flush=True)
+    return key
+
+
+# ── portraits for "kogo znasz?" ──────────────────────────────────────────────
+
+def _portrait_file(name):
+    return re.sub(r"[^\w-]", "_", name) + ".jpg"
+
+
+def portrait(name):
+    """Their portrait's path, or None."""
+    p = os.path.join(PORTRAITS, _portrait_file(name))
+    return p if os.path.exists(p) else None
+
+
+def keep_portrait(name, sim, frame, row_small, scale, now=None):
+    """A portrait of `name` cut from this frame, if she is sure and the last
+    one is old (vision_module). True when one was saved."""
+    now = now if now is not None else time.time()
+    if sim < AUTO_MIN:
+        return False
+    x, y, w, h = (float(v) * scale for v in row_small[:4])
+    if w < PORTRAIT_MIN_W:
+        return False
+    old = portrait(name)
+    if old and now - os.path.getmtime(old) < PORTRAIT_EVERY:
+        return False
+    import cv2
+    side = int(max(w, h) * 1.9)
+    cx, cy = x + w / 2, y + h * 0.45
+    H, W = frame.shape[:2]
+    x0 = int(max(0, min(W - side, cx - side / 2)))
+    y0 = int(max(0, min(H - side, cy - side / 2)))
+    side = min(side, W - x0, H - y0)
+    crop = frame[y0:y0 + side, x0:x0 + side]
+    if crop.size == 0:
+        return False
+    os.makedirs(PORTRAITS, exist_ok=True)
+    out = os.path.join(PORTRAITS, _portrait_file(name))
+    cv2.imwrite(out + ".tmp.jpg", cv2.flip(cv2.resize(crop, (320, 320)), 1),
+                [int(cv2.IMWRITE_JPEG_QUALITY), 88])
+    os.replace(out + ".tmp.jpg", out)
+    print(f"[faces] new portrait of {name} ({sim:.2f})", flush=True)
     return True
 
 

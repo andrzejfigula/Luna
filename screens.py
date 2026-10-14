@@ -46,6 +46,13 @@ _GALLERY = ("pokaż zdjęcia", "pokaż ostatnie zdjęcie", "pokaż moje zdjęcia
             # (13 Oct 11:42, Andrzej: "pokaż galerię" → "nie mam dostępu do galerii")
             "pokaż galerię", "pokaz galerie", "pokaż galerie", "otwórz galerię",
             "otworz galerie", "galeria zdjęć", "pokaż swoje zdjęcia")
+# the people she knows, with their faces (gallery.py; the bin forgets one)
+_PEOPLE = re.compile(r"^(?:luna,?\s+)?(?:kogo\s+(?:już\s+|juz\s+|wszystkiego\s+)?(?:znasz|pamiętasz|"
+                     r"pamietasz|rozpoznajesz)|(?:pokaż|pokaz)\s+(?:mi\s+)?(?:wszystkie\s+)?"
+                     r"(?:osoby|ludzi|twarze|znajomych|wszystkich)(?:,?\s+(?:które|ktore|których|"
+                     r"ktorych|co|kogo)\s+(?:znasz|pamiętasz|pamietasz|rozpoznajesz))?|"
+                     r"(?:pokaż\s+|pokaz\s+|otwórz\s+|otworz\s+)?(?:galeri\w+)\s+(?:osób|osob|twarzy|"
+                     r"ludzi|znajomych))\W*$", re.I)
 # ("co mamy dzisiaj?" is left alone: it may mean "what day is it")
 _TODAY = ("plan dnia", "plan na dziś", "plan na dzisiaj", "co mamy w planie",
           "dzisiejszy plan", "plany na dziś", "plany na dzisiaj",
@@ -160,13 +167,45 @@ def _items(shots, tags):
     """Photo files (newest first) → the gallery's items: who is on it, when."""
     return [{"path": os.path.join(PHOTOS_DIR, f),
              "caption": _and(tags[f]) if tags.get(f) else "",
-             "sub": gallery.when(f)} for f in shots]
+             "sub": gallery.when(f), "kind": "photo"} for f in shots]
+
+
+def people_items(now=None):
+    """The people she knows for the gallery: a portrait (faces.py), else
+    their newest photo, else none (ui_screens draws the first letter)."""
+    import faces
+    notes, out = faces.notes(), []
+    for name in faces.names():
+        pic = faces.portrait(name) or next(iter(photos_of(name)), None)
+        seen = faces.last_seen(name)
+        sub = [notes.get(name, "").split("—")[0].strip(" ,")]
+        if seen:
+            lt = time.localtime(seen)
+            sub.append("widziałam " + gallery.day_word(lt.tm_year, lt.tm_mon, lt.tm_mday, now)
+                       + (f", {lt.tm_hour}:{lt.tm_min:02d}"
+                          if now is None or now - seen < 2 * 86400 else ""))
+        out.append({"path": pic, "caption": name, "sub": " · ".join(x for x in sub if x),
+                    "kind": "person", "name": name, "round": True})
+    return out
+
+
+def show_people(speak):
+    items = people_items()
+    if not items:
+        speak("Jeszcze nikogo nie znam. Powiedz: zapamiętaj mnie, jestem… i swoje imię.")
+        return True
+    import calc
+    gallery.show(items, "Kogo znam", auto=False, secs=60)
+    n = len(items)
+    speak(f"Znam {n} {calc._plural(n, 'osobę', 'osoby', 'osób')}: "
+          f"{_and([i['name'] for i in items])}.")
+    return True
 
 
 def show_photos(paths, names=None, title="Zdjęcia"):
     """The gallery of these photos (a name under each, if given)."""
     names = names or [""] * len(paths)
-    gallery.show([{"path": p, "caption": n, "sub": gallery.when(p)}
+    gallery.show([{"path": p, "caption": n, "sub": gallery.when(p), "kind": "photo"}
                   for p, n in zip(paths, names)], title)
 
 
@@ -286,6 +325,18 @@ def _shots():
         return []
 
 
+def bin_photo(item):
+    """A photo into the bin (gallery.py's bin button, "usuń to zdjęcie")."""
+    path = item["path"] if isinstance(item, dict) else item
+    name = os.path.basename(path)
+    if name not in _shots():
+        return False
+    os.makedirs(BIN, exist_ok=True)
+    os.replace(os.path.join(PHOTOS_DIR, name), os.path.join(BIN, name))
+    print(f"[screens] photo {name} moved to the bin", flush=True)
+    return True
+
+
 def photo_command(low, speak):
     """"Ile masz zdjęć?", "Usuń to / ostatnie zdjęcie", "Przywróć zdjęcie"."""
     import calc
@@ -304,12 +355,10 @@ def photo_command(low, speak):
         if not name or name not in shots:
             speak("Nie mam żadnego zdjęcia do usunięcia.")
             return True
-        os.makedirs(BIN, exist_ok=True)
-        os.replace(os.path.join(PHOTOS_DIR, name), os.path.join(BIN, name))
+        bin_photo(os.path.join(PHOTOS_DIR, name))
         with state.lock:
             if state.overlay and state.overlay[0] in ("photo", "gallery"):
                 state.overlay = None
-        print(f"[screens] photo {name} moved to the bin", flush=True)
         speak("Dobrze, usunęłam to zdjęcie. Gdyby co — powiedz: przywróć zdjęcie.")
         return True
     if _PHOTO_RESTORE.match(low):
@@ -351,6 +400,8 @@ def handle(text, speak, play_sound_async):
         else:
             _show("list", 10, ("Przypomnienia", lines))
         return True
+    if _PEOPLE.match(low.strip()):
+        return show_people(speak)
     if any(k in low for k in _GALLERY):
         shots = sorted((f for f in os.listdir(PHOTOS_DIR) if f.endswith(".jpg")),
                        reverse=True) if os.path.isdir(PHOTOS_DIR) else []
