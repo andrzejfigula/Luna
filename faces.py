@@ -44,6 +44,7 @@ FORGOTTEN_PATH = os.path.join(DATA_DIR, "people_forgotten.json")   # the bin
 PORTRAITS = os.path.join(DATA_DIR, "faces")
 PORTRAIT_EVERY = 24 * 3600   # a new portrait at most this often…
 PORTRAIT_MIN_W = 70          # …of a face at least this wide (full frame, px)
+PORTRAIT_FIRST = 0.45        # the first one: a little less sure is enough
 
 DETECT_SCORE = 0.75        # YuNet confidence for a face
 MATCH_COSINE = 0.40        # SFace: same person above this (paper: 0.363; a bit
@@ -619,33 +620,79 @@ def portrait(name):
 
 def keep_portrait(name, sim, frame, row_small, scale, now=None):
     """A portrait of `name` cut from this frame, if she is sure and the last
-    one is old (vision_module). True when one was saved."""
+    one is old (vision_module). True when one was saved. The first one asks
+    a little less (PORTRAIT_FIRST): Emilka was never "sure" enough at once."""
     now = now if now is not None else time.time()
-    if sim < AUTO_MIN:
+    old = portrait(name)
+    if sim < (AUTO_MIN if old else PORTRAIT_FIRST):
         return False
     x, y, w, h = (float(v) * scale for v in row_small[:4])
     if w < PORTRAIT_MIN_W:
         return False
-    old = portrait(name)
     if old and now - os.path.getmtime(old) < PORTRAIT_EVERY:
         return False
-    import cv2
-    side = int(max(w, h) * 1.9)
-    cx, cy = x + w / 2, y + h * 0.45
-    H, W = frame.shape[:2]
-    x0 = int(max(0, min(W - side, cx - side / 2)))
-    y0 = int(max(0, min(H - side, cy - side / 2)))
-    side = min(side, W - x0, H - y0)
-    crop = frame[y0:y0 + side, x0:x0 + side]
-    if crop.size == 0:
+    if not _save_portrait(name, frame, (x, y, w, h), flip=True):
         return False
-    os.makedirs(PORTRAITS, exist_ok=True)
-    out = os.path.join(PORTRAITS, _portrait_file(name))
-    cv2.imwrite(out + ".tmp.jpg", cv2.flip(cv2.resize(crop, (320, 320)), 1),
-                [int(cv2.IMWRITE_JPEG_QUALITY), 88])
-    os.replace(out + ".tmp.jpg", out)
     print(f"[faces] new portrait of {name} ({sim:.2f})", flush=True)
     return True
+
+
+def _save_portrait(name, img, box, flip, mtime=None):
+    """The face at box (x, y, w, h) of img, square with some room around it."""
+    import cv2
+    x, y, w, h = box
+    H, W = img.shape[:2]
+    side = int(min(max(w, h) * 1.9, W, H))
+    cx, cy = x + w / 2, y + h * 0.45
+    x0 = int(max(0, min(W - side, cx - side / 2)))
+    y0 = int(max(0, min(H - side, cy - side / 2)))
+    crop = img[y0:y0 + side, x0:x0 + side]
+    if crop.size == 0:
+        return False
+    crop = cv2.resize(crop, (320, 320))
+    os.makedirs(PORTRAITS, exist_ok=True)
+    out = os.path.join(PORTRAITS, _portrait_file(name))
+    cv2.imwrite(out + ".tmp.jpg", cv2.flip(crop, 1) if flip else crop,
+                [int(cv2.IMWRITE_JPEG_QUALITY), 88])
+    os.replace(out + ".tmp.jpg", out)
+    if mtime is not None:
+        os.utime(out, (mtime, mtime))
+    return True
+
+
+_photo_tried = {}            # name → the photos already searched for their face
+
+
+def portrait_from_photos(name, paths):
+    """No portrait yet: their face found in these photos (her own, already
+    the right way round) and cut out — never the middle of a photo (14 Oct:
+    Maja's "portrait" was the plush cat beside her). The path, or None. Old
+    on purpose, so the camera's own picture of them replaces it soon."""
+    if portrait(name):
+        return portrait(name)
+    paths = list(paths)[:8]
+    if not paths or _photo_tried.get(name) == paths or not (available() and can_recognise()):
+        return None
+    _photo_tried[name] = paths
+    import cv2
+    best = (MATCH_COSINE, None, None)
+    for path in paths:
+        img = cv2.imread(path)
+        if img is None:
+            continue
+        h, w = img.shape[:2]
+        k = min(1.0, 640 / max(h, w))
+        small = cv2.resize(img, (int(w * k), int(h * k))) if k < 1 else img
+        for r in detect(small):
+            sim = _scores(embed(img, r, 1 / k)).get(name, 0.0)
+            if sim > best[0]:
+                best = (sim, img, tuple(float(v) / k for v in r[:4]))
+    if best[1] is None:
+        print(f"[faces] no face of {name} in {len(paths)} photo(s)", flush=True)
+        return None
+    _save_portrait(name, best[1], best[2], flip=False, mtime=time.time() - PORTRAIT_EVERY)
+    print(f"[faces] portrait of {name} from a photo ({best[0]:.2f})", flush=True)
+    return portrait(name)
 
 
 def picture_note():

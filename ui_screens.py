@@ -130,6 +130,17 @@ def circle_button(kind, r=26, alpha=110):
     return s
 
 
+def draw_close(scr, W):
+    """The ✕ in the top right corner of every page (robot_face)."""
+    btn = circle_button("close", 24)
+    scr.blit(btn, btn.get_rect(center=(W - 38, 38)))
+
+
+def close_hit(nx, ny):
+    """Was this tap (normalised) on the ✕?"""
+    return nx > 0.905 and ny < 0.2
+
+
 def _line(surf, col, a, b, w):
     """A thick line with round ends."""
     pygame.draw.line(surf, col, a, b, int(w))
@@ -632,9 +643,10 @@ def draw_weather(scr, data, now, W, H):
     # ── right: the days ──
     rows = days[1:7] if len(days) > 1 else days
     px, pw = 330, W - 330 - 18
-    ph = H - 36
+    ptop = 72                                 # (under the ✕ of every page)
+    ph = H - ptop - 14
     panel = rrect(pw, ph, 22, (255, 255, 255, 34))
-    scr.blit(panel, (px, 18))
+    scr.blit(panel, (px, ptop))
     if not rows:
         return
     lo = min(d["tmin"] for d in rows)
@@ -644,9 +656,9 @@ def draw_weather(scr, data, now, W, H):
     sep = rrect(pw - 32, 1, 0, (255, 255, 255, 46))
     for j, d in enumerate(rows):
         k = _ease((now - data.get("t0", now) - 0.06 * j) / 0.6)
-        y = 18 + j * rh + int(24 * (1 - k))
+        y = ptop + j * rh + int(24 * (1 - k))
         if j:
-            scr.blit(sep, (px + 16, 18 + j * rh))
+            scr.blit(sep, (px + 16, ptop + j * rh))
         mid = y + rh // 2
         ns = shrink(d["label"], 23, 142, "ExtraBold", 18)
         name = text(d["label"], ns, WHITE, "ExtraBold")

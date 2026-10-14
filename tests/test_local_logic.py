@@ -5314,6 +5314,12 @@ class GalleryDeletePeopleTest(unittest.TestCase):
             self.assertEqual((first["caption"], first["kind"], first["round"], first["path"]),
                              ("Kasia", "person", True, None))
             self.assertEqual(g["items"][1]["sub"], "córka, 8 lat")
+            # tagged in a photo, but her face can't be found in it: the letter,
+            # never the whole photo (14 Oct: Maja's "portrait" was a plush cat)
+            ph = os.path.join(self.d, "20261013-120000.jpg")
+            open(ph, "wb").close()
+            with mock.patch.object(screens, "photos_of", lambda n: [ph] if n == "Maja" else []),                     mock.patch.object(faces, "available", lambda: False):
+                self.assertIsNone(screens.people_items()[1]["path"])
             for t in ("Pokaż osoby, które znasz", "Luna, pokaż galerię osób", "Kogo pamiętasz?"):
                 self.assertTrue(screens._PEOPLE.match(t.lower()), t)
             self.assertFalse(screens._PEOPLE.match("kogo znasz w szkole"))
@@ -5333,12 +5339,14 @@ class GalleryDeletePeopleTest(unittest.TestCase):
         row = np.array([100, 60, 60, 70] + [0] * 11, np.float32)     # half-size frame
         with self._people():
             now = time.time()
-            self.assertFalse(faces.keep_portrait("Maja", 0.45, frame, row, 2.0, now))  # not sure
+            self.assertFalse(faces.keep_portrait("Maja", 0.40, frame, row, 2.0, now))  # not sure
             self.assertTrue(faces.keep_portrait("Maja", 0.6, frame, row, 2.0, now))
             self.assertTrue(faces.portrait("Maja"))
             self.assertFalse(faces.keep_portrait("Maja", 0.6, frame, row, 2.0, now + 60))
             items = screens.people_items()
             self.assertEqual(items[1]["path"], faces.portrait("Maja"))
+            self.assertFalse(faces.keep_portrait("Maja", 0.46, frame, row, 2.0,     # (not the
+                                                 now + 2 * faces.PORTRAIT_EVERY))     # first: surer)
             faces.forget("Maja")                             # the portrait goes too…
             self.assertIsNone(faces.portrait("Maja"))
             faces.restore("Maja")                            # …and comes back

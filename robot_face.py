@@ -1738,7 +1738,10 @@ class RobotFace:
             if touch_kind in ("tap", "stop"):
                 import importlib                        # outside state.lock: it takes it
                 game = importlib.import_module("tictac" if ov_kind == "ttt" else "memo")
-                game.tap(touch_pt[0], touch_pt[1], WIDTH, HEIGHT)
+                if ui_screens.close_hit(*touch_pt):     # ✕: the game is over
+                    game.stop()
+                else:
+                    game.tap(touch_pt[0], touch_pt[1], WIDTH, HEIGHT)
         elif touch_t > self._touch_t and self._overlay_on():
             self._touch_t = touch_t
             if ov_kind == "gallery":                    # ‹ › ✕, a swipe (gallery.py)
@@ -2303,6 +2306,10 @@ class RobotFace:
         # ── whole-screen moments: mirror, photo, clock, flash ─────────────
         if self._overlay_on():
             self._draw_overlay()
+            with state.lock:                            # every page: ✕ to close it
+                ov_now = state.overlay
+            if ov_now and ov_now[0] not in ("flash", "gallery"):   # (the gallery: its own)
+                ui_screens.draw_close(self.screen, WIDTH)
 
         t3 = time.perf_counter()
         if self.gl:

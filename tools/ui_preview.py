@@ -83,6 +83,7 @@ def main(out):
                  for j, h in enumerate(range(15, 30, 3))]
         data = {"place": "Wrocław", "now": now, "days": days, "t0": 0.0, "hours": hours}
         ui_screens.draw_weather(scr, data, 5.0, W, H)
+        ui_screens.draw_close(scr, W)
         pygame.image.save(scr, os.path.join(out, f"{name}.png"))
     icons = pygame.Surface((8 * 110, 230))
     icons.fill((40, 70, 120))

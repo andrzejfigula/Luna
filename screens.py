@@ -176,7 +176,9 @@ def people_items(now=None):
     import faces
     notes, out = faces.notes(), []
     for name in faces.names():
-        pic = faces.portrait(name) or next(iter(photos_of(name)), None)
+        # their portrait — else their face cut from a photo of hers, else the
+        # first letter (never a whole photo: its middle may be someone else)
+        pic = faces.portrait(name) or faces.portrait_from_photos(name, photos_of(name))
         seen = faces.last_seen(name)
         sub = [notes.get(name, "").split("—")[0].strip(" ,")]
         if seen:
