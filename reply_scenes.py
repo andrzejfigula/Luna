@@ -256,17 +256,10 @@ def _dim(col, k):
 
 
 def _star4(surf, x, y, r, col, alpha):
-    """A four-pointed twinkle."""
+    """A four-pointed twinkle (robot_face.twinkle: the same everywhere)."""
     if r < 2 or alpha <= 4:
         return
-    pts = []
-    for i in range(8):
-        a = i * math.pi / 4
-        rr = r if i % 2 == 0 else r * 0.28
-        pts.append((x + math.cos(a) * rr, y + math.sin(a) * rr))
-    s = pygame.Surface((int(r * 2 + 4), int(r * 2 + 4)), pygame.SRCALPHA)
-    pygame.draw.polygon(s, (*col, alpha), [(px - x + r + 2, py - y + r + 2) for px, py in pts])
-    surf.blit(s, (int(x - r - 2), int(y - r - 2)))
+    rf.twinkle(surf, x, y, r, alpha, col)
 
 
 @scene("dizzy", duration=3.4)
@@ -1087,19 +1080,29 @@ class Curious(Scene):
 # Small props for the topic of a reply — the weather, an idea, a song. They
 # sit above her head on the right, clear of the eyes, and fade in and out.
 
-_PROP_X, _PROP_Y = 215, -128           # relative to the face centre
+_PROP_X, _PROP_Y = rf.face_spec.LAYOUT["prop"]   # relative to the face centre
 
 
 def _cloud(w, col, alpha):
-    """A soft cartoon cloud on its own layer (w px wide)."""
-    h = int(w * 0.62)
-    s = pygame.Surface((w, h), pygame.SRCALPHA)
-    c = (*col, alpha)
-    r = w // 5
-    for fx, fy, fr in ((0.28, 0.62, 1.0), (0.5, 0.42, 1.35), (0.72, 0.62, 1.0),
-                       (0.5, 0.68, 1.1)):
-        pygame.draw.circle(s, c, (int(w * fx), int(h * fy)), int(r * fr))
-    return s
+    """A soft cartoon cloud on its own layer (w px wide): antialiased, lit
+    from above, a darker belly."""
+    key = ("cloud", w, tuple(col))
+    base = rf._SMOOTH_CACHE.get(key)
+    if base is None:
+        h = int(w * 0.62)
+
+        def draw(s, k):
+            r = w // 5
+            belly = rf._lerp_col(col, (60, 64, 80), 0.35)
+            for fx, fy, fr in ((0.28, 0.62, 1.0), (0.5, 0.42, 1.35), (0.72, 0.62, 1.0),
+                               (0.5, 0.68, 1.1)):
+                pygame.draw.circle(s, belly, (int(w * fx * k), int(h * fy * k)), int(r * fr * k))
+            for fx, fy, fr in ((0.28, 0.58, 0.86), (0.5, 0.38, 1.2), (0.72, 0.58, 0.86)):
+                pygame.draw.circle(s, col, (int(w * fx * k), int(h * fy * k)), int(r * fr * k))
+        base = rf._SMOOTH_CACHE[key] = rf._smooth(w, h, draw)
+    img = base.copy()
+    img.set_alpha(int(alpha))
+    return img
 
 
 def _blit_glow(surf, img, center, hold, glow=110):
@@ -1262,15 +1265,23 @@ class Lightbulb(Scene):
 
 
 def _note(size, col):
-    """A quaver: head, stem and flag."""
-    w, h = size, int(size * 2.1)
-    s = pygame.Surface((w + 8, h + 6), pygame.SRCALPHA)
-    hr = size // 2
-    sx = w - 4
-    pygame.draw.rect(s, col, pygame.Rect(sx - 3, 3, 6, h - hr - 2), border_radius=2)
-    pygame.draw.polygon(s, col, [(sx + 2, 5), (sx + 2 + size // 2, size // 2), (sx + 2, size - 2)])
-    pygame.draw.ellipse(s, col, pygame.Rect(sx - hr * 2 + 2, h - hr * 2 + 2, int(hr * 2.3), hr * 2))
-    return s
+    """A quaver: head, stem and flag (antialiased, cached)."""
+    key = ("note", size, tuple(col))
+    img = rf._SMOOTH_CACHE.get(key)
+    if img is None:
+        w, h = size, int(size * 2.1)
+
+        def draw(s, k):
+            hr = size // 2
+            sx = w - 4
+            pygame.draw.rect(s, col, pygame.Rect((sx - 3) * k, 3 * k, 6 * k, (h - hr - 2) * k),
+                             border_radius=2 * k)
+            pygame.draw.polygon(s, col, [((sx + 2) * k, 5 * k), ((sx + 2 + size // 2) * k,
+                                         (size // 2) * k), ((sx + 2) * k, (size - 2) * k)])
+            pygame.draw.ellipse(s, col, pygame.Rect((sx - hr * 2 + 2) * k, (h - hr * 2 + 2) * k,
+                                                    int(hr * 2.3) * k, hr * 2 * k))
+        img = rf._SMOOTH_CACHE[key] = rf._smooth(w + 8, h + 6, draw)
+    return img.copy()
 
 
 @scene("music_notes", duration=4.0, mood="happy")

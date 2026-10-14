@@ -20,6 +20,7 @@ the poses headless (EGL, no window) into a PNG sheet with frame timings.
 import ctypes
 import math
 import os
+import random
 import sys
 import time
 
@@ -47,7 +48,7 @@ uniform vec4  uEye1;
 uniform vec4  uLidA0;         // upper lid down (0..1), its tilt (+ inner end lower),
 uniform vec4  uLidA1;         //   its arch (+ middle up), lower lid up (0..1)
 uniform vec4  uLidB0;         // lower lid's arch (+ middle up), the closed seam's
-uniform vec4  uLidB1;         //   alpha, the eye's turn (rad), its corner radius
+uniform vec4  uLidB1;         //   alpha, the eye's turn (rad), its squircle exponent
 uniform vec4  uPupil0;        // dx, dy (from the eye centre), iris radius, shown
 uniform vec4  uPupil1;
 uniform vec4  uMorph;         // heart (love), wet (sad), round (surprised), star (excited)
@@ -69,6 +70,11 @@ uniform vec4  uBrowK;         // bend0, bend1, thickness, alpha
 uniform vec4  uMouth;         // cx, cy, w, h
 uniform vec4  uMouthK;        // bend (+ = smile), open 0..1, alpha, kind (face_spec: 0 line,
 uniform float uMouthSlant;    //   1 open, 2 O, 3 grin, 4 gritted teeth, 5 wavy); slant px
+
+uniform vec4  uPlate;         // the faceplate: cx, cy, half w, half h
+uniform vec4  uPlateK;        // its corner radius, alpha
+uniform vec4  uBand;          // the darker band behind the eyes: cx, cy, half w, half h
+uniform vec4  uBandK;         // its corner radius, alpha
 
 uniform vec4  uBlush;         // fcx, fcy, alpha 0..1, spread
 uniform vec3  uBlushCol;
@@ -173,10 +179,16 @@ vec2 lidBot(float x, vec2 b, vec4 la, vec4 lb) {
     return vec2(y, abs(x) < b.x ? sl : 0.0);
 }
 
+// a squircle: |x/a|^n + |y/b|^n = 1 — n 2 an ellipse, higher squarer
+float sdSquircle(vec2 q, vec2 b, float n) {
+    vec2 a = abs(q) / b;
+    float f = pow(pow(a.x, n) + pow(a.y, n), 1.0 / n);
+    return (f - 1.0) * min(b.x, b.y) * (0.75 + 0.25 * min(b.x, b.y) / max(b.x, b.y));
+}
+
 float eyeSDF(vec2 q, vec4 e, vec4 la, vec4 lb, float side) {
     vec2 b = e.zw * 0.5;
-    float r = mix(min(lb.w, min(b.x, b.y)), min(b.x, b.y), uMorph.z);
-    float d = sdRoundBox(q, b, r);
+    float d = sdSquircle(q, b, mix(lb.w, 2.0, uMorph.z));       // round when surprised
     vec2 t = lidTop(q.x, b, la, side);
     d = max(d, (t.x - q.y) / sqrt(1.0 + t.y * t.y));
     vec2 u = lidBot(q.x, b, la, lb);
@@ -341,7 +353,7 @@ vec3 drawMouth(vec2 p, vec3 col, inout vec3 glow) {
         float x = clamp(q.x / hw, -1.0, 1.0);
         vec2 b = vec2(hw, h * 0.5);
         vec2 pq = vec2(q.x, q.y - max(uMouthK.x, 0.0) * 0.35 * (1.0 - x * x) * step(0.0, q.y));
-        d = sdRoundBox(pq, b, min(b.y, 26.0));
+        d = sdSquircle(pq, b, 2.6);
         inner = d + 7.0;
         teeth = smoothstep(0.5, -0.5, q.y + h * 0.5 - 7.0 - h * 0.20)
                 * smoothstep(0.3, 0.6, uMouthK.y);
@@ -397,6 +409,33 @@ vec3 drawMouth(vec2 p, vec3 col, inout vec3 glow) {
     return mix(col, c, a);
 }
 
+// ── the faceplate ────────────────────────────────────────────────────────
+// Her head: a rounded plate of warm dark glass, lit from above, shaded toward
+// its edges, a thin luminous rim — and a darker band behind the eyes with a
+// lit bevel under it, so the eyes sit in something. Drawn at full size in
+// the pass that stretches the soft layer (it runs over every pixel anyway).
+vec3 faceplate(vec2 p, float soft) {
+    vec2 q = p - uPlate.xy;
+    float d = sdRoundBox(q, uPlate.zw, uPlateK.x);
+    vec2 bq = p - uBand.xy;
+    float db = sdRoundBox(bq, uBand.zw, uBandK.x);
+    vec3 rimc = mix(uGlow, uShine, 0.25);
+    if (soft > 0.5) {                     // the glass itself: all gradients (quarter size)
+        float inside = smoothstep(4.0, -4.0, d);
+        float v = clamp(q.y / (2.0 * uPlate.w) + 0.5, 0.0, 1.0);
+        vec3 fill = mix(vec3(0.080, 0.050, 0.030), vec3(0.030, 0.017, 0.011), v);
+        fill *= mix(0.50, 1.0, smoothstep(0.0, 46.0, -d));         // shade at the edges
+        float sheen = exp(-sq((q.x * 0.30 + q.y + uPlate.w * 0.62) / (uPlate.w * 0.16)));
+        fill += vec3(0.030, 0.022, 0.016) * sheen * smoothstep(0.0, 40.0, -d);
+        fill *= 1.0 - 0.72 * smoothstep(10.0, -10.0, db) * uBandK.y;   // the eye band: darker
+        return fill * inside * uPlateK.y + rimc * 0.045 * exp(-max(d, 0.0) / 16.0) * uPlateK.y;
+    }
+    // the crisp lines (full size): the plate's luminous rim, and the band's
+    // lower edge catching the light — a bevel
+    return rimc * 0.16 * exp(-abs(d) / 1.4) * uPlateK.y
+           + rimc * 0.07 * exp(-abs(db) / 2.2) * smoothstep(0.2, 1.0, bq.y / uBand.w) * uBandK.y;
+}
+
 void main() {
     vec2 fc;
     if (uPass < 0.5) {
@@ -420,6 +459,7 @@ void main() {
         float sheen = exp(-sq((uv.x + uv.y * 0.6 - 0.35) / 0.10));
         col += vec3(0.010, 0.009, 0.012) * sheen;
         if (uFace > 0.5) {
+            if (uPlateK.y > 0.01) col += faceplate(fc, 1.0);   // (upright: not tilted)
             if (uBlush.z > 0.01) {                       // blush under the eyes
                 vec2 bq = (p - uBlush.xy - vec2(-232.0, 70.0)) / vec2(uBlush.w * 1.5, uBlush.w);
                 col += uBlushCol * 0.60 * uBlush.z * exp(-dot(bq, bq) * 2.0);
@@ -438,6 +478,7 @@ void main() {
         gl_FragColor = vec4(col, 1.0);
     } else if (uPass < 1.5) {
         vec3 col = texture2D(uSoft, vec2(uv.x, 1.0 - uv.y)).rgb;   // (drawn bottom row first)
+        if (uFace > 0.5 && uPlateK.y > 0.01) col += faceplate(fc, 0.0);   // (upright)
         col += (hash(fc + fract(uTime)) - 0.5) / 255.0;            // dither: no banding
         gl_FragColor = vec4(col, 1.0);
     } else if (uPass < 2.5) {
@@ -888,7 +929,7 @@ class GLFace:
             seam = max(0.0, min(1.0, 1.0 - gap / 14.0))
             u[f"uEye{i}"] = (ex, ey, w, h)
             u[f"uLidA{i}"] = (top, tilt, bend, bot)
-            u[f"uLidB{i}"] = (bbend, seam, math.radians(cur["rot"][i]), cur["eye_r"])
+            u[f"uLidB{i}"] = (bbend, seam, math.radians(cur["rot"][i]), cur["eye_n"])
             # the iris: where she looks (face tracking + the mood's own glance)
             pr = min(w, h) * 0.27 * cur["pupil"][i] * eye.pupil_scale
             dx = eye.pupil_ox * 0.85 + cur["gaze_x"] - side * conv * 0.6   # cross-eyed: in
@@ -914,11 +955,39 @@ class GLFace:
         u["uBrowK"] = (cur["brow_bend"], cur["brow_bend"], 17.0, cur["brow_a"])
         u.update(self._mouth(face, rf, fcx, fcy, cur))
         u["uBlush"] = (fcx, fcy, cur["blush"], 30.0)
+        # the faceplate follows the head a little, the band behind the eyes fully
+        L = face_spec.LAYOUT
+        pdx, pdy, phw, phh, pr = L["plate"]
+        ox, oy = getattr(face, "face_ox", 0.0), getattr(face, "face_oy", 0.0)
+        u["uPlate"] = (fcx - ox * 0.6 + pdx, fcy - oy * 0.6 + pdy, phw, phh)
+        u["uPlateK"] = (pr, 1.0, 0.0, 0.0)
+        bx, by, br = L["band"]
+        e0, e1 = u["uEye0"], u["uEye1"]
+        u["uBand"] = ((e0[0] + e1[0]) / 2, (e0[1] + e1[1]) / 2,
+                      (e1[0] - e0[0]) / 2 + max(e0[2], e1[2]) / 2 + bx,
+                      max(e0[3], e1[3]) / 2 + by)
+        u["uBandK"] = (br, 1.0, 0.0, 0.0)
         sp = getattr(face, "_scene_p", 0.0)
         tearing = (getattr(face, "_scene_name", None) == "glitch" and 0.12 < sp < 0.82)
         u["uGlitch"] = (1.0, float(int(sp * 24))) if tearing else (0.0, 0.0)
         self.shape_rects = self._shape_boxes(u)
         return u
+
+    # the mouth's shapes while she talks — wide "a", round "o", flat "e" —
+    # a new one at each syllable (her voice getting louder again), eased
+    VISEMES = ((1.0, 1.0), (0.58, 1.12), (1.14, 0.58), (0.86, 0.80))
+
+    def _viseme(self, e):
+        now = time.monotonic()
+        prev = getattr(self, "_vis_prev", 0.0)
+        if e - prev > 0.07 or now - getattr(self, "_vis_t", 0.0) > 0.30:
+            self._vis = random.randrange(len(self.VISEMES))
+            self._vis_t = now
+        self._vis_prev = e
+        tw, th = self.VISEMES[getattr(self, "_vis", 0)]
+        cw, ch = getattr(self, "_vis_wh", (1.0, 1.0))
+        self._vis_wh = (cw + (tw - cw) * 0.35, ch + (th - ch) * 0.35)
+        return self._vis_wh
 
     def _mouth(self, face, rf, fcx, fcy, cur):
         """The mood's mouth — or, while she talks, one opened by her voice."""
@@ -933,10 +1002,11 @@ class GLFace:
         if talking:
             e = m.talk_open
             alpha = max(alpha, min(1.0, m.speak_fade))
+            vw, vh = self._viseme(e)
             if e > 0.06:
                 kind, open_ = face_spec.OPEN, e
-                w = _lerp(m.mouth_w * 0.45, m.mouth_w, max(0.0, min(1.0, (e - 0.06) / 0.5)))
-                h = max(12.0, 10.0 + (e + m.jaw_bounce * 0.3) * 82.0)
+                w = _lerp(m.mouth_w * 0.45, m.mouth_w, max(0.0, min(1.0, (e - 0.06) / 0.5))) * vw
+                h = max(12.0, (10.0 + (e + m.jaw_bounce * 0.3) * 82.0) * vh)
                 bend = max(0.0, bend)
             else:                                 # between words: closed, still smiling
                 kind, w, h = face_spec.LINE, max(110.0, w * 0.9), 12.0

@@ -114,7 +114,7 @@ STYLES = {
         WAVE_COL=(255, 185, 60),   ANGRY_COL=(255, 55, 30),
         HEART_COL=(255, 115, 110), AWAKE_COL=(255, 205, 100),
         EYE_RADIUS=34, IRIS_SQUARE=False, MOUTH_STYLE="organic",
-        EYE_MODE="block", EYE_SCALE=1.18, EYE_SPREAD=150,
+        EYE_MODE="block", EYE_SCALE=1.18, EYE_SPREAD=int(face_spec.LAYOUT["eye_x"]),
         EYE_GRAD_TOP=(255, 232, 140), EYE_GRAD_BOTTOM=(232, 96, 12),
         BLOCK_PUPIL=True, PUPIL_DARK=(28, 12, 2), IRIS_COL=(132, 58, 12),
         BROW_GRAD_TOP=(255, 214, 110), BROW_GRAD_BOTTOM=(214, 96, 18),
@@ -432,15 +432,30 @@ class TearParticle:
     def alive(self): return self.alpha > 0
 
     def draw(self, surf):
-        s = pygame.Surface((self.r * 2 + 4, self.r * 3 + 4), pygame.SRCALPHA)
-        # teardrop shape — circle + small triangle above
-        pygame.draw.circle(s, (*TEAR_COL, self.alpha),
-                           (self.r + 2, self.r * 2 + 2), self.r)
-        pts = [(self.r + 2, 2),
-               (self.r - 4, self.r * 2 - 4),
-               (self.r + 8, self.r * 2 - 4)]
-        pygame.draw.polygon(s, (*TEAR_COL, self.alpha), pts)
-        surf.blit(s, (int(self.x) - self.r - 2, int(self.y) - self.r - 2))
+        img = tear_img(self.r)
+        img.set_alpha(int(self.alpha))
+        surf.blit(img, img.get_rect(center=(int(self.x), int(self.y))))
+
+
+def tear_img(r):
+    """A glossy drop (antialiased, cached by size): pointed on top, a light
+    rim and a highlight — the same tear wherever she cries."""
+    r = max(4, int(r))
+    key = ("tear", r, TEAR_COL)
+    img = _SMOOTH_CACHE.get(key)
+    if img is None:
+        def draw(s, k, r=r):
+            cx, cy = (r + 3) * k, (2 * r + 3) * k
+            pts = [(cx, 3 * k)]
+            for j in range(25):
+                a = math.pi * (j / 24.0) - math.pi       # the round bottom half…
+                pts.append((cx + math.cos(a) * r * k, cy - math.sin(a) * r * k))
+            pygame.draw.polygon(s, _lerp_col(TEAR_COL, (40, 90, 160), 0.35), pts)
+            pygame.draw.circle(s, TEAR_COL, (int(cx), int(cy)), int(r * 0.8 * k))
+            pygame.draw.circle(s, (240, 250, 255), (int(cx - r * 0.35 * k), int(cy - r * 0.3 * k)),
+                               max(1, int(r * 0.26 * k)))
+        img = _SMOOTH_CACHE[key] = _smooth(2 * r + 6, 3 * r + 6, draw)
+    return img
 
 
 class SteamParticle:
@@ -528,16 +543,7 @@ class HeartParticle:
     def alive(self): return self.alpha > 0
 
     def draw(self, surf):
-        r = self.size
-        s = pygame.Surface((r * 2 + 4, r * 2 + 4), pygame.SRCALPHA)
-        col = (*HEART_COL, int(self.alpha))
-        # two circles + triangle = heart
-        cr = max(2, r // 2)
-        pygame.draw.circle(s, col, (2 + cr, 2 + cr), cr)
-        pygame.draw.circle(s, col, (2 + r + cr - 1, 2 + cr), cr)
-        pts = [(2, 2 + cr), (2 + r * 2, 2 + cr), (2 + r, 2 + r * 2)]
-        pygame.draw.polygon(s, col, pts)
-        surf.blit(s, (int(self.x) - r, int(self.y) - r))
+        draw_heart(surf, self.x, self.y, self.size, self.alpha)
 
 
 class SoundWave:
@@ -894,7 +900,7 @@ COSTUMES = {
     "cat":   ([(95, -142, 116, 98, -9, True)], True),
     "bunny": ([(None, -150, 46, 124, -6, False)], True),     # None: 62 px off the middle
     "dog":   ([(175, 0, 78, 165, 12, False)], False),
-    "squirrel": ([(96, -132, 62, 98, -14, False)], False),
+    "squirrel": ([(108, -150, 78, 112, -14, False)], False),
     "googly_eyes": ([], False),
     "steampunk": ([], False),
     "crazy_robot": ([], False),
@@ -988,9 +994,9 @@ def _squirrel_tail(surf, fcx, fcy, sway):
     """A big bushy tail curling up beside her on the right, wagging."""
     img = _TAIL.get(CURRENT_STYLE)
     if img is None:
-        img = _TAIL[CURRENT_STYLE] = pygame.transform.smoothscale(_tail_image(), (240, 336))
+        img = _TAIL[CURRENT_STYLE] = pygame.transform.smoothscale(_tail_image(), (210, 294))
     wag = 5 * math.sin(time.time() * 2.2) + sway * 0.4
-    _blit_rot(surf, img, (fcx + EYE_SPREAD + 175, fcy + 10), wag)
+    _blit_rot(surf, img, (fcx + EYE_SPREAD + 150, fcy + 30), wag)
 
 
 def _gear(r, teeth, col_top, col_bot):
@@ -1155,16 +1161,18 @@ def draw_costume_front(surf, fcx, fcy, kind, face=None):
         return
     if kind in _NOSE:
         nose = gradient_block(44, 30, 14, EYE_GRAD_TOP, EYE_GRAD_BOTTOM)
-        surf.blit(nose, nose.get_rect(center=(fcx, fcy + 92)))
+        ny = face_spec.LAYOUT["nose_y"]
+        surf.blit(nose, nose.get_rect(center=(fcx, fcy + ny)))
     if COSTUMES[kind][1]:
         for side in (-1, 1):
             for dy, tip in ((-8, -26), (6, 0), (20, 26)):
-                pygame.draw.line(surf, MOUTH_COL, (fcx + side * 70, fcy + 100 + dy),
-                                 (fcx + side * 230, fcy + 100 + dy + tip), 5)
+                pygame.draw.line(surf, MOUTH_COL, (fcx + side * 70, fcy + ny + 8 + dy),
+                                 (fcx + side * 230, fcy + ny + 8 + dy + tip), 5)
     if kind == "squirrel":                        # two big front teeth
         for side in (-1, 1):
             tooth = gradient_block(20, 28, 6, (255, 252, 240), (220, 210, 190))
-            surf.blit(tooth, tooth.get_rect(midtop=(fcx + side * 11, fcy + 118)))
+            surf.blit(tooth, tooth.get_rect(
+                midtop=(fcx + side * 11, fcy + face_spec.LAYOUT["mouth_y"] + 10)))
     elif kind == "steampunk" and face is not None:
         _goggles(surf, face, fcx, fcy)
         _top_hat(surf, fcx + EYE_SPREAD + 150, fcy - 140, -18)   # on the top corner
@@ -1273,6 +1281,28 @@ def _arc_img(r, a, col, side):
     return img
 
 
+def twinkle(surf, x, y, r, alpha, col=None):
+    """A soft four-pointed sparkle (antialiased, cached by size): the few
+    that belong to an expression, not confetti."""
+    r = max(4, int(r) // 2 * 2)
+    col = col or IRIS_SHINE
+    key = ("twinkle", r, col)
+    img = _SMOOTH_CACHE.get(key)
+    if img is None:
+        def draw(s, k, r=r):
+            c = (r + 4) * k
+            pts = []
+            for j in range(8):
+                a = j * math.pi / 4 - math.pi / 2
+                rr = r if j % 2 == 0 else r * 0.22
+                pts.append((c + math.cos(a) * rr * k, c + math.sin(a) * rr * k))
+            pygame.draw.circle(s, (*GLOW_COL, 60), (int(c), int(c)), int(r * 0.55 * k))
+            pygame.draw.polygon(s, (*col, 255), pts)
+        img = _SMOOTH_CACHE[key] = _smooth(2 * r + 8, 2 * r + 8, draw)
+    img.set_alpha(int(max(0, min(255, alpha))))
+    surf.blit(img, img.get_rect(center=(int(x), int(y))))
+
+
 def draw_side_arcs(surf, cx, cy, dx, arcs, col):
     """")" on the right, "(" on the left, dx from the middle — sound coming
     in, a head moving. arcs: (radius, alpha 0..1); antialiased."""
@@ -1287,17 +1317,42 @@ def draw_side_arcs(surf, cx, cy, dx, arcs, col):
             surf.blit(img, (int(x), int(cy - img.get_height() / 2)))
 
 
+def _heart_img(size):
+    """A glossy heart (antialiased, shaded, cached by size): darker below,
+    a soft highlight on the upper left lobe, a thin bright rim."""
+    size = max(6, int(size) // 2 * 2)
+    key = ("heart", size, HEART_COL)
+    img = _SMOOTH_CACHE.get(key)
+    if img is not None:
+        return img
+    W = 2 * size + 8
+
+    def draw(s, k):
+        pts = []
+        sc = size / 17.0 * k
+        cx, cy = W * k / 2, (W * k) / 2 + 2 * sc
+        for j in range(72):
+            t = j * math.tau / 72
+            x = 16 * math.sin(t) ** 3
+            y = 13 * math.cos(t) - 5 * math.cos(2 * t) - 2 * math.cos(3 * t) - math.cos(4 * t)
+            pts.append((cx + x * sc, cy - y * sc))
+        dark = _lerp_col(HEART_COL, (120, 20, 50), 0.45)
+        pygame.draw.polygon(s, dark, pts)
+        inner = [(cx + (x - cx) * 0.86, cy + (y - cy) * 0.86 - 1.2 * sc) for x, y in pts]
+        pygame.draw.polygon(s, HEART_COL, inner)
+        pygame.draw.ellipse(s, _lerp_col(HEART_COL, (255, 255, 255), 0.55),
+                            pygame.Rect(cx - 10 * sc, cy - 11 * sc, 6 * sc, 4.5 * sc))
+    img = _SMOOTH_CACHE[key] = _smooth(W, W, draw)
+    return img
+
+
 def draw_heart(surf, cx, cy, size, alpha=255):
-    r = size // 2
-    hs = pygame.Surface((size * 2 + 8, size * 2 + 8), pygame.SRCALPHA)
-    ox, oy = size + 4, size // 2 + 4
-    col = (*HEART_COL, alpha)
-    pygame.draw.circle(hs, col, (ox - r // 1, oy), r)
-    pygame.draw.circle(hs, col, (ox + r // 1, oy), r)
-    pygame.draw.polygon(hs, col, [(ox - size + 1, oy + r // 3),
-                                  (ox + size - 1, oy + r // 3),
-                                  (ox, oy + size + r // 2)])
-    surf.blit(hs, (cx - ox, cy - oy))
+    """A heart whose lobes sit at (cx, cy), size ~ its half width."""
+    img = _heart_img(size)
+    if alpha < 255:
+        img = img.copy()
+        img.set_alpha(int(max(0, alpha)))
+    surf.blit(img, img.get_rect(center=(int(cx), int(cy + size * 0.38))))
 
 
 # ── Mouth ─────────────────────────────────────────────────────────────────────
@@ -2133,8 +2188,9 @@ class RobotFace:
             bob = 6.0 * math.sin(g_el * 2 * math.pi * 2.0)
             tgt_R = (275.0, 95.0 + bob, -8.0)
         elif active and g_anim == "heart":
-            tgt_L = (-96.0, 178.0,  30.0)
-            tgt_R = ( 96.0, 178.0, -30.0)
+            hy = face_spec.LAYOUT["mouth_y"] + 128 if EYE_MODE == "block" else 178.0
+            tgt_L = (-96.0, hy,  30.0)
+            tgt_R = ( 96.0, hy, -30.0)
             self._heart_pulse = 0.5 + 0.5 * math.sin(g_el * 2 * math.pi * 1.6)
 
         # thinking for a while: a finger on her chin (the face library, 15 Oct)
@@ -2142,7 +2198,7 @@ class RobotFace:
         if emotion == "thinking" and not active and not self._scene:
             self._think_t = getattr(self, "_think_t", 0.0) or now_t
             if now_t - self._think_t > THINK_HAND_SECS:
-                tgt_R = (112.0, 176.0, -14.0)
+                tgt_R = (*face_spec.LAYOUT["chin"], -14.0)
                 self.hand_pose["R"] = "point"
         else:
             self._think_t = 0.0
@@ -2210,6 +2266,12 @@ class RobotFace:
         # per-style geometry (so 1/2/3 can be switched live)
         self.left_eye.rel_x  = -EYE_SPREAD
         self.right_eye.rel_x =  EYE_SPREAD
+        if spec_eyes:                     # the block face: face_spec's layout
+            self.left_eye.rel_y = self.right_eye.rel_y = face_spec.LAYOUT["eye_y"]
+            self.mouth.rel_y = face_spec.LAYOUT["mouth_y"]
+        else:
+            self.left_eye.rel_y = self.right_eye.rel_y = -30
+            self.mouth.rel_y = 155
         if not spec_eyes:
             tw, th = tw * EYE_SCALE, th * EYE_SCALE
 
@@ -2283,7 +2345,7 @@ class RobotFace:
             self.tear_particles.clear()
 
         # steam (angry)
-        if emotion == "angry":
+        if emotion == "angry" and EYE_MODE != "block":
             self.steam_spawn_t += 1
             if self.steam_spawn_t > 12:
                 self.steam_spawn_t = 0
@@ -2295,7 +2357,8 @@ class RobotFace:
             self.steam_particles.clear()
 
         # starburst (surprised / excited — spawn once on transition)
-        if emotion in ("surprised", "excited") and not self.star_spawned:
+        if (emotion in ("surprised", "excited") and not self.star_spawned
+                and EYE_MODE != "block"):         # (the block face: twinkles by its eyes)
             self._spawn_stars(fcx, fcy)
             self.star_spawned = True
         elif emotion not in ("surprised", "excited"):
@@ -2303,7 +2366,7 @@ class RobotFace:
             self.star_particles.clear()
 
         # excited keeps sprinkling a few extra stars while it lasts
-        if emotion == "excited":
+        if emotion == "excited" and EYE_MODE != "block":
             self.excite_spawn_t += 1
             if self.excite_spawn_t > 25:
                 self.excite_spawn_t = 0
@@ -2323,8 +2386,8 @@ class RobotFace:
             self.heart_particles.clear()
 
         # sound waves ripple from the mouth while speaking — nice talking effect
-        if speaking and audio_energy > 0.45:
-            self.wave_spawn_t += 1
+        if speaking and audio_energy > 0.45 and EYE_MODE != "block":   # (the block face:
+            self.wave_spawn_t += 1                               #  its mouth is enough)
             if self.wave_spawn_t > 14:
                 self.wave_spawn_t = 0
                 mx = fcx + self.mouth.rel_x
@@ -2562,7 +2625,8 @@ class RobotFace:
                 base.blit(img, rect)
             if self._gesture == "heart":
                 sz = int(50 + 12 * self._heart_pulse)
-                draw_heart(base, fcx, fcy + 112, sz)
+                draw_heart(base, fcx, fcy + (face_spec.LAYOUT["mouth_y"] + 70
+                                             if EYE_MODE == "block" else 112), sz)
 
         # ── a big glyph between the eyes (game countdown) ────────────────
         big = self._big_text
@@ -2572,6 +2636,17 @@ class RobotFace:
         # ── whatever the current scene draws on top ───────────────────────
         if self._scene:
             self._scene.draw(self, base, fcx, fcy, self._scene_p)
+
+        # ── excited (the block face): three twinkles by the eyes' outer
+        #    corners, anchored, coming and going — not a shower of stars ──
+        if EYE_MODE == "block" and self._emotion == "excited" and not self._scene:
+            t = time.time()
+            ex = EYE_SPREAD + self.left_eye.w * 0.5
+            ey = fcy + self.left_eye.rel_y
+            for (dx, dy, r, ph) in ((-ex - 6, ey - 70, 18, 0.0), (ex + 10, ey - 58, 15, 2.1),
+                                    (ex + 26, ey + 30, 11, 4.0)):
+                k = max(0.0, math.sin(t * 2.6 + ph))
+                twinkle(base, fcx + dx, dy, r * (0.6 + 0.4 * k), 255 * k)
 
         # ── particles (foreground) ────────────────────────────────────────
         for p in self.zzz_particles:
