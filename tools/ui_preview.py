@@ -98,6 +98,11 @@ def main(out):
         ui_screens.draw_list(scr, heading, rows, 1.0, W, H)
         ui_screens.draw_close(scr, W)
         pygame.image.save(scr, os.path.join(out, f"{name}.png"))
+    ui_screens.draw_list(scr, "Lista: zakupy", [("•", x) for x in ("mleko kokosowe", "chleb", "jabłka")],
+                         1.0, W, H, {"list": "zakupy", "page": 0, "confirm": (1, 0.5),
+                                     "toast": ("Skreślone: mleko · „przywróć listę”", 3.0)})
+    ui_screens.draw_close(scr, W)
+    pygame.image.save(scr, os.path.join(out, "list_confirm.png"))
     icons = pygame.Surface((8 * 110, 230))
     icons.fill((40, 70, 120))
     for j, k in enumerate(("clear", "partly", "cloud", "fog", "drizzle", "rain", "snow", "storm")):

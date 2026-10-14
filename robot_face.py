@@ -35,6 +35,7 @@ import time
 import numpy as np
 from shared_state import state
 import gallery
+import screens
 import ui_screens
 from config import (RENDER_FPS, FACE_STYLE, SCREEN_WIDTH, SCREEN_HEIGHT,
                     FULLSCREEN, HIDE_CURSOR, GESTURE_DURATION,
@@ -1739,7 +1740,7 @@ class RobotFace:
                 import importlib                        # outside state.lock: it takes it
                 game = importlib.import_module("tictac" if ov_kind == "ttt" else "memo")
                 if ui_screens.close_hit(*touch_pt):     # ✕: the game is over
-                    game.stop()
+                    screens.end_game_page(ov_kind)
                 else:
                     game.tap(touch_pt[0], touch_pt[1], WIDTH, HEIGHT)
         elif touch_t > self._touch_t and self._overlay_on():
@@ -1748,9 +1749,14 @@ class RobotFace:
                 with state.lock:
                     dx = state.touch_dx
                 gallery.on_touch(touch_kind, touch_pt[0], touch_pt[1], dx)
-            elif touch_kind in ("tap", "stop"):         # a tap closes it (a stroke
-                with state.lock:                        # or a held finger doesn't)
-                    state.overlay = None
+            elif touch_kind in ("tap", "stop"):         # (a stroke or a held finger: nothing)
+                if ui_screens.close_hit(*touch_pt):     # ✕ — a game's page: the game ends too
+                    screens.end_game_page(ov_kind)
+                elif ov_kind == "list" and screens.list_tap(*touch_pt):
+                    pass                                # an item: "Usunąć?", then crossed off
+                else:
+                    with state.lock:                    # a tap elsewhere closes it
+                        state.overlay = None
         if touch_t > self._touch_t:
             self._touch_t = touch_t
             self._touch_zone = self._zone_at(*touch_pt)
@@ -2636,8 +2642,8 @@ class RobotFace:
             txt = _get_font(40).render(word, True, EYE_INNER)
             scr.blit(txt, txt.get_rect(center=(WIDTH // 2, HEIGHT - 45)))
         elif kind == "list":                            # lists, plan, reminders, status
-            heading, rows = data
-            ui_screens.draw_list(scr, heading, rows, time.time(), WIDTH, HEIGHT)
+            ui_screens.draw_list(scr, data[0], data[1], time.time(), WIDTH, HEIGHT,
+                                 data[2] if len(data) > 2 else None)
         elif kind == "memo":
             # the memory game (memo.py): 4 × 3 cards
             scr.fill(BG)

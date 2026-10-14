@@ -2,6 +2,8 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 14 października (w nocy) ==
+- Na liście na ekranie dotknij rzeczy dwa razy — skreślam ją („przywróć listę” ją oddaje).
+- Krzyżyk w rogu kończy grę.
 - „O której jutro wstajemy?” — mówię, na którą masz budzik.
 - Gdy ktoś powie „jutro piątek”, sprawdzam w kalendarzu i mówię, czy to prawda.
 - Gry przy włączonym radiu: słucham odpowiedzi bez „Luna”.

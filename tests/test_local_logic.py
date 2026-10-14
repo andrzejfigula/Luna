@@ -5447,5 +5447,82 @@ class Oct14NightTest(unittest.TestCase):
         self.assertEqual(self.said[-1], "Tak, znam 1 osobę.")
 
 
+class ListTapGameCloseTest(unittest.TestCase):
+    """A list item crossed off by tapping it twice; the ✕ on a game's page
+    ends the game."""
+
+    def setUp(self):
+        self.said = []
+        lists._lists = {"zakupy": ["mleko", "mleko kokosowe", "chleb"]}
+        lists._save()
+
+    def tearDown(self):
+        with state.lock:
+            state.overlay = None
+        lists._lists = {}
+        lists._save()
+
+    def _row(self, k):
+        """Normalised tap point in the middle of row k (ui_screens' layout)."""
+        import ui_screens
+        return 0.5, (ui_screens._LIST_TOP + 8 + ui_screens._LIST_ROW * (k + 0.5)) / 480
+
+    def test_tap_twice_crosses_off_just_that_item(self):
+        import ui_screens
+        self.assertTrue(screens.handle("Pokaż listę zakupów", self.said.append, lambda *a: None))
+        with state.lock:
+            heading, rows, meta = state.overlay[2]
+        self.assertEqual((heading, meta["list"]), ("Lista: zakupy", "zakupy"))
+        self.assertEqual(ui_screens.list_row_at(*self._row(0), rows, 0), 0)
+        self.assertIsNone(ui_screens.list_row_at(0.5, 0.1, rows, 0))       # the title
+        self.assertIsNone(ui_screens.list_row_at(*self._row(5), rows, 0))  # below the last
+        now = time.time()
+        self.assertEqual(screens.list_tap(*self._row(0), now), "confirm")
+        self.assertEqual(lists.get("zakupy"), ["mleko", "mleko kokosowe", "chleb"])
+        self.assertEqual(screens.list_tap(*self._row(1), now + 1), "confirm")   # another row
+        self.assertEqual(screens.list_tap(*self._row(0), now + 2), "confirm")
+        self.assertEqual(screens.list_tap(*self._row(0), now + 3), "removed")
+        self.assertEqual(lists.get("zakupy"), ["mleko kokosowe", "chleb"])      # not "kokosowe"
+        with state.lock:
+            heading, rows, meta = state.overlay[2]
+        self.assertEqual([r[1] for r in rows], ["mleko kokosowe", "chleb"])
+        self.assertIn("przywróć listę", meta["toast"][0])
+        # too slow: asked again
+        self.assertEqual(screens.list_tap(*self._row(0), now + 4), "confirm")
+        self.assertEqual(screens.list_tap(*self._row(0), now + 9), "confirm")
+        self.assertEqual(lists.restore("przywróć listę"),
+                         "Przywróciłam na listę zakupy: mleko.")
+
+    def test_last_item_closes_the_page(self):
+        lists._lists = {"zakupy": ["chleb"]}
+        screens.handle("Pokaż listę zakupów", self.said.append, lambda *a: None)
+        now = time.time()
+        screens.list_tap(*self._row(0), now)
+        self.assertEqual(screens.list_tap(*self._row(0), now + 1), "emptied")
+        with state.lock:
+            self.assertIsNone(state.overlay)
+        self.assertEqual(lists.get("zakupy"), [])
+
+    def test_other_lists_are_not_tappable(self):
+        with state.lock:
+            state.overlay = ("list", time.time() + 10, ("Status", [("Temp", "50°C")]))
+        self.assertIsNone(screens.list_tap(*self._row(0)))
+
+    def test_close_ends_the_game(self):
+        import quiz
+        import tictac
+        with mock.patch.object(quiz, "_q", {"kind": "flags"}), \
+                mock.patch.object(quiz, "active", lambda: quiz._q is not None):
+            with state.lock:
+                state.overlay = ("card", time.time() + 30, {"text": "?"})
+            self.assertEqual(screens.end_game_page("card"), ["quiz"])
+            self.assertIsNone(quiz._q)
+        with mock.patch.object(tictac, "stop", lambda: self.said.append("<ttt stop>")):
+            self.assertEqual(screens.end_game_page("ttt"), ["ttt"])
+        self.assertEqual(self.said, ["<ttt stop>"])
+        with state.lock:
+            self.assertIsNone(state.overlay)
+
+
 if __name__ == "__main__":
     unittest.main()

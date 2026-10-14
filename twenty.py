@@ -126,6 +126,15 @@ def rematch(text, speak):
     return True
 
 
+def stop():
+    """Ended without a word — the ✕ on her screen (screens.end_game_page)."""
+    global _g, _r
+    with _lock:
+        was = _g is not None or _r is not None
+        _g = _r = None
+    return was
+
+
 def active():
     global _g, _r
     with _lock:

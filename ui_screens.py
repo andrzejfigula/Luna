@@ -751,19 +751,44 @@ def _list_icon(heading, size=34):
     return s
 
 
-def draw_list(scr, heading, rows, now, W, H):
+_LIST_TOP, _LIST_ROW, _LIST_X = 74, 52, 18
+
+
+def list_page(rows, now):
+    pages = max(1, -(-len(rows) // LIST_PAGE))
+    return int(now // LIST_TURN) % pages
+
+
+def list_row_at(nx, ny, rows, page, W=800, H=480):
+    """The row (its index in rows) under a tap, or None — draw_list's layout."""
+    x, y = nx * W, ny * H
+    k = int((y - _LIST_TOP - 8) // _LIST_ROW)
+    if not (_LIST_X <= x <= W - _LIST_X) or y < _LIST_TOP + 8 or k < 0:
+        return None
+    i = page * LIST_PAGE + k
+    if k >= LIST_PAGE or i >= len(rows):
+        return None
+    return i
+
+
+def draw_list(scr, heading, rows, now, W, H, meta=None):
     """The title with its picture, then the rows on a soft panel — a label
-    (a time, "lista", "•") and its value; more than LIST_PAGE: pages."""
+    (a time, "lista", "•") and its value; more than LIST_PAGE: pages. meta
+    (a list of hers): the page held while tapped, "Usunąć?" on a tapped row."""
+    meta = meta or {}
     scr.blit(vgrad(W, H, (20, 22, 40), (44, 36, 74)), (0, 0))
     scr.blit(_list_icon(heading), (24, 21))
     ts = shrink(heading, 32, W - 160, "ExtraBold", 22)
     title = text(fit(heading, ts, W - 160, "ExtraBold"), ts, WHITE, "ExtraBold")
     scr.blit(title, (68, 38 - title.get_height() // 2))
     pages = max(1, -(-len(rows) // LIST_PAGE))
-    page = int(now // LIST_TURN) % pages
+    page = meta.get("page")
+    page = list_page(rows, now) if page is None else min(page, pages - 1)
     shown = rows[page * LIST_PAGE:page * LIST_PAGE + LIST_PAGE]
-    top, px, pw = 74, 18, W - 36
-    rh = 52
+    top, px, pw = _LIST_TOP, _LIST_X, W - 2 * _LIST_X
+    rh = _LIST_ROW
+    conf = meta.get("confirm")
+    asked = conf[0] if conf and now - conf[1] < 4.0 else None
     ph = max(rh, len(shown) * rh) + 16
     scr.blit(rrect(pw, ph, 20, (255, 255, 255, 22)), (px, top))
     bullets = all(w == "•" for w, _ in rows)
@@ -780,6 +805,13 @@ def draw_list(scr, heading, rows, now, W, H):
         mid = y + rh // 2
         if k:
             scr.blit(sep, (px + 20, y))
+        if asked == page * LIST_PAGE + k:            # tapped once: sure?
+            scr.blit(rrect(pw - 16, rh - 6, 14, (214, 52, 52, 150)), (px + 8, y + 3))
+            q = text("Usunąć?", 20, WHITE, "ExtraBold")
+            pill = rrect(q.get_width() + 28, 34, 17, (214, 52, 52, 255))
+            pr = pill.get_rect(midright=(px + pw - 16, mid))
+            scr.blit(pill, pr)
+            scr.blit(q, q.get_rect(center=pr.center))
         if label == "•":
             scr.blit(rrect(12, 12, 6, _LABEL + (255,)), (px + 30, mid - 6))
         else:
@@ -787,6 +819,13 @@ def draw_list(scr, heading, rows, now, W, H):
             scr.blit(lab, (px + 26, mid - lab.get_height() // 2))
         val = text(fit(value, fs, px + pw - 24 - value_x, "SemiBold"), fs, WHITE, "SemiBold")
         scr.blit(val, (value_x, mid - val.get_height() // 2))
+    toast = meta.get("toast")
+    if toast and now < toast[1]:                   # "Skreślone: mleko · „przywróć listę”"
+        img = text(toast[0], 20, WHITE, "Bold")
+        pill = rrect(img.get_width() + 36, 40, 20, (20, 22, 34, 230))
+        pr = pill.get_rect(center=(W // 2, H - 40))
+        scr.blit(pill, pr)
+        scr.blit(img, img.get_rect(center=pr.center))
     if pages > 1:                                  # dots for the pages
         gap, y = 18, H - 16
         x0 = W // 2 - (pages - 1) * gap // 2

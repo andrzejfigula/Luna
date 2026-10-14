@@ -204,6 +204,73 @@ def show_people(speak):
     return True
 
 
+# ── touches on her pages (robot_face) ─────────────────────────────────────────
+
+LIST_CONFIRM = 4.0          # a list item tapped again within this: crossed off
+
+
+def list_tap(nx, ny, now=None):
+    """A tap on a list page. On an item: "Usunąć?" first, then it is crossed
+    off. Returns "confirm" | "removed" | "emptied" | None (not on an item —
+    the caller closes the page, as a tap always did)."""
+    import ui_screens
+    import lists
+    now = now if now is not None else time.time()
+    with state.lock:
+        ov = state.overlay
+        if not ov or ov[0] != "list" or len(ov[2]) < 3:
+            return None
+        heading, rows, meta = ov[2]
+        page = meta.get("page")
+        if page is None:
+            page = ui_screens.list_page(rows, now)
+        k = ui_screens.list_row_at(nx, ny, rows, page)
+        if k is None:
+            return None
+        meta["page"] = page                     # it stops turning while you tap
+        state.overlay = (ov[0], max(ov[1], now + 15), ov[2])
+        conf = meta.get("confirm")
+        if not conf or conf[0] != k or now - conf[1] > LIST_CONFIRM:
+            meta["confirm"] = (k, now)
+            return "confirm"
+        meta["confirm"] = None
+        item = rows[k][1]
+    if not lists.remove_exact(meta["list"], item):
+        return None
+    with state.lock:
+        ov = state.overlay
+        if not ov or ov[0] != "list" or ov[2][2] is not meta:
+            return "removed"
+        rows = [r for r in rows if r[1] != item]
+        if not rows:
+            state.overlay = None
+            return "emptied"
+        meta["page"] = min(meta["page"], (len(rows) - 1) // ui_screens.LIST_PAGE)
+        meta["toast"] = (f"Skreślone: {item} · „przywróć listę”", now + 3.0)
+        state.overlay = (ov[0], ov[1], (heading, rows, meta))
+    return "removed"
+
+
+def end_game_page(kind):
+    """The ✕ on a game's page ends the game, not only its picture: noughts
+    and crosses, memo, a quiz's card / clock / flag, twenty questions."""
+    import importlib
+    ended = []
+    if kind in ("ttt", "memo"):
+        importlib.import_module("tictac" if kind == "ttt" else "memo").stop()
+        ended.append(kind)
+    if kind in ("card", "clockface", "photo", "stars"):
+        for name in ("quiz", "twenty"):
+            mod = importlib.import_module(name)
+            if mod.active() and mod.stop():
+                ended.append(name)
+    with state.lock:
+        state.overlay = None
+    if ended:
+        print(f"[screens] ✕ on the {kind} page — ended: {', '.join(ended)}", flush=True)
+    return ended
+
+
 def show_photos(paths, names=None, title="Zdjęcia"):
     """The gallery of these photos (a name under each, if given)."""
     names = names or [""] * len(paths)
@@ -435,7 +502,8 @@ def handle(text, speak, play_sound_async):
         if not items:
             speak("Ta lista jest pusta." if name else "Nie masz jeszcze żadnej listy.")
         else:
-            _show("list", 12, (f"Lista: {name}", [("•", i) for i in items]))
+            # {"list"}: a tap on an item crosses it off (list_tap)
+            _show("list", 12, (f"Lista: {name}", [("•", i) for i in items], {"list": name}))
         return True
     if any(k in low for k in _STATUS):
         import health

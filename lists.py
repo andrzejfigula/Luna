@@ -157,6 +157,28 @@ def apply(actions):
     return done
 
 
+def remove_exact(name, item):
+    """Just this item (a tap on the list on her screen): not every item that
+    contains its words, as list_remove does ("mleko" would take "mleko
+    kokosowe" with it). "Przywróć listę" brings it back. True if it was there."""
+    global _undo
+    with _lock:
+        if _lists is None:
+            _load()
+        items = _lists.get(name) or []
+        if item not in items:
+            return False
+        _undo = (time.time(), name, list(items))
+        items.remove(item)
+        if not items:
+            _lists.pop(name, None)
+            if name in owners():
+                _set_owner(name, None)
+        _save()
+    print(f"[lists] -{item} ← {name} (tapped)", flush=True)
+    return True
+
+
 _RESTORE = re.compile(r"\b(?:przywróć|przywroc|odzyskaj)\s+(?:t[aąeę]\s+)?(?:list|zakup|"
                       r"to\b|poprzedni|skreślon|skreslon|usunięt|usuniet)|"
                       r"\bcofnij\s+(?:to\s+)?(?:skreśl|skresl|usunięci|usunieci|czyszczeni|"

@@ -310,6 +310,15 @@ def active():
         return _q is not None
 
 
+def stop():
+    """Ended without a word — the ✕ on her screen (screens.end_game_page)."""
+    global _q
+    with _lock:
+        was, _q = _q is not None, None
+    _card(None)
+    return was
+
+
 def _card(text, sub="", tone=None, secs=EXPIRE_SECS):
     """The game card on her screen (robot_face.py, overlay "card")."""
     with state.lock:
