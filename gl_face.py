@@ -21,6 +21,9 @@ import ctypes
 import math
 import os
 import sys
+import time
+
+import face_spec
 
 _VERT = """
 attribute vec2 aPos;
@@ -38,16 +41,18 @@ uniform float uTime;
 uniform float uTilt;
 uniform float uFace;          // 0: no face (another style) — only the layer
 
-uniform vec4  uEye0;          // cx, cy, w, h (px, top-left origin)
+// each eye (face_spec.py → face_uniforms): its box, its lids, its iris
+uniform vec4  uEye0;          // cx, cy, w, h (px, top-left origin) — the whole eye
 uniform vec4  uEye1;
-uniform vec4  uShape0;        // happy "^" arch, sad, angry, lid (0..1 of the height)
-uniform vec4  uShape1;
-uniform vec4  uMorph;         // heart (love), sleep "‿", round (surprised), star pupils
+uniform vec4  uLidA0;         // upper lid down (0..1), its tilt (+ inner end lower),
+uniform vec4  uLidA1;         //   its arch (+ middle up), lower lid up (0..1)
+uniform vec4  uLidB0;         // lower lid's arch (+ middle up), the closed seam's
+uniform vec4  uLidB1;         //   alpha, the eye's turn (rad), its corner radius
+uniform vec4  uPupil0;        // dx, dy (from the eye centre), iris radius, shown
+uniform vec4  uPupil1;
+uniform vec4  uMorph;         // heart (love), wet (sad), round (surprised), star (excited)
 uniform vec3  uHeartTop;
 uniform vec3  uHeartBottom;
-uniform vec4  uPupil0;        // dx, dy (from the eye centre), radius, shown
-uniform vec4  uPupil1;
-uniform float uRadius;
 uniform vec3  uTop;
 uniform vec3  uBottom;
 uniform vec3  uGlow;
@@ -55,14 +60,15 @@ uniform vec3  uTint;
 uniform float uTintAmt;
 uniform vec3  uShine;
 uniform vec3  uPupilCol;
+uniform vec3  uIrisCol;
 
 uniform vec4  uBrow0;         // x0, y0, x1, y1
 uniform vec4  uBrow1;
 uniform vec4  uBrowK;         // bend0, bend1, thickness, alpha
 
 uniform vec4  uMouth;         // cx, cy, w, h
-uniform vec4  uMouthK;        // bend (+ = smile), open 0..1, alpha, kind (0 line, 1 open, 2 O)
-uniform float uMouthSlant;    // px the right end is higher (angry)
+uniform vec4  uMouthK;        // bend (+ = smile), open 0..1, alpha, kind (face_spec: 0 line,
+uniform float uMouthSlant;    //   1 open, 2 O, 3 grin, 4 gritted teeth, 5 wavy); slant px
 
 uniform vec4  uBlush;         // fcx, fcy, alpha 0..1, spread
 uniform vec3  uBlushCol;
@@ -94,21 +100,8 @@ float sdSeg(vec2 p, vec2 a, vec2 b) {
     return length(pa - ba * h);
 }
 
-// > 0 on the corner C's side of the line A-B
-float corner(vec2 q, vec2 A, vec2 B, vec2 C) {
-    vec2 t = normalize(B - A);
-    vec2 n = vec2(-t.y, t.x);
-    return dot(q - A, n) * sign(dot(C - A, n));
-}
-
-// an arc of a circle, its middle on +y (iq): sc = sin, cos of half its
-// aperture, ra its radius, rb half its thickness
-float sdArc(vec2 p, vec2 sc, float ra, float rb) {
-    p.x = abs(p.x);
-    return ((sc.y * p.x > sc.x * p.y) ? length(p - sc * ra) : abs(length(p) - ra)) - rb;
-}
-
 float dot2(vec2 v) { return dot(v, v); }
+float sq(float x) { return x * x; }
 
 // a heart (iq), y up: its tip at (0, 0), its lobes up to y ~1.1, x within ±0.6
 float sdHeart(vec2 p) {
@@ -136,8 +129,7 @@ float hash(vec2 p) {
     return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
 }
 
-// the "glitch" scene: a few bands of rows slide sideways (reply_scenes.Glitch
-// does it to the pygame picture; the face is the GPU's now)
+// the "glitch" scene: a few bands of rows slide sideways
 float glitchShift(float y) {
     if (uGlitch.x < 0.5) return 0.0;
     float dx = 0.0;
@@ -152,105 +144,156 @@ float glitchShift(float y) {
     return dx;
 }
 
-// the eye's shape: a rounded block, cut into a smile arc / worried or cross
-// corners / a lowered lid
-float eyeSDF(vec2 q, vec4 e, vec4 sh, float side) {
+// ── the eye ──────────────────────────────────────────────────────────────
+// A rounded block (round when surprised, a heart in love), cut by two lids:
+// the upper one comes down (tilted, arched), the lower one comes up (pushed
+// up in the middle by a smile). Shut, they leave a glowing seam.
+
+vec2 eyeLocal(vec2 p, vec4 e, vec4 lb, float side) {
+    vec2 q = p - e.xy;
+    float a = lb.z * -side;                         // + rot: the inner end down
+    float c = cos(a), s = sin(a);
+    return vec2(c * q.x - s * q.y, s * q.x + c * q.y);
+}
+
+// the lids' edges at x, and their slopes
+vec2 lidTop(float x, vec2 b, vec4 la, float side) {
+    float xn = clamp(x / b.x, -1.0, 1.0);
+    float inner = -side * xn;                       // −1 the outer corner … +1 the inner
+    float y = -b.y + 2.0 * b.y * la.x + la.y * b.y * inner
+              - la.z * 2.0 * b.y * (1.0 - xn * xn);
+    float sl = (-side * la.y * b.y + la.z * 4.0 * b.y * xn) / b.x;
+    return vec2(y, abs(x) < b.x ? sl : -side * la.y * b.y / b.x);
+}
+
+vec2 lidBot(float x, vec2 b, vec4 la, vec4 lb) {
+    float xn = clamp(x / b.x, -1.0, 1.0);
+    float y = b.y - 2.0 * b.y * la.w - lb.x * 2.0 * b.y * (1.0 - xn * xn);
+    float sl = (lb.x * 4.0 * b.y * xn) / b.x;
+    return vec2(y, abs(x) < b.x ? sl : 0.0);
+}
+
+float eyeSDF(vec2 q, vec4 e, vec4 la, vec4 lb, float side) {
     vec2 b = e.zw * 0.5;
-    float r = mix(min(uRadius, min(b.x, b.y)), min(b.x, b.y), uMorph.z);   // surprised: round
+    float r = mix(min(lb.w, min(b.x, b.y)), min(b.x, b.y), uMorph.z);
     float d = sdRoundBox(q, b, r);
-    // happy: a thick "^" arch, Loona's smiling eye
-    if (sh.x > 0.001) {
-        float ra = 0.78 * b.x;
-        float rb = max(9.0, 0.25 * b.y);
-        float cy = ra + rb - 0.62 * b.y;                       // the circle's centre, below
-        float arch = sdArc(vec2(q.x, cy - q.y), vec2(0.866, 0.5), ra, rb);   // ±60°
-        d = mix(d, arch, sh.x);
-    }
-    // sleeping: a thin closed "‿"
-    if (uMorph.y > 0.001) {
-        float ra = 0.68 * b.x;
-        float lid = sdArc(vec2(q.x, q.y + ra - 0.25 * b.y), vec2(0.82, 0.57), ra, 10.0);
-        d = mix(d, lid, uMorph.y);
-    }
-    // love: the eye becomes a heart
-    if (uMorph.x > 0.001) {
+    vec2 t = lidTop(q.x, b, la, side);
+    d = max(d, (t.x - q.y) / sqrt(1.0 + t.y * t.y));
+    vec2 u = lidBot(q.x, b, la, lb);
+    d = max(d, (q.y - u.x) / sqrt(1.0 + u.y * u.y));
+    if (uMorph.x > 0.001) {                         // love: the eye becomes a heart
         float s = min(b.x / 0.64, 2.0 * b.y / 1.12);
         float heart = sdHeart(vec2(q.x, 0.56 * s - q.y) / s) * s;
         d = mix(d, heart, uMorph.x);
     }
-    // sad: the outer top corner slopes down
-    float sad = corner(q, vec2(side * b.x, -0.1 * b.y), vec2(-0.4 * side * b.x, -b.y),
-                       vec2(side * b.x, -b.y));
-    d = mix(d, max(d, sad), sh.y);
-    // angry: the inner top corner slopes down
-    float ang = corner(q, vec2(-side * b.x, 0.0), vec2(0.5 * side * b.x, -b.y),
-                       vec2(-side * b.x, -b.y));
-    d = mix(d, max(d, ang), sh.z);
-    // lid: the top edge comes down, a little rounder in the middle
-    float lidY = -b.y + 2.0 * b.y * sh.w - (1.0 - (q.x * q.x) / (b.x * b.x)) * b.y * 0.12 * sh.w;
-    d = max(d, lidY - q.y);
     return d;
 }
 
-vec3 eyeColour(vec2 q, vec2 b, float d, vec2 look) {
+// the seam where the lids meet: a shut eye ("‿" asleep, "^" laughing)
+float seamSDF(vec2 q, vec4 e, vec4 la, vec4 lb, float side) {
+    vec2 b = e.zw * 0.5;
+    float xc = clamp(q.x, -0.84 * b.x, 0.84 * b.x);
+    vec2 t = lidTop(xc, b, la, side);
+    vec2 u = lidBot(xc, b, la, lb);
+    float ys = 0.5 * (t.x + u.x);
+    float sl = 0.5 * (t.y + u.y);
+    return length(vec2(q.x - xc, (q.y - ys) / sqrt(1.0 + sl * sl))) - 5.5;
+}
+
+vec3 eyeColour(vec2 q, vec2 b, float d, vec2 look, vec4 la, float side) {
     vec3 top = mix(mix(uTop, uTint, uTintAmt), uHeartTop, uMorph.x);
     vec3 bot = mix(mix(uBottom, uTint, uTintAmt * 0.85), uHeartBottom, uMorph.x);
+    // pale gold above, through amber, to orange below; the brightest part
+    // a little above the middle — lit from inside
     float v = clamp((q.y + b.y) / (2.0 * b.y), 0.0, 1.0);
-    vec3 col = mix(top, bot, smoothstep(0.0, 1.0, v) * (1.0 - 0.6 * uMorph.y));   // a lid: lit
+    vec3 col = mix(top, bot, smoothstep(0.05, 1.0, v));
+    vec2 cq = (q - vec2(0.0, -0.18 * b.y)) / b;
+    col *= 1.08 - 0.30 * clamp(dot(cq, cq) * 0.7, 0.0, 1.0);   // a dome: darker sides
+    col *= 0.86 + 0.14 * smoothstep(0.0, 9.0, -d);             // the very edge in shadow…
+    col += top * 0.30 * exp(d / 2.5);                          // …under a thin lit rim
+    // the upper lid's shadow on the eye below it
+    vec2 t = lidTop(q.x, b, la, side);
+    float lidded = smoothstep(0.02, 0.12, la.x);
+    col *= 1.0 - 0.32 * lidded * exp(-max(q.y - t.x, 0.0) / (0.16 * b.y));
+    // glass: a soft highlight up and to the left, drifting against the gaze
+    vec2 gq = q + look * 0.22;
+    vec2 hp = (gq - vec2(-0.38 * b.x, -0.58 * b.y)) / vec2(0.32 * b.x, 0.14 * b.y);
+    col = mix(col, uShine, 0.55 * exp(-dot(hp, hp) * 1.6) * (1.0 - 0.7 * lidded));
     float rx = q.x / b.x;
-    col *= 1.0 - 0.20 * rx * rx;                         // a dome: darker sides
-    col += top * 0.22 * exp(d / 4.0);                    // lit rim along the edge
-    // the highlights drift a little against the gaze: lit glass, not paint
-    vec2 sq = q + look * 0.22;
-    vec2 hp = (sq - vec2(-0.36 * b.x, -0.56 * b.y)) / vec2(0.30 * b.x, 0.15 * b.y);
-    col = mix(col, uShine, 0.60 * exp(-dot(hp, hp) * 1.4));   // specular
-    vec2 hp2 = (sq - vec2(0.42 * b.x, -0.50 * b.y)) / vec2(0.07 * b.x, 0.07 * b.y);
-    col = mix(col, uShine, 0.45 * exp(-dot(hp2, hp2) * 1.8)); // a small glint
-    float band = exp(-pow((q.y - 0.66 * b.y) / (0.10 * b.y), 2.0)) * (1.0 - rx * rx);
-    col += uShine * band * 0.10;                         // light from below
+    float band = exp(-sq((q.y - 0.70 * b.y) / (0.10 * b.y))) * (1.0 - rx * rx);
+    col += uShine * band * 0.10;                               // light from below
     return col;
 }
 
+// the iris and the pupil over the eye's colour `c`
+vec3 drawIris(vec2 q, vec3 c, vec4 pu) {
+    if (pu.w <= 0.01 || pu.z < 2.0) return c;
+    vec2 pq = q - pu.xy;
+    float pr = pu.z;
+    float ir = length(pq / vec2(0.93, 1.0));
+    float ia = smoothstep(1.0, -1.0, ir - pr) * pu.w;
+    if (ia <= 0.0) return c;
+    // the iris: a deep warm brown, lighter and streaked toward its rim, a
+    // dark ring round its edge; the pupil: nearly black
+    float k = clamp(ir / pr, 0.0, 1.0);
+    vec3 iris = mix(uPupilCol * 1.4, uIrisCol, smoothstep(0.45, 0.95, k));
+    float ang = atan(pq.y, pq.x);
+    iris *= 0.92 + 0.08 * sin(ang * 22.0) * smoothstep(0.5, 0.9, k);
+    iris = mix(iris, uPupilCol * 0.6, smoothstep(0.86, 1.0, k));          // the limbal ring
+    float pa = smoothstep(0.52, 0.47, k);
+    iris = mix(iris, uPupilCol * 0.35, pa);                               // the pupil
+    iris += uIrisCol * 0.35 * exp(-sq((pq.y - 0.55 * pr) / (0.16 * pr)))
+            * (1.0 - pa) * smoothstep(1.0, 0.7, k);                       // lit from below
+    vec3 o = mix(c, iris, ia);
+    // a soft shadow the iris throws on the eye round it
+    o = mix(o, o * 0.72, (1.0 - ia) * exp(-max(ir - pr, 0.0) / 4.0) * pu.w * 0.6);
+    // catch-lights: a big soft one up-left, a small one down-right (wet: more)
+    vec2 s1 = (pq - vec2(-0.34 * pr, -0.38 * pr)) / vec2(0.30 * pr, 0.27 * pr);
+    float h1 = smoothstep(1.0, 0.78, length(s1)) * (1.0 - uMorph.w);
+    vec2 s2 = (pq - vec2(0.30 * pr, 0.30 * pr)) / (0.12 * pr);
+    float h2 = smoothstep(1.0, 0.70, length(s2)) * 0.85;
+    vec2 s3 = (pq - vec2(0.12 * pr, -0.52 * pr)) / (0.10 * pr);
+    float h3 = smoothstep(1.0, 0.70, length(s3)) * uMorph.y;
+    vec2 s4 = (pq - vec2(-0.05 * pr, 0.62 * pr)) / vec2(0.50 * pr, 0.08 * pr);
+    float h4 = smoothstep(1.0, 0.5, length(s4)) * uMorph.y * 0.7;         // a wet shine
+    o = mix(o, uShine, max(max(h1, h2), max(h3, h4)) * ia);
+    if (uMorph.w > 0.01) {                 // excited: a star shines in each iris
+        float ds = sdStar5(vec2(pq.x, -pq.y + 0.06 * pr), 0.74 * pr, 0.48);
+        float sa = smoothstep(1.0, -1.0, ds) * ia * uMorph.w;
+        o = mix(o, mix(uShine, uTop, 0.3), sa);
+        o += uShine * 0.25 * exp(-max(ds, 0.0) / 3.0) * ia * uMorph.w;
+    }
+    return o;
+}
+
 // one eye over `col`; its glow is added to `glow`
-vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 sh, vec4 pu, float side) {
-    vec2 q = p - e.xy;
+vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 pu,
+             float side) {
     vec2 b = e.zw * 0.5;
-    if (uPass > 0.5 && (abs(q.x) > b.x + 2.0 || abs(q.y) > b.y + 2.0)) return col;
-    float d = eyeSDF(q, e, sh, side);
-    float dd = max(d, 0.0);
+    vec2 q = eyeLocal(p, e, lb, side);
+    if (uPass > 0.5 && (abs(q.x) > b.x + 4.0 || abs(q.y) > b.y + 4.0)) return col;
+    float d = eyeSDF(q, e, la, lb, side);
+    float ds = lb.y > 0.01 ? seamSDF(q, e, la, lb, side) : 1e5;
+    float sa = lb.y * (1.0 - uMorph.x);
     if (uPass < 0.5) {
-        float dg = dd;
         vec3 gc = mix(mix(uGlow, uTint, uTintAmt), uHeartBottom, uMorph.x);
         float breath = 1.0 + 0.07 * sin(uTime);          // she breathes: so does the light
-        glow += gc * (0.50 * exp(-dg / 13.0) + 0.22 * breath * exp(-dg / 45.0))
+        float dg = max(min(d, mix(1e5, ds, sa)), 0.0);
+        glow += gc * (0.46 * exp(-dg / 12.0) + 0.20 * breath * exp(-dg / 42.0))
                 * smoothstep(0.0, 8.0, e.w);
         return col;
     }
     float a = clamp(0.5 - d, 0.0, 1.0);
-    if (a <= 0.0) return col;
-    gA = a;
-    vec3 c = eyeColour(q, b, d, pu.xy);
-    // pupil: a soft dark rounded square with two catch-lights
-    if (pu.w > 0.01) {
-        vec2 pq = q - pu.xy;
-        float pr = pu.z;
-        float dp = sdRoundBox(pq, vec2(pr * 0.9, pr), pr * 0.8);     // a soft oval
-        float pa = smoothstep(1.5, -1.5, dp) * pu.w;
-        float ring = exp(-abs(dp + 2.0) / 3.0) * 0.25 * pu.w;
-        c = mix(c, c * 0.55, ring);
-        c = mix(c, uPupilCol, pa);
-        vec2 s1 = (pq - vec2(-0.36 * pr, -0.36 * pr)) / (0.30 * pr);
-        vec2 s2 = (pq - vec2(0.34 * pr, 0.30 * pr)) / (0.13 * pr);
-        float sh1 = smoothstep(1.0, 0.75, length(s1)) * pa * (1.0 - uMorph.w);
-        float sh2 = smoothstep(1.0, 0.70, length(s2)) * pa * 0.8;
-        c = mix(c, uShine, max(sh1, sh2));
-        if (uMorph.w > 0.01) {                 // excited: a star shines in each pupil
-            float ds = sdStar5(vec2(pq.x, -pq.y + 0.06 * pr), 0.80 * pr, 0.48);
-            float sa = smoothstep(1.0, -1.0, ds) * pa * uMorph.w;
-            c = mix(c, mix(uShine, uTop, 0.35), sa);
-        }
-    }
-    return mix(col, c, a);
+    float as_ = clamp(0.5 - ds, 0.0, 1.0) * sa;
+    if (a <= 0.0 && as_ <= 0.0) return col;
+    vec3 c = eyeColour(q, b, d, pu.xy, la, side);
+    c = drawIris(q, c, pu);
+    // the seam: lit like the top of the eye
+    vec3 sc = mix(mix(uTop, uTint, uTintAmt), uShine, 0.25);
+    float cov = max(a, as_);
+    vec3 outc = mix(sc, c, a / max(cov, 1e-4));
+    gA = cov;
+    return mix(col, outc, cov);
 }
 
 vec3 drawBrow(vec2 p, vec3 col, inout vec3 glow, vec4 s, float bend) {
@@ -261,16 +304,17 @@ vec3 drawBrow(vec2 p, vec3 col, inout vec3 glow, vec4 s, float bend) {
                         || abs(p.y - m.y) > abs(s.w - s.y) * 0.5 + uBrowK.z + abs(bend))) return col;
     float x = clamp((p.x - m.x) / hl, -1.0, 1.0);
     vec2 pp = vec2(p.x, p.y + bend * (1.0 - x * x));
-    float d = sdSeg(pp, s.xy, s.zw) - uBrowK.z * 0.5;
+    float taper = 0.62 + 0.38 * (1.0 - x * x);                  // fuller in the middle
+    float d = sdSeg(pp, s.xy, s.zw) - uBrowK.z * 0.5 * taper;
     if (uPass < 0.5) {
-        glow += uGlow * 0.45 * exp(-max(d, 0.0) / 10.0) * uBrowK.w;
+        glow += uGlow * 0.40 * exp(-max(d, 0.0) / 10.0) * uBrowK.w;
         return col;
     }
     float a = clamp(0.5 - d, 0.0, 1.0) * uBrowK.w;
     gA = a;
-    float v = clamp((pp.y - m.y) / uBrowK.z + 0.5, 0.0, 1.0);
-    vec3 c = mix(uTop, uBottom, v * 0.8);
-    c = mix(c, uShine, 0.35 * exp(-pow((v - 0.25) / 0.18, 2.0)));
+    float v = clamp((pp.y - m.y) / (uBrowK.z * taper) + 0.5, 0.0, 1.0);
+    vec3 c = mix(mix(uTop, uTint, uTintAmt * 0.8), mix(uBottom, uTint, uTintAmt * 0.6), v * 0.8);
+    c = mix(c, uShine, 0.40 * exp(-sq((v - 0.22) / 0.16)));
     return mix(col, c, a);
 }
 
@@ -279,43 +323,75 @@ vec3 drawMouth(vec2 p, vec3 col, inout vec3 glow) {
     if (alpha <= 0.01) return col;
     vec2 q = p - uMouth.xy;
     float hw = uMouth.z * 0.5;
+    float h = uMouth.w;
     float kind = uMouthK.w;
-    if (uPass > 0.5 && (abs(q.x) > hw + uMouth.w * 0.5 + 4.0
-                        || abs(q.y) > max(uMouth.w, uMouth.z * step(1.5, kind)) * 0.5
-                                      + abs(uMouthK.x) + abs(uMouthSlant) + 4.0)) return col;
+    if (uPass > 0.5 && (abs(q.x) > hw + h * 0.5 + 6.0
+                        || abs(q.y) > max(h, uMouth.z * step(1.5, kind) * step(kind, 2.5)) * 0.5
+                                      + h * step(2.5, kind) + abs(uMouthK.x)
+                                      + abs(uMouthSlant) + 6.0)) return col;
     float d;
     float inner = 1e5;
+    float teeth = 0.0, tongue = 0.0;
     if (kind < 0.5) {                         // a line: smile / frown / slant
         float x = clamp(q.x / hw, -1.0, 1.0);
         vec2 pq = vec2(q.x, q.y - uMouthK.x * (1.0 - x * x));
-        d = sdSeg(pq, vec2(-hw, uMouthSlant), vec2(hw, -uMouthSlant)) - uMouth.w * 0.5;
-    } else if (kind < 1.5) {                  // open, talking
-        vec2 b = vec2(hw, uMouth.w * 0.5);
-        d = sdRoundBox(q, b, min(b.y, 24.0));
+        float taper = 0.70 + 0.30 * (1.0 - x * x);
+        d = sdSeg(pq, vec2(-hw, uMouthSlant), vec2(hw, -uMouthSlant)) - h * 0.5 * taper;
+    } else if (kind < 1.5) {                  // open, talking: a smiling lower lip
+        float x = clamp(q.x / hw, -1.0, 1.0);
+        vec2 b = vec2(hw, h * 0.5);
+        vec2 pq = vec2(q.x, q.y - max(uMouthK.x, 0.0) * 0.35 * (1.0 - x * x) * step(0.0, q.y));
+        d = sdRoundBox(pq, b, min(b.y, 26.0));
         inner = d + 7.0;
-    } else {                                  // "O"
-        float r = uMouth.z * 0.5;
-        d = length(q) - r;
-        inner = d + r * 0.38;
+        teeth = smoothstep(0.5, -0.5, q.y + h * 0.5 - 7.0 - h * 0.20)
+                * smoothstep(0.3, 0.6, uMouthK.y);
+        vec2 tq = (q - vec2(0.0, h * 0.40)) / vec2(hw * 0.55, h * 0.30);
+        tongue = smoothstep(1.0, 0.8, length(tq));
+    } else if (kind < 2.5) {                  // "O"
+        vec2 r = vec2(uMouth.z * 0.5 * 0.86, uMouth.z * 0.5);
+        d = (length(q / r) - 1.0) * min(r.x, r.y);
+        inner = d + r.x * 0.30;
+    } else if (kind < 3.5) {                  // a grin: "D" — a smiling top, round below
+        float x = clamp(q.x / hw, -1.0, 1.0);
+        vec2 c = vec2(0.0, -h * 0.28);
+        vec2 R = vec2(hw, h * 0.98);
+        float de = (length((q - c) / R) - 1.0) * min(R.x, R.y);
+        float yt = -h * 0.28 + 0.16 * h * (1.0 - x * x);       // the top edge: a smile
+        d = max(de, (yt - q.y) / sqrt(1.0 + sq(0.32 * h * x / hw)));
+        inner = d + 7.0;
+        teeth = smoothstep(0.5, -0.5, q.y - yt - 15.0);
+        vec2 tq = (q - vec2(0.0, h * 0.58)) / vec2(hw * 0.52, h * 0.24);
+        tongue = smoothstep(1.0, 0.8, length(tq));
+    } else if (kind < 4.5) {                  // gritted teeth
+        vec2 b = vec2(hw, h * 0.5);
+        float x = clamp(q.x / hw, -1.0, 1.0);
+        vec2 pq = vec2(q.x, q.y - uMouthSlant * x);
+        d = sdRoundBox(pq, b, 12.0);
+        inner = d + 6.0;
+        float gaps = min(abs(fract(q.x / (hw / 2.5) + 0.5) - 0.5) * (hw / 2.5), abs(pq.y));
+        teeth = smoothstep(1.2, 2.6, gaps);
+    } else {                                  // wavy: nervous
+        float x = clamp(q.x, -hw, hw);
+        float k = 3.0 * 3.14159 / hw;
+        float y = 7.0 * sin(x * k);
+        float sl = 7.0 * k * cos(x * k);
+        d = length(vec2(q.x - x, (q.y - y) / sqrt(1.0 + sl * sl))) - h * 0.5;
     }
     if (uPass < 0.5) {
-        glow += uGlow * 0.40 * exp(-max(d, 0.0) / 12.0) * alpha;
+        glow += mix(uGlow, uTint, uTintAmt) * 0.40 * exp(-max(d, 0.0) / 12.0) * alpha;
         return col;
     }
     float a = clamp(0.5 - d, 0.0, 1.0) * alpha;
     gA = a;
-    float v = clamp(q.y / max(uMouth.w, 10.0) + 0.5, 0.0, 1.0);
-    vec3 c = mix(uTop, uBottom, 0.35 + 0.55 * v);
+    float v = clamp(q.y / max(h, 10.0) + 0.5, 0.0, 1.0);
+    vec3 c = mix(mix(uTop, uTint, uTintAmt), mix(uBottom, uTint, uTintAmt), 0.30 + 0.55 * v);
+    c += uShine * 0.18 * exp(d / 2.5);                       // a lit rim
     if (inner < 1e4) {                        // the dark inside: teeth, a tongue
         float ia = clamp(0.5 - inner, 0.0, 1.0);
-        float h = uMouth.w;
-        vec3 inside = vec3(0.06, 0.02, 0.01) + vec3(0.10, 0.03, 0.02) * (1.0 - v);
-        float teeth = (kind < 1.5) ? smoothstep(0.5, -0.5, q.y + h * 0.5 - 7.0 - h * 0.22)
-                                     * smoothstep(0.3, 0.6, uMouthK.y) : 0.0;
-        inside = mix(inside, vec3(1.0, 0.96, 0.88), teeth * 0.9);
-        vec2 tq = (q - vec2(0.0, h * 0.42)) / vec2(hw * 0.55, h * 0.32);
-        float tongue = smoothstep(1.0, 0.8, length(tq)) * step(0.5, kind) * step(kind, 1.5);
-        inside = mix(inside, vec3(0.85, 0.30, 0.28), tongue * 0.85);
+        vec3 inside = vec3(0.07, 0.025, 0.012) + vec3(0.10, 0.03, 0.02) * (1.0 - v);
+        inside *= 0.7 + 0.3 * smoothstep(-14.0, 0.0, inner);  // deeper toward the middle
+        inside = mix(inside, vec3(0.86, 0.32, 0.30), tongue * 0.9);
+        inside = mix(inside, vec3(1.0, 0.95, 0.86), teeth * 0.92);
         c = mix(c, inside, ia);
     }
     return mix(col, c, a);
@@ -341,17 +417,17 @@ void main() {
         vec2 vq = uv - vec2(0.5, 0.46);
         vec3 col = vec3(0.030, 0.020, 0.016) * (1.0 - 1.6 * dot(vq, vq));
         // glass: a faint diagonal sheen across the panel
-        float sheen = exp(-pow((uv.x + uv.y * 0.6 - 0.35) / 0.10, 2.0));
+        float sheen = exp(-sq((uv.x + uv.y * 0.6 - 0.35) / 0.10));
         col += vec3(0.010, 0.009, 0.012) * sheen;
         if (uFace > 0.5) {
             if (uBlush.z > 0.01) {                       // blush under the eyes
-                vec2 bq = (p - uBlush.xy - vec2(-240.0, 80.0)) / vec2(uBlush.w * 1.3, uBlush.w);
-                col += uBlushCol * 0.55 * uBlush.z * exp(-dot(bq, bq) * 2.2);
-                bq = (p - uBlush.xy - vec2(240.0, 80.0)) / vec2(uBlush.w * 1.3, uBlush.w);
-                col += uBlushCol * 0.55 * uBlush.z * exp(-dot(bq, bq) * 2.2);
+                vec2 bq = (p - uBlush.xy - vec2(-232.0, 70.0)) / vec2(uBlush.w * 1.5, uBlush.w);
+                col += uBlushCol * 0.60 * uBlush.z * exp(-dot(bq, bq) * 2.0);
+                bq = (p - uBlush.xy - vec2(232.0, 70.0)) / vec2(uBlush.w * 1.5, uBlush.w);
+                col += uBlushCol * 0.60 * uBlush.z * exp(-dot(bq, bq) * 2.0);
             }
-            col = drawEye(p, col, glow, uEye0, uShape0, uPupil0, -1.0);
-            col = drawEye(p, col, glow, uEye1, uShape1, uPupil1, 1.0);
+            col = drawEye(p, col, glow, uEye0, uLidA0, uLidB0, uPupil0, -1.0);
+            col = drawEye(p, col, glow, uEye1, uLidA1, uLidB1, uPupil1, 1.0);
             col = drawBrow(p, col, glow, uBrow0, uBrowK.x);
             col = drawBrow(p, col, glow, uBrow1, uBrowK.y);
             col = drawMouth(p, col, glow);
@@ -368,8 +444,8 @@ void main() {
         // one shape, premultiplied: blended over what is there
         gA = 0.0;
         vec3 c = vec3(0.0);
-        if (uShape < 0.5)      c = drawEye(p, c, glow, uEye0, uShape0, uPupil0, -1.0);
-        else if (uShape < 1.5) c = drawEye(p, c, glow, uEye1, uShape1, uPupil1, 1.0);
+        if (uShape < 0.5)      c = drawEye(p, c, glow, uEye0, uLidA0, uLidB0, uPupil0, -1.0);
+        else if (uShape < 1.5) c = drawEye(p, c, glow, uEye1, uLidA1, uLidB1, uPupil1, 1.0);
         else if (uShape < 2.5) c = drawBrow(p, c, glow, uBrow0, uBrowK.x);
         else if (uShape < 3.5) c = drawBrow(p, c, glow, uBrow1, uBrowK.y);
         else                   c = drawMouth(p, c, glow);
@@ -463,6 +539,14 @@ COSTUME_EYES = {
 }
 
 
+# …and a costume's own face settings (face_spec's keys)
+COSTUME_SPEC = {
+    "googly_eyes": {"round": 1.0, "heart": 0.0, "star": 0.0, "brow_a": 0.0,
+                    "lid_top": (0.0, 0.0), "lid_tilt": (0.0, 0.0), "lid_bot": (0.0, 0.0),
+                    "lid_bot_bend": (0.0, 0.0), "gaze_x": 0.0, "gaze_y": 0.0},
+}
+
+
 def _rgb(c):
     return tuple(v / 255.0 for v in c[:3])
 
@@ -523,7 +607,8 @@ class GLFace:
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
         self.target_fbo = 0              # where the frame goes (0: the window)
         self.uploaded = 0                # bytes sent to the GPU (the preview's numbers)
-        self.k = {"happy": 0.0, "sad": 0.0, "angry": 0.0}   # eased shape weights
+        self.eased = face_spec.Eased()   # the mood's settings on screen, gliding
+        self._t_last = 0.0
         self.shape_rects = []            # each shape's box on the screen (face_uniforms)
         print(f"[gl] face shader ready (GLSL {self.glsl}, "
               f"{GL.glGetString(GL.GL_RENDERER).decode(errors='replace')})", flush=True)
@@ -716,7 +801,7 @@ class GLFace:
             return [(0.0, 0.0, float(self.w), float(self.h))] * 5
         for i in (0, 1):
             ex, ey, w, h = u[f"uEye{i}"]
-            boxes.append(self._box(ex, ey, w / 2 + 3, h / 2 + 3, tilt))
+            boxes.append(self._box(ex, ey, w / 2 + 8, h / 2 + 8, tilt))
         bend0, bend1, thick, alpha = u["uBrowK"]
         for i, bend in ((0, bend0), (1, bend1)):
             x0, y0, x1, y1 = u[f"uBrow{i}"]
@@ -731,141 +816,131 @@ class GLFace:
         if alpha <= 0.01:
             boxes.append(None)
         else:
-            hx = w / 2 + h / 2 + 4
-            hy = max(h, w if kind > 1.5 else 0.0) / 2 + abs(bend) + abs(u["uMouthSlant"]) + 4
+            hx = w / 2 + h / 2 + 8
+            hy = (max(h, w) / 2 + h + abs(bend) + abs(u["uMouthSlant"]) + 10)
             boxes.append(self._box(mx, my, hx, hy, tilt))
         return boxes
 
     # ── Luna's animation state → the shader's inputs ──────────────────────
     def face_uniforms(self, face, rf, fcx, fcy):
         """face: the RobotFace; rf: the robot_face module (its live style
-        globals). Mirrors Eye._draw_block / Eye._draw_brow / Mouth.draw, with
-        the shape changes eased instead of switched."""
-        k = self.k
+        globals). The mood's settings (face_spec.py), eased over real time,
+        with the live animation on top: blinks close the lids, squints and
+        wide eyes from the reply scenes, the gaze, the mouth while talking."""
+        now = time.monotonic()
+        dt = (now - self._t_last) if self._t_last else 1.0 / 30
+        self._t_last = now
         emo = face._emotion
         costume = getattr(face, "_costume", None)
+        target = face_spec.spec(emo, listening=face._listen)
+        target.update(getattr(face, "_spec_mod", None) or {})   # a reply scene's touch
         googly = costume == "googly_eyes"
-        for name, on in (("happy", face._happy), ("sad", face._sad), ("angry", face._angry),
-                         # the moods' own eyes (the face library, 15 Oct): "^ ^" happy,
-                         # hearts in love, a star in each pupil excited, "‿ ‿" asleep,
-                         # round when surprised
-                         ("arc", emo == "happy" and not googly),
-                         ("heart", emo == "love" and not googly),
-                         ("star", emo == "excited" and not googly),
-                         ("sleep", emo == "sleeping"),
-                         ("round", emo == "surprised" or googly)):
-            k[name] = _lerp(k.get(name, 0.0), 1.0 if on else 0.0, 0.18)
+        if googly:                                # big round googly eyes, nothing else
+            target.update(COSTUME_SPEC["googly_eyes"])
+        cur = self.eased.step(target, dt)
         u = {"uTime": (face.breath_phase if hasattr(face, "breath_phase") else 0.0),
              "uTilt": math.radians(face.head_angle),
              "uFace": 1.0 if rf.EYE_MODE == "block" else 0.0,
-             "uRadius": float(rf.EYE_RADIUS) * 1.15,
              "uTop": _rgb(rf.EYE_GRAD_TOP), "uBottom": _rgb(rf.EYE_GRAD_BOTTOM),
              "uGlow": _rgb(rf.GLOW_COL), "uShine": _rgb(rf.IRIS_SHINE),
-             "uPupilCol": _rgb(rf.PUPIL_DARK), "uBlushCol": _rgb(rf.BLUSH_COL)}
+             "uPupilCol": _rgb(rf.PUPIL_DARK),
+             "uIrisCol": _rgb(getattr(rf, "IRIS_COL", (120, 52, 10))),
+             "uBlushCol": _rgb(rf.BLUSH_COL),
+             "uHeartTop": (1.0, 0.62, 0.70), "uHeartBottom": (0.90, 0.16, 0.38)}
         tint = face._eye_color
         amt = 0.45 if tint else 0.0
-        if face.angry_pulse > 0.01 or k["angry"] > 0.01:     # angry: red, and pulsing
+        heat = cur["tint"] + 0.45 * face.angry_pulse          # angry: red, and pulsing
+        if heat > 0.01:
             tint = rf.ANGRY_COL if not tint else tint
-            amt = max(amt, 0.45 * k["angry"] + 0.5 * face.angry_pulse)
+            amt = max(amt, heat)
         u["uTint"] = _rgb(tint or rf.EYE_GRAD_TOP)
         u["uTintAmt"] = min(0.85, amt)
-        u["uMorph"] = (k["heart"], k["sleep"], k["round"], k["star"])
-        u["uHeartTop"], u["uHeartBottom"] = (1.0, 0.62, 0.70), (0.90, 0.16, 0.38)
+        u["uMorph"] = (cur["heart"], cur["wet"], cur["round"], cur["star"])
         look = COSTUME_EYES.get(costume)
         if look:                                  # a costume's own eyes (googly, robot…)
-            for key, val in look.items():
-                u[key] = val
-        arc_k = k["arc"]
-        brows, bend = [], []
+            u.update(look)
+        conv = getattr(face, "_pupil_converge", 0.0)
+        brows = []
         for i, (eye, side) in enumerate(((face.left_eye, -1), (face.right_eye, 1))):
-            cx, cy = fcx + eye.rel_x, fcy + eye.rel_y
-            w = float(eye.w)
-            h_mod = eye.h * (1.0 - eye.squint * 0.4) * (1.0 + eye.widen * 0.2)
-            vis_h = max(4.0, h_mod * eye.blink_t)
-            # happy "^" eyes don't blink (they are shut already), asleep: a
-            # "‿" lid the size of a half-open eye
-            vis_h = _lerp(vis_h, h_mod, max(arc_k, k["heart"]) * (eye.blink_t > 0.05))
-            vis_h = _lerp(vis_h, 70.0, k["sleep"])         # (eye.h is ~10 asleep)
-            ex, ey = cx + eye.pupil_ox * 0.55, cy + eye.pupil_oy * 0.55
-            w = min(w, rf.EYE_SPREAD * 2 - 44)
-            if googly:                            # big round googly eyes
-                w = vis_h = max(vis_h, min(w, eye.h * 1.25)) if eye.blink_t > 0.3 else vis_h
-            u[f"uEye{i}"] = (ex, ey, w, vis_h)
-            lid = eye.squint * 0.5 if eye.squint > 0.02 else 0.0
-            u[f"uShape{i}"] = (arc_k * (eye.blink_t > 0.05), k["sad"], k["angry"],
-                               lid * (1.0 - arc_k))
-            pr = min(w, vis_h) * 0.24 * eye.pupil_scale * (1.0 + 0.22 * k["star"])
+            cx, cy = fcx + eye.rel_x, fcy + eye.rel_y + cur["eye_dy"]
+            w = min(float(eye.w), rf.EYE_SPREAD * 2 - 44)
+            h = eye.h * (1.0 + 0.15 * eye.widen)
             if googly:
-                pr = min(w, vis_h) * 0.30
-            shown = max(0.0, min(1.0, (eye.blink_t - 0.25) / 0.2)) if vis_h > 30 else 0.0
-            shown *= max(0.0, 1.0 - 1.6 * max(arc_k, k["heart"], k["sleep"]))
-            if not rf.BLOCK_PUPIL:
-                shown = 0.0
-            px, py = eye.pupil_ox * 0.45, eye.pupil_oy * 0.45 - vis_h * 0.16 * k["happy"]
+                w = h = min(w, eye.h * 1.3)
+            # the eye leans a little toward where she looks; the iris does the rest
+            ex, ey = cx + eye.pupil_ox * 0.30, cy + eye.pupil_oy * 0.30
+            top, tilt, bend = cur["lid_top"][i], cur["lid_tilt"][i], cur["lid_bend"][i]
+            bot, bbend = cur["lid_bot"][i], cur["lid_bot_bend"][i]
+            # squints (reply scenes, idle micro-expressions) bring both lids
+            # in; wide eyes open them
+            sq = eye.squint
+            top, bot = top + (1.0 - top) * 0.30 * sq, bot + (1.0 - bot) * 0.18 * sq
+            top, bot = top * (1.0 - 0.7 * eye.widen), bot * (1.0 - 0.7 * eye.widen)
+            # a blink: the lids meet ~60 % of the way down, their curves meet too
+            shut = 1.0 - max(0.0, min(1.0, eye.blink_t))
+            open_ = max(0.0, 1.0 - top - bot)
+            top, bot = top + shut * open_ * 0.62, bot + shut * open_ * 0.38
+            mid = 0.5 * (bend + bbend)
+            bend, bbend = _lerp(bend, mid, shut), _lerp(bbend, mid, shut)
+            tilt *= 1.0 - shut
+            # shut (or nearly): the glowing seam where the lids meet
+            gap = max(1.0 - top - bot, 1.0 - top - bot + bend - bbend) * h
+            seam = max(0.0, min(1.0, 1.0 - gap / 14.0))
+            u[f"uEye{i}"] = (ex, ey, w, h)
+            u[f"uLidA{i}"] = (top, tilt, bend, bot)
+            u[f"uLidB{i}"] = (bbend, seam, math.radians(cur["rot"][i]), cur["eye_r"])
+            # the iris: where she looks (face tracking + the mood's own glance)
+            pr = min(w, h) * 0.27 * cur["pupil"][i] * eye.pupil_scale
+            dx = eye.pupil_ox * 0.85 + cur["gaze_x"] - side * conv * 0.6   # cross-eyed: in
+            dy = eye.pupil_oy * 0.85 + cur["gaze_y"]
             if googly:                            # loose pupils, rolling about
                 t = face.breath_phase * 2.3 + i * 1.7
-                px, py = vis_h * 0.2 * math.sin(t), vis_h * 0.2 * abs(math.cos(t * 0.7))
-            u[f"uPupil{i}"] = (px, py, pr, shown)
-            # brows: 30 px above the eye's top, 70 % of its width
-            bw = w * 0.70
-            by = ey - vis_h / 2 - 30
-            x0, x1 = ex - bw / 2, ex + bw / 2
-            y0 = y1 = by
-            if face._angry:                       # a steep "\ /": the inner ends down
-                y0, y1 = (by - 12, by + 20) if side < 0 else (by + 20, by - 12)
-            elif face._sad:
-                drop = 8 + eye.droop * 18             # worried: the inner ends up
-                y0, y1 = (by, by - drop) if side < 0 else (by - drop, by)
-            elif face._listen:
-                y0 = y1 = by - 10 * eye.widen
-            brows.append((x0, y0, x1, y1))
-            bend.append(12.0 * k["happy"])
+                pr = min(w, h) * 0.30
+                dx, dy = h * 0.2 * math.sin(t), h * 0.2 * abs(math.cos(t * 0.7))
+            mx_, my_ = max(0.0, w / 2 - pr * 0.95), max(0.0, h / 2 - pr * 0.80)
+            dx, dy = max(-mx_, min(mx_, dx)), max(-my_, min(my_, dy))
+            shown = (1.0 - cur["heart"]) if rf.BLOCK_PUPIL else 0.0
+            shown *= max(0.0, min(1.0, (gap - 8.0) / 22.0))     # a slit: just the glow
+            u[f"uPupil{i}"] = (dx, dy, pr, shown)
+            # the brow over it: 66 % of the eye's width, its inner end tilted
+            bw = w * 0.66
+            by = ey - h / 2 - cur["brow_gap"] - cur["brow_y"][i]
+            t = cur["brow_tilt"][i] * 0.5
+            if side < 0:                          # the left eye: its inner end on the right
+                brows.append((ex - bw / 2, by - t, ex + bw / 2, by + t))
+            else:
+                brows.append((ex - bw / 2, by + t, ex + bw / 2, by - t))
         u["uBrow0"], u["uBrow1"] = brows
-        blink = min(face.left_eye.blink_t, face.right_eye.blink_t)
-        brow_a = max(0.0, min(1.0, (blink - 0.4) / 0.15))
-        # the arches, hearts and sleepy lids say it all by themselves
-        brow_a *= max(0.0, 1.0 - 1.4 * max(arc_k, k["heart"], k["sleep"]))
-        if googly:
-            brow_a = 0.0
-        u["uBrowK"] = (bend[0], bend[1], 15.0, brow_a)
-        u.update(self._mouth(face, rf, fcx, fcy))
-        bl = max(face.left_blush.alpha, face.right_blush.alpha) / 255.0
-        u["uBlush"] = (fcx, fcy, min(1.0, bl * 1.4), 30.0)
+        u["uBrowK"] = (cur["brow_bend"], cur["brow_bend"], 17.0, cur["brow_a"])
+        u.update(self._mouth(face, rf, fcx, fcy, cur))
+        u["uBlush"] = (fcx, fcy, cur["blush"], 30.0)
         sp = getattr(face, "_scene_p", 0.0)
         tearing = (getattr(face, "_scene_name", None) == "glitch" and 0.12 < sp < 0.82)
         u["uGlitch"] = (1.0, float(int(sp * 24))) if tearing else (0.0, 0.0)
         self.shape_rects = self._shape_boxes(u)
         return u
 
-    def _mouth(self, face, rf, fcx, fcy):
+    def _mouth(self, face, rf, fcx, fcy, cur):
+        """The mood's mouth — or, while she talks, one opened by her voice."""
         m = face.mouth
-        mx, my = fcx + m.rel_x, fcy + m.rel_y
-        alpha = max(0.0, min(1.0, m.visible))
+        mx = fcx + m.rel_x + cur["mouth_dx"]
+        my = fcy + m.rel_y + cur["mouth_dy"]
+        kind = self.eased.mouth
+        w, h, bend = cur["mouth_w"], cur["mouth_h"], cur["mouth_bend"]
+        slant, open_ = cur["mouth_slant"], 0.0
+        alpha = cur["mouth_a"] * self.eased.mouth_fade
         talking = face._speaking or m.speak_fade > 0.05
-        emo = face._emotion
-        slant, kind, bend, open_ = 0.0, 0.0, 0.0, 0.0
-        w, h = 160.0, 10.0
         if talking:
             e = m.talk_open
+            alpha = max(alpha, min(1.0, m.speak_fade))
             if e > 0.06:
-                kind, open_ = 1.0, e
+                kind, open_ = face_spec.OPEN, e
                 w = _lerp(m.mouth_w * 0.45, m.mouth_w, max(0.0, min(1.0, (e - 0.06) / 0.5)))
                 h = max(12.0, 10.0 + (e + m.jaw_bounce * 0.3) * 82.0)
-            else:
-                w, h, bend = 140.0, 10.0, m.corner_lift * 8.0
-        elif emo in ("happy", "excited", "love"):
-            w, h, bend = 210.0, 20.0, 30.0
-            my += 6
-        elif emo == "surprised":
-            kind, w = 2.0, 80.0
-        elif emo == "angry":
-            w, h, slant = 200.0, 16.0, 8.0
-        elif emo == "sad":
-            w, h, bend = 170.0, 16.0, -22.0
-            my += 30
-        elif emo == "sleeping":
-            w, h, bend, alpha = 150.0, 8.0, -6.0, alpha * 0.6
-        else:
-            alpha = 0.0
-        return {"uMouth": (mx, my, w, h), "uMouthK": (bend, open_, alpha, kind),
+                bend = max(0.0, bend)
+            else:                                 # between words: closed, still smiling
+                kind, w, h = face_spec.LINE, max(110.0, w * 0.9), 12.0
+                bend = 0.5 * bend + m.corner_lift * 8.0
+                slant = 0.0
+        return {"uMouth": (mx, my, w, h), "uMouthK": (bend, open_, alpha, float(kind)),
                 "uMouthSlant": slant}

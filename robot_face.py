@@ -34,6 +34,7 @@ import random
 import time
 import numpy as np
 from shared_state import state
+import face_spec
 import gallery
 import screens
 import ui_screens
@@ -57,7 +58,7 @@ if FACE_GL:
 
 BG        = (0, 0, 0)
 PUPIL_COL = (0, 0, 0)
-LISTEN_WAVE_COL = (95, 175, 255)   # the sound waves beside her while she listens
+LISTEN_WAVE_COL = (255, 196, 110)  # the sound waves beside her while she listens
 THINK_HAND_SECS = 1.2              # thinking longer than this: a finger on her chin
 
 # On the 800x480 panel the mouth would kiss the bottom edge: lift the face a
@@ -115,7 +116,7 @@ STYLES = {
         EYE_RADIUS=34, IRIS_SQUARE=False, MOUTH_STYLE="organic",
         EYE_MODE="block", EYE_SCALE=1.18, EYE_SPREAD=150,
         EYE_GRAD_TOP=(255, 232, 140), EYE_GRAD_BOTTOM=(232, 96, 12),
-        BLOCK_PUPIL=True, PUPIL_DARK=(28, 12, 2),
+        BLOCK_PUPIL=True, PUPIL_DARK=(28, 12, 2), IRIS_COL=(132, 58, 12),
         BROW_GRAD_TOP=(255, 214, 110), BROW_GRAD_BOTTOM=(214, 96, 18),
         HAIR=False, HANDS=True,     # hair can be switched on here
         HAIR_GRAD_TOP=(255, 196, 80), HAIR_GRAD_BOTTOM=(196, 78, 10),
@@ -135,7 +136,7 @@ def apply_style(n):
     global STAR_COL, TEETH_COL, WAVE_COL, ANGRY_COL, HEART_COL, AWAKE_COL
     global EYE_RADIUS, IRIS_SQUARE, MOUTH_STYLE
     global EYE_MODE, EYE_GRAD_TOP, EYE_GRAD_BOTTOM, EYE_SCALE, EYE_SPREAD
-    global BLOCK_PUPIL, PUPIL_DARK, BROW_GRAD_TOP, BROW_GRAD_BOTTOM
+    global BLOCK_PUPIL, PUPIL_DARK, BROW_GRAD_TOP, BROW_GRAD_BOTTOM, IRIS_COL
     global HAIR, HANDS, HAIR_GRAD_TOP, HAIR_GRAD_BOTTOM, HAND_GRAD_TOP, HAND_GRAD_BOTTOM
 
     s = STYLES.get(n)
@@ -161,6 +162,7 @@ def apply_style(n):
     EYE_GRAD_BOTTOM = s.get("EYE_GRAD_BOTTOM", EYE_OUTER)
     BLOCK_PUPIL     = s.get("BLOCK_PUPIL", False)
     PUPIL_DARK      = s.get("PUPIL_DARK", PUPIL_COL)
+    IRIS_COL        = s.get("IRIS_COL", (120, 52, 10))
     BROW_GRAD_TOP    = s.get("BROW_GRAD_TOP", EYE_MID)
     BROW_GRAD_BOTTOM = s.get("BROW_GRAD_BOTTOM", EYE_MID)
     HAIR             = s.get("HAIR", False)
@@ -892,7 +894,7 @@ COSTUMES = {
     "cat":   ([(95, -142, 116, 98, -9, True)], True),
     "bunny": ([(None, -150, 46, 124, -6, False)], True),     # None: 62 px off the middle
     "dog":   ([(175, 0, 78, 165, 12, False)], False),
-    "squirrel": ([(70, -150, 74, 118, -14, True)], False),
+    "squirrel": ([(96, -132, 62, 98, -14, False)], False),
     "googly_eyes": ([], False),
     "steampunk": ([], False),
     "crazy_robot": ([], False),
@@ -939,29 +941,82 @@ def _blit_rot(surf, img, center, angle):
 _TAIL = {}
 
 
+def _bez(p0, p1, p2, p3, t):
+    u = 1.0 - t
+    return (u ** 3 * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t ** 3 * p3[0],
+            u ** 3 * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t ** 3 * p3[1])
+
+
+def _tail_image():
+    """A squirrel's tail: a thick S rising from below and curling over at
+    the top, dark fur round a lighter middle, tufts all along its edge."""
+    def draw(s, k):
+        P = ((70, 500), (330, 450), (360, 120), (150, 70))
+        n = 90
+        pts = [_bez(*P, t=j / n) for j in range(n + 1)]
+        rad = [32 + 78 * math.sin(math.pi * min(1.0, (j / n) ** 0.85 * 1.08)) for j in range(n + 1)]
+        rad[-1] = rad[-2] = max(rad[-3], 40)
+        mid = _lerp_col(HAIR_GRAD_BOTTOM, HAIR_GRAD_TOP, 0.45)
+        for j in range(0, n + 1, 3):              # the fluffy edge: tufts pointing out
+            x, y = pts[j]
+            x2, y2 = pts[min(n, j + 1)]
+            tx, ty = x2 - x, y2 - y
+            ln = math.hypot(tx, ty) or 1.0
+            nx, ny = -ty / ln, tx / ln
+            for side in (-1, 1):
+                r = rad[j] * 1.08
+                bx, by = x + nx * side * r * 0.82, y + ny * side * r * 0.82
+                ex = x + nx * side * r * 1.18 - tx / ln * 14
+                ey = y + ny * side * r * 1.18 - ty / ln * 14
+                pygame.draw.polygon(s, HAIR_GRAD_BOTTOM, [
+                    ((bx - tx / ln * 10) * k, (by - ty / ln * 10) * k),
+                    ((bx + tx / ln * 10) * k, (by + ty / ln * 10) * k), (ex * k, ey * k)])
+        for col, kr, off in ((HAIR_GRAD_BOTTOM, 1.0, 0), (mid, 0.74, -6), (HAIR_GRAD_TOP, 0.40, -12)):
+            for j, (x, y) in enumerate(pts):
+                pygame.draw.circle(s, col, (int((x + off) * k), int((y + off * 0.5) * k)),
+                                   int(rad[j] * kr * k))
+        for j in range(4, n - 4, 5):              # fur strokes down the middle
+            x, y = pts[j]
+            x2, y2 = pts[j + 3]
+            pygame.draw.line(s, _lerp_col(mid, HAIR_GRAD_TOP, 0.5),
+                             (int((x - 8) * k), int((y - 4) * k)),
+                             (int((x2 - 4) * k), int((y2 - 6) * k)), int(3 * k))
+    return _smooth(400, 560, draw, ss=2)
+
+
 def _squirrel_tail(surf, fcx, fcy, sway):
     """A big bushy tail curling up beside her on the right, wagging."""
     img = _TAIL.get(CURRENT_STYLE)
     if img is None:
-        def draw(s, k):
-            pts = [(70, 370), (120, 300), (165, 220), (180, 140), (160, 75), (115, 45),
-                   (75, 60), (70, 100)]
-            path = []
-            for a, b in zip(pts, pts[1:]):        # the spine, finely
-                for n in range(8):
-                    u = n / 8
-                    path.append((a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u))
-            mid = _lerp_col(HAIR_GRAD_BOTTOM, HAIR_GRAD_TOP, 0.5)
-            for col, kr, off in ((HAIR_GRAD_BOTTOM, 1.0, 0), (mid, 0.78, -4), (HAIR_GRAD_TOP, 0.45, -10)):
-                for n, (x, y) in enumerate(path):          # dark fur, lighter inside
-                    u = n / len(path)
-                    r = (34 + 46 * math.sin(math.pi * min(1.0, u * 1.25))) * kr
-                    pygame.draw.circle(s, col, (int((x + off) * k), int((y + off * 0.6) * k)),
-                                       int(r * k))
-        img = _TAIL[CURRENT_STYLE] = pygame.transform.smoothscale(_smooth(260, 420, draw),
-                                                                   (170, 274))
+        img = _TAIL[CURRENT_STYLE] = pygame.transform.smoothscale(_tail_image(), (240, 336))
     wag = 5 * math.sin(time.time() * 2.2) + sway * 0.4
-    _blit_rot(surf, img, (fcx + EYE_SPREAD + 168, fcy + 10), wag)   # right of the eye
+    _blit_rot(surf, img, (fcx + EYE_SPREAD + 175, fcy + 10), wag)
+
+
+def _gear(r, teeth, col_top, col_bot):
+    """A brass cog with a hole (cached by size)."""
+    key = ("gear", r, teeth, col_top)
+    if key in _SMOOTH_CACHE:
+        return _SMOOTH_CACHE[key]
+
+    def draw(s, k):
+        c = (r + 6) * k
+        pts = []
+        for j in range(teeth * 4):
+            a = j * math.tau / (teeth * 4)
+            rr = r if (j // 2) % 2 == 0 else r * 0.80
+            pts.append((c + math.cos(a) * rr * k, c + math.sin(a) * rr * k))
+        pygame.draw.polygon(s, col_bot, pts)
+        pygame.draw.circle(s, col_top, (int(c), int(c)), int(r * 0.70 * k))
+        pygame.draw.circle(s, col_bot, (int(c), int(c)), int(r * 0.52 * k))
+        pygame.draw.circle(s, (0, 0, 0, 0), (int(c), int(c)), int(r * 0.24 * k))
+        for j in range(4):                         # spokes' holes
+            a = j * math.tau / 4 + math.pi / 4
+            pygame.draw.circle(s, (0, 0, 0, 0), (int(c + math.cos(a) * r * 0.40 * k),
+                                                 int(c + math.sin(a) * r * 0.40 * k)),
+                               int(r * 0.09 * k))
+    img = _SMOOTH_CACHE[key] = _smooth(2 * r + 12, 2 * r + 12, draw)
+    return img
 
 
 def draw_costume_back(surf, fcx, fcy, kind, sway):
@@ -1009,8 +1064,8 @@ def _eye_frames(face, fcx, fcy):
     out = []
     for eye in (face.left_eye, face.right_eye):
         w = min(eye.w, EYE_SPREAD * 2 - 44)
-        out.append((fcx + eye.rel_x + eye.pupil_ox * 0.55,
-                    fcy + eye.rel_y + eye.pupil_oy * 0.55, w, eye.h))
+        out.append((fcx + eye.rel_x + eye.pupil_ox * 0.30,
+                    fcy + eye.rel_y + eye.pupil_oy * 0.30, w, eye.h))
     return out
 
 
@@ -1113,6 +1168,11 @@ def draw_costume_front(surf, fcx, fcy, kind, face=None):
     elif kind == "steampunk" and face is not None:
         _goggles(surf, face, fcx, fcy)
         _top_hat(surf, fcx + EYE_SPREAD + 150, fcy - 140, -18)   # on the top corner
+        t = time.time()                           # two cogs turning on the other corner
+        for (gx, gy, r, n, spin) in ((-EYE_SPREAD - 170, -130, 44, 10, 0.6),
+                                     (-EYE_SPREAD - 112, -76, 28, 7, -0.6 * 44 / 28)):
+            g = _gear(r, n, BRASS_TOP, BRASS_BOTTOM)
+            _blit_rot(surf, g, (fcx + gx, fcy + gy), math.degrees(t * spin))
     elif kind == "crazy_robot" and face is not None:
         _goggles(surf, face, fcx, fcy, brass=False)
         for side in (-1, 1):                      # bolts on the sides of her head
@@ -1469,7 +1529,7 @@ class MicroExpressions:
         self.micro_end_t    = 0.0
         self.current_micro  = None
 
-    def update(self, emotion, listening, speaking):
+    def update(self, emotion, listening, speaking, moods=True):
         now = time.time()
 
         if speaking:
@@ -1479,7 +1539,7 @@ class MicroExpressions:
             self.pupil_scale   = 1.0
             return
 
-        if listening:
+        if listening and moods:
             self.widen_target  = 0.6
             self.squint_target = 0.0
             self.droop_target  = 0.0
@@ -1518,7 +1578,9 @@ class MicroExpressions:
             self.current_micro = None
 
         # emotion base modifiers
-        if emotion in ("happy", "love"):
+        if not moods:
+            self.droop_target = 0.0
+        elif emotion in ("happy", "love"):
             self.squint_target = max(self.squint_target, 0.35)
             self.droop_target  = 0.0
         elif emotion == "excited":
@@ -1671,6 +1733,7 @@ class RobotFace:
         self._touch_react_t = -99.0
         self._touch_pull = 0.0
         self._think_t = 0.0              # since when she has been thinking
+        self._spec_mod = {}
         self._costume = None             # what she wears this frame (gl_face reads it)
 
         # rel_x is re-applied from the active style's EYE_SPREAD every frame
@@ -1791,6 +1854,9 @@ class RobotFace:
             tw, th = 168, 112
         else:
             tw, th = 175, 125
+        spec_eyes = EYE_MODE == "block"
+        if spec_eyes:                     # the block face: face_spec's sizes, in px
+            tw, th = face_spec.eye_size(emotion, listening and not speaking)
 
         # ── blink — two-phase animated blink (smooth close AND open) ─────
         # blink_open: 1 = fully open. Phase "closing" eases shut fast,
@@ -1860,7 +1926,8 @@ class RobotFace:
         self.right_blush.update(blush_alpha)
 
         # ── micro-expressions ─────────────────────────────────────────────
-        self.micro.update(emotion, listening, speaking)
+        # (the block face's moods set their own lids and pupils: face_spec)
+        self.micro.update(emotion, listening, speaking, moods=EYE_MODE != "block")
 
         # ── face offset / tracking ────────────────────────────────────────
         breath_y = math.sin(self.breath_phase) * 5
@@ -2098,8 +2165,10 @@ class RobotFace:
         self._pupil_converge = lerp(self._pupil_converge, 0.0, 0.25)
         self._pupil_mul = 1.0
         self._mouth_drive = 0.0
+        self._spec_mod = {}              # a scene's face_spec settings over the mood
         if self._scene:
             self._scene.motion(self, self._scene_p)
+            self._scene.face(self, self._scene_p)
 
         self._hand_target = {"L": tgt_L, "R": tgt_R}
         for side in ("L", "R"):
@@ -2141,7 +2210,8 @@ class RobotFace:
         # per-style geometry (so 1/2/3 can be switched live)
         self.left_eye.rel_x  = -EYE_SPREAD
         self.right_eye.rel_x =  EYE_SPREAD
-        tw, th = tw * EYE_SCALE, th * EYE_SCALE
+        if not spec_eyes:
+            tw, th = tw * EYE_SCALE, th * EYE_SCALE
 
         blink_l = blink_r = blink_t
         squint  = self.micro.squint_target
@@ -2433,7 +2503,7 @@ class RobotFace:
         # ── listening: sound waves coming in from both sides; a nod or a
         #    shake of the head: motion marks beside it ────────────────────
         if self.listen_pulse > 0.05 or self._listen:
-            k = max(self.listen_pulse, 0.6 if self._listen else 0.0)
+            k = 0.55 * max(self.listen_pulse, 0.6 if self._listen else 0.0)   # restrained
             ph = self.listen_phase * 0.22
             arcs = [(64 + 42 * ((ph + j / 3.0) % 1.0),
                      k * math.sin(math.pi * ((ph + j / 3.0) % 1.0))) for j in range(3)]

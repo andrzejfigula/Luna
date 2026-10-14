@@ -7,6 +7,7 @@ registered with @scene(name, duration, mood=None). It may implement:
 
     motion(face, p)          head / pupil movement       (called from update)
     eyes(face, p, e)         blink, squint, widen        (e is mutable)
+    face(face, p)            face_spec settings over the mood (face._spec_mod)
     hands(face, p, h)        hand targets and poses      (h is mutable)
     draw(face, surf, cx, cy, p)   props drawn over the face
     post(face, screen, p)    effects on the finished frame
@@ -39,6 +40,11 @@ class Scene:
         pass
 
     def hands(self, face, p, h):
+        pass
+
+    def face(self, face, p):
+        """face_spec settings this scene lays over the mood (gl_face): put
+        them in face._spec_mod — the mouth, the brows, the lids…"""
         pass
 
     def draw(self, face, surf, fcx, fcy, p):
@@ -150,6 +156,13 @@ class EyeTwitch(Scene):
 @scene("remember", duration=3.0)
 class Remember(Scene):
     """Eyes up and to the side, digging something out of memory."""
+    def face(self, face, p):
+        """(gl_face) eyes up, one brow raised"""
+        if rf._prop_hold(p, 0.15, 0.2) > 0.1:
+            face._spec_mod.update({"brow_y": (4.0, 16.0), "gaze_y": -18.0, "mouth": 0,
+                                   "mouth_w": 70.0, "mouth_bend": 2.0, "mouth_slant": 4.0,
+                                   "mouth_a": 1.0})
+
     def motion(self, face, p):
         s = math.sin(min(1.0, p * 1.3) * math.pi)
         face.pupil_ox = rf.lerp(face.pupil_ox, -24.0 * s, 0.12)
@@ -163,6 +176,13 @@ class Remember(Scene):
 @scene("smirk", duration=2.2)
 class Smirk(Scene):
     """One corner of the mouth up, one brow raised — she knows something."""
+    def face(self, face, p):
+        """(gl_face) the mouth pulled up at one corner, one brow up"""
+        if rf._prop_hold(p, 0.15, 0.2) > 0.1:
+            face._spec_mod.update({"mouth": 0, "mouth_w": 112.0, "mouth_slant": 12.0,
+                                   "mouth_bend": 8.0, "mouth_dx": 26.0, "mouth_a": 1.0,
+                                   "brow_y": (0.0, 16.0)})
+
     def motion(self, face, p):
         s = math.sin(p * math.pi)
         face.target_tilt = -6.0 * s
@@ -174,6 +194,8 @@ class Smirk(Scene):
         e.blink_r = min(e.blink_r, 1.0 - 0.25 * s)
 
     def draw(self, face, surf, fcx, fcy, p):
+        if rf.EYE_MODE == "block" and getattr(face, "gl", None):
+            return                                # (the GPU mouth does it: face())
         s = math.sin(p * math.pi)
         if s < 0.05:
             return
@@ -198,7 +220,7 @@ def _eye_rect(eye, fcx, fcy):
     vis_h = max(4, int(h_mod * eye.blink_t))
     r = pygame.Rect(cx - w // 2, cy - vis_h // 2, w, vis_h)
     if rf.EYE_MODE == "block":
-        r = r.move(int(eye.pupil_ox * 0.55), int(eye.pupil_oy * 0.55))
+        r = r.move(int(eye.pupil_ox * 0.30), int(eye.pupil_oy * 0.30))   # (gl_face's lean)
         max_w = rf.EYE_SPREAD * 2 - 44
         if r.w > max_w:
             r = pygame.Rect(r.centerx - max_w // 2, r.y, max_w, r.h)
@@ -214,7 +236,7 @@ def _eye_rects(face, fcx, fcy):
 
 def _pupil_at(eye, rect):
     """Where the pupil sits inside an eye rect."""
-    k = 0.45 if rf.EYE_MODE == "block" else 1.0
+    k = 0.85 if rf.EYE_MODE == "block" else 1.0
     return (rect.centerx + int(eye.pupil_ox * k), rect.centery + int(eye.pupil_oy * k))
 
 
@@ -386,6 +408,14 @@ class HeartEyes(Scene):
 @scene("suspicious", duration=3.6)
 class Suspicious(Scene):
     """Narrowed eyes sliding sideways: hmm, really?"""
+    def face(self, face, p):
+        """(gl_face) flat narrowed lids, one brow down"""
+        if rf._prop_hold(p, 0.15, 0.2) > 0.1:
+            face._spec_mod.update({"lid_top": (0.34, 0.34), "lid_bend": (0.0, 0.0),
+                                   "lid_bot": (0.18, 0.18), "brow_y": (-8.0, 6.0),
+                                   "brow_tilt": (10.0, -4.0), "mouth": 0, "mouth_w": 70.0,
+                                   "mouth_bend": 0.0, "mouth_slant": -5.0, "mouth_a": 1.0})
+
     def motion(self, face, p):
         hold = rf._prop_hold(p, 0.15, 0.2)
         look = -1.0 if p < 0.5 else 1.0
@@ -514,6 +544,13 @@ class ScratchHead(Scene):
 @scene("chin_rest", duration=5.0)
 class ChinRest(Scene):
     """Props her chin on one hand and thinks about it."""
+    def face(self, face, p):
+        """(gl_face) one brow up, the mouth pushed aside by the hand"""
+        if rf._prop_hold(p, 0.15, 0.2) > 0.1:
+            face._spec_mod.update({"brow_y": (16.0, 0.0), "mouth": 0, "mouth_w": 60.0,
+                                   "mouth_bend": 2.0, "mouth_dx": -34.0, "mouth_slant": 4.0,
+                                   "mouth_a": 1.0})
+
     def hands(self, face, p, h):
         hold = rf._prop_hold(p, 0.15, 0.15)
         h.r = (105, 188 + 260 * (1 - hold), -18)
@@ -759,6 +796,14 @@ def _puff(surf, x, y, t, hold, n=5, spread=1.0, col=None):
 @scene("laugh", duration=3.4, mood="happy")
 class Laugh(Scene):
     """Shakes with laughter, mouth going, eyes screwed shut."""
+    def face(self, face, p):
+        """(gl_face) eyes squeezed shut into "^ ^", a big open grin"""
+        if rf._prop_hold(p, 0.15, 0.2) > 0.1:
+            face._spec_mod.update({"lid_top": (0.52, 0.52), "lid_bot": (0.48, 0.48),
+                                   "lid_bend": (0.26, 0.26), "lid_bot_bend": (0.26, 0.26),
+                                   "mouth": 3, "mouth_w": 150.0, "mouth_h": 70.0,
+                                   "mouth_a": 1.0, "blush": 0.7})
+
     def motion(self, face, p):
         hold = rf._prop_hold(p, 0.12, 0.2)
         shake = math.sin(p * self.duration * 13.0)
@@ -807,6 +852,14 @@ class Sigh(Scene):
 @scene("impatient", duration=4.0)
 class Impatient(Scene):
     """Drums her fingers and glances away. Any day now."""
+    def face(self, face, p):
+        """(gl_face) half-lidded, the mouth a flat line to one side"""
+        if rf._prop_hold(p, 0.15, 0.2) > 0.1:
+            face._spec_mod.update({"lid_top": (0.26, 0.26), "lid_bend": (0.0, 0.0),
+                                   "brow_y": (-4.0, -4.0), "brow_tilt": (6.0, 6.0), "mouth": 0,
+                                   "mouth_w": 80.0, "mouth_bend": -2.0, "mouth_slant": -6.0,
+                                   "mouth_dx": 22.0, "mouth_a": 1.0})
+
     def hands(self, face, p, h):
         hold = rf._prop_hold(p, 0.15, 0.15)
         tap = abs(math.sin(p * self.duration * 7.0))
@@ -825,6 +878,12 @@ class Impatient(Scene):
 @scene("think_bubble", duration=4.5)
 class ThinkBubble(Scene):
     """Three dots rise above her head while she works something out."""
+    def face(self, face, p):
+        """(gl_face) one brow up, a small pursed mouth"""
+        if rf._prop_hold(p, 0.15, 0.2) > 0.1:
+            face._spec_mod.update({"brow_y": (2.0, 18.0), "mouth": 2, "mouth_w": 30.0,
+                                   "mouth_h": 30.0, "mouth_dx": 18.0, "mouth_a": 1.0})
+
     def motion(self, face, p):
         hold = rf._prop_hold(p)
         face.pupil_oy = rf.lerp(face.pupil_oy, -24.0 * hold, 0.1)
@@ -851,6 +910,15 @@ class ThinkBubble(Scene):
 @scene("proud", duration=3.2, mood="excited")
 class Proud(Scene):
     """Chin up, chest out — she is quite pleased with herself."""
+    def face(self, face, p):
+        """(gl_face) chin up and smug: half-lidded, no stars, a closed smile"""
+        if rf._prop_hold(p, 0.15, 0.2) > 0.1:
+            face._spec_mod.update({"star": 0.0, "lid_top": (0.24, 0.24),
+                                   "lid_bend": (0.0, 0.0), "lid_bot": (0.12, 0.12),
+                                   "lid_bot_bend": (0.18, 0.18), "brow_y": (14.0, 14.0),
+                                   "mouth": 0, "mouth_w": 150.0, "mouth_h": 15.0,
+                                   "mouth_bend": 22.0, "mouth_a": 1.0})
+
     def motion(self, face, p):
         s = math.sin(min(1.0, p * 1.3) * math.pi)
         face.target_oy  -= 20.0 * s
@@ -883,6 +951,14 @@ class Shy(Scene):
 @scene("scared", duration=3.0)
 class Scared(Scene):
     """Trembling, small eyes, a bead of sweat."""
+    def face(self, face, p):
+        """(gl_face) small pupils, brows up and together, a wobbly mouth"""
+        if rf._prop_hold(p, 0.15, 0.2) > 0.1:
+            face._spec_mod.update({"pupil": (0.62, 0.62), "brow_y": (16.0, 16.0),
+                                   "brow_tilt": (-16.0, -16.0), "lid_bot": (0.08, 0.08),
+                                   "mouth": 5, "mouth_w": 104.0, "mouth_h": 10.0,
+                                   "mouth_a": 1.0})
+
     def motion(self, face, p):
         hold = rf._prop_hold(p, 0.1, 0.25)
         t = p * self.duration
@@ -970,6 +1046,12 @@ class Relief(Scene):
 @scene("curious", duration=3.6)
 class Curious(Scene):
     """Head right over to one side, with a question mark to match."""
+    def face(self, face, p):
+        """(gl_face) one brow right up, the other eye a little narrowed"""
+        if rf._prop_hold(p, 0.15, 0.2) > 0.1:
+            face._spec_mod.update({"brow_y": (-2.0, 24.0), "lid_top": (0.14, 0.0), "mouth": 2,
+                                   "mouth_w": 34.0, "mouth_h": 34.0, "mouth_a": 1.0})
+
     _font = None
 
     def motion(self, face, p):

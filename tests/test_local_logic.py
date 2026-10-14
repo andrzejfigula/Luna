@@ -5556,5 +5556,128 @@ class FaceLibraryCostumeTest(unittest.TestCase):
         self.assertTrue(set(gl_face.COSTUME_EYES) <= kinds)
 
 
+class FaceSpecTest(unittest.TestCase):
+    """The face library (face_spec.py → gl_face's uniforms): every mood has
+    its settings, every combination makes sane shader inputs — no GL needed."""
+
+    MOODS = ("neutral", "happy", "excited", "love", "sad", "angry", "surprised",
+             "thinking", "sleeping", "listening")
+
+    def test_every_mood_and_only_known_settings(self):
+        import face_spec
+        import face_renderer
+        for mood in set(face_renderer.EMOTION_MAP.values()) | set(self.MOODS):
+            self.assertIn(mood, face_spec.MOODS, mood)
+        for mood, s in face_spec.MOODS.items():
+            for key, val in s.items():
+                self.assertIn(key, face_spec.BASE, (mood, key))
+                if isinstance(face_spec.BASE[key], tuple):
+                    self.assertTrue(isinstance(val, tuple) and len(val) == 2, (mood, key))
+        self.assertEqual(face_spec.spec("nonsense"), face_spec.spec("neutral"))
+
+    def test_easing_is_frame_rate_independent(self):
+        import face_spec
+        a, b = face_spec.Eased(), face_spec.Eased()
+        target = face_spec.spec("surprised")
+        for _ in range(30):                       # one second at 30 fps…
+            a.step(target, 1 / 30)
+        for _ in range(8):                        # …and at 8 fps
+            b.step(target, 1 / 8)
+        self.assertAlmostEqual(a.cur["eye_h"], b.cur["eye_h"], delta=1.0)
+        self.assertAlmostEqual(a.cur["round"], 1.0, delta=0.01)
+        self.assertEqual(a.mouth, face_spec.O)    # the mouth's kind faded over
+
+    def test_every_combination_makes_sane_uniforms(self):
+        import math as _m
+        for mood in self.MOODS:
+            for costume in (None, "cat", "googly_eyes", "crazy_robot", "steampunk"):
+                for blink in (1.0, 0.0):
+                    for talking in (False, True):
+                        gl = self._gl()
+                        u = self._settle(gl, self._face(mood, costume, blink, talking), 6)
+                        for key, val in u.items():
+                            for v in (val if isinstance(val, tuple) else (val,)):
+                                self.assertTrue(_m.isfinite(v), (mood, costume, key, val))
+                        self.assertIn(u["uMouthK"][3], (0.0, 1.0, 2.0, 3.0, 4.0, 5.0))
+                        self.assertEqual(len(gl.shape_rects), 5)
+
+    def test_the_moods_look_like_themselves(self):
+        gl = self._gl()
+        u = self._settle(gl, self._face("sleeping"))
+        self.assertGreater(u["uLidB0"][1], 0.9)               # shut: the seam shows
+        self.assertEqual(u["uPupil0"][3], 0.0)                # no iris through it
+        u = self._settle(gl, self._face("love"))
+        self.assertGreater(u["uMorph"][0], 0.95)              # hearts
+        u = self._settle(gl, self._face("excited"))
+        self.assertGreater(u["uMorph"][3], 0.95)              # stars
+        self.assertEqual(u["uMouthK"][3], 3.0)                # a grin
+        u = self._settle(gl, self._face("angry"))
+        self.assertGreater(u["uLidA0"][1], 0.3)               # the lids slant in
+        self.assertGreater(u["uTintAmt"], 0.4)
+        self.assertEqual(u["uMouthK"][3], 4.0)                # gritted teeth
+        u = self._settle(gl, self._face("surprised"))
+        self.assertGreater(u["uMorph"][2], 0.95)              # round
+        self.assertEqual(u["uMouthK"][3], 2.0)
+        u = self._settle(gl, self._face("thinking"))
+        self.assertNotEqual(u["uBrow0"][1], u["uBrow1"][1])   # one brow up
+        u = self._settle(gl, self._face("neutral", blink=0.0))
+        self.assertGreater(u["uLidB0"][1], 0.9)               # a blink closes the lids
+        u = self._settle(gl, self._face("neutral", talking=True))
+        self.assertEqual(u["uMouthK"][3], 1.0)                # her voice opens the mouth
+        u = self._settle(gl, self._face("happy", "googly_eyes"))
+        self.assertLess(u["uBrowK"][3], 0.01)                 # googly: no brows…
+        self.assertEqual(u["uTop"], (1.0, 1.0, 1.0))          # …white eyes
+        u = self._settle(gl, self._face("neutral", mod={"mouth": 5}))
+        self.assertEqual(u["uMouthK"][3], 5.0)                # a scene's touch on top
+
+    def test_reply_scenes_set_only_known_settings(self):
+        try:
+            import reply_scenes
+        except ImportError:                       # (no pygame here)
+            self.skipTest("pygame")
+        import face_spec
+        for name, sc in reply_scenes.SCENES.items():
+            for p in (0.3, 0.5, 0.7):
+                face = self._face(sc.mood or "neutral")
+                sc.face(face, p)
+                for key, val in face._spec_mod.items():
+                    self.assertIn(key, face_spec.BASE, (name, key))
+                    self.assertEqual(isinstance(val, tuple),
+                                     isinstance(face_spec.BASE[key], tuple), (name, key))
+
+    def _face(self, mood, costume=None, blink=1.0, talking=False, listen=False, mod=None):
+        from types import SimpleNamespace as NS
+        eye = lambda x: NS(rel_x=x, rel_y=-30, w=206.0, h=148.0, pupil_ox=4.0, pupil_oy=-2.0,
+                           squint=0.0, widen=0.0, blink_t=blink, pupil_scale=1.0)
+        return NS(_emotion=mood, _costume=costume, _listen=listen, breath_phase=1.0,
+                  head_angle=2.0, _eye_color=None, angry_pulse=0.0,
+                  left_eye=eye(-150), right_eye=eye(150), _speaking=talking,
+                  mouth=NS(rel_x=0, rel_y=155, speak_fade=1.0 if talking else 0.0,
+                           talk_open=0.5 if talking else 0.0, mouth_w=160.0,
+                           jaw_bounce=0.0, corner_lift=0.5),
+                  _scene_p=0.0, _scene_name=None, _spec_mod=mod or {}, _pupil_converge=0.0)
+
+    def _gl(self):
+        import face_spec
+        import gl_face
+        gl = gl_face.GLFace.__new__(gl_face.GLFace)
+        gl.w, gl.h, gl.eased, gl._t_last, gl.shape_rects = 800, 480, face_spec.Eased(), 0.0, []
+        return gl
+
+    def _rf(self):
+        from types import SimpleNamespace as NS
+        return NS(EYE_MODE="block", EYE_GRAD_TOP=(255, 232, 140), EYE_GRAD_BOTTOM=(232, 96, 12),
+                  GLOW_COL=(255, 125, 20), IRIS_SHINE=(255, 250, 225), PUPIL_DARK=(28, 12, 2),
+                  IRIS_COL=(132, 58, 12), BLUSH_COL=(255, 120, 95), ANGRY_COL=(255, 55, 30),
+                  EYE_SPREAD=150, BLOCK_PUPIL=True)
+
+    def _settle(self, gl, face, frames=40):
+        import time as _t
+        for _ in range(frames):
+            gl._t_last = _t.monotonic() - 0.05          # 20 fps worth of time each call
+            u = gl.face_uniforms(face, self._rf(), 400, 212)
+        return u
+
+
 if __name__ == "__main__":
     unittest.main()

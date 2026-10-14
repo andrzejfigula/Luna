@@ -68,6 +68,7 @@ def main():
             state.caption = None
         face.wake_anim = face._WAKE_NONE                # (the ripple after "sleeping")
         face.sound_waves.clear()                        # (left by "talking")
+        face.mouth.speak_fade = face.mouth.talk_open = 0.0
         face._think_t = time.time() - 5                 # thinking a while: the hand is up
 
     def grab():
