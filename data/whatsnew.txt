@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 15 października ==
+- Moje oczy żyją bardziej: ziewam, gdy robię się śpiąca, mruczę przez sen, zerkam w bok, gdy mówię, a gdy kocham, mrugam powoli.
 - Mam nowe oczy — z tęczówką, źrenicą i powiekami — i nowe miny: uśmiechnięte oczy, gdy się cieszę, serduszka, gdy kocham, gwiazdki, gdy się ekscytuję, zmrużone czerwone, gdy się złoszczę, okrągłe, gdy się dziwię.
 - Gdy słucham, widać fale dźwięku po bokach; gdy dłużej myślę, trzymam palec przy brodzie.
 - Nowe przebrania: „zamień się w wiewiórkę”, „bądź steampunkiem”, „zrób szalonego robota”, „zrób imprezę”, „zrób śmieszne oczy”.

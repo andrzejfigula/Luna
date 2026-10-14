@@ -5641,6 +5641,43 @@ class FaceSpecTest(unittest.TestCase):
                 life.step(t, dt, True)
                 self.assertLess(max(abs(v) for v in life.sacc_now), 7.0, dt)
 
+    def test_the_habits_stay_in_bounds(self):
+        import gl_face
+        life = gl_face._Life()
+        life.lids += [(0.0, 0.22, 1.0), (0.1, 1.2, 0.85)]
+        life.yawn_t = 0.0
+        for k in range(160):
+            t = k * 0.01
+            self.assertTrue(0.0 <= life.lid(t) <= 1.0)
+            self.assertTrue(0.0 <= life.yawn(t) <= 1.0)
+        self.assertEqual(life.lid(5.0), 0.0)                  # all done…
+        self.assertEqual(life.lids, [])                       # …and forgotten
+        self.assertEqual(life.yawn(5.0), 0.0)
+        life.moods(10.0, "neutral", True, 0.0, False)         # starts talking
+        life.moods(11.0, "neutral", False, 0.0, False)        # …and stops
+        self.assertEqual(life.press_t, 11.0)                  # the lips press
+        life.moods(12.0, "neutral", False, 0.5, False)        # drowsy: one yawn
+        self.assertEqual(life.yawn_t, 12.0)
+        life.moods(13.0, "neutral", False, 0.6, False)
+        self.assertEqual(life.yawn_t, 12.0)                   # (just the one)
+
+    def test_every_mood_with_its_habits_makes_sane_uniforms(self):
+        import math as _m
+        for mood in self.MOODS:
+            for listen in (False, True):
+                gl = self._gl()
+                face = self._face(mood, talking=False, listen=listen)
+                face._drowsy = 0.6                            # a yawn in there too
+                u = self._settle(gl, face, 30)
+                gl.life.lids.append((gl.life.lids[0][0] if gl.life.lids else 0.0, 0.5, 0.45))
+                u = self._settle(gl, self._face(mood, talking=True, listen=listen), 30)
+                for key, val in u.items():
+                    for v in (val if isinstance(val, tuple) else (val,)):
+                        self.assertTrue(_m.isfinite(v), (mood, key, val))
+                for i in (0, 1):
+                    top, _, _, bot = u[f"uLidA{i}"]
+                    self.assertLessEqual(top + bot, 1.001, (mood, i))
+
     def test_reply_scenes_set_only_known_settings(self):
         try:
             import reply_scenes

@@ -676,12 +676,88 @@ class _Life:
         self.mood = None
         self.pop_t = -9.0                 # a new mood: the eyes pop a little
         self.emph_t = -9.0                # a stressed syllable: the brows lift
+        self.lids = []                    # (start, dur, depth): half blinks, slow blinks…
+        self.half_t = time.monotonic() + random.uniform(8, 20)
+        self.cat_t = 0.0                  # love: the next slow blink
+        self.talk = False                 # talking (last frame)
+        self.press_t = -9.0               # the end of a sentence: the lips press
+        self.away_t = 0.0                 # talking: the next glance away…
+        self.away = (-9.0, 1.0)           # …(start, side)
+        self.up_t = 0.0                   # sad: the next glance up…
+        self.up_at = -9.0
+        self.yawned = False               # one yawn as she gets drowsy
+        self.yawn_t = -99.0
+        self.mumble_t = time.monotonic() + random.uniform(8, 15)
+        self.mumble_at = -9.0
+        self.smirk_t = 0.0                # happy: now and then a lopsided smile
+        self.smirk = (-9.0, 1.0)
+        self.near = 0.0                   # how close the person is (eased, 0..1)
+        self.listen = 0.0                 # listening (eased) — one brow cocked
+        self.cock = 0                     # …which one
 
-    def step(self, now, dt, calm, steady=False):
+    def lid(self, now):
+        """The extra lid moves on top of the blinks: quick to close, slower
+        to open (0 open … 1 shut)."""
+        v = 0.0
+        for t0, dur, depth in self.lids:
+            el = (now - t0) / dur
+            if 0.0 <= el < 1.0:
+                c = el / 0.3 if el < 0.3 else 1.0 - (el - 0.3) / 0.7
+                v = max(v, depth * c * c * (3.0 - 2.0 * c))
+        self.lids = [b for b in self.lids if now - b[0] < b[1]]
+        return v
+
+    def yawn(self, now):
+        """0 → 1 → 0 over a yawn's 2.8 s: slow to open, a hold, a close."""
+        el = (now - self.yawn_t) / 2.8
+        if not 0.0 <= el < 1.0:
+            return 0.0
+        c = min(1.0, el / 0.45, (1.0 - el) / 0.3)
+        return c * c * (3.0 - 2.0 * c)
+
+    def moods(self, now, emo, talking, drowsy, listening):
+        """The timed habits of each mood."""
+        if talking and not self.talk:
+            if random.random() < 0.6:            # a blink as she starts to speak
+                self.lids.append((now, 0.22, 1.0))
+            self.away_t = now + random.uniform(3.0, 6.0)
+        if self.talk and not talking:
+            self.press_t = now                   # …and the lips press as she ends
+        self.talk = talking
+        if talking and now > self.away_t:        # a glance aside, composing a thought
+            self.away = (now, random.choice((-1.0, 1.0)))
+            self.away_t = now + random.uniform(4.0, 7.0)
+        calm = emo in ("neutral", "listening", "happy") and not talking
+        if now > self.half_t:                    # a lazy half blink
+            self.half_t = now + random.uniform(8, 20)
+            if calm:
+                self.lids.append((now, 0.5, 0.45))
+        if emo == "love" and now > self.cat_t:   # love: a slow, soft blink
+            self.cat_t = now + random.uniform(5, 9)
+            self.lids.append((now, 1.2, 0.85))
+        if emo == "sad" and now > self.up_t:     # sad: a glance up at you, then down
+            self.up_t = now + random.uniform(5, 9)
+            self.up_at = now
+        if emo == "happy" and not talking and now > self.smirk_t:
+            self.smirk_t = now + random.uniform(6, 12)
+            self.smirk = (now, random.choice((-1.0, 1.0)))
+        if emo == "sleeping" and now > self.mumble_t:   # mumbling in her sleep
+            self.mumble_t = now + random.uniform(8, 15)
+            self.mumble_at = now
+        if drowsy > 0.35 and not self.yawned and not talking:
+            self.yawned, self.yawn_t = True, now
+        elif drowsy <= 0.0 and now - self.yawn_t > 3.0:
+            self.yawned = False
+        if listening and self.listen < 0.05:
+            self.cock = random.choice((0, 1))
+
+    def step(self, now, dt, calm, steady=False, jitter=False):
         if now > self.sacc_t:
             amp = 0.45 if steady else 1.0  # eye contact: steadier
             self.sacc = (random.uniform(-5.0, 5.0) * amp, random.uniform(-3.5, 3.5) * amp)
-            self.sacc_t = now + random.uniform(0.5, 2.2)
+            # excited: the eyes dart about
+            self.sacc_t = now + (random.uniform(0.15, 0.5) if jitter
+                                 else random.uniform(0.5, 2.2))
         # a stiff spring: fast, a hair of overshoot — in 4 ms steps (one
         # step per frame blew up at 20 fps: 30/s × 50 ms is past stable)
         n = max(1, min(60, int(math.ceil(min(dt, 0.25) / 0.004))))
@@ -719,6 +795,10 @@ COSTUME_SPEC = {
 
 def _rgb(c):
     return tuple(v / 255.0 for v in c[:3])
+
+
+def _lerp_col(a, b, t):
+    return tuple(x + (y - x) * t for x, y in zip(a, b))
 
 
 def _lerp(a, b, t):
@@ -1017,12 +1097,29 @@ class GLFace:
         if seen and not life.seen:
             life.seen_t = now                     # someone came into view
         life.seen = seen
+        pop_k = 0.06
         if emo != life.mood:
             if life.mood is not None and emo != "sleeping":
                 life.pop_t = now
+                if emo == "surprised":            # a take: squeeze shut, then pop wide
+                    life.lids.append((now, 0.18, 0.9))
+                    life.pop_t = now + 0.12
             life.mood = emo
-        life.step(now, dt, calm, steady=seen and talking)
-        pop = 0.06 * life.bump(now, life.pop_t, 0.35)
+        if emo == "surprised":
+            pop_k = 0.12
+        life.step(now, dt, calm, steady=seen and talking, jitter=emo == "excited")
+        drowsy = getattr(face, "_drowsy", 0.0)
+        life.moods(now, emo, talking, drowsy, face._listen)
+        k6 = 1.0 - math.exp(-6.0 * dt)
+        st = getattr(rf, "state", None)          # close up: the eyes cross a touch
+        fw = getattr(st, "face_w", 0.0) if seen and st is not None else 0.0
+        life.near += (max(0.0, min(1.0, (fw - 0.25) / 0.25)) - life.near) * k6
+        life.listen += ((1.0 if face._listen and not talking else 0.0) - life.listen) * k6
+        extra_lid = life.lid(now)
+        yawn = life.yawn(now)
+        away = life.bump(now, life.away[0], 0.9)
+        up = life.bump(now, life.up_at, 1.4)
+        pop = pop_k * life.bump(now, life.pop_t, 0.35)
         emph = life.bump(now, life.emph_t, 0.28)
         breath = math.sin(getattr(face, "breath_phase", 0.0))
         voice = getattr(face, "_audio_energy", 0.0) if talking else 0.0
@@ -1030,7 +1127,9 @@ class GLFace:
              "uTilt": math.radians(face.head_angle),
              "uFace": 1.0 if rf.EYE_MODE == "block" else 0.0,
              "uTop": _rgb(rf.EYE_GRAD_TOP), "uBottom": _rgb(rf.EYE_GRAD_BOTTOM),
-             "uGlow": _rgb(rf.GLOW_COL), "uShine": _rgb(rf.IRIS_SHINE),
+             "uGlow": _rgb(_lerp_col(_lerp_col(rf.GLOW_COL, (90, 150, 255), 0.30 * cur["wet"]),
+                                     (255, 160, 120), 0.22 * min(1.0, cur["blush"]))),
+             "uShine": _rgb(rf.IRIS_SHINE),
              "uPupilCol": _rgb(rf.PUPIL_DARK),
              "uIrisCol": _rgb(getattr(rf, "IRIS_COL", (120, 52, 10))),
              "uBlushCol": _rgb(rf.BLUSH_COL),
@@ -1069,6 +1168,9 @@ class GLFace:
             stretch = 0.06 * abs(math.sin(getattr(face, "bounce_phase", 0.0))) * min(
                 1.0, getattr(face, "bounce_amp", 0.0) / 22.0)
             w, h = w * (1.0 - 0.5 * stretch), h * (1.0 + stretch)          # squash & stretch
+            if getattr(face, "wake_anim", 0):     # waking: a big stretch
+                wk = 0.10 * math.sin(math.pi * max(0.0, min(1.0, getattr(face, "wake_ripple", 1.0))))
+                w, h = w * (1.0 - 0.4 * wk), h * (1.0 + wk)
             if googly:
                 w = h = min(w, eye.h * 1.3)
             # the eye leans a little toward where she looks; the iris does the rest
@@ -1080,13 +1182,17 @@ class GLFace:
             # the lids follow the gaze: looking down, the upper lid comes down
             # with it; looking up, the lower lid rises a touch
             look = max(-1.0, min(1.0, (eye.pupil_oy * 0.85 + cur["gaze_y"]) / (0.5 * h)))
-            top += 0.20 * max(0.0, look) * (1.0 - top)
-            bot += 0.08 * max(0.0, -look) * (1.0 - bot)
+            top += 0.20 * max(0.0, look) * max(0.0, 1.0 - top - bot)
+            bot += 0.08 * max(0.0, -look) * max(0.0, 1.0 - top - bot)
             # drowsy, or just waking: heavy lids
             heavy = max(getattr(face, "_drowsy", 0.0) * 0.45,
                         (1.0 - getattr(face, "wake_ripple", 1.0)) * 0.55
                         if getattr(face, "wake_anim", 0) else 0.0)
             top += heavy * (1.0 - top - bot)
+            if talking and emo in ("happy", "excited"):   # laughing: the cheeks push up
+                bot += 0.25 * min(1.0, voice) * (1.0 - top - bot)
+            if yawn > 0.0:                        # a yawn screws the eyes up
+                top, bot = top + 0.45 * yawn * (1.0 - top - bot), bot + 0.25 * yawn * (1.0 - top - bot)
             # squints (reply scenes, idle micro-expressions) bring both lids
             # in; wide eyes open them
             sq = eye.squint
@@ -1094,6 +1200,7 @@ class GLFace:
             top, bot = top * (1.0 - 0.7 * eye.widen), bot * (1.0 - 0.7 * eye.widen)
             # a blink: the lids meet ~60 % of the way down, their curves meet too
             shut = 1.0 - max(0.0, min(1.0, eye.blink_t))
+            shut = max(shut, extra_lid)           # half blinks, slow blinks, a take
             if i == 1:                            # the right eye a frame behind the left
                 shut, life.shut_prev = 0.5 * (shut + life.shut_prev), life.shut_prev
             else:
@@ -1120,6 +1227,13 @@ class GLFace:
             dy = eye.pupil_oy * 0.85 + cur["gaze_y"]
             if not asleep:                        # micro-saccades
                 dx, dy = dx + life.sacc_now[0], dy + life.sacc_now[1]
+            dx -= side * 6.0 * life.near          # someone close: the eyes converge
+            dx += life.away[1] * 24.0 * away      # talking: a glance aside…
+            dy += 6.0 * away                      # …and a little down
+            dy -= 20.0 * up                       # sad: a look up at you
+            if emo == "thinking":                 # searching for it: a slow circle
+                dx += 8.0 * math.sin(now * 0.7)
+                dy += 5.0 * math.cos(now * 0.7)
             if googly:                            # loose pupils, rolling about
                 t = face.breath_phase * 2.3 + i * 1.7
                 pr = min(w, h) * 0.30
@@ -1136,14 +1250,20 @@ class GLFace:
             by += 4.0 * shut                                       # …dip as she blinks…
             by -= life.brow_flick(i, now)                          # …and flick up now and then
             by -= 0.15 * max(0.0, -(eye.pupil_oy * 0.85 + cur["gaze_y"]))   # looking up
-            by -= 6.0 * emph                                       # a stressed syllable
+            by -= 6.0 * emph * (-0.8 if cur["tint"] > 0.3 else 1.0)   # a stressed syllable
+            by -= 5.0 * life.listen * (i == life.cock)             # listening: one cocked
+            by -= 10.0 * yawn
             t = cur["brow_tilt"][i] * 0.5
+            if talking and cur["wet"] > 0.5:      # sad, talking: the inner brows quiver
+                t -= 2.5 * cur["wet"] * math.sin(now * 13.0 + i)
             if side < 0:                          # the left eye: its inner end on the right
                 brows.append((ex - bw / 2, by - t, ex + bw / 2, by + t))
             else:
                 brows.append((ex - bw / 2, by + t, ex + bw / 2, by - t))
         u["uBrow0"], u["uBrow1"] = brows
-        u["uBrowK"] = (cur["brow_bend"], cur["brow_bend"], 21.0, cur["brow_a"])
+        u["uBrowK"] = (cur["brow_bend"], cur["brow_bend"],
+                       21.0 + 6.0 * cur["tint"] - 7.0 * max(0.0, 1.0 - cur["brow_a"]),
+                       cur["brow_a"])
         u.update(self._mouth(face, rf, fcx, fcy, cur))
         u["uBlush"] = (fcx, fcy, cur["blush"], 30.0)
         sp = getattr(face, "_scene_p", 0.0)
@@ -1187,7 +1307,22 @@ class GLFace:
         if (face._emotion in ("neutral", "listening") and getattr(face, "_face_seen", False)
                 and getattr(face, "awake_glow", 0.0) > 0.5):
             bend += 5.0                           # looking at someone she's talking to
+        life = getattr(self, "life", None) or _Life()
+        sm = life.bump(now, life.smirk[0], 1.6)   # happy: a lopsided smile
+        slant += life.smirk[1] * 8.0 * sm
+        bend += 6.0 * sm
         talking = face._speaking or m.speak_fade > 0.05
+        mu = life.bump(now, life.mumble_at, 0.9)  # asleep: a mumble
+        if face._emotion == "sleeping" and mu > 0.05 and not talking:
+            kind, open_ = face_spec.OPEN, 0.3 * mu
+            w, h = w * (1.0 - 0.25 * mu), 13.0 + 16.0 * abs(math.sin(now * 9.0)) * mu
+        y = life.yawn(now)
+        if y > 0.05 and not talking:              # a yawn: the mouth opens wide and tall
+            kind, open_ = face_spec.OPEN, y
+            w, h = _lerp(w, 96.0, y), _lerp(16.0, 118.0, y)
+            bend, slant = bend * (1.0 - y), 0.0
+            alpha = max(alpha, y)
+        pr = life.bump(now, life.press_t, 0.5)    # a sentence ends: the lips press
         if talking:
             e = m.talk_open
             alpha = max(alpha, min(1.0, m.speak_fade))
@@ -1202,5 +1337,7 @@ class GLFace:
                 kind, w, h = face_spec.LINE, max(140.0, w * 0.9), 15.0
                 bend = 0.5 * bend + m.corner_lift * 8.0
                 slant = 0.0
+        if pr > 0.0 and kind == face_spec.LINE:
+            w, h, bend = w * (1.0 - 0.12 * pr), h * (1.0 - 0.2 * pr), bend - 6.0 * pr
         return {"uMouth": (mx, my, w, h), "uMouthK": (bend, open_, alpha, float(kind)),
                 "uMouthSlant": slant}
