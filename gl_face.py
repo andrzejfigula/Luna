@@ -254,25 +254,20 @@ vec3 drawIris(vec2 q, vec3 c, vec4 pu) {
     float ir = length(pq / vec2(0.93, 1.0));
     float ia = smoothstep(1.0, -1.0, ir - pr) * pu.w;
     if (ia <= 0.0) return c;
-    // the iris: a deep warm brown, lighter and streaked toward its rim, a
-    // dark ring round its edge; the pupil: nearly black
+    // a big glossy black pupil: deepest in the middle, a touch of warm
+    // brown at its rim, a faint glow of the eye's light at its bottom
     float k = clamp(ir / pr, 0.0, 1.0);
-    vec3 iris = mix(uPupilCol * 1.4, uIrisCol, smoothstep(0.45, 0.95, k));
-    float ang = atan(pq.y, pq.x);
-    iris *= 0.92 + 0.08 * sin(ang * 22.0) * smoothstep(0.5, 0.9, k);
-    iris = mix(iris, uPupilCol * 0.6, smoothstep(0.86, 1.0, k));          // the limbal ring
-    float pa = smoothstep(0.52, 0.47, k);
-    iris = mix(iris, uPupilCol * 0.35, pa);                               // the pupil
-    iris += uIrisCol * 0.35 * exp(-sq((pq.y - 0.55 * pr) / (0.16 * pr)))
-            * (1.0 - pa) * smoothstep(1.0, 0.7, k);                       // lit from below
+    vec3 iris = mix(uPupilCol * 0.30, uPupilCol * 1.5, smoothstep(0.55, 1.0, k));
+    iris += uIrisCol * 0.30 * exp(-sq((pq.y - 0.62 * pr) / (0.18 * pr)))
+            * smoothstep(1.0, 0.75, k);
     vec3 o = mix(c, iris, ia);
     // a soft shadow the iris throws on the eye round it
     o = mix(o, o * 0.72, (1.0 - ia) * exp(-max(ir - pr, 0.0) / 4.0) * pu.w * 0.6);
     // catch-lights: a big soft one up-left, a small one down-right (wet: more)
-    vec2 s1 = (pq - vec2(-0.34 * pr, -0.38 * pr)) / vec2(0.30 * pr, 0.27 * pr);
-    float h1 = smoothstep(1.0, 0.78, length(s1)) * (1.0 - uMorph.w);
-    vec2 s2 = (pq - vec2(0.30 * pr, 0.30 * pr)) / (0.12 * pr);
-    float h2 = smoothstep(1.0, 0.70, length(s2)) * 0.85;
+    vec2 s1 = (pq - vec2(-0.30 * pr, -0.34 * pr)) / vec2(0.34 * pr, 0.32 * pr);
+    float h1 = smoothstep(1.0, 0.86, length(s1)) * (1.0 - uMorph.w);
+    vec2 s2 = (pq - vec2(0.34 * pr, 0.32 * pr)) / (0.13 * pr);
+    float h2 = smoothstep(1.0, 0.80, length(s2)) * 0.9;
     vec2 s3 = (pq - vec2(0.12 * pr, -0.52 * pr)) / (0.10 * pr);
     float h3 = smoothstep(1.0, 0.70, length(s3)) * uMorph.y;
     vec2 s4 = (pq - vec2(-0.05 * pr, 0.62 * pr)) / vec2(0.50 * pr, 0.08 * pr);
@@ -990,7 +985,7 @@ class GLFace:
             u[f"uLidA{i}"] = (top, tilt, bend, bot)
             u[f"uLidB{i}"] = (bbend, seam, math.radians(cur["rot"][i]), cur["eye_n"])
             # the iris: where she looks (face tracking + the mood's own glance)
-            pr = min(w, h) * 0.27 * cur["pupil"][i] * eye.pupil_scale
+            pr = min(w, h) * 0.29 * cur["pupil"][i] * eye.pupil_scale
             dx = eye.pupil_ox * 0.85 + cur["gaze_x"] - side * conv * 0.6   # cross-eyed: in
             dy = eye.pupil_oy * 0.85 + cur["gaze_y"]
             if googly:                            # loose pupils, rolling about
@@ -1052,11 +1047,12 @@ class GLFace:
             vw, vh = self._viseme(e)
             if e > 0.06:
                 kind, open_ = face_spec.OPEN, e
-                w = _lerp(m.mouth_w * 0.45, m.mouth_w, max(0.0, min(1.0, (e - 0.06) / 0.5))) * vw
+                w = _lerp(m.mouth_w * 0.55, m.mouth_w * 1.15,
+                          max(0.0, min(1.0, (e - 0.06) / 0.5))) * vw
                 h = max(12.0, (10.0 + (e + m.jaw_bounce * 0.3) * 82.0) * vh)
                 bend = max(0.0, bend)
             else:                                 # between words: closed, still smiling
-                kind, w, h = face_spec.LINE, max(110.0, w * 0.9), 12.0
+                kind, w, h = face_spec.LINE, max(140.0, w * 0.9), 15.0
                 bend = 0.5 * bend + m.corner_lift * 8.0
                 slant = 0.0
         return {"uMouth": (mx, my, w, h), "uMouthK": (bend, open_, alpha, float(kind)),

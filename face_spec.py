@@ -55,7 +55,7 @@ BASE = {
     "brow_y": (0.0, 0.0),         # px up
     "brow_tilt": (0.0, 0.0),      # px: + the inner end down
     "brow_bend": 6.0, "brow_a": 1.0, "brow_gap": 24.0,
-    "mouth": LINE, "mouth_w": 122.0, "mouth_h": 15.0, "mouth_bend": 14.0,
+    "mouth": LINE, "mouth_w": 160.0, "mouth_h": 17.0, "mouth_bend": 14.0,
     "mouth_slant": 0.0, "mouth_dx": 0.0, "mouth_dy": 0.0, "mouth_a": 1.0,
     "blush": 0.0, "tint": 0.0,
 }
@@ -67,19 +67,19 @@ MOODS = {
     "happy": {"eye_w": 238.0, "eye_h": 178.0, "eye_n": 3.0,
               "lid_top": (0.04, 0.04), "lid_bot": (0.20, 0.20), "lid_bot_bend": (0.22, 0.22),
               "gaze_y": -8.0, "brow_y": (10.0, 10.0), "brow_bend": 12.0,
-              "mouth": GRIN, "mouth_w": 150.0, "mouth_h": 46.0,
+              "mouth": GRIN, "mouth_w": 192.0, "mouth_h": 50.0,
               "blush": 0.55},
     # bigger, rounder eyes with a star in each, brows up, a wide open grin
     "excited": {"eye_w": 248.0, "eye_h": 200.0, "eye_n": 2.6,
                 "lid_bot": (0.06, 0.06), "lid_bot_bend": (0.12, 0.12),
                 "pupil": (1.2, 1.2), "star": 1.0, "gaze_y": -6.0,
                 "brow_y": (18.0, 18.0), "brow_bend": 14.0,
-                "mouth": GRIN, "mouth_w": 164.0, "mouth_h": 72.0,
+                "mouth": GRIN, "mouth_w": 204.0, "mouth_h": 76.0,
                 "blush": 0.6},
     # hearts for eyes, soft raised brows, a smile, rosy cheeks
     "love": {"eye_w": 236.0, "eye_h": 192.0, "heart": 1.0, "eye_n": 3.0,
              "brow_y": (12.0, 12.0), "brow_bend": 10.0, "brow_a": 0.8,
-             "mouth_w": 140.0, "mouth_h": 15.0, "mouth_bend": 24.0,
+             "mouth_w": 182.0, "mouth_h": 17.0, "mouth_bend": 28.0,
              "blush": 0.95},
     # the outer lids droop, the inner brows go up, big wet eyes looking down,
     # the mouth turned right down
@@ -87,7 +87,7 @@ MOODS = {
             "lid_top": (0.28, 0.28), "lid_tilt": (-0.32, -0.32), "lid_bend": (0.02, 0.02),
             "pupil": (1.14, 1.14), "wet": 1.0, "gaze_y": 14.0,
             "brow_y": (4.0, 4.0), "brow_tilt": (-22.0, -22.0), "brow_bend": -2.0,
-            "mouth_w": 124.0, "mouth_h": 15.0, "mouth_bend": -24.0, "mouth_dy": 10.0},
+            "mouth_w": 156.0, "mouth_h": 17.0, "mouth_bend": -26.0, "mouth_dy": 10.0},
     # narrowed: the lids come down at the inner corners, the brows a steep
     # "\ /" pressed onto them, the teeth gritted, a red heat
     "angry": {"eye_w": 230.0, "eye_h": 152.0, "eye_n": 4.0,
@@ -95,31 +95,31 @@ MOODS = {
               "lid_bot": (0.10, 0.10), "pupil": (0.84, 0.84),
               "brow_y": (-12.0, -12.0), "brow_tilt": (28.0, 28.0), "brow_bend": -3.0,
               "brow_gap": 16.0,
-              "mouth": GRIT, "mouth_w": 122.0, "mouth_h": 32.0,
+              "mouth": GRIT, "mouth_w": 146.0, "mouth_h": 34.0,
               "tint": 0.55},
     # round wide eyes with small pupils, brows high, a round open mouth
     "surprised": {"eye_w": 214.0, "eye_h": 214.0, "round": 1.0, "pupil": (0.72, 0.72),
                   "brow_y": (16.0, 16.0), "brow_bend": 12.0, "brow_gap": 20.0,
-                  "mouth": O, "mouth_w": 66.0, "mouth_h": 66.0},
+                  "mouth": O, "mouth_w": 74.0, "mouth_h": 74.0},
     # lopsided: one eye narrowed, the other open under a raised brow, eyes up
     # and to the side, a small mouth pulled to one side
     "thinking": {"eye_w": 222.0, "eye_h": 170.0,
                  "lid_top": (0.30, 0.0), "lid_bend": (0.0, 0.08), "lid_bot": (0.12, 0.0),
                  "gaze_x": 28.0, "gaze_y": -24.0,
                  "brow_y": (-6.0, 20.0), "brow_tilt": (8.0, -6.0), "brow_bend": 8.0,
-                 "mouth_w": 66.0, "mouth_h": 13.0, "mouth_bend": -2.0, "mouth_slant": 6.0,
+                 "mouth_w": 88.0, "mouth_h": 15.0, "mouth_bend": -2.0, "mouth_slant": 6.0,
                  "mouth_dx": -40.0},              # (the finger is on the right)
     # the lids shut in a soft "‿", relaxed low brows, a small calm mouth
     "sleeping": {"eye_w": 222.0, "eye_h": 140.0, "eye_dy": 10.0,
                  "lid_top": (0.62, 0.62), "lid_bend": (-0.28, -0.28),
                  "lid_bot": (0.38, 0.38), "lid_bot_bend": (-0.28, -0.28),
                  "brow_a": 0.45, "brow_y": (-12.0, -12.0), "brow_bend": 2.0,
-                 "mouth_w": 60.0, "mouth_h": 12.0, "mouth_bend": 5.0, "mouth_a": 0.6,
+                 "mouth_w": 82.0, "mouth_h": 13.0, "mouth_bend": 6.0, "mouth_a": 0.6,
                  "blush": 0.25},
     # attentive: a touch wider, looking straight at you, brows up a little
     "listening": {"eye_w": 236.0, "eye_h": 182.0, "pupil": (1.08, 1.08), "gaze_y": -4.0,
                   "brow_y": (10.0, 10.0), "brow_bend": 8.0,
-                  "mouth_w": 84.0, "mouth_h": 14.0, "mouth_bend": 8.0, "mouth_a": 0.9},
+                  "mouth_w": 112.0, "mouth_h": 16.0, "mouth_bend": 10.0, "mouth_a": 0.9},
 }
 
 
