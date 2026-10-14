@@ -5687,15 +5687,43 @@ class FaceSpecTest(unittest.TestCase):
         gl = self._gl()
         face = self._face("neutral")
         u0 = self._settle(gl, face, 10)
+        # a tap on the right eye (px, as robot_face stores it): that eye
+        # flinches shut, the other doesn't, and the pupils stay put
         face._touch_kind, face._touch_zone = "tap", "eye"
-        face._touch_pt, face._touch_react_t = (640, 100), _t.time() - 0.3
+        face._touch_pt, face._touch_react_t = (560, 190), _t.time() - 0.3
         self._settle(gl, face, 1)
         _t.sleep(0.1)                                         # (the habits run on real time)
         u = self._settle(gl, face, 1)
-        self.assertGreater(u["uPupil1"][0], u0["uPupil1"][0] + 10)   # a glance right…
-        self.assertLess(u["uPupil1"][1], u0["uPupil1"][1])           # …and up
-        self.assertGreater(u["uLidA1"][0], u0["uLidA1"][0] + 0.1)    # the tapped eye shuts
-        self.assertLess(u["uLidA0"][0], u0["uLidA0"][0] + 0.05)      # (not the other)
+        self.assertGreater(u["uLidA1"][0], u0["uLidA1"][0] + 0.1)
+        self.assertLess(u["uLidA0"][0], u0["uLidA0"][0] + 0.05)
+        self.assertLess(abs(u["uPupil0"][0] - u0["uPupil0"][0]), 8.0)
+        # a stroke low on the right: a glance down and right, not to a corner
+        face._touch_kind, face._touch_zone = "stroke", "cheek"
+        face._touch_pt, face._touch_react_t = (700, 400), _t.time() - 0.5
+        u = self._settle(gl, face, 2)
+        self.assertGreater(u["uPupil1"][0], u0["uPupil1"][0] + 10)
+        self.assertGreater(u["uPupil1"][1], u0["uPupil1"][1] + 5)
+        self.assertLess(u["uPupil1"][0], 0.35 * u["uEye1"][2])
+
+    def test_boop_tickle_and_flash(self):
+        import time as _t
+        gl = self._gl()
+        face = self._face("neutral")
+        u0 = self._settle(gl, face, 10)
+        face._touch_kind, face._touch_zone = "tap", "mouth"   # boop: on the nose
+        face._touch_pt, face._touch_react_t = (400, 212 + 84), _t.time()
+        self._settle(gl, face, 1)
+        _t.sleep(0.25)
+        u = self._settle(gl, face, 1)
+        self.assertGreater(u["uPupil0"][0], u0["uPupil0"][0] + 6)    # cross-eyed: in…
+        self.assertLess(u["uPupil1"][0], u0["uPupil1"][0] - 6)
+        for k in range(3):                                    # tap-tap-tap: a giggle
+            face._touch_pt, face._touch_react_t = (100, 400), _t.time() + k * 0.01
+            self._settle(gl, face, 1)
+        self.assertGreater(gl.life.giggle_t, 0.0)
+        face._flash_t = _t.time()                             # a photo: dazzled
+        u = self._settle(self._gl(), face, 3)
+        self.assertGreater(u["uLidA0"][0], u0["uLidA0"][0] + 0.2)
 
     def test_people_coming_and_going(self):
         gl = self._gl()
@@ -5721,10 +5749,8 @@ class FaceSpecTest(unittest.TestCase):
         self.assertEqual(u["uFx"][:2], (1.0, 0.0))
         face._eye_fx = (0.0, 0.0)
         self.assertEqual(self._settle(gl, face, 1)["uFx"][:2], (0.0, 0.0))
-        open_ = self._settle(self._gl(), self._face("love"))
-        shut = self._settle(self._gl(), self._face("love", mod={"lid_top": (0.5, 0.5)}))
-        self.assertLess(shut["uEye0"][3], open_["uEye0"][3] * 0.8)   # hearts squash
-        self.assertGreater(shut["uEye0"][1], open_["uEye0"][1])        # …from the top
+        love = self._settle(self._gl(), self._face("love", mod={"lid_top": (0.5, 0.5)}))
+        self.assertGreater(love["uEye0"][3], 140.0)                  # hearts stay whole
 
     def test_reply_scenes_set_only_known_settings(self):
         try:

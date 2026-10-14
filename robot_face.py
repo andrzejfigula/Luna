@@ -439,6 +439,22 @@ def zzz_img(size, big):
     return img.copy()
 
 
+def blush_lines(surf, fcx, fcy, k):
+    """Three short slanted strokes on each cheek (gl_face's blush spots)."""
+    img = _SMOOTH_CACHE.get(("blush_lines", BLUSH_COL))
+    if img is None:
+        def draw(s, kk):
+            col = _lerp_col(BLUSH_COL, (255, 255, 255), 0.25)
+            for j in range(3):
+                x = (14 + j * 17) * kk
+                pygame.draw.line(s, col, (x + 9 * kk, 6 * kk), (x, 30 * kk), int(4 * kk))
+        img = _SMOOTH_CACHE[("blush_lines", BLUSH_COL)] = _smooth(70, 36, draw)
+    img = img.copy()
+    img.set_alpha(int(220 * k))
+    for side in (-1, 1):
+        surf.blit(img, img.get_rect(center=(int(fcx + side * 232), int(fcy + 70))))
+
+
 def anger_mark(surf, x, y, r, alpha=255):
     """The cartoon anger mark: four bulging arcs in a cross (cached)."""
     r = int(r)
@@ -2030,7 +2046,10 @@ class RobotFace:
             self.blink_counter += 1
             trigger = self.blink_timer if not speaking else 180
 
-            if self.blink_open >= 1.0 and self.blink_counter > trigger:
+            if listening and not speaking:
+                trigger = int(trigger * 1.3)      # listening: she blinks less
+            if (self.blink_open >= 1.0 and self.blink_counter > trigger
+                    and (not speaking or self.mouth.talk_open < 0.08)):   # (in a pause)
                 self.blink_counter = 0
                 self._blink_dir    = -1          # start closing
 
@@ -2236,7 +2255,7 @@ class RobotFace:
             self._touch_zone = self._zone_at(*touch_pt)
             self._touch_kind = touch_kind
             self._touch_react_t = now_t
-            self._touch_pt = touch_pt                   # (the eyes glance at it)
+            self._touch_pt = (touch_pt[0] * WIDTH, touch_pt[1] * HEIGHT)   # px: the eyes glance at it
             # The mood must go through face_override: face_renderer calls
             # set_state() every frame, so setting it here would last 1 frame.
             if touch_kind in ("hold", "stop"):
@@ -2766,6 +2785,25 @@ class RobotFace:
                 k = max(0.0, math.sin(t * 2.6 + ph))
                 twinkle(base, fcx + dx, dy, r * (0.6 + 0.4 * k), 255 * k)
 
+        gl = getattr(self, "gl", None)
+        life = getattr(gl, "life", None) if gl else None
+        if EYE_MODE == "block" and life and not self._scene:
+            mono = time.monotonic()
+            k = life.bump(mono, life.pop_t, 0.5)
+            if self._emotion == "surprised" and k > 0.02:   # the take: lines burst out
+                for side in (-1, 1):
+                    ex = fcx + side * (EYE_SPREAD + self.left_eye.w * 0.5 - 10)
+                    ey = fcy + self.left_eye.rel_y - self.left_eye.h * 0.5 - 20
+                    for a in (-0.5, 0.0, 0.5):
+                        ang = (math.pi / 2 - side * (0.9 + a)) if side > 0 else (math.pi / 2 + 0.9 + a)
+                        r0, r1 = 14 + 22 * k, 38 + 30 * k
+                        dx, dy = math.cos(ang), -math.sin(ang)
+                        pygame.draw.line(base, _lerp_col((0, 0, 0), IRIS_SHINE, k),
+                                         (ex + dx * r0, ey + dy * r0), (ex + dx * r1, ey + dy * r1), 5)
+            blush = getattr(gl, "blush_now", 0.0)
+            if blush > 0.55:                      # rosy: the "///" lines on the cheeks
+                blush_lines(base, fcx, fcy, min(1.0, (blush - 0.55) / 0.3))
+
         # ── angry (the block face): a pulsing anger mark by the right brow ──
         if EYE_MODE == "block" and self._emotion == "angry" and not self._scene:
             k = 0.5 + 0.5 * math.sin(time.time() * 6.0)
@@ -2966,6 +3004,7 @@ class RobotFace:
         scr = self.screen
         if kind == "flash":
             scr.fill((255, 255, 255))
+            self._flash_t = time.time()           # (after it: dazzled, gl_face)
             return
         if kind == "mirror":
             if frame is None:
