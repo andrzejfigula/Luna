@@ -2054,6 +2054,9 @@ class RobotFace:
             self.curiosity_timer += 1
             if self.curiosity_timer > 140:
                 self.curiosity_timer    = 0
+                # a big jump of the gaze often comes with a blink (as ours do)
+                if random.random() < 0.55 and getattr(self, "_blink_dir", 0) == 0:
+                    self._blink_dir, self.blink_counter = -1, 0
                 self.curiosity_target_x = random.uniform(-70, 70)
                 self.curiosity_target_y = random.uniform(-35, 35)
             self.target_ox = self.curiosity_target_x
