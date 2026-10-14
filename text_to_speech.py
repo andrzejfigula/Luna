@@ -287,7 +287,8 @@ def _speaking(run, spoken_text, can_drop):
             # and if she just asked something, give the answer more time.
             if state.conversation_active:
                 state.last_activity_time = time.time()
-                if spoken_text().rstrip().endswith("?"):
+                from polish import waits_for_answer
+                if waits_for_answer(spoken_text()):
                     state.last_activity_time += CONVO_QUESTION_BONUS
         print(f"[TTS] finished in {elapsed:.1f}s")
         _speak_lock.release()

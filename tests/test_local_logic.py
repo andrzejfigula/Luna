@@ -602,6 +602,39 @@ class TimersTest(unittest.TestCase):
         self.assertTrue(twenty.reverse_wanted("Wymyśliłam zwierzę"))
         self.assertFalse(twenty.reverse_wanted("Myślę o zwierzęciu dla Mai na urodziny"))
 
+    def test_fire_and_forest_sounds(self):
+        import numpy as np
+        import ambience
+        played, said = [], []
+        with mock.patch.object(ambience, "play", lambda k, m=45: played.append((k, m))):
+            for text, kind in (("Włącz kominek", "fire"), ("Włącz szum lasu", "forest"),
+                               ("Puść odgłosy ptaków", "forest"), ("Włącz deszcz", "rain")):
+                played.clear()
+                self.assertTrue(ambience.handle(text, said.append), text)
+                self.assertEqual(played[0][0], kind, text)
+            played.clear()
+            self.assertTrue(ambience.handle("Biały szum na noc", said.append))
+            self.assertEqual(played[0], ("noise", ambience.NIGHT_MINUTES))
+            self.assertIn("na całą noc", said[-1])
+            played.clear()
+            # "las" is not in "klasyczną": the radio's, not the forest
+            self.assertFalse(ambience.handle("Włącz klasyczną muzykę", said.append))
+        for kind in ("fire", "forest"):
+            g = ambience._Gen(kind)
+            x = np.concatenate([g.block() for _ in range(80)])           # 8 s
+            self.assertEqual(len(x), 80 * ambience.BLOCK)
+            self.assertTrue(np.isfinite(x).all() and np.abs(x).max() < 2.0, kind)
+
+    def test_an_offer_waits_for_its_answer(self):
+        from polish import waits_for_answer
+        # 14 Oct 12:30: an offer with a full stop closed the window in 8 s
+        self.assertTrue(waits_for_answer("Bo dziś jest chłodno. Jak chcesz, mogę ci jeszcze "
+                                         "powiedzieć, czy wziąć coś cieplejszego."))
+        self.assertTrue(waits_for_answer("Która stacja?"))
+        self.assertTrue(waits_for_answer("Chcesz, żebym nastawiła minutnik."))
+        self.assertFalse(waits_for_answer("Jak chcesz, to ci powiem. Jest dwunasta."))
+        self.assertFalse(waits_for_answer("Jest dwunasta trzydzieści."))
+
     def test_probe_13_oct_night(self):
         import brain
         import drawing

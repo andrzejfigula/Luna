@@ -4,6 +4,8 @@ ambience.py — sounds to fall asleep to, made right here.
   "Włącz szum deszczu" / "deszcz"   → soft rain: filtered noise with drops
   "Szum morza" / "fale"              → waves: noise that swells and ebbs
   "Biały szum" / "szum"              → steady pink noise
+  "Włącz kominek" / "ognisko"        → a fire: a low rumble and crackles
+  "Szum lasu" / "ptaki"              → a forest: leaves in the wind, birds now and then
   "…na 30 minut"                     → goes out after that (default 45 min,
                                        with a 20 s fade)
   "Wyłącz szum"                      → off
@@ -29,11 +31,19 @@ DUCK = 0.15
 DEFAULT_MINUTES = 45
 FADE_SECS = 20
 
+# (the fire and the forest before "szum": "szum lasu" was white noise — 14 Oct probe)
 KINDS = {"rain": ("deszcz", "deszczu", "rain"),
          "sea": ("morz", "fal", "ocean", "sea", "waves"),
+         "fire": ("kominek", "kominka", "kominku", "ogień", "ognia", "ognisk", "fire"),
+         "forest": ("las", "lasu", "lesie", "ptak", "ptaszk", "forest", "birds"),
          "noise": ("biały szum", "bialy szum", "różowy szum", "rozowy szum",
                    "white noise", "szum")}
-NAMES = {"rain": "szum deszczu", "sea": "szum morza", "noise": "biały szum"}
+NAMES = {"rain": "szum deszczu", "sea": "szum morza", "noise": "biały szum",
+         "fire": "trzaskający kominek", "forest": "szum lasu z ptakami"}
+NIGHT_MINUTES = 8 * 60                 # "…na noc"
+# at the start of a word: "las" is not in "klasyczną" ("włącz klasyczną muzykę")
+_KIND_RX = {k: re.compile(r"(?<!\w)(?:" + "|".join(
+    (r"las\b" if s == "las" else re.escape(s)) for s in stems) + ")") for k, stems in KINDS.items()}
 _ON = re.compile(r"\b(?:włącz|wlacz|puść|pusc|zagraj|daj)\b|^(?:szum|deszcz|fale)\b")
 _OFF = ("wyłącz szum", "wylacz szum", "wyłącz deszcz", "wyłącz morze", "wyłącz fale",
         "stop szum", "koniec szumu", "wyłącz dźwięki", "zatrzymaj szum")
@@ -72,9 +82,12 @@ class _Gen:
         self.kind, self.pos, self.t = kind, 0, 0.0
         self.rng = np.random.default_rng()
         n = LOOP_SECS * RATE
-        self.loop = _shaped_noise(n, 2.0 if kind == "sea" else 1.0, self.rng) * \
-            (0.9 if kind == "sea" else 0.5)
+        power = {"sea": 2.0, "fire": 2.0}.get(kind, 1.0)
+        level = {"sea": 0.9, "fire": 0.45, "forest": 0.22}.get(kind, 0.5)
+        self.loop = _shaped_noise(n, power, self.rng) * level
         self.drop = np.exp(-np.arange(160) / 30.0)          # one raindrop's decay
+        self.crack = np.exp(-np.arange(90) / 7.0)           # one crackle's decay
+        self.bird = np.zeros(0)                             # a song still being sung
 
     def block(self):
         n = BLOCK
@@ -91,7 +104,41 @@ class _Gen:
             hits = (self.rng.random(n) < 0.004) * self.rng.uniform(0.2, 0.8, n)
             env = np.convolve(hits, self.drop)[:n]
             x = x * 0.6 + env * self.rng.standard_normal(n) * 0.25
+        elif self.kind == "fire":
+            # a low rumble that breathes, sparse crackles, now and then a pop
+            x = x * (0.75 + 0.25 * np.sin(2 * np.pi * t / 3.7))
+            hits = (self.rng.random(n) < 0.0016) * self.rng.uniform(0.2, 1.0, n)
+            if self.rng.random() < 0.04:
+                hits[self.rng.integers(n)] = 1.6               # a log settles
+            env = np.convolve(hits, self.crack)[:n]
+            x = x + env * self.rng.standard_normal(n) * 0.35
+        elif self.kind == "forest":
+            # leaves in the wind (slow swells) and a bird every few seconds
+            x = x * (0.55 + 0.45 * (0.5 + 0.5 * np.sin(2 * np.pi * t / 7.3)) ** 2)
+            if len(self.bird) == 0 and self.rng.random() < 0.035:
+                self.bird = self._song()
+            if len(self.bird):
+                k = min(n, len(self.bird))
+                x = x.copy()
+                x[:k] += self.bird[:k]
+                self.bird = self.bird[k:]
         return x
+
+    def _song(self):
+        """A little bird: 2-5 quick chirps, each a rising or falling whistle."""
+        out = []
+        base = self.rng.uniform(2600, 4200)
+        up = self.rng.random() < 0.5
+        for _ in range(self.rng.integers(2, 6)):
+            dur = self.rng.uniform(0.05, 0.12)
+            m = int(dur * RATE)
+            tt = np.arange(m) / RATE
+            f0, f1 = (base * 0.8, base * 1.25) if up else (base * 1.25, base * 0.8)
+            phase = 2 * np.pi * (f0 * tt + (f1 - f0) * tt * tt / (2 * dur))
+            env = np.sin(np.pi * np.arange(m) / m) ** 2
+            out.append(np.sin(phase) * env * self.rng.uniform(0.10, 0.20))
+            out.append(np.zeros(int(self.rng.uniform(0.04, 0.10) * RATE)))
+        return np.concatenate(out)
 
 
 def _ducked():
@@ -207,22 +254,25 @@ def handle(text, speak):
             or (words and words[0] in ("jak", "czy", "dlaczego", "co", "jaki", "kiedy"))):
         return False                            # "czy pada deszcz?" is a question
     import intent                               # not "szum morza mnie uspokaja"
+    night = bool(re.search(r"\bna\s+(?:całą\s+|cala\s+)?noc\b", low))   # "biały szum na noc"
     if not ((_ON.search(low) or "szum" in words) and (
-            intent.asked(low, 3) or re.search(r"\bna\s+\w+\s+(?:minut|godzin)", low))):
+            intent.asked(low, 3) or night
+            or re.search(r"\bna\s+\w+\s+(?:minut|godzin)", low))):
         return False
-    kind = next((k for k, stems in KINDS.items() if any(s in low for s in stems)), None)
+    kind = next((k for k, rx in _KIND_RX.items() if rx.search(low)), None)
     if kind is None:
         if re.search(r"\b(?:odgłos\w*|odglos\w*|dźwięk\w*|dzwiek\w*|szum\w*)\b", low):
             # "włącz odgłosy lasu" — one she hasn't got (7 Oct probe: the
             # model went silent on it)
-            speak("Takiego dźwięku nie mam. Mam szum deszczu, szum morza i biały szum — "
-                  "który włączyć?")
+            speak("Takiego dźwięku nie mam. Mam deszcz, morze, kominek, las z ptakami "
+                  "i biały szum — który włączyć?")
             return True
         return False
     import timers
     secs, _ = timers.parse_duration(low)
-    minutes = max(1, secs // 60) if secs else DEFAULT_MINUTES
+    minutes = max(1, secs // 60) if secs else NIGHT_MINUTES if night else DEFAULT_MINUTES
     speak(f"Włączam {NAMES[kind]}" + (f" na {timers.say_duration(minutes * 60)}." if secs
+                                      else " na całą noc." if night
                                       else f". Wyłączy się sam za {DEFAULT_MINUTES} minut."))
     play(kind, minutes)
     return True

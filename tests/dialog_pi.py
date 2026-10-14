@@ -105,7 +105,8 @@ CASES = [
     ("Dziękuję, to wszystko", ""),                        # done, no umbrella
     ("Włącz radio zed", "ZET"),
     ("Pokaż rysunki", "narysowałam"),                   # drawing.py, none yet
-    ("Włącz odgłosy lasu", "Takiego dźwięku nie mam"),  # ambience: what she has
+    ("Włącz odgłosy lasu", "szum lasu z ptakami"),       # ambience (14 Oct: she has it now)
+    ("Włącz odgłosy dżungli", "Takiego dźwięku nie mam"),  # …and what she hasn't
     ("Tryb skupienia na 25 minut", "25 minut skupienia"),
     ("Koniec skupienia", "koniec skupienia"),
     ("Na razie nie", MODEL),                             # not "przyciemnij ekran"

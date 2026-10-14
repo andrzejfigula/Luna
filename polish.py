@@ -400,6 +400,19 @@ def flowing_names(text, vocatives):
     return re.sub(rf"(\w)\s*,\s+((?:{alt})\b)", r"\1 \2", text, flags=re.I)
 
 
+_OFFER_END = re.compile(r"\b(?:jak|jeśli|jesli|jeżeli|jezeli)\s+chcesz\b|\bdaj\s+znać\b|"
+                        r"\bchcesz,?\s+(?:żebym|zebym|bym)\b|\bmogę\s+(?:ci|wam)\b", re.I)
+
+
+def waits_for_answer(text):
+    """Her last sentence asks or offers — "…?" or "Jak chcesz, mogę ci…".
+    14 Oct 12:30: "Jak chcesz, mogę ci jeszcze powiedzieć…" (a full stop);
+    the window shut 8 s after she finished, Andrzej's "tak" came 22 s later."""
+    t = (text or "").strip()
+    last = re.split(r"(?<=[.!?])\s+", t)[-1] if t else ""
+    return t.endswith("?") or bool(_OFFER_END.search(last))
+
+
 def to_latin(text):
     """Cyrillic words in Latin letters, Polish-style ("корпус" → "korpus")."""
     def one(m):

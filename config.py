@@ -112,7 +112,7 @@ OFFLINE_REPLY = "Przepraszam, nie mogę teraz połączyć się z moim mózgiem."
 
 # ── Conversation mode ─────────────────────────────────────────────────────────
 CONVO_TIMEOUT      = 10    # seconds of silence before deactivating conversation
-CONVO_QUESTION_BONUS = 8   # …plus this when her reply ended with a question:
+CONVO_QUESTION_BONUS = 12  # …plus this when her reply asks or offers something:
                            # a thoughtful answer needs longer than 10 s
 CONVO_GRACE        = 4    # speech that STARTED up to this long after the window
                            # closed is still answered — you began in time
