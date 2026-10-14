@@ -602,6 +602,33 @@ class TimersTest(unittest.TestCase):
         self.assertTrue(twenty.reverse_wanted("Wymyśliłam zwierzę"))
         self.assertFalse(twenty.reverse_wanted("Myślę o zwierzęciu dla Mai na urodziny"))
 
+    def test_evening_and_morning_said(self):
+        import clockgame
+        import commands
+        # 14 Oct probe: "budzik na 8 wieczorem" was 08:00
+        self.assertEqual(clockgame.parse("8 wieczorem"), (20, 0))
+        self.assertEqual(clockgame.parse("dziewiątej wieczorem"), (21, 0))
+        self.assertEqual(clockgame.parse("trzecia po południu"), (15, 0))
+        self.assertEqual(clockgame.parse("drugiej w nocy"), (2, 0))
+        self.assertEqual(clockgame.parse("dwunastej w nocy"), (0, 0))
+        self.assertEqual(clockgame.parse("w pół do ósmej"), (7, 30))
+        self.assertEqual(clockgame.parse("7 rano"), (7, 0))
+        self.assertEqual(commands.local_alarm("Nastaw budzik na 8 wieczorem"), ("20:00", "none"))
+        self.assertEqual(commands.local_alarm("Nastaw budzik na za dwadzieścia siódma"),
+                         ("06:40", "none"))
+        self.assertIsNone(commands.local_alarm("Obudź mnie za 20 minut"))
+        at15 = datetime.datetime(2026, 10, 14, 15, 0).timestamp()
+        r = timers.local_reminder
+        self.assertEqual(r("Przypomnij mi o 7 rano o lekach", at15),
+                         ({"type": "reminder", "at": "2026-10-15 07:00", "repeat": "none",
+                           "label": "o lekach"}, "Dobrze, przypomnę jutro o siódmej rano."))
+        self.assertEqual(r("Przypomnij mi o dziewiątej wieczorem o tabletce", at15)[0]["at"],
+                         "21:00")
+        self.assertEqual(r("Przypomnij mi kwadrans po piątej o praniu", at15)[0]["at"], "17:15")
+        self.assertEqual(r("Przypomnij mi jutro o 6 rano o pociągu", at15)[0]["at"],
+                         "2026-10-15 06:00")                 # not 18:00
+        self.assertIsNone(r("Przypomnij mi 5 rzeczy na zakupy", at15))
+
     def test_probe_14_oct(self):
         import commands
         import counting

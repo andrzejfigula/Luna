@@ -66,9 +66,30 @@ def _minutes_at(words, i):
     return None, 0
 
 
+_EVENING = re.compile(r"\b(?:wieczor\w*|wieczór|po\s+południu|po\s+poludniu|popołudniu|"
+                      r"popoludniu|w\s+nocy)\b")
+
+
 def parse(text):
-    """(hour 0-23, minute) from a spoken time, or None."""
+    """(hour 0-23, minute) from a spoken time, or None. "Wieczorem", "po
+    południu", "w nocy" move it past noon: "budzik na 8 wieczorem" was 08:00
+    (14 Oct probe); "o drugiej w nocy" stays 2:00, "dwunasta w nocy" is 0:00."""
     low = text.lower()
+    low = re.sub(r"\bw\s+(?:pół|pol)\s+do\b", "wpół do", low)       # "w pół do ósmej"
+    t = _parse(low)
+    if t is None:
+        return None
+    h, mi = t
+    night = bool(re.search(r"\bw\s+nocy\b", low))
+    if _EVENING.search(low):
+        if h == 12 and night:
+            h = 0
+        elif h < 12 and not (night and h <= 5):
+            h += 12
+    return h, mi
+
+
+def _parse(low):
     m = re.search(r"\b(\d{1,2})[:.](\d{2})\b", low)
     if m:
         return int(m.group(1)) % 24, int(m.group(2))

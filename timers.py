@@ -358,8 +358,9 @@ def local_timer(text):
 
 _REMIND = re.compile(r"^(?:luna,?\s+)?przypomnij\s+(?:mi|nam)\s*,?\s+(.+?)[.!?]*$", re.I)
 # a day, a date or a repeat: the model works those out
+# ("rano", "wieczorem", "po południu" are read here now — clockgame.parse, 14 Oct)
 _REMIND_LATER = re.compile(r"\b(codziennie|co\s+\w+|w\s+weekend|"
-                           r"rano|wieczorem|po\s+południu|stycznia|lutego|marca|kwietnia|maja|"
+                           r"stycznia|lutego|marca|kwietnia|maja|"
                            r"czerwca|lipca|sierpnia|września|października|listopada|grudnia)\b",
                            re.I)
 # a day said with it: "jutro", "pojutrze", "w piątek" (→ days ahead)
@@ -376,7 +377,10 @@ def _time_word(w):
     import clockgame
     w = w.strip(".")
     return (bool(re.fullmatch(r"\d{1,2}(?:[:.]\d{2})?", w))
-            or w in ("wpół", "wpol", "do", "po", "za", "przed", "zero")
+            or w in ("wpół", "wpol", "do", "po", "za", "przed", "zero", "kwadrans",
+                     # "o 7 rano", "o dziewiątej wieczorem" (14 Oct probe: the model)
+                     "rano", "wieczorem", "wieczór", "wieczor", "popołudniu", "popoludniu",
+                     "południu", "poludniu", "w", "nocy")
             or clockgame._hour_at([w], 0)[0] is not None
             or clockgame._minutes_at([w], 0)[0] is not None)
 
@@ -419,8 +423,10 @@ def local_reminder(text, now=None):
             action = {"type": "timer", "seconds": secs}
             said = f"za {say_duration(secs)}"
     else:
-        for o in re.finditer(r"\bo\s+", rest, re.I):
-            tail = rest[o.end():].split()
+        # after "o", or right at the start ("kwadrans po piątej o praniu")
+        starts = [(o.start(), o.end()) for o in re.finditer(r"\bo\s+", rest, re.I)]
+        for o0, o1 in starts + [(0, 0)]:
+            tail = rest[o1:].split()
             for n in (4, 3, 2, 1):                     # the longest clock time there
                 words = tail[:n]
                 if len(words) < n:
@@ -431,21 +437,31 @@ def local_reminder(text, now=None):
                 if re.fullmatch(r"\d+", cand) and after and not words[-1].endswith(",") \
                         and after not in ("że", "żeby", "zeby", "aby", "o", "to"):
                     continue                           # "o 5 rzeczach" is no time
-                if t and all(_time_word(w) for w in cand.replace(",", " ").split()):
+                if t and all(_time_word(w) for w in cand.replace(",", " ").split()) \
+                        and not (o1 == 0 and re.fullmatch(r"\d+", cand)):
                     h, mi = t
+                    # said outright: "rano" / "wieczorem" — no guessing the half of the day
+                    said_half = bool(re.search(r"\b(?:rano|wieczor\w*|wieczór|po\w*\s*"
+                                               r"południu|popołudniu|nocy)\b", cand))
                     if day:
-                        if h <= 6:                     # "jutro o piątej": 17:00, not 5 am
+                        if h <= 6 and not said_half:   # "jutro o piątej": 17:00, not 5 am
                             h += 12
                         when = (now_dt + timedelta(days=day)).strftime("%Y-%m-%d")
                         at = f"{when} {h:02d}:{mi:02d}"
+                    elif said_half and (h, mi) <= (now_dt.hour, now_dt.minute):
+                        when = (now_dt + timedelta(days=1)).strftime("%Y-%m-%d")
+                        at = f"{when} {h:02d}:{mi:02d}"     # "o 7 rano" said at 15:00: tomorrow
+                        day_said = "jutro"
                     else:
                         if (h, mi) < (now_dt.hour, now_dt.minute) and h < 12 and \
-                                (h + 12, mi) > (now_dt.hour, now_dt.minute):
+                                (h + 12, mi) > (now_dt.hour, now_dt.minute) and not said_half:
                             h += 12                    # "o piątej" in the afternoon: 17:00
                         at = f"{h:02d}:{mi:02d}"
-                    span = (o.start(), o.end() + len(" ".join(tail[:n])))
+                    span = (o0, o1 + len(" ".join(tail[:n])))
                     action = {"type": "reminder", "at": at, "repeat": "none"}
                     said = (f"{day_said} " if day_said else "") + f"o {clock.hour_locative(h, mi)}"
+                    if said_half and h < 12 and not re.search(r"\bnocy\b", cand):
+                        said += " rano"
                     break
             if span:
                 break

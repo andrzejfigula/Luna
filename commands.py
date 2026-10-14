@@ -511,7 +511,11 @@ def local_alarm(text):
     import clockgame
     low = text.lower()
     m = _ALARM.search(low)
-    if not m or is_question(text) or "za " in f" {low} ":   # "za 20 minut": a timer
+    # "za 20 minut" is a timer (alarm_in); "na za dwadzieścia siódma" a clock
+    # time (14 Oct probe: any "za" sent it to the model)
+    relative = re.search(r"\bza\s+(?:pół\s+|pol\s+)?(?:\w+\s+)?(?:minut\w*|godzin\w*|"
+                         r"sekund\w*)\b|\bza\s+kwadrans\W*$", low)
+    if not m or is_question(text) or relative:
         return None
     if _REMOVE.search(low):
         return None                        # "usuń budzik na 6:40" — alarm_removed()
