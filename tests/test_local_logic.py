@@ -602,6 +602,32 @@ class TimersTest(unittest.TestCase):
         self.assertTrue(twenty.reverse_wanted("Wymyśliłam zwierzę"))
         self.assertFalse(twenty.reverse_wanted("Myślę o zwierzęciu dla Mai na urodziny"))
 
+    def test_do_not_disturb_and_stopwatch(self):
+        import counting
+        import idle_engine
+        for t in ("Nie przeszkadzać", "Włącz tryb nie przeszkadzać", "Tryb cichy"):
+            with state.lock:
+                state.proactive_muted_until = 0.0
+            self.assertTrue(idle_engine.check_mute(t), t)
+            with state.lock:
+                self.assertGreater(state.proactive_muted_until, time.time(), t)
+        self.assertTrue(idle_engine.check_mute("Wyłącz tryb nie przeszkadzać"))
+        with state.lock:
+            self.assertEqual(state.proactive_muted_until, 0.0)
+        import screens
+        self.assertTrue(screens.handle("Pokaż zegar przez minutę", lambda *a, **k: None,
+                                       lambda *a, **k: None))
+        with state.lock:
+            self.assertAlmostEqual(state.overlay[1] - time.time(), 60, delta=2)
+            state.overlay = None
+        said = []
+        counting._watch["t0"] = time.time() - 75
+        try:
+            self.assertTrue(counting.ask_stopwatch("Ile czasu minęło?", said.append))
+            self.assertIn("minut", said[0])
+        finally:
+            counting._watch["t0"] = None
+
     def test_photos_by_voice_and_quiet_stop(self):
         import commands
         import screens

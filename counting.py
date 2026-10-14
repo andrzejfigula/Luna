@@ -34,7 +34,9 @@ _STOPWATCH_START = ("włącz stoper", "wlacz stoper", "start stoper", "uruchom s
                     "mierz czas", "zmierz czas", "zacznij mierzyć czas")
 _STOPWATCH_STOP = ("zatrzymaj stoper", "stop stoper", "wyłącz stoper", "wylacz stoper",
                    "zatrzymaj stopera", "stoper stop", "stop the stopwatch", "koniec pomiaru")
-_STOPWATCH_ASK = ("ile na stoperze", "ile jest na stoperze", "ile pokazuje stoper",
+_STOPWATCH_ASK = ("ile czasu minęło", "ile czasu minelo", "ile czasu już minęło",
+                  "ile to trwało", "ile trwało", "jaki czas", "jaki mam czas",   # (14 Oct probe)
+                  "ile na stoperze", "ile jest na stoperze", "ile pokazuje stoper",
                   "ile minęło na stoperze", "ile minęło", "ile już minęło")
 
 _watch = {"t0": None}     # the stopwatch

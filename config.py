@@ -552,12 +552,20 @@ MUTE_PHRASES   = ["cicho", "bądź cicho", "badz cicho", "nie odzywaj się",
                   # (13 Oct sweep: these went to the model — "będę cicho" and
                   # its command refused, nothing muted)
                   "wycisz się", "wycisz sie", "przestań gadać", "przestan gadac",
-                  "przestań mówić", "przestan mowic", "nie gadaj", "zamknij buzię"]
+                  "przestań mówić", "przestan mowic", "nie gadaj", "zamknij buzię",
+                  # (14 Oct probe: "Nie przeszkadzać", "Włącz tryb nie przeszkadzać"
+                  # went to the model)
+                  "nie przeszkadzać", "nie przeszkadzac", "tryb nie przeszkadzać",
+                  "tryb nie przeszkadzac", "włącz tryb nie przeszkadzać",
+                  "wlacz tryb nie przeszkadzac", "tryb cichy", "włącz tryb cichy"]
 UNMUTE_PHRASES = ["możesz mówić", "mozesz mowic", "odzywaj się", "odzywaj sie",
                   # (13 Oct sweep: these got a model "już mówię", the quiet stayed)
                   "możesz znowu mówić", "mozesz znowu mowic", "możesz już mówić",
                   "już możesz mówić", "już możesz", "juz mozesz", "koniec ciszy",
-                  "you can talk", "unmute"]
+                  "you can talk", "unmute",
+                  # (14 Oct: the modes' off switches)
+                  "wyłącz tryb nie przeszkadzać", "wylacz tryb nie przeszkadzac",
+                  "wyłącz tryb cichy", "wylacz tryb cichy", "koniec trybu cichego"]
 
 # (without gender: these are for someone she doesn't recognise)
 GREETINGS_MORNING = ["Dzień dobry!", "O, dzień dobry! Jak się spało?",

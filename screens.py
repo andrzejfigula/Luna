@@ -389,6 +389,10 @@ def handle(text, speak, play_sound_async):
                   f"{rows[0][1].split(',')[1].strip().replace('–', ' do ').replace('°C', ' stopni')}.")
         return True
     if any(k in low for k in _CLOCK):
-        _show("clock", CLOCK_SECS)
+        # "pokaż zegar przez minutę / na 5 minut" — that long (14 Oct probe:
+        # always 10 s); up to an hour, the night-clock is something else
+        import timers
+        secs, _ = timers.parse_duration(low) if re.search(r"\b(?:przez|na)\b", low) else (0, None)
+        _show("clock", min(secs, 3600) if secs else CLOCK_SECS)
         return True
     return False
