@@ -52,6 +52,7 @@ uniform vec4  uLidB1;         //   alpha, the eye's turn (rad), its squircle exp
 uniform vec4  uPupil0;        // dx, dy (from the eye centre), iris radius, shown
 uniform vec4  uPupil1;
 uniform vec4  uMorph;         // heart (love), wet (sad), round (surprised), star (excited)
+uniform vec4  uFx;            // (spiral, static, time, seed): dizzy and lost-signal eyes
 uniform vec3  uHeartTop;
 uniform vec3  uHeartBottom;
 uniform vec3  uTop;
@@ -242,7 +243,7 @@ vec3 eyeColour(vec2 q, vec2 b, float d, vec2 look, vec4 la, float side) {
     vec3 col = mix(top, bot, smoothstep(0.05, 1.0, v));
     // the upper lid's shadow on the eye below it
     vec2 t = lidTop(q.x, b, la, side);
-    float lidded = smoothstep(0.02, 0.12, la.x);
+    float lidded = smoothstep(0.02, 0.12, la.x) * (1.0 - uMorph.x);   // (hearts have no lids)
     col *= 1.0 - 0.32 * lidded * exp(-max(q.y - t.x, 0.0) / (0.16 * b.y));
     // glass: a soft highlight up and to the left, drifting against the gaze
     vec2 gq = q + look * 0.22;
@@ -330,10 +331,31 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
     vec3 top = mix(uTop, uTint, uTintAmt);
     vec2 lt = lidTop(q.x, b, la, side);
     float dl = max(q.y - lt.x, 0.0) / sqrt(1.0 + lt.y * lt.y);
-    c = mix(c, mix(top, uShine, 0.4), exp(-dl / 2.2) * smoothstep(0.03, 0.15, la.x) * 0.75);
+    float lidk = 1.0 - uMorph.x;
+    c = mix(c, mix(top, uShine, 0.4), exp(-dl / 2.2) * smoothstep(0.03, 0.15, la.x) * 0.75 * lidk);
     vec2 lw = lidBot(q.x, b, la, lb);
     float du = max(lw.x - q.y, 0.0) / sqrt(1.0 + lw.y * lw.y);
-    c = mix(c, top, exp(-du / 2.4) * smoothstep(0.03, 0.15, la.w) * 0.55);
+    c = mix(c, top, exp(-du / 2.4) * smoothstep(0.03, 0.15, la.w) * 0.55 * lidk);
+    if (uFx.x > 0.01) {                    // dizzy: a dark spiral turning in each eye
+        float R = 0.92 * min(b.x, b.y);
+        vec2 qs = q / vec2(1.15, 1.0);
+        float r = length(qs);
+        float pitch = R / 3.2;
+        float f = r / pitch - (atan(qs.y, qs.x) * side + uFx.z * 7.0) / 6.2832;
+        float dl2 = abs(fract(f) - 0.5) * pitch;
+        float sp = smoothstep(4.5, 2.5, dl2) * smoothstep(R, R - 10.0, r) * uFx.x;
+        c = mix(c, uPupilCol * 0.55, sp);
+    }
+    if (uFx.y > 0.01) {                    // lost signal: static, scanlines, a rolling bar
+        vec2 cell = floor(vec2(q.x / 7.0, q.y / 3.0));
+        float n = fract(sin(dot(cell + vec2(uFx.w, 0.37 * uFx.w), vec2(12.9898, 78.233))) * 43758.5453);
+        vec3 st = mix(uPupilCol * 0.35, mix(uShine, uTop, 0.4), step(0.55, n) * n);
+        float span = 2.0 * b.y + 30.0;
+        float bar = exp(-sq((q.y + b.y + 15.0 - mod(uFx.z * 90.0, span)) / 7.0));
+        st += uShine * 0.22 * bar;
+        st *= 0.85 + 0.15 * step(0.5, fract(q.y / 4.0));
+        c = mix(c, st, uFx.y);
+    }
     // sad: a wet line along the bottom edge
     c += uShine * 0.45 * exp(d / 1.8) * smoothstep(0.2 * b.y, b.y, q.y) * uMorph.y;
     c *= (1.0 + 0.10 * uEnergy) * uDim;
@@ -770,6 +792,7 @@ class _Life:
             self.yawned = False
         if listening and self.listen < 0.05:
             self.cock = random.choice((0, 1))
+            self.flash_t = now                    # her name: brows up, she's listening
         if emo == "thinking" and now > self.hmm_next:
             self.hmm_next = now + random.uniform(4, 7)
             self.hmm_t = now
@@ -1213,7 +1236,10 @@ class GLFace:
             amt = max(amt, heat)
         u["uTint"] = _rgb(tint or rf.EYE_GRAD_TOP)
         u["uTintAmt"] = min(0.85, amt)
-        u["uMorph"] = (cur["heart"], max(cur["wet"], 0.35 * glint), cur["round"], cur["star"])
+        u["uMorph"] = (cur["heart"], max(cur["wet"], 0.35 * glint, 4.0 * pop),
+                       cur["round"], cur["star"])
+        fx = getattr(face, "_eye_fx", None) or (0.0, 0.0)
+        u["uFx"] = (fx[0], fx[1], now % 1000.0, float(int(now * 20.0) % 997))
         look = COSTUME_EYES.get(costume)
         if look:                                  # a costume's own eyes (googly, robot…)
             u.update(look)
@@ -1293,6 +1319,10 @@ class GLFace:
             # shut (or nearly): the glowing seam where the lids meet
             gap = max(1.0 - top - bot, 1.0 - top - bot + bend - bbend) * h
             seam = max(0.0, min(1.0, 1.0 - gap / 14.0))
+            if cur["heart"] > 0.01:               # hearts: the lids squash them instead
+                hk = cur["heart"] * (top + bot)
+                ey += 0.5 * h * hk * (top - bot) / max(1e-3, top + bot)
+                h *= 1.0 - 0.8 * hk
             u[f"uEye{i}"] = (ex, ey, w, h)
             u[f"uLidA{i}"] = (top, tilt, bend, bot)
             u[f"uLidB{i}"] = (bbend, seam, math.radians(cur["rot"][i]), cur["eye_n"])
@@ -1302,6 +1332,8 @@ class GLFace:
             pr *= 1.0 + 0.06 * getattr(face, "awake_glow", 0.0)    # interested: a bit wider
             pr *= 1.0 + 0.15 * life.bump(now, life.seen_t, 1.6)    # someone's there: wide
             pr *= 1.0 + 0.06 * life.listen                          # listening hard
+            if cur["tint"] > 0.3:                                   # angry words: pin pupils
+                pr *= 1.0 - 0.18 * emph
             dx = eye.pupil_ox * 0.85 + cur["gaze_x"] - side * conv * 0.6   # cross-eyed: in
             dy = eye.pupil_oy * 0.85 + cur["gaze_y"]
             if not asleep:                        # micro-saccades
@@ -1322,6 +1354,9 @@ class GLFace:
             dx += life.away[1] * 24.0 * away      # talking: a glance aside…
             dy += 6.0 * away                      # …and a little down
             dy -= 20.0 * up                       # sad: a look up at you
+            if emo == "sad" and not seen:         # …alone: drifting, lost in thought
+                dx += 14.0 * math.sin(now * 0.35)
+                dy += 6.0
             if emo == "thinking":                 # searching for it: a slow circle
                 dx += 8.0 * math.sin(now * 0.7)
                 dy += 5.0 * math.cos(now * 0.7)
@@ -1345,6 +1380,8 @@ class GLFace:
             by -= 5.0 * life.listen * (i == life.cock)             # listening: one cocked
             by -= 10.0 * yawn
             by -= 14.0 * flash + 10.0 * aha       # a greeting flash; "aha!"
+            if emo == "surprised":
+                by -= 120.0 * pop                 # (pop peaks at 0.12)
             by += 6.0 * sigh
             t = cur["brow_tilt"][i] * 0.5
             if talking and cur["wet"] > 0.5:      # sad, talking: the inner brows quiver
@@ -1358,7 +1395,7 @@ class GLFace:
                        21.0 + 6.0 * cur["tint"] - 7.0 * max(0.0, 1.0 - cur["brow_a"]),
                        cur["brow_a"])
         u.update(self._mouth(face, rf, fcx, fcy, cur))
-        u["uBlush"] = (fcx, fcy, min(1.0, cur["blush"] + 0.55 * shy), 30.0)
+        u["uBlush"] = (fcx, fcy, min(1.0, cur["blush"] + 0.55 * shy + 0.5 * content), 30.0)
         sp = getattr(face, "_scene_p", 0.0)
         tearing = (getattr(face, "_scene_name", None) == "glitch" and 0.12 < sp < 0.82)
         u["uGlitch"] = (1.0, float(int(sp * 24))) if tearing else (0.0, 0.0)
@@ -1405,6 +1442,8 @@ class GLFace:
         slant += life.smirk[1] * 8.0 * sm
         bend += 6.0 * sm
         talking = face._speaking or m.speak_fade > 0.05
+        if face._emotion == "sleeping" and not talking:   # deep breaths: lips part
+            h += 2.5 * max(0.0, math.sin(getattr(face, "breath_phase", 0.0)))
         mu = life.bump(now, life.mumble_at, 0.9)  # asleep: a mumble
         if face._emotion == "sleeping" and mu > 0.05 and not talking:
             kind, open_ = face_spec.OPEN, 0.3 * mu

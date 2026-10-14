@@ -393,15 +393,18 @@ def _get_font(size):
 
 class ZzzParticle:
     def __init__(self, x, y):
+        self.x0    = x
         self.x     = x
         self.y     = y
         self.alpha = 255
         self.size  = random.randint(26, 50)
-        self.vx    = random.uniform(-0.4, 0.4)
         self.vy    = random.uniform(-1.2, -0.6)
+        self.age   = 0
+        self.ph    = random.uniform(0, math.tau)
 
     def update(self):
-        self.x    += self.vx
+        self.age  += 1
+        self.x     = self.x0 + 14 * math.sin(self.age * 0.05 + self.ph) + self.age * 0.35
         self.y    += self.vy
         self.alpha = max(0, self.alpha - 3)
 
@@ -409,11 +412,56 @@ class ZzzParticle:
 
     def draw(self, surf):
         try:
-            txt = _get_font(self.size).render("Z" if self.size > 38 else "z", True, ZZZ_COL)
-            txt.set_alpha(self.alpha)
-            surf.blit(txt, (int(self.x), int(self.y)))
+            grow = 0.7 + 0.5 * min(1.0, self.age / 80.0)     # small, then bigger
+            img = zzz_img(int(self.size * grow) // 2 * 2, self.size > 38)
+            img.set_alpha(self.alpha)
+            surf.blit(img, img.get_rect(center=(int(self.x), int(self.y))))
         except Exception:
             pass
+
+
+def zzz_img(size, big):
+    """A soft glowing "Z" (cached by size)."""
+    key = ("zzz", size, big, ZZZ_COL)
+    img = _SMOOTH_CACHE.get(key)
+    if img is None:
+        txt = _get_font(size).render("Z" if big else "z", True, ZZZ_COL)
+        w, h = txt.get_width() + 24, txt.get_height() + 24
+        img = pygame.Surface((w, h), pygame.SRCALPHA)
+        halo = pygame.transform.smoothscale(
+            pygame.transform.smoothscale(txt, (max(1, txt.get_width() // 4),
+                                               max(1, txt.get_height() // 4))),
+            (txt.get_width() + 16, txt.get_height() + 16))
+        halo.set_alpha(110)
+        img.blit(halo, (4, 4))
+        img.blit(txt, (12, 12))
+        _SMOOTH_CACHE[key] = img
+    return img.copy()
+
+
+def anger_mark(surf, x, y, r, alpha=255):
+    """The cartoon anger mark: four bulging arcs in a cross (cached)."""
+    r = int(r)
+    key = ("anger", r, ANGRY_COL)
+    img = _SMOOTH_CACHE.get(key)
+    if img is None:
+        def draw(s, k):
+            c = (r + 4) * k
+            for ang in (45, 135, 225, 315):       # one in each corner, its bulge
+                a = math.radians(ang)             # toward the middle
+                ox, oy = math.cos(a) * r * 1.25 * k, math.sin(a) * r * 1.25 * k
+                pts = []
+                for j in range(13):
+                    t = math.radians(ang + 154 + 52 * j / 12)
+                    pts.append((c + ox + math.cos(t) * r * 1.0 * k,
+                                c + oy + math.sin(t) * r * 1.0 * k))
+                pygame.draw.lines(s, _lerp_col(ANGRY_COL, (90, 0, 0), 0.4), False, pts, int(10 * k))
+                pygame.draw.lines(s, ANGRY_COL, False, pts, int(6 * k))
+        img = _SMOOTH_CACHE[key] = _smooth(2 * r + 8, 2 * r + 8, draw)
+    if alpha < 255:
+        img = img.copy()
+        img.set_alpha(int(max(0, alpha)))
+    surf.blit(img, img.get_rect(center=(int(x), int(y))))
 
 
 class TearParticle:
@@ -913,15 +961,59 @@ BRASS_TOP, BRASS_BOTTOM = (255, 226, 150), (150, 92, 30)
 HAT_TOP, HAT_BOTTOM = (92, 64, 46), (34, 22, 16)
 
 
-def _ear(w, h, triangle):
-    img = gradient_block(w, h, w // 2 if not triangle else 8, EYE_GRAD_TOP, EYE_GRAD_BOTTOM)
-    if triangle:                                  # cut to a point at the top
-        img = img.copy()
-        mask = pygame.Surface(img.get_size(), pygame.SRCALPHA)
-        iw, ih = img.get_size()
-        pygame.draw.polygon(mask, (255, 255, 255, 255), [(iw // 2, 0), (iw - 1, ih - 1), (0, ih - 1)])
-        img.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+# the inside of an ear, by costume
+_EAR_INNER = {"cat": (255, 150, 160), "bunny": (255, 160, 175),
+              "dog": (150, 80, 30), "squirrel": (170, 92, 40)}
+
+
+def _ear(w, h, triangle, kind=None):
+    """An ear: antialiased, the eyes' gold lit from above, a soft inner
+    colour (pink for the cat and bunny) and a highlight down its edge."""
+    key = ("ear", w, h, triangle, kind, EYE_GRAD_TOP, EYE_GRAD_BOTTOM)
+    if key in _SMOOTH_CACHE:
+        return _SMOOTH_CACHE[key]
+
+    def draw(s, k):
+        W, H = w * k, h * k
+        if triangle:
+            outer = [(W * 0.5, H * 0.03), (W * 0.97, H), (W * 0.03, H)]
+            inner = [(W * 0.5, H * 0.30), (W * 0.76, H), (W * 0.24, H)]
+        grad = pygame.Surface((W, H), pygame.SRCALPHA)
+        for y in range(H):                        # gold, darker toward the root
+            grad.fill((*_lerp_col(EYE_GRAD_TOP, EYE_GRAD_BOTTOM, (y / H) ** 1.3), 255),
+                      pygame.Rect(0, y, W, 1))
+        mask = pygame.Surface((W, H), pygame.SRCALPHA)
+        if triangle:
+            pygame.draw.polygon(mask, (255, 255, 255, 255), outer)
+        else:
+            pygame.draw.ellipse(mask, (255, 255, 255, 255), pygame.Rect(0, 0, W, H))
+        grad.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+        s.blit(grad, (0, 0))
+        ic = _EAR_INNER.get(kind)
+        if ic:
+            dark = _lerp_col(ic, (60, 20, 10), 0.35)
+            if triangle:
+                pygame.draw.polygon(s, dark, inner)
+                pygame.draw.polygon(s, ic, [(x, y + 0.05 * H) for x, y in inner])
+            else:
+                r = pygame.Rect(W * 0.27, H * 0.16, W * 0.46, H * 0.78)
+                pygame.draw.ellipse(s, dark, r)
+                pygame.draw.ellipse(s, ic, r.inflate(-W * 0.06, -H * 0.06).move(0, H * 0.03))
+        hl = pygame.Surface((W, H), pygame.SRCALPHA)  # light down the upper-left edge
+        pygame.draw.ellipse(hl, (255, 250, 225, 90),
+                            pygame.Rect(W * 0.14, H * 0.10, W * 0.16, H * 0.45))
+        s.blit(hl, (0, 0))
+    img = _SMOOTH_CACHE[key] = _smooth(w, h, draw)
     return img
+
+
+def _ear_twitch(kind, side):
+    """Now and then one ear flicks (cat, bunny) — degrees, 0 most of the time."""
+    if kind not in ("cat", "bunny", "squirrel"):
+        return 0.0
+    t = time.time() + (0.0 if side < 0 else 3.7)
+    ph = t % 7.3
+    return 14.0 * math.sin(math.pi * ph / 0.35) if ph < 0.35 else 0.0
 
 
 _SMOOTH_CACHE = {}
@@ -1035,8 +1127,12 @@ def draw_costume_back(surf, fcx, fcy, kind, sway):
     for (dx, oy, w, h, tilt, tri) in ears:
         for side in (-1, 1):
             ox = side * (62 if dx is None else EYE_SPREAD + dx)
-            img = _ear(w, h, tri)
-            img = pygame.transform.rotate(img, side * tilt + sway * 0.4)
+            img = _ear(w, h, tri, kind)
+            swing = 0.0
+            if kind == "dog":                     # floppy: they swing with the head
+                swing = 6.0 * math.sin(time.time() * 2.2 + side)
+            img = pygame.transform.rotate(img, side * (tilt + _ear_twitch(kind, side))
+                                          + sway * 0.4 + swing)
             rect = img.get_rect(center=(fcx + ox + int(sway * 1.5), fcy + oy))
             surf.blit(img, rect)
             if kind == "squirrel":                # a tuft on the tip
@@ -2243,6 +2339,7 @@ class RobotFace:
         self._pupil_mul = 1.0
         self._mouth_drive = 0.0
         self._spec_mod = {}              # a scene's face_spec settings over the mood
+        self._eye_fx = (0.0, 0.0)        # …and its effects in the eyes (spiral, static)
         if self._scene:
             self._scene.motion(self, self._scene_p)
             self._scene.face(self, self._scene_p)
@@ -2668,6 +2765,12 @@ class RobotFace:
                                     (ex + 26, ey + 30, 11, 4.0)):
                 k = max(0.0, math.sin(t * 2.6 + ph))
                 twinkle(base, fcx + dx, dy, r * (0.6 + 0.4 * k), 255 * k)
+
+        # ── angry (the block face): a pulsing anger mark by the right brow ──
+        if EYE_MODE == "block" and self._emotion == "angry" and not self._scene:
+            k = 0.5 + 0.5 * math.sin(time.time() * 6.0)
+            anger_mark(base, fcx + EYE_SPREAD + self.right_eye.w * 0.5 + 34,
+                       fcy + self.right_eye.rel_y - 92, 40 + 6 * k, 200 + 55 * k)
 
         # ── particles (foreground) ────────────────────────────────────────
         for p in self.zzz_particles:

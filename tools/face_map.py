@@ -70,6 +70,8 @@ def main():
         face.sound_waves.clear()                        # (left by "talking")
         face.mouth.speak_fade = face.mouth.talk_open = 0.0
         face._think_t = time.time() - 5                 # thinking a while: the hand is up
+        if getattr(face, "gl", None):                   # fresh habits: no half blink or
+            face.gl.life = None                         # shy glance caught by chance
 
     def grab():
         px = GL.glReadPixels(0, 0, W, H, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE)

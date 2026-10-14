@@ -265,6 +265,10 @@ def _star4(surf, x, y, r, col, alpha):
 @scene("dizzy", duration=3.4)
 class Dizzy(Scene):
     """Spirals for eyes, head going round — then she shakes it off."""
+    def face(self, face, p):
+        """(gl_face) the spirals, in the eyes"""
+        face._eye_fx = (rf._prop_hold(p, 0.12, 0.2), 0.0)
+
     def motion(self, face, p):
         hold = rf._prop_hold(p, 0.12, 0.2)
         t = p * self.duration
@@ -278,8 +282,8 @@ class Dizzy(Scene):
 
     def draw(self, face, surf, fcx, fcy, p):
         hold = rf._prop_hold(p, 0.12, 0.2)
-        if hold < 0.05:
-            return
+        if hold < 0.05 or (rf.EYE_MODE == "block" and getattr(face, "gl", None)):
+            return                                # (the GPU draws the spirals: face())
         t = p * self.duration
         for i, (eye, rect) in enumerate(_eye_rects(face, fcx, fcy)):
             R = min(rect.w, rect.h) / 2 - 8
@@ -464,10 +468,14 @@ class LostSignal(Scene):
         if self._level(p) > 0.5:
             face._pupil_mul = 0.0
 
+    def face(self, face, p):
+        """(gl_face) the static, in the eyes"""
+        face._eye_fx = (0.0, self._level(p))
+
     def draw(self, face, surf, fcx, fcy, p):
         lvl = self._level(p)
-        if lvl <= 0:
-            return
+        if lvl <= 0 or (rf.EYE_MODE == "block" and getattr(face, "gl", None)):
+            return                                # (the GPU draws the static: face())
         t = p * self.duration
         rnd = random.Random(int(t * 20))
         for eye, rect in _eye_rects(face, fcx, fcy):

@@ -5713,6 +5713,19 @@ class FaceSpecTest(unittest.TestCase):
         u = self._settle(gl, face, 2)
         self.assertGreater(u["uPupil0"][0], 25.0)                  # still looking there
 
+    def test_eye_effects_and_heart_lids(self):
+        gl = self._gl()
+        face = self._face("neutral")
+        face._eye_fx = (1.0, 0.0)                             # dizzy: spirals
+        u = self._settle(gl, face, 2)
+        self.assertEqual(u["uFx"][:2], (1.0, 0.0))
+        face._eye_fx = (0.0, 0.0)
+        self.assertEqual(self._settle(gl, face, 1)["uFx"][:2], (0.0, 0.0))
+        open_ = self._settle(self._gl(), self._face("love"))
+        shut = self._settle(self._gl(), self._face("love", mod={"lid_top": (0.5, 0.5)}))
+        self.assertLess(shut["uEye0"][3], open_["uEye0"][3] * 0.8)   # hearts squash
+        self.assertGreater(shut["uEye0"][1], open_["uEye0"][1])        # …from the top
+
     def test_reply_scenes_set_only_known_settings(self):
         try:
             import reply_scenes
