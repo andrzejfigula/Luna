@@ -1060,7 +1060,7 @@ class Sunny(Scene):
 
 @scene("cloudy", duration=3.6)
 class Cloudy(Scene):
-    """Two clouds drift past above her head."""
+    """A little cloud settles on each eye and drifts a bit."""
     def motion(self, face, p):
         face.pupil_oy = rf.lerp(face.pupil_oy, -14.0 * rf._prop_hold(p, 0.2, 0.2), 0.1)
 
@@ -1068,16 +1068,17 @@ class Cloudy(Scene):
         hold = rf._prop_hold(p, 0.2, 0.2)
         if hold < 0.04:
             return
-        drift = (p - 0.5) * 60
-        for dx, dy, w, a in ((-40, 14, 110, 170), (30, -6, 150, 235)):
-            c = _cloud(w, rf.TEETH_COL, int(a * hold))
-            surf.blit(c, c.get_rect(center=(int(fcx + _PROP_X + dx + drift * (w / 150)),
-                                            int(fcy + _PROP_Y + dy))))
+        t = p * self.duration
+        for i, (eye, rect) in enumerate(_eye_rects(face, fcx, fcy)):
+            drift = 14 * math.sin(t * 1.4 + i * 2.0)
+            c = _cloud(150, rf.TEETH_COL, int(240 * hold))
+            surf.blit(c, c.get_rect(center=(int(rect.centerx + drift),
+                                            int(rect.top - 6 - 18 * (1 - hold)))))
 
 
 @scene("rainy", duration=3.8, mood="sad")
 class Rainy(Scene):
-    """A small cloud right above her, raining on her head."""
+    """A grey cloud over each eye, raining on it."""
     def eyes(self, face, p, e):
         e.squint = max(e.squint, 0.3 * rf._prop_hold(p, 0.2, 0.2))
 
@@ -1091,18 +1092,19 @@ class Rainy(Scene):
         if hold < 0.04:
             return
         t = p * self.duration
-        cx, cy = fcx + 30, fcy - 150
-        layer = pygame.Surface((300, 230), pygame.SRCALPHA)
-        for i in range(14):                           # the drops
-            k = (t * 1.6 + i * 0.37) % 1.0
-            x = 40 + (i * 47) % 220
-            y = 50 + k * 170
-            pygame.draw.line(layer, (*rf.TEAR_COL, int(220 * (1 - k * 0.6))),
-                             (x, y), (x - 3, y + 14), 4)
-        layer.set_alpha(int(255 * hold))
-        surf.blit(layer, (int(cx - 150), int(cy - 10)))
-        c = _cloud(190, (150, 160, 175), int(240 * hold))
-        surf.blit(c, c.get_rect(center=(int(cx), int(cy))))
+        for n, (eye, rect) in enumerate(_eye_rects(face, fcx, fcy)):
+            cx, cy = rect.centerx, rect.top - 10
+            layer = pygame.Surface((160, 190), pygame.SRCALPHA)
+            for i in range(8):                        # the drops, over the eye
+                k = (t * 1.5 + i * 0.37 + n * 0.5) % 1.0
+                x = 22 + (i * 41) % 120
+                y = 20 + k * 160
+                pygame.draw.line(layer, (*rf.TEAR_COL, int(230 * (1 - k * 0.5))),
+                                 (x, y), (x - 3, y + 14), 4)
+            layer.set_alpha(int(255 * hold))
+            surf.blit(layer, (int(cx - 80), int(cy)))
+            c = _cloud(160, (150, 160, 178), int(245 * hold))
+            surf.blit(c, c.get_rect(center=(int(cx), int(cy))))
 
 
 @scene("snowy", duration=4.0)
@@ -1123,8 +1125,13 @@ class Snowy(Scene):
             x0, speed, ph = rnd.random(), rnd.uniform(0.18, 0.35), rnd.uniform(0, 6.3)
             y = ((rnd.random() + t * speed) % 1.1) * rf.HEIGHT - 20
             x = x0 * rf.WIDTH + 18 * math.sin(t * 1.5 + ph)
-            r = 3 + (i % 3) * 2
-            pygame.draw.circle(layer, (*rf.TEETH_COL, 225), (int(x), int(y)), r)
+            r = 5 + (i % 3) * 3                     # a six-armed flake, turning
+            spin = t * (0.8 + 0.3 * (i % 3)) + ph
+            for arm in range(3):
+                a = spin + arm * math.pi / 3
+                dx, dy = math.cos(a) * r, math.sin(a) * r
+                pygame.draw.line(layer, (*rf.TEETH_COL, 235), (x - dx, y - dy), (x + dx, y + dy),
+                                 2 if r < 8 else 3)
         layer.set_alpha(int(255 * hold))
         surf.blit(layer, (0, 0))
 

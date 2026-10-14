@@ -5524,5 +5524,37 @@ class ListTapGameCloseTest(unittest.TestCase):
             self.assertIsNone(state.overlay)
 
 
+class FaceLibraryCostumeTest(unittest.TestCase):
+    """The face library (15 Oct): the new costumes, by voice."""
+
+    def tearDown(self):
+        state.costume = None
+
+    def test_new_costumes(self):
+        import fun
+        said = []
+        for text, kind in (("Zamień się w wiewiórkę", "squirrel"),
+                           ("Luna, zrób szalonego robota", "crazy_robot"),
+                           ("Bądź steampunkiem", "steampunk"),
+                           ("Zrób imprezę!", "party"),
+                           ("Zrób śmieszne oczy", "googly_eyes"),
+                           ("Pokaż mi wyłupiaste oczy", "googly_eyes")):
+            state.costume = None
+            self.assertTrue(fun.handle(text, said.append, None, None), text)
+            self.assertEqual(state.costume[0], kind, text)
+        self.assertIn("wiewiórką", said[0])
+        state.costume = None
+        for text in ("Pokaż mi oczy", "Zrób robota kuchennego z klocków lego"):
+            self.assertFalse(fun.handle(text, said.append, None, None), text)
+            self.assertIsNone(state.costume, text)
+
+    def test_every_costume_has_its_line_and_eyes(self):
+        import fun
+        import gl_face
+        kinds = {k for k, _ in fun._COSTUME_KIND} | {"googly_eyes"}
+        self.assertEqual(kinds, set(fun._COSTUME_SAY))
+        self.assertTrue(set(gl_face.COSTUME_EYES) <= kinds)
+
+
 if __name__ == "__main__":
     unittest.main()

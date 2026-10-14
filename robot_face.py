@@ -57,6 +57,8 @@ if FACE_GL:
 
 BG        = (0, 0, 0)
 PUPIL_COL = (0, 0, 0)
+LISTEN_WAVE_COL = (95, 175, 255)   # the sound waves beside her while she listens
+THINK_HAND_SECS = 1.2              # thinking longer than this: a finger on her chin
 
 # On the 800x480 panel the mouth would kiss the bottom edge: lift the face a
 # little and keep the conversation-window dot (below the mouth) on-screen.
@@ -390,7 +392,7 @@ class ZzzParticle:
         self.x     = x
         self.y     = y
         self.alpha = 255
-        self.size  = random.randint(18, 36)
+        self.size  = random.randint(26, 50)
         self.vx    = random.uniform(-0.4, 0.4)
         self.vy    = random.uniform(-1.2, -0.6)
 
@@ -403,7 +405,7 @@ class ZzzParticle:
 
     def draw(self, surf):
         try:
-            txt = _get_font(self.size).render("z", True, ZZZ_COL)
+            txt = _get_font(self.size).render("Z" if self.size > 38 else "z", True, ZZZ_COL)
             txt.set_alpha(self.alpha)
             surf.blit(txt, (int(self.x), int(self.y)))
         except Exception:
@@ -884,11 +886,21 @@ def draw_hair(surf, fcx, fcy, sway):
 # kind → (ears, whiskers). An ear: (dx past the eye centre, dy, w, h, tilt,
 # triangle?) for the right side, mirrored for the left; the screen is short
 # above the brows, so the cat's sit beside them and the bunny's between them.
+# The face library (15 Oct) added the rest: googly eyes (gl_face.COSTUME_EYES),
+# a squirrel, steampunk goggles and a hat, a crazy robot, a party.
 COSTUMES = {
     "cat":   ([(95, -142, 116, 98, -9, True)], True),
     "bunny": ([(None, -150, 46, 124, -6, False)], True),     # None: 62 px off the middle
     "dog":   ([(175, 0, 78, 165, 12, False)], False),
+    "squirrel": ([(70, -150, 74, 118, -14, True)], False),
+    "googly_eyes": ([], False),
+    "steampunk": ([], False),
+    "crazy_robot": ([], False),
+    "party": ([], False),
 }
+_NOSE = ("cat", "bunny", "dog", "squirrel")
+BRASS_TOP, BRASS_BOTTOM = (255, 226, 150), (150, 92, 30)
+HAT_TOP, HAT_BOTTOM = (92, 64, 46), (34, 22, 16)
 
 
 def _ear(w, h, triangle):
@@ -902,8 +914,60 @@ def _ear(w, h, triangle):
     return img
 
 
+_SMOOTH_CACHE = {}
+
+
+def _smooth(w, h, draw, ss=3, key=None):
+    """Something drawn 3× larger and scaled down: antialiased edges (kept
+    when it has a key — the hats, the bulbs)."""
+    if key is not None and key in _SMOOTH_CACHE:
+        return _SMOOTH_CACHE[key]
+    if key is not None:
+        _SMOOTH_CACHE[key] = _smooth(w, h, draw, ss)
+        return _SMOOTH_CACHE[key]
+    big = pygame.Surface((w * ss, h * ss), pygame.SRCALPHA)
+    draw(big, ss)
+    return pygame.transform.smoothscale(big, (w, h))
+
+
+def _blit_rot(surf, img, center, angle):
+    if abs(angle) > 0.5:
+        img = pygame.transform.rotate(img, angle)
+    surf.blit(img, img.get_rect(center=(int(center[0]), int(center[1]))))
+
+
+_TAIL = {}
+
+
+def _squirrel_tail(surf, fcx, fcy, sway):
+    """A big bushy tail curling up beside her on the right, wagging."""
+    img = _TAIL.get(CURRENT_STYLE)
+    if img is None:
+        def draw(s, k):
+            pts = [(70, 370), (120, 300), (165, 220), (180, 140), (160, 75), (115, 45),
+                   (75, 60), (70, 100)]
+            path = []
+            for a, b in zip(pts, pts[1:]):        # the spine, finely
+                for n in range(8):
+                    u = n / 8
+                    path.append((a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u))
+            mid = _lerp_col(HAIR_GRAD_BOTTOM, HAIR_GRAD_TOP, 0.5)
+            for col, kr, off in ((HAIR_GRAD_BOTTOM, 1.0, 0), (mid, 0.78, -4), (HAIR_GRAD_TOP, 0.45, -10)):
+                for n, (x, y) in enumerate(path):          # dark fur, lighter inside
+                    u = n / len(path)
+                    r = (34 + 46 * math.sin(math.pi * min(1.0, u * 1.25))) * kr
+                    pygame.draw.circle(s, col, (int((x + off) * k), int((y + off * 0.6) * k)),
+                                       int(r * k))
+        img = _TAIL[CURRENT_STYLE] = pygame.transform.smoothscale(_smooth(260, 420, draw),
+                                                                   (170, 274))
+    wag = 5 * math.sin(time.time() * 2.2) + sway * 0.4
+    _blit_rot(surf, img, (fcx + EYE_SPREAD + 168, fcy + 10), wag)   # right of the eye
+
+
 def draw_costume_back(surf, fcx, fcy, kind, sway):
-    """The ears, behind the eyes."""
+    """The ears (and the squirrel's tail, the robot's antennae), behind the eyes."""
+    if kind == "squirrel":
+        _squirrel_tail(surf, fcx, fcy, sway)
     ears = COSTUMES.get(kind, ([], False))[0]
     for (dx, oy, w, h, tilt, tri) in ears:
         for side in (-1, 1):
@@ -912,19 +976,152 @@ def draw_costume_back(surf, fcx, fcy, kind, sway):
             img = pygame.transform.rotate(img, side * tilt + sway * 0.4)
             rect = img.get_rect(center=(fcx + ox + int(sway * 1.5), fcy + oy))
             surf.blit(img, rect)
+            if kind == "squirrel":                # a tuft on the tip
+                tuft = gradient_block(20, 46, 10, HAIR_GRAD_TOP, HAIR_GRAD_BOTTOM)
+                _blit_rot(surf, tuft, (rect.centerx + side * 10, rect.top + 8),
+                          side * (tilt - 18))
+    if kind == "crazy_robot":                     # two antennae with blinking bulbs
+        t = time.time()
+        for side, col in ((-1, (255, 140, 40)), (1, (90, 255, 130))):
+            # from the bolts on the sides of her head (the top of the screen
+            # is just above her brows)
+            bx, by = fcx + side * (EYE_SPREAD + 168) + sway * 1.5, fcy - 64
+            wob = 8 * math.sin(t * 5 + side)
+            tx, ty = bx + side * 24 + wob, by - 110
+            pts = []
+            for k in range(13):                   # a spring
+                u = k / 12
+                px = bx + (tx - bx) * u + 9 * math.sin(u * math.tau * 3) * (1 - u * 0.3)
+                pts.append((px, by + (ty - by) * u))
+            pygame.draw.lines(surf, BRASS_BOTTOM, False, pts, 7)
+            pygame.draw.lines(surf, BRASS_TOP, False, pts, 3)
+            lit = round(0.6 + 0.4 * math.sin(t * 7 + side * 2), 1)
+            bulb = _smooth(44, 44, lambda s, k, c=col, lit=lit: (
+                pygame.draw.circle(s, (*c, int(80 * lit)), (22 * k, 22 * k), 21 * k),
+                pygame.draw.circle(s, (*c, 255), (22 * k, 22 * k), 14 * k),
+                pygame.draw.circle(s, (255, 255, 255, 220), (18 * k, 17 * k), 4 * k)),
+                key=("bulb", col, lit))
+            surf.blit(bulb, bulb.get_rect(center=(int(tx), int(ty))))
 
 
-def draw_costume_front(surf, fcx, fcy, kind):
-    """The nose and the whiskers, between the eyes and the mouth."""
+def _eye_frames(face, fcx, fcy):
+    """Each eye's centre and its full open size (goggles don't blink)."""
+    out = []
+    for eye in (face.left_eye, face.right_eye):
+        w = min(eye.w, EYE_SPREAD * 2 - 44)
+        out.append((fcx + eye.rel_x + eye.pupil_ox * 0.55,
+                    fcy + eye.rel_y + eye.pupil_oy * 0.55, w, eye.h))
+    return out
+
+
+def _goggles(surf, face, fcx, fcy, brass=True):
+    """A thick ring round each eye, a bridge, rivets."""
+    frames = _eye_frames(face, fcx, fcy)
+    for (x, y, w, h) in frames:
+        W, H = int(w + 34), int(h + 34)
+        ring = gradient_block(W, H, 52, BRASS_TOP, BRASS_BOTTOM) if brass else \
+            gradient_block(W, H, 52, (200, 205, 215), (80, 86, 100))
+        ring = ring.copy()
+        hole = pygame.Surface((W, H), pygame.SRCALPHA)
+        pygame.draw.rect(hole, (255, 255, 255, 255), hole.get_rect().inflate(-26, -26),
+                         border_radius=42)
+        ring.blit(hole, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
+        surf.blit(ring, ring.get_rect(center=(int(x), int(y))))
+        for a in range(8):                        # rivets
+            ang = a * math.tau / 8 + math.pi / 8
+            rx = x + math.cos(ang) * (W / 2 - 6)
+            ry = y + math.sin(ang) * (H / 2 - 6)
+            pygame.draw.circle(surf, (110, 66, 24) if brass else (60, 64, 76),
+                               (int(rx), int(ry)), 4)
+    (x0, y0, w0, _), (x1, y1, w1, _) = frames
+    bridge = gradient_block(int(x1 - x0 - (w0 + w1) / 2 - 20), 18, 9,
+                            BRASS_TOP if brass else (200, 205, 215),
+                            BRASS_BOTTOM if brass else (80, 86, 100))
+    surf.blit(bridge, bridge.get_rect(center=(int((x0 + x1) / 2), int((y0 + y1) / 2))))
+
+
+def _top_hat(surf, cx, cy, angle):
+    def draw(s, k):
+        W = s.get_width()
+        crown = pygame.Rect(0, 0, 118 * k, 92 * k)
+        crown.midbottom = (W // 2, 112 * k)
+        pygame.draw.rect(s, HAT_BOTTOM, crown, border_radius=12 * k)
+        pygame.draw.rect(s, HAT_TOP, crown.inflate(-16 * k, -14 * k), border_radius=9 * k)
+        band = pygame.Rect(crown.x, crown.bottom - 26 * k, crown.w, 18 * k)
+        pygame.draw.rect(s, BRASS_BOTTOM, band)
+        pygame.draw.rect(s, BRASS_TOP, band.inflate(0, -8 * k))
+        pygame.draw.circle(s, (255, 236, 170), (band.right - 22 * k, band.centery), 7 * k)
+        brim = pygame.Rect(0, 0, 190 * k, 24 * k)
+        brim.midtop = (W // 2, 106 * k)
+        pygame.draw.ellipse(s, HAT_BOTTOM, brim)
+        pygame.draw.ellipse(s, HAT_TOP, brim.inflate(-10 * k, -10 * k))
+    _blit_rot(surf, _smooth(200, 140, draw, key="top_hat"), (cx, cy), angle)
+
+
+def _party_hat(surf, cx, cy, angle):
+    def draw(s, k):
+        W = s.get_width()
+        base, tip = 128 * k, 18 * k
+        pts = [(W // 2, tip), (W // 2 + 54 * k, base), (W // 2 - 54 * k, base)]
+        pygame.draw.polygon(s, (255, 110, 160), pts)
+        for j, col in enumerate(((255, 220, 90), (110, 200, 255), (255, 220, 90))):
+            y = tip + (base - tip) * (0.32 + 0.24 * j)
+            half = 54 * k * (y - tip) / (base - tip)
+            pygame.draw.polygon(s, col, [(W // 2 - half, y), (W // 2 + half, y),
+                                         (W // 2 + half * 1.08, y + 12 * k),
+                                         (W // 2 - half * 1.08, y + 12 * k)])
+        pygame.draw.circle(s, (255, 250, 230), (W // 2, tip), 15 * k)      # the pompom
+        pygame.draw.ellipse(s, (255, 220, 90),
+                            pygame.Rect(W // 2 - 62 * k, base - 8 * k, 124 * k, 18 * k))
+    _blit_rot(surf, _smooth(140, 150, draw, key="party_hat"), (cx, cy), angle)
+
+
+_CONFETTI = [(0.07 * i % 1.0, (i * 0.618) % 1.0, i) for i in range(28)]
+_CONFETTI_COLS = ((255, 110, 160), (255, 220, 90), (110, 200, 255), (140, 255, 150),
+                  (200, 140, 255))
+
+
+def _confetti(surf):
+    t = time.time()
+    for x0, ph, i in _CONFETTI:
+        y = ((ph + t * (0.10 + 0.03 * (i % 4))) % 1.1) * HEIGHT - 20
+        x = ((x0 + i * 0.137) % 1.0) * WIDTH + 22 * math.sin(t * 1.3 + i)
+        a = t * (2 + i % 3) + i
+        dx, dy = math.cos(a) * 9, math.sin(a) * 4
+        col = _CONFETTI_COLS[i % len(_CONFETTI_COLS)]
+        pygame.draw.polygon(surf, col, [(x - dx, y - dy - 3), (x + dx, y + dy - 3),
+                                        (x + dx, y + dy + 3), (x - dx, y - dy + 3)])
+
+
+def draw_costume_front(surf, fcx, fcy, kind, face=None):
+    """The nose and the whiskers, between the eyes and the mouth — and the
+    goggles, hats, bolts and confetti that sit over the face."""
     if kind not in COSTUMES:
         return
-    nose = gradient_block(44, 30, 14, EYE_GRAD_TOP, EYE_GRAD_BOTTOM)
-    surf.blit(nose, nose.get_rect(center=(fcx, fcy + 92)))
+    if kind in _NOSE:
+        nose = gradient_block(44, 30, 14, EYE_GRAD_TOP, EYE_GRAD_BOTTOM)
+        surf.blit(nose, nose.get_rect(center=(fcx, fcy + 92)))
     if COSTUMES[kind][1]:
         for side in (-1, 1):
             for dy, tip in ((-8, -26), (6, 0), (20, 26)):
                 pygame.draw.line(surf, MOUTH_COL, (fcx + side * 70, fcy + 100 + dy),
                                  (fcx + side * 230, fcy + 100 + dy + tip), 5)
+    if kind == "squirrel":                        # two big front teeth
+        for side in (-1, 1):
+            tooth = gradient_block(20, 28, 6, (255, 252, 240), (220, 210, 190))
+            surf.blit(tooth, tooth.get_rect(midtop=(fcx + side * 11, fcy + 118)))
+    elif kind == "steampunk" and face is not None:
+        _goggles(surf, face, fcx, fcy)
+        _top_hat(surf, fcx + EYE_SPREAD + 150, fcy - 140, -18)   # on the top corner
+    elif kind == "crazy_robot" and face is not None:
+        _goggles(surf, face, fcx, fcy, brass=False)
+        for side in (-1, 1):                      # bolts on the sides of her head
+            bolt = gradient_block(46, 92, 16, (200, 205, 215), (80, 86, 100))
+            surf.blit(bolt, bolt.get_rect(center=(fcx + side * (EYE_SPREAD + 168), fcy - 20)))
+            pygame.draw.circle(surf, (60, 64, 76), (fcx + side * (EYE_SPREAD + 168), fcy - 20), 9)
+    elif kind == "party":
+        _confetti(surf)
+        _party_hat(surf, fcx - EYE_SPREAD - 150, fcy - 132, 24)
 
 
 # ── Hands (style extra) ───────────────────────────────────────────────────────
@@ -994,6 +1191,40 @@ def hand_surface(pose, side):
         s = pygame.transform.flip(s, True, False)
     _HAND_CACHE[key] = s
     return s
+
+
+_ARC_CACHE = {}
+
+
+def _arc_img(r, a, col, side):
+    """One ")" (side 1) or "(" of radius r, alpha level a (0..8), cached:
+    drawn 3× and scaled down every frame cost 12 ms (Pi 4)."""
+    key = (r, a, col, side)
+    img = _ARC_CACHE.get(key)
+    if img is None:
+        if len(_ARC_CACHE) > 300:
+            _ARC_CACHE.clear()
+        big = pygame.Surface((r * 3 + 30, 2 * r * 3 + 30), pygame.SRCALPHA)
+        rect = pygame.Rect(0, 0, 2 * r * 3, 2 * r * 3)
+        rect.center = (0, r * 3 + 15) if side > 0 else (r * 3 + 30, r * 3 + 15)
+        start = -0.75 if side > 0 else math.pi - 0.75
+        pygame.draw.arc(big, (*col, int(255 * a / 8)), rect, start, start + 1.5, 21)
+        img = _ARC_CACHE[key] = pygame.transform.smoothscale(big, (r + 10, 2 * r + 10))
+    return img
+
+
+def draw_side_arcs(surf, cx, cy, dx, arcs, col):
+    """")" on the right, "(" on the left, dx from the middle — sound coming
+    in, a head moving. arcs: (radius, alpha 0..1); antialiased."""
+    for r, a in arcs:
+        lvl = int(round(8 * min(1.0, a)))
+        if lvl <= 0:
+            continue
+        r = int(r) // 4 * 4
+        for side in (-1, 1):
+            img = _arc_img(r, lvl, col, side)
+            x = cx + dx if side > 0 else cx - dx - img.get_width()
+            surf.blit(img, (int(x), int(cy - img.get_height() / 2)))
 
 
 def draw_heart(surf, cx, cy, size, alpha=255):
@@ -1439,6 +1670,8 @@ class RobotFace:
         self._touch_kind = None
         self._touch_react_t = -99.0
         self._touch_pull = 0.0
+        self._think_t = 0.0              # since when she has been thinking
+        self._costume = None             # what she wears this frame (gl_face reads it)
 
         # rel_x is re-applied from the active style's EYE_SPREAD every frame
         self.left_eye  = Eye(-EYE_SPREAD, -30, 175, 125)
@@ -1542,8 +1775,8 @@ class RobotFace:
             tw, th = 185, 118
         elif emotion == "happy":
             tw, th = 205, 150
-        elif emotion == "surprised":
-            tw, th = 240, 190
+        elif emotion == "surprised":                 # the block face: round
+            tw, th = (214, 206) if EYE_MODE == "block" else (240, 190)
         elif emotion == "angry":
             tw, th = 185,  78
         elif emotion == "sad":
@@ -1709,6 +1942,9 @@ class RobotFace:
                                   self.curiosity_target_y * 0.20, 0.02)
             self.target_tilt = 0.0
 
+        if emotion == "sad":                         # sad eyes look down
+            self.pupil_oy = lerp(self.pupil_oy, 18.0, 0.08)
+
         # cute decaying bounce on positive state changes
         bounce_y = 0.0
         if self.bounce_amp > 0.5:
@@ -1833,6 +2069,16 @@ class RobotFace:
             tgt_L = (-96.0, 178.0,  30.0)
             tgt_R = ( 96.0, 178.0, -30.0)
             self._heart_pulse = 0.5 + 0.5 * math.sin(g_el * 2 * math.pi * 1.6)
+
+        # thinking for a while: a finger on her chin (the face library, 15 Oct)
+        # — not for every short wait, the hand would pop up after each question
+        if emotion == "thinking" and not active and not self._scene:
+            self._think_t = getattr(self, "_think_t", 0.0) or now_t
+            if now_t - self._think_t > THINK_HAND_SECS:
+                tgt_R = (112.0, 176.0, -14.0)
+                self.hand_pose["R"] = "point"
+        else:
+            self._think_t = 0.0
 
         # a scene may take the hands over (see reply_scenes.Hands)
         if self._scene:
@@ -2167,6 +2413,7 @@ class RobotFace:
             costume = state.costume
         if costume and time.time() > costume[1]:
             costume = None
+        self._costume = costume[0] if costume else None      # (gl_face: googly eyes…)
         if costume:
             draw_costume_back(behind, fcx, fcy, costume[0], self.head_angle)
 
@@ -2182,6 +2429,19 @@ class RobotFace:
         # ── steam (behind eyes) ───────────────────────────────────────────
         for p in self.steam_particles:
             p.draw(behind)
+
+        # ── listening: sound waves coming in from both sides; a nod or a
+        #    shake of the head: motion marks beside it ────────────────────
+        if self.listen_pulse > 0.05 or self._listen:
+            k = max(self.listen_pulse, 0.6 if self._listen else 0.0)
+            ph = self.listen_phase * 0.22
+            arcs = [(64 + 42 * ((ph + j / 3.0) % 1.0),
+                     k * math.sin(math.pi * ((ph + j / 3.0) % 1.0))) for j in range(3)]
+            draw_side_arcs(base, fcx, fcy - 30, EYE_SPREAD + 95, arcs, LISTEN_WAVE_COL)
+        if self._gesture in ("nod", "shake"):
+            env = math.sin(math.pi * self._gesture_p)
+            arcs = [(70, env)] + ([(98, env * 0.7)] if self._gesture == "shake" else [])
+            draw_side_arcs(base, fcx, fcy - 30, EYE_SPREAD + 95, arcs, EYE_MID)
 
         # ── eyes ──────────────────────────────────────────────────────────
         lx = fcx + self.left_eye.rel_x
@@ -2207,7 +2467,7 @@ class RobotFace:
             self.mouth.draw(base, mx, my, self._emotion,
                             self._speaking, self._audio_energy)
         if costume:
-            draw_costume_front(base, fcx, fcy, costume[0])
+            draw_costume_front(base, fcx, fcy, costume[0], self)
 
         # ── hands (in front of the face) ──────────────────────────────────
         if HANDS:

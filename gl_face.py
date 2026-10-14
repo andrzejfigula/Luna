@@ -40,8 +40,11 @@ uniform float uFace;          // 0: no face (another style) — only the layer
 
 uniform vec4  uEye0;          // cx, cy, w, h (px, top-left origin)
 uniform vec4  uEye1;
-uniform vec4  uShape0;        // happy, sad, angry, lid (0..1 of the height)
+uniform vec4  uShape0;        // happy "^" arch, sad, angry, lid (0..1 of the height)
 uniform vec4  uShape1;
+uniform vec4  uMorph;         // heart (love), sleep "‿", round (surprised), star pupils
+uniform vec3  uHeartTop;
+uniform vec3  uHeartBottom;
 uniform vec4  uPupil0;        // dx, dy (from the eye centre), radius, shown
 uniform vec4  uPupil1;
 uniform float uRadius;
@@ -98,6 +101,37 @@ float corner(vec2 q, vec2 A, vec2 B, vec2 C) {
     return dot(q - A, n) * sign(dot(C - A, n));
 }
 
+// an arc of a circle, its middle on +y (iq): sc = sin, cos of half its
+// aperture, ra its radius, rb half its thickness
+float sdArc(vec2 p, vec2 sc, float ra, float rb) {
+    p.x = abs(p.x);
+    return ((sc.y * p.x > sc.x * p.y) ? length(p - sc * ra) : abs(length(p) - ra)) - rb;
+}
+
+float dot2(vec2 v) { return dot(v, v); }
+
+// a heart (iq), y up: its tip at (0, 0), its lobes up to y ~1.1, x within ±0.6
+float sdHeart(vec2 p) {
+    p.x = abs(p.x);
+    if (p.y + p.x > 1.0) return sqrt(dot2(p - vec2(0.25, 0.75))) - 0.35355;
+    return sqrt(min(dot2(p - vec2(0.0, 1.0)), dot2(p - 0.5 * max(p.x + p.y, 0.0))))
+           * sign(p.x - p.y);
+}
+
+// a five-pointed star (iq), y up, r its size, rf how deep the notches
+float sdStar5(vec2 p, float r, float rf) {
+    vec2 k1 = vec2(0.809016994375, -0.587785252292);
+    vec2 k2 = vec2(-k1.x, k1.y);
+    p.x = abs(p.x);
+    p -= 2.0 * max(dot(k1, p), 0.0) * k1;
+    p -= 2.0 * max(dot(k2, p), 0.0) * k2;
+    p.x = abs(p.x);
+    p.y -= r;
+    vec2 ba = rf * vec2(-k1.y, k1.x) - vec2(0.0, 1.0);
+    float h = clamp(dot(p, ba) / dot(ba, ba), 0.0, r);
+    return length(p - ba * h) * sign(p.y * ba.x - p.x * ba.y);
+}
+
 float hash(vec2 p) {
     return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
 }
@@ -122,12 +156,28 @@ float glitchShift(float y) {
 // corners / a lowered lid
 float eyeSDF(vec2 q, vec4 e, vec4 sh, float side) {
     vec2 b = e.zw * 0.5;
-    float r = min(uRadius, min(b.x, b.y));
+    float r = mix(min(uRadius, min(b.x, b.y)), min(b.x, b.y), uMorph.z);   // surprised: round
     float d = sdRoundBox(q, b, r);
-    // happy "^": an ellipse taken out of the bottom
-    vec2 R = vec2(1.4 * b.x, 1.3 * b.y);
-    float cut = (length((q - vec2(0.0, 1.14 * b.y)) / R) - 1.0) * R.y;
-    d = mix(d, max(d, -cut), sh.x);
+    // happy: a thick "^" arch, Loona's smiling eye
+    if (sh.x > 0.001) {
+        float ra = 0.78 * b.x;
+        float rb = max(9.0, 0.25 * b.y);
+        float cy = ra + rb - 0.62 * b.y;                       // the circle's centre, below
+        float arch = sdArc(vec2(q.x, cy - q.y), vec2(0.866, 0.5), ra, rb);   // ±60°
+        d = mix(d, arch, sh.x);
+    }
+    // sleeping: a thin closed "‿"
+    if (uMorph.y > 0.001) {
+        float ra = 0.68 * b.x;
+        float lid = sdArc(vec2(q.x, q.y + ra - 0.25 * b.y), vec2(0.82, 0.57), ra, 10.0);
+        d = mix(d, lid, uMorph.y);
+    }
+    // love: the eye becomes a heart
+    if (uMorph.x > 0.001) {
+        float s = min(b.x / 0.64, 2.0 * b.y / 1.12);
+        float heart = sdHeart(vec2(q.x, 0.56 * s - q.y) / s) * s;
+        d = mix(d, heart, uMorph.x);
+    }
     // sad: the outer top corner slopes down
     float sad = corner(q, vec2(side * b.x, -0.1 * b.y), vec2(-0.4 * side * b.x, -b.y),
                        vec2(side * b.x, -b.y));
@@ -143,10 +193,10 @@ float eyeSDF(vec2 q, vec4 e, vec4 sh, float side) {
 }
 
 vec3 eyeColour(vec2 q, vec2 b, float d, vec2 look) {
-    vec3 top = mix(uTop, uTint, uTintAmt);
-    vec3 bot = mix(uBottom, uTint, uTintAmt * 0.85);
+    vec3 top = mix(mix(uTop, uTint, uTintAmt), uHeartTop, uMorph.x);
+    vec3 bot = mix(mix(uBottom, uTint, uTintAmt * 0.85), uHeartBottom, uMorph.x);
     float v = clamp((q.y + b.y) / (2.0 * b.y), 0.0, 1.0);
-    vec3 col = mix(top, bot, smoothstep(0.0, 1.0, v));
+    vec3 col = mix(top, bot, smoothstep(0.0, 1.0, v) * (1.0 - 0.6 * uMorph.y));   // a lid: lit
     float rx = q.x / b.x;
     col *= 1.0 - 0.20 * rx * rx;                         // a dome: darker sides
     col += top * 0.22 * exp(d / 4.0);                    // lit rim along the edge
@@ -169,12 +219,8 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 sh, vec4 pu, float 
     float d = eyeSDF(q, e, sh, side);
     float dd = max(d, 0.0);
     if (uPass < 0.5) {
-        // under a smiling "^" the glow fades by height, not around the cut-out
-        // (it lit a dark hole the shape of the cut)
-        float top = max(sdRoundBox(q - vec2(0.0, -0.45 * b.y), vec2(b.x, 0.55 * b.y),
-                                   min(uRadius, 0.55 * b.y)), 0.0);
-        float dg = mix(dd, top, sh.x);
-        vec3 gc = mix(uGlow, uTint, uTintAmt);
+        float dg = dd;
+        vec3 gc = mix(mix(uGlow, uTint, uTintAmt), uHeartBottom, uMorph.x);
         float breath = 1.0 + 0.07 * sin(uTime);          // she breathes: so does the light
         glow += gc * (0.50 * exp(-dg / 13.0) + 0.22 * breath * exp(-dg / 45.0))
                 * smoothstep(0.0, 8.0, e.w);
@@ -188,16 +234,21 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 sh, vec4 pu, float 
     if (pu.w > 0.01) {
         vec2 pq = q - pu.xy;
         float pr = pu.z;
-        float dp = sdRoundBox(pq, vec2(pr), pr * 0.48);
+        float dp = sdRoundBox(pq, vec2(pr * 0.9, pr), pr * 0.8);     // a soft oval
         float pa = smoothstep(1.5, -1.5, dp) * pu.w;
         float ring = exp(-abs(dp + 2.0) / 3.0) * 0.25 * pu.w;
         c = mix(c, c * 0.55, ring);
         c = mix(c, uPupilCol, pa);
         vec2 s1 = (pq - vec2(-0.36 * pr, -0.36 * pr)) / (0.30 * pr);
         vec2 s2 = (pq - vec2(0.34 * pr, 0.30 * pr)) / (0.13 * pr);
-        float sh1 = smoothstep(1.0, 0.75, length(s1)) * pa;
+        float sh1 = smoothstep(1.0, 0.75, length(s1)) * pa * (1.0 - uMorph.w);
         float sh2 = smoothstep(1.0, 0.70, length(s2)) * pa * 0.8;
         c = mix(c, uShine, max(sh1, sh2));
+        if (uMorph.w > 0.01) {                 // excited: a star shines in each pupil
+            float ds = sdStar5(vec2(pq.x, -pq.y + 0.06 * pr), 0.80 * pr, 0.48);
+            float sa = smoothstep(1.0, -1.0, ds) * pa * uMorph.w;
+            c = mix(c, mix(uShine, uTop, 0.35), sa);
+        }
     }
     return mix(col, c, a);
 }
@@ -399,6 +450,17 @@ def _gl_format(GL, surface):
     if masks == (0xFF, 0xFF00, 0xFF0000, 0xFF000000) and sys.byteorder == "little":
         return GL.GL_RGBA
     return None
+
+
+# a costume's own eyes: uniforms laid over the style's (face_uniforms)
+COSTUME_EYES = {
+    "googly_eyes": {"uTop": (1.0, 1.0, 1.0), "uBottom": (0.80, 0.82, 0.88),
+                    "uGlow": (0.55, 0.60, 0.75), "uShine": (1.0, 1.0, 1.0),
+                    "uPupilCol": (0.03, 0.03, 0.05), "uTintAmt": 0.0},
+    "crazy_robot": {"uTop": (0.70, 1.0, 0.55), "uBottom": (0.10, 0.62, 0.30),
+                    "uGlow": (0.15, 0.85, 0.40), "uShine": (0.92, 1.0, 0.90),
+                    "uPupilCol": (0.02, 0.10, 0.04)},
+}
 
 
 def _rgb(c):
@@ -680,8 +742,19 @@ class GLFace:
         globals). Mirrors Eye._draw_block / Eye._draw_brow / Mouth.draw, with
         the shape changes eased instead of switched."""
         k = self.k
-        for name, on in (("happy", face._happy), ("sad", face._sad), ("angry", face._angry)):
-            k[name] = _lerp(k[name], 1.0 if on else 0.0, 0.18)
+        emo = face._emotion
+        costume = getattr(face, "_costume", None)
+        googly = costume == "googly_eyes"
+        for name, on in (("happy", face._happy), ("sad", face._sad), ("angry", face._angry),
+                         # the moods' own eyes (the face library, 15 Oct): "^ ^" happy,
+                         # hearts in love, a star in each pupil excited, "‿ ‿" asleep,
+                         # round when surprised
+                         ("arc", emo == "happy" and not googly),
+                         ("heart", emo == "love" and not googly),
+                         ("star", emo == "excited" and not googly),
+                         ("sleep", emo == "sleeping"),
+                         ("round", emo == "surprised" or googly)):
+            k[name] = _lerp(k.get(name, 0.0), 1.0 if on else 0.0, 0.18)
         u = {"uTime": (face.breath_phase if hasattr(face, "breath_phase") else 0.0),
              "uTilt": math.radians(face.head_angle),
              "uFace": 1.0 if rf.EYE_MODE == "block" else 0.0,
@@ -691,37 +764,57 @@ class GLFace:
              "uPupilCol": _rgb(rf.PUPIL_DARK), "uBlushCol": _rgb(rf.BLUSH_COL)}
         tint = face._eye_color
         amt = 0.45 if tint else 0.0
-        if face.angry_pulse > 0.01:
+        if face.angry_pulse > 0.01 or k["angry"] > 0.01:     # angry: red, and pulsing
             tint = rf.ANGRY_COL if not tint else tint
-            amt = max(amt, 0.6 * face.angry_pulse)
+            amt = max(amt, 0.45 * k["angry"] + 0.5 * face.angry_pulse)
         u["uTint"] = _rgb(tint or rf.EYE_GRAD_TOP)
-        u["uTintAmt"] = amt
+        u["uTintAmt"] = min(0.85, amt)
+        u["uMorph"] = (k["heart"], k["sleep"], k["round"], k["star"])
+        u["uHeartTop"], u["uHeartBottom"] = (1.0, 0.62, 0.70), (0.90, 0.16, 0.38)
+        look = COSTUME_EYES.get(costume)
+        if look:                                  # a costume's own eyes (googly, robot…)
+            for key, val in look.items():
+                u[key] = val
+        arc_k = k["arc"]
         brows, bend = [], []
         for i, (eye, side) in enumerate(((face.left_eye, -1), (face.right_eye, 1))):
             cx, cy = fcx + eye.rel_x, fcy + eye.rel_y
             w = float(eye.w)
             h_mod = eye.h * (1.0 - eye.squint * 0.4) * (1.0 + eye.widen * 0.2)
             vis_h = max(4.0, h_mod * eye.blink_t)
+            # happy "^" eyes don't blink (they are shut already), asleep: a
+            # "‿" lid the size of a half-open eye
+            vis_h = _lerp(vis_h, h_mod, max(arc_k, k["heart"]) * (eye.blink_t > 0.05))
+            vis_h = _lerp(vis_h, 70.0, k["sleep"])         # (eye.h is ~10 asleep)
             ex, ey = cx + eye.pupil_ox * 0.55, cy + eye.pupil_oy * 0.55
             w = min(w, rf.EYE_SPREAD * 2 - 44)
+            if googly:                            # big round googly eyes
+                w = vis_h = max(vis_h, min(w, eye.h * 1.25)) if eye.blink_t > 0.3 else vis_h
             u[f"uEye{i}"] = (ex, ey, w, vis_h)
             lid = eye.squint * 0.5 if eye.squint > 0.02 else 0.0
-            u[f"uShape{i}"] = (k["happy"] * (eye.blink_t > 0.4), k["sad"], k["angry"], lid)
-            pr = min(w, vis_h) * 0.20 * eye.pupil_scale
+            u[f"uShape{i}"] = (arc_k * (eye.blink_t > 0.05), k["sad"], k["angry"],
+                               lid * (1.0 - arc_k))
+            pr = min(w, vis_h) * 0.24 * eye.pupil_scale * (1.0 + 0.22 * k["star"])
+            if googly:
+                pr = min(w, vis_h) * 0.30
             shown = max(0.0, min(1.0, (eye.blink_t - 0.25) / 0.2)) if vis_h > 30 else 0.0
+            shown *= max(0.0, 1.0 - 1.6 * max(arc_k, k["heart"], k["sleep"]))
             if not rf.BLOCK_PUPIL:
                 shown = 0.0
-            u[f"uPupil{i}"] = (eye.pupil_ox * 0.45,
-                               eye.pupil_oy * 0.45 - vis_h * 0.16 * k["happy"], pr, shown)
+            px, py = eye.pupil_ox * 0.45, eye.pupil_oy * 0.45 - vis_h * 0.16 * k["happy"]
+            if googly:                            # loose pupils, rolling about
+                t = face.breath_phase * 2.3 + i * 1.7
+                px, py = vis_h * 0.2 * math.sin(t), vis_h * 0.2 * abs(math.cos(t * 0.7))
+            u[f"uPupil{i}"] = (px, py, pr, shown)
             # brows: 30 px above the eye's top, 70 % of its width
             bw = w * 0.70
             by = ey - vis_h / 2 - 30
             x0, x1 = ex - bw / 2, ex + bw / 2
             y0 = y1 = by
-            if face._angry:
-                y0, y1 = (by + 10, by - 10) if side < 0 else (by - 10, by + 10)
+            if face._angry:                       # a steep "\ /": the inner ends down
+                y0, y1 = (by - 12, by + 20) if side < 0 else (by + 20, by - 12)
             elif face._sad:
-                drop = eye.droop * 14
+                drop = 8 + eye.droop * 18             # worried: the inner ends up
                 y0, y1 = (by, by - drop) if side < 0 else (by - drop, by)
             elif face._listen:
                 y0 = y1 = by - 10 * eye.widen
@@ -729,7 +822,12 @@ class GLFace:
             bend.append(12.0 * k["happy"])
         u["uBrow0"], u["uBrow1"] = brows
         blink = min(face.left_eye.blink_t, face.right_eye.blink_t)
-        u["uBrowK"] = (bend[0], bend[1], 15.0, max(0.0, min(1.0, (blink - 0.4) / 0.15)))
+        brow_a = max(0.0, min(1.0, (blink - 0.4) / 0.15))
+        # the arches, hearts and sleepy lids say it all by themselves
+        brow_a *= max(0.0, 1.0 - 1.4 * max(arc_k, k["heart"], k["sleep"]))
+        if googly:
+            brow_a = 0.0
+        u["uBrowK"] = (bend[0], bend[1], 15.0, brow_a)
         u.update(self._mouth(face, rf, fcx, fcy))
         bl = max(face.left_blush.alpha, face.right_blush.alpha) / 255.0
         u["uBlush"] = (fcx, fcy, min(1.0, bl * 1.4), 30.0)

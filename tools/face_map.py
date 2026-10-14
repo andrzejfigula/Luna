@@ -66,6 +66,9 @@ def main():
             state.face_override = None
             state.overlay = None
             state.caption = None
+        face.wake_anim = face._WAKE_NONE                # (the ripple after "sleeping")
+        face.sound_waves.clear()                        # (left by "talking")
+        face._think_t = time.time() - 5                 # thinking a while: the hand is up
 
     def grab():
         px = GL.glReadPixels(0, 0, W, H, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE)

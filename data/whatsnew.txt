@@ -1,6 +1,11 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
+== 15 października ==
+- Mam nowe miny: szczęśliwa robię oczy „^ ^”, zakochana — serduszka, podekscytowana — gwiazdki w oczach, zła — czerwone oczy.
+- Gdy słucham, widać fale dźwięku po bokach; gdy dłużej myślę, trzymam palec przy brodzie.
+- Nowe przebrania: „zamień się w wiewiórkę”, „bądź steampunkiem”, „zrób szalonego robota”, „zrób imprezę”, „zrób śmieszne oczy”.
+
 == 14 października (w nocy) ==
 - Na liście na ekranie dotknij rzeczy dwa razy — skreślam ją („przywróć listę” ją oddaje).
 - Krzyżyk w rogu kończy grę.

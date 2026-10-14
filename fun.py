@@ -475,12 +475,24 @@ _COSTUME = re.compile(r"\b(?:pokaż|pokaz|pokazać|pokazac|zamień\s+się\s+w|za
                       r"przebrac\s+sie\s+za|zrób\s+minę|zrob\s+mine|zrobić\s+minę|zrobic\s+mine|"
                       r"narysuj|narysować|narysowac)"
                       r"\s+(?:mi\s+)?(?:jak\s+)?(?:(?:jakiegoś|jakiegos|małego|malego|małym|malym|"
-                      r"słodkiego|slodkiego)\s+){0,2}(\w+)((?:\W+\w+){0,3})")
+                      r"słodkiego|slodkiego|szalonego|szalonym|zwariowanego|zwariowanym|rudego|rudą|ruda)\s+){0,2}"
+                      r"(\w+)((?:\W+\w+){0,3})")
 _COSTUME_KIND = (("cat", r"kot|kici|kotk"), ("dog", r"pies|psa|psem|piesk|szczeni"),
-                 ("bunny", r"zając|zajac|zajączk|zajaczk|królik|krolik|króliczk|kroliczk"))
+                 ("bunny", r"zając|zajac|zajączk|zajaczk|królik|krolik|króliczk|kroliczk"),
+                 # the face library (15 Oct)
+                 ("squirrel", r"wiewiór|wiewior"), ("steampunk", r"steampunk|stimpank"),
+                 ("crazy_robot", r"robot"), ("party", r"imprez|party"))
+# "Zrób śmieszne oczy" — googly eyes
+_GOOGLY = re.compile(r"\b(?:zrób|zrob|zrobić|zrobic|pokaż|pokaz|pokazać|pokazac)\s+(?:mi\s+)?"
+                     r"(?:śmieszne|smieszne|wyłupiaste|wylupiaste|zwariowane|szalone)\s+oczy\b")
 _COSTUME_SAY = {"cat": "Miau! Zobacz — jestem kotkiem!",
                 "dog": "Hau, hau! Teraz jestem pieskiem!",
-                "bunny": "Kic, kic! Zobacz, jaki ze mnie zajączek!"}
+                "bunny": "Kic, kic! Zobacz, jaki ze mnie zajączek!",
+                "squirrel": "Hop, hop, po gałęziach! Jestem wiewiórką!",
+                "steampunk": "Dzień dobry! Gogle, cylinder — jestem parową wynalazczynią!",
+                "crazy_robot": "Bip-bup-bip! Tryb szalonego robota włączony!",
+                "party": "Impreza! Czapeczka już jest, konfetti leci!",
+                "googly_eyes": "Patrz, jakie mam śmieszne oczy!"}
 _COSTUME_OFF = re.compile(r"\b(?:zdejmij\s+uszy|koniec\s+przebrania|bądź\s+sobą|badz\s+soba)\b")
 COSTUME_SECS = 25
 _COSTUME_EN = re.compile(r"^(?:luna,?\s+)?(?:show\s+me\s+a|be\s+a|turn\s+into\s+a|"
@@ -504,6 +516,14 @@ def costume(low, speak):
         print(f"[fun] costume: {kind}", flush=True)
         speak({"cat": "Meow! Look — I'm a kitty!", "dog": "Woof, woof! Now I'm a puppy!",
                "bunny": "Hop, hop! Look, I'm a bunny!"}[kind])
+        return True
+    if _GOOGLY.search(low):
+        kind = "googly_eyes"
+        with state.lock:
+            state.costume = (kind, time.time() + COSTUME_SECS)
+        _mood("happy")
+        print(f"[fun] costume: {kind}", flush=True)
+        speak(_COSTUME_SAY[kind])
         return True
     m = _COSTUME.search(low)
     if not m or len(re.findall(r"\w+", m.group(2))) > 1 and not re.search(
