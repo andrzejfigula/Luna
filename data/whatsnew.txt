@@ -1,6 +1,16 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
+== 14 października ==
+- „Włącz kominek” albo „szum lasu” — trzaskający ogień albo las z ptakami do zasypiania.
+- „Pomachaj”, „kiwnij głową”, „pokaż serduszko” — robię to od razu.
+- „Zamiaucz”, „Jak robi krowa?” — umiem odgłosy zwierząt.
+- „Pokaż pogodę” — cały tydzień na ekranie.
+- „Odliczaj do startu rakiety”, „Ile liter ma słowo kot?” — dla Mai.
+- „Usuń ostatnie zdjęcie” (i „przywróć zdjęcie”), „Ile masz zdjęć?”.
+- „Zamknij” albo „wróć do buzi” — chowam zegar, listę czy zdjęcie.
+- „Budzik na 8 wieczorem”, „przypomnij mi o 7 rano” — dobrze rozumiem rano i wieczór.
+
 == 13 października (w nocy) ==
 - Mam nową, ładniejszą buzię: gładkie, błyszczące oczy jak ze szkła, które świecą i „oddychają”.
 - „Zrób kotka” — od razu jestem kotkiem.
