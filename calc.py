@@ -854,6 +854,38 @@ def _month_of(word):
     return None
 
 
+# "Jutro piątek." / "Nieprawda, jutro jest czwartek." / "Dziś jest środa?" — a
+# day said as a fact, checked (14 Oct 18:39: "Jutro piątek." → the model: "Tak,
+# jutro jest piątek, 16 października" — on a Wednesday)
+_DAY_CLAIM = re.compile(r"^(?:luna,?\s+)?(?:(?:nie|nieprawda|no|tak|a|ale|przecież|przeciez|czyli)\W+)*"
+                        r"(dziś|dzis|dzisiaj|jutro|pojutrze|wczoraj)\s+(?:jest|będzie|bedzie|był|"
+                        r"byl|była|byla|mamy|miałeś|wypada)?\s*(?:chyba\s+)?"
+                        r"(poniedziałek|poniedzialek|wtorek|środa|sroda|środę|srode|czwartek|piątek|"
+                        r"piatek|sobota|sobotę|sobote|niedziela|niedzielę|niedziele)"
+                        r"(?:,?\s+(?:prawda|tak|nie|chyba))?\W*$", re.I)
+_CLAIM_WD = {"poniedziałek": 0, "poniedzialek": 0, "wtorek": 1, "środa": 2, "sroda": 2,
+             "środę": 2, "srode": 2, "czwartek": 3, "piątek": 4, "piatek": 4, "sobota": 5,
+             "sobotę": 5, "sobote": 5, "niedziela": 6, "niedzielę": 6, "niedziele": 6}
+
+
+def day_claim(text, today=None):
+    """"Jutro piątek." → "Nie, jutro jest czwartek, 15 października." (or "Tak, …")."""
+    m = _DAY_CLAIM.match((text or "").strip())
+    if not m:
+        return None
+    today = today or _today()
+    when = m.group(1).lower()
+    k = {"wczoraj": -1, "jutro": 1, "pojutrze": 2}.get(when, 0)
+    d = today + timedelta(k)
+    verb = "był" if k < 0 else "będzie" if k > 1 else "jest"
+    if k < 0 and d.weekday() in (2, 5, 6):
+        verb = "była"                      # (środa, sobota, niedziela)
+    word = {"dzis": "dziś", "dzisiaj": "dziś"}.get(when, when)
+    yes = _CLAIM_WD[m.group(2).lower()] == d.weekday()
+    return (f"{'Tak' if yes else 'Nie'}, {word} {verb} {_WEEKDAY_NOM[d.weekday()]}, "
+            f"{d.day} {_MONTHS_GEN[d.month - 1]}.")
+
+
 def calendar_answer(text, today=None):
     """"Ile dni ma luty?", "Czy 2028 jest przestępny?", "Który mamy tydzień?",
     "Który dziś dzień roku?", "Jaki dzień będzie za tydzień?" → the answer, or
@@ -929,4 +961,4 @@ def answer(text):
                  r"\1ile dni do ", text.strip(), flags=re.I)
     return (arithmetic(text) or days_until(alt) or time_until(text) or weekday_of(text)
             or holiday_when(text) or days_since(text) or convert(text)
-            or clock_change(text) or calendar_answer(text))
+            or clock_change(text) or calendar_answer(text) or day_claim(text))

@@ -47,7 +47,7 @@ _GALLERY = ("pokaż zdjęcia", "pokaż ostatnie zdjęcie", "pokaż moje zdjęcia
             "pokaż galerię", "pokaz galerie", "pokaż galerie", "otwórz galerię",
             "otworz galerie", "galeria zdjęć", "pokaż swoje zdjęcia")
 # the people she knows, with their faces (gallery.py; the bin forgets one)
-_PEOPLE = re.compile(r"^(?:luna,?\s+)?(?:kogo\s+(?:już\s+|juz\s+|wszystkiego\s+)?(?:znasz|pamiętasz|"
+_PEOPLE = re.compile(r"^(?:luna,?\s+)?(?:(?:pokaż\s+|pokaz\s+)(?:mi\s+|nam\s+)?)?(?:kogo\s+(?:już\s+|juz\s+|wszystkiego\s+)?(?:znasz|pamiętasz|"
                      r"pamietasz|rozpoznajesz)|(?:pokaż|pokaz)\s+(?:mi\s+)?(?:wszystkie\s+)?"
                      r"(?:osoby|ludzi|twarze|znajomych|wszystkich)(?:,?\s+(?:które|ktore|których|"
                      r"ktorych|co|kogo)\s+(?:znasz|pamiętasz|pamietasz|rozpoznajesz))?|"

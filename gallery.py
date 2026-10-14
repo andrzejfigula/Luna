@@ -273,6 +273,16 @@ _DELETE = re.compile(r"^(?:luna,?\s+)?(?:(?:usuń|usun|skasuj|wyrzuć|wyrzuc|wyk
                      r"(?:\s+(?:osobę|osobe|osoby|twarz|człowieka|czlowieka))?)\W*$", re.I)
 
 
+# "Tylko te?", "To wszystkie?", "Ile ich jest?" (14 Oct: "Tylko te?" with her
+# 3 photos on → the model: "Nie, nie tylko te — mogę pokazać inne")
+_HOW_MANY = re.compile(r"^(?:luna,?\s+)?(?:a\s+|i\s+)?(?:(?:tylko|to)\s+(?:te|tyle|tyle\s+ich|"
+                       r"wszystk\w+|wszystko|jedno|jeden)|ile\s+(?:ich|jest|masz)(?:\s+\w+)?|"
+                       r"więcej\s+nie\s+ma|wiecej\s+nie\s+ma|nie\s+masz\s+więcej|nie\s+masz\s+wiecej)"
+                       r"(?:\s+(?:zdjęć|zdjec|rysunków|rysunkow|osób|osob))?\W*$", re.I)
+_KIND_N = {"photo": ("zdjęcie", "zdjęcia", "zdjęć"), "drawing": ("rysunek", "rysunki", "rysunków"),
+           "person": ("osobę", "osoby", "osób")}
+
+
 def voice(text, speak):
     """"Następne", "poprzednie", "usuń to" with the gallery on — True if done."""
     if not page_open() or not current():
@@ -281,6 +291,16 @@ def voice(text, speak):
         if state.overlay[0] != "gallery":
             return False
     t = (text or "").strip()
+    if _HOW_MANY.match(t):
+        import calc
+        with state.lock:
+            g = state.overlay[2]
+            n, kind = len(g["items"]), (g["items"][0].get("kind") if g["items"] else None)
+        forms = _KIND_N.get(kind, ("obrazek", "obrazki", "obrazków"))
+        said = f"{'znam' if kind == 'person' else 'mam'} {n} {calc._plural(n, *forms)}."
+        speak(f"Tak, {said}" if re.match(r"(?:luna,?\s+)?(?:a\s+|i\s+)?(?:tylko|to)\b", t, re.I)
+              else said.capitalize())
+        return True
     if _DELETE.match(t):
         said = delete_current()
         speak(said or "Tego nie mogę usunąć.")

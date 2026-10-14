@@ -1161,8 +1161,32 @@ _CLOSABLE = ("clock", "clockface", "list", "gallery", "photo", "card", "memo", "
              "mirror", "dice", "coin", "lamp", "weather")
 
 
+# "Wyłącz ekran gry", "zamknij galerię", "schowaj pogodę" (14 Oct: "Wyłącz
+# ekran gry" went to the model, which said "wyłączam" and left it on)
+_CLOSE_NAMED = re.compile(r"^(?:luna,?\s+)?(?:dobra,?\s+|ok,?\s+|okej,?\s+|już,?\s+|juz,?\s+)?"
+                          r"(?:wyłącz|wylacz|zamknij|schowaj|ukryj|zakończ|zakoncz)\s+(?:ten\s+|tę\s+|te\s+)?"
+                          r"(?:ekran\s+gry|grę|gre|galerię|galerie|pogodę|pogode|prognozę|prognoze|"
+                          r"zegar|zdjęcia|zdjecia|zdjęcie|zdjecie|rysunki|rysunek|listę|liste|"
+                          r"lusterko|lustro|planszę|plansze)(?:\s+(?:proszę|prosze|dzięki|dzieki))?\W*$", re.I)
+
+
 def close_page(text, speak):
     """A page on the screen (clock, list, photos, a card…) closed by voice."""
+    if _CLOSE_NAMED.match(text.strip()):
+        with state.lock:
+            ov = state.overlay
+        if ov and time.time() < ov[1] and ov[0] in ("ttt", "memo"):
+            import importlib                    # a game's board: the game ends
+            importlib.import_module("tictac" if ov[0] == "ttt" else "memo").stop()
+            print(f"[cmd] closed the {ov[0]} game by voice", flush=True)
+            speak("Dobrze, kończymy grę.")
+            return True
+        if ov and time.time() < ov[1] and ov[0] in _CLOSABLE:
+            with state.lock:
+                state.overlay = None
+            print(f"[cmd] closed the {ov[0]} page by voice", flush=True)
+            speak("Dobrze.")
+            return True
     with state.lock:
         ov = state.overlay
         if not ov or ov[0] not in _CLOSABLE or not _CLOSE.match(text.strip()):
@@ -1178,6 +1202,26 @@ def close_page(text, speak):
 _WAKE_UP = re.compile(r"^(?:luna,?\s+|luno,?\s+)?(?:obudź\s+się|obudz\s+sie|wstawaj|pobudka|"
                       r"nie\s+śpij|nie\s+spij|zbudź\s+się|zbudz\s+sie|wstań|wstan)"
                       r"(?:,?\s+(?:luna|luno|już|juz|proszę|prosze|śpiochu|spiochu))*\W*$", re.I)
+
+
+def undoubled(text):
+    """"Pokaż jeszcze raz rysunki, Luna, pokaż jeszcze raz rysunki." → once:
+    the transcript sometimes holds the request twice (14 Oct 18:13), and
+    then nothing of hers matched it and it went to the model."""
+    words = re.findall(r"\w+", text.lower())
+    words = [w for w in words if w not in ("luna", "luno")]
+    n = len(words)
+    if n < 4 or n % 2 or words[:n // 2] != words[n // 2:]:
+        return text
+    half = n // 2
+    seen = 0
+    for m in re.finditer(r"\w+", text):         # cut the text after the first half
+        if m.group(0).lower() in ("luna", "luno"):
+            continue
+        seen += 1
+        if seen == half:
+            return text[:m.end()].strip() + "."
+    return text
 
 
 def handle(text, speak, play_sound, _polite=True, _split=True):
@@ -1686,6 +1730,7 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
     import timers
     import weather
     said = (timers.reminders_answer(text)          # "jakie mam przypomnienia / budziki?"
+            or timers.wake_answer(text)            # "o której jutro wstajemy?"
             or timers.cancel_answer(text)          # "anuluj minutnik"
             or weather.sun_answer(text))           # "o której zachód słońca?"
     if said:

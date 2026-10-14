@@ -884,6 +884,33 @@ _WD_LOC = ["w poniedziałek", "we wtorek", "w środę", "w czwartek", "w piątek
            "w niedzielę"]
 
 
+# "O której jutro wstajemy?" (14 Oct: to the model, which only guessed)
+_WAKE_Q = re.compile(r"^(?:luna,?\s+)?(?:a\s+|to\s+)?(?:o\s+(?:której|ktorej)|kiedy|na\s+(?:którą|ktora))\s+"
+                     r"(?:jutro\s+)?(?:wstajemy|wstaję|wstaje|(?:mam|musz[eę])\s+(?:jutro\s+)?(?:wstać|wstac)|"
+                     r"się\s+budzimy|sie\s+budzimy|mnie\s+budzisz|mnie\s+obudzisz|"
+                     r"(?:za)?dzwoni\s+(?:mi\s+)?budzik|jest\s+budzik)(?:\s+jutro)?\W*$", re.I)
+
+
+def wake_answer(text, now=None):
+    """"O której jutro wstajemy?" → "Budzik jutro o szóstej czterdzieści." —
+    from the alarms; None if it isn't that question."""
+    import clock
+    if not _WAKE_Q.match((text or "").strip()):
+        return None
+    now = now or time.time()
+    lt = datetime.fromtimestamp(now)
+    # after midnight, "jutro" is still the coming morning
+    day = lt.date() if lt.hour < 5 else lt.date() + timedelta(days=1)
+    with _lock:
+        due = sorted(t["due"] for t in _timers if t["kind"] == "alarm" and t["due"] > now)
+    hit = next((d for d in due if datetime.fromtimestamp(d).date() == day), None)
+    if hit is None:
+        return ("Na jutro nie masz budzika."
+                + (" Powiedz na przykład: budzik na siódmą." if not due else ""))
+    d = datetime.fromtimestamp(hit)
+    return f"Budzik jutro o {clock.hour_locative(d.hour, d.minute)}."
+
+
 def reminders_answer(text, now=None):
     """"Jakie mam przypomnienia?" → every reminder, labelled timer and alarm,
     read from the list itself (7 Oct probe: the model left out "wyjąć pranie

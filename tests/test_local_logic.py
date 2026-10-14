@@ -5365,5 +5365,87 @@ class GalleryDeletePeopleTest(unittest.TestCase):
         self.assertTrue(gallery.page_open())
 
 
+class Oct14NightTest(unittest.TestCase):
+    """14 Oct evening log: a wrong day agreed to, "pokaż kogo znasz" as a
+    web photo, "tylko te?" over the gallery."""
+
+    def setUp(self):
+        self.said = []
+
+    def tearDown(self):
+        with state.lock:
+            state.overlay = None
+
+    def test_day_claims_checked(self):
+        import calc
+        wed = datetime.date(2026, 10, 14)
+        self.assertEqual(calc.day_claim("Jutro piątek.", wed),
+                         "Nie, jutro jest czwartek, 15 października.")
+        self.assertEqual(calc.day_claim("Nieprawda, jutro jest czwartek.", wed),
+                         "Tak, jutro jest czwartek, 15 października.")
+        self.assertEqual(calc.day_claim("Dziś jest środa?", wed),
+                         "Tak, dziś jest środa, 14 października.")
+        self.assertEqual(calc.day_claim("wczoraj był poniedziałek", wed),
+                         "Nie, wczoraj był wtorek, 13 października.")
+        self.assertEqual(calc.day_claim("Pojutrze piątek, prawda?", wed),
+                         "Tak, pojutrze będzie piątek, 16 października.")
+        for t in ("Jutro piątek idziemy do kina", "W piątek jutro?", "Jutro"):
+            self.assertIsNone(calc.day_claim(t, wed), t)
+
+    def test_show_who_you_know(self):
+        for t in ("luna pokaż kogo znasz", "pokaż mi kogo znasz", "kogo znasz"):
+            self.assertTrue(screens._PEOPLE.match(t), t)
+
+    def test_wake_time(self):
+        now = datetime.datetime(2026, 10, 14, 21, 0).timestamp()
+        timers._timers.clear()
+        self.assertEqual(timers.wake_answer("O której jutro wstajemy?", now),
+                         "Na jutro nie masz budzika. Powiedz na przykład: budzik na siódmą.")
+        due = datetime.datetime(2026, 10, 15, 6, 40).timestamp()
+        timers._timers.append({"kind": "alarm", "due": due, "repeat": "weekdays", "label": ""})
+        try:
+            self.assertTrue(timers.wake_answer("o której mam jutro wstać", now))
+            got = timers.wake_answer("O której jutro wstajemy?", now)
+            self.assertTrue(got.startswith("Budzik jutro o szóstej"), got)
+            self.assertTrue(timers.wake_answer("Kiedy dzwoni budzik?", now))
+            self.assertIsNone(timers.wake_answer("O której jutro wstajemy na pociąg do Krakowa?", now))
+        finally:
+            timers._timers.clear()
+
+    def test_close_by_name(self):
+        said = []
+        with state.lock:
+            state.overlay = ("weather", time.time() + 30, {})
+        self.assertTrue(commands.close_page("Zamknij pogodę", said.append))
+        with state.lock:
+            self.assertIsNone(state.overlay)
+        self.assertFalse(commands.close_page("Wyłącz ekran gry", said.append))   # nothing on
+        import tictac
+        with mock.patch.object(tictac, "stop", lambda: said.append("<stop>")):
+            with state.lock:
+                state.overlay = ("ttt", time.time() + 30, {})
+            self.assertTrue(commands.close_page("Wyłącz ekran gry", said.append))
+        self.assertEqual(said[-2:], ["<stop>", "Dobrze, kończymy grę."])
+
+    def test_doubled_transcript(self):
+        self.assertEqual(commands.undoubled("Pokaż jeszcze raz rysunki, Luna, pokaż jeszcze raz rysunki."),
+                         "Pokaż jeszcze raz rysunki.")
+        self.assertEqual(commands.undoubled("Pokaż jeszcze raz rysunki pokaż jeszcze raz rysunki."),
+                         "Pokaż jeszcze raz rysunki.")
+        for t in ("Jeszcze jeszcze", "Pa pa pa pa", "Mama ma kota, mama ma psa."):
+            self.assertEqual(commands.undoubled(t), t if t != "Pa pa pa pa" else "Pa pa.")
+
+    def test_only_these(self):
+        import gallery
+        gallery.show([{"path": f"/x/{k}.jpg", "kind": "photo"} for k in range(3)], auto=False)
+        for t, want in (("Tylko te?", "Tak, mam 3 zdjęcia."), ("Ile ich jest?", "Mam 3 zdjęcia."),
+                        ("To wszystkie?", "Tak, mam 3 zdjęcia.")):
+            self.assertTrue(gallery.voice(t, self.said.append), t)
+            self.assertEqual(self.said[-1], want)
+        gallery.show([{"path": None, "kind": "person", "name": "Maja"}], auto=False)
+        self.assertTrue(gallery.voice("tylko tyle?", self.said.append))
+        self.assertEqual(self.said[-1], "Tak, znam 1 osobę.")
+
+
 if __name__ == "__main__":
     unittest.main()

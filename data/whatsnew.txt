@@ -1,6 +1,13 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
+== 14 października (w nocy) ==
+- „O której jutro wstajemy?” — mówię, na którą masz budzik.
+- Gdy ktoś powie „jutro piątek”, sprawdzam w kalendarzu i mówię, czy to prawda.
+- Gry przy włączonym radiu: słucham odpowiedzi bez „Luna”.
+- „Wyłącz ekran gry”, „zamknij pogodę”, „zamknij galerię” — zamykam.
+- „Tylko te?” przy galerii — mówię, ile mam zdjęć.
+
 == 14 października (późnym wieczorem) ==
 - „Kogo znasz?” — pokazuję osoby, które znam, z ich twarzami. „Zapomnij tę osobę” (albo kosz na ekranie) — zapominam; „przywróć osobę” — pamiętam znowu.
 - W galerii jest kosz: „usuń to zdjęcie”, „usuń ten rysunek”; „przywróć zdjęcie” albo „przywróć rysunek” je oddaje.
