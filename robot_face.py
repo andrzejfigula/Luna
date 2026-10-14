@@ -2635,37 +2635,9 @@ class RobotFace:
             pygame.draw.circle(scr, IRIS_SHINE, c, r, 3)
             txt = _get_font(40).render(word, True, EYE_INNER)
             scr.blit(txt, txt.get_rect(center=(WIDTH // 2, HEIGHT - 45)))
-        elif kind == "list":
-            scr.fill(BG)
+        elif kind == "list":                            # lists, plan, reminders, status
             heading, rows = data
-            title = _get_font(44).render(heading, True, EYE_MID)
-            scr.blit(title, title.get_rect(center=(WIDTH // 2, 48)))
-            font = _get_font(34)
-            pages = max(1, -(-len(rows) // 7))       # more than 7: a page every 6 s
-            page = int(time.time() // 6) % pages
-            # the values start after the longest label ("API wczoraj" ran into its
-            # value); a smaller font when the values wouldn't fit otherwise
-            for fs in (34, 30, 27):
-                font = _get_font(fs)
-                label_w = max((font.size(w)[0] for w, _ in rows if w != "•"), default=0)
-                value_x = max(250, min(70 + label_w + 24, WIDTH // 2))
-                if all(font.size(v)[0] <= WIDTH - (110 if w == "•" else value_x) - 30
-                       for w, v in rows):
-                    break
-            for i, (when, what) in enumerate(rows[page * 7:page * 7 + 7]):
-                y = 110 + i * 50
-                x = 110 if when == "•" else value_x
-                if font.size(what)[0] > WIDTH - x - 30:   # cut to the screen, not to 34
-                    while what and font.size(what + "…")[0] > WIDTH - x - 30:
-                        what = what[:-1]
-                    what += "…"
-                t_img = font.render(when, True, STAR_COL)
-                w_img = font.render(what, True, EYE_INNER)
-                scr.blit(t_img, (70, y))
-                scr.blit(w_img, (x, y))
-            if pages > 1:
-                p_img = _get_font(26).render(f"{page + 1}/{pages}", True, EYE_MID)
-                scr.blit(p_img, p_img.get_rect(bottomright=(WIDTH - 24, HEIGHT - 16)))
+            ui_screens.draw_list(scr, heading, rows, time.time(), WIDTH, HEIGHT)
         elif kind == "memo":
             # the memory game (memo.py): 4 × 3 cards
             scr.fill(BG)

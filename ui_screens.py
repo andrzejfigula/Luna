@@ -695,3 +695,102 @@ def _tri(up, size=14):
 
 def _mix(a, b, k):
     return tuple(int(x + (y - x) * k) for x, y in zip(a, b))
+
+
+# ── a list: the shopping list, "plan na dziś", reminders, status ────────────
+
+LIST_PAGE = 7                # rows on a page; more: a page every LIST_TURN s
+LIST_TURN = 6.0
+_LABEL = (255, 206, 120)
+
+
+def _list_icon(heading, size=34):
+    """A little picture for the heading: a cart, a calendar, a bell, a chip."""
+    low = heading.lower()
+    kind = ("cart" if "zakup" in low else "plan" if "plan" in low else
+            "bell" if "przypom" in low or "minut" in low or "budzik" in low else
+            "chip" if "status" in low else "list")
+    key = ("licon", kind, size)
+    s = _cache.get(key)
+    if s is not None:
+        return s
+    S = size * SS
+    big = pygame.Surface((S, S), pygame.SRCALPHA)
+    u, w = S / 34, int(S / 34 * 3)
+    if kind == "cart":
+        pts = [(3 * u, 6 * u), (8 * u, 6 * u), (12 * u, 22 * u), (27 * u, 22 * u), (30 * u, 11 * u),
+               (10 * u, 11 * u)]
+        pygame.draw.lines(big, _LABEL, False, pts, w)
+        for x in (14, 25):
+            pygame.draw.circle(big, _LABEL, (int(x * u), int(28 * u)), int(2.8 * u))
+    elif kind == "plan":
+        pygame.draw.rect(big, _LABEL, pygame.Rect(4 * u, 7 * u, 26 * u, 24 * u), w,
+                         border_radius=int(4 * u))
+        pygame.draw.rect(big, _LABEL, pygame.Rect(4 * u, 7 * u, 26 * u, 7 * u),
+                         border_top_left_radius=int(4 * u), border_top_right_radius=int(4 * u))
+        for x in (11, 23):
+            _line(big, _LABEL, (x * u, 3 * u), (x * u, 9 * u), w)
+        for x, y in ((11, 20), (17, 20), (23, 20), (11, 26), (17, 26)):
+            pygame.draw.circle(big, _LABEL, (int(x * u), int(y * u)), int(1.8 * u))
+    elif kind == "bell":
+        pygame.draw.ellipse(big, _LABEL, pygame.Rect(8 * u, 5 * u, 18 * u, 22 * u))
+        pygame.draw.rect(big, _LABEL, pygame.Rect(5 * u, 21 * u, 24 * u, 5 * u),
+                         border_radius=int(2 * u))
+        pygame.draw.circle(big, _LABEL, (int(17 * u), int(29 * u)), int(3 * u))
+    elif kind == "chip":
+        pygame.draw.rect(big, _LABEL, pygame.Rect(8 * u, 8 * u, 18 * u, 18 * u), w,
+                         border_radius=int(3 * u))
+        for k in (12, 17, 22):
+            for a, b in (((k, 3), (k, 8)), ((k, 26), (k, 31)), ((3, k), (8, k)), ((26, k), (31, k))):
+                _line(big, _LABEL, (a[0] * u, a[1] * u), (b[0] * u, b[1] * u), int(2 * u))
+    else:
+        for y in (9, 17, 25):
+            pygame.draw.circle(big, _LABEL, (int(6 * u), int(y * u)), int(2.5 * u))
+            _line(big, _LABEL, (12 * u, y * u), (30 * u, y * u), w)
+    s = _cache[key] = _down(big, size, size)
+    return s
+
+
+def draw_list(scr, heading, rows, now, W, H):
+    """The title with its picture, then the rows on a soft panel — a label
+    (a time, "lista", "•") and its value; more than LIST_PAGE: pages."""
+    scr.blit(vgrad(W, H, (20, 22, 40), (44, 36, 74)), (0, 0))
+    scr.blit(_list_icon(heading), (24, 21))
+    ts = shrink(heading, 32, W - 160, "ExtraBold", 22)
+    title = text(fit(heading, ts, W - 160, "ExtraBold"), ts, WHITE, "ExtraBold")
+    scr.blit(title, (68, 38 - title.get_height() // 2))
+    pages = max(1, -(-len(rows) // LIST_PAGE))
+    page = int(now // LIST_TURN) % pages
+    shown = rows[page * LIST_PAGE:page * LIST_PAGE + LIST_PAGE]
+    top, px, pw = 74, 18, W - 36
+    rh = 52
+    ph = max(rh, len(shown) * rh) + 16
+    scr.blit(rrect(pw, ph, 20, (255, 255, 255, 22)), (px, top))
+    bullets = all(w == "•" for w, _ in rows)
+    # the values start after the longest label; a smaller size when they wouldn't fit
+    for fs in (28, 25, 22):
+        f = font(fs, "Bold")
+        label_w = 0 if bullets else max((f.size(w)[0] for w, _ in rows if w != "•"), default=0)
+        value_x = px + (64 if bullets else min(26 + label_w + 26, W // 2))
+        if all(font(fs, "SemiBold").size(v)[0] <= px + pw - 24 - value_x for _, v in rows):
+            break
+    sep = rrect(pw - 40, 1, 0, (255, 255, 255, 30))
+    for k, (label, value) in enumerate(shown):
+        y = top + 8 + k * rh
+        mid = y + rh // 2
+        if k:
+            scr.blit(sep, (px + 20, y))
+        if label == "•":
+            scr.blit(rrect(12, 12, 6, _LABEL + (255,)), (px + 30, mid - 6))
+        else:
+            lab = text(label, fs, _LABEL, "Bold")
+            scr.blit(lab, (px + 26, mid - lab.get_height() // 2))
+        val = text(fit(value, fs, px + pw - 24 - value_x, "SemiBold"), fs, WHITE, "SemiBold")
+        scr.blit(val, (value_x, mid - val.get_height() // 2))
+    if pages > 1:                                  # dots for the pages
+        gap, y = 18, H - 16
+        x0 = W // 2 - (pages - 1) * gap // 2
+        for k in range(pages):
+            on = k == page
+            d = rrect(20 if on else 8, 8, 4, (255, 255, 255, 235 if on else 90))
+            scr.blit(d, d.get_rect(center=(x0 + k * gap, y)))

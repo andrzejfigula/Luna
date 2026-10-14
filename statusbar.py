@@ -27,6 +27,7 @@ HEIGHT = 30
 PAD = 12               # from the screen edges
 GAP = 16               # between items
 ICON = 20              # an icon's box
+SKY = 26               # the weather's icon
 _SLOT = 26             # the listening / thinking / speaking slot, always kept
 
 _DAYS = ("pon.", "wt.", "śr.", "czw.", "pt.", "sob.", "niedz.")
@@ -143,13 +144,6 @@ def sky(now=None):
     return kind, f"{temp}°", umbrella
 
 
-def _cloud(s, col, dx=0, dy=0, k=1.0):
-    for cx, cy, r in ((6, 12, 4.5), (11, 9, 5.5), (15, 12, 4)):
-        pygame.draw.circle(s, col, (int(dx + cx * k), int(dy + cy * k)), max(2, int(r * k)))
-    pygame.draw.rect(s, col, pygame.Rect(int(dx + 6 * k), int(dy + 11 * k),
-                                         int(10 * k), int(5 * k)))
-
-
 def _umbrella_icon():
     """Rain is coming (in the next few hours): a small umbrella."""
     s = pygame.Surface((ICON, ICON), pygame.SRCALPHA)
@@ -162,39 +156,11 @@ def _umbrella_icon():
 
 
 def _sky_icon(kind):
-    """The weather in one little picture, ICON × ICON."""
-    s = pygame.Surface((ICON, ICON), pygame.SRCALPHA)
-    grey = (*TEXT, 225)
-    if kind.startswith(("clear", "partly")):
-        if kind.endswith("_day"):                         # a sun with rays
-            cx, cy, r = (10, 10, 4) if kind.startswith("clear") else (7, 7, 3)
-            pygame.draw.circle(s, (*SUN, 255), (cx, cy), r)
-            for i in range(8):
-                a = math.radians(i * 45)
-                pygame.draw.line(s, (*SUN, 255),
-                                 (cx + (r + 2) * math.cos(a), cy + (r + 2) * math.sin(a)),
-                                 (cx + (r + 4) * math.cos(a), cy + (r + 4) * math.sin(a)), 1)
-        else:                                             # a crescent moon
-            cx, cy, r = (10, 10, 6) if kind.startswith("clear") else (7, 7, 5)
-            pygame.draw.circle(s, (*SUN, 235), (cx, cy), r)
-            pygame.draw.circle(s, (0, 0, 0, 0), (cx + r // 2 + 1, cy - r // 2), r)
-        if kind.startswith("partly"):
-            _cloud(s, grey, 3, 5, 0.85)
-    elif kind == "fog":                                   # three soft lines
-        for i, y in enumerate((6, 10, 14)):
-            pygame.draw.line(s, (*DIM, 235), (3 + 2 * (i % 2), y), (17 - 2 * (i % 2), y), 2)
-    else:
-        _cloud(s, grey, 0, -2)
-        if kind == "rain":                                # drops under it
-            for x in (6, 10, 14):
-                pygame.draw.line(s, (*DROP, 255), (x, 15), (x - 1, 18), 2)
-        elif kind == "snow":
-            for x in (6, 10, 14):
-                pygame.draw.circle(s, (255, 255, 255, 255), (x, 17), 1)
-        elif kind == "storm":                             # a little bolt
-            pygame.draw.polygon(s, (*SUN, 255), ((11, 13), (8, 17), (10, 17), (9, 20),
-                                                 (13, 15), (11, 15)))
-    return s
+    """The weather in one little picture — the same soft icons as "pokaż
+    pogodę" (ui_screens), a little bigger than the other icons."""
+    import ui_screens
+    base, _, part = kind.partition("_")
+    return ui_screens.weather_icon(base, SKY, part != "night")
 
 
 # ── icons: drawn with pygame shapes (the fonts have no emoji) ────────────────
@@ -310,7 +276,7 @@ class StatusBar:
         surf = pygame.Surface((w, HEIGHT), pygame.SRCALPHA)
         if umb:
             surf.blit(umb, (0, (HEIGHT - ICON) // 2))
-        surf.blit(ic, (lead, (HEIGHT - ICON) // 2))
+        surf.blit(ic, (lead, (HEIGHT - ic.get_height()) // 2))
         surf.blit(deg, (lead + ic.get_width() + 5, (HEIGHT - deg.get_height()) // 2))
         surf.blit(t, (w - t.get_width(), (HEIGHT - t.get_height()) // 2))
         return surf

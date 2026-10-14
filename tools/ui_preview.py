@@ -85,6 +85,19 @@ def main(out):
         ui_screens.draw_weather(scr, data, 5.0, W, H)
         ui_screens.draw_close(scr, W)
         pygame.image.save(scr, os.path.join(out, f"{name}.png"))
+    for name, heading, rows in (
+            ("list_shopping", "Lista: zakupy", [("•", x) for x in (
+                "mleko", "chleb pełnoziarnisty", "jabłka", "masło", "jajka", "ser żółty",
+                "pomidory", "makaron")]),
+            ("list_plan", "Plan na dziś", [("17:30", "minutnik: makaron"),
+                                           ("po 18:00", "Maja: odrobić lekcje"),
+                                           ("za 3 dni", "urodziny: babcia"),
+                                           ("pogoda", "pochmurno, 7–13°C"), ("lista", "zakupy: 8")]),
+            ("list_status", "Status", [("Temperatura", "52°C"), ("Działa od", "2 godz. 14 min"),
+                                       ("API dziś", "48 zapytań"), ("Internet", "jest")])):
+        ui_screens.draw_list(scr, heading, rows, 1.0, W, H)
+        ui_screens.draw_close(scr, W)
+        pygame.image.save(scr, os.path.join(out, f"{name}.png"))
     icons = pygame.Surface((8 * 110, 230))
     icons.fill((40, 70, 120))
     for j, k in enumerate(("clear", "partly", "cloud", "fog", "drizzle", "rain", "snow", "storm")):
