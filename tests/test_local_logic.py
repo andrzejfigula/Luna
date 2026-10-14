@@ -3530,7 +3530,8 @@ class KidsTest(unittest.TestCase):
             self.assertEqual(said[-1], "Proszę, zdjęcia, na których jest Maja.")
             with state.lock:
                 kind, _, data = state.overlay
-            self.assertEqual((kind, len(data["paths"]), data["names"][0]), ("gallery", 2, "Maja"))
+            self.assertEqual((kind, len(data["items"]), data["items"][0]["caption"]),
+                             ("gallery", 2, "Maja"))
             self.assertTrue(drawing.handle("Jak wygląda Maja?", said.append))
             self.assertEqual(said[-1], "Proszę, zdjęcia, na których jest Maja.")
             drawing.handle("Pokaż mi zdjęcie Emilki", said.append)   # no photos of her: drawn
@@ -5107,6 +5108,127 @@ class Oct14EveningTest(unittest.TestCase):
         self.assertTrue(voicecheck.sounds_like("Hej, hej!", "Hey, hey."))
         self.assertFalse(voicecheck.sounds_like("Hej, hej!", "嘿嘿。"))
         self.assertFalse(voicecheck.sounds_like("Łaskocze!", "Wasgota?"))
+
+
+import commands  # noqa: E402  (after the data paths above are set)
+import screens  # noqa: E402
+import weather  # noqa: E402
+
+
+class GalleryWeatherScreensTest(unittest.TestCase):
+    """The gallery (next / previous / close, by voice and touch) and the
+    weather as pictures."""
+
+    def setUp(self):
+        self.said = []
+
+    def tearDown(self):
+        with state.lock:
+            state.overlay = None
+
+    def speak(self, text, **k):
+        self.said.append(text)
+
+    def _items(self, n):
+        return [{"path": f"/x/2026101{k}-120000.jpg", "caption": "", "sub": ""} for k in range(n)]
+
+    def test_voice_and_touch_turn_the_pages(self):
+        import gallery
+        gallery.show(self._items(3), "Zdjęcia")
+        with state.lock:
+            kind, until, g = state.overlay
+        self.assertEqual((kind, g["i"], g["auto"]), ("gallery", 0, True))
+        self.assertTrue(commands.handle("Następne", self.speak, lambda *a: None))
+        self.assertEqual((g["i"], g["auto"], g["dir"]), (1, False, 1))   # stopped: looking
+        self.assertTrue(commands.handle("Następne zdjęcie", self.speak, lambda *a: None))
+        self.assertTrue(commands.handle("Dalej", self.speak, lambda *a: None))
+        self.assertEqual((g["i"], self.said[-1]), (2, "To już ostatnie."))
+        self.assertTrue(commands.handle("Poprzednie", self.speak, lambda *a: None))
+        self.assertTrue(commands.handle("cofnij", self.speak, lambda *a: None))
+        self.assertEqual(g["i"], 0)
+        self.assertTrue(commands.handle("Wstecz", self.speak, lambda *a: None))
+        self.assertEqual(self.said[-1], "To jest pierwsze.")
+        self.assertTrue(commands.handle("Najstarsze", self.speak, lambda *a: None))
+        self.assertEqual(g["i"], 2)
+        self.assertTrue(commands.handle("Pokaż ostatnie zdjęcie", self.speak, lambda *a: None))
+        self.assertEqual(g["i"], 0)                       # "ostatnie": the newest
+        # touch: the sides turn, the middle goes on, ✕ closes, a swipe turns
+        self.assertEqual(gallery.touch("tap", 0.1, 0.5), "prev")
+        self.assertEqual(gallery.touch("tap", 0.9, 0.5), "next")
+        self.assertEqual(gallery.touch("tap", 0.5, 0.5), "next")
+        self.assertEqual(gallery.touch("tap", 0.95, 0.08), "close")
+        self.assertEqual(gallery.touch("swipe", 0.2, 0.5, -0.4), "next")
+        self.assertEqual(gallery.touch("swipe", 0.8, 0.5, 0.4), "prev")
+        self.assertIsNone(gallery.touch("stroke", 0.5, 0.5))
+        gallery.on_touch("swipe", 0.2, 0.5, -0.4)
+        self.assertEqual(g["i"], 1)
+        gallery.on_touch("tap", 0.95, 0.08)
+        with state.lock:
+            self.assertIsNone(state.overlay)
+        # without a gallery "dalej" is not hers
+        self.assertFalse(gallery.voice("Dalej", self.speak))
+        # "zamknij" closes it
+        gallery.show(self._items(2))
+        self.assertTrue(commands.close_page("Zamknij", self.speak))
+
+    def test_slideshow_ends_after_the_last(self):
+        import gallery
+        gallery.show(self._items(2))
+        with state.lock:
+            g = state.overlay[2]
+        now = time.time()
+        self.assertTrue(gallery.tick(g, now + 1))
+        self.assertTrue(gallery.tick(g, now + gallery.STEP + 0.1))
+        self.assertEqual(g["i"], 1)
+        self.assertFalse(gallery.tick(g, now + 2 * gallery.STEP + 0.2))
+        g["auto"] = False                                 # standing: never turns
+        self.assertTrue(gallery.tick(g, now + 99))
+
+    def test_captions(self):
+        import gallery
+        now = datetime.datetime(2026, 10, 14, 18, 0).timestamp()
+        self.assertEqual(gallery.when("/p/20261014-173902.jpg", now), "dziś, 17:39")
+        self.assertEqual(gallery.when("/p/20261013-090500.jpg", now), "wczoraj, 9:05")
+        self.assertEqual(gallery.when("/p/20261003-090500.jpg", now), "3 października")
+        self.assertEqual(gallery.when("/p/20251224-090500.jpg", now), "24 grudnia 2025")
+        self.assertEqual(gallery.when("/p/kot.png", now), "")
+
+    def test_photo_deleted_from_the_gallery(self):
+        import gallery
+        d = tempfile.mkdtemp()
+        for f in ("20261012-120000.jpg", "20261013-120000.jpg"):
+            open(os.path.join(d, f), "wb").close()
+        with mock.patch.object(screens, "PHOTOS_DIR", d),                 mock.patch.object(screens, "BIN", os.path.join(d, "kosz")):
+            gallery.show([{"path": os.path.join(d, f)} for f in
+                          ("20261013-120000.jpg", "20261012-120000.jpg")], auto=False)
+            gallery.step(1)                               # the older one on the screen
+            self.assertTrue(screens.photo_command("usuń to zdjęcie", self.speak))
+        self.assertEqual(sorted(os.listdir(d)), ["20261013-120000.jpg", "kosz"])
+
+    def test_weather_as_pictures(self):
+        d = {"current": {"time": "2026-10-14T15:00", "temperature_2m": 12.6,
+                         "apparent_temperature": 10.2, "weather_code": 2,
+                         "wind_speed_10m": 14.4},
+             "daily": {"time": ["2026-10-14", "2026-10-15", "2026-10-16"],
+                       "weather_code": [3, 61, 53], "temperature_2m_min": [7, 6, 4],
+                       "temperature_2m_max": [13, 12, 15],
+                       "precipitation_probability_max": [40, 80, None],
+                       "sunrise": ["2026-10-14T07:09"] * 3, "sunset": ["2026-10-14T18:01"] * 3}}
+        got = weather.screen_days(d)
+        self.assertEqual(got["now"], {"temp": 13, "feels": 10, "wind": 14, "kind": "partly",
+                                      "desc": "częściowe zachmurzenie", "day": True})
+        self.assertEqual([(x["label"], x["kind"], x["rain"]) for x in got["days"]],
+                         [("Dziś", "cloud", 40), ("Jutro", "rain", 80), ("Piątek", "drizzle", 0)])
+        self.assertEqual(weather.kind_of(95), "storm")
+        self.assertEqual(weather.kind_of(73), "snow")
+        self.assertIsNone(weather.screen_days({"current": {}}))
+        # "pokaż pogodę" opens the picture page
+        with mock.patch.object(weather, "screen_days", lambda d=None: dict(got)),                 mock.patch.object(weather, "forecast_rows", lambda d=None: [("Dziś", "pochmurno, 7–13°C")]):
+            self.assertTrue(screens.handle("Pokaż pogodę", self.speak, lambda *a: None))
+        with state.lock:
+            kind, _, data = state.overlay
+        self.assertEqual((kind, data["now"]["temp"]), ("weather", 13))
+        self.assertTrue(commands.close_page("Zamknij", self.speak))
 
 
 if __name__ == "__main__":

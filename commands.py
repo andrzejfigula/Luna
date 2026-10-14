@@ -47,6 +47,7 @@ import os
 import random
 import re
 
+import gallery
 import intent
 import subprocess
 import threading
@@ -1157,7 +1158,7 @@ _CLOSE = re.compile(r"^(?:luna,?\s+)?(?:dobra,?\s+|ok,?\s+|okej,?\s+|już,?\s+|j
                     r"pokaż\s+(?:swoją\s+|swoja\s+)?(?:buzię|buzie|twarz|minę)|"
                     r"pokaz\s+buzie)(?:\s+(?:proszę|prosze|dzięki|dzieki))?\W*$", re.I)
 _CLOSABLE = ("clock", "clockface", "list", "gallery", "photo", "card", "memo", "stars",
-             "mirror", "dice", "coin", "lamp")
+             "mirror", "dice", "coin", "lamp", "weather")
 
 
 def close_page(text, speak):
@@ -1183,6 +1184,8 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
     """Handle a local command. Returns True when the utterance was one (and
     must not go to the model)."""
     if close_page(text, speak):
+        return True
+    if gallery.voice(text, speak):      # "następne", "poprzednie" — with it on the screen
         return True
     if _WAKE_UP.match(text.strip()):
         with state.lock:

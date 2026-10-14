@@ -1,6 +1,7 @@
 import time
 from shared_state import state
 from robot_face import RobotFace
+import ui_screens
 from config import SLEEP_AFTER_FRAMES, RENDER_FPS, RENDER_FPS_ASLEEP, RENDER_FPS_CALM
 
 # state.emotion (set by brain.py from the LLM's choice) → face state
@@ -73,9 +74,11 @@ def renderer_loop():
         with state.lock:
             ov = state.overlay
         still = bool(ov and ov[0] in ("lamp", "clock", "list", "photo", "gallery", "stars",
-                                      "clockface")
+                                      "clockface", "weather")
                      and not (ov[0] == "stars" and ov[2].get("new")
                               and now - ov[2]["t0"] < 1.0)    # (the pop-in)
+                     # (a picture sliding in, the weather's rows coming up)
+                     and not (ov[0] in ("gallery", "weather") and ui_screens.moving(ov[0], ov[2], now))
                      and now < ov[1] - 0.6)          # (full speed for the fade-out)
         calm = not (override or speaking or busy or face._gesture or face._scene)
         face.fps = (8 if still else RENDER_FPS_ASLEEP if sleepy

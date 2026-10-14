@@ -8,8 +8,10 @@ screens.py — things Luna shows on her whole screen for a moment, on request.
   "pokaż przypomnienia"              → timers, reminders and alarms, 10 s
   "pokaż listę zakupów"              → a list from lists.py, 12 s
   "pokaż status"                     → temperature, uptime, cloud, API calls
-  "pokaż zdjęcia"                    → her photos, newest first, 6 s each;
-                                       a tap shows the next one
+  "pokaż zdjęcia"                    → her photos, newest first, 6 s each
+                                       (gallery.py: "następne", "poprzednie",
+                                       ‹ › and ✕ on the screen)
+  "pokaż pogodę"                     → the weather as pictures (ui_screens.py)
 
 robot_face.py draws the overlay (state.overlay = (kind, until, data)); a tap
 on the screen closes it. Photos stay on the Pi (photos/, newest PHOTOS_KEEP
@@ -20,6 +22,7 @@ import json
 import os
 import re
 
+import gallery
 import intent
 import time
 
@@ -49,7 +52,6 @@ _TODAY = ("plan dnia", "plan na dziś", "plan na dzisiaj", "co mamy w planie",
           # (14 Oct probe: to the model / a photo search)
           "pokaż kalendarz", "pokaz kalendarz", "pokaż mój kalendarz", "co mam dzisiaj w planie",
           "co mam dziś w planie", "co mam w planie")
-GALLERY_STEP = 6.0          # seconds per photo; a tap shows the next one
 _SHOW_LIST = ("pokaż listę", "pokaz liste", "pokaż mi listę", "show the list",
               "show my list")
 # "pokaż pogodę" — the days of the forecast (14 Oct probe: "pokaż prognozę"
@@ -104,7 +106,9 @@ def _take_photo(speak, play_sound_async):
         except OSError:
             pass
     time.sleep(0.25)
-    _show("photo", PHOTO_SHOW_SECS, path)
+    # in the gallery, standing: "poprzednie" goes back to the older ones
+    shots = sorted((f for f in os.listdir(PHOTOS_DIR) if f.endswith(".jpg")), reverse=True)
+    gallery.show(_items(shots, _tags()), "Zdjęcia", auto=False, secs=PHOTO_SHOW_SECS)
     with state.lock:
         state.emotion = "Happy"
     speak("Pięknie wyszło!" + (f" {_and(names)} na zdjęciu." if names else ""))
@@ -152,11 +156,18 @@ def photos_of(name):
     return [os.path.join(PHOTOS_DIR, f) for f in shots if name in tags.get(f, [])]
 
 
-def show_photos(paths, names=None):
+def _items(shots, tags):
+    """Photo files (newest first) → the gallery's items: who is on it, when."""
+    return [{"path": os.path.join(PHOTOS_DIR, f),
+             "caption": _and(tags[f]) if tags.get(f) else "",
+             "sub": gallery.when(f)} for f in shots]
+
+
+def show_photos(paths, names=None, title="Zdjęcia"):
     """The gallery of these photos (a name under each, if given)."""
-    _show("gallery", len(paths) * GALLERY_STEP + 1,
-          {"paths": paths, "i": 0, "next": time.time() + GALLERY_STEP,
-           "names": names or [""] * len(paths)})
+    names = names or [""] * len(paths)
+    gallery.show([{"path": p, "caption": n, "sub": gallery.when(p)}
+                  for p, n in zip(paths, names)], title)
 
 
 def _and(names):
@@ -286,9 +297,8 @@ def photo_command(low, speak):
               "Powiedz: pokaż zdjęcia.")
         return True
     if _PHOTO_DELETE.match(low):
-        with state.lock:
-            ov = state.overlay
-        shown = ov[2] if ov and ov[0] == "photo" and isinstance(ov[2], str) else None
+        cur = gallery.current()              # the one on the screen, if any
+        shown = cur["path"] if cur and os.path.dirname(cur["path"]) == PHOTOS_DIR else None
         shots = _shots()
         name = os.path.basename(shown) if shown else (shots[-1] if shots else None)
         if not name or name not in shots:
@@ -360,10 +370,10 @@ def handle(text, speak, play_sound_async):
                   "Nie mam zdjęć z tego dnia." if day else
                   "Nie mam jeszcze żadnych zdjęć. Powiedz: zrób mi zdjęcie!")
         else:
-            paths = [os.path.join(PHOTOS_DIR, f) for f in shots]
-            _show("gallery", len(paths) * GALLERY_STEP + 1,
-                  {"paths": paths, "i": 0, "next": time.time() + GALLERY_STEP,
-                   "names": [_and(tags[f]) if tags.get(f) else "" for f in shots]})
+            gallery.show(_items(shots, tags),
+                         f"Zdjęcia: {who}" if who else
+                         "Dzisiejsze zdjęcia" if day == time.strftime("%Y%m%d") else
+                         "Wczorajsze zdjęcia" if day else "Zdjęcia")
         return True
     if any(k in low for k in _SHOW_LIST):
         import lists
@@ -381,10 +391,15 @@ def handle(text, speak, play_sound_async):
     if _WEATHER.match(low.strip()):
         import weather
         rows = weather.forecast_rows()
+        pics = weather.screen_days()
         if not rows:
             speak("Nie mam teraz prognozy pogody.")
         else:
-            _show("list", 20, ("Pogoda", rows))
+            if pics and pics.get("days"):     # pictures: now, the hours, the week
+                pics["t0"] = time.time()
+                _show("weather", 25, pics)
+            else:
+                _show("list", 20, ("Pogoda", rows))
             speak(f"Dziś {rows[0][1].split(',')[0]}, "
                   f"{rows[0][1].split(',')[1].strip().replace('–', ' do ').replace('°C', ' stopni')}.")
         return True

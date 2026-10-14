@@ -279,6 +279,7 @@ _started = [False]
 
 
 _days = []          # [(label, text)] per day — "pokaż pogodę" (screens.py)
+_screen = {}        # the same as pictures (screen_days)
 
 
 def forecast_rows(d=None):
@@ -304,14 +305,85 @@ def forecast_rows(d=None):
     return rows
 
 
+def kind_of(code):
+    """A WMO code → clear / partly / cloud / fog / drizzle / rain / snow / storm."""
+    if code is None:
+        return "cloud"
+    if code in _KIND:
+        return _KIND[code]
+    if 71 <= code <= 77 or code in (85, 86):
+        return "snow"
+    return "drizzle" if 51 <= code <= 57 else "rain"
+
+
+def screen_days(d=None):
+    """"Pokaż pogodę" as pictures (ui_screens.py): {"place", "now": {temp,
+    kind, day, desc, feels, wind}, "days": [{label, short, kind, desc, tmin,
+    tmax, rain}]}; None without a forecast."""
+    if d is None:
+        with _lock:
+            got = dict(_screen) if _screen else None
+        if got:
+            got["hours"] = hours_ahead()
+        return got
+    try:
+        cur, day = d["current"], d["daily"]
+        days = []
+        for i, t in enumerate(day["time"][:7]):
+            dt = datetime.strptime(t, "%Y-%m-%d")
+            code = day["weather_code"][i]
+            days.append({"label": "Dziś" if i == 0 else "Jutro" if i == 1
+                         else _WD_PL[dt.weekday()].capitalize(),
+                         "date": f"{dt.day}.{dt.month:02d}",
+                         "kind": kind_of(code), "desc": _WMO.get(code, ""),
+                         "tmin": round(day["temperature_2m_min"][i]),
+                         "tmax": round(day["temperature_2m_max"][i]),
+                         "rain": day["precipitation_probability_max"][i] or 0})
+        stamp = cur.get("time") or time.strftime("%Y-%m-%dT%H:%M")
+        rise, sset = day["sunrise"][0], day["sunset"][0]
+        place = (_place() or (None, None, ""))[2] or ""
+        return {"place": place,
+                "now": {"temp": round(cur["temperature_2m"]),
+                        "feels": round(cur["apparent_temperature"]),
+                        "wind": round(cur["wind_speed_10m"]),
+                        "kind": kind_of(cur["weather_code"]),
+                        "desc": _WMO.get(cur["weather_code"], ""),
+                        "day": rise <= stamp < sset},
+                "days": days}
+    except (KeyError, IndexError, TypeError, ValueError):
+        return None
+
+
+def hours_ahead(now=None, n=5, every=3):
+    """The next hours for the screen: [{"h": "18", "temp", "kind", "day"}],
+    every `every` hours from the next full hour."""
+    t0 = (now if now is not None else time.time()) // 3600 * 3600 + 3600
+    out = []
+    with _lock:
+        hours, light = _sky.get("hours", {}), _sky.get("light", {})
+    for j in range(n):
+        lt = time.localtime(t0 + j * every * 3600)
+        got = hours.get(time.strftime("%Y-%m-%dT%H:00", lt))
+        if not got or got[0] is None:
+            continue
+        sun = light.get(time.strftime("%Y-%m-%d", lt))
+        stamp = time.strftime("%Y-%m-%dT%H:%M", lt)
+        out.append({"h": f"{lt.tm_hour}", "temp": round(got[0]), "kind": kind_of(got[1]),
+                    "day": bool(sun) and sun[0] <= stamp < sun[1]})
+    return out
+
+
 def _apply(d):
     """A forecast (fresh or the cached one) into the summary and today's notes."""
     global _summary, _fetched
     s = _describe(d)
     rows = forecast_rows(d)
+    scr = screen_days(d)
     with _lock:
         _summary, _fetched = s, time.time()
         _days[:] = rows
+        _screen.clear()
+        _screen.update(scr or {})
         try:
             h, day = d["hourly"], d["daily"]
             _sky.clear()
@@ -415,14 +487,9 @@ def now(t=None):
     if not got or got[0] is None:
         return None
     temp, code = got
-    if code is None:
-        kind = "cloud"
-    elif code in _KIND:
-        kind = _KIND[code]
-    elif 71 <= code <= 77 or code in (85, 86):
-        kind = "snow"
-    else:
-        kind = "rain"                       # drizzle, rain, showers
+    kind = kind_of(code)
+    if kind == "drizzle":
+        kind = "rain"                       # (the status bar has no drizzle)
     stamp = time.strftime("%Y-%m-%dT%H:%M", lt)
     day = bool(light) and light[0] <= stamp < light[1]
     return round(temp), kind, day

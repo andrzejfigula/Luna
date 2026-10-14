@@ -33,6 +33,9 @@ from config import (TOUCH_ENABLED, TOUCH_DEVICE, TOUCH_TAP_MAX_SECS,
                     TOUCH_FLIP_X, TOUCH_FLIP_Y, TOUCH_DEBUG)
 from shared_state import state
 
+SWIPE_MIN = 0.18                    # a swipe: this far across the screen…
+SWIPE_MAX_SECS = 0.8                # …this quickly
+
 # ── evdev constants ───────────────────────────────────────────────────────────
 _FMT = "llHHi"                      # struct input_event on 64-bit
 _SZ  = struct.calcsize(_FMT)
@@ -73,7 +76,7 @@ def _find_device():
 
 # ── gesture recognition ───────────────────────────────────────────────────────
 
-def _publish(kind, nx, ny):
+def _publish(kind, nx, ny, dx=0.0):
     if kind in ("tap", "hold"):
         with state.lock:
             talking = state.speaking
@@ -87,6 +90,7 @@ def _publish(kind, nx, ny):
         state.touch_kind = kind
         state.touch_x    = nx
         state.touch_y    = ny
+        state.touch_dx   = dx
         state.touch_time = time.time()
     if TOUCH_DEBUG:
         print(f"[touch] {kind} at ({nx:.2f}, {ny:.2f})", flush=True)
@@ -162,6 +166,12 @@ def _reader_loop(path):
                     held     = False
                 elif value == 0 and down_t:
                     dur = time.time() - down_t
+                    dx, dy = (x - down_pos[0], y - down_pos[1]) if x is not None else (0, 0)
+                    if (stroked and dur <= SWIPE_MAX_SECS and abs(dx) >= SWIPE_MIN
+                            and abs(dx) > 2 * abs(dy)):
+                        # a quick sideways stroke: the gallery turns a page (a
+                        # pet on the face is slower, or goes back and forth)
+                        _publish("swipe", x, y, dx)
                     if not stroked and not held and dur <= TOUCH_TAP_MAX_SECS:
                         now = time.time()
                         if now < poking_until:

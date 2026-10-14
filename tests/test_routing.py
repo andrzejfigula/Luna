@@ -364,6 +364,7 @@ class RoutingTest(unittest.TestCase):
             (screens, "_take_photo", lambda *a: self._mark("screen")),
             (webphoto, "show", lambda *a: self._mark("photo") or True),
             (screens, "_show", lambda *a, **k: self._mark("screen")),
+            (screens.gallery, "show", lambda *a, **k: self._mark("screen")),   # photos, drawings
             (games, "play_match", lambda *a: self._mark("game")),
             (games, "_rematch_until", 0),
             (timers, "screen_lines", lambda: [("1:00", "test")]),

@@ -34,6 +34,8 @@ import random
 import time
 import numpy as np
 from shared_state import state
+import gallery
+import ui_screens
 from config import (RENDER_FPS, FACE_STYLE, SCREEN_WIDTH, SCREEN_HEIGHT,
                     FULLSCREEN, HIDE_CURSOR, GESTURE_DURATION,
                     CAMERA_PREVIEW, CAMERA_PREVIEW_W, TOUCH_DEBUG,
@@ -372,10 +374,11 @@ def _draw_star(surf, cx, cy, r, col, shine):
 
 
 def _get_font(size):
+    """Her lettering: Nunito Sans ExtraBold (assets/fonts), antialiased —
+    the system monospace looked like a terminal."""
     f = _FONT_CACHE.get(size)
     if f is None:
-        f = pygame.font.SysFont("monospace", size, bold=True)
-        _FONT_CACHE[size] = f
+        f = _FONT_CACHE[size] = ui_screens.font(size, "ExtraBold")
     return f
 
 
@@ -1737,18 +1740,13 @@ class RobotFace:
                 game = importlib.import_module("tictac" if ov_kind == "ttt" else "memo")
                 game.tap(touch_pt[0], touch_pt[1], WIDTH, HEIGHT)
         elif touch_t > self._touch_t and self._overlay_on():
-            self._touch_t = touch_t                     # a tap closes it…
-            with state.lock:
-                ov = state.overlay
-                if ov and ov[0] == "gallery":           # …or turns the page
-                    g = ov[2]
-                    g["i"] += 1
-                    g["next"] = time.time() + 6.0
-                    if g["i"] >= len(g["paths"]):
-                        state.overlay = None
-                    else:
-                        state.overlay = (ov[0], time.time() + 6.0 * (len(g["paths"]) - g["i"]) + 1, g)
-                else:
+            self._touch_t = touch_t
+            if ov_kind == "gallery":                    # ‹ › ✕, a swipe (gallery.py)
+                with state.lock:
+                    dx = state.touch_dx
+                gallery.on_touch(touch_kind, touch_pt[0], touch_pt[1], dx)
+            elif touch_kind in ("tap", "stop"):         # a tap closes it (a stroke
+                with state.lock:                        # or a held finger doesn't)
                     state.overlay = None
         if touch_t > self._touch_t:
             self._touch_t = touch_t
@@ -2437,51 +2435,20 @@ class RobotFace:
             img = pygame.transform.scale(img, (sw, HEIGHT))
             scr.fill(BG)
             scr.blit(img, ((WIDTH - sw) // 2, 0))
-        elif kind in ("photo", "gallery"):
-            if kind == "gallery":
-                if time.time() >= data["next"]:            # turn the page
-                    data["i"] += 1
-                    data["next"] = time.time() + 6.0
-                if data["i"] >= len(data["paths"]):
-                    with state.lock:
-                        state.overlay = None
-                    return
-                counter = f"{data['i'] + 1}/{len(data['paths'])}"
-                who = (data.get("names") or [""] * len(data["paths"]))[data["i"]]
-                if who:
-                    counter = f"{who}   {counter}"
-                data = data["paths"][data["i"]]
-            elif isinstance(data, dict):            # {"path", "sub"}: the flag quiz
-                counter, data = data.get("sub"), data["path"]
-            else:
-                counter = None
-            if getattr(self, "_photo_cache", (None,))[0] != data:
-                try:
-                    pic = pygame.image.load(data)
-                    # a palette PNG (Wikipedia's flags) can't be smoothscaled:
-                    # "Only 24-bit or 32-bit surfaces" — 13 Oct, the flag of Greece
-                    pic = pic.convert_alpha() if pic.get_alpha() else pic.convert()
-                except Exception:
-                    return
-                # fits both ways — a wide Wikipedia photo (webphoto.py) ran off the sides
-                k = min((HEIGHT - 70) / pic.get_height(), (WIDTH - 60) / pic.get_width())
-                ph, pw = int(pic.get_height() * k), int(pic.get_width() * k)
-                card = pygame.Surface((pw + 24, ph + 50))
-                card.fill((250, 246, 236))                       # a polaroid
-                card.blit(pygame.transform.smoothscale(pic, (pw, ph)), (12, 12))
-                card = pygame.transform.rotate(card, -3)
-                # tilted, it grows: a wide flag's frame ran off the top and bottom
-                f = min(1.0, (WIDTH - 8) / card.get_width(), (HEIGHT - 8) / card.get_height())
-                if f < 1.0:
-                    card = pygame.transform.smoothscale(
-                        card, (int(card.get_width() * f), int(card.get_height() * f)))
-                self._photo_cache = (data, card)
-            card = self._photo_cache[1]
-            scr.fill(BG)
-            scr.blit(card, card.get_rect(center=(WIDTH // 2, HEIGHT // 2)))
-            if counter:
-                c = _get_font(28).render(counter, True, EYE_MID)
-                scr.blit(c, (WIDTH - c.get_width() - 16, HEIGHT - c.get_height() - 10))
+        elif kind == "gallery":                         # photos, drawings (gallery.py)
+            now = time.time()
+            with state.lock:
+                going = gallery.tick(data, now)
+                if not going and state.overlay and state.overlay[2] is data:
+                    state.overlay = None
+            if going:
+                ui_screens.draw_gallery(scr, data, now, WIDTH, HEIGHT)
+        elif kind == "photo":
+            # one picture: a Wikipedia photo, the flag quiz ({"path", "sub"})
+            path, sub = (data["path"], data.get("sub")) if isinstance(data, dict) else (data, None)
+            ui_screens.draw_photo(scr, path, sub, WIDTH, HEIGHT)
+        elif kind == "weather":                         # "pokaż pogodę"
+            ui_screens.draw_weather(scr, data, time.time(), WIDTH, HEIGHT)
         elif kind == "lamp":
             inner, outer = (data or {}).get("col") or ((255, 214, 150), (120, 50, 8))
             if getattr(self, "_lamp", (None,))[0] != (inner, outer):

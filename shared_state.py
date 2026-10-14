@@ -17,8 +17,9 @@ class SharedState:
         "reply_scene",           # body-language scene the model picked for
                                  # its reply (reply_scenes.py) | None
         "reply_scene_start",     # time.time() it started
-        "touch_kind",            # last touch: "tap" | "stroke" | "multi"
+        "touch_kind",            # last touch: "tap" | "stroke" | "multi" | "swipe"
         "touch_x", "touch_y",    # where, normalised 0..1
+        "touch_dx",              # a swipe: how far across (−: to the left)
         "touch_time",            # time.time() of that touch
         "touch_zone",            # "eye" | "mouth" | "top" | "other"
         "proactive_muted_until", # no unprompted speech before this time
@@ -109,6 +110,7 @@ class SharedState:
         self.touch_kind          = None
         self.touch_x             = 0.5
         self.touch_y             = 0.5
+        self.touch_dx            = 0.0
         self.touch_time          = 0.0
         self.touch_zone          = None
         self.proactive_muted_until = 0.0

@@ -266,8 +266,8 @@ class StatusBar:
     def _text(self, text, col=TEXT):
         if self._font is None:
             pygame.font.init()
-            path = pygame.font.match_font("dejavusans")
-            self._font = pygame.font.Font(path, 16) if path else pygame.font.SysFont(None, 20)
+            import ui_screens                  # Nunito Sans, like her other pages
+            self._font = ui_screens.font(17, "Bold")
         return self._font.render(text, True, col)
 
     def _iconof(self, kind, accent):

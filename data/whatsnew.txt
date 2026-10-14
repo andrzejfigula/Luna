@@ -1,6 +1,12 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
+== 14 października (późnym wieczorem) ==
+- Galeria zdjęć i rysunków: „następne”, „poprzednie”, „zamknij” — albo strzałki i krzyżyk na ekranie, albo przesuń palcem.
+- Galeria jest ładniejsza: zdjęcie na rozmytym tle, podpis, kto jest na zdjęciu i kiedy je zrobiłam.
+- „Pokaż pogodę” — teraz z obrazkami: słońce, chmury, deszcz, temperatura na najbliższe godziny i cały tydzień.
+- Mam nowe, ładniejsze litery na ekranie.
+
 == 14 października (wieczorem) ==
 - „Mrugnij”, „Zrób zeza”, „Zatańcz”, „Zrób smutną minę” — robię to od razu.
 - „Jakie mam budziki?”, „Anuluj minutnik”, „Wyłącz wszystkie budziki”.

@@ -186,11 +186,6 @@ def _bump(path, today, n):
         pass
 
 
-def _show(path, secs=SHOW_SECS):
-    with state.lock:
-        state.overlay = ("photo", time.time() + secs, path)
-
-
 def _card(text, secs):
     with state.lock:
         state.overlay = ("card", time.time() + secs, {"text": text, "sub": "", "tone": None})
@@ -204,18 +199,43 @@ def saved():
     return [os.path.join(DIR, f) for f in files]
 
 
+_TITLES = "titles.json"         # drawing file → what it shows (its caption)
+
+
+def _titles():
+    try:
+        with open(os.path.join(DIR, _TITLES), encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def _keep_title(path, what):
+    t = {k: v for k, v in _titles().items() if os.path.exists(os.path.join(DIR, k))}
+    t[os.path.basename(path)] = what
+    try:
+        with open(os.path.join(DIR, _TITLES), "w", encoding="utf-8") as f:
+            json.dump(t, f, ensure_ascii=False)
+    except OSError:
+        pass
+
+
+def _gallery(auto, secs=None):
+    """Her drawings in the gallery, newest first (gallery.py)."""
+    import gallery
+    pics, titles = saved()[::-1], _titles()
+    items = [{"path": p, "caption": titles.get(os.path.basename(p), ""),
+              "sub": gallery.when(p)} for p in pics]
+    gallery.show(items, "Rysunki", auto=auto, secs=secs)
+    return len(items)
+
+
 def show_saved(speak):
-    pics = saved()[-8:]
-    if not pics:
+    if not saved():
         speak("Jeszcze nic nie narysowałam. Powiedz na przykład: narysuj mi jednorożca.")
         return True
-    if len(pics) == 1:
-        _show(pics[0])
-    else:
-        with state.lock:
-            state.overlay = ("gallery", time.time() + 6 * len(pics) + 2,
-                             {"paths": pics[::-1], "i": 0, "next": time.time() + 6.0})
-    speak("Proszę, moje rysunki." if len(pics) > 1 else "Proszę, mój rysunek.")
+    n = _gallery(auto=len(saved()) > 1, secs=SHOW_SECS)
+    speak("Proszę, moje rysunki." if n > 1 else "Proszę, mój rysunek.")
     return True
 
 
@@ -298,7 +318,8 @@ def draw(what, speak, intro="Dobrze, już rysuję. Chwileczkę!", english=False,
                     os.remove(old)
                 except OSError:
                     pass
-            _show(out)
+            _keep_title(out, "z kamery" if photo else (what or "").strip(" .!?"))
+            _gallery(auto=False, secs=SHOW_SECS)      # standing: "poprzednie" → older
             print(f"[draw] done: {out}", flush=True)
             say("Here you go!" if english else "Dobrze, rysunek jest gotowy. Proszę bardzo!")
             with state.lock:

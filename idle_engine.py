@@ -515,7 +515,11 @@ def idle_loop():
             # ── reaction to being touched (voice; visuals are in the face)
             if touch_t > last_touch_t and touch_kind != "stop":
                 last_touch_t = touch_t
-                replies = TOUCH_REPLIES.get(touch_zone or "other", {}).get(touch_kind)
+                with state.lock:
+                    ov = state.overlay
+                page = bool(ov and now < ov[1])     # a page on the screen: the
+                                                    # touch was for it (‹ › ✕)
+                replies = None if page else TOUCH_REPLIES.get(touch_zone or "other", {}).get(touch_kind)
                 # you started this, so it isn't rationed like unprompted talk —
                 # it only needs its own short cooldown (mute + quiet hours apply)
                 if (replies and not _busy() and _voice_allowed(now)
@@ -524,7 +528,7 @@ def idle_loop():
                     last_touch_say = now
                     speak(random.choice(replies), can_drop=True)
                 # no words this time → often a little sound (a giggle, "ej!")
-                elif (not _busy() and _voice_allowed(now)
+                elif (not page and not _busy() and _voice_allowed(now)
                         and now - last_touch_sound >= TOUCH_SOUND_COOLDOWN
                         and random.random() < TOUCH_SOUND_CHANCE):
                     snd = _touch_sound(touch_zone, touch_kind)
