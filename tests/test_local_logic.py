@@ -5630,6 +5630,17 @@ class FaceSpecTest(unittest.TestCase):
         u = self._settle(gl, self._face("neutral", mod={"mouth": 5}))
         self.assertEqual(u["uMouthK"][3], 5.0)                # a scene's touch on top
 
+    def test_saccades_stay_small_at_any_frame_rate(self):
+        # (one spring step per frame blew up at 20 fps: pupils flew to the edges)
+        import gl_face
+        for dt in (1 / 30, 1 / 20, 1 / 8, 0.3):
+            life = gl_face._Life()
+            t = 0.0
+            for _ in range(400):
+                t += dt
+                life.step(t, dt, True)
+                self.assertLess(max(abs(v) for v in life.sacc_now), 7.0, dt)
+
     def test_reply_scenes_set_only_known_settings(self):
         try:
             import reply_scenes

@@ -87,6 +87,8 @@ uniform float uLayerSel;      //    0 the screen's, 1 the face's, 2 the one behi
 
 uniform vec2  uGlitch;        // (on, seed): the "glitch" scene tears the picture
 uniform float uEnergy;        // her voice, 0..1: the eyes glow a little brighter
+uniform float uWarm;          // a warm mood: the pupils' rims glow warmer
+uniform float uDim;           // asleep: the eyes dim
 
 float gA;                     // the coverage of the shape just drawn (stage 2)
 
@@ -263,6 +265,7 @@ vec3 drawIris(vec2 q, vec3 c, vec4 pu) {
     vec3 iris = mix(uPupilCol * 0.30, uPupilCol * 1.5, smoothstep(0.55, 1.0, k));
     iris += uIrisCol * 0.30 * exp(-sq((pq.y - 0.62 * pr) / (0.18 * pr)))
             * smoothstep(1.0, 0.75, k);
+    iris += uIrisCol * 0.55 * uWarm * smoothstep(0.70, 0.97, k);         // a warm rim
     vec3 o = mix(c, iris, ia);
     // a soft shadow the iris throws on the eye round it
     float irs = length((pq - vec2(0.05 * pr, 0.12 * pr)) / vec2(0.93, 1.0));
@@ -272,14 +275,16 @@ vec3 drawIris(vec2 q, vec3 c, vec4 pu) {
     vec2 s1 = (hq - vec2(-0.30 * pr, -0.34 * pr)) / vec2(0.34 * pr, 0.32 * pr);
     float h1 = smoothstep(1.0, 0.86, length(s1)) * (1.0 - uMorph.w);
     vec2 s2 = (hq - vec2(0.34 * pr, 0.32 * pr)) / (0.13 * pr);
-    float h2 = smoothstep(1.0, 0.80, length(s2)) * 0.9;
+    float h2 = smoothstep(1.0, 0.80, length(s2)) * (0.75 + 0.2 * sin(uTime * 7.0));   // shimmer
     vec2 s3 = (hq - vec2(0.12 * pr, -0.52 * pr)) / (0.10 * pr);
     float h3 = smoothstep(1.0, 0.70, length(s3)) * uMorph.y;
     vec2 s4 = (hq - vec2(-0.05 * pr, 0.62 * pr)) / vec2(0.50 * pr, 0.08 * pr);
     float h4 = smoothstep(1.0, 0.5, length(s4)) * uMorph.y * 0.7;         // a wet shine
     o = mix(o, uShine, max(max(h1, h2), max(h3, h4)) * ia);
     if (uMorph.w > 0.01) {                 // excited: a star shines in each iris
-        float ds = sdStar5(vec2(pq.x, -pq.y + 0.06 * pr), 0.74 * pr, 0.48);
+        float wa = 0.25 * sin(uTime * 2.0);           // the star wobbles, and breathes
+        vec2 sp = mat2(cos(wa), -sin(wa), sin(wa), cos(wa)) * vec2(pq.x, -pq.y + 0.06 * pr);
+        float ds = sdStar5(sp, (0.70 + 0.06 * sin(uTime * 5.0)) * pr, 0.48);
         float sa = smoothstep(1.0, -1.0, ds) * ia * uMorph.w;
         o = mix(o, mix(uShine, uTop, 0.3), sa);
         o += uShine * 0.25 * exp(-max(ds, 0.0) / 3.0) * ia * uMorph.w;
@@ -301,7 +306,7 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
         float breath = 1.0 + 0.07 * sin(uTime);          // she breathes: so does the light
         float dg = max(min(d, mix(1e5, ds, sa)), 0.0);
         glow += gc * (0.40 * exp(-dg / 10.0) + 0.17 * breath * exp(-dg / 40.0))
-                * (1.0 + 0.35 * uEnergy)
+                * (1.0 + 0.35 * uEnergy) * uDim
                 * smoothstep(0.0, 8.0, e.w);
         return col;
     }
@@ -327,7 +332,7 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
     c = mix(c, top, exp(-du / 2.4) * smoothstep(0.03, 0.15, la.w) * 0.55);
     // sad: a wet line along the bottom edge
     c += uShine * 0.45 * exp(d / 1.8) * smoothstep(0.2 * b.y, b.y, q.y) * uMorph.y;
-    c *= 1.0 + 0.10 * uEnergy;
+    c *= (1.0 + 0.10 * uEnergy) * uDim;
     // the seam: lit like the top of the eye
     vec3 sc = mix(mix(uTop, uTint, uTintAmt), uShine, 0.25);
     float cov = max(a, as_);
@@ -662,21 +667,40 @@ class _Life:
         self.sacc = (0.0, 0.0)            # where the jump goes
         self.sacc_now = [0.0, 0.0]        # …and where the eyes are on the way
         self.sacc_t = 0.0                 # the next jump
+        self.sacc_v = [0.0, 0.0]
         self.flick = None                 # (side, start) — one brow up a moment
         self.flick_t = time.monotonic() + random.uniform(15, 35)
         self.shut_prev = 0.0
+        self.seen = False                 # someone in view (last frame)
+        self.seen_t = -9.0                # …since when: the pupils open on seeing them
+        self.mood = None
+        self.pop_t = -9.0                 # a new mood: the eyes pop a little
+        self.emph_t = -9.0                # a stressed syllable: the brows lift
 
-    def step(self, now, dt, calm):
+    def step(self, now, dt, calm, steady=False):
         if now > self.sacc_t:
-            self.sacc = (random.uniform(-5.0, 5.0), random.uniform(-3.5, 3.5))
+            amp = 0.45 if steady else 1.0  # eye contact: steadier
+            self.sacc = (random.uniform(-5.0, 5.0) * amp, random.uniform(-3.5, 3.5) * amp)
             self.sacc_t = now + random.uniform(0.5, 2.2)
-        k = 1.0 - math.exp(-dt * 35.0)    # a saccade is fast: ~60 ms
-        for j in (0, 1):
-            self.sacc_now[j] += (self.sacc[j] - self.sacc_now[j]) * k
+        # a stiff spring: fast, a hair of overshoot — in 4 ms steps (one
+        # step per frame blew up at 20 fps: 30/s × 50 ms is past stable)
+        n = max(1, min(60, int(math.ceil(min(dt, 0.25) / 0.004))))
+        h = min(dt, 0.25) / n
+        for _ in range(n):
+            for j in (0, 1):
+                self.sacc_v[j] += ((self.sacc[j] - self.sacc_now[j]) * 900.0
+                                   - self.sacc_v[j] * 42.0) * h
+                self.sacc_now[j] += self.sacc_v[j] * h
         if now > self.flick_t:
             self.flick_t = now + random.uniform(15, 40)
             if calm:
                 self.flick = (random.choice((0, 1)), now)
+
+    @staticmethod
+    def bump(now, t0, dur):
+        """0 → 1 → 0 over dur seconds after t0."""
+        el = now - t0
+        return math.sin(math.pi * el / dur) if 0.0 <= el < dur else 0.0
 
     def brow_flick(self, i, now):
         if not self.flick or self.flick[0] != i:
@@ -989,7 +1013,17 @@ class GLFace:
         self.life = life
         talking = face._speaking
         calm = emo in ("neutral", "listening") and not talking
-        life.step(now, dt, calm)
+        seen = bool(getattr(face, "_face_seen", False))
+        if seen and not life.seen:
+            life.seen_t = now                     # someone came into view
+        life.seen = seen
+        if emo != life.mood:
+            if life.mood is not None and emo != "sleeping":
+                life.pop_t = now
+            life.mood = emo
+        life.step(now, dt, calm, steady=seen and talking)
+        pop = 0.06 * life.bump(now, life.pop_t, 0.35)
+        emph = life.bump(now, life.emph_t, 0.28)
         breath = math.sin(getattr(face, "breath_phase", 0.0))
         voice = getattr(face, "_audio_energy", 0.0) if talking else 0.0
         u = {"uTime": (face.breath_phase if hasattr(face, "breath_phase") else 0.0),
@@ -1002,7 +1036,10 @@ class GLFace:
              "uBlushCol": _rgb(rf.BLUSH_COL),
              "uHeartTop": (1.0, 0.62, 0.70), "uHeartBottom": (0.90, 0.16, 0.38),
              # her voice lights the eyes up a little
-             "uEnergy": min(1.0, max(0.0, voice))}
+             "uEnergy": min(1.0, max(0.0, voice)),
+             # warm moods warm the pupils' rims; asleep, the eyes dim
+             "uWarm": min(1.0, cur["blush"] * 1.2),
+             "uDim": 0.70 if emo == "sleeping" else 1.0}
         tint = face._eye_color
         amt = 0.45 if tint else 0.0
         heat = cur["tint"] + 0.45 * face.angry_pulse          # angry: red, and pulsing
@@ -1025,12 +1062,31 @@ class GLFace:
             w = min(float(eye.w), rf.EYE_SPREAD * 2 - 44)
             h = eye.h * (1.0 + 0.15 * eye.widen)
             w, h = w * (1.0 + 0.008 * breath), h * (1.0 + 0.008 * breath)   # breathing
+            w, h = w * (1.0 + pop), h * (1.0 + pop)                        # a new mood: pop
+            if cur["heart"] > 0.5:                # hearts beat (~70 a minute)
+                beat = 0.05 * max(0.0, math.sin(now * math.tau * 1.15)) ** 4
+                w, h = w * (1.0 + beat), h * (1.0 + beat)
+            stretch = 0.06 * abs(math.sin(getattr(face, "bounce_phase", 0.0))) * min(
+                1.0, getattr(face, "bounce_amp", 0.0) / 22.0)
+            w, h = w * (1.0 - 0.5 * stretch), h * (1.0 + stretch)          # squash & stretch
             if googly:
                 w = h = min(w, eye.h * 1.3)
             # the eye leans a little toward where she looks; the iris does the rest
             ex, ey = cx + eye.pupil_ox * 0.30, cy + eye.pupil_oy * 0.30
+            if cur["tint"] > 0.3:                 # angry: a faint tremble
+                ex += 0.9 * math.sin(now * 47.0 + i)
             top, tilt, bend = cur["lid_top"][i], cur["lid_tilt"][i], cur["lid_bend"][i]
             bot, bbend = cur["lid_bot"][i], cur["lid_bot_bend"][i]
+            # the lids follow the gaze: looking down, the upper lid comes down
+            # with it; looking up, the lower lid rises a touch
+            look = max(-1.0, min(1.0, (eye.pupil_oy * 0.85 + cur["gaze_y"]) / (0.5 * h)))
+            top += 0.20 * max(0.0, look) * (1.0 - top)
+            bot += 0.08 * max(0.0, -look) * (1.0 - bot)
+            # drowsy, or just waking: heavy lids
+            heavy = max(getattr(face, "_drowsy", 0.0) * 0.45,
+                        (1.0 - getattr(face, "wake_ripple", 1.0)) * 0.55
+                        if getattr(face, "wake_anim", 0) else 0.0)
+            top += heavy * (1.0 - top - bot)
             # squints (reply scenes, idle micro-expressions) bring both lids
             # in; wide eyes open them
             sq = eye.squint
@@ -1059,6 +1115,7 @@ class GLFace:
             pr = min(w, h) * 0.26 * cur["pupil"][i] * eye.pupil_scale
             pr *= 1.0 + 0.03 * math.sin(now * 0.8)                 # pupils breathe too
             pr *= 1.0 + 0.06 * getattr(face, "awake_glow", 0.0)    # interested: a bit wider
+            pr *= 1.0 + 0.15 * life.bump(now, life.seen_t, 1.6)    # someone's there: wide
             dx = eye.pupil_ox * 0.85 + cur["gaze_x"] - side * conv * 0.6   # cross-eyed: in
             dy = eye.pupil_oy * 0.85 + cur["gaze_y"]
             if not asleep:                        # micro-saccades
@@ -1078,6 +1135,8 @@ class GLFace:
             by -= 10.0 * eye.widen - 5.0 * eye.squint             # brows go with the eyes…
             by += 4.0 * shut                                       # …dip as she blinks…
             by -= life.brow_flick(i, now)                          # …and flick up now and then
+            by -= 0.15 * max(0.0, -(eye.pupil_oy * 0.85 + cur["gaze_y"]))   # looking up
+            by -= 6.0 * emph                                       # a stressed syllable
             t = cur["brow_tilt"][i] * 0.5
             if side < 0:                          # the left eye: its inner end on the right
                 brows.append((ex - bw / 2, by - t, ex + bw / 2, by + t))
@@ -1103,6 +1162,8 @@ class GLFace:
         if e - prev > 0.07 or now - getattr(self, "_vis_t", 0.0) > 0.30:
             self._vis = random.randrange(len(self.VISEMES))
             self._vis_t = now
+            if e > 0.55 and getattr(self, "life", None):
+                self.life.emph_t = now            # a stressed syllable
         self._vis_prev = e
         tw, th = self.VISEMES[getattr(self, "_vis", 0)]
         cw, ch = getattr(self, "_vis_wh", (1.0, 1.0))
@@ -1119,6 +1180,13 @@ class GLFace:
         slant, open_ = cur["mouth_slant"], 0.0
         alpha = cur["mouth_a"] * self.eased.mouth_fade
         w *= 1.0 + 0.02 * math.sin(getattr(face, "breath_phase", 0.0))   # breathing
+        now = time.monotonic()
+        if face._emotion == "thinking":           # mulling it over: the mouth drifts
+            mx += 10.0 * math.sin(now * 0.9)
+            slant += 3.0 * math.sin(now * 0.6)
+        if (face._emotion in ("neutral", "listening") and getattr(face, "_face_seen", False)
+                and getattr(face, "awake_glow", 0.0) > 0.5):
+            bend += 5.0                           # looking at someone she's talking to
         talking = face._speaking or m.speak_fade > 0.05
         if talking:
             e = m.talk_open

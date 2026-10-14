@@ -43,7 +43,7 @@ from config import (RENDER_FPS, FACE_STYLE, SCREEN_WIDTH, SCREEN_HEIGHT,
                     CAMERA_PREVIEW, CAMERA_PREVIEW_W, TOUCH_DEBUG,
                     TOUCH_REACT_SECS, TOUCH_POKE_SECS, GAZE_FACE_PUPIL,
                     GAZE_MOTION_PUPIL, GAZE_MOTION_MAX_W, GAZE_MOTION_HOLD,
-                    GAZE_MOTION_MIN)
+                    GAZE_MOTION_MIN, SLEEP_AFTER_FRAMES)
 
 # The face geometry below is in absolute pixels and was drawn for a 1400x800
 # window; it fits the 800x480 DSI panel as-is (~560x400 used), just larger
@@ -58,6 +58,8 @@ if FACE_GL:
 
 BG        = (0, 0, 0)
 PUPIL_COL = (0, 0, 0)
+# how often she blinks, by mood (× the usual 100–220 frames between blinks)
+BLINK_PACE = {"sad": 1.5, "excited": 1.7, "surprised": 2.0, "love": 1.3}
 LISTEN_WAVE_COL = (255, 196, 110)  # the sound waves beside her while she listens
 THINK_HAND_SECS = 1.2              # thinking longer than this: a finger on her chin
 
@@ -1789,6 +1791,8 @@ class RobotFace:
         self._touch_pull = 0.0
         self._think_t = 0.0              # since when she has been thinking
         self._spec_mod = {}
+        self._drowsy = 0.0               # 0..1 as she nods off
+        self._face_seen = False
         self._costume = None             # what she wears this frame (gl_face reads it)
 
         # rel_x is re-applied from the active style's EYE_SPREAD every frame
@@ -1816,6 +1820,10 @@ class RobotFace:
             if new_state in ("happy", "excited", "love"):
                 self.bounce_phase = 0.0
                 self.bounce_amp   = 22.0
+            # a change of face often comes with a blink — a cut between them
+            if (EYE_MODE == "block" and "sleeping" not in (self.state, new_state)
+                    and random.random() < 0.55 and getattr(self, "_blink_dir", 0) == 0):
+                self._blink_dir, self.blink_counter = -1, 0
             self.prev_state = self.state
             self.state      = new_state
 
@@ -1881,6 +1889,11 @@ class RobotFace:
             emotion = self.visual_state
 
         # ── sleep / wake ──────────────────────────────────────────────────
+        self._face_seen = face_detected
+        # drowsy: the last 40 % before she falls asleep (gl_face droops the lids)
+        self._drowsy = (clamp((self.idle_frames - 0.6 * SLEEP_AFTER_FRAMES)
+                              / (0.4 * SLEEP_AFTER_FRAMES), 0.0, 1.0)
+                        if emotion != "sleeping" else 0.0)
         if not face_detected and not speaking:
             self.idle_frames += 1
         else:
@@ -1934,12 +1947,16 @@ class RobotFace:
             elif d == 1:
                 # reopen slower right after a conversation timeout — reads
                 # as a sleepy "back to rest" blink
-                self.blink_open += 0.16 * (0.45 if self.rest_pulse > 0.35
-                                           else 1.0)
+                # (sad and drowsy eyes open slowly)
+                slow = self.rest_pulse > 0.35 or emotion == "sad" or self._drowsy > 0.3
+                self.blink_open += 0.16 * (0.45 if slow else 1.0)
                 if self.blink_open >= 1.0:
                     self.blink_open  = 1.0
                     self._blink_dir  = 0
-                    self.blink_timer = random.randint(100, 220)
+                    # the mood sets the rhythm: sad and drowsy blink slower,
+                    # excited and surprised eyes hardly at all
+                    self.blink_timer = int(random.randint(100, 220) * BLINK_PACE.get(
+                        emotion, 1.4 if self._drowsy > 0.3 else 1.0))
                     # occasionally double-blink — very lifelike
                     if random.random() < 0.18 and not speaking:
                         self.blink_counter = self.blink_timer - 8
