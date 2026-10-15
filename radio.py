@@ -59,6 +59,120 @@ STATIONS = {
     # 8 Oct night: the online lookup for "dla dzieci" failed once → kept here
     "dla dzieci":    ("RMF Dla Dzieci", "http://195.150.20.8/BABY"),
 }
+# ── the catalogue (15 Oct): stations by kind ─────────────────────────────────
+# Andrzej: "soft background music for work — she has one jazz station and picks
+# from 4 in total; I want a better choice and a list to choose from". Each kind:
+# (key, label on the page, how she names it, [(name, url, a few words)]).
+# Every stream checked from the Pi on 15 Oct (radio-browser.info, ffmpeg).
+CATALOG = [
+    ("calm", "Do pracy", "spokojna muzyka do pracy", [
+        ("SomaFM Groove Salad", "https://ice2.somafm.com/groovesalad-128-mp3", "chill, downtempo"),
+        ("Radio Paradise Mellow", "https://stream.radioparadise.com/mellow-128", "łagodny miks"),
+        ("SomaFM Lush", "https://ice2.somafm.com/lush-128-mp3", "miękkie wokale"),
+        ("RMF Chillout", "https://rs202-krk.rmfstream.pl/rmf_chillout", "chillout"),
+        ("Lofi 24/7", "http://usa9.fastcast4u.com/proxy/jamz?mp=/1", "lo-fi hip-hop"),
+        ("SomaFM Fluid", "https://ice2.somafm.com/fluid-128-mp3", "instrumentalny hip-hop"),
+        ("SomaFM Deep Space One", "https://ice2.somafm.com/deepspaceone-128-mp3", "kosmiczny ambient"),
+        ("SomaFM Drone Zone", "https://ice2.somafm.com/dronezone-128-mp3", "ambient, bez rytmu"),
+    ]),
+    ("jazz", "Jazz", "jazz", [
+        ("Radio Swiss Jazz", "http://stream.srg-ssr.ch/m/rsj/mp3_128", "jazz bez reklam"),
+        ("FIP Jazz", "https://icecast.radiofrance.fr/fipjazz-midfi.mp3", "jazz z Paryża"),
+        ("Jazz Radio", "http://jazzradio.ice.infomaniak.ch/jazzradio-high.mp3", "jazz z Lyonu"),
+        ("RMF Smooth Jazz", "https://rs202-krk.rmfstream.pl/rmf_smooth_jazz", "smooth jazz"),
+        ("SomaFM Sonic Universe", "https://ice2.somafm.com/sonicuniverse-128-mp3", "nowoczesny jazz"),
+        ("SomaFM Secret Agent", "https://ice2.somafm.com/secretagent-128-mp3", "lounge, klimat szpiegowski"),
+        ("FIP Groove", "https://icecast.radiofrance.fr/fipgroove-midfi.mp3", "soul, funk, groove"),
+    ]),
+    ("classic", "Klasyka", "muzyka klasyczna", [
+        ("Radio Swiss Classic", "http://stream.srg-ssr.ch/m/rsc_de/mp3_128", "klasyka bez gadania"),
+        ("RMF Classic", "http://rmfstream1.interia.pl:8000/rmf_classic", "klasyka i muzyka filmowa"),
+        ("Radio Chopin", "http://stream3.polskieradio.pl:8910/", "Chopin i fortepian"),
+        ("Dwójka", "http://mp3.polskieradio.pl:8902/;.mp3", "Polskie Radio, kultura"),
+        ("Venice Classic Radio", "https://uk2.streamingpulse.com/ssl/vcr1", "barok, kameralna"),
+        ("France Musique", "https://icecast.radiofrance.fr/francemusique-midfi.mp3", "klasyka z Paryża"),
+        ("Classic FM", "https://media-ice.musicradio.com/ClassicFMMP3", "klasyka z Londynu"),
+    ]),
+    ("polish", "Polskie", "polskie radio", [
+        ("RMF FM", "http://195.150.20.242:8000/rmf_fm", "przeboje i fakty"),
+        ("Radio ZET", "http://zet-net-01.cdn.eurozet.pl:8400/", "przeboje i fakty"),
+        ("Trójka", "http://mp3.polskieradio.pl:8904/;.mp3", "Polskie Radio"),
+        ("Jedynka", "http://mp3.polskieradio.pl:8900/;.mp3", "Polskie Radio, wiadomości"),
+        ("Radio 357", "https://n-11-21.dcs.redcdn.pl/sc/o2/radio357/live/radio357_pr.livx?preroll=0",
+         "dawna Trójka"),
+        ("Radio Nowy Świat", "https://go-audio.toya.net.pl/63214", "ambitna muzyka"),
+        ("TOK FM", "https://radiostream.pl/tuba10-1.mp3", "rozmowy, wiadomości"),
+        ("Meloradio", "https://ml.cdn.eurozet.pl/mel-net.mp3", "melodyjne przeboje"),
+    ]),
+    ("hits", "Przeboje", "przeboje", [
+        ("RMF MAXXX", "http://195.150.20.242/rmf_maxxx", "najnowsze hity"),
+        ("ESKA Gorąca 100", "http://ic1.smcdn.pl/6120-1.mp3", "lista przebojów"),
+        ("VOX FM", "https://ic2.smcdn.pl/3990-1.mp3", "do tańca"),
+        ("Złote Przeboje", "http://radiostream.pl/tuba8928-1.mp3", "stare dobre przeboje"),
+        ("Radio Swiss Pop", "http://stream.srg-ssr.ch/m/rsp/mp3_128", "pop bez reklam"),
+        ("Radio Paradise", "https://stream.radioparadise.com/mp3-128", "eklektyczny miks"),
+    ]),
+    ("rock", "Rock", "rock", [
+        ("Antyradio", "https://n-4-2.dcs.redcdn.pl/sc/o2/Eurozet/live/antyradio.livx?audio=5",
+         "polski rock"),
+        ("RMF Classic Rock", "https://rs201-krk.rmfstream.pl/rmf_classic_rock", "klasyka rocka"),
+        ("Rock Antenne", "http://mp3channels.webradio.rockantenne.de/rockantenne", "rock z Monachium"),
+        ("Radio Paradise Rock", "https://stream.radioparadise.com/rock-128", "rockowy miks"),
+        ("FIP Rock", "https://icecast.radiofrance.fr/fiprock-midfi.mp3", "rock z Paryża"),
+        ("SomaFM Indie Pop Rocks", "https://ice2.somafm.com/indiepop-128-mp3", "indie"),
+        ("ESKA Rock", "https://ic2.smcdn.pl/5380-1.mp3", "rock po polsku"),
+    ]),
+    ("electronic", "Elektronika", "muzyka elektroniczna", [
+        ("FIP Electro", "https://icecast.radiofrance.fr/fipelectro-midfi.mp3", "elektronika z Paryża"),
+        ("SomaFM Beat Blender", "https://ice2.somafm.com/beatblender-128-mp3", "deep house"),
+        ("SomaFM Space Station", "https://ice2.somafm.com/spacestation-128-mp3", "kosmiczna elektronika"),
+        ("SomaFM Underground 80s", "https://ice2.somafm.com/u80s-128-mp3", "syntezatory lat 80"),
+    ]),
+    ("kids", "Dla dzieci", "radio dla dzieci", [
+        ("RMF Dla Dzieci", "http://195.150.20.8/BABY", "piosenki dla dzieci"),
+        ("Polskie Radio Dzieciom", "http://stream3.polskieradio.pl:8916/", "bajki i piosenki"),
+    ]),
+]
+_CAT = {key: (label, said, sts) for key, label, said, sts in CATALOG}
+for _k, _l, _s, _sts in CATALOG:                  # every one by name, too ("włącz FIP Jazz")
+    for _n, _u, _b in _sts:
+        STATIONS.setdefault(_n.lower(), (_n, _u))
+
+
+def _kind_asked(what):
+    """A kind of music (CATALOG's), not a station whose name says one."""
+    w = (what or "").strip(" .!?").lower()
+    if not w or not any(re.search(rx, w) for rx, k in _GENRES if k.startswith("cat:")):
+        return False
+    if any(k in w for k in STATIONS if len(k) > 3) or w in _ALIASES:
+        return False                       # "Polskie Radio Chopin"
+    kinds = [rx for rx, k in _GENRES if k.startswith("cat:")]
+    other = [t for t in w.split() if not any(re.search(rx, t) for rx in kinds)]
+    # "swiss jazz" — part of a station's name, with a word that isn't a kind
+    return not (any(w in k for k in STATIONS) and other)
+
+
+def _category_of(name):
+    """The kind of the station by that name, or None."""
+    return next((key for key, _, _, sts in CATALOG if any(n == name for n, _, _ in sts)), None)
+
+
+def _pick(cat):
+    """A station of that kind — not the one playing, nor the last one
+    picked of that kind (she chose among the same few before)."""
+    import random
+    sts = _CAT[cat][2]
+    last = _picked.get(cat)
+    now = playing()
+    pool = [s for s in sts if s[0] not in (now, last)] or list(sts)
+    name, url, _ = random.choice(pool)
+    _picked[cat] = name
+    return name, url
+
+
+_picked = {}               # kind → the last station picked for it
+
+
 # stations move and fail: what to try next when a stream won't start
 # (checked 2026-10-04 evening: Trójka's MP3 stream was down, its HLS worked)
 FALLBACKS = {
@@ -82,17 +196,28 @@ _ALIASES = {"rmf": "rmf fm", "rmfu": "rmf fm", "rmf-u": "rmf fm", "zet": "radio 
 _ON = re.compile(r"^(?:luna,? |luno,? )?(?:włącz|wlacz|puść|pusc|zagraj|odpal|graj|daj)\s+"
                  r"(?:(?:mi|nam)\s+)?(?:(?:radio|radijko|radyjko|radyjka|stację|stacje)\s*(.*)|(.+))$")
 # "włącz radio z jakąś spokojną muzyką" — a kind of music, not a station name
+# ("cat:…" — a kind from CATALOG, a different station of it each time)
 _GENRES = [
-    (r"spokojn|relaks|klasyczn|poważn|powazn|wycisz|do\s+snu|chill|łagodn|lagodn", "dwójka"),
-    (r"rock|alternatyw|gitar", "trójka"),
+    (r"jazz|dżez|dzez|smooth", "cat:jazz"),
+    (r"klasyczn|poważn|powazn|opera|operow|chopin|fortepian|pianin|symfon|barok", "cat:classic"),
+    (r"spokojn|relaks|do\s+pracy|do\s+nauki|do\s+czytania|skupi|koncentr|w\s+tle|chill|"
+     r"lounge|łagodn|lagodn|wycisz|lo-?fi|ambient|do\s+snu|nastrojow|cich", "cat:calm"),
+    (r"rock|alternatyw|gitar", "cat:rock"),
+    (r"elektron|techno|house|electro|syntez", "cat:electronic"),
     # (13 Oct sweep: "Puść coś do biegania" — an offer, nothing played)
     (r"przebo|hit|pop|disco|tanecz|wesoł|wesol|imprez|biega|bieg\b|trening|ćwicz|cwicz|"
-     r"energi|sport|siłown|silown|rower", "rmf fm"),
+     r"energi|sport|siłown|silown|rower", "cat:hits"),
     (r"wiadomości|wiadomosci|informac|news|publicyst", "jedynka"),
-    (r"ambitn|nowoczesn|indie|ciekaw", "nowy świat"),     # (jazz: real jazz stations, below)
+    (r"ambitn|nowoczesn|indie|ciekaw", "nowy świat"),
     # (found online by "włącz radio dla dzieci": RMF Dla Dzieci)
-    (r"dla\s+dzieci|dziecięc|dzieciec|dla\s+maj|bajk", "dla dzieci"),
+    (r"dla\s+dzieci|dziecięc|dzieciec|dla\s+maj|bajk", "cat:kids"),
 ]
+# "pokaż stacje", "lista stacji", "jakie masz stacje" — the page to pick from
+_SHOW = re.compile(r"^(?:luna,?\s+)?(?:(?:pokaż|pokaz|wyświetl|wyswietl|otwórz|otworz)\s+(?:mi\s+|nam\s+)?"
+                   r"(?:listę\s+|liste\s+|wszystkie\s+)?(?:stacj\w*|radi\w*\s+stacj\w*|stacje\s+radiowe|"
+                   r"radio\s+do\s+wyboru)|lista\s+stacji|jakie\s+(?:masz\s+|mamy\s+)?(?:stacje|radia)\w*|"
+                   r"(?:chcę\s+|chce\s+)?wybrać\s+stację|wybierz\s+(?:mi\s+)?stację\s+z\s+listy|"
+                   r"wybór\s+stacji|wybor\s+stacji)\W*$")
 # stations known by a broadcaster's name alone ("puść BBC") — looked up online
 _BROADCASTERS = re.compile(r"(?:bbc|npr|kexp|fip|cnn|classic\s+fm|jazz\s+fm|virgin\s+radio|"
                            r"radio\s+paradise)\b")
@@ -212,6 +337,8 @@ def _station(words):
         mine = (settings.get("radio_last_by", {}) or {}).get(_who())
         last = mine or settings.get("radio_last")
         return tuple(last) if last else STATIONS["rmf fm"]
+    if w.startswith("cat:") and w[4:] in _CAT:
+        return _pick(w[4:])
     key = _ALIASES.get(w, w)
     if key in STATIONS:
         return STATIONS[key]
@@ -536,6 +663,10 @@ def handle(text, speak):
     low = text.lower().strip(" .!?")
     if _RESUME.match(low):
         text = low = "włącz radio"             # your last station (_station)
+    if _SHOW.match(low):
+        show_page()
+        speak("Wybierz stację.")
+        return True
     if any(k in low for k in _ALARM_ON + _ALARM_OFF):
         on = any(k in low for k in _ALARM_ON)
         settings.put("alarm_radio", on)
@@ -559,8 +690,17 @@ def handle(text, speak):
     elif (any(k in low for k in _NEXT) and len(words) <= 5) or _next_asked(low):
         if _world_next(speak):             # the next one of "radio z Francji"
             return True
-        names = list(STATIONS.values())
         now = playing()
+        cat = _category_of(now) if now else None
+        if cat:                            # the next one of the same kind
+            sts = _CAT[cat][2]
+            i = next(k for k, s in enumerate(sts) if s[0] == now)
+            name, url, _ = sts[(i + 1) % len(sts)]
+            speak(f"Teraz {name}.")
+            play(name, url)
+            _remember_station(name, url)
+            return True
+        names = list(STATIONS.values())
         i = next((k for k, st in enumerate(names) if st[0] == now), -1)
         name, url = names[(i + 1) % len(names)]
         speak(f"Teraz {name}.")
@@ -646,6 +786,8 @@ def handle(text, speak):
             what = key                     # "puść BBC" (11 Oct sweep: the model refused)
         elif re.search(r"\bradio\b|\bfm\b", key) and len(key.split()) <= 6:
             what = key                     # "włącz Polskie Radio Chopin", "włącz BBC Radio 1"
+        elif _kind_asked(key):
+            what = key                     # "włącz jazz" → a jazz station
         elif key not in STATIONS:
             return False
         else:
@@ -653,7 +795,7 @@ def handle(text, speak):
     else:
         what = m.group(1)
     genre = next((key for rx, key in _GENRES if re.search(rx, what or "")), None)
-    if genre and (not what or what.split()[0] in ("z", "ze", "jakąś", "jakas", "jakieś", "jakies",
+    if genre and (_kind_asked(what) or not what or what.split()[0] in ("z", "ze", "jakąś", "jakas", "jakieś", "jakies",
                                                   "coś", "cos")
                   or re.search(r"muzyk|muzyczk|piosenk", what)
                   or re.fullmatch(r"\w+(?:owe|ową|owa|owego|czne|czną)", what)):   # "radio rockowe"
@@ -665,9 +807,53 @@ def handle(text, speak):
         speak(f"Nie znalazłam stacji {what}.")
         return True
     name, url = st
-    speak(f"Włączam {_acc(name)}.")
+    said = _CAT[what[4:]][1] if what.startswith("cat:") and what[4:] in _CAT else ""
+    speak(f"Włączam {_acc(name)}" + (f" — {said}." if said else "."))
     play(name, url)
     _remember_station(name, url)
+    return True
+
+
+# ── the page: kinds on the left, their stations to tap (15 Oct) ───────────────
+
+PAGE_SECS = 90             # the page stays this long after the last tap
+
+
+def show_page(cat=None):
+    """The station page — at the kind of the one playing, or "Do pracy"."""
+    keys = [c[0] for c in CATALOG]
+    cat = cat or _category_of(playing() or "") or "calm"
+    with state.lock:
+        state.overlay = ("radio", time.time() + PAGE_SECS, {"cat": keys.index(cat)})
+
+
+def now_title():
+    """The song playing (ICY title), or None."""
+    with _lock:
+        return _player.get("title") if _player else None
+
+
+def tap(x, y, W, H):
+    """A tap (px) on the station page: a kind, a station (plays it), Stop."""
+    import ui_screens
+    with state.lock:
+        ov = state.overlay
+        if not ov or ov[0] != "radio":
+            return False
+        data = ov[2]
+        state.overlay = (ov[0], time.time() + PAGE_SECS, data)
+    hit = ui_screens.radio_hit(x, y, W, H, data)
+    if not hit:
+        return True                        # (a tap on the page doesn't close it)
+    if hit[0] == "cat":
+        data["cat"] = hit[1]
+    elif hit[0] == "stop":
+        stop()
+    elif hit[0] == "st":
+        name, url, _ = CATALOG[data["cat"]][3][hit[1]]
+        if playing() != name:
+            play(name, url)
+            _remember_station(name, url)
     return True
 
 
@@ -742,7 +928,8 @@ def _world_wanted(what):
     # a kind of music with no Polish station for it (reggae, blues, metal…)
     # (jazz too — 11 Oct: "jakieś radio z jazzem" took three tries, then Nowy
     # Świat, which isn't a jazz station)
-    if tag in ("jazz", "blues", "reggae", "metal", "country", "electronic", "ambient", "latin",
+    # (jazz, electronic, ambient: CATALOG has them now — 15 Oct)
+    if tag in ("blues", "reggae", "metal", "country", "latin",
                "hiphop", "80s", "90s", "oldies", "folk", "soul"):
         return None, tag, ""
     return None

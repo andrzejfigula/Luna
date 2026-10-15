@@ -771,6 +771,85 @@ def list_row_at(nx, ny, rows, page, W=800, H=480):
     return i
 
 
+# ── the radio's page (radio.show_page): kinds on the left, stations to tap ───
+
+def _radio_layout(W, H, n_st, playing):
+    """The page's rects: (stop | None, [kinds], [stations])."""
+    import radio
+    top = 78
+    kinds = [pygame.Rect(16, top + k * 49, 168, 44) for k in range(len(radio.CATALOG))]
+    x0, gap = 198, 12
+    cw = (W - x0 - 16 - gap) // 2
+    rows = max(4, -(-n_st // 2))
+    ch = (H - top - 14 - (rows - 1) * 10) // rows
+    sts = [pygame.Rect(x0 + (k % 2) * (cw + gap), top + (k // 2) * (ch + 10), cw, ch)
+           for k in range(n_st)]
+    stop = pygame.Rect(W - 210, 18, 112, 42) if playing else None
+    return stop, kinds, sts
+
+
+def radio_hit(x, y, W, H, data):
+    """("cat", i) | ("st", i) | ("stop",) | None for a tap at (x, y) px."""
+    import radio
+    n = len(radio.CATALOG[data["cat"]][3])
+    stop, kinds, sts = _radio_layout(W, H, n, radio.playing())
+    if stop and stop.inflate(10, 10).collidepoint(x, y):
+        return ("stop",)
+    for k, r in enumerate(kinds):
+        if r.collidepoint(x, y):
+            return ("cat", k)
+    for k, r in enumerate(sts):
+        if r.collidepoint(x, y):
+            return ("st", k)
+    return None
+
+
+def draw_radio(scr, data, now, W, H):
+    """Radio: what plays (and the song), Stop; the kinds; their stations —
+    the one playing lit, with bars moving."""
+    import radio
+    scr.blit(vgrad(W, H, (18, 20, 38), (40, 32, 66)), (0, 0))
+    gold = (255, 205, 120)
+    title = text("Radio", 32, WHITE, "ExtraBold")
+    scr.blit(title, (24, 38 - title.get_height() // 2))
+    on = radio.playing()
+    stop, kinds, sts = _radio_layout(W, H, len(radio.CATALOG[data["cat"]][3]), on)
+    if on:
+        song = radio.now_title()
+        line = on + (f" · {song}" if song else "")
+        room = (stop.x if stop else W - 90) - 150 - 16
+        img = text(fit(line, 19, room, "SemiBold"), 19, gold, "SemiBold")
+        scr.blit(img, (150, 38 - img.get_height() // 2))
+        scr.blit(rrect(stop.w, stop.h, 21, (214, 52, 52, 230)), stop)
+        sq = rrect(14, 14, 3, (255, 255, 255, 255))
+        scr.blit(sq, (stop.x + 20, stop.centery - 7))
+        lab = text("Stop", 21, WHITE, "ExtraBold")
+        scr.blit(lab, (stop.x + 44, stop.centery - lab.get_height() // 2))
+    for k, (r, (key, label, _, _)) in enumerate(zip(kinds, radio.CATALOG)):
+        sel = k == data["cat"]
+        scr.blit(rrect(r.w, r.h, 14, (255, 205, 120, 70) if sel else (255, 255, 255, 16)), r)
+        playing_here = on and radio._category_of(on) == key
+        lab = text(label, 21, WHITE if sel else (225, 225, 240), "ExtraBold" if sel else "Bold")
+        scr.blit(lab, (r.x + 16, r.centery - lab.get_height() // 2))
+        if playing_here:                              # (the kind of the one playing)
+            scr.blit(rrect(8, 8, 4, gold + (255,)), (r.right - 22, r.centery - 4))
+    for k, (r, (name, _, blurb)) in enumerate(zip(sts, radio.CATALOG[data["cat"]][3])):
+        lit = name == on
+        scr.blit(rrect(r.w, r.h, 16, (255, 196, 110, 75) if lit else (255, 255, 255, 22)), r)
+        room = r.w - (64 if lit else 32)
+        ns = shrink(name, 22, room, "ExtraBold", 17)       # (long names: smaller first)
+        nm = text(fit(name, ns, room, "ExtraBold"), ns, WHITE, "ExtraBold")
+        bl = text(fit(blurb, 17, room, "SemiBold"), 17, (200, 200, 220), "SemiBold")
+        y = r.centery - (nm.get_height() + bl.get_height()) // 2
+        scr.blit(nm, (r.x + 16, y))
+        scr.blit(bl, (r.x + 16, y + nm.get_height()))
+        if lit:                                       # bars moving: it's playing
+            for j in range(3):
+                hgt = 8 + 14 * abs(math.sin(now * (5.0 + 1.7 * j) + j))
+                bar = rrect(6, int(hgt), 3, gold + (255,))
+                scr.blit(bar, (r.right - 44 + j * 10, r.centery + 11 - int(hgt)))
+
+
 def draw_list(scr, heading, rows, now, W, H, meta=None):
     """The title with its picture, then the rows on a soft panel — a label
     (a time, "lista", "•") and its value; more than LIST_PAGE: pages. meta

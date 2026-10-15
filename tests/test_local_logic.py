@@ -204,8 +204,9 @@ class TimersTest(unittest.TestCase):
         self.assertEqual(radio._world_wanted("francuski jazz")[:2], ("FR", "jazz"))
         self.assertEqual(radio._world_wanted("reggae")[:2], (None, "reggae"))
         self.assertIsNone(radio._world_wanted("do śniadania"))          # not Denmark
-        # jazz: real jazz stations (11 Oct: three tries, then Nowy Świat)
-        self.assertEqual(radio._world_wanted("jakieś radio z jazzem")[:2], (None, "jazz"))
+        # jazz: real jazz stations (11 Oct: three tries, then Nowy Świat) — since
+        # 15 Oct the catalogue's own (RadioCatalogTest), not a search abroad
+        self.assertIsNone(radio._world_wanted("jakieś radio z jazzem"))
         self.assertIsNone(radio._world_wanted("trójkę"))
         self.assertEqual(radio._short("SABROSITA Ciudad de México 590 AM XEPH-AM NRM"),
                          "SABROSITA Ciudad de México")
@@ -242,7 +243,12 @@ class TimersTest(unittest.TestCase):
             for t in ("Włącz jakieś radio rockowe", "Włącz radio rockowe",
                       "Włącz coś spokojnego do pracy", "Puść BBC"):
                 self.assertTrue(radio.handle(t, said.append), t)
-        self.assertEqual(played, ["Trójka", "Trójka", "Dwójka", "BBC World Service"])
+        # (15 Oct: the catalogue's rock and "Do pracy" stations)
+        rock, calm = ([n for n, _, _ in radio._CAT[c][2]] for c in ("rock", "calm"))
+        self.assertIn(played[0], rock)
+        self.assertIn(played[1], rock)
+        self.assertIn(played[2], calm)
+        self.assertEqual(played[3], "BBC World Service")
         self.assertEqual(radio._spoken("Radio Paradise Main Mix 320k AAC"),
                          "Radio Paradise Main Mix")
         # a station by its name, not after "radio" (went to the model, refused)
@@ -251,7 +257,7 @@ class TimersTest(unittest.TestCase):
             import settings
             settings.put("radio_found", {})
             self.assertTrue(radio.handle("Włącz Polskie Radio Chopin", said.append))
-        self.assertEqual(played, ["Polskie Radio Chopin"])
+        self.assertEqual(played, ["Radio Chopin"])            # (in the catalogue since 15 Oct)
         import brain
         self.assertTrue(brain._COMMAND_OK.match("włącz Polskie Radio Chopin"))
         self.assertTrue(brain._COMMAND_OK.match("włącz BBC Radio 1"))
@@ -270,7 +276,8 @@ class TimersTest(unittest.TestCase):
         try:
             self.assertTrue(radio.handle("Włącz radio z jakąś spokojną muzyką", said.append))
             self.assertTrue(radio.handle("Włącz radijko", said.append))
-            self.assertEqual(played[0], "Dwójka")
+            # (15 Oct: a calm station of the catalogue's "Do pracy", not Dwójka)
+            self.assertIn(played[0], [n for n, _, _ in radio._CAT["calm"][2]])
             for t in ("Włącz radio zed", "Włącz radio set"):       # how STT hears "ZET"
                 played.clear()
                 self.assertTrue(radio.handle(t, said.append))
@@ -291,7 +298,7 @@ class TimersTest(unittest.TestCase):
                           "Włącz RMF dla dzieci"):
                     played.clear()
                     self.assertTrue(radio.handle(t, said.append))
-                    self.assertEqual(played, ["RMF Dla Dzieci"], t)
+                    self.assertIn(played[0], ["RMF Dla Dzieci", "Polskie Radio Dzieciom"], t)
         finally:
             radio.play = old
 
@@ -2428,7 +2435,7 @@ class KidsTest(unittest.TestCase):
         import radio
         self.assertTrue(radio._ON.match("daj jakąś muzykę"))          # (13 Oct: an offer)
         self.assertEqual(next(k for rx, k in radio._GENRES
-                              if __import__("re").search(rx, "coś do biegania")), "rmf fm")
+                              if __import__("re").search(rx, "coś do biegania")), "cat:hits")
 
     def test_count_with_me_is_no_hide_and_seek(self):
         import counting
@@ -5554,6 +5561,87 @@ class FaceLibraryCostumeTest(unittest.TestCase):
         kinds = {k for k, _ in fun._COSTUME_KIND} | {"googly_eyes"}
         self.assertEqual(kinds, set(fun._COSTUME_SAY))
         self.assertTrue(set(gl_face.COSTUME_EYES) <= kinds)
+
+
+class RadioCatalogTest(unittest.TestCase):
+    """15 Oct: "soft music for work — one jazz station, 4 in total; a better
+    choice and a list to choose from"."""
+
+    def _ask(self, text, playing=None):
+        import radio
+        got, said = [], []
+        with mock.patch.object(radio, "play", lambda n, u, **k: got.append(n)),                 mock.patch.object(radio, "playing", lambda: playing),                 mock.patch.object(radio, "_remember_station", lambda n, u: None),                 mock.patch.object(radio, "_world_play", lambda w, s: False):
+            handled = radio.handle(text, said.append)
+        return handled, got, said
+
+    def _names(self, cat):
+        import radio
+        return [n for n, _, _ in radio._CAT[cat][2]]
+
+    def test_kinds_of_music(self):
+        for text, cat in (("Puść coś spokojnego do pracy", "calm"), ("Włącz jazz", "jazz"),
+                          ("włącz radio jazzowe", "jazz"), ("puść muzykę klasyczną", "classic"),
+                          ("włącz jakiś rock", "rock"), ("puść coś do biegania", "hits"),
+                          ("włącz radio dla dzieci", "kids"),
+                          ("puść muzykę elektroniczną", "electronic"),
+                          ("włącz coś w tle do nauki", "calm")):
+            handled, got, said = self._ask(text)
+            self.assertTrue(handled, text)
+            self.assertIn(got[-1], self._names(cat), text)
+        self.assertIn("spokojna muzyka do pracy", self._ask("Puść coś spokojnego do pracy")[2][-1])
+
+    def test_a_station_by_name_wins(self):
+        for text, name in (("Włącz Polskie Radio Chopin", "Radio Chopin"),
+                           ("włącz FIP Jazz", "FIP Jazz"), ("włącz trójkę", "Trójka"),
+                           ("włącz radio RMF Classic", "RMF Classic"),
+                           ("włącz radio Swiss Jazz", "Radio Swiss Jazz")):
+            self.assertEqual(self._ask(text)[1][-1], name, text)
+
+    def test_variety_and_the_next_of_the_kind(self):
+        picks = {self._ask("puść coś spokojnego do pracy")[1][-1] for _ in range(30)}
+        self.assertGreater(len(picks), 4)                     # not always the same few
+        handled, got, said = self._ask("następna stacja", playing="FIP Jazz")
+        self.assertEqual(got, ["Jazz Radio"])                 # the next jazz one
+        handled, got, said = self._ask("następna stacja", playing="SomaFM Drone Zone")
+        self.assertEqual(got, ["SomaFM Groove Salad"])        # (round to the first)
+
+    def test_every_station_is_in_one_kind_only(self):
+        import radio
+        names = [n for _, _, _, sts in radio.CATALOG for n, _, _ in sts]
+        self.assertEqual(len(names), len(set(names)))
+        self.assertGreaterEqual(len(names), 45)
+        for _, _, _, sts in radio.CATALOG:
+            for n, u, b in sts:
+                self.assertTrue(u.startswith("http"), n)
+                self.assertTrue(b, n)
+
+    def test_the_page(self):
+        try:
+            import pygame  # noqa: F401
+        except ImportError:
+            self.skipTest("pygame")
+        import radio
+        import ui_screens
+        handled, got, said = self._ask("pokaż stacje")
+        self.assertTrue(handled)
+        self.assertEqual(said, ["Wybierz stację."])
+        for t in ("lista stacji", "jakie masz stacje", "pokaż mi stacje radiowe"):
+            self.assertTrue(radio._SHOW.match(t), t)
+        with state.lock:
+            kind, until, data = state.overlay
+        self.assertEqual(kind, "radio")
+        W, H = 800, 480
+        _, kinds, _ = ui_screens._radio_layout(W, H, 8, None)
+        got = []
+        with mock.patch.object(radio, "play", lambda n, u, **k: got.append(n)),                 mock.patch.object(radio, "playing", lambda: None),                 mock.patch.object(radio, "_remember_station", lambda n, u: None):
+            radio.tap(kinds[1].centerx, kinds[1].centery, W, H)       # "Jazz"
+            self.assertEqual(data["cat"], 1)
+            _, _, sts = ui_screens._radio_layout(W, H, len(radio.CATALOG[1][3]), None)
+            radio.tap(sts[2].centerx, sts[2].centery, W, H)           # its third station
+        self.assertEqual(got, [radio.CATALOG[1][3][2][0]])
+        with state.lock:
+            self.assertEqual(state.overlay[0], "radio")               # (still open)
+            state.overlay = None
 
 
 class FaceSpecTest(unittest.TestCase):

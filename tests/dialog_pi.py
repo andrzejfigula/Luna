@@ -124,7 +124,7 @@ CASES = [
     ("Jest cicho w domu, wszyscy śpią", MODEL),
     ("Możesz mówić wolniej?", ""),
     ("Mów normalnie", ""),
-    ("Włącz radio z jakąś spokojną muzyką", "Dwójkę"),
+    ("Włącz radio z jakąś spokojną muzyką", "spokojna muzyka"),   # (15 Oct: the catalogue)
     ("Wyłącz radio", ""),
     ("Włącz napisy", "napisy"),
     ("Wyłącz napisy", "napisy"),

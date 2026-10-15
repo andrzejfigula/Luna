@@ -2302,6 +2302,9 @@ class RobotFace:
                     screens.end_game_page(ov_kind)
                 elif ov_kind == "list" and screens.list_tap(*touch_pt):
                     pass                                # an item: "Usunąć?", then crossed off
+                elif ov_kind == "radio":                # a kind, a station, Stop
+                    import radio
+                    radio.tap(touch_pt[0] * WIDTH, touch_pt[1] * HEIGHT, WIDTH, HEIGHT)
                 else:
                     with state.lock:                    # a tap elsewhere closes it
                         state.overlay = None
@@ -3273,6 +3276,8 @@ class RobotFace:
             pygame.draw.circle(scr, IRIS_SHINE, c, r, 3)
             txt = _get_font(40).render(word, True, EYE_INNER)
             scr.blit(txt, txt.get_rect(center=(WIDTH // 2, HEIGHT - 45)))
+        elif kind == "radio":                           # the stations to pick from
+            ui_screens.draw_radio(scr, data, time.time(), WIDTH, HEIGHT)
         elif kind == "list":                            # lists, plan, reminders, status
             ui_screens.draw_list(scr, data[0], data[1], time.time(), WIDTH, HEIGHT,
                                  data[2] if len(data) > 2 else None)
