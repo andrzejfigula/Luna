@@ -1790,6 +1790,12 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
     if m and drawing._is_person(m.group(1).strip(" ,")) and drawing.show_person(m.group(1), speak):
         return True
 
+    # "Jakie masz inne stacje radiowe?" — a question asking for the radio's
+    # page (15 Oct: went to the model, which named six stations)
+    import radio as _radio
+    if question and _radio._show_asked(low.strip(" .!?")):
+        return _radio.handle(text, speak)
+
     # everything below acts on a request — never on a question about it
     if question:
         return False

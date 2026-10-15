@@ -134,6 +134,13 @@ CATALOG = [
     ]),
 ]
 _CAT = {key: (label, said, sts) for key, label, said, sts in CATALOG}
+# (almost) no singing — "bez śpiewania", "instrumentalne" (15 Oct: "jazzowe, ale
+# bez śpiewania" got a station of show tunes)
+INSTRUMENTAL = {"SomaFM Groove Salad", "SomaFM Fluid", "Lofi 24/7", "SomaFM Deep Space One",
+                "SomaFM Drone Zone", "SomaFM Sonic Universe", "SomaFM Secret Agent",
+                "Radio Swiss Classic", "Venice Classic Radio", "Radio Chopin", "RMF Classic",
+                "SomaFM Beat Blender", "SomaFM Space Station"}
+_NO_VOICE = re.compile(r"instrumentaln|bez\s+(?:śpiew|spiew|wokal|słów|slow|tekstu|gadania|słowa)")
 for _k, _l, _s, _sts in CATALOG:                  # every one by name, too ("włącz FIP Jazz")
     for _n, _u, _b in _sts:
         STATIONS.setdefault(_n.lower(), (_n, _u))
@@ -157,11 +164,15 @@ def _category_of(name):
     return next((key for key, _, _, sts in CATALOG if any(n == name for n, _, _ in sts)), None)
 
 
-def _pick(cat):
+def _pick(cat, instrumental=False):
     """A station of that kind — not the one playing, nor the last one
-    picked of that kind (she chose among the same few before)."""
+    picked of that kind (she chose among the same few before); with
+    instrumental, one without singing (of that kind if it has any)."""
     import random
     sts = _CAT[cat][2]
+    if instrumental:
+        sts = [s for s in sts if s[0] in INSTRUMENTAL] or [
+            s for s in _CAT["calm"][2] if s[0] in INSTRUMENTAL]
     last = _picked.get(cat)
     now = playing()
     pool = [s for s in sts if s[0] not in (now, last)] or list(sts)
@@ -200,7 +211,7 @@ _ON = re.compile(r"^(?:luna,? |luno,? )?(?:włącz|wlacz|puść|pusc|zagraj|odpa
 _GENRES = [
     (r"jazz|dżez|dzez|smooth", "cat:jazz"),
     (r"klasyczn|poważn|powazn|opera|operow|chopin|fortepian|pianin|symfon|barok", "cat:classic"),
-    (r"spokojn|relaks|do\s+pracy|do\s+nauki|do\s+czytania|skupi|koncentr|w\s+tle|chill|"
+    (r"instrumentaln|bez\s+(?:śpiew|spiew|wokal|słów|slow|tekstu)|spokojn|relaks|do\s+pracy|do\s+nauki|do\s+czytania|skupi|koncentr|w\s+tle|chill|"
      r"lounge|łagodn|lagodn|wycisz|lo-?fi|ambient|do\s+snu|nastrojow|cich", "cat:calm"),
     (r"rock|alternatyw|gitar", "cat:rock"),
     (r"elektron|techno|house|electro|syntez", "cat:electronic"),
@@ -212,12 +223,25 @@ _GENRES = [
     # (found online by "włącz radio dla dzieci": RMF Dla Dzieci)
     (r"dla\s+dzieci|dziecięc|dzieciec|dla\s+maj|bajk", "cat:kids"),
 ]
-# "pokaż stacje", "lista stacji", "jakie masz stacje" — the page to pick from
-_SHOW = re.compile(r"^(?:luna,?\s+)?(?:(?:pokaż|pokaz|wyświetl|wyswietl|otwórz|otworz)\s+(?:mi\s+|nam\s+)?"
-                   r"(?:listę\s+|liste\s+|wszystkie\s+)?(?:stacj\w*|radi\w*\s+stacj\w*|stacje\s+radiowe|"
-                   r"radio\s+do\s+wyboru)|lista\s+stacji|jakie\s+(?:masz\s+|mamy\s+)?(?:stacje|radia)\w*|"
-                   r"(?:chcę\s+|chce\s+)?wybrać\s+stację|wybierz\s+(?:mi\s+)?stację\s+z\s+listy|"
-                   r"wybór\s+stacji|wybor\s+stacji)\W*$")
+# the page to pick from — by meaning, not a few fixed phrases (15 Oct: "pokaż
+# jakie masz radia", "jakie masz inne stacje radiowe", "pokaż stronę ze
+# stacjami radiowymi" all went to the model): a show / which / list word and a
+# word for radio stations, not a play / stop / "what's playing" request
+_SHOW_WORD = re.compile(r"\b(?:pokaż|pokaz|wyświetl|wyswietl|otwórz|otworz|zobacz\w*|lista|listę|liste|"
+                        r"listy|spis\w*|wyb[oó]r\w*|wybra\w*|wybierz\w*|jakie|jakich|które|ktore|"
+                        r"co\s+masz|co\s+mamy|dostępn\w*|dostepn\w*|stron\w*|ekran\w*)\b")
+_SHOW_NOUN = re.compile(r"stacj\w*|\bradi(?:a|ów|ow|ami|ach|o|om)\b|radyj\w*|rozgłośn\w*|rozglosn\w*")
+_SHOW_NOT = re.compile(r"\b(?:włącz|wlacz|puść|pusc|zagraj|odpal|graj|wyłącz|wylacz|zmień|zmien|"
+                       r"przełącz|przelacz|zatrzymaj|gra|grało|leci|teraz|śpiewa|spiewa|"
+                       r"budź|budz|budzik\w*|lubi\w*|ulubion\w*|polec\w*|słuchasz|sluchasz|"
+                       r"najlepsz\w*|myślisz|myslisz|sądzisz|sadzisz)\b"   # (an opinion: the model)
+                       r"|to\s+za|jaka\s+to|która\s+to|ktora\s+to")
+
+
+def _show_asked(low):
+    low = re.sub(r"^(?:a\s+|no\s+|to\s+)?(?:luna,?\s+|luno,?\s+)?", "", low)
+    return (len(low.split()) <= 9 and bool(_SHOW_WORD.search(low))
+            and bool(_SHOW_NOUN.search(low)) and not _SHOW_NOT.search(low))
 # stations known by a broadcaster's name alone ("puść BBC") — looked up online
 _BROADCASTERS = re.compile(r"(?:bbc|npr|kexp|fip|cnn|classic\s+fm|jazz\s+fm|virgin\s+radio|"
                            r"radio\s+paradise)\b")
@@ -337,8 +361,8 @@ def _station(words):
         mine = (settings.get("radio_last_by", {}) or {}).get(_who())
         last = mine or settings.get("radio_last")
         return tuple(last) if last else STATIONS["rmf fm"]
-    if w.startswith("cat:") and w[4:] in _CAT:
-        return _pick(w[4:])
+    if w.startswith("cat:") and w.split(":")[1] in _CAT:
+        return _pick(w.split(":")[1], instrumental=w.endswith(":i"))
     key = _ALIASES.get(w, w)
     if key in STATIONS:
         return STATIONS[key]
@@ -663,9 +687,9 @@ def handle(text, speak):
     low = text.lower().strip(" .!?")
     if _RESUME.match(low):
         text = low = "włącz radio"             # your last station (_station)
-    if _SHOW.match(low):
+    if _show_asked(low):
         show_page()
-        speak("Wybierz stację.")
+        speak("Oto moje stacje.")          # ("Wybierz stację" came out "Vediš stacje")
         return True
     if any(k in low for k in _ALARM_ON + _ALARM_OFF):
         on = any(k in low for k in _ALARM_ON)
@@ -800,6 +824,8 @@ def handle(text, speak):
                   or re.search(r"muzyk|muzyczk|piosenk", what)
                   or re.fullmatch(r"\w+(?:owe|ową|owa|owego|czne|czną)", what)):   # "radio rockowe"
         what = genre                       # "…z jakąś spokojną muzyką" → Dwójka
+        if genre.startswith("cat:") and _NO_VOICE.search(low):
+            what += ":i"                   # "…ale bez śpiewania"
     if len(what.split()) > 4:
         return False
     st = _station(what)
@@ -807,7 +833,10 @@ def handle(text, speak):
         speak(f"Nie znalazłam stacji {what}.")
         return True
     name, url = st
-    said = _CAT[what[4:]][1] if what.startswith("cat:") and what[4:] in _CAT else ""
+    kind = what.split(":")[1] if what.startswith("cat:") else None
+    said = _CAT[kind][1] if kind in _CAT else ""
+    if said and what.endswith(":i"):
+        said += " bez śpiewu"
     speak(f"Włączam {_acc(name)}" + (f" — {said}." if said else "."))
     play(name, url)
     _remember_station(name, url)

@@ -811,10 +811,13 @@ Always answer as JSON with exactly these keys:
                 Switches only the app can flip — {{"type":"command","label":
                 "włącz Dwójkę",...}} with the label one of: "włącz radio",
                 "włącz <RMF FM | Radio ZET | Trójkę | Jedynkę | Dwójkę | Radio
-                357 | Nowy Świat | any station's name>", "włącz radio z
+                357 | Nowy Świat | any station's name>", "włącz coś spokojnego
+                do pracy", "włącz jazz", "włącz muzykę klasyczną", "włącz
+                rock", "włącz przeboje", "włącz muzykę elektroniczną", "włącz
+                radio dla dzieci", "włącz jazz bez śpiewu", "włącz radio z
                 <kraju> / <gatunek>" (e.g. "włącz radio z Francji", "włącz
-                radio jazz z Francji", "włącz radio reggae"), "wyłącz radio",
-                "następna stacja",
+                radio reggae"), "pokaż stacje" (the page of all stations to
+                tap), "wyłącz radio", "następna stacja",
                 "ciszej", "głośniej", "mów wolniej", "mów szybciej", "mów
                 normalnie", "włącz lampkę", "wyłącz lampkę", "lampka na
                 <kolor>", "włącz szum deszczu / morza", "biały szum",
@@ -965,7 +968,10 @@ use something, explain in your own words, briefly, a few examples at a time
   "no poszukaj" / "sprawdź" after you offered to look something up (models,
   reviews, offers) is that search ("wyszukaj w internecie: mikrofon USB do
   komputera opinie") — at 22:00 one evening she offered, then said she had no internet.
-- internet radio: "włącz radio", "włącz Trójkę" / RMF FM / ZET / 357 / Nowy
+- internet radio: 51 stations in kinds — calm music for work, jazz,
+  classical, Polish, hits, rock, electronic, for children (also without
+  singing: "jazz bez śpiewu") — "pokaż stacje" shows them all on the screen
+  to tap; "włącz radio", "włącz Trójkę" / RMF FM / ZET / 357 / Nowy
   Świat or any station by name, AND radio from any country or of any kind of
   music ("włącz radio z Włoch", "francuski jazz", "radio reggae", "radio z
   lat 80", "jakieś radio zagraniczne" — "następna stacja" goes through that

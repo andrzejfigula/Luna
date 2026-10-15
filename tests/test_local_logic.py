@@ -5615,6 +5615,40 @@ class RadioCatalogTest(unittest.TestCase):
                 self.assertTrue(u.startswith("http"), n)
                 self.assertTrue(b, n)
 
+    def test_asking_for_the_page(self):
+        import radio
+        # 15 Oct: three ways Andrzej asked — only "pokaż stację" worked
+        for t in ("Luna, pokaż jakie masz radia.", "Luna, jakie masz inne stacje radiowe?",
+                  "A pokaż stronę z radiami.", "Pokaż stronę ze stacjami radiowymi.",
+                  "Pokaż stację.", "lista stacji", "jakie masz stacje", "pokaż mi stacje radiowe",
+                  "chcę wybrać stację", "jakie radia są dostępne", "pokaż listę stacji",
+                  "otwórz radio", "które stacje masz"):
+            self.assertTrue(radio._show_asked(t.lower().strip(" .!?")), t)
+        import commands                                       # (through the whole router)
+        for t in ("Luna, pokaż jakie masz radia.", "Luna, jakie masz inne stacje radiowe?",
+                  "A pokaż stronę z radiami.", "Pokaż stronę ze stacjami radiowymi."):
+            shown = []
+            with mock.patch.object(radio, "show_page", lambda *a: shown.append(1)):
+                self.assertTrue(commands.handle(t, lambda *a, **k: None, lambda *a, **k: True), t)
+            self.assertEqual(shown, [1], t)
+        for t in ("włącz radio", "wyłącz radio", "jakie radio teraz gra", "co to za stacja",
+                  "jaka to stacja", "zmień stację", "następna stacja", "pokaż listę zakupów",
+                  "co leci w radiu", "budź mnie radiem", "jakie masz plany na dziś",
+                  "jakie radio lubisz", "jakie stacje polecasz", "jakiego radia słuchasz"):
+            self.assertFalse(radio._show_asked(t), t)
+
+    def test_without_singing(self):
+        import radio
+        for text in ("Włącz jakieś radio jazzowe, ale bez śpiewania.",
+                     "Luna, włącz ciche instrumentalne radio.", "puść muzykę bez słów"):
+            for _ in range(8):
+                handled, got, said = self._ask(text)
+                self.assertTrue(handled, text)
+                self.assertIn(got[-1], radio.INSTRUMENTAL, text)
+        self.assertIn(self._ask("Włącz jakieś radio jazzowe, ale bez śpiewania.")[1][-1],
+                      ("SomaFM Sonic Universe", "SomaFM Secret Agent"))    # jazz, still
+        self.assertIn("bez śpiewu", self._ask("puść jazz bez śpiewu")[2][-1])
+
     def test_the_page(self):
         try:
             import pygame  # noqa: F401
@@ -5624,9 +5658,7 @@ class RadioCatalogTest(unittest.TestCase):
         import ui_screens
         handled, got, said = self._ask("pokaż stacje")
         self.assertTrue(handled)
-        self.assertEqual(said, ["Wybierz stację."])
-        for t in ("lista stacji", "jakie masz stacje", "pokaż mi stacje radiowe"):
-            self.assertTrue(radio._SHOW.match(t), t)
+        self.assertEqual(said, ["Oto moje stacje."])
         with state.lock:
             kind, until, data = state.overlay
         self.assertEqual(kind, "radio")
