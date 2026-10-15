@@ -910,6 +910,219 @@ def draw_radio(scr, data, now, W, H):
         scr.blit(img, img.get_rect(center=pr.center))
 
 
+# ── the story page (story.py): the picture, the title, the choices; the list ──
+
+_STORY_IMG = {}            # (path, size) → a rounded, scaled picture
+
+
+def _story_img(path, size):
+    """A story's picture, scaled to size × size with rounded corners (cached)."""
+    key = (path, size)
+    img = _STORY_IMG.get(key)
+    if img is None:
+        if len(_STORY_IMG) > 40:
+            _STORY_IMG.clear()
+        try:
+            raw = pygame.image.load(path)
+        except (pygame.error, FileNotFoundError, OSError):
+            return None
+        img = pygame.transform.smoothscale(raw, (size, size))
+        mask = pygame.Surface((size, size), pygame.SRCALPHA)
+        pygame.draw.rect(mask, (255, 255, 255, 255), mask.get_rect(), border_radius=22)
+        out = pygame.Surface((size, size), pygame.SRCALPHA)
+        out.blit(img, (0, 0))
+        out.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        img = _STORY_IMG[key] = out
+    return img
+
+
+def _wrap(s, size, width, weight="Bold", lines=2):
+    """Words in up to `lines` lines that fit `width` (the last one cut with …)."""
+    f = font(size, weight)
+    out, cur = [], ""
+    for w in s.split():
+        t = (cur + " " + w).strip()
+        if f.size(t)[0] <= width:
+            cur = t
+        else:
+            if cur:
+                out.append(cur)
+            cur = w
+    if cur:
+        out.append(cur)
+    if len(out) > lines:
+        out = out[:lines]
+        out[-1] = fit(out[-1] + "…", size, width, weight)
+    return out
+
+
+def _story_layout(W, H, data):
+    """The page's tap targets: {"ideas": [...], "choices": [...], "cards": [...],
+    "prev", "next"}."""
+    mode = data.get("mode")
+    out = {"ideas": [], "choices": [], "cards": [], "prev": None, "next": None}
+    if mode == "topic":
+        out["ideas"] = [pygame.Rect(W // 2 - 230, 170 + k * 84, 460, 70)
+                        for k in range(len(data.get("ideas") or []))]
+    elif mode == "choose":
+        x0 = 24 + 432 + 24
+        out["choices"] = [pygame.Rect(x0, 196 + k * 124, W - x0 - 24, 108)
+                          for k in range(len(data.get("choices") or []))]
+    elif mode == "list":
+        cw, ch = (W - 48 - 2 * 16) // 3, 178
+        out["cards"] = [pygame.Rect(24 + (k % 3) * (cw + 16), 78 + (k // 3) * (ch + 14), cw, ch)
+                        for k in range(6)]
+        out["prev"] = pygame.Rect(24, H - 50, 64, 40)
+        out["next"] = pygame.Rect(W - 88, H - 50, 64, 40)
+    return out
+
+
+def story_hit(x, y, W, H, data):
+    """("idea", i) | ("choice", i) | ("card", i) | ("page", ±1) | None."""
+    import story
+    L = _story_layout(W, H, data)
+    for kind in ("ideas", "choices", "cards"):
+        for k, r in enumerate(L[kind]):
+            if r.collidepoint(x, y):
+                return (kind[:-1] if kind != "ideas" else "idea", k)
+    if data.get("mode") == "list" and len(story.saved()) > story.PAGE:
+        if L["prev"].inflate(16, 16).collidepoint(x, y):
+            return ("page", -1)
+        if L["next"].inflate(16, 16).collidepoint(x, y):
+            return ("page", 1)
+    return None
+
+
+def _dots_wait(now):
+    return "." * (1 + int(now * 2.5) % 3)
+
+
+def draw_story(scr, data, now, W, H):
+    """A story: on the left its picture (drawing… until it's ready), on the
+    right the title, the parts so far, and the two choices as big buttons —
+    or the ideas for a topic, or the list of saved stories."""
+    import story
+    scr.blit(vgrad(W, H, (22, 18, 44), (52, 34, 78)), (0, 0))
+    gold, soft = (255, 205, 120), (205, 200, 230)
+    mode = data.get("mode")
+    L = _story_layout(W, H, data)
+    if mode == "topic":
+        t = text("Bajka", 40, WHITE, "ExtraBold")
+        scr.blit(t, t.get_rect(center=(W // 2, 70)))
+        q = text("O czym ma być? Powiedz albo dotknij.", 22, soft, "SemiBold")
+        scr.blit(q, q.get_rect(center=(W // 2, 122)))
+        for r, idea in zip(L["ideas"], data.get("ideas") or []):
+            scr.blit(rrect(r.w, r.h, 22, (255, 205, 120, 70)), r)
+            lab = text(idea[0].upper() + idea[1:], 26, WHITE, "ExtraBold")
+            scr.blit(lab, lab.get_rect(center=r.center))
+        return
+    if mode == "list":
+        t = text("Nasze bajki", 32, WHITE, "ExtraBold")
+        scr.blit(t, (24, 38 - t.get_height() // 2))
+        items = story.saved()
+        pages = max(1, -(-len(items) // story.PAGE))
+        page = min(data.get("page", 0), pages - 1)
+        shown = items[page * story.PAGE:(page + 1) * story.PAGE]
+        for r, st in zip(L["cards"], shown):
+            scr.blit(rrect(r.w, r.h, 18, (255, 255, 255, 26)), r)
+            first = story.image_path(st["id"], (st.get("parts") or [{}])[0].get("image"))
+            th = _story_img(first, 104) if first and os.path.exists(first) else None
+            if th:
+                scr.blit(th, (r.x + 10, r.y + 10))
+            else:
+                scr.blit(rrect(104, 104, 22, (255, 255, 255, 30)), (r.x + 10, r.y + 10))
+            tx = r.x + 124
+            for k, line in enumerate(_wrap(st.get("title", ""), 19, r.right - tx - 10,
+                                           "ExtraBold", lines=3)):
+                img = text(line, 19, WHITE, "ExtraBold")
+                scr.blit(img, (tx, r.y + 12 + k * 24))
+            when = time.localtime(st.get("created", 0))
+            sub = f"{when.tm_mday}.{when.tm_mon:02d}" + (f" · {st['child']}" if st.get("child")
+                                                         else "")
+            img = text(sub, 16, soft, "SemiBold")
+            scr.blit(img, (r.x + 12, r.bottom - 52))
+            n = len(st.get("parts") or [])
+            img = text(f"{n} części", 16, soft, "SemiBold")
+            scr.blit(img, (r.x + 12, r.bottom - 30))
+        if pages > 1:
+            for key, sign in (("prev", "‹"), ("next", "›")):
+                r = L[key]
+                scr.blit(rrect(r.w, r.h, 20, (255, 255, 255, 34)), r)
+                g = text(sign, 30, WHITE, "ExtraBold")
+                scr.blit(g, g.get_rect(center=(r.centerx, r.centery - 2)))
+            gap, y = 18, H - 30
+            x0 = W // 2 - (pages - 1) * gap // 2
+            for k in range(pages):
+                on = k == page
+                d = rrect(20 if on else 8, 8, 4, (255, 255, 255, 235 if on else 90))
+                scr.blit(d, d.get_rect(center=(x0 + k * gap, y)))
+        return
+    # the story itself: the picture…
+    size = 432
+    path = data.get("image")
+    img = _story_img(path, size) if path and os.path.exists(path) else None
+    if img:
+        scr.blit(img, (24, 24))
+    else:
+        scr.blit(rrect(size, size, 22, (255, 255, 255, 22)), (24, 24))
+        lab = text("Rysuję" + _dots_wait(now), 26, soft, "Bold")
+        scr.blit(lab, lab.get_rect(center=(24 + size // 2, 24 + size // 2)))
+    # …the title and the parts…
+    x0 = 24 + size + 24
+    room = W - x0 - 24
+    y = 30
+    for line in _wrap(data.get("title") or "Bajka", 26, room - 50, "ExtraBold", lines=3):
+        t = text(line, 26, WHITE, "ExtraBold")
+        scr.blit(t, (x0, y))
+        y += 32
+    of, part = data.get("of") or 0, data.get("part") or 0
+    for k in range(of):
+        on = k < part
+        d = rrect(22 if k == part - 1 else 10, 10, 5, gold + (255,) if on else (255, 255, 255, 70))
+        scr.blit(d, (x0 + k * 30, y + 10))
+    y += 40
+    if mode == "choose":
+        q = text("Co dalej?", 24, gold, "ExtraBold")
+        scr.blit(q, (x0, y + 6))
+        for k, (r, c) in enumerate(zip(L["choices"], data.get("choices") or [])):
+            scr.blit(rrect(r.w, r.h, 22, ((255, 205, 120, 80) if k == 0 else (130, 180, 255, 80))),
+                     r)
+            badge = rrect(40, 40, 20, (255, 255, 255, 220))
+            scr.blit(badge, (r.x + 14, r.centery - 20))
+            num = text(str(k + 1), 22, (40, 30, 60), "ExtraBold")
+            scr.blit(num, num.get_rect(center=(r.x + 34, r.centery)))
+            lines = _wrap(c[0].upper() + c[1:], 22, r.w - 84, "ExtraBold", lines=2)
+            ty = r.centery - len(lines) * 14
+            for line in lines:
+                t = text(line, 22, WHITE, "ExtraBold")
+                scr.blit(t, (r.x + 68, ty))
+                ty += 28
+    else:
+        status = data.get("status")
+        if mode == "make":
+            status = (status or "Wymyślam") .rstrip(".…") + _dots_wait(now)
+        elif mode == "tell":
+            status = "Opowiadam…"
+        elif mode == "replay" and not status:
+            status = "Opowiadam jeszcze raz…"
+        if mode == "end":
+            t = text("Koniec", 40, gold, "ExtraBold")
+            scr.blit(t, (x0, y + 10))
+            s2 = text("Zapisana w „Naszych bajkach”" if not data.get("of") or
+                      data.get("part") == data.get("of") else "", 18, soft, "SemiBold")
+            scr.blit(s2, (x0, y + 66))
+        elif status:
+            for line in _wrap(status, 22, room, "Bold", lines=3):
+                t = text(line, 22, soft, "Bold")
+                scr.blit(t, (x0, y))
+                y += 30
+            if mode in ("tell", "replay"):                # a little voice, moving
+                for j in range(5):
+                    hgt = 6 + 18 * abs(math.sin(now * (4.0 + j * 0.9) + j))
+                    scr.blit(rrect(8, int(hgt), 4, gold + (255,)),
+                             (x0 + j * 14, y + 34 - int(hgt)))
+
+
 def draw_list(scr, heading, rows, now, W, H, meta=None):
     """The title with its picture, then the rows on a soft panel — a label
     (a time, "lista", "•") and its value; more than LIST_PAGE: pages. meta

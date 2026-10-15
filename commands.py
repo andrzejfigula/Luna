@@ -1346,6 +1346,13 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
               "jesteś sama, zadzwoń do nich.")
         return True
 
+    # an interactive story: a choice, a topic, "koniec"; or one asked for
+    import story
+    if story.active() and story.answer(text, speak):
+        return True
+    if story.handle(text, speak):                  # "opowiedz bajkę, w której wybieram"
+        return True
+
     # a maths quiz is on: this utterance is probably the answer
     import quiz
     if quiz.active() and quiz.answer(text, speak, _sound_async):

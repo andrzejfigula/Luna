@@ -259,6 +259,9 @@ def end_game_page(kind):
     if kind in ("ttt", "memo"):
         importlib.import_module("tictac" if kind == "ttt" else "memo").stop()
         ended.append(kind)
+    if kind == "story":                            # a story (or its replay): over
+        if importlib.import_module("story").stop():
+            ended.append("story")
     if kind in ("card", "clockface", "photo", "stars"):
         for name in ("quiz", "twenty"):
             mod = importlib.import_module(name)

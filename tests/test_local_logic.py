@@ -5763,6 +5763,150 @@ class RadioCatalogTest(unittest.TestCase):
                 self.assertEqual(radio.music_pulse(), 0.0)         # nothing plays: still
 
 
+class StoryTest(unittest.TestCase):
+    """15 Oct: an interactive story — Maja chooses, each part has a picture,
+    finished stories are kept and told again, it stops at any point."""
+
+    def setUp(self):
+        import tempfile
+        import story
+        self.dir = tempfile.mkdtemp()
+        self.said = []
+        self.n = 0
+        png = (b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02"
+               b"\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\xff\xff?\x00\x05\xfe\x02"
+               b"\xfe\xa7V\x82\x8f\x00\x00\x00\x00IEND\xaeB`\x82")
+
+        def llm(messages, schema, name):
+            self.n += 1
+            part = {"text": f"Część {self.n}. Smok Iskierka leci.", "scene": "a dragon flies",
+                    "choices": ["wejść do jaskini", "polecieć nad morze"]}
+            if name == "story_plan":
+                return {"title": "Smok Iskierka", "genre": "baśń", "art_style": "watercolour",
+                        "characters": [{"name": "Iskierka", "look": "a small green dragon"}],
+                        "setting": "a valley", "part": part}
+            return part
+
+        def image(s, scene, out):
+            with open(out, "wb") as f:
+                f.write(png)
+            return True
+        self.patches = [mock.patch.object(story, "DIR", self.dir),
+                        mock.patch.object(story, "_llm", llm),
+                        mock.patch.object(story, "_image", image),
+                        mock.patch.object(story, "_say", self.said.append),
+                        mock.patch.object(story, "END_PAUSE", 0.05),
+                        mock.patch.object(story, "_child", lambda: "Maja")]
+        for p in self.patches:
+            p.start()
+        with state.lock:
+            self._online, state.online, state.overlay = state.online, True, None
+
+    def tearDown(self):
+        import shutil
+        import story
+        story.stop(quiet=True)
+        for p in self.patches:
+            p.stop()
+        with state.lock:
+            state.online, state.overlay = self._online, None
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+    def _wait(self, cond, secs=5.0):
+        t = time.time() + secs
+        while time.time() < t:
+            if cond():
+                return True
+            time.sleep(0.02)
+        return False
+
+    def _phase(self):
+        import story
+        with story._lock:
+            return story._s and story._s.get("phase")
+
+    def test_a_whole_story_kept_and_told_again(self):
+        import story
+        spoken = []
+        self.assertTrue(story.handle("Opowiedz mi bajkę, w której ja wybieram", spoken.append))
+        self.assertEqual(self._phase(), "topic")                    # "O czym ma być?"
+        self.assertTrue(story.answer("o smoku", spoken.append))
+        for n in range(1, story.PARTS):
+            self.assertTrue(self._wait(lambda: self._phase() == "choosing"), n)
+            with state.lock:
+                kind, _, data = state.overlay
+            self.assertEqual((kind, data["mode"]), ("story", "choose"))
+            self.assertEqual(len(data["choices"]), 2)
+            if n == 2:                                              # a tap, once
+                story.choose(1)
+            else:
+                self.assertTrue(story.answer("pierwsze" if n % 2 else "nad morze",
+                                             spoken.append))
+        self.assertTrue(self._wait(lambda: story.saved() and not story.active()))
+        st = story.saved()[0]
+        self.assertEqual(st["title"], "Smok Iskierka")
+        self.assertEqual(len(st["parts"]), story.PARTS)
+        self.assertEqual([p["chosen"] for p in st["parts"]],
+                         ["wejść do jaskini", "polecieć nad morze", "wejść do jaskini",
+                          "polecieć nad morze", None])
+        for p in st["parts"]:                                       # a picture each
+            self.assertTrue(os.path.exists(story.image_path(st["id"], p["image"])))
+        self.assertEqual(st["child"], "Maja")
+        self.assertIn("Co dalej?", " ".join(self.said))
+        # told again, with the choices
+        self.said.clear()
+        self.assertTrue(story.handle("Opowiedz jeszcze raz bajkę o smoku", spoken.append))
+        self.assertTrue(self._wait(lambda: not story.active(), 5))
+        self.assertEqual(self.said[0], "Smok Iskierka.")
+        self.assertIn("Wybraliśmy: polecieć nad morze.", self.said)
+        self.assertEqual(self.said[-1], "Koniec!")
+        # the list, and deleting
+        self.assertTrue(story.handle("Pokaż moje bajki", spoken.append))
+        with state.lock:
+            self.assertEqual(state.overlay[2]["mode"], "list")
+        self.assertTrue(story.handle("Usuń bajkę o smoku", spoken.append))
+        self.assertEqual(story.saved(), [])
+
+    def test_stopped_at_any_point_and_not_kept(self):
+        import story
+        spoken = []
+        story.handle("Interaktywna bajka o robocie", spoken.append)
+        self.assertTrue(self._wait(lambda: self._phase() == "choosing"))
+        self.assertTrue(story.answer("koniec", spoken.append))
+        self.assertFalse(story.active())
+        with state.lock:
+            self.assertIsNone(state.overlay)                        # back to her face
+        self.assertEqual(os.listdir(self.dir), [])                  # nothing kept
+        # ✕ on the screen ends it too
+        story.handle("Zagrajmy w bajkę o kotku", spoken.append)
+        self.assertTrue(self._wait(lambda: self._phase() == "choosing"))
+        import screens
+        screens.end_game_page("story")
+        self.assertFalse(story.active())
+
+    def test_what_starts_it_and_what_doesnt(self):
+        import story
+        for t in ("opowiedz bajkę, w której wybieram", "interaktywna bajka o smoku",
+                  "zagrajmy w bajkę", "wymyślmy razem bajkę", "bajka z wyborem",
+                  "opowiedz historię, gdzie ja decyduję"):
+            self.assertTrue(story.wanted(t), t)
+        for t in ("opowiedz bajkę o smoku", "bajka na dobranoc", "opowiedz bajkę"):
+            self.assertFalse(story.wanted(t), t)
+            self.assertFalse(story.handle(t, lambda *a: None), t)  # (her ordinary story)
+        self.assertEqual(story._topic_of("interaktywna bajka o smoku"), "o smoku")
+        self.assertEqual(story._topic_of("zagrajmy w bajkę"), "")
+        c = ["wejść do jaskini", "polecieć nad morze"]
+        self.assertEqual(story._match("pierwsze", c), 0)
+        self.assertEqual(story._match("to drugie", c), 1)
+        self.assertEqual(story._match("do jaskini!", c), 0)
+        self.assertEqual(story._match("nad morze", c), 1)
+        self.assertIsNone(story._match("nie wiem", c))
+        import brain
+        for t in ("opowiedz interaktywną bajkę o smoku", "pokaż moje bajki",
+                  "opowiedz jeszcze raz bajkę o smoku"):
+            self.assertTrue(brain._VOICED_OK.match(t), t)
+
+
 class FaceSpecTest(unittest.TestCase):
     """The face library (face_spec.py → gl_face's uniforms): every mood has
     its settings, every combination makes sane shader inputs — no GL needed."""

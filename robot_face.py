@@ -2293,7 +2293,12 @@ class RobotFace:
                     game.tap(touch_pt[0], touch_pt[1], WIDTH, HEIGHT)
         elif touch_t > self._touch_t and self._overlay_on():
             self._touch_t = touch_t
-            if ov_kind == "radio" and touch_kind == "swipe":
+            if ov_kind == "story" and touch_kind == "swipe":
+                with state.lock:                    # the list: the next page
+                    dx = state.touch_dx
+                import story
+                story.swipe(dx)
+            elif ov_kind == "radio" and touch_kind == "swipe":
                 with state.lock:                    # the next kind / the one before
                     dx = state.touch_dx
                 import radio
@@ -2307,6 +2312,9 @@ class RobotFace:
                     screens.end_game_page(ov_kind)
                 elif ov_kind == "list" and screens.list_tap(*touch_pt):
                     pass                                # an item: "Usunąć?", then crossed off
+                elif ov_kind == "story":                # an idea, a choice, a story
+                    import story
+                    story.tap(touch_pt[0] * WIDTH, touch_pt[1] * HEIGHT, WIDTH, HEIGHT)
                 elif ov_kind == "radio":                # a kind, a station, Stop
                     import radio
                     radio.tap(touch_pt[0] * WIDTH, touch_pt[1] * HEIGHT, WIDTH, HEIGHT)
@@ -3292,6 +3300,8 @@ class RobotFace:
             pygame.draw.circle(scr, IRIS_SHINE, c, r, 3)
             txt = _get_font(40).render(word, True, EYE_INNER)
             scr.blit(txt, txt.get_rect(center=(WIDTH // 2, HEIGHT - 45)))
+        elif kind == "story":                           # a story: picture, choices; the list
+            ui_screens.draw_story(scr, data, time.time(), WIDTH, HEIGHT)
         elif kind == "radio":                           # the stations to pick from
             ui_screens.draw_radio(scr, data, time.time(), WIDTH, HEIGHT)
         elif kind == "list":                            # lists, plan, reminders, status

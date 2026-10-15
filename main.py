@@ -116,9 +116,9 @@ def _answer_awaited():
     radio on the window stays open — the radio is ducked while she listens.
     (14 Oct: "zgadywanki" with jazz on — "dziesięć" needed "Luna".)"""
     try:
-        import gallery, quiz, twenty, tictac, memo
+        import gallery, quiz, twenty, tictac, memo, story
         return (quiz.active() or twenty.active() or tictac.active() or memo.active()
-                or gallery.page_open())
+                or gallery.page_open() or story.active())
     except Exception:
         return False
 
