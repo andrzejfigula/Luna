@@ -5649,6 +5649,13 @@ class RadioCatalogTest(unittest.TestCase):
                       ("SomaFM Sonic Universe", "SomaFM Secret Agent"))    # jazz, still
         self.assertIn("bez śpiewu", self._ask("puść jazz bez śpiewu")[2][-1])
 
+    def _store(self):
+        """settings in memory (favourites, the last played, dead marks)."""
+        import settings
+        mem = {}
+        return (mock.patch.object(settings, "get", lambda k, d=None: mem.get(k, d)),
+                mock.patch.object(settings, "put", lambda k, v: mem.__setitem__(k, v)), mem)
+
     def test_the_page(self):
         try:
             import pygame  # noqa: F401
@@ -5656,24 +5663,89 @@ class RadioCatalogTest(unittest.TestCase):
             self.skipTest("pygame")
         import radio
         import ui_screens
-        handled, got, said = self._ask("pokaż stacje")
-        self.assertTrue(handled)
-        self.assertEqual(said, ["Oto moje stacje."])
-        with state.lock:
-            kind, until, data = state.overlay
-        self.assertEqual(kind, "radio")
-        W, H = 800, 480
-        _, kinds, _ = ui_screens._radio_layout(W, H, 8, None)
-        got = []
-        with mock.patch.object(radio, "play", lambda n, u, **k: got.append(n)),                 mock.patch.object(radio, "playing", lambda: None),                 mock.patch.object(radio, "_remember_station", lambda n, u: None):
-            radio.tap(kinds[1].centerx, kinds[1].centery, W, H)       # "Jazz"
-            self.assertEqual(data["cat"], 1)
-            _, _, sts = ui_screens._radio_layout(W, H, len(radio.CATALOG[1][3]), None)
-            radio.tap(sts[2].centerx, sts[2].centery, W, H)           # its third station
-        self.assertEqual(got, [radio.CATALOG[1][3][2][0]])
-        with state.lock:
-            self.assertEqual(state.overlay[0], "radio")               # (still open)
-            state.overlay = None
+        g, p, mem = self._store()
+        with g, p:
+            handled, got, said = self._ask("pokaż stacje")
+            self.assertTrue(handled)
+            self.assertEqual(said, ["Oto moje stacje."])
+            with state.lock:
+                kind, until, data = state.overlay
+            self.assertEqual(kind, "radio")
+            W, H = 800, 480
+            kinds, ci = radio.page_list(data)
+            L = ui_screens._radio_layout(W, H, len(kinds[ci][2]), None, len(kinds))
+            got = []
+            with mock.patch.object(radio, "play", lambda n, u, **k: got.append(n)), \
+                    mock.patch.object(radio, "playing", lambda: None):
+                r = L["kinds"][[k for k, _, _ in kinds].index("jazz")]
+                radio.tap(r.centerx, r.centery, W, H)                 # "Jazz"
+                self.assertEqual(data["cat"], "jazz")
+                L = ui_screens._radio_layout(W, H, len(radio._CAT["jazz"][2]), None, len(kinds))
+                radio.tap(L["sts"][2].centerx, L["sts"][2].centery, W, H)   # its third station
+                self.assertEqual(got, [radio._CAT["jazz"][2][2][0]])
+                # its star: a favourite — and the page gets "Ulubione" first,
+                # still showing jazz (a key, not a position)
+                radio.tap(L["stars"][0].centerx, L["stars"][0].centery, W, H)
+                self.assertEqual(radio.favs()[0][0], "Radio Swiss Jazz")
+                kinds, ci = radio.page_list(data)
+                self.assertEqual([k for k, _, _ in kinds][:2], ["fav", "recent"])
+                self.assertEqual(kinds[ci][0], "jazz")
+                radio.swipe(-200)                                   # → the next kind
+                self.assertEqual(data["cat"], "classic")
+            with state.lock:
+                self.assertEqual(state.overlay[0], "radio")         # (still open)
+                state.overlay = None
+
+    def test_favourites_by_voice(self):
+        import radio
+        g, p, mem = self._store()
+        with g, p, mock.patch.object(radio, "_current_url", lambda: "http://x"):
+            self.assertIn("Nie masz jeszcze", self._ask("Włącz moją ulubioną stację")[2][-1])
+            self.assertIn("Dodałam", self._ask("Dodaj tę stację do ulubionych",
+                                                playing="FIP Jazz")[2][-1])
+            self.assertEqual(radio.favs(), [("FIP Jazz", "http://x")])
+            self.assertIn("Dodałam", self._ask("lubię to radio", playing="FIP Jazz")[2][-1])
+            self.assertEqual(len(radio.favs()), 1)                  # (not twice)
+            handled, got, said = self._ask("puść ulubione")
+            self.assertEqual(got, ["FIP Jazz"])
+            self.assertIn("Usunęłam", self._ask("usuń tę stację z ulubionych",
+                                                 playing="FIP Jazz")[2][-1])
+            self.assertEqual(radio.favs(), [])
+
+    def test_count_similar_and_the_time_of_day(self):
+        import radio
+        import commands
+        g, p, mem = self._store()
+        with g, p, mock.patch.object(radio, "show_page", lambda *a: None):
+            said = []
+            self.assertTrue(commands.handle("Ile masz stacji?", said.append, lambda *a, **k: True))
+            n = sum(len(sts) for _, _, _, sts in radio.CATALOG)
+            self.assertIn(f"Mam {n} stacji", said[-1])
+            handled, got, said = self._ask("puść coś podobnego", playing="FIP Jazz")
+            self.assertEqual(got, ["Jazz Radio"])                   # the next jazz one
+            for hour, cat in ((7, "polish"), (11, "calm"), (19, "jazz"), (23, "calm")):
+                t = time.struct_time((2026, 10, 15, hour, 0, 0, 3, 288, 1))
+                with mock.patch.object(radio.time, "localtime", lambda *a, t=t: t), \
+                        mock.patch.object(radio, "_who", lambda: None), \
+                        mock.patch.object(radio, "_child_here", lambda: False), \
+                        mock.patch.object(radio, "playing", lambda: None):
+                    self.assertEqual(radio._default_kind(), cat, hour)
+            with mock.patch.object(radio, "_child_here", lambda: True), \
+                    mock.patch.object(radio, "_who", lambda: "Maja"):
+                self.assertIn(radio._station("")[0], self._names("kids"))   # a child: theirs
+
+    def test_dead_stations_are_skipped(self):
+        import radio
+        g, p, mem = self._store()
+        with g, p:
+            for n, u, _ in radio._CAT["kids"][2][:1]:
+                radio._mark(u, True)                                # RMF Dla Dzieci down
+            for _ in range(6):
+                self.assertEqual(radio._pick("kids")[0], "Polskie Radio Dzieciom")
+            radio._mark(radio._CAT["kids"][2][0][1], False)
+            self.assertEqual(radio.dead(), set())
+            with mock.patch.object(radio, "_player", None):
+                self.assertEqual(radio.music_pulse(), 0.0)         # nothing plays: still
 
 
 class FaceSpecTest(unittest.TestCase):

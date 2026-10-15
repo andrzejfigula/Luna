@@ -2293,7 +2293,12 @@ class RobotFace:
                     game.tap(touch_pt[0], touch_pt[1], WIDTH, HEIGHT)
         elif touch_t > self._touch_t and self._overlay_on():
             self._touch_t = touch_t
-            if ov_kind == "gallery":                    # ‹ › ✕, a swipe (gallery.py)
+            if ov_kind == "radio" and touch_kind == "swipe":
+                with state.lock:                    # the next kind / the one before
+                    dx = state.touch_dx
+                import radio
+                radio.swipe(dx)
+            elif ov_kind == "gallery":                  # ‹ › ✕, a swipe (gallery.py)
                 with state.lock:
                     dx = state.touch_dx
                 gallery.on_touch(touch_kind, touch_pt[0], touch_pt[1], dx)
@@ -2415,6 +2420,17 @@ class RobotFace:
         self._pupil_converge = lerp(self._pupil_converge, 0.0, 0.25)
         self._pupil_mul = 1.0
         self._mouth_drive = 0.0
+        # the radio playing and nothing else going on: she moves a little
+        # with the music — a dip on the beat, a slow sway
+        if (EYE_MODE == "block" and emotion != "sleeping" and not speaking and not listening
+                and not self._scene and not getattr(self, "_gesture", None)):
+            import radio
+            if radio.playing():
+                self._music_bob = lerp(getattr(self, "_music_bob", 0.0), radio.music_pulse(), 0.35)
+                self.target_oy += 6.0 * self._music_bob
+                self.target_tilt += 2.0 * math.sin(now_t * 1.3)
+            else:
+                self._music_bob = 0.0
         self._spec_mod = {}              # a scene's face_spec settings over the mood
         self._eye_fx = (0.0, 0.0)        # …and its effects in the eyes (spiral, static)
         if self._scene:

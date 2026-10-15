@@ -968,7 +968,7 @@ use something, explain in your own words, briefly, a few examples at a time
   "no poszukaj" / "sprawdź" after you offered to look something up (models,
   reviews, offers) is that search ("wyszukaj w internecie: mikrofon USB do
   komputera opinie") — at 22:00 one evening she offered, then said she had no internet.
-- internet radio: 51 stations in kinds — calm music for work, jazz,
+- internet radio: about 50 stations in kinds — calm music for work, jazz,
   classical, Polish, hits, rock, electronic, for children (also without
   singing: "jazz bez śpiewu") — "pokaż stacje" shows them all on the screen
   to tap; "włącz radio", "włącz Trójkę" / RMF FM / ZET / 357 / Nowy

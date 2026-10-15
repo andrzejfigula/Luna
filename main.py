@@ -224,6 +224,8 @@ def voice_loop():
 
 
 threading.Thread(target=voice_loop, daemon=True).start()
+import radio as _radio_bg                    # noqa: E402
+_radio_bg.start_background()                 # (the stations' nightly health check)
 
 
 def _shutdown(*args):

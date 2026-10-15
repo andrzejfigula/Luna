@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 15 października ==
+- Radio ma ulubione: „dodaj tę stację do ulubionych”, „włącz moją ulubioną”. Na ekranie stacji są gwiazdki, ostatnio grane, głośniej-ciszej i wyłączanie za 15, 30 albo 60 minut.
 - Mam dużo więcej stacji radiowych — spokojne do pracy, jazz, klasykę, rock, przeboje, elektronikę. Powiedz „pokaż stacje”, a wybierzesz stację palcem na ekranie.
 - Moje usta lepiej układają się do słów, gdy mówię, fale przy uszach reagują na twój głos, a moje rączki są ładniejsze.
 - Pstryknij mnie w nos — zrobię zeza. Postukaj trzy razy — będę chichotać. A po zdjęciu z fleszem chwilę mrużę oczy.

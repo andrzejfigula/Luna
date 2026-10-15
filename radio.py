@@ -175,7 +175,9 @@ def _pick(cat, instrumental=False):
             s for s in _CAT["calm"][2] if s[0] in INSTRUMENTAL]
     last = _picked.get(cat)
     now = playing()
-    pool = [s for s in sts if s[0] not in (now, last)] or list(sts)
+    gone = dead()
+    pool = ([s for s in sts if s[0] not in (now, last) and s[1] not in gone]
+            or [s for s in sts if s[1] not in gone] or list(sts))
     name, url, _ = random.choice(pool)
     _picked[cat] = name
     return name, url
@@ -236,6 +238,20 @@ _SHOW_NOT = re.compile(r"\b(?:włącz|wlacz|puść|pusc|zagraj|odpal|graj|wyłą
                        r"budź|budz|budzik\w*|lubi\w*|ulubion\w*|polec\w*|słuchasz|sluchasz|"
                        r"najlepsz\w*|myślisz|myslisz|sądzisz|sadzisz)\b"   # (an opinion: the model)
                        r"|to\s+za|jaka\s+to|która\s+to|ktora\s+to")
+
+
+_FAV_ADD = re.compile(r"\b(?:dodaj|zapisz|zapamiętaj|zapamietaj|wrzuć|wrzuc)\s+(?:mi\s+)?"
+                      r"(?:tę\s+|te\s+|to\s+)?(?:stację\s+|stacje\s+|radio\s+)?(?:do\s+)?ulubion"
+                      r"|\b(?:lubię|lubie)\s+(?:tę|te|to)\s+(?:stację|stacje|radio)\b")
+_FAV_DEL = re.compile(r"\b(?:usuń|usun|wyrzuć|wyrzuc|skasuj|wykreśl|wykresl)\b.*\bz\s+ulubionych")
+_FAV_PLAY = re.compile(r"\b(?:włącz|wlacz|puść|pusc|zagraj|daj)\s+(?:mi\s+)?(?:moją\s+|moja\s+|moje\s+)?"
+                       r"ulubion\w*")
+_COUNT = re.compile(r"\bile\s+(?:masz\s+|mamy\s+|jest\s+)?(?:stacji|radi\w*|rozgłośni)"
+                    r"|\bjakie\s+(?:masz\s+|mamy\s+)?(?:rodzaje|gatunki)\s+(?:muzyki|radia|stacji)")
+# "coś podobnego", "inną w tym stylu" — the next of the same kind
+_SIMILAR = re.compile(r"\b(?:coś|cos)\s+(?:innego\s+)?(?:podobnego|w\s+tym\s+(?:stylu|klimacie))"
+                      r"|\binn\w+\s+(?:stację\s+|stacje\s+|radio\s+)?w\s+tym\s+(?:stylu|klimacie)"
+                      r"|\bwięcej\s+takiej\s+muzyki|\bwiecej\s+takiej\s+muzyki")
 
 
 def _show_asked(low):
@@ -359,8 +375,10 @@ def _station(words):
         w = ""
     if not w:                              # "włącz radio": your last station
         mine = (settings.get("radio_last_by", {}) or {}).get(_who())
+        if not mine and _child_here():
+            return _pick("kids")           # a child: their radio
         last = mine or settings.get("radio_last")
-        return tuple(last) if last else STATIONS["rmf fm"]
+        return tuple(last) if last else _pick(_default_kind())
     if w.startswith("cat:") and w.split(":")[1] in _CAT:
         return _pick(w.split(":")[1], instrumental=w.endswith(":i"))
     key = _ALIASES.get(w, w)
@@ -390,11 +408,18 @@ def _remember_station(name, url):
     """The last station, for the house and for whoever asked (by face)."""
     import settings
     settings.put("radio_last", [name, url])
+    recent = [r for r in settings.get("radio_recent", []) or [] if r[0] != name]
+    settings.put("radio_recent", [[name, url]] + recent[:11])
     who = _who()
     if who:
         by = settings.get("radio_last_by", {}) or {}
         by[who] = [name, url]
         settings.put("radio_last_by", by)
+        cat = _category_of(name)
+        if cat:                            # the page opens at your kind
+            kb = settings.get("radio_kind_by", {}) or {}
+            kb[who] = cat
+            settings.put("radio_kind_by", kb)
 
 
 def _die_with_parent():
@@ -535,6 +560,13 @@ def _play(p):
                 rms = float(np.sqrt(np.mean(a * a))) if a.size else 0.0
                 if rms > 300:                        # (not a quiet moment between songs)
                     level += (rms - level) * 0.03    # ~3 s to settle on a station
+                e = rms / max(level, 1.0)
+                _pulse[0] += (e - _pulse[0]) * 0.6
+                _pulse[1] += (e - _pulse[1]) * 0.05
+                if not p.get("ok") and got > RATE * 4 * 20:
+                    p["ok"] = True                   # it plays: not dead (any more)
+                    if p.get("url0") in dead():
+                        _mark(p["url0"], False)
                 norm = min(2.5, max(0.2, MUSIC_RMS / max(level, 1.0)))
                 target = _gain() * norm * (RADIO_DUCK if _ducked() else 1.0)
                 if p.get("fade"):                    # an alarm: from a whisper up
@@ -577,9 +609,22 @@ def _play(p):
         if idle:
             with state.lock:
                 state.radio = None
+        _pulse[:] = [0.0, 0.0]
         if not p["stop"].is_set():
             print("[radio] gave up", flush=True)
-            if _say[0]:
+            _mark(p.get("url0") or p["url"], True)
+            # another station of the same kind, rather than silence (at most
+            # three such moves in ten minutes)
+            cat = _category_of(p["name"])
+            _switched[:] = [t for t in _switched if time.time() - t < 600]
+            alt = _pick(cat) if cat and not p.get("alarm") and len(_switched) < 3 else None
+            if alt and alt[0] != p["name"]:
+                _switched.append(time.time())
+                if _say[0]:
+                    _say[0](f"{p['name']} nie odpowiada — włączam {_acc(alt[0])}.")
+                threading.Thread(target=lambda: (play(*alt), _remember_station(*alt)),
+                                 daemon=True).start()
+            elif _say[0]:
                 _say[0]("Radio przestało grać — nie mogę się połączyć ze stacją.")
 
 
@@ -590,8 +635,9 @@ def play(name, url, until=None, fade=0, alarm=False):
         ambience.stop()
     except Exception:
         pass
-    p = {"name": name, "url": url, "stop": threading.Event(), "until": until,
-         "fade": fade, "alarm": alarm, "t0": time.time()}
+    # (a second's fade in, not a blast; an alarm: its own long one)
+    p = {"name": name, "url": url, "url0": url, "stop": threading.Event(), "until": until,
+         "fade": fade or 1.5, "alarm": alarm, "t0": time.time()}
     p["thread"] = threading.Thread(target=_play, args=(p,), daemon=True, name="radio")
     with _lock:
         global _player
@@ -687,6 +733,40 @@ def handle(text, speak):
     low = text.lower().strip(" .!?")
     if _RESUME.match(low):
         text = low = "włącz radio"             # your last station (_station)
+    if _COUNT.search(low):                 # "ile masz stacji?"
+        n = sum(len(sts) for _, _, _, sts in CATALOG)
+        names = [said for _, _, said, _ in CATALOG]
+        speak(f"Mam {n} stacji: " + ", ".join(names[:-1]) + f" i {names[-1]}. "
+              "Pokazuję je na ekranie.")
+        show_page()
+        return True
+    if _FAV_PLAY.search(low):              # "włącz moją ulubioną stację"
+        fs = favs()
+        if not fs:
+            speak("Nie masz jeszcze ulubionych stacji — gdy gra taka, którą lubisz, "
+                  "powiedz „dodaj do ulubionych”.")
+            return True
+        import random
+        name, url = random.choice([f for f in fs if f[0] != playing()] or fs)
+        speak(f"Włączam {_acc(name)}.")
+        play(name, url)
+        _remember_station(name, url)
+        return True
+    if _FAV_ADD.search(low) or _FAV_DEL.search(low):
+        now = playing()
+        if not now:
+            speak("Teraz nic nie gra — włącz stację, którą lubisz, i wtedy ją dodam.")
+            return True
+        on = any(n == now for n, _ in favs())
+        if _FAV_DEL.search(low):
+            if on:
+                fav_toggle(now, _current_url())
+            speak(f"Usunęłam {_acc(now)} z ulubionych." if on else f"{now} nie jest w ulubionych.")
+        else:
+            if not on:
+                fav_toggle(now, _current_url())
+            speak(f"Dodałam {_acc(now)} do ulubionych.")
+        return True
     if _show_asked(low):
         show_page()
         speak("Oto moje stacje.")          # ("Wybierz stację" came out "Vediš stacje")
@@ -711,7 +791,8 @@ def handle(text, speak):
         # it answered "Teraz Jedynka")
         low = f"włącz {m.group(1)}"
         words = low.split()
-    elif (any(k in low for k in _NEXT) and len(words) <= 5) or _next_asked(low):
+    elif ((any(k in low for k in _NEXT) and len(words) <= 5) or _next_asked(low)
+          or (playing() and _SIMILAR.search(low))):   # "coś podobnego"
         if _world_next(speak):             # the next one of "radio z Francji"
             return True
         now = playing()
@@ -846,14 +927,73 @@ def handle(text, speak):
 # ── the page: kinds on the left, their stations to tap (15 Oct) ───────────────
 
 PAGE_SECS = 90             # the page stays this long after the last tap
+_TIMER_STEPS = (15, 30, 60)                # the page's sleep-timer button, minutes
+
+
+def _blurb(name):
+    """A few words about a station (the catalogue's), for the page."""
+    cat = _category_of(name)
+    if cat:
+        return next(b for n, _, b in _CAT[cat][2] if n == name)
+    return "z wyszukiwania"
+
+
+def page_kinds():
+    """The page's kinds: your favourites and the last played first (when
+    there are any), then the catalogue — [(key, label, [(name, url, blurb)])]."""
+    import settings
+    out = []
+    fs = favs()
+    if fs:
+        out.append(("fav", "Ulubione", [(n, u, _blurb(n)) for n, u in fs]))
+    recent = settings.get("radio_recent", []) or []
+    if recent:
+        out.append(("recent", "Ostatnie", [(n, u, _blurb(n)) for n, u in recent[:8]]))
+    return out + [(k, label, sts) for k, label, _, sts in CATALOG]
+
+
+def _child_here():
+    try:
+        import commands
+        return commands._child_here()
+    except Exception:
+        return False
+
+
+def _default_kind():
+    """Where the page and a bare "włącz radio" (nothing remembered) start:
+    the kind of the one playing, else yours (by face), else a child's, else
+    the time of day — Polish radio at breakfast, calm music through the
+    working day, jazz in the evening, calm again at night."""
+    import settings
+    cat = _category_of(playing() or "")
+    if cat:
+        return cat
+    mine = (settings.get("radio_kind_by", {}) or {}).get(_who())
+    if mine in _CAT:
+        return mine
+    if _child_here():
+        return "kids"
+    h = time.localtime().tm_hour
+    return "polish" if 6 <= h < 9 else "jazz" if 17 <= h < 22 else "calm"
 
 
 def show_page(cat=None):
-    """The station page — at the kind of the one playing, or "Do pracy"."""
-    keys = [c[0] for c in CATALOG]
-    cat = cat or _category_of(playing() or "") or "calm"
+    """The station page, at that kind (or _default_kind's)."""
+    keys = [k for k, _, _ in page_kinds()]
+    cat = cat if cat in keys else _default_kind()
     with state.lock:
-        state.overlay = ("radio", time.time() + PAGE_SECS, {"cat": keys.index(cat)})
+        state.overlay = ("radio", time.time() + PAGE_SECS, {"cat": cat})
+
+
+def page_list(data):
+    """(kinds, index of the one shown) — the kind kept when favourites come
+    and go (it is a key, not a position)."""
+    kinds = page_kinds()
+    keys = [k for k, _, _ in kinds]
+    if data.get("cat") not in keys:
+        data["cat"] = _default_kind()
+    return kinds, keys.index(data["cat"])
 
 
 def now_title():
@@ -862,28 +1002,172 @@ def now_title():
         return _player.get("title") if _player else None
 
 
-def tap(x, y, W, H):
-    """A tap (px) on the station page: a kind, a station (plays it), Stop."""
-    import ui_screens
+def until():
+    """When the sleep timer stops the radio (time.time()), or None."""
+    with _lock:
+        return _player.get("until") if _player else None
+
+
+def _toast(data, text):
+    data["toast"] = (text, time.time() + 2.0)
+
+
+def _page_data():
     with state.lock:
         ov = state.overlay
         if not ov or ov[0] != "radio":
-            return False
-        data = ov[2]
-        state.overlay = (ov[0], time.time() + PAGE_SECS, data)
+            return None
+        state.overlay = (ov[0], time.time() + PAGE_SECS, ov[2])
+        return ov[2]
+
+
+def tap(x, y, W, H):
+    """A tap (px) on the station page: a kind, a station (plays it), its
+    star, Stop, quieter / louder, the sleep timer."""
+    import settings
+    import ui_screens
+    data = _page_data()
+    if data is None:
+        return False
+    kinds, ci = page_list(data)
     hit = ui_screens.radio_hit(x, y, W, H, data)
     if not hit:
         return True                        # (a tap on the page doesn't close it)
     if hit[0] == "cat":
-        data["cat"] = hit[1]
+        data["cat"] = kinds[hit[1]][0]
     elif hit[0] == "stop":
         stop()
     elif hit[0] == "st":
-        name, url, _ = CATALOG[data["cat"]][3][hit[1]]
+        name, url, _ = kinds[ci][2][hit[1]]
         if playing() != name:
             play(name, url)
             _remember_station(name, url)
+    elif hit[0] == "star":
+        name, url, _ = kinds[ci][2][hit[1]]
+        _toast(data, f"{name}: w ulubionych" if fav_toggle(name, url)
+               else f"{name}: usunięta z ulubionych")
+    elif hit[0] in ("vol-", "vol+"):
+        g = _gain() * (1.25 if hit[0] == "vol+" else 1 / 1.25)
+        g = round(max(0.1, min(2.5, g)), 3)
+        settings.put("radio_level", g)
+        _toast(data, f"Głośność {int(round(g * 100))}%")
+    elif hit[0] == "timer":
+        left = until()
+        mins = (left - time.time()) / 60 if left else 0
+        nxt = next((m for m in _TIMER_STEPS if m > mins + 1), None)
+        with _lock:
+            if _player:
+                _player["until"] = time.time() + nxt * 60 if nxt else None
+        _toast(data, f"Wyłączę za {nxt} minut" if nxt else "Gra bez wyłączania")
     return True
+
+
+def swipe(dx):
+    """A swipe on the page: the next kind (to the left) or the one before."""
+    data = _page_data()
+    if data is None:
+        return False
+    kinds, ci = page_list(data)
+    data["cat"] = kinds[(ci + (1 if dx < 0 else -1)) % len(kinds)][0]
+    return True
+
+
+# ── favourites, the last played, stations that don't answer ───────────────────
+
+def favs():
+    """[(name, url)] — the house's favourite stations."""
+    import settings
+    return [tuple(f) for f in settings.get("radio_favs", []) or []]
+
+
+def fav_toggle(name, url):
+    """Adds or removes a favourite; True when it is one now."""
+    import settings
+    fs = favs()
+    if any(n == name for n, _ in fs):
+        settings.put("radio_favs", [list(f) for f in fs if f[0] != name])
+        return False
+    settings.put("radio_favs", [list(f) for f in fs] + [[name, url]])
+    return True
+
+
+def _current_url():
+    with _lock:
+        return (_player.get("url0") or _player["url"]) if _player else None
+
+
+_DEAD_SECS = 6 * 3600      # a station that didn't answer is skipped this long
+
+
+def dead():
+    """URLs of stations that didn't answer lately (skipped, greyed)."""
+    import settings
+    d = settings.get("radio_dead", {}) or {}
+    return {u for u, t in d.items() if time.time() - t < _DEAD_SECS}
+
+
+def _mark(url, is_dead):
+    import settings
+    d = settings.get("radio_dead", {}) or {}
+    if is_dead:
+        d[url] = time.time()
+    elif url in d:
+        d.pop(url)
+    else:
+        return
+    settings.put("radio_dead", d)
+
+
+def health_check():
+    """Every catalogue stream decoded for a second (ffmpeg, no sound): the
+    dead marked (skipped, greyed on the page), the live cleared."""
+    bad = []
+    for _, _, _, sts in CATALOG:
+        for name, url, _ in sts:
+            if playing() == name:
+                continue
+            try:
+                ok = subprocess.run(["ffmpeg", "-nostdin", "-loglevel", "error", "-t", "1",
+                                     "-i", url, "-f", "null", "-"], timeout=25,
+                                    stdout=subprocess.DEVNULL,
+                                    stderr=subprocess.DEVNULL).returncode == 0
+            except Exception:
+                ok = False
+            _mark(url, not ok)
+            if not ok:
+                bad.append(name)
+    print(f"[radio] health check: {len(bad)} not answering {bad}", flush=True)
+    return bad
+
+
+def start_background():
+    """The nightly health check, at 4:40 (main.py starts it)."""
+    def loop():
+        while True:
+            t = time.localtime()
+            at = time.mktime((t.tm_year, t.tm_mon, t.tm_mday, 4, 40, 0, 0, 0, -1))
+            if at <= time.time():
+                at += 86400
+            time.sleep(max(60.0, at - time.time()))
+            try:
+                health_check()
+            except Exception as e:
+                print(f"[radio] health check failed: {e}", flush=True)
+    threading.Thread(target=loop, daemon=True, name="radio-health").start()
+
+
+# the music's beat, roughly: a fast and a slow loudness (robot_face sways)
+_pulse = [0.0, 0.0]
+
+
+def music_pulse():
+    """0..1 — the music louder than lately (a beat, roughly); 0 when off."""
+    if _player is None:
+        return 0.0
+    return max(0.0, min(1.0, (_pulse[0] - _pulse[1]) * 1.5))
+
+
+_switched = []             # when the radio moved on from a dead station (a cap)
 
 
 # ── the world's radio: by country, by kind of music (11 Oct) ──────────────────

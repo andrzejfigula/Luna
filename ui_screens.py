@@ -773,81 +773,141 @@ def list_row_at(nx, ny, rows, page, W=800, H=480):
 
 # ── the radio's page (radio.show_page): kinds on the left, stations to tap ───
 
-def _radio_layout(W, H, n_st, playing):
-    """The page's rects: (stop | None, [kinds], [stations])."""
-    import radio
+def _radio_layout(W, H, n_st, playing, n_kinds):
+    """The page's rects: {"stop", "timer", "plus", "minus" (None when nothing
+    plays), "kinds": [...], "sts": [...], "stars": [...]}."""
     top = 78
-    kinds = [pygame.Rect(16, top + k * 49, 168, 44) for k in range(len(radio.CATALOG))]
+    rh = min(49, (H - top - 8) // max(1, n_kinds))
+    kinds = [pygame.Rect(16, top + k * rh, 168, rh - 5) for k in range(n_kinds)]
     x0, gap = 198, 12
     cw = (W - x0 - 16 - gap) // 2
     rows = max(4, -(-n_st // 2))
     ch = (H - top - 14 - (rows - 1) * 10) // rows
     sts = [pygame.Rect(x0 + (k % 2) * (cw + gap), top + (k // 2) * (ch + 10), cw, ch)
            for k in range(n_st)]
-    stop = pygame.Rect(W - 210, 18, 112, 42) if playing else None
-    return stop, kinds, sts
+    stars = [pygame.Rect(r.right - 42, r.y + 6, 36, 36) for r in sts]
+    out = {"kinds": kinds, "sts": sts, "stars": stars,
+           "stop": None, "timer": None, "plus": None, "minus": None}
+    if playing:
+        out["stop"] = pygame.Rect(W - 210, 18, 112, 42)
+        out["timer"] = pygame.Rect(out["stop"].x - 54, 19, 42, 40)
+        out["plus"] = pygame.Rect(out["timer"].x - 50, 19, 42, 40)
+        out["minus"] = pygame.Rect(out["plus"].x - 48, 19, 42, 40)
+    return out
 
 
 def radio_hit(x, y, W, H, data):
-    """("cat", i) | ("st", i) | ("stop",) | None for a tap at (x, y) px."""
+    """("cat", i) | ("st", i) | ("star", i) | ("stop",) | ("vol-",) |
+    ("vol+",) | ("timer",) | None for a tap at (x, y) px."""
     import radio
-    n = len(radio.CATALOG[data["cat"]][3])
-    stop, kinds, sts = _radio_layout(W, H, n, radio.playing())
-    if stop and stop.inflate(10, 10).collidepoint(x, y):
-        return ("stop",)
-    for k, r in enumerate(kinds):
+    kinds, ci = radio.page_list(data)
+    L = _radio_layout(W, H, len(kinds[ci][2]), radio.playing(), len(kinds))
+    for key, hit in (("stop", "stop"), ("minus", "vol-"), ("plus", "vol+"), ("timer", "timer")):
+        if L[key] and L[key].inflate(6, 6).collidepoint(x, y):
+            return (hit,)
+    for k, r in enumerate(L["kinds"]):
         if r.collidepoint(x, y):
             return ("cat", k)
-    for k, r in enumerate(sts):
+    for k, r in enumerate(L["stars"]):
+        if r.inflate(8, 8).collidepoint(x, y):
+            return ("star", k)
+    for k, r in enumerate(L["sts"]):
         if r.collidepoint(x, y):
             return ("st", k)
     return None
 
 
+def _star(surf, cx, cy, r, col, filled):
+    pts = []
+    for j in range(10):
+        a = -math.pi / 2 + j * math.pi / 5
+        rr = r if j % 2 == 0 else r * 0.45
+        pts.append((cx + math.cos(a) * rr, cy + math.sin(a) * rr))
+    if filled:
+        pygame.draw.polygon(surf, col, pts)
+    pygame.draw.aalines(surf, col, True, pts)
+    if not filled:
+        pygame.draw.lines(surf, col, True, pts, 2)
+
+
 def draw_radio(scr, data, now, W, H):
-    """Radio: what plays (and the song), Stop; the kinds; their stations —
-    the one playing lit, with bars moving."""
+    """Radio: what plays (and the song), quieter / louder, the sleep timer,
+    Stop; the kinds (favourites and the last played first); their stations
+    — the one playing lit, with bars moving; a star for a favourite; the
+    ones that didn't answer lately greyed."""
     import radio
     scr.blit(vgrad(W, H, (18, 20, 38), (40, 32, 66)), (0, 0))
     gold = (255, 205, 120)
     title = text("Radio", 32, WHITE, "ExtraBold")
     scr.blit(title, (24, 38 - title.get_height() // 2))
+    kinds, ci = radio.page_list(data)
     on = radio.playing()
-    stop, kinds, sts = _radio_layout(W, H, len(radio.CATALOG[data["cat"]][3]), on)
+    sts_now = kinds[ci][2]
+    L = _radio_layout(W, H, len(sts_now), on, len(kinds))
     if on:
         song = radio.now_title()
         line = on + (f" · {song}" if song else "")
-        room = (stop.x if stop else W - 90) - 150 - 16
+        room = L["minus"].x - 150 - 12
         img = text(fit(line, 19, room, "SemiBold"), 19, gold, "SemiBold")
         scr.blit(img, (150, 38 - img.get_height() // 2))
+        stop = L["stop"]
         scr.blit(rrect(stop.w, stop.h, 21, (214, 52, 52, 230)), stop)
-        sq = rrect(14, 14, 3, (255, 255, 255, 255))
-        scr.blit(sq, (stop.x + 20, stop.centery - 7))
+        scr.blit(rrect(14, 14, 3, (255, 255, 255, 255)), (stop.x + 20, stop.centery - 7))
         lab = text("Stop", 21, WHITE, "ExtraBold")
         scr.blit(lab, (stop.x + 44, stop.centery - lab.get_height() // 2))
-    for k, (r, (key, label, _, _)) in enumerate(zip(kinds, radio.CATALOG)):
-        sel = k == data["cat"]
+        for key, sign in (("minus", "−"), ("plus", "+")):
+            r = L[key]
+            scr.blit(rrect(r.w, r.h, 20, (255, 255, 255, 34)), r)
+            g = text(sign, 28, WHITE, "ExtraBold")
+            scr.blit(g, g.get_rect(center=(r.centerx, r.centery - 1)))
+        r = L["timer"]                                # the sleep timer: a clock, or minutes left
+        left = radio.until()
+        scr.blit(rrect(r.w, r.h, 20, (255, 205, 120, 90) if left else (255, 255, 255, 34)), r)
+        if left:
+            m = text(str(max(1, int(round((left - time.time()) / 60)))), 18, WHITE, "ExtraBold")
+            scr.blit(m, m.get_rect(center=r.center))
+        else:
+            c = r.center
+            pygame.draw.circle(scr, WHITE, c, 11, 2)
+            pygame.draw.line(scr, WHITE, c, (c[0], c[1] - 7), 2)
+            pygame.draw.line(scr, WHITE, c, (c[0] + 5, c[1]), 2)
+    fs = 21 if len(kinds) <= 8 else 19
+    for k, (r, (key, label, _)) in enumerate(zip(L["kinds"], kinds)):
+        sel = k == ci
         scr.blit(rrect(r.w, r.h, 14, (255, 205, 120, 70) if sel else (255, 255, 255, 16)), r)
-        playing_here = on and radio._category_of(on) == key
-        lab = text(label, 21, WHITE if sel else (225, 225, 240), "ExtraBold" if sel else "Bold")
+        lab = text(label, fs, WHITE if sel else (225, 225, 240), "ExtraBold" if sel else "Bold")
         scr.blit(lab, (r.x + 16, r.centery - lab.get_height() // 2))
-        if playing_here:                              # (the kind of the one playing)
+        if on and any(n == on for n, _, _ in kinds[k][2]) and key not in ("recent",):
             scr.blit(rrect(8, 8, 4, gold + (255,)), (r.right - 22, r.centery - 4))
-    for k, (r, (name, _, blurb)) in enumerate(zip(sts, radio.CATALOG[data["cat"]][3])):
+    favs = {n for n, _ in radio.favs()}
+    gone = radio.dead()
+    for k, (r, star, (name, url, blurb)) in enumerate(zip(L["sts"], L["stars"], sts_now)):
         lit = name == on
+        dim = url in gone and not lit
         scr.blit(rrect(r.w, r.h, 16, (255, 196, 110, 75) if lit else (255, 255, 255, 22)), r)
-        room = r.w - (64 if lit else 32)
+        room = r.w - (100 if lit else 60)
         ns = shrink(name, 22, room, "ExtraBold", 17)       # (long names: smaller first)
-        nm = text(fit(name, ns, room, "ExtraBold"), ns, WHITE, "ExtraBold")
-        bl = text(fit(blurb, 17, room, "SemiBold"), 17, (200, 200, 220), "SemiBold")
+        nm = text(fit(name, ns, room, "ExtraBold"), ns, (150, 150, 165) if dim else WHITE,
+                  "ExtraBold")
+        bl = text(fit("nie odpowiada" if dim else blurb, 17, room, "SemiBold"), 17,
+                  (150, 150, 165) if dim else (200, 200, 220), "SemiBold")
         y = r.centery - (nm.get_height() + bl.get_height()) // 2
         scr.blit(nm, (r.x + 16, y))
         scr.blit(bl, (r.x + 16, y + nm.get_height()))
+        _star(scr, star.centerx, star.centery, 11, gold if name in favs else (150, 150, 175),
+              name in favs)
         if lit:                                       # bars moving: it's playing
             for j in range(3):
                 hgt = 8 + 14 * abs(math.sin(now * (5.0 + 1.7 * j) + j))
                 bar = rrect(6, int(hgt), 3, gold + (255,))
-                scr.blit(bar, (r.right - 44 + j * 10, r.centery + 11 - int(hgt)))
+                scr.blit(bar, (r.right - 84 + j * 10, r.centery + 11 - int(hgt)))
+    toast = data.get("toast")
+    if toast and time.time() < toast[1]:             # "Głośność 80%", "w ulubionych"
+        img = text(toast[0], 20, WHITE, "Bold")
+        pill = rrect(img.get_width() + 36, 40, 20, (20, 22, 34, 235))
+        pr = pill.get_rect(center=(W // 2 + 90, H - 34))
+        scr.blit(pill, pr)
+        scr.blit(img, img.get_rect(center=pr.center))
 
 
 def draw_list(scr, heading, rows, now, W, H, meta=None):
