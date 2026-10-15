@@ -1251,7 +1251,9 @@ def listen():
         if utt_bytes < utt_max:
             utt_audio.append(data)
             utt_bytes += len(data)
-        gated = rms < _energy_gate()
+        gate = _energy_gate()
+        state.mic_level = min(1.0, max(0.0, (rms - gate) / (3.0 * gate)))   # (a float: no lock)
+        gated = rms < gate
         if gated:
             data = bytes(len(data))
             silent_run += len(data) / (VOSK_SAMPLE_RATE * 2)

@@ -112,6 +112,7 @@ def _energy_loop():
 
     global _energy_phase
     smoothed = 0.0
+    shape = None
 
     while True:
 
@@ -125,9 +126,16 @@ def _energy_loop():
             # Real lip sync: loudness of the frame the speaker is playing
             # right now (the envelope is stamped when playback started; the
             # latency offset covers the pipe + PipeWire + DAC delay).
-            e = envelope.energy_at(time.time() - LIPSYNC_LATENCY_MS / 1000.0)
+            t_heard = time.time() - LIPSYNC_LATENCY_MS / 1000.0
+            e = envelope.energy_at(t_heard)
+            sh = envelope.shape_at(t_heard) if e is not None else None
             if e is None:
                 e = _synthetic_energy()
+            if sh is not None:                   # (smoothed: the mouth glides between sounds)
+                shape = sh if shape is None else (shape[0] + (sh[0] - shape[0]) * 0.5,
+                                                  shape[1] + (sh[1] - shape[1]) * 0.5)
+            else:
+                shape = None
             e = max(0.0, min(1.0, e * LIPSYNC_GAIN))
 
             # asymmetric smoothing — snappy open, softer close
@@ -136,6 +144,7 @@ def _energy_loop():
 
             with state.lock:
                 state.audio_energy = smoothed
+                state.audio_shape  = shape
 
             time.sleep(0.016)   # ~60 fps mouth animation while speaking
 
@@ -143,9 +152,11 @@ def _energy_loop():
 
             _energy_phase = 0.0
             smoothed = 0.0
+            shape = None
 
             with state.lock:
                 state.audio_energy = 0.0
+                state.audio_shape  = None
 
             time.sleep(0.05)    # idle — poll slower, saves CPU on the Pi
 

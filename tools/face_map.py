@@ -8,6 +8,8 @@ it runs on the Pi beside the running Luna without touching her screen.
     ~/luna/venv/bin/python -X utf8 tools/face_map.py [out.png] [--at 0.5]
 
 --at: where in a scene to catch it (0..1, default 0.5).
+--only a,b: just the tiles whose label starts with one of these.
+--full: tiles at full size (800×480), for looking at details.
 """
 
 import os
@@ -30,7 +32,13 @@ LABEL_H = 28
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    global TW, TH
+    if "--full" in sys.argv:
+        TW, TH = W, H
+    only = (sys.argv[sys.argv.index("--only") + 1].split(",")
+            if "--only" in sys.argv else None)
+    args = [a for a in sys.argv[1:] if not a.startswith("--")
+            and not (only and a == ",".join(only))]
     out = args[0] if args else "/tmp/face_map.png"
     at = float(sys.argv[sys.argv.index("--at") + 1]) if "--at" in sys.argv else 0.5
     prev.egl_context()
@@ -150,6 +158,10 @@ def main():
     sections.append(("Costumes", tiles))
 
     # ── the sheet ──
+    if only:
+        sections = [(t, [x for x in tiles if any(x[0].startswith(o) for o in only)])
+                    for t, tiles in sections]
+        sections = [(t, tiles) for t, tiles in sections if tiles]
     height = sum(50 + -(-len(t) // COLS) * (TH + LABEL_H) for _, t in sections) + 70
     sheet = Image.new("RGB", (COLS * TW, height), (18, 18, 24))
     d = ImageDraw.Draw(sheet)

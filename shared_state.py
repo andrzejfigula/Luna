@@ -28,6 +28,8 @@ class SharedState:
         "gesture_anim_start",    # time.time() it started
         "heard_text", "response",
         "speaking", "listening",
+        "audio_shape",           # her voice right now: (brightness, zero-crossings) | None
+        "mic_level",             # the room's voice over the gate, 0..1 (listening waves)
         "audio_energy",
         "audio_playing",         # True only while real TTS audio is playing
                                  # (drives lip sync; speaking stays True for the
@@ -121,6 +123,8 @@ class SharedState:
         self.speaking            = False
         self.listening           = False
         self.audio_energy        = 0.0
+        self.audio_shape         = None
+        self.mic_level           = 0.0
         self.audio_playing       = False
         self.look_dir            = None
         self.servo_action        = None

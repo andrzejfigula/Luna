@@ -178,12 +178,14 @@ class Envelope:
     def __init__(self):
         self.lock     = threading.Lock()
         self.frames   = []          # energy per frame, playback order
+        self.shape    = []          # (brightness, zero-crossing rate) per frame
         self.t0       = None        # wall-clock time byte 0 hit the player
         self._carry   = b""
 
     def reset(self):
         with self.lock:
             self.frames = []
+            self.shape  = []
             self.t0     = None
             self._carry = b""
 
@@ -208,8 +210,15 @@ class Envelope:
         a = a.reshape(-1, self.FRAME)
         rms = np.sqrt(np.mean(a * a, axis=1))
         e   = np.clip(rms / LIPSYNC_RMS_FULL, 0.0, 1.0) ** 0.7   # perceptual-ish
+        # the shape of the sound, for the mouth's shape: brightness (the
+        # slope's loudness over the loudness — her "o/u" ~0.06, "e/i" ~0.2,
+        # "s/sz/cz" 0.8+) and how often the wave crosses zero (hiss: high)
+        d   = np.diff(a, axis=1)
+        br  = np.sqrt(np.mean(d * d, axis=1)) / (rms + 1e-3)
+        zc  = np.mean(np.abs(np.diff(np.sign(a), axis=1)) > 0, axis=1)
         with self.lock:
             self.frames.extend(e.tolist())
+            self.shape.extend(zip(br.tolist(), zc.tolist()))
 
     def energy_at(self, t):
         """Energy of the frame playing at wall-clock time t (None = not
@@ -223,6 +232,14 @@ class Envelope:
             if i >= len(self.frames):
                 return None if self.frames else 0.0
             return self.frames[i]
+
+    def shape_at(self, t):
+        """(brightness, zero-crossings) of the frame playing at t, or None."""
+        with self.lock:
+            if self.t0 is None:
+                return None
+            i = int((t - self.t0) * 1000 / LIPSYNC_FRAME_MS)
+            return self.shape[i] if 0 <= i < len(self.shape) else None
 
 
 envelope = Envelope()

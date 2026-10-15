@@ -5726,6 +5726,23 @@ class FaceSpecTest(unittest.TestCase):
         u = self._settle(self._gl(), face, 3)
         self.assertGreater(u["uLidA0"][0], u0["uLidA0"][0] + 0.2)
 
+    def test_the_mouth_follows_the_sound(self):
+        import gl_face
+        vo = gl_face.GLFace.viseme_of
+        o, e, s = vo((0.06, 0.03)), vo((0.24, 0.05)), vo((1.2, 0.45))
+        self.assertLess(o[0], e[0] - 0.3)                     # "o": narrower than "e"…
+        self.assertGreater(o[1], e[1] + 0.3)                  # …and taller
+        self.assertLess(o[2], 0.05)
+        self.assertGreater(s[2], 0.9)                         # "s": the teeth
+        self.assertLess(s[1], 0.6)                            # …through a narrow gap
+        gl = self._gl()                                       # and through face_uniforms
+        face = self._face("neutral", talking=True)
+        face._audio_shape = (0.06, 0.03)
+        uo = self._settle(gl, face, 12)
+        face._audio_shape = (0.24, 0.05)
+        ue = self._settle(gl, face, 12)
+        self.assertLess(uo["uMouth"][2], ue["uMouth"][2] - 40)
+
     def test_people_coming_and_going(self):
         gl = self._gl()
         face = self._face("neutral")

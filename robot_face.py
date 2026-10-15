@@ -1315,21 +1315,33 @@ def draw_costume_front(surf, fcx, fcy, kind, face=None):
 #   ok         — thumb and index make a ring, three fingers up
 #   scissors   — index and middle finger in a V (rock-paper-scissors)
 def hand_surface(pose, side):
-    """Cached hand image for a pose; side 'L'/'R' mirrors it."""
+    """Cached hand image for a pose; side 'L'/'R' mirrors it. Drawn 3× and
+    scaled down (smooth edges); one light across the whole hand, so the
+    fingers join the palm without seams; a darker crease round each part;
+    the glow and a soft shadow baked in (no bloom per frame)."""
     key = (pose, side)
     s = _HAND_CACHE.get(key)
     if s is not None:
         return s
-    S = 1.6                                   # hand scale
+    S, K, P = 1.6, 3, 16                      # hand scale, supersampling, padding (px)
     W_, H_ = int(120 * S), int(150 * S)
-    s = pygame.Surface((W_, H_), pygame.SRCALPHA)
+    big = pygame.Surface(((W_ + 2 * P) * K, (H_ + 2 * P) * K), pygame.SRCALPHA)
     top, bot = HAND_GRAD_TOP, HAND_GRAD_BOTTOM
+    crease = _lerp_col(bot, (70, 25, 0), 0.55)
+
+    def at(y):                                # the hand's light at height y (0..150)
+        return _lerp_col(top, bot, max(0.0, min(1.0, y / 150.0)) ** 1.1)
 
     def block(w, h, r, cx, cy, angle=0):
-        b = gradient_block(int(w * S), int(h * S), int(r * S), top, bot)
-        if angle:
-            b = pygame.transform.rotate(b, angle)
-        s.blit(b, b.get_rect(center=(int(cx * S), int(cy * S))))
+        sc = S * K
+        edge = gradient_block(int((w + 3) * sc), int((h + 3) * sc), int((r + 1.5) * sc),
+                              crease, crease)
+        fill = gradient_block(int(w * sc), int(h * sc), int(r * sc),
+                              at(cy - h / 2), at(cy + h / 2))
+        for b in (edge, fill):
+            if angle:
+                b = pygame.transform.rotate(b, angle)
+            big.blit(b, b.get_rect(center=(int((cx * S + P) * K), int((cy * S + P) * K))))
 
     if pose == "fist":
         block(66, 76, 22, 62, 106)                 # the fist
@@ -1352,10 +1364,13 @@ def hand_surface(pose, side):
         for dx, fh in ((12, 52), (28, 48), (42, 40)):   # middle, ring, pinky up
             block(16, fh, 7, 54 + dx, 80 - (fh - 40) // 2)
         block(66, 70, 26, 62, 110)                 # palm
-        ring = gradient_block(int(46 * S), int(46 * S), int(23 * S), top, bot).copy()
-        pygame.draw.circle(ring, (0, 0, 0, 0), (int(23 * S), int(23 * S)),
-                           int(11 * S))            # thumb + index: the "O"
-        s.blit(ring, ring.get_rect(center=(int(36 * S), int(68 * S))))
+        c = (int((36 * S + P) * K), int((68 * S + P) * K))
+        pygame.draw.circle(big, (*crease, 255), c, int(24.5 * S * K))
+        ring = gradient_block(int(46 * S * K), int(46 * S * K), int(23 * S * K),
+                              at(45), at(91)).copy()
+        big.blit(ring, ring.get_rect(center=c))
+        pygame.draw.circle(big, (*crease, 255), c, int(12.5 * S * K))
+        pygame.draw.circle(big, (0, 0, 0, 0), c, int(11 * S * K))   # thumb + index: the "O"
     elif pose in ("thumb", "thumb_down"):
         block(24, 62, 12, 34, 64, 6)               # thumb up (base under the fist)
         block(66, 76, 22, 62, 106)                 # fist
@@ -1367,6 +1382,21 @@ def hand_surface(pose, side):
         block(66, 70, 26, 60, 108)                 # palm
         for i, (dx, fh) in enumerate(((-24, 44), (-8, 52), (8, 50), (24, 42))):
             block(16, fh, 7, 60 + dx, 78 - (fh - 40) // 2)
+    BW, BH = big.get_size()
+    # the glow round it and a soft shadow below-right, under the hand
+    sil = big.copy()
+    sil.fill((0, 0, 0, 255), special_flags=pygame.BLEND_RGBA_MIN)    # (black, its alpha)
+    soft = pygame.transform.smoothscale(
+        pygame.transform.smoothscale(sil, (BW // 16, BH // 16)), (BW, BH))
+    glow = soft.copy()
+    glow.fill((*GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)     # (colour; alpha kept)
+    glow.fill((255, 255, 255, 90), special_flags=pygame.BLEND_RGBA_MULT)
+    out = pygame.Surface((BW, BH), pygame.SRCALPHA)
+    out.blit(glow, (0, 0))
+    soft.fill((255, 255, 255, 120), special_flags=pygame.BLEND_RGBA_MULT)
+    out.blit(soft, (5 * K, 9 * K))
+    out.blit(big, (0, 0))
+    s = pygame.transform.smoothscale(out, (BW // K, BH // K))
     if pose == "thumb_down":
         s = pygame.transform.flip(s, False, True)
     if side == "L":
@@ -1378,20 +1408,39 @@ def hand_surface(pose, side):
 _ARC_CACHE = {}
 
 
-def _arc_img(r, a, col, side):
-    """One ")" (side 1) or "(" of radius r, alpha level a (0..8), cached:
-    drawn 3× and scaled down every frame cost 12 ms (Pi 4)."""
-    key = (r, a, col, side)
+def _arc_img(r, col, side):
+    """One ")" (side 1) or "(" of radius r: a crescent thickest in the
+    middle, thin at the ends, in a soft glow (antialiased, cached by r)."""
+    key = (r, col, side)
     img = _ARC_CACHE.get(key)
     if img is None:
         if len(_ARC_CACHE) > 300:
             _ARC_CACHE.clear()
-        big = pygame.Surface((r * 3 + 30, 2 * r * 3 + 30), pygame.SRCALPHA)
-        rect = pygame.Rect(0, 0, 2 * r * 3, 2 * r * 3)
-        rect.center = (0, r * 3 + 15) if side > 0 else (r * 3 + 30, r * 3 + 15)
-        start = -0.75 if side > 0 else math.pi - 0.75
-        pygame.draw.arc(big, (*col, int(255 * a / 8)), rect, start, start + 1.5, 21)
-        img = _ARC_CACHE[key] = pygame.transform.smoothscale(big, (r + 10, 2 * r + 10))
+        k, pad = 3, 14
+        W, H = (r + 2 * pad) * k, (2 * r + 2 * pad) * k
+        big = pygame.Surface((W, H), pygame.SRCALPHA)
+        cx = pad * k if side > 0 else W - pad * k     # the arc's centre, off to one side
+        cy = H / 2
+        span, T = 0.80, 7.0                          # ±46°; 7 px at the middle
+        outer, inner = [], []
+        for j in range(41):
+            u = j / 40.0
+            a = -span + 2 * span * u
+            t = T * (0.25 + 0.75 * math.sin(math.pi * u))
+            dx, dy = math.cos(a) * side, math.sin(a)
+            outer.append((cx + dx * (r + t / 2) * k, cy + dy * (r + t / 2) * k))
+            inner.append((cx + dx * (r - t / 2) * k, cy + dy * (r - t / 2) * k))
+        poly = outer + inner[::-1]
+        glow = pygame.Surface((W, H), pygame.SRCALPHA)
+        pygame.draw.polygon(glow, (*col, 255), poly)
+        glow = pygame.transform.smoothscale(
+            pygame.transform.smoothscale(glow, (W // 12, H // 12)), (W, H))
+        glow.set_alpha(110)
+        big.blit(glow, (0, 0))
+        pygame.draw.polygon(big, (*_lerp_col(col, (255, 255, 255), 0.25), 255), poly)
+        img = pygame.transform.smoothscale(big, (W // k, H // k))
+        img = (img, pad if side > 0 else W // k - pad)    # (and where its centre is)
+        _ARC_CACHE[key] = img
     return img
 
 
@@ -1419,15 +1468,16 @@ def twinkle(surf, x, y, r, alpha, col=None):
 
 def draw_side_arcs(surf, cx, cy, dx, arcs, col):
     """")" on the right, "(" on the left, dx from the middle — sound coming
-    in, a head moving. arcs: (radius, alpha 0..1); antialiased."""
+    in, a head moving. arcs: (radius, alpha 0..1); antialiased, glowing."""
     for r, a in arcs:
-        lvl = int(round(8 * min(1.0, a)))
-        if lvl <= 0:
+        if a <= 0.01:
             continue
-        r = int(r) // 4 * 4
+        r = max(8, int(r) // 2 * 2)
         for side in (-1, 1):
-            img = _arc_img(r, lvl, col, side)
-            x = cx + dx if side > 0 else cx - dx - img.get_width()
+            img, ox = _arc_img(r, col, side)
+            img.set_alpha(int(255 * min(1.0, a)))
+            # its centre of curvature sits at the eye's side, dx out from the middle
+            x = cx + side * dx - ox
             surf.blit(img, (int(x), int(cy - img.get_height() / 2)))
 
 
@@ -1511,7 +1561,7 @@ class Mouth:
             # while speaking — prevents dead mouth between words
             effective_energy = max(0.04, energy)   # real lip sync: pauses close the mouth
             target_open      = effective_energy
-            self.talk_open   = lerp(self.talk_open, target_open, 0.30)
+            self.talk_open   = lerp(self.talk_open, target_open, 0.55)   # (TTS smooths it)
             self.mouth_w     = lerp(self.mouth_w,
                                     190.0 if energy > 0.5 else 150.0, 0.12)
             delta = energy - self.prev_energy
@@ -1967,6 +2017,8 @@ class RobotFace:
             audio_playing  = state.audio_playing
             listening      = state.listening
             audio_energy   = state.audio_energy
+            self._audio_shape = state.audio_shape
+            mic_level      = state.mic_level
             look_dir       = state.look_dir
             motion         = state.motion
             frozen_emotion = state.frozen_emotion
@@ -2083,7 +2135,10 @@ class RobotFace:
             blink_t = 0.0
 
         # ── listening pulse ───────────────────────────────────────────────
-        self.listen_phase += 0.08
+        # (the waves quicken and brighten with the voice she hears)
+        self._mic = lerp(getattr(self, "_mic", 0.0), mic_level if listening else 0.0,
+                         0.35 if mic_level > getattr(self, "_mic", 0.0) else 0.12)
+        self.listen_phase += 0.08 + 0.10 * self._mic
         if listening:
             self.listen_pulse = lerp(self.listen_pulse,
                                      0.5 + 0.5 * math.sin(self.listen_phase),
@@ -2364,12 +2419,20 @@ class RobotFace:
             self._scene.face(self, self._scene_p)
 
         self._hand_target = {"L": tgt_L, "R": tgt_R}
+        # the hands on springs: quick, a little overshoot, settling — in
+        # real time (4 ms steps), not "x % of the way each frame"
+        tnow = time.monotonic()
+        hdt = max(1.0 / 30.0, min(0.1, tnow - getattr(self, "_hand_t", tnow - 0.05)))
+        self._hand_t = tnow
+        vel = getattr(self, "_hand_vel", None) or {"L": [0.0, 0.0, 0.0], "R": [0.0, 0.0, 0.0]}
+        self._hand_vel = vel
+        n = int(math.ceil(hdt / 0.004))
         for side in ("L", "R"):
-            cur, tgt = self.hand[side], self._hand_target[side]
-            k = 0.22
-            cur[0] = lerp(cur[0], tgt[0], k)
-            cur[1] = lerp(cur[1], tgt[1], k)
-            cur[2] = lerp(cur[2], tgt[2], 0.35)
+            cur, tgt, v = self.hand[side], self._hand_target[side], vel[side]
+            for _ in range(n):
+                for j, (kk, dd) in enumerate(((160.0, 17.0), (160.0, 17.0), (220.0, 24.0))):
+                    v[j] += ((tgt[j] - cur[j]) * kk - v[j] * dd) * (hdt / n)
+                    cur[j] += v[j] * (hdt / n)
 
         # being touched: recoil from the finger / squirm when poked
         if touch_el < 0.5 and self._touch_kind == "tap":
@@ -2703,10 +2766,12 @@ class RobotFace:
         # ── listening: sound waves coming in from both sides; a nod or a
         #    shake of the head: motion marks beside it ────────────────────
         if self.listen_pulse > 0.05 or self._listen:
-            k = 0.55 * max(self.listen_pulse, 0.6 if self._listen else 0.0)   # restrained
+            k = (0.50 + 0.45 * self._mic) * max(self.listen_pulse, 0.6 if self._listen else 0.0)
             ph = self.listen_phase * 0.22
-            arcs = [(64 + 42 * ((ph + j / 3.0) % 1.0),
-                     k * math.sin(math.pi * ((ph + j / 3.0) % 1.0))) for j in range(3)]
+            arcs = []
+            for j in range(3):                    # sound coming in: far and faint → near
+                u = (ph + j / 3.0) % 1.0
+                arcs.append((112 - 50 * u, k * math.sin(math.pi * u) ** 1.3))
             draw_side_arcs(base, fcx, fcy - 30, EYE_SPREAD + 95, arcs, LISTEN_WAVE_COL)
         if self._gesture in ("nod", "shake"):
             env = math.sin(math.pi * self._gesture_p)
@@ -2747,18 +2812,16 @@ class RobotFace:
                     continue
                 img = hand_surface(self.hand_pose[side], side)
                 # rotate about the WRIST (bottom of the hand), not the centre:
-                # the fingers swing while the base stays put
-                pivot = pygame.math.Vector2(0, img.get_height() * 0.42)
+                # the fingers swing while the base stays put (the glow and
+                # the shadow are in the image: no bloom per frame)
+                h0 = img.get_height() - 32          # (the image has 16 px round it)
+                pivot = pygame.math.Vector2(0, h0 * 0.42)
                 if abs(ha) > 0.5:
-                    img = pygame.transform.rotate(img, ha)
+                    img = pygame.transform.rotozoom(img, ha, 1.0)   # (filtered: no jaggies)
                     pivot = pivot.rotate(-ha)
-                wrist = pygame.math.Vector2(fcx + hx, fcy + hy + hand_surface(
-                    self.hand_pose[side], side).get_height() * 0.42)
+                wrist = pygame.math.Vector2(fcx + hx, fcy + hy + h0 * 0.42)
                 rect = img.get_rect(center=(int(wrist.x - pivot.x),
                                             int(wrist.y - pivot.y)))
-                glow = img.copy()
-                glow.fill((*GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)
-                bloom(base, glow, rect.topleft, radius=12, passes=1, max_alpha=70)
                 base.blit(img, rect)
             if self._gesture == "heart":
                 sz = int(50 + 12 * self._heart_pulse)
@@ -2822,7 +2885,8 @@ class RobotFace:
 
         # ── awake indicator — small breathing dot while the conversation
         #    window is open; fades out when the wake word is needed again ──
-        if self.awake_glow > 0.04:
+        # (not on the block face: the status bar's mic and her eyes say it)
+        if self.awake_glow > 0.04 and EYE_MODE != "block":
             pulse = 0.75 + 0.25 * math.sin(self.breath_phase * 1.6)
             a     = int(150 * self.awake_glow * pulse)
             r     = 7

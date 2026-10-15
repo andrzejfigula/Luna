@@ -1480,10 +1480,24 @@ class GLFace:
         return u
 
     # the mouth's shapes while she talks — wide "a", round "o", flat "e" —
-    # a new one at each syllable (her voice getting louder again), eased
+    # (fallback, no sound to read: a new one at each syllable)
     VISEMES = ((1.0, 1.0), (0.58, 1.12), (1.14, 0.58), (0.86, 0.80))
 
-    def _viseme(self, e):
+    @staticmethod
+    def viseme_of(shape):
+        """The mouth's (width, height, teeth) for a sound: (brightness,
+        zero-crossings) from openai_tts.Envelope. Dark sounds (o, u) round
+        and narrow it, bright ones (e, i) spread it flat, a hiss (s, sz, cz)
+        shows the teeth through a narrow gap. Thresholds from her own voice
+        (255 cached clips: vowels 0.06–0.22, hiss 0.8+)."""
+        b, z = shape
+        fric = (max(0.0, min(1.0, (z - 0.15) / 0.20))
+                * max(0.0, min(1.0, (b - 0.45) / 0.40)))
+        v = max(0.0, min(1.0, (b - 0.07) / 0.18))
+        vw, vh = _lerp(0.68, 1.15, v), _lerp(1.12, 0.66, v)
+        return _lerp(vw, 1.05, fric), _lerp(vh, 0.50, fric), fric
+
+    def _viseme(self, e, shape=None):
         now = time.monotonic()
         prev = getattr(self, "_vis_prev", 0.0)
         if e - prev > 0.07 or now - getattr(self, "_vis_t", 0.0) > 0.30:
@@ -1492,9 +1506,13 @@ class GLFace:
             if e > 0.55 and getattr(self, "life", None):
                 self.life.emph_t = now            # a stressed syllable
         self._vis_prev = e
-        tw, th = self.VISEMES[getattr(self, "_vis", 0)]
-        cw, ch = getattr(self, "_vis_wh", (1.0, 1.0))
-        self._vis_wh = (cw + (tw - cw) * 0.35, ch + (th - ch) * 0.35)
+        if shape is not None:                     # the real sound
+            tw, th, tf = self.viseme_of(shape)
+        else:
+            (tw, th), tf = self.VISEMES[getattr(self, "_vis", 0)], 0.0
+        cw, ch, cf = getattr(self, "_vis_wh", (1.0, 1.0, 0.0))
+        k = 0.55 if shape is not None else 0.35
+        self._vis_wh = (cw + (tw - cw) * k, ch + (th - ch) * k, cf + (tf - cf) * k)
         return self._vis_wh
 
     def _mouth(self, face, rf, fcx, fcy, cur):
@@ -1554,9 +1572,9 @@ class GLFace:
         if talking:
             e = m.talk_open
             alpha = max(alpha, min(1.0, m.speak_fade))
-            vw, vh = self._viseme(e)
+            vw, vh, teeth = self._viseme(e, getattr(face, "_audio_shape", None))
             if e > 0.06:
-                kind, open_ = face_spec.OPEN, e
+                kind, open_ = face_spec.OPEN, max(e, 0.65 * teeth)   # (open_ shows the teeth)
                 w = _lerp(m.mouth_w * 0.55, m.mouth_w * 1.15,
                           max(0.0, min(1.0, (e - 0.06) / 0.5))) * vw
                 # (at least 24 px: thinner, the lips met in a light streak)
