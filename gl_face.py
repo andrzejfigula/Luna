@@ -420,7 +420,10 @@ float mouthSDF(vec2 q, out float inner, out float teeth, out float tongue) {
     } else if (kind < 1.5) {                  // open, talking: a smiling lower lip
         float x = clamp(q.x / hw, -1.0, 1.0);
         vec2 b = vec2(hw, h * 0.5);
-        vec2 pq = vec2(q.x, q.y - max(uMouthK.x, 0.0) * 0.35 * (1.0 - x * x) * step(0.0, q.y));
+        // (the curve fades in below the middle — a hard step there showed as
+        // a 1 px line across the open mouth)
+        vec2 pq = vec2(q.x, q.y - max(uMouthK.x, 0.0) * 0.35 * (1.0 - x * x)
+                                  * smoothstep(0.0, max(h * 0.5, 4.0), q.y));
         d = sdSquircle(pq, b, 2.6);
         inner = d + 7.0;
         teeth = smoothstep(0.5, -0.5, q.y + h * 0.5 - 7.0 - h * 0.20)
@@ -1556,7 +1559,8 @@ class GLFace:
                 kind, open_ = face_spec.OPEN, e
                 w = _lerp(m.mouth_w * 0.55, m.mouth_w * 1.15,
                           max(0.0, min(1.0, (e - 0.06) / 0.5))) * vw
-                h = max(12.0, (10.0 + (e + m.jaw_bounce * 0.3) * 82.0) * vh)
+                # (at least 24 px: thinner, the lips met in a light streak)
+                h = max(24.0, (10.0 + (e + m.jaw_bounce * 0.3) * 82.0) * vh)
                 bend = max(0.0, bend) + m.corner_lift * 10.0   # a smile while talking
             else:                                 # between words: closed, still smiling
                 kind, w, h = face_spec.LINE, max(140.0, w * 0.9), 15.0

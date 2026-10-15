@@ -5624,6 +5624,7 @@ class FaceSpecTest(unittest.TestCase):
         self.assertGreater(u["uLidB0"][1], 0.9)               # a blink closes the lids
         u = self._settle(gl, self._face("neutral", talking=True))
         self.assertEqual(u["uMouthK"][3], 1.0)                # her voice opens the mouth
+        self.assertGreaterEqual(u["uMouth"][3], 24.0)         # (never a lips-only sliver)
         u = self._settle(gl, self._face("happy", "googly_eyes"))
         self.assertLess(u["uBrowK"][3], 0.01)                 # googly: no brows…
         self.assertEqual(u["uTop"], (1.0, 1.0, 1.0))          # …white eyes
