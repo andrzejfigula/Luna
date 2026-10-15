@@ -241,8 +241,12 @@ _SHOW_NOT = re.compile(r"\b(?:włącz|wlacz|puść|pusc|zagraj|odpal|graj|wyłą
 
 
 _FAV_ADD = re.compile(r"\b(?:dodaj|zapisz|zapamiętaj|zapamietaj|wrzuć|wrzuc)\s+(?:mi\s+)?"
-                      r"(?:tę\s+|te\s+|to\s+)?(?:stację\s+|stacje\s+|radio\s+)?(?:do\s+)?ulubion"
-                      r"|\b(?:lubię|lubie)\s+(?:tę|te|to)\s+(?:stację|stacje|radio)\b")
+                      r"(?:tę\s+|te\s+|tą\s+|ta\s+|to\s+|tej\s+)?(?:stację\s+|stacje\s+|radio\s+)?"
+                      r"(?:do\s+)?(?:moich\s+)?ulubion"
+                      r"|\b(?:lubię|lubie)\s+(?:tę|te|tą|ta|to)\s+(?:stację|stacje|radio)\b")
+# "Ulubione." alone, "pokaż ulubione" — the page at the favourites
+_FAV_SHOW = re.compile(r"^(?:luna,?\s+)?(?:(?:pokaż|pokaz)\s+(?:mi\s+)?)?(?:moje\s+)?ulubione"
+                       r"(?:\s+(?:stacje|radia))?\W*$")
 _FAV_DEL = re.compile(r"\b(?:usuń|usun|wyrzuć|wyrzuc|skasuj|wykreśl|wykresl)\b.*\bz\s+ulubionych")
 _FAV_PLAY = re.compile(r"\b(?:włącz|wlacz|puść|pusc|zagraj|daj)\s+(?:mi\s+)?(?:moją\s+|moja\s+|moje\s+)?"
                        r"ulubion\w*")
@@ -739,6 +743,14 @@ def handle(text, speak):
         speak(f"Mam {n} stacji: " + ", ".join(names[:-1]) + f" i {names[-1]}. "
               "Pokazuję je na ekranie.")
         show_page()
+        return True
+    if _FAV_SHOW.match(low):               # "Ulubione." (15 Oct: went to the model)
+        if not favs():
+            speak("Nie masz jeszcze ulubionych stacji — gdy gra taka, którą lubisz, "
+                  "powiedz „dodaj do ulubionych”.")
+        else:
+            show_page("fav")
+            speak("Twoje ulubione stacje.")
         return True
     if _FAV_PLAY.search(low):              # "włącz moją ulubioną stację"
         fs = favs()

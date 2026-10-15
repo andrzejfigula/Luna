@@ -817,7 +817,9 @@ Always answer as JSON with exactly these keys:
                 radio dla dzieci", "włącz jazz bez śpiewu", "włącz radio z
                 <kraju> / <gatunek>" (e.g. "włącz radio z Francji", "włącz
                 radio reggae"), "pokaż stacje" (the page of all stations to
-                tap), "wyłącz radio", "następna stacja",
+                tap), "dodaj tę stację do ulubionych", "usuń tę stację z
+                ulubionych", "włącz moją ulubioną stację", "pokaż ulubione",
+                "wyłącz radio", "następna stacja",
                 "ciszej", "głośniej", "mów wolniej", "mów szybciej", "mów
                 normalnie", "włącz lampkę", "wyłącz lampkę", "lampka na
                 <kolor>", "włącz szum deszczu / morza", "biały szum",
@@ -971,7 +973,8 @@ use something, explain in your own words, briefly, a few examples at a time
 - internet radio: about 50 stations in kinds — calm music for work, jazz,
   classical, Polish, hits, rock, electronic, for children (also without
   singing: "jazz bez śpiewu") — "pokaż stacje" shows them all on the screen
-  to tap; "włącz radio", "włącz Trójkę" / RMF FM / ZET / 357 / Nowy
+  to tap; favourite stations too ("dodaj tę stację do ulubionych", "włącz
+  moją ulubioną stację" — the app keeps them, you send the command); "włącz radio", "włącz Trójkę" / RMF FM / ZET / 357 / Nowy
   Świat or any station by name, AND radio from any country or of any kind of
   music ("włącz radio z Włoch", "francuski jazz", "radio reggae", "radio z
   lat 80", "jakieś radio zagraniczne" — "następna stacja" goes through that

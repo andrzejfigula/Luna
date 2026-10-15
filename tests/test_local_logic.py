@@ -5711,6 +5711,21 @@ class RadioCatalogTest(unittest.TestCase):
             self.assertIn("Usunęłam", self._ask("usuń tę stację z ulubionych",
                                                  playing="FIP Jazz")[2][-1])
             self.assertEqual(radio.favs(), [])
+            # 15 Oct, Andrzej's own words, through the whole router (the first
+            # two went to the model: "Nie mogę dodać stacji do ulubionych")
+            import commands
+            said, got, shown = [], [], []
+            with mock.patch.object(radio, "playing", lambda: "Radio Swiss Jazz"), \
+                    mock.patch.object(radio, "play", lambda n, u, **k: got.append(n)), \
+                    mock.patch.object(radio, "_remember_station", lambda n, u: None), \
+                    mock.patch.object(radio, "show_page", lambda *a: shown.append(a)):
+                for t in ("Dodaj tą stację do ulubionych.", "Ulubione.",
+                          "Włącz moją ulubioną stację."):
+                    self.assertTrue(commands.handle(t, said.append, lambda *a, **k: True), t)
+            self.assertEqual(radio.favs(), [("Radio Swiss Jazz", "http://x")])
+            self.assertIn("Dodałam", said[0])
+            self.assertEqual(shown, [("fav",)])
+            self.assertEqual(got, ["Radio Swiss Jazz"])           # (the only favourite)
 
     def test_count_similar_and_the_time_of_day(self):
         import radio
