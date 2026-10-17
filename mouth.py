@@ -6,20 +6,23 @@ your "Luna" from the radio; the camera can: a talking mouth moves. The
 vision loop's face detector (YuNet) gives five points per face — eyes, nose
 tip, mouth corners — a few times a second; this thread looks at every camera
 frame (15 a second) and measures how much the picture of the mouth changed
-since the last frame, minus how much the picture around the nose changed
-(the head moving, the light changing, the box jumping when the points are
-updated). That difference, averaged over WINDOW seconds, is the activity:
-~0 for a still face, higher while talking.
+since the last frame, and how much the picture just above the nose did (the
+head moving, the light changing). Averaged over WINDOW seconds: a still face
+changes both alike; a talking mouth changes 2–3× more than the nose
+(talking()). The frame where the boxes jump to new face points is skipped.
 
-    activity()       — now: (value, frames, face seen) for the biggest face
-    during(secs)     — the last `secs`: share of frames with a face, median
-                       and the highest WINDOW-average — for the log lines
-                       ("[STT] heard=… mouth=…", "[mouth] while she spoke…")
+    activity()       — now: (talking, mouth change, nose change, face seen)
+    during(secs)     — the last `secs`: share of frames with a face, share of
+                       them that looked like talking, the best ratio — for the
+                       log lines ("[STT] heard=… mouth…", "[mouth] while she spoke…")
+    dump()           — the last 10 min of tiny patches, to tune it offline
 
-MOUTH_STOP = "log" (config): while she speaks, activity ≥ MOUTH_TALK_ON for
-MOUTH_TALK_SECS would stop her and listen — only logged until the numbers
-from the room say where the line is (17 Oct, Andrzej: "detect when I speak
-from the camera").
+MOUTH_STOP (config): while she speaks, talking seen for MOUTH_TALK_SECS
+stops her and she listens at once, as a finger held on the screen does —
+17 Oct, Andrzej: "detect when I speak from the camera" (the voice "stop!"
+couldn't tell him from her own voice). Tuned on a dump of him talking over
+a story three times: caught twice ~1 s in, the third time his head was
+turning; never while he listened, nodded or turned (4 min).
 """
 
 import collections
@@ -38,7 +41,8 @@ KEEP = 30.0             # s of history for during()
 
 _lock = threading.Lock()
 _marks = [None]         # (14 numbers: box + 5 points on the FULL frame, time)
-_hist = collections.deque()     # (time, score or None = no face)
+_hist = collections.deque()     # (time, (mouth, nose change) | False = a face, no
+                                # change to tell | None = no face)
 
 
 def set_marks(row_small, scale, t=None):
@@ -80,56 +84,72 @@ def boxes(marks):
     return mouth, ref
 
 
-def score(prev, cur):
-    """How much more the mouth changed than the nose: one frame's evidence."""
+def change(prev, cur):
+    """(mouth change, change above the nose) from one frame to the next."""
     dm = float(np.mean(np.abs(cur[0] - prev[0])))
     dr = float(np.mean(np.abs(cur[1] - prev[1])))
-    return max(0.0, dm - dr)
+    return dm, dr
 
 
-def _window(now):
-    vals = [s for t, s in _hist if now - t <= WINDOW and s is not None]
-    return (sum(vals) / len(vals) if vals else 0.0), len(vals)
+def talking(dm, dr, n):
+    """Does WINDOW's average change say "talking"? The mouth changed at
+    least MOUTH_RATIO× more than above the nose (a still face: both ~0.02–
+    0.07, the same), by at least MOUTH_MIN_CHANGE, and the head was fairly
+    still (above the nose ≤ MOUTH_MAX_HEAD — a turning head changes both,
+    the nose part often more, and says nothing). Tuned on 17 Oct's dump."""
+    from config import MOUTH_RATIO, MOUTH_MIN_CHANGE, MOUTH_MAX_HEAD
+    return (n >= 4 and dm >= MOUTH_MIN_CHANGE and dm >= MOUTH_RATIO * dr
+            and dr <= MOUTH_MAX_HEAD)
+
+
+def _window(rows, now):
+    """(average mouth change, average nose change, frames) of WINDOW to `now`."""
+    ds = [d for t, d in rows if now - WINDOW < t <= now and d]
+    if not ds:
+        return 0.0, 0.0, 0
+    return sum(d[0] for d in ds) / len(ds), sum(d[1] for d in ds) / len(ds), len(ds)
 
 
 def activity():
-    """(activity, frames it is made of, a face seen now)."""
+    """(talking now, mouth change, nose change, a face seen now)."""
     now = time.time()
     with _lock:
-        a, n = _window(now)
+        dm, dr, n = _window(_hist, now)
         face = bool(_hist) and _hist[-1][1] is not None and now - _hist[-1][0] < 0.5
-    return a, n, face
+    return talking(dm, dr, n), dm, dr, face
 
 
 def during(secs, now=None):
-    """(share of frames with a face, median activity, highest WINDOW-average)
-    over the last `secs` seconds; None when the camera gave nothing."""
+    """(share of frames with a face, share of them that looked like talking,
+    the highest mouth/nose ratio of a WINDOW) over the last `secs` seconds;
+    None when the camera gave nothing."""
     now = time.time() if now is None else now
     with _lock:
-        rows = [(t, s) for t, s in _hist if now - secs <= t <= now]
-    if not rows:
+        rows = [(t, d) for t, d in _hist if now - secs - WINDOW <= t <= now]
+    inside = [(t, d) for t, d in rows if t >= now - secs]
+    if not inside:
         return None
-    seen = [(t, s) for t, s in rows if s is not None]
+    seen = [(t, d) for t, d in inside if d is not None]
     if not seen:
         return 0.0, 0.0, 0.0
-    vals = sorted(s for _, s in seen)
-    best = 0.0
-    for t, _ in seen:                       # the busiest WINDOW inside it
-        w = [s for t2, s in seen if t - WINDOW < t2 <= t]
-        if len(w) >= 4:
-            best = max(best, sum(w) / len(w))
-    return len(seen) / len(rows), vals[len(vals) // 2], best
+    talk, best = 0, 0.0
+    for t, _ in seen:
+        dm, dr, n = _window(rows, t)
+        if n >= 4:
+            best = max(best, dm / max(dr, 0.01))
+        talk += talking(dm, dr, n)
+    return len(seen) / len(inside), talk / len(seen), best
 
 
 def describe(secs, now=None):
-    """For the log: "mouth 0.12/0.40 (face 90%)" or "mouth: no face"."""
+    """For the log: "mouth talking 40%, best ×2.6 (face 90%)" or "mouth: no face"."""
     d = during(secs, now)
     if d is None:
         return "mouth: no camera"
-    share, med, best = d
+    share, talk, best = d
     if share < 0.3:
         return f"mouth: no face ({share:.0%})"
-    return f"mouth {med:.2f}/{best:.2f} (face {share:.0%})"
+    return f"mouth talking {talk:.0%}, best ×{best:.1f} (face {share:.0%})"
 
 
 DUMP_REQUEST = "/tmp/mouth_dump.request"   # (SIGUSR2 is the watchdog's)
@@ -186,13 +206,13 @@ def _loop():
                 prev_mt = m[1]
                 _raw.append((now, pm.astype(np.float16), pr.astype(np.float16), moved, speaking, mic, float(m[0][2])))
         if cur is None:
-            s, prev, prev_mt = None, None, None
+            d, prev, prev_mt = None, None, None
         else:
-            s = score(prev, cur) if (prev is not None and not moved) else None
+            # False: a face, but nothing to compare (its first frame, a jump)
+            d = change(prev, cur) if (prev is not None and not moved) else False
             prev = cur
         with _lock:
-            # a face counts as seen even on a frame with no score (first, jump)
-            _hist.append((now, s if s is not None else (0.0 if cur is not None else None)))
+            _hist.append((now, d))
             while _hist and now - _hist[0][0] > KEEP:
                 _hist.popleft()
         _watch(now)
@@ -209,7 +229,7 @@ _reply = {"on": False, "since": None, "logged": False, "t0": 0.0}
 
 def _watch(now):
     """While she speaks: would the camera have stopped her? (logged)"""
-    from config import MOUTH_STOP, MOUTH_TALK_ON, MOUTH_TALK_SECS
+    from config import MOUTH_STOP, MOUTH_TALK_SECS
     with state.lock:
         speaking = state.speaking
     r = _reply
@@ -224,24 +244,26 @@ def _watch(now):
         return
     if not speaking or not MOUTH_STOP:
         return
-    a, n, face = activity()
-    if face and n >= 4 and a >= MOUTH_TALK_ON:
+    talk, dm, dr, face = activity()
+    if face and talk:
         if r["since"] is None:
             r["since"] = now
         elif now - r["since"] >= MOUTH_TALK_SECS and not r["logged"]:
             r["logged"] = True
+            what = (f"mouth {dm:.2f} vs nose {dr:.2f} for "
+                    f"{now - r['since'] + WINDOW:.1f}s")
             if MOUTH_STOP == "log":
-                print(f"[mouth] (log only) would stop her — activity {a:.2f} "
-                      f"for {now - r['since']:.1f}s", flush=True)
+                print(f"[mouth] (log only) would stop her — {what}", flush=True)
             else:
-                _stop(a)
+                print(f"[mouth] you're talking — {what}: she stops and listens", flush=True)
+                _stop()
     else:
         r["since"] = None
 
 
-def _stop(a):
+def _stop():
     import text_to_speech
-    text_to_speech.stop_speaking(who=f"mouth (activity {a:.2f})")
+    text_to_speech.stop_speaking(who="the camera (your mouth moving)")
     with state.lock:                         # listen at once, no "Luna" needed
         state.conversation_active = True
         state.last_activity_time = time.time()

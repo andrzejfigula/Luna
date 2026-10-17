@@ -119,12 +119,14 @@ CONVO_GRACE        = 4    # speech that STARTED up to this long after the window
 POST_SPEAK_DELAY   = 0.2   # settle time after Luna speaks before listening again
 DOUBLE_FLUSH       = True  # flush audio queue twice (before and after delay)
 # Barge-in (bargein.py): while she speaks, these words stop her and she listens
-# Talking seen by the camera (mouth.py): the mouth's picture changing frame to
-# frame (minus the nose's: head and light) — while she speaks this would stop
-# her. "log" until the room's numbers say where the line is.
-MOUTH_STOP      = "log"   # True / False / "log"
-MOUTH_TALK_ON   = 0.25    # activity (0 = still) that counts as talking — a first guess
-MOUTH_TALK_SECS = 0.5     # …held this long
+# Talking seen by the camera (mouth.py): while she speaks, the mouth of the
+# face in front of her changing much more than the part above the nose stops
+# her and she listens. Tuned on 17 Oct's dump (see mouth.py).
+MOUTH_STOP       = True    # True / False / "log" (only "[mouth] (log only) would stop her")
+MOUTH_RATIO      = 2.0     # mouth change ≥ this × the change above the nose
+MOUTH_MIN_CHANGE = 0.07    # …and at least this much (a still face: 0.02–0.07)
+MOUTH_MAX_HEAD   = 0.15    # above the nose more than this: the head moves, no verdict
+MOUTH_TALK_SECS  = 0.4     # held this long (on top of the 0.6 s window)
 BARGE_IN        = "log"   # True / False / "log": listens and logs "[barge] (log only) would
                            # stop…" but never stops her — off until echo cancelling: alone it
                            # stopped her by herself (1 in 15 replies) and caught "stop!" over

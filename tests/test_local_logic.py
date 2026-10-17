@@ -6351,16 +6351,29 @@ class MouthTest(unittest.TestCase):
         m, r = mouth.boxes(self.marks)
         return mouth._patch(frame, *m, (24, 16)), mouth._patch(frame, *r, (12, 10))
 
-    def test_a_moving_mouth_scores_and_a_still_face_does_not(self):
+    def test_a_moving_mouth_talks_and_a_still_face_does_not(self):
         import mouth
         a, b = self._cur(self._frame(1, 10)), self._cur(self._frame(1, 11))
-        self.assertGreater(mouth.score(a, b), 0.5)
-        self.assertEqual(mouth.score(a, a), 0.0)
+        dm, dr = mouth.change(a, b)
+        self.assertGreater(dm, 0.5)
+        self.assertTrue(mouth.talking(dm, dr, 8))
+        self.assertFalse(mouth.talking(*mouth.change(a, a), 8))
+        self.assertFalse(mouth.talking(dm, dr, 2))          # too few frames
 
     def test_the_whole_picture_changing_is_not_talking(self):
         import mouth
         a, b = self._cur(self._frame(1)), self._cur(self._frame(2))
-        self.assertLess(mouth.score(a, b), 0.2)
+        self.assertFalse(mouth.talking(*mouth.change(a, b), 8))
+
+    def test_numbers_from_the_room(self):
+        import mouth
+        # 17 Oct dump, per-second averages (mouth, above the nose)
+        self.assertTrue(mouth.talking(0.12, 0.05, 8))       # talking over her story
+        self.assertTrue(mouth.talking(0.14, 0.04, 8))
+        self.assertFalse(mouth.talking(0.03, 0.03, 8))      # listening, still
+        self.assertFalse(mouth.talking(0.07, 0.06, 8))      # still, noisier light
+        self.assertFalse(mouth.talking(0.40, 0.68, 8))      # turning the head
+        self.assertFalse(mouth.talking(0.26, 0.17, 8))      # head settling
 
     def test_patch_off_the_frame_or_flat_is_none(self):
         import numpy as np
@@ -6375,12 +6388,15 @@ class MouthTest(unittest.TestCase):
         saved = list(mouth._hist)
         try:
             mouth._hist.clear()
-            for i in range(30):                      # 2 s at 15 a second
-                mouth._hist.append((now - 2 + i / 15, 0.6 if i >= 15 else 0.05))
-            share, med, best = mouth.during(2.0, now)
+            for i in range(30):                      # 2 s at 15 a second: still, then talking
+                mouth._hist.append((now - 2 + i / 15, (0.15, 0.04) if i >= 15 else (0.03, 0.03)))
+            share, talk, best = mouth.during(2.0, now)
             self.assertEqual(share, 1.0)
-            self.assertGreater(best, 0.5)
+            self.assertGreater(talk, 0.3)
+            self.assertLess(talk, 0.6)
+            self.assertGreater(best, 3.0)
             self.assertIn("face 100%", mouth.describe(2.0, now))
+            self.assertIn("talking", mouth.describe(2.0, now))
             mouth._hist.clear()
             for i in range(30):
                 mouth._hist.append((now - 2 + i / 15, None))
