@@ -2969,7 +2969,7 @@ class KidsTest(unittest.TestCase):
         import speech_to_text as s
         # 13 Oct: one long meeting sentence sent three times, at each pause
         with mock.patch.object(s, "_energy_gate", lambda: 1000), \
-                mock.patch.object(s, "_wake_check_worth", lambda w: True), \
+                mock.patch.object(s, "_wake_check_worth", lambda w, peak=None: True), \
                 mock.patch.object(s, "_wake_budget", lambda: True):
             words = "no dla tego konkretnego".split()
             self.assertTrue(s._passive_spec_ok(False, 5000, words))
@@ -6340,8 +6340,15 @@ class ImprovementsTest(unittest.TestCase):
              mock.patch.object(stt, "_face_invites", lambda w: False):
             with mock.patch.object(stt, "_radio_on", lambda: True):
                 self.assertFalse(stt._wake_check_worth(["nie"]))
-                self.assertFalse(stt._wake_check_worth(["panie", "panie"]))
+                # ("panie panie" still goes: 0.6 like "lunie" — rare enough)
                 self.assertTrue(stt._wake_check_worth(["luną", "włącz", "jazz"]))
+                # 21:09 "Luna, jaka jutro pogoda?" under the radio — Vosk:
+                self.assertTrue(stt._wake_check_worth("nuda i pobudzi oczu powoda".split()))
+                with mock.patch.object(stt, "_energy_gate", lambda: 2000):
+                    # "to co turę" ("to co, jutro?"), loud and close: checked
+                    self.assertTrue(stt._wake_check_worth(["to", "co", "turę"], peak=9944))
+                    # the radio's own quiet scraps: not
+                    self.assertFalse(stt._wake_check_worth(["inni", "mi"], peak=2900))
             with mock.patch.object(stt, "_radio_on", lambda: False):
                 self.assertTrue(stt._wake_check_worth(["nie"]))
 

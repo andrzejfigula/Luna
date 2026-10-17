@@ -874,10 +874,10 @@ def _maybe_wake(words):
 
 def _sounds_like_name(words, strict=False):
     """One of the first three words a bit like "Luna". Strict (the radio
-    on): closer, and a short everyday word doesn't count — "nie" is 0.75
+    on): a short everyday word doesn't count — "nie" is 0.75
     like "lunie", and the radio says it all the time."""
     singles = [w for w in WAKE_WORDS if " " not in w]
-    need, short = (0.65, 4) if strict else (0.5, 3)   # ("panie" 0.6, "ilona" 0.67)
+    need, short = (0.5, 4) if strict else (0.5, 3)    # ("nuda" 0.5, "panie" 0.6)
     return any((len(w) >= short or (strict and w in ("una", "łuna", "lun")))
                and max(difflib.SequenceMatcher(None, w, k).ratio() for k in singles) >= need
                for w in words[:3])
@@ -962,16 +962,22 @@ def _radio_on():
         return False
 
 
-def _wake_check_worth(words):
+RADIO_LOUD = 2.5        # radio on: speech this many times the gate is someone near her
+
+
+def _wake_check_worth(words, peak=None):
     """Might these (passive-mode) words hold a misheard "Luna"?
-    While the radio plays, only when a word sounds like her name: the
-    radio's own talk came as one- and two-word scraps ("nie", "pół", "panie
-    panie") — 17 Oct 18:39–19:29 dozens went to the cloud, every one came
-    back empty. (Her name said clearly still wakes her through Vosk.)"""
+    While the radio plays: a word like her name, or someone speaking loud
+    and close. The radio's own talk came as quiet one- and two-word scraps
+    ("nie", "pół", "panie panie", peak ~1.4× the gate) — 17 Oct 18:39–19:29
+    dozens went to the cloud, every one came back empty. But a word-likeness
+    test alone missed 21:09 "Luna, jaka jutro pogoda?" → Vosk "nuda i pobudzi
+    oczu powoda" (3.5× the gate), and its two repeats."""
     if not CLOUD_WAKE_CHECK or _cloud is None or call_pause():
         return False
     if words is not None and _radio_on():
-        return _sounds_like_name(words, strict=True)
+        loud = peak is not None and peak >= RADIO_LOUD * _energy_gate() and len(words) >= 2
+        return loud or _sounds_like_name(words, strict=True)
     return words is None or _maybe_wake(words) or _face_invites(words)
 
 
@@ -981,7 +987,7 @@ def _passive_spec_ok(looked, peak_rms, words):
     three times, at each pause in it ("No dla tego konkretnego landlorda…") —
     the end-of-utterance check still hears the whole of it."""
     return (not looked and peak_rms >= 2.0 * _energy_gate() and len(words) >= 2
-            and _wake_check_worth(words) and _wake_budget())
+            and _wake_check_worth(words, peak_rms) and _wake_budget())
 
 
 def _wake_budget():
@@ -1020,7 +1026,7 @@ def _cloud_wake_plausible(cloud, words):
     return True
 
 
-def _cloud_wake_check(pcm16k, words=None):
+def _cloud_wake_check(pcm16k, words=None, peak=None):
     """Vosk heard speech but no wake word: ask the cloud whether the wake
     word is actually in there. Returns (found, cleaned_text). Rationed: a
     room with the TV on would otherwise send every sentence to the cloud."""
@@ -1034,7 +1040,7 @@ def _cloud_wake_check(pcm16k, words=None):
         if not cloud or not _cloud_has_wake(cloud) or not _cloud_wake_plausible(cloud, words):
             return False, None
         return True, _strip_wake_from_cloud(cloud)
-    if not _wake_check_worth(words) or not _wake_budget():
+    if not _wake_check_worth(words, peak) or not _wake_budget():
         return False, None
     cloud = _cloud_transcribe(pcm16k)
     _note_wake_check_result(cloud)
@@ -1415,7 +1421,7 @@ def listen():
                     # A garbled low-confidence result can still be "Luna!" —
                     # if it was clearly loud speech, let the cloud check it.
                     if not active and peak_rms >= 2.0 * _energy_gate():
-                        found, cleaned = _cloud_wake_check(utt_pcm, words)
+                        found, cleaned = _cloud_wake_check(utt_pcm, words, peak_rms)
                         if found:
                             print("[STT] Wake word (cloud) — conversation active"); _stamp_wake()
                             with state.lock:
@@ -1575,7 +1581,7 @@ def listen():
 
             # Passive mode and Vosk didn't spot the wake word — its small
             # model mishears "Luna" often, so let the cloud have a look.
-            found, cleaned = _cloud_wake_check(utt_pcm, words)
+            found, cleaned = _cloud_wake_check(utt_pcm, words, peak_rms)
             if found:
                 print("[STT] Wake word (cloud) — conversation active"); _stamp_wake()
                 with state.lock:
