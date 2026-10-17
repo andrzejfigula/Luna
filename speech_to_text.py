@@ -30,6 +30,7 @@ import subprocess
 import time
 import wave
 import difflib
+import collections
 import threading
 import numpy as np
 import sounddevice as sd
@@ -183,8 +184,38 @@ _bq = queue.Queue(maxsize=100)    # her speech time: blocks for bargein.py
 _blocked = [False]
 
 
+_tail = collections.deque(maxlen=6)   # her speech time's last 1.5 s of microphone
+_open_until = [0.0]                   # open_mic_now(): the listener hears it all till then
+_route_lock = threading.Lock()
+
+
+def open_mic_now(secs_back=1.5):
+    """Someone began talking while she speaks (mouth.py saw it) and she was
+    just cut short: the listener gets the last `secs_back` of microphone —
+    the start of their sentence, said while the mic was shut for her voice
+    (17 Oct: after the camera stopped her it heard only "hej i", "nich") —
+    and everything from now on, while her voice dies away too."""
+    with _route_lock:
+        blocks = list(_tail)[-max(1, int(secs_back / 0.25)):]
+        _flush_queue()
+        for b in blocks:
+            try:
+                _q.put_nowait(b)
+            except queue.Full:
+                break
+        _open_until[0] = time.time() + 3.0
+        _blocked[0] = False
+
+
 def _callback(indata, frames, time_info, status):
     data = bytes(indata)
+    with _route_lock:
+        if time.time() < _open_until[0]:   # cut short for someone talking
+            try:
+                _q.put_nowait(data)
+            except queue.Full:
+                pass
+            return
     # while she speaks (and a moment after: the echo) the listener gets nothing
     # — it used to collect it and throw it away later, along with the first
     # words said right after her (6 Oct); her speech time goes to barge-in
@@ -193,6 +224,9 @@ def _callback(indata, frames, time_info, status):
         if not _blocked[0]:
             _blocked[0] = True
             _flush_queue()                 # what was before her speech is stale
+            _tail.clear()
+        if speaking:
+            _tail.append(data)
         if speaking and BARGE_IN:
             try:
                 _bq.put_nowait(data)

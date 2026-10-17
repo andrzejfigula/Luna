@@ -20,9 +20,12 @@ changes both alike; a talking mouth changes 2–3× more than the nose
 MOUTH_STOP (config): while she speaks, talking seen for MOUTH_TALK_SECS
 stops her and she listens at once, as a finger held on the screen does —
 17 Oct, Andrzej: "detect when I speak from the camera" (the voice "stop!"
-couldn't tell him from her own voice). Tuned on a dump of him talking over
-a story three times: caught twice ~1 s in, the third time his head was
-turning; never while he listened, nodded or turned (4 min).
+couldn't tell him from her own voice). Tuned on two dumps of him talking
+over her: at MOUTH_RATIO 2.0 a second story was stopped 28 s late (talking
+in bursts, the head moving a little); at 1.6 every try ~0.5–1 s in, and
+still never while he listened, nodded or turned. The microphone's last
+1.5 s go to the listener (speech_to_text.open_mic_now) — the words said
+before she stopped.
 """
 
 import collections
@@ -262,7 +265,9 @@ def _watch(now):
 
 
 def _stop():
+    import speech_to_text
     import text_to_speech
+    speech_to_text.open_mic_now()            # your first words, said over her
     text_to_speech.stop_speaking(who="the camera (your mouth moving)")
     with state.lock:                         # listen at once, no "Luna" needed
         state.conversation_active = True

@@ -123,7 +123,8 @@ DOUBLE_FLUSH       = True  # flush audio queue twice (before and after delay)
 # face in front of her changing much more than the part above the nose stops
 # her and she listens. Tuned on 17 Oct's dump (see mouth.py).
 MOUTH_STOP       = True    # True / False / "log" (only "[mouth] (log only) would stop her")
-MOUTH_RATIO      = 2.0     # mouth change ≥ this × the change above the nose
+MOUTH_RATIO      = 1.6     # mouth change ≥ this × the change above the nose (2.0:
+                           # a talk-over in bursts was caught 28 s late, 17 Oct 22:35)
 MOUTH_MIN_CHANGE = 0.07    # …and at least this much (a still face: 0.02–0.07)
 MOUTH_MAX_HEAD   = 0.15    # above the nose more than this: the head moves, no verdict
 MOUTH_TALK_SECS  = 0.4     # held this long (on top of the 0.6 s window)

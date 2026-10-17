@@ -6370,6 +6370,7 @@ class MouthTest(unittest.TestCase):
         # 17 Oct dump, per-second averages (mouth, above the nose)
         self.assertTrue(mouth.talking(0.12, 0.05, 8))       # talking over her story
         self.assertTrue(mouth.talking(0.14, 0.04, 8))
+        self.assertTrue(mouth.talking(0.13, 0.07, 8))       # in bursts, head a bit (22:35)
         self.assertFalse(mouth.talking(0.03, 0.03, 8))      # listening, still
         self.assertFalse(mouth.talking(0.07, 0.06, 8))      # still, noisier light
         self.assertFalse(mouth.talking(0.40, 0.68, 8))      # turning the head
@@ -6381,6 +6382,26 @@ class MouthTest(unittest.TestCase):
         f = self._frame(1)
         self.assertIsNone(mouth._patch(f, 5, 5, 40, 40, (24, 16)))
         self.assertIsNone(mouth._patch(np.zeros((480, 640, 3), np.uint8), 300, 300, 40, 40, (24, 16)))
+
+    def test_cut_short_the_listener_gets_your_first_words(self):
+        import speech_to_text as stt
+        saved = (list(stt._tail), stt._open_until[0])
+        try:
+            stt._flush_queue()
+            stt._tail.clear()
+            for i in range(6):
+                stt._tail.append(bytes([i]) * 8)
+            stt.open_mic_now(1.0)                       # the last 4 blocks
+            got = []
+            while not stt._q.empty():
+                got.append(stt._q.get_nowait()[0])
+            self.assertEqual(got, [2, 3, 4, 5])
+            self.assertGreater(stt._open_until[0], time.time() + 2)
+        finally:
+            stt._flush_queue()
+            stt._tail.clear()
+            stt._tail.extend(saved[0])
+            stt._open_until[0] = saved[1]
 
     def test_during_and_describe(self):
         import mouth
