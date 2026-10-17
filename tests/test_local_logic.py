@@ -6320,6 +6320,78 @@ class GreetingsTest(unittest.TestCase):
                                                    for _ in range(20)))
 
 
+class MouthTest(unittest.TestCase):
+    """mouth.py: a talking mouth seen by the camera."""
+
+    def setUp(self):
+        import numpy as np
+        # box 200,150 160x200; eyes (240,220) (320,220); nose (280,260); mouth (250,300) (310,300)
+        self.marks = np.array([200, 150, 160, 200, 240, 220, 320, 220, 280, 260,
+                               250, 300, 310, 300], np.float32)
+
+    def _frame(self, seed, mouth_seed=None):
+        import numpy as np
+        f = np.random.RandomState(seed).randint(0, 255, (480, 640, 3)).astype(np.uint8)
+        if mouth_seed is not None:                  # only the mouth changes
+            m = np.random.RandomState(mouth_seed).randint(0, 255, (60, 80, 3)).astype(np.uint8)
+            f[280:340, 240:320] = m
+        return f
+
+    def test_boxes_sit_on_the_mouth_and_above_the_nose(self):
+        import mouth
+        (mx, my, mw, mh), (rx, ry, rw, rh) = mouth.boxes(self.marks)
+        self.assertAlmostEqual(mx, 280)
+        self.assertGreater(my, 300)
+        self.assertAlmostEqual(mw, 90)
+        self.assertLess(ry, 260)
+        self.assertLess(ry + rh / 2, my - mh / 2)       # the two boxes don't overlap
+
+    def _cur(self, frame):
+        import mouth
+        m, r = mouth.boxes(self.marks)
+        return mouth._patch(frame, *m, (24, 16)), mouth._patch(frame, *r, (12, 10))
+
+    def test_a_moving_mouth_scores_and_a_still_face_does_not(self):
+        import mouth
+        a, b = self._cur(self._frame(1, 10)), self._cur(self._frame(1, 11))
+        self.assertGreater(mouth.score(a, b), 0.5)
+        self.assertEqual(mouth.score(a, a), 0.0)
+
+    def test_the_whole_picture_changing_is_not_talking(self):
+        import mouth
+        a, b = self._cur(self._frame(1)), self._cur(self._frame(2))
+        self.assertLess(mouth.score(a, b), 0.2)
+
+    def test_patch_off_the_frame_or_flat_is_none(self):
+        import numpy as np
+        import mouth
+        f = self._frame(1)
+        self.assertIsNone(mouth._patch(f, 5, 5, 40, 40, (24, 16)))
+        self.assertIsNone(mouth._patch(np.zeros((480, 640, 3), np.uint8), 300, 300, 40, 40, (24, 16)))
+
+    def test_during_and_describe(self):
+        import mouth
+        now = 1000.0
+        saved = list(mouth._hist)
+        try:
+            mouth._hist.clear()
+            for i in range(30):                      # 2 s at 15 a second
+                mouth._hist.append((now - 2 + i / 15, 0.6 if i >= 15 else 0.05))
+            share, med, best = mouth.during(2.0, now)
+            self.assertEqual(share, 1.0)
+            self.assertGreater(best, 0.5)
+            self.assertIn("face 100%", mouth.describe(2.0, now))
+            mouth._hist.clear()
+            for i in range(30):
+                mouth._hist.append((now - 2 + i / 15, None))
+            self.assertIn("no face", mouth.describe(2.0, now))
+            mouth._hist.clear()
+            self.assertEqual(mouth.describe(2.0, now), "mouth: no camera")
+        finally:
+            mouth._hist.clear()
+            mouth._hist.extend(saved)
+
+
 class ImprovementsTest(unittest.TestCase):
     """17 Oct, the ten proposals: radio scraps not sent to the cloud, the
     radio's night volume, the plan for the day said aloud, to-dos with a day,

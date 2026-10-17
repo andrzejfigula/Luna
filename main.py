@@ -17,6 +17,8 @@ time.sleep(0.5)
 
 from vision_module import start_vision
 start_vision()
+import mouth
+mouth.start()
 time.sleep(1.0)
 
 from gesture_module import start_gesture

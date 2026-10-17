@@ -153,6 +153,7 @@ def _search_near(gray, box):
 
 def _vision_iteration_loop():
     import faces as faces_mod
+    import mouth
     yunet = faces_mod.available()
     print(f"[vision] face detector: {'YuNet' if yunet else 'Haar cascade'}"
           + (", recognition on" if yunet and faces_mod.can_recognise() else ""), flush=True)
@@ -198,6 +199,9 @@ def _vision_iteration_loop():
             stats["full"] += 1
             stats["t_full"] += time.monotonic() - t
             faces = [tuple(int(v) for v in r[:4]) for r in rows]
+            # the biggest face's five points, for mouth.py (full-frame scale)
+            mouth.set_marks(max(rows, key=lambda r: r[2] * r[3]) if len(rows) else None,
+                            frame.shape[1] / small.shape[1])
             if len(faces):
                 stats["face"] += 1
             last_seen = _who(frame, rows, last_seen)

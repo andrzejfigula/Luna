@@ -954,6 +954,16 @@ def _stamp_wake():
         state.last_wake_time = time.time()
 
 
+def _mouth_note(pcm16k):
+    """What the camera saw of the mouth while this was said (mouth.py) — for
+    the log, to find out how well it tells you talking from the radio."""
+    try:
+        import mouth
+        return mouth.describe(max(1.0, len(pcm16k) / 32000.0))
+    except Exception:
+        return ""
+
+
 def _radio_on():
     try:
         import radio
@@ -1409,7 +1419,8 @@ def listen():
                 conf = _avg_confidence(result)
                 if STT_DEBUG_AUDIO:
                     print(f"[STT] heard=\"{text}\" conf={conf:.2f} "
-                          f"peak_rms={peak_rms:.0f} gate={_energy_gate():.0f}")
+                          f"peak_rms={peak_rms:.0f} gate={_energy_gate():.0f} "
+                          f"{_mouth_note(utt_pcm)}")
                 # (and the rest of a sentence cut off mid-word: 6 Oct 21:52 "…Co
                 # napisać, jaki..." + "To jest mikrofon?" — Vosk 0.37, dropped)
                 capture = ((messages_armed() or _held is not None)
