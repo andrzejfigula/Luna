@@ -1009,10 +1009,26 @@ def _radio_on():
 RADIO_LOUD = 2.5        # radio on: speech this many times the gate is someone near her
 
 
-def _wake_check_worth(words, peak=None):
+MOUTH_WAKE_SHARE = 0.1  # this much of an utterance's frames looked like talking (mouth.py)
+
+
+def _mouth_talked(secs):
+    """The face in front of her was talking during the last `secs` — what she
+    just heard was most likely said TO her, by someone facing her (the
+    radio has no face). 17 Oct: sentences said to her showed 8–46 % of their
+    frames as talking, a listening, still face 0–1 %."""
+    try:
+        import mouth
+        d = mouth.during(max(1.0, secs or 3.0))
+    except Exception:
+        return False
+    return d is not None and d[0] >= 0.5 and d[1] >= MOUTH_WAKE_SHARE
+
+
+def _wake_check_worth(words, peak=None, secs=None):
     """Might these (passive-mode) words hold a misheard "Luna"?
-    While the radio plays: a word like her name, or someone speaking loud
-    and close. The radio's own talk came as quiet one- and two-word scraps
+    While the radio plays: a word like her name, someone speaking loud and
+    close, or the face in front of her talking (mouth.py). The radio's own talk came as quiet one- and two-word scraps
     ("nie", "pół", "panie panie", peak ~1.4× the gate) — 17 Oct 18:39–19:29
     dozens went to the cloud, every one came back empty. But a word-likeness
     test alone missed 21:09 "Luna, jaka jutro pogoda?" → Vosk "nuda i pobudzi
@@ -1021,7 +1037,8 @@ def _wake_check_worth(words, peak=None):
         return False
     if words is not None and _radio_on():
         loud = peak is not None and peak >= RADIO_LOUD * _energy_gate() and len(words) >= 2
-        return loud or _sounds_like_name(words, strict=True)
+        # …or the face in front of her was talking: the camera hears no radio
+        return loud or _sounds_like_name(words, strict=True) or _mouth_talked(secs)
     return words is None or _maybe_wake(words) or _face_invites(words)
 
 
@@ -1084,7 +1101,7 @@ def _cloud_wake_check(pcm16k, words=None, peak=None):
         if not cloud or not _cloud_has_wake(cloud) or not _cloud_wake_plausible(cloud, words):
             return False, None
         return True, _strip_wake_from_cloud(cloud)
-    if not _wake_check_worth(words, peak) or not _wake_budget():
+    if not _wake_check_worth(words, peak, len(pcm16k) / 32000.0) or not _wake_budget():
         return False, None
     cloud = _cloud_transcribe(pcm16k)
     _note_wake_check_result(cloud)

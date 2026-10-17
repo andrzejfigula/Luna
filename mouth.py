@@ -219,6 +219,7 @@ def _loop():
             while _hist and now - _hist[0][0] > KEEP:
                 _hist.popleft()
         _watch(now)
+        _duck_radio(now)
         if int(now) != int(now - 1.0 / RATE) and os.path.exists(DUMP_REQUEST):
             try:
                 os.remove(DUMP_REQUEST)
@@ -262,6 +263,34 @@ def _watch(now):
                 _stop()
     else:
         r["since"] = None
+
+
+_radio = {"since": None, "logged": 0.0}
+
+
+def _duck_radio(now):
+    """The radio plays and the face in front of her starts talking: it quiets
+    at once (radio._ducked, the same 4 s as when her name is in Vosk's words)
+    — so the rest of "Luna, jaka jutro pogoda?" is heard over it."""
+    from config import MOUTH_TALK_SECS
+    with state.lock:
+        playing, speaking = state.radio, state.speaking
+    if not playing or speaking:
+        _radio["since"] = None
+        return
+    talk, dm, dr, face = activity()
+    if not (face and talk):
+        _radio["since"] = None
+        return
+    if _radio["since"] is None:
+        _radio["since"] = now
+    elif now - _radio["since"] >= MOUTH_TALK_SECS:
+        with state.lock:
+            state.name_heard_at = now
+        if now - _radio["logged"] > 20:
+            _radio["logged"] = now
+            print(f"[mouth] someone facing her is talking — the radio quiets "
+                  f"(mouth {dm:.2f} vs nose {dr:.2f})", flush=True)
 
 
 def _stop():

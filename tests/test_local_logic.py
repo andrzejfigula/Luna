@@ -2969,7 +2969,7 @@ class KidsTest(unittest.TestCase):
         import speech_to_text as s
         # 13 Oct: one long meeting sentence sent three times, at each pause
         with mock.patch.object(s, "_energy_gate", lambda: 1000), \
-                mock.patch.object(s, "_wake_check_worth", lambda w, peak=None: True), \
+                mock.patch.object(s, "_wake_check_worth", lambda w, peak=None, secs=None: True), \
                 mock.patch.object(s, "_wake_budget", lambda: True):
             words = "no dla tego konkretnego".split()
             self.assertTrue(s._passive_spec_ok(False, 5000, words))
@@ -6460,6 +6460,47 @@ class ImprovementsTest(unittest.TestCase):
                     self.assertFalse(stt._wake_check_worth(["inni", "mi"], peak=2900))
             with mock.patch.object(stt, "_radio_on", lambda: False):
                 self.assertTrue(stt._wake_check_worth(["nie"]))
+
+    def test_radio_on_a_talking_face_gets_the_cloud_check(self):
+        import mouth
+        import speech_to_text as stt
+        with mock.patch.object(stt, "_cloud", object()), \
+             mock.patch.object(stt, "CLOUD_WAKE_CHECK", True), \
+             mock.patch.object(stt, "call_pause", lambda: False), \
+             mock.patch.object(stt, "_radio_on", lambda: True), \
+             mock.patch.object(stt, "_energy_gate", lambda: 2000):
+            # "bobby co byłoby" (17 Oct 21:09, "Luna, …" under the radio)
+            words = ["bobby", "co", "byłoby"]
+            with mock.patch.object(mouth, "during", lambda secs, now=None: (1.0, 0.3, 3.0)):
+                self.assertTrue(stt._wake_check_worth(words, peak=2000, secs=2.0))
+            with mock.patch.object(mouth, "during", lambda secs, now=None: (1.0, 0.0, 1.1)):
+                self.assertFalse(stt._wake_check_worth(words, peak=2000, secs=2.0))
+            with mock.patch.object(mouth, "during", lambda secs, now=None: (0.1, 0.5, 3.0)):
+                self.assertFalse(stt._wake_check_worth(words, peak=2000, secs=2.0))  # face barely seen
+            with mock.patch.object(mouth, "during", lambda secs, now=None: None):
+                self.assertFalse(stt._wake_check_worth(words, peak=2000, secs=2.0))  # no camera
+
+    def test_the_radio_quiets_for_a_talking_face(self):
+        import mouth
+        with state.lock:
+            saved = (state.radio, state.speaking, state.name_heard_at)
+            state.radio, state.speaking, state.name_heard_at = "Jazz", False, 0.0
+        try:
+            with mock.patch.object(mouth, "activity", lambda: (True, 0.15, 0.04, True)):
+                mouth._radio["since"] = None
+                mouth._duck_radio(100.0)
+                self.assertEqual(state.name_heard_at, 0.0)       # not held long enough yet
+                mouth._duck_radio(100.5)
+                self.assertEqual(state.name_heard_at, 100.5)
+            with mock.patch.object(mouth, "activity", lambda: (False, 0.03, 0.03, True)):
+                state.name_heard_at = 0.0
+                mouth._duck_radio(101.0)
+                mouth._duck_radio(102.0)
+                self.assertEqual(state.name_heard_at, 0.0)
+        finally:
+            with state.lock:
+                state.radio, state.speaking, state.name_heard_at = saved
+            mouth._radio["since"] = None
 
     def test_the_radio_ducks_as_soon_as_her_name_is_said(self):
         import radio
