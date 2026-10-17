@@ -294,14 +294,51 @@ def _duck_radio(now):
 
 
 def _stop():
+    cut_short("the camera (your mouth moving)")
+
+
+def cut_short(who):
+    """Stop her mid-sentence and listen at once, no "Luna" needed — with the
+    words said over her (speech_to_text.open_mic_now), and the window kept
+    open after the reply even with the radio on (state.interrupted_at)."""
     import speech_to_text
     import text_to_speech
     speech_to_text.open_mic_now()            # your first words, said over her
-    text_to_speech.stop_speaking(who="the camera (your mouth moving)")
-    with state.lock:                         # listen at once, no "Luna" needed
+    text_to_speech.stop_speaking(who=who)
+    with state.lock:
         state.conversation_active = True
         state.last_activity_time = time.time()
         state.mic_unblock_time = time.time()
+        state.interrupted_at = time.time()
+
+
+def confirms_voice(strict, secs=1.5, now=None):
+    """bargein heard a stop word: did the face in front of her say it?
+    (verdict, why). Strict (a word like one of hers): talking() in a window
+    of the last `secs`. Otherwise also the looser sign — the mouth changing
+    MOUTH_LOOSE_RATIO× more than above the nose and by MOUTH_LOOSE_MIN, even
+    with the head moving
+    (17 Oct 22:59: "Luna, stop" said turning — mouth 0.32 vs nose 0.21)."""
+    from config import MOUTH_LOOSE_RATIO, MOUTH_LOOSE_MIN
+    now = time.time() if now is None else now
+    with _lock:
+        rows = [(t, d) for t, d in _hist if now - secs - WINDOW <= t <= now]
+    if not any(d is not None for t, d in rows if t >= now - 0.5):
+        return False, "no face in front of her"
+    loose = 0.0
+    for t, _ in rows:
+        if t < now - secs:
+            continue
+        dm, dr, n = _window(rows, t)
+        if n < 3:
+            continue
+        if talking(dm, dr, n):
+            return True, f"talking (mouth {dm:.2f} vs nose {dr:.2f})"
+        if dm >= MOUTH_LOOSE_MIN:
+            loose = max(loose, dm / max(dr, 0.01))
+    if not strict and loose >= MOUTH_LOOSE_RATIO:
+        return True, f"mouth moving ×{loose:.1f}"
+    return False, (f"mouth still (×{loose:.1f})" if loose else "mouth still")
 
 
 def start():

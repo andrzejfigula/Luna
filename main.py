@@ -202,7 +202,9 @@ def voice_loop():
                 # she hears is the radio, so every command needs "Luna"
                 if text and text != WAKE_ACK:
                     import radio
-                    if radio.playing() and not _answer_awaited():
+                    with state.lock:          # (not when you just cut her short:
+                        cut = time.time() - state.interrupted_at < 10   # 17 Oct 22:58)
+                    if radio.playing() and not _answer_awaited() and not cut:
                         with state.lock:
                             state.conversation_active = False
                             state.convo_closed_hard = True

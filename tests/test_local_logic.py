@@ -6403,6 +6403,64 @@ class MouthTest(unittest.TestCase):
             stt._tail.extend(saved[0])
             stt._open_until[0] = saved[1]
 
+    def test_a_stop_word_needs_the_face_to_move_its_mouth(self):
+        import mouth
+        now = 1000.0
+        # 17 Oct 22:59, "Luna, stop" over a story, the head moving: mouth 0.32 vs nose 0.21
+        turning = [(now - 1.5 + i / 15, (0.32, 0.21)) for i in range(23)]
+        still = [(now - 1.5 + i / 15, (0.03, 0.03)) for i in range(23)]
+        talking = [(now - 1.5 + i / 15, (0.14, 0.04)) for i in range(23)]
+        noface = [(now - 1.5 + i / 15, None) for i in range(23)]
+        saved = list(mouth._hist)
+        try:
+            for rows, strict, want in ((turning, False, True), (turning, True, False),
+                                       (still, False, False), (talking, True, True),
+                                       (noface, False, False)):
+                mouth._hist.clear()
+                mouth._hist.extend(rows)
+                ok, why = mouth.confirms_voice(strict, now=now)
+                self.assertEqual(ok, want, (rows[0][1], strict, why))
+        finally:
+            mouth._hist.clear()
+            mouth._hist.extend(saved)
+
+    def test_stop_word_candidates(self):
+        import bargein
+
+        class Rec:
+            def __init__(self, partials):
+                self.p, self.now = list(partials), ""
+
+            def AcceptWaveform(self, b):
+                self.now = self.p.pop(0) if self.p else ""
+                return False
+
+            def PartialResult(self):
+                return json.dumps({"partial": self.now})
+
+            def Reset(self):
+                pass
+
+        def run(partials, levels, her=""):
+            det = bargein.Detector(None, rec=Rec(partials))
+            return [det.feed(self._block(lv), her) for lv in levels]
+
+        def blk(lv):
+            import numpy as np
+            return (np.ones(4000) * lv).astype(np.int16).tobytes()
+        self._block = blk
+        # 22:59: "luna" at 1383 over her 592 — a candidate (the radio's gate was higher)
+        out = run(["", "", "", "luna"], [592, 592, 592, 1383])
+        self.assertEqual(out[-1], ("luna", False))
+        # as loud as her: her own voice
+        self.assertIsNone(run(["", "", "", "stop"], [600, 600, 600, 600])[-1])
+        # "stop" during "…piętnaście stopni…": a candidate, flagged like hers
+        out = run(["", "", "", "stop"], [600, 600, 600, 1500], her="Piętnaście stopni.")
+        self.assertEqual(out[-1], ("stop", True))
+        # the running guess repeating it: once
+        out = run(["stop", "stop", "stop"], [1500, 1500, 1500])
+        self.assertEqual(sum(1 for o in out if o), 1)
+
     def test_during_and_describe(self):
         import mouth
         now = 1000.0

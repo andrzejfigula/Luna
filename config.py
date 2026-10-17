@@ -128,15 +128,19 @@ MOUTH_RATIO      = 1.6     # mouth change ≥ this × the change above the nose 
 MOUTH_MIN_CHANGE = 0.07    # …and at least this much (a still face: 0.02–0.07)
 MOUTH_MAX_HEAD   = 0.15    # above the nose more than this: the head moves, no verdict
 MOUTH_TALK_SECS  = 0.4     # held this long (on top of the 0.6 s window)
-BARGE_IN        = "log"   # True / False / "log": listens and logs "[barge] (log only) would
-                           # stop…" but never stops her — off until echo cancelling: alone it
-                           # stopped her by herself (1 in 15 replies) and caught "stop!" over
-                           # her voice only 1–2 times in 8 (offline, 6 Oct); the log gathers
-                           # real false stops and her echo level in the room meanwhile
+MOUTH_LOOSE_RATIO = 1.4    # a stop word heard (bargein.py): the mouth changing this × more
+MOUTH_LOOSE_MIN   = 0.15   # than above the nose, and at least this much, is enough even
+                           # with the head moving (on the dumps while she spoke: 4–11 % of
+                           # the time, talk-overs included; at 1.3 / 0.07 it was 31–41 %)
+BARGE_IN        = True    # True / False / "log" ("[barge] (log only) would stop…"). Vosk
+                           # alone stopped her by herself (1 in 15 replies, 6 Oct) — now it
+                           # only nominates and the camera decides (bargein.py, 17 Oct)
 BARGE_WORDS     = ["stop", "przestań", "cicho", "luna", "luno"]   # (not "poczekaj", "dość":
                    # her own "poszukajmy" was heard as "poczekaj" — offline test, 6 Oct)
-BARGE_MIN_CONF  = 0.85
-BARGE_OVER_ECHO = 1.6      # louder than her own voice in the mic by this much
+BARGE_MIN_CONF  = 0.5     # (0.85 when Vosk decided alone; the camera decides now)
+BARGE_OVER_ECHO = 1.2      # louder than her own voice in the mic by this much (was 1.6
+                           # and 2× the noise gate — with the radio on the gate was above
+                           # Andrzej's "luna", 17 Oct 22:59)
 MIC_BLOCK_AFTER_SPEAK = 0.2   # (was 0.45, and listen() then waited 0.2 s more and threw
                               # away what came: "I start talking before she listens",
                               # 6 Oct) — echo-guard after speech ends (speech itself already

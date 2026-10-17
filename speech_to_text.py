@@ -261,17 +261,22 @@ def _barge_loop():
             if not data:
                 continue
             import text_to_speech
-            word = det.feed(_apply_gain(data), text_to_speech.current_text(), _energy_gate())
-            if word and BARGE_IN == "log":
-                det.reset()
-                print(f"[barge] (log only) would stop on {word!r}", flush=True)
-            elif word:
-                det.reset()
-                text_to_speech.stop_speaking(who=f"voice ({word!r})")
-                with state.lock:               # listen at once, no "Luna" needed
-                    state.conversation_active = True
-                    state.last_activity_time = time.time()
-                    state.mic_unblock_time = time.time()
+            found = det.feed(_apply_gain(data), text_to_speech.current_text(), _energy_gate())
+            if not found:
+                continue
+            import mouth
+            word, like_hers = found
+            ok, why = mouth.confirms_voice(strict=like_hers)
+            if not ok:
+                print(f"[barge] {word!r}" + (" (like her own words)" if like_hers else "")
+                      + f" — the camera: {why}", flush=True)
+                continue
+            det.reset()
+            if BARGE_IN == "log":
+                print(f"[barge] (log only) would stop on {word!r} — {why}", flush=True)
+                continue
+            print(f"[barge] {word!r} and the camera: {why} — she stops and listens", flush=True)
+            mouth.cut_short(f"voice ({word!r}) + camera")
         except Exception as e:
             print(f"[barge] error: {e}", flush=True)
 
