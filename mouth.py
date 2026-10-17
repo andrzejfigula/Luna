@@ -23,6 +23,7 @@ from the camera").
 """
 
 import collections
+import os
 import threading
 import time
 
@@ -131,38 +132,76 @@ def describe(secs, now=None):
     return f"mouth {med:.2f}/{best:.2f} (face {share:.0%})"
 
 
+DUMP_REQUEST = "/tmp/mouth_dump.request"   # (SIGUSR2 is the watchdog's)
+RAW_SECS = 600          # the last 10 min of patches, for tuning (dump())
+_raw = collections.deque(maxlen=int(RAW_SECS * RATE))
+
+
+def dump(path="/tmp/mouth_dump.npz"):
+    """touch /tmp/mouth_dump.request: the last RAW_SECS of tiny grey patches (mouth 24×16,
+    above the nose 12×10 — no faces), with the time, whether she was
+    speaking and the microphone's level, to tune the score offline. Stays on
+    the Pi."""
+    rows = list(_raw)
+    if not rows:
+        print("[mouth] nothing to dump", flush=True)
+        return
+    np.savez_compressed(
+        path,
+        t=np.array([r[0] for r in rows]),
+        mouth=np.stack([r[1] for r in rows]).astype(np.float16),
+        ref=np.stack([r[2] for r in rows]).astype(np.float16),
+        moved=np.array([r[3] for r in rows]),
+        speaking=np.array([r[4] for r in rows]),
+        mic=np.array([r[5] for r in rows], np.float32),
+        face_w=np.array([r[6] for r in rows], np.float32))
+    print(f"[mouth] dumped {len(rows)} frames to {path}", flush=True)
+
+
 def _loop():
     import prio
     prio.background("mouth")
-    last, prev = None, None
+    last, prev, prev_mt = None, None, None
     while True:
         time.sleep(1.0 / RATE)
         with state.lock:
             frame = state.frame
+            speaking, mic = state.speaking, state.mic_level
         if frame is None or frame is last:
             continue
         last = frame
         now = time.time()
         with _lock:
             m = _marks[0]
-        cur = None
+        cur, moved = None, False
         if m is not None and now - m[1] <= MARKS_FRESH:
             mouth, ref = boxes(m[0])
             pm = _patch(frame, *mouth, (24, 16))
             pr = _patch(frame, *ref, (12, 10))
             if pm is not None and pr is not None:
                 cur = (pm, pr)
-        s = score(prev, cur) if (prev is not None and cur is not None) else None
+                # new face points: the boxes jumped — this frame's change is
+                # the jump, not the mouth (it drowned the talking, 17 Oct)
+                moved = prev_mt is not None and m[1] != prev_mt
+                prev_mt = m[1]
+                _raw.append((now, pm.astype(np.float16), pr.astype(np.float16), moved, speaking, mic, float(m[0][2])))
         if cur is None:
-            prev = None
+            s, prev, prev_mt = None, None, None
         else:
+            s = score(prev, cur) if (prev is not None and not moved) else None
             prev = cur
         with _lock:
-            # a face with no previous frame yet counts as a face, score 0
+            # a face counts as seen even on a frame with no score (first, jump)
             _hist.append((now, s if s is not None else (0.0 if cur is not None else None)))
             while _hist and now - _hist[0][0] > KEEP:
                 _hist.popleft()
         _watch(now)
+        if int(now) != int(now - 1.0 / RATE) and os.path.exists(DUMP_REQUEST):
+            try:
+                os.remove(DUMP_REQUEST)
+                dump()
+            except OSError as e:
+                print(f"[mouth] dump failed: {e}", flush=True)
 
 
 _reply = {"on": False, "since": None, "logged": False, "t0": 0.0}
