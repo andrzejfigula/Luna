@@ -1092,6 +1092,45 @@ def _cloud_wake_plausible(cloud, words):
     return True
 
 
+MOUTH_RADIO_WAKE = 0.15  # radio on: this much of the sentence seen talking = said to her
+
+
+def _seen_saying_it(cloud, secs):
+    """Radio on and her name lost under the music — but the camera saw the
+    face in front of her saying this sentence: it was for her. Returns the
+    text to answer (a leading misheard name dropped), or None. 17 Oct 23:07:
+    three times "Luna, jaka jutro pogoda?" over the radio — the cloud heard
+    "Jaka będzie jutro pogoda?" (talking 48 %), "Maja, jaka będzie…" (17 %);
+    the radio quiets only once the camera is sure, after her name."""
+    if not cloud or not _radio_on():
+        return None
+    try:
+        import mouth
+        d = mouth.during(max(1.0, secs))
+    except Exception:
+        return None
+    if d is None or d[0] < 0.5 or d[1] < MOUTH_RADIO_WAKE or len(cloud.split()) < 2:
+        return None
+    m = re.match(r"\s*(\w+)\s*[,!]\s*(.+)$", cloud)
+    if m and _name_like(m.group(1)):
+        cloud = m.group(2)
+    print(f"[STT] radio on — the face in front of her said it (talking {d[1]:.0%}): "
+          f"taken as for her: \"{cloud}\"", flush=True)
+    return cloud
+
+
+def _name_like(word):
+    """A misheard "Luna" or a household name, said first ("Maja, …")."""
+    w = word.lower()
+    try:
+        import faces
+        if w in {n.lower() for n in faces.names()}:
+            return True
+    except Exception:
+        pass
+    return max(difflib.SequenceMatcher(None, w, k).ratio() for k in ("luna", "luno")) >= 0.5
+
+
 def _cloud_wake_check(pcm16k, words=None, peak=None):
     """Vosk heard speech but no wake word: ask the cloud whether the wake
     word is actually in there. Returns (found, cleaned_text). Rationed: a
@@ -1104,14 +1143,16 @@ def _cloud_wake_check(pcm16k, words=None, peak=None):
         cloud = job["result"]
         _note_wake_check_result(cloud)
         if not cloud or not _cloud_has_wake(cloud) or not _cloud_wake_plausible(cloud, words):
-            return False, None
+            seen = _seen_saying_it(cloud, len(pcm16k) / 32000.0)
+            return (True, seen) if seen else (False, None)
         return True, _strip_wake_from_cloud(cloud)
     if not _wake_check_worth(words, peak, len(pcm16k) / 32000.0) or not _wake_budget():
         return False, None
     cloud = _cloud_transcribe(pcm16k)
     _note_wake_check_result(cloud)
     if not cloud or not _cloud_has_wake(cloud) or not _cloud_wake_plausible(cloud, words):
-        return False, None
+        seen = _seen_saying_it(cloud, len(pcm16k) / 32000.0)
+        return (True, seen) if seen else (False, None)
     return True, _strip_wake_from_cloud(cloud)
 
 

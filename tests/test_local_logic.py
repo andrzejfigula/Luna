@@ -6538,6 +6538,29 @@ class ImprovementsTest(unittest.TestCase):
             with mock.patch.object(mouth, "during", lambda secs, now=None: None):
                 self.assertFalse(stt._wake_check_worth(words, peak=2000, secs=2.0))  # no camera
 
+    def test_radio_on_a_sentence_seen_said_to_her_is_for_her(self):
+        import faces
+        import mouth
+        import speech_to_text as stt
+        talk = lambda share: (lambda secs, now=None: (1.0, share, 2.5))
+        with mock.patch.object(stt, "_radio_on", lambda: True), \
+             mock.patch.object(faces, "names", lambda: ["Andrzej", "Maja", "Emilka"]):
+            with mock.patch.object(mouth, "during", talk(0.48)):
+                self.assertEqual(stt._seen_saying_it("Jaka będzie jutro pogoda?", 2.0),
+                                 "Jaka będzie jutro pogoda?")
+                self.assertEqual(stt._seen_saying_it("Maja, jaka będzie jutro pogoda?", 2.0),
+                                 "jaka będzie jutro pogoda?")
+                self.assertEqual(stt._seen_saying_it("Runa, która godzina?", 2.0),
+                                 "która godzina?")
+                self.assertEqual(stt._seen_saying_it("Dobra, poczekaj.", 2.0), "Dobra, poczekaj.")
+                self.assertIsNone(stt._seen_saying_it("Okej.", 2.0))           # one word
+                self.assertIsNone(stt._seen_saying_it("", 2.0))
+            with mock.patch.object(mouth, "during", talk(0.0)):
+                self.assertIsNone(stt._seen_saying_it("Jaka będzie jutro pogoda?", 2.0))
+        with mock.patch.object(stt, "_radio_on", lambda: False), \
+             mock.patch.object(mouth, "during", talk(0.48)):
+            self.assertIsNone(stt._seen_saying_it("Jaka będzie jutro pogoda?", 2.0))
+
     def test_the_radio_quiets_for_a_talking_face(self):
         import mouth
         with state.lock:

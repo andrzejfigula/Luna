@@ -40,7 +40,9 @@ def _norm(w):
 
 def _alike(word, hers):
     """Could the recogniser have heard `word` in her word `hers`?"""
-    if difflib.SequenceMatcher(None, word, hers).ratio() >= 0.5:
+    # (0.5 made "luna" like her "nas" — 17 Oct 23:09, every "luna" over her
+    # weather answer needed the camera's strictest verdict)
+    if difflib.SequenceMatcher(None, word, hers).ratio() >= 0.7:
         return True
     m = difflib.SequenceMatcher(None, word, hers).find_longest_match(0, len(word), 0, len(hers))
     return m.size >= 4                       # "stop" in "stopni"
