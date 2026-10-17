@@ -141,6 +141,8 @@ LOCAL = {
     "Budzik na wpół do ósmej w dni robocze": "timer",
     "Pokaż plan dnia": "screen",
     "Jaki jest plan na dziś?": "screen",
+    "Co mnie dziś czeka?": "screen",
+    "Luna, podsumowanie tygodnia": "screen",
     "Zagrajmy w 20 pytań": "twenty",
     "Zgadnij, o jakim zwierzęciu myślę": "twenty",
     "Gotujemy naleśniki": "cooking",
@@ -349,6 +351,7 @@ class RoutingTest(unittest.TestCase):
         import fun
         import health
         import lists
+        import greetings
         import timers
         self.hit = None
         stubs = [
@@ -358,7 +361,7 @@ class RoutingTest(unittest.TestCase):
                 {"captions": "captions", "tts_speed": "speed",
                  "reply_length": "length"}.get(k, "radio"))),
             (commands, "go_to_sleep", lambda: self._mark("sleep")),
-            (commands, "GOODBYE_REPLIES", ["<BYE>"]),
+            (greetings, "bye", lambda *a, **k: "<BYE>"),
             (commands, "DONE_REPLIES", ["<BYE>"]),
             (commands, "GOODBYE_REPLIES_EN", ["<BYE>"]),
             (screens, "_take_photo", lambda *a: self._mark("screen")),

@@ -2,6 +2,9 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 17 października ==
+- „Co mnie dziś czeka?” — mówię plan dnia: przypomnienia, sprawy na dziś i zaległe, urodziny i pogodę. Sprawy z dniem („jutro”, „w piątek”) zapisuję z datą i przypominam rano.
+- Radio ma osobną głośność na dzień i na noc, a gdy mnie wołasz, ścisza się od razu. „Zapamiętaj tę głośność” — powiem, na ile gra.
+- Żegnam się po imieniu („Pa, Maju!”, „Dobranoc, Andrzeju!”), a „przywróć listę” działa przez całą dobę. Dla dorosłych: „podsumowanie tygodnia”.
 - Witam się na wiele sposobów — po imieniu, inaczej rano, wieczorem i w piątek.
 - „Ustaw ekran na 70% jasności” — ustawiam dokładnie tyle.
 - „Pokaż listę rzeczy do zrobienia” pokazuje zawsze tę listę — nie zakupy. Gdy radio gra, a ja o coś zapytam, słucham odpowiedzi bez „Luna”.

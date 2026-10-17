@@ -58,7 +58,11 @@ _TODAY = ("plan dnia", "plan na dziś", "plan na dzisiaj", "co mamy w planie",
           "dzisiejszy plan", "plany na dziś", "plany na dzisiaj",
           # (14 Oct probe: to the model / a photo search)
           "pokaż kalendarz", "pokaz kalendarz", "pokaż mój kalendarz", "co mam dzisiaj w planie",
-          "co mam dziś w planie", "co mam w planie")
+          "co mam dziś w planie", "co mam w planie",
+          # (proposal 4, 17 Oct: a spoken briefing, not only "Oto plan — 5 rzeczy")
+          "co mnie dziś czeka", "co mnie dzisiaj czeka", "co nas dziś czeka",
+          "co nas dzisiaj czeka", "jaki mam plan na dziś", "jaki mam plan na dzisiaj",
+          "co dziś w planie", "co dzisiaj w planie", "jaki jest plan na dziś")
 _SHOW_LIST = ("pokaż listę", "pokaz liste", "pokaż mi listę", "show the list",
               "show my list")
 # "pokaż pogodę" — the days of the forecast (14 Oct probe: "pokaż prognozę"
@@ -310,6 +314,17 @@ def _person_in(low):
     return next((n for n in known if n.lower() == nom.lower()), None)
 
 
+def _child_here():
+    """A child in front of her: the week's report is for the grown-ups."""
+    try:
+        import brain
+        with state.lock:
+            who = state.person[0] if state.person else None
+        return bool(who) and brain._is_child(who)
+    except Exception:
+        return False
+
+
 def wants_today(text):
     low = text.lower()
     return any(k in low for k in _TODAY) and len(re.findall(r"\w+", low)) <= 8
@@ -322,8 +337,45 @@ def show_today(speak):
         speak("Na dziś nic nie mam zapisanego — żadnych przypomnień ani spraw.")
         return
     _show("list", 20, ("Plan na dziś", rows))
-    n = len(rows)
-    speak(f"Oto plan na dziś — {n} {'rzecz' if n == 1 else 'rzeczy'}.")
+    speak(today_said(rows))
+
+
+def today_said(rows):
+    """The plan in a few spoken sentences — the next reminders, birthdays,
+    the weather and the to-do list; the screen shows the rest. ("Oto plan na
+    dziś — 5 rzeczy" told nothing to someone across the room.)"""
+    timed = [(l, r) for l, r in rows if re.match(r"\d{1,2}:\d{2}$", l)]
+    said = []
+    if timed:
+        said.append("O " + ", o ".join(f"{l} {r}".strip() for l, r in timed[:2]) + ".")
+    for when, label in (("zaległe", "Zaległe"), ("dziś", "Dziś trzeba"), ("jutro", "Jutro")):
+        items = [re.sub(r"\s*\(\d{1,2} \w+\)$", "", r) for l, r in rows if l == when]
+        if items:
+            said.append(f"{label}: {', '.join(items[:3])}.")
+    said += [f"{r[:1].upper()}{r[1:]} — {l}." for l, r in rows
+             if r.startswith(("urodziny", "imieniny"))][:2]
+    said += [f"Do przekazania: {r}." for l, r in rows
+             if l in ("przekazać",) or l.startswith("po ")][:1]
+    todo = next((r for l, r in rows if l == "lista" and r.startswith("do zrobienia:")), None)
+    if todo:
+        n = int(todo.rsplit(":", 1)[1])
+        said.append(f"Na liście do zrobienia: {n} "
+                    f"{'sprawa' if n == 1 else 'sprawy' if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14 else 'spraw'}.")
+    wx = next((r for l, r in rows if l == "pogoda"), None)
+    try:                       # the row is cut to fit the screen: the whole day here
+        import weather
+        if wx:
+            wx = weather._summary.split("Today:")[-1].split(";")[0].strip()
+    except Exception:
+        pass
+    if wx:                     # "pochmurno, 8–14°C, rain chance 60%" → words
+        wx = re.sub(r"(-?\d+)–(-?\d+)°C", r"od \1 do \2 stopni", wx)
+        wx = re.sub(r",?\s*rain chance (\d+)%?", r", szansa deszczu \1 procent", wx)
+        said.append(f"Pogoda: {wx.rstrip(', ')}.")
+    if not said:
+        n = len(rows)
+        return f"Oto plan na dziś — {n} {'rzecz' if n == 1 else 'rzeczy'}."
+    return "Na dziś: " + " ".join(said)
 
 
 def today_rows():
@@ -376,6 +428,7 @@ def today_rows():
         pass
     try:
         import lists
+        rows += lists.due_rows()               # to-dos for today, tomorrow, overdue
         for name, items in lists.get().items():
             rows.append(("lista", f"{name}: {len(items)}"))
     except Exception:
@@ -512,6 +565,12 @@ def handle(text, speak, play_sound_async):
         else:
             # {"list"}: a tap on an item crosses it off (list_tap)
             _show("list", 12, (f"Lista: {name}", [("•", i) for i in items], {"list": name}))
+        return True
+    import weekly
+    if weekly.wanted(low) and not _child_here():
+        said, rows = weekly.report()
+        _show("list", 25, ("Mój tydzień", rows or [("—", "jeszcze nic")]))
+        speak(said)
         return True
     if any(k in low for k in _STATUS):
         import health

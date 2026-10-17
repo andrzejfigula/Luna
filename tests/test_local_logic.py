@@ -1508,7 +1508,7 @@ class ListsTest(unittest.TestCase):
         self.assertEqual(lists.get("zakupy"), ["masło", "mleko", "chleb"])
         self.act("list_remove", "mleko")
         self.assertIn("Nie mam czego",
-                      lists.restore("cofnij skreślenie", now=time.time() + 4000))
+                      lists.restore("cofnij skreślenie", now=time.time() + lists.UNDO_SECS + 60))
 
     def test_bare_undo_right_after(self):
         # 11 Oct sweep: "Usuń chleb" → "Cofnij" → "potrzebuję wiedzieć którą"
@@ -6303,6 +6303,149 @@ class GreetingsTest(unittest.TestCase):
         self.assertTrue(friday & set(greetings.WEEKDAY[4]))
         self.assertIn(greetings.hello(first_today=True, now=self._at(14)),
                       greetings.FIRST_TODAY)
+
+    def test_goodbyes_and_good_nights_by_name(self):
+        import faces
+        import greetings
+        with mock.patch.object(faces, "vocatives", lambda: {"Maja": "Maju"}):
+            byes = [greetings.bye("Maja", now=self._at(15)) for _ in range(12)]
+            nights = [greetings.night("Maja") for _ in range(6)]
+        self.assertTrue(any("Maju" in s for s in byes))
+        self.assertTrue(any("Maju" in s for s in nights))
+        self.assertFalse(any("{" in s or "Maja" in s for s in byes + nights))
+        for a, b in zip(byes, byes[1:]):
+            self.assertNotEqual(a, b)
+        self.assertIn(greetings.night(None), greetings.GOODNIGHT)
+        self.assertNotIn("Miłego dnia", " ".join(greetings.bye(None, now=self._at(23))
+                                                   for _ in range(20)))
+
+
+class ImprovementsTest(unittest.TestCase):
+    """17 Oct, the ten proposals: radio scraps not sent to the cloud, the
+    radio's night volume, the plan for the day said aloud, to-dos with a day,
+    an undo that survives a restart, the week's report."""
+
+    def setUp(self):
+        lists._lists = {}
+        lists._undo = None
+
+    def _at(self, h, day=17):
+        return datetime.datetime(2026, 10, day, h, 0).timestamp()
+
+    def test_radio_scraps_are_not_sent_to_the_cloud(self):
+        import speech_to_text as stt
+        with mock.patch.object(stt, "_cloud", object()), \
+             mock.patch.object(stt, "CLOUD_WAKE_CHECK", True), \
+             mock.patch.object(stt, "call_pause", lambda: False), \
+             mock.patch.object(stt, "_face_invites", lambda w: False):
+            with mock.patch.object(stt, "_radio_on", lambda: True):
+                self.assertFalse(stt._wake_check_worth(["nie"]))
+                self.assertFalse(stt._wake_check_worth(["panie", "panie"]))
+                self.assertTrue(stt._wake_check_worth(["luną", "włącz", "jazz"]))
+            with mock.patch.object(stt, "_radio_on", lambda: False):
+                self.assertTrue(stt._wake_check_worth(["nie"]))
+
+    def test_the_radio_ducks_as_soon_as_her_name_is_said(self):
+        import radio
+        with state.lock:
+            saved = (state.speaking, state.listening, state.conversation_active,
+                     state.name_heard_at)
+            state.speaking = state.listening = state.conversation_active = False
+            state.name_heard_at = 0.0
+        try:
+            self.assertFalse(radio._ducked())
+            with state.lock:
+                state.name_heard_at = time.time()
+            self.assertTrue(radio._ducked())
+        finally:
+            with state.lock:
+                (state.speaking, state.listening, state.conversation_active,
+                 state.name_heard_at) = saved
+
+    def test_the_radio_has_a_day_and_a_night_volume(self):
+        import radio
+        self.assertEqual(radio._level_key(self._at(14)), "radio_level")
+        self.assertEqual(radio._level_key(self._at(23)), "radio_level_night")
+        self.assertEqual(radio._level_key(self._at(6)), "radio_level_night")
+        with mock.patch.object(settings, "get",
+                               lambda k, d=None: {"radio_level": 1.5}.get(k, d)):
+            self.assertEqual(radio._gain(self._at(14)), 1.5)
+            self.assertEqual(radio._gain(self._at(23)), 0.7)     # never louder at night
+        for t in ("zapamiętaj tę głośność", "Luna, zapamiętaj taką głośność"):
+            self.assertTrue(radio._KEEP_LEVEL.search(t.lower()), t)
+
+    def test_to_dos_with_a_day(self):
+        now = self._at(12)                     # Saturday 17 October
+        self.assertEqual(lists.dated("zadzwonić do babci jutro", now),
+                         "zadzwonić do babci (18 października)")
+        self.assertEqual(lists.dated("w poniedziałek oddać książkę", now),
+                         "oddać książkę (19 października)")
+        self.assertEqual(lists.dated("umyć auto", now), "umyć auto")
+        self.assertEqual(lists.dated("wypłacić pieniądze 16 października", now),
+                         "wypłacić pieniądze 16 października")
+        self.assertEqual(lists.due("x 5 stycznia", now).year, 2027)     # next January
+        lists.apply([{"type": "list_add", "list": "do zrobienia",
+                      "label": "wypłacić pieniądze na drewno 16 października"},
+                     {"type": "list_add", "list": "do zrobienia", "label": "kupić drewno dziś"},
+                     {"type": "list_add", "list": "zakupy", "label": "mleko na jutro"}])
+        self.assertIn("mleko na jutro", lists.get("zakupy"))       # shopping: as said
+        rows = lists.due_rows()
+        kinds = [k for k, _ in rows]
+        self.assertEqual(kinds[0], "zaległe")
+        self.assertIn("dziś", kinds)
+
+    def test_the_undo_survives_a_restart(self):
+        lists.apply([{"type": "list_add", "list": "do zrobienia", "label": "umyć auto"}])
+        self.assertTrue(lists.remove_exact("do zrobienia", "umyć auto"))
+        lists._lists, lists._undo = None, None            # as after a restart
+        lists._load()
+        self.assertIsNotNone(lists._undo)
+        self.assertIn("umyć auto", lists.restore("przywróć listę"))
+        self.assertEqual(lists.get("do zrobienia"), ["umyć auto"])
+        self.assertFalse(os.path.exists(lists._undo_path()))
+
+    def test_the_plan_for_the_day_said_aloud(self):
+        import screens
+        rows = [("08:30", "dentysta"), ("dziś", "kupić drewno (17 października)"),
+                ("zaległe", "wypłacić pieniądze 16 października"),
+                ("dziś!", "urodziny: Maja"), ("pogoda", "pochmurno, 8–14°C, rain chance 60%"),
+                ("lista", "do zrobienia: 3"), ("lista", "zakupy: 5")]
+        with mock.patch.dict(sys.modules, {"weather": mock.Mock(
+                _summary="Today: pochmurno, 8–14°C, rain chance 60%; sunrise")}):
+            said = screens.today_said(rows)
+        for part in ("O 08:30 dentysta", "Zaległe: wypłacić", "Dziś trzeba: kupić drewno.",
+                     "Urodziny: Maja", "3 sprawy", "od 8 do 14 stopni",
+                     "szansa deszczu 60 procent"):
+            self.assertIn(part, said)
+        self.assertNotIn("rain", said)
+        self.assertTrue(screens.wants_today("Luna, co mnie dziś czeka?"))
+
+    def test_the_weeks_report(self):
+        import weekly
+        weekly._days = {}
+        for line in ("[STT] Dropped (noise): \"nie\" conf=0.3",
+                     "[STT] cloud heard no speech — dropping Vosk's \"pół\"",
+                     "[STT] false wake — \"ludzie\" was not her name",
+                     "[faces] this is Andrzej (0.47)"):
+            weekly.note(line)
+        with mock.patch.object(weekly, "_child", lambda w: w == "Maja"):
+            with state.lock:
+                saved, state.person = state.person, ("Maja", 0.8, time.time())
+            try:
+                for t in ("opowiedz mi o dinozaurach", "jakie dinozaury latały", "ile waży słoń"):
+                    weekly.heard(t)
+            finally:
+                with state.lock:
+                    state.person = saved
+            said, rows = weekly.report()
+        self.assertIn("usłyszałam 3 zdania", said)
+        self.assertIn("2 razy wzięłam szum", said)
+        self.assertIn("1 raz obudziłam się niepotrzebnie", said)
+        self.assertIn("Maja (3)", said)
+        self.assertTrue(rows)
+        self.assertTrue(weekly.wanted("Luna, podsumowanie tygodnia"))
+        self.assertFalse(weekly.wanted("jak ci minął tydzień?"))   # small talk: the model
+        self.assertFalse(weekly.wanted("co robimy w tym tygodniu?"))
 
 
 if __name__ == "__main__":

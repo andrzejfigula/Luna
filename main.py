@@ -69,6 +69,9 @@ start_watchdog()
 from backup import start_backup        # a copy a day of what she has learned
 start_backup()
 
+import weekly                          # her week in numbers ("podsumowanie tygodnia")
+weekly.start_weekly()
+
 import random
 
 from speech_to_text import listen, WAKE_ACK
@@ -148,6 +151,7 @@ def voice_loop():
                         state.caption = ("you", text, time.time() + 6.0)
                         state.bare_wake = False
                     _stamp_activity()
+                    weekly.heard(text)              # (the week's report)
                     if messages.armed() and messages.cancelled(text):
                         speak("Dobrze, nie nagrywam.")
                         continue
@@ -243,6 +247,7 @@ def _shutdown(*args):
     try:
         import health
         health.flush_usage()   # today's API count survives a restart
+        weekly.save()          # …and the week's numbers
     except Exception:
         pass
     try:                       # the radio's ffmpeg / pw-play must not outlive her

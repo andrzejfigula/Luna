@@ -869,12 +869,18 @@ def _maybe_wake(words):
     or the utterance is very short. On sample TV-like sentences this lets
     2 of 9 through instead of all 9, and every Vosk mishearing of "Luna" we
     tried ("luną", "lona", "una", "łuna")."""
+    return _sounds_like_name(words) or len(words) <= 2
+
+
+def _sounds_like_name(words, strict=False):
+    """One of the first three words a bit like "Luna". Strict (the radio
+    on): closer, and a short everyday word doesn't count — "nie" is 0.75
+    like "lunie", and the radio says it all the time."""
     singles = [w for w in WAKE_WORDS if " " not in w]
-    for w in words[:3]:
-        if len(w) >= 3 and max(difflib.SequenceMatcher(None, w, k).ratio()
-                               for k in singles) >= 0.5:
-            return True
-    return len(words) <= 2
+    need, short = (0.65, 4) if strict else (0.5, 3)   # ("panie" 0.6, "ilona" 0.67)
+    return any((len(w) >= short or (strict and w in ("una", "łuna", "lun")))
+               and max(difflib.SequenceMatcher(None, w, k).ratio() for k in singles) >= need
+               for w in words[:3])
 
 
 _en_heard = []                         # times the wake check came back English
@@ -948,10 +954,24 @@ def _stamp_wake():
         state.last_wake_time = time.time()
 
 
+def _radio_on():
+    try:
+        import radio
+        return radio.playing()
+    except Exception:
+        return False
+
+
 def _wake_check_worth(words):
-    """Might these (passive-mode) words hold a misheard "Luna"?"""
+    """Might these (passive-mode) words hold a misheard "Luna"?
+    While the radio plays, only when a word sounds like her name: the
+    radio's own talk came as one- and two-word scraps ("nie", "pół", "panie
+    panie") — 17 Oct 18:39–19:29 dozens went to the cloud, every one came
+    back empty. (Her name said clearly still wakes her through Vosk.)"""
     if not CLOUD_WAKE_CHECK or _cloud is None or call_pause():
         return False
+    if words is not None and _radio_on():
+        return _sounds_like_name(words, strict=True)
     return words is None or _maybe_wake(words) or _face_invites(words)
 
 
@@ -1580,7 +1600,10 @@ def listen():
 
         partial = json.loads(rec.PartialResult()).get("partial", "")
         if partial:
+            named = not active and _find_wake_word(partial.split()[:4]) is not None
             with state.lock:
                 state.heard_text = partial
+                if named:                        # the radio quiets now (radio._ducked)
+                    state.name_heard_at = time.time()
                 if active:                       # live captions while you speak
                     state.caption = ("you", partial + "…", time.time() + 3.0)

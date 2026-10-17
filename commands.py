@@ -57,7 +57,7 @@ from shared_state import state
 import settings
 from config import (SPEED_STEP, SPEED_MIN, SPEED_MAX, OPENAI_TTS_SPEED,
                     VOLUME_STEP, VOLUME_MIN, VOLUME_MAX,
-                    GOODNIGHT_REPLIES, GOODBYE_REPLIES, PROACTIVE_QUIET_TO,
+                    PROACTIVE_QUIET_TO,
                     FOCUS_MINUTES, BREAK_MINUTES, SNOOZE_MINUTES,
                     AUDIO_OUTPUT_DEVICE)
 
@@ -460,15 +460,13 @@ def _bare_name(text):
 
 def _goodnight():
     """"Dobranoc, Maju! Kolorowych snów." — by name when she knows the face."""
+    import greetings
+    return greetings.night(_who_here())
+
+
+def _who_here():
     with state.lock:
-        who = state.person[0] if state.person else None
-    if not who:
-        return random.choice(GOODNIGHT_REPLIES)
-    import faces
-    voc = faces.vocatives().get(who) or who
-    return random.choice((f"Dobranoc, {voc}! Kolorowych snów.",
-                          f"Dobranoc, {voc}. Śpij dobrze!",
-                          f"Słodkich snów, {voc}! Do jutra."))
+        return state.person[0] if state.person else None
 
 
 _ALARM = re.compile(r"\b(?:obudź|obudz|zbudź|zbudz|budź|budz|budzik|budzenie)\b(?:\s+\w+){0,3}?"
@@ -1496,8 +1494,9 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         if english:                            # "Goodbye" got "Do widzenia." (8 Oct sweep)
             speak(random.choice(GOODBYE_REPLIES_EN))
         else:
+            import greetings
             speak((random.choice(DONE_REPLIES)
-                   if done else random.choice(GOODBYE_REPLIES) if not leaving else
+                   if done else greetings.bye(_who_here()) if not leaving else
                    random.choice(_leaving_replies()))
                   + (" " + note if note else ""))
         with state.lock:

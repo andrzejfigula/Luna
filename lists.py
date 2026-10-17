@@ -20,16 +20,29 @@ _lock = threading.Lock()
 _lists = None
 BARE_UNDO_SECS = 120  # a bare "cofnij" — only this soon after
 _undo = None         # (time, list name, items before) — the last clear or removal
-UNDO_SECS = 3600
+# a day, and kept on disk: 16 Oct a tap crossed off "wypłacić pieniądze na
+# drewno", and by the time anyone noticed the hour was up — and a restart
+# would have lost it anyway
+UNDO_SECS = 24 * 3600
+
+
+def _undo_path():
+    return LISTS_PATH.replace(".json", "_undo.json")
 
 
 def _load():
-    global _lists
+    global _lists, _undo
     try:
         with open(LISTS_PATH, encoding="utf-8") as f:
             _lists = {k: list(v) for k, v in json.load(f).items()}
     except (OSError, ValueError):
         _lists = {}
+    try:
+        with open(_undo_path(), encoding="utf-8") as f:
+            t, name, items = json.load(f)
+        _undo = (float(t), str(name), [str(i) for i in items])
+    except (OSError, ValueError, TypeError):
+        pass
 
 
 def _save():
@@ -37,6 +50,15 @@ def _save():
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(_lists, f, ensure_ascii=False, indent=1)
     os.replace(tmp, LISTS_PATH)
+    try:                                     # what "przywróć listę" would bring back
+        if _undo:
+            with open(_undo_path() + ".tmp", "w", encoding="utf-8") as f:
+                json.dump(list(_undo), f, ensure_ascii=False)
+            os.replace(_undo_path() + ".tmp", _undo_path())
+        elif os.path.exists(_undo_path()):
+            os.remove(_undo_path())
+    except OSError:
+        pass
 
 
 def _owners_path():
@@ -134,6 +156,8 @@ def apply(actions):
                 _set_owner(lst, _speaker())          # whose list this is
             if kind in ("list_remove", "list_clear") and items:
                 _undo = (time.time(), lst, list(items))     # a mishearing can be undone
+            if kind == "list_add" and item and lst != "zakupy":
+                item = dated(item)                   # "jutro" → "(18 października)"
             if kind == "list_add" and item:
                 if item.lower() not in (i.lower() for i in items):
                     items.append(item)
@@ -332,6 +356,89 @@ def prompt_block():
     body = "; ".join(f"{k}{whose(k)}: {', '.join(v)}" for k, v in lists.items())
     return (f"Your lists: {body}. A list started by someone is theirs: when another "
             "person asks what THEY have to do, don't read it as theirs.\n")
+
+
+# ── to-do items with a day ────────────────────────────────────────────────────
+# 16 Oct: "wypłacić pieniądze na drewno 16 października" lived only in her
+# memory, which dropped it the day after ("przeszła data") — never said on the
+# day. Now the day is part of the item: "jutro" / "w piątek" become a date when
+# it is written down, the plan for the day names it, and once past it is "zaległe".
+_MONTHS = ["stycznia", "lutego", "marca", "kwietnia", "maja", "czerwca", "lipca",
+           "sierpnia", "września", "października", "listopada", "grudnia"]
+_WEEKDAYS = {"poniedziałek": 0, "poniedzialek": 0, "wtorek": 1, "środę": 2, "srode": 2,
+             "środa": 2, "czwartek": 3, "piątek": 4, "piatek": 4, "sobotę": 5, "sobote": 5,
+             "sobota": 5, "niedzielę": 6, "niedziele": 6, "niedziela": 6}
+_REL_DAY = re.compile(r"\b(dzisiaj|dziś|dzis|jutro|pojutrze|"
+                      r"(?:w|we)\s+(" + "|".join(_WEEKDAYS) + r"))\b", re.I)
+
+
+def dated(item, now=None):
+    """"zadzwonić do babci jutro" → "zadzwonić do babci (18 października)";
+    an item with no day, or with a date already, stays as it is."""
+    import datetime as _dt
+    if due(item, now) is not None:
+        return item
+    m = _REL_DAY.search(item)
+    if not m:
+        return item
+    today = _dt.date.fromtimestamp(now if now is not None else time.time())
+    word = m.group(1).lower()
+    if word.startswith("dzi"):
+        day = today
+    elif word == "jutro":
+        day = today + _dt.timedelta(days=1)
+    elif word == "pojutrze":
+        day = today + _dt.timedelta(days=2)
+    else:
+        ahead = (_WEEKDAYS[m.group(2).lower()] - today.weekday()) % 7 or 7
+        day = today + _dt.timedelta(days=ahead)
+    rest = (item[:m.start()] + item[m.end():]).strip(" ,.")
+    rest = re.sub(r"\s{2,}", " ", rest)
+    return f"{rest} ({day.day} {_MONTHS[day.month - 1]})"
+
+
+def due(item, now=None):
+    """The day an item is for ("… 16 października", "… (18 października)"),
+    as a date — the nearest such day not long past — or None."""
+    import datetime as _dt
+    m = re.search(r"\b(\d{1,2})\s+(" + "|".join(_MONTHS) + r")\b", item.lower())
+    if not m:
+        return None
+    today = _dt.date.fromtimestamp(now if now is not None else time.time())
+    month, day = _MONTHS.index(m.group(2)) + 1, int(m.group(1))
+    try:
+        d = _dt.date(today.year, month, day)
+    except ValueError:
+        return None
+    if (d - today).days < -180:             # "5 stycznia", written in December
+        d = d.replace(year=today.year + 1)
+    elif (d - today).days > 180:
+        d = d.replace(year=today.year - 1)
+    return d
+
+
+def due_rows(now=None):
+    """("dziś" | "jutro" | "zaległe", item) for dated items on any list but
+    shopping — for the plan of the day and the morning hello."""
+    import datetime as _dt
+    today = _dt.date.fromtimestamp(now if now is not None else time.time())
+    rows = []
+    for name, items in get().items():
+        if name == "zakupy":
+            continue
+        for i in items:
+            d = due(i, now)
+            if d is None:
+                continue
+            gap = (d - today).days
+            if gap < 0:
+                rows.append(("zaległe", i))
+            elif gap == 0:
+                rows.append(("dziś", i))
+            elif gap == 1:
+                rows.append(("jutro", i))
+    order = {"zaległe": 0, "dziś": 1, "jutro": 2}
+    return sorted(rows, key=lambda r: order[r[0]])
 
 
 _TODO = re.compile(r"\bdo\s+zrobienia|\bzada[nńi]\w*|\bto\s*-?\s*do\b|\bspraw\w*\b", re.I)

@@ -450,14 +450,49 @@ def _sink():
         return None
 
 
-def _gain():
+NIGHT_FROM, NIGHT_TO = 21, 7                # the night volume is its own
+
+
+def _level_key(now=None):
+    """The radio keeps two volumes: the day's and the night's — "ciszej" at
+    ten in the evening doesn't make the morning radio a whisper, and the
+    evening one isn't blaring after a loud afternoon."""
+    h = time.localtime(now if now is not None else time.time()).tm_hour
+    return "radio_level_night" if h >= NIGHT_FROM or h < NIGHT_TO else "radio_level"
+
+
+def _gain(now=None):
     import settings
-    return settings.get("radio_level", RADIO_GAIN)
+    key = _level_key(now)
+    day = settings.get("radio_level", RADIO_GAIN)
+    if key == "radio_level":
+        return day
+    return settings.get(key, round(min(day, 0.7), 3))   # night: never louder than 70%
+
+
+def _set_gain(g):
+    import settings
+    g = round(max(0.1, min(2.5, g)), 3)
+    settings.put(_level_key(), g)
+    print(f"[radio] music volume → {g:.0%} ({'night' if 'night' in _level_key() else 'day'})",
+          flush=True)
+    return g
+
+
+_KEEP_LEVEL = re.compile(r"\b(?:zapamiętaj|zapamietaj|zostaw|zapisz)\s+(?:tę|te|taką|taka|tą|ta|tak[aą]?)?\s*"
+                         r"(?:głośność|glosnosc|poziom)")
+
+
+NAME_DUCK_SECS = 4.0       # "Luna" heard mid-sentence: quiet for the rest of it
 
 
 def _ducked():
+    # (and as soon as her name is in the words still being said — not only
+    # once the sentence has ended: 17 Oct the radio, loud under "Luna, ustaw
+    # ekran…", made half of it unreadable)
     with state.lock:
-        return state.speaking or state.listening or state.conversation_active
+        return (state.speaking or state.listening or state.conversation_active
+                or time.time() - state.name_heard_at < NAME_DUCK_SECS)
 
 
 def _open_icy(url):
@@ -836,10 +871,13 @@ def handle(text, speak):
             if "dużo" in low or "duzo" in low:
                 step = step ** 2
             g *= step
-        g = round(max(0.1, min(2.5, g)), 3)
-        settings.put("radio_level", g)
-        print(f"[radio] music volume → {g:.0%}", flush=True)
+        _set_gain(g)
         return True                        # the music itself is the answer
+    if playing() and _KEEP_LEVEL.search(low):
+        # "zapamiętaj tę głośność": it is already kept — say which one
+        part = "wieczorem i w nocy" if "night" in _level_key() else "w dzień"
+        speak(f"Zapamiętane: radio {part} gra na {round(_gain() * 100)} procent.")
+        return True
     m = _SLEEP.search(low)
     at = _SLEEP_AT.search(low)
     if at and not m:
@@ -1059,9 +1097,7 @@ def tap(x, y, W, H):
         _toast(data, f"{name}: w ulubionych" if fav_toggle(name, url)
                else f"{name}: usunięta z ulubionych")
     elif hit[0] in ("vol-", "vol+"):
-        g = _gain() * (1.25 if hit[0] == "vol+" else 1 / 1.25)
-        g = round(max(0.1, min(2.5, g)), 3)
-        settings.put("radio_level", g)
+        g = _set_gain(_gain() * (1.25 if hit[0] == "vol+" else 1 / 1.25))
         _toast(data, f"Głośność {int(round(g * 100))}%")
     elif hit[0] == "timer":
         left = until()

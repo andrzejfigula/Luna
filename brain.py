@@ -310,6 +310,13 @@ def _morning_line():
     if weekly:            # the pool on a Thursday comes first (8 Oct probe: never said)
         what = (f"today's weekday thing you remember: {' / '.join(weekly)} (e.g. \"Dziś "
                 f"basen — pamiętaj o stroju!\"); rain only if there's room")
+    try:                  # a to-do for today or overdue (16 Oct: the wood money, unsaid)
+        due = [f"{w}: {i}" for w, i in lists.due_rows() if w in ("dziś", "zaległe")]
+    except Exception:
+        due = []
+    if due and not _is_child(who):
+        what = (f"the to-do for today / overdue: {' / '.join(due[:2])} (e.g. \"Dziś "
+                f"wypłata pieniędzy na drewno — nie zapomnij!\"); else " + what)
     return (f"This is {who}'s first talk with you today: after answering, add ONE short "
             f"sentence with what matters for their day — {what}. Nothing if neither.\n")
 

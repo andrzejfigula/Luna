@@ -447,9 +447,7 @@ BREATH_IN, BREATH_HOLD, BREATH_OUT = 4.0, 2.0, 6.0   # "ćwiczenie oddechowe"
 BREATH_CYCLES = 5
 FOCUS_MINUTES = 25        # "tryb skupienia" (pomodoro): quiet, then a break
 BREAK_MINUTES = 5
-GOODBYE_REPLIES = ["Pa pa!", "Do zobaczenia!", "Na razie!", "Papa, wracaj szybko!"]
-GOODNIGHT_REPLIES = ["Dobranoc! Śpij dobrze.", "Dobranoc, słodkich snów!",
-                     "Dobranoc. To ja też się zdrzemnę."]
+# goodbyes and good nights: greetings.py (by name, never the last few again)
 
 # ── Weather (weather.py) — opt-in ────────────────────────────────────────────
 # .env: LUNA_LAT=52.23  LUNA_LON=21.01  (decimal degrees). Unset = off, and
