@@ -26,8 +26,6 @@ from shared_state import state
 from config import (IDLE_ABSENCE_SECS, IDLE_PRESENCE_GRACE, IDLE_DEBUG,
                     PROACTIVE_SPEECH, PROACTIVE_MIN_GAP_SECS,
                     PROACTIVE_QUIET_FROM, PROACTIVE_QUIET_TO,
-                    GREETINGS_MORNING, GREETINGS_DAY, GREETINGS_EVENING,
-                    GREETINGS_NIGHT, GREETINGS_FIRST_TODAY,
                     MUTE_PHRASES, UNMUTE_PHRASES, MUTE_SECS,
                     TOUCH_REPLIES, TOUCH_REPLY_CHANCE, TOUCH_SPEECH_COOLDOWN,
                     TOUCH_SOUNDS, TOUCH_SOUND_CHANCE, TOUCH_SOUND_COOLDOWN,
@@ -261,17 +259,9 @@ def _set_face(mood, secs=FACE_OVERRIDE_SECS):
         state.face_override_until = time.time() + secs
 
 
-def _greeting(first_today):
-    if first_today and GREETINGS_FIRST_TODAY:
-        return random.choice(GREETINGS_FIRST_TODAY)
-    h = _hour()
-    if 5 <= h < 11:
-        return random.choice(GREETINGS_MORNING)
-    if 11 <= h < 18:
-        return random.choice(GREETINGS_DAY)
-    if 18 <= h < 22:
-        return random.choice(GREETINGS_EVENING)
-    return random.choice(GREETINGS_NIGHT)
+def _greeting(first_today, away=None):
+    import greetings
+    return greetings.hello(first_today, away)
 
 
 # ── who has had their first hello today (kept across restarts) ────────────────
@@ -429,7 +419,7 @@ def idle_loop():
                         if stranger:
                             asked_name_at = now
                         hello = (greeting(first_today, who=who, stranger=bool(stranger))
-                                 or _greeting(first_today))
+                                 or _greeting(first_today, away))
                         if stranger:
                             # the greeting took a second or two: recognised by now?
                             with state.lock:
@@ -446,7 +436,7 @@ def idle_loop():
                                 if first_today:
                                     save_greeted(greeted_days)
                                 hello = (greeting(first_today, who=who) or
-                                         _greeting(first_today))
+                                         _greeting(first_today, away))
                         speak(hello, can_drop=True)
                         _hello_said[who] = time.time()
                         try:

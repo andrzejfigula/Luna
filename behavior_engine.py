@@ -12,13 +12,12 @@ Interrupt rules (answering ALWAYS wins):
 A cooldown stops one long wave from triggering several greetings.
 """
 
-import random
 import threading
 import time
 
 from shared_state import state
 from config import (GESTURE_REACT_COOLDOWN, FACE_OVERRIDE_SECS,
-                    WAVE_REPLIES, GESTURE_DURATION, WAVE_CLOUD_CONFIRM,
+                    GESTURE_DURATION, WAVE_CLOUD_CONFIRM,
                     WAVE_CONFIRM_MIN_GAP, WAVE_SPEAK_GAP, WAVE_BACK_GAP)
 
 _last_confirm = 0.0
@@ -168,7 +167,8 @@ def _behavior_step(speak, confirm_wave):
                         idle_engine.mark_greeted(who)
             except Exception as e:
                 print(f"[behavior] first hello failed: {e}", flush=True)
-            said = hello or random.choice(WAVE_REPLIES)
+            import greetings                    # by name, by the hour, not the last few
+            said = hello or greetings.wave(who)
             speak(said, can_drop=True)
             try:
                 import brain

@@ -6256,5 +6256,54 @@ class FaceSpecTest(unittest.TestCase):
         return u
 
 
+class GreetingsTest(unittest.TestCase):
+    """17 Oct, Andrzej: more hellos than "Miło cię widzieć" — by name, by
+    the hour, never the last few again."""
+
+    def setUp(self):
+        import greetings
+        greetings._recent.clear()
+
+    def _at(self, h, wday=2):
+        # 14 Oct 2026 is a Wednesday
+        return datetime.datetime(2026, 10, 12 + wday, h, 0).timestamp()
+
+    def test_a_wave_by_name_and_never_the_same_twice_running(self):
+        import faces
+        import greetings
+        with mock.patch.object(faces, "vocatives", lambda: {"Maja": "Maju"}):
+            said = [greetings.wave("Maja", now=self._at(15)) for _ in range(12)]
+        self.assertTrue(any("Maju" in s for s in said))
+        self.assertFalse(any("Maja" in s or "{" in s for s in said))
+        for a, b in zip(said, said[1:]):
+            self.assertNotEqual(a, b)
+        self.assertGreaterEqual(len(set(said)), 8)
+        nobody = {greetings.wave(None, now=self._at(15)) for _ in range(30)}
+        self.assertGreaterEqual(len(nobody), 10)
+
+    def test_no_questions_or_gender_in_a_wave(self):
+        import greetings
+        for p in (greetings.WAVE + greetings.WAVE_NAMED + greetings.WAVE_CHILD
+                  + greetings.WAVE_MORNING + greetings.WAVE_EVENING + greetings.WAVE_NIGHT):
+            self.assertNotIn("?", p)               # the answer would need "Luna"
+        for p in sum([greetings.WAVE, greetings.MORNING, greetings.DAY, greetings.EVENING,
+                      greetings.NIGHT, greetings.SHORT_AWAY, greetings.LONG_AWAY,
+                      greetings.FIRST_TODAY], []):
+            self.assertNotRegex(p, r"(?:łeś|łaś)\b")
+
+    def test_the_hour_and_the_absence(self):
+        import greetings
+        night = {greetings.wave(None, now=self._at(23)) for _ in range(10)}
+        self.assertTrue(night <= set(greetings.WAVE_NIGHT) | {"Cześć."})
+        for _ in range(10):
+            self.assertIn(greetings.hello(away=600, now=self._at(14)),
+                          greetings.DAY + greetings.SHORT_AWAY)
+            self.assertIn(greetings.hello(now=self._at(20)), greetings.EVENING)
+        friday = {greetings.hello(now=self._at(14, wday=4)) for _ in range(40)}
+        self.assertTrue(friday & set(greetings.WEEKDAY[4]))
+        self.assertIn(greetings.hello(first_today=True, now=self._at(14)),
+                      greetings.FIRST_TODAY)
+
+
 if __name__ == "__main__":
     unittest.main()

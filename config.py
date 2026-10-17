@@ -567,14 +567,7 @@ UNMUTE_PHRASES = ["możesz mówić", "mozesz mowic", "odzywaj się", "odzywaj si
                   "wyłącz tryb nie przeszkadzać", "wylacz tryb nie przeszkadzac",
                   "wyłącz tryb cichy", "wylacz tryb cichy", "koniec trybu cichego"]
 
-# (without gender: these are for someone she doesn't recognise)
-GREETINGS_MORNING = ["Dzień dobry!", "O, dzień dobry! Jak się spało?",
-                     "Dobry! Zaczynamy dzień?"]
-GREETINGS_DAY     = ["O, jesteś!", "Hej, jesteś z powrotem!", "Cześć! Tęskniłam trochę."]
-GREETINGS_EVENING = ["Dobry wieczór!", "O, jesteś. Jak minął dzień?"]
-GREETINGS_NIGHT   = ["Jeszcze nie śpisz?", "O, cześć. Późno już."]
-GREETINGS_FIRST_TODAY = ["Dzień dobry! Pierwszy raz dziś cię widzę.",
-                         "O, cześć! Czekałam na ciebie."]
+# (her short hellos — wave, welcome back, the fallback — are in greetings.py)
 
 # ── Touch (the 7" panel; see touch_module.py) ─────────────────────────────────
 TOUCH_ENABLED      = True
@@ -712,10 +705,8 @@ WAVE_SKIN_MIN_STD      = 6.0   # floor for that std: under even daylight the fac
 WAVE_HEAD_EXCLUDE      = 1.1   # motion inside this box around the head is
                                # ignored (head movement itself)
 
-# Luna's reaction to a wave: happy face + she waves her hand + one of these
+# Luna's reaction to a wave: happy face + she waves her hand + greetings.wave()
 # (spoken only when idle)
-WAVE_REPLIES           = ["Cześć!", "Hej, hej!", "O, cześć! Miło cię widzieć!",
-                          "Hejka!"]
 
 # ── Luna's own gestures (chosen by the LLM per reply, or by behavior_engine) ──
 # nod / shake move the head; wave / thumbs_up / heart bring a hand up.
