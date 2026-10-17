@@ -1,6 +1,9 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
+== 17 października ==
+- „Pokaż listę rzeczy do zrobienia” pokazuje zawsze tę listę — nie zakupy. Gdy radio gra, a ja o coś zapytam, słucham odpowiedzi bez „Luna”.
+
 == 15 października ==
 - Bajki, w których ty wybierasz, co się stanie: „opowiedz bajkę, w której wybieram”. Do każdej części rysuję obrazek, a skończone bajki zapisuję — „pokaż moje bajki” i opowiem je jeszcze raz.
 - Radio ma ulubione: „dodaj tę stację do ulubionych”, „włącz moją ulubioną”. Na ekranie stacji są gwiazdki, ostatnio grane, głośniej-ciszej i wyłączanie za 15, 30 albo 60 minut.

@@ -112,13 +112,14 @@ _last_oops = 0.0      # when she last said something went wrong
 
 
 def _answer_awaited():
-    """A game waits for an answer, or a page is open (gallery.py): with the
+    """A game waits for an answer, a page is open (gallery.py) or she has
+    just asked something (brain.awaits_answer): with the
     radio on the window stays open — the radio is ducked while she listens.
     (14 Oct: "zgadywanki" with jazz on — "dziesięć" needed "Luna".)"""
     try:
-        import gallery, quiz, twenty, tictac, memo, story
+        import brain, gallery, quiz, twenty, tictac, memo, story
         return (quiz.active() or twenty.active() or tictac.active() or memo.active()
-                or gallery.page_open() or story.active())
+                or gallery.page_open() or story.active() or brain.awaits_answer())
     except Exception:
         return False
 

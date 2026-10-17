@@ -1360,6 +1360,16 @@ def listen():
                                  STT_CONFIDENCE_THRESHOLD))
                 if wake_conf >= need:
                     cleaned = " ".join(words[:start] + words[start + n:]).strip()
+                elif (exact and start == 0 and _avg_confidence(result) >= 0.8
+                        and peak_rms >= 1.5 * _energy_gate()):
+                    # her name first in a loud, clear sentence — only the name
+                    # itself unsure: let the cloud confirm it, as for a fuzzy
+                    # one (16 Oct 13:57: "luna jakie mam rzeczy do zrobienia
+                    # dzisiaj", 0.91 overall, "luna" 0.36 — dropped, no answer)
+                    print(f"[STT] unsure of the name ({wake_conf:.2f}) — the cloud "
+                          f"will check: \"{text}\"", flush=True)
+                    cleaned = " ".join(words[n:]).strip()
+                    wake = (start, n, False)
                 else:
                     if STT_DEBUG_AUDIO:
                         print(f"[STT] Wake ignored (conf {wake_conf:.2f} < "

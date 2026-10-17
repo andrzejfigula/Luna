@@ -1216,9 +1216,11 @@ class TimersTest(unittest.TestCase):
                           "półtorej godziny", "45 sekund"])
 
     def test_weekly_monthly_yearly(self):
-        fri = datetime.datetime(2026, 10, 9, 18, 0).timestamp()
+        # (a date still to come: past ones skip ahead to today — 17 Oct this
+        # read 9 Oct → 23 Oct, not 16 Oct)
+        fri = datetime.datetime(2030, 1, 4, 18, 0).timestamp()
         nxt = datetime.datetime.fromtimestamp(timers._next_matching(fri, "weekly"))
-        self.assertEqual((nxt.month, nxt.day, nxt.hour), (10, 16, 18))
+        self.assertEqual((nxt.month, nxt.day, nxt.hour), (1, 11, 18))
         jan31 = datetime.datetime(2027, 1, 31, 9, 0).timestamp()
         nxt = datetime.datetime.fromtimestamp(timers._next_matching(jan31, "monthly"))
         self.assertEqual((nxt.month, nxt.day), (2, 28))          # clamped
@@ -1541,6 +1543,20 @@ class ListsTest(unittest.TestCase):
         self.assertEqual(lists.find("Pokaż listę zakupów"), "zakupy")
         self.assertEqual(lists.find("pokaż listę do zrobienia"), "do zrobienia")
         self.assertIn("zakupy: jajka", lists.prompt_block())
+
+    def test_find_a_named_list_that_is_not_there(self):
+        # 16 Oct 13:59: the to-do list was gone — the shopping list came up
+        self.act("list_add", "jajka")
+        for said in ("Pokaż mi listę rzeczy do zrobienia.", "pokaż listę zadań",
+                     "pokaż listę to do"):
+            self.assertEqual(lists.find(said), "do zrobienia", said)
+        self.assertEqual(lists.find("pokaż listę prezentów"), "prezentów")
+        for said in ("pokaż listę", "Pokaż mi listę, proszę.", "pokaż listę zakupów"):
+            self.assertEqual(lists.find(said), "zakupy", said)
+        self.assertEqual(lists.empty_answer("prezentów"),
+                         "Nie mam listy „prezentów”. Mam listę: zakupów.")
+        self.assertEqual(lists.empty_answer("do zrobienia"),
+                         "Lista do zrobienia jest pusta. Mam listę: zakupów.")
 
 
 class ClockTest(unittest.TestCase):
@@ -2318,6 +2334,18 @@ class KidsTest(unittest.TestCase):
             self.assertTrue(brain._asks_to_choose(
                 "Super, to zagramy. Wybierz: kamień, papier, nożyce, zgaduj liczbę albo zagadka."))
             self.assertFalse(brain._asks_to_choose("Super, gramy w kółko i krzyżyk!"))
+            # radio on, she offered things: the window stays open for the answer
+            # (16 Oct 13:56 "…albo krótki quiz — wybieraj." — closed, not heard)
+            brain._history[:] = [{"role": "user", "content": "Co dzisiaj robimy?"},
+                                 {"role": "assistant", "content": "Mogę zrobić minutnik, "
+                                  "listę, radio albo krótki quiz — wybieraj."}]
+            self.assertTrue(brain.awaits_answer())
+            brain._history[-1]["content"] = "Mały krok czy chwila kawy?"
+            self.assertTrue(brain.awaits_answer())
+            brain._history[-1]["content"] = "(zrobione: włącz radio)"
+            self.assertFalse(brain.awaits_answer())
+            brain._history[-1]["content"] = "Włączam Lofi 24/7 — spokojna muzyka do pracy."
+            self.assertFalse(brain.awaits_answer())
         finally:
             brain._history[:] = old
 
@@ -5509,6 +5537,29 @@ class ListTapGameCloseTest(unittest.TestCase):
         with state.lock:
             self.assertIsNone(state.overlay)
         self.assertEqual(lists.get("zakupy"), [])
+
+    def test_a_quick_second_tap_does_not_cross_off(self):
+        # 16 Oct 13:57: the to-do list's only item went at once
+        lists._lists = {"do zrobienia": ["wypłacić pieniądze"]}
+        screens.handle("Pokaż listę do zrobienia", self.said.append, lambda *a: None)
+        now = time.time()
+        self.assertEqual(screens.list_tap(*self._row(0), now), "confirm")
+        self.assertEqual(screens.list_tap(*self._row(0), now + 0.2), "confirm")
+        self.assertEqual(lists.get("do zrobienia"), ["wypłacić pieniądze"])
+        self.assertEqual(screens.list_tap(*self._row(0), now + 1.5), "emptied")
+
+    def test_an_emptied_todo_list_is_not_the_shopping_list(self):
+        lists._lists = {"zakupy": ["chleb"], "do zrobienia": ["pranie"]}
+        screens.handle("Pokaż listę do zrobienia", self.said.append, lambda *a: None)
+        now = time.time()
+        screens.list_tap(*self._row(0), now)
+        screens.list_tap(*self._row(0), now + 1)
+        self.said.clear()
+        screens.handle("Pokaż mi listę rzeczy do zrobienia", self.said.append, lambda *a: None)
+        with state.lock:
+            self.assertIsNone(state.overlay)            # not "Lista: zakupy"
+        self.assertIn("do zrobienia jest pusta", self.said[0])
+        self.assertIn("przywróć listę", self.said[0])
 
     def test_other_lists_are_not_tappable(self):
         with state.lock:

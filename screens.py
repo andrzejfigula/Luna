@@ -207,6 +207,8 @@ def show_people(speak):
 # ── touches on her pages (robot_face) ─────────────────────────────────────────
 
 LIST_CONFIRM = 4.0          # a list item tapped again within this: crossed off
+LIST_CONFIRM_MIN = 0.7      # …but not sooner: 16 Oct 13:57 the to-do list's only
+                            # item went at once (a double tap to close the page?)
 
 
 def list_tap(nx, ny, now=None):
@@ -230,8 +232,11 @@ def list_tap(nx, ny, now=None):
         meta["page"] = page                     # it stops turning while you tap
         state.overlay = (ov[0], max(ov[1], now + 15), ov[2])
         conf = meta.get("confirm")
+        if conf and conf[0] == k and now - conf[1] < LIST_CONFIRM_MIN:
+            return "confirm"                    # one tap that bounced, or a double tap
         if not conf or conf[0] != k or now - conf[1] > LIST_CONFIRM:
             meta["confirm"] = (k, now)
+            print(f"[lists] tapped {rows[k][1]!r} — asking first", flush=True)
             return "confirm"
         meta["confirm"] = None
         item = rows[k][1]
@@ -503,7 +508,7 @@ def handle(text, speak, play_sound_async):
         name = lists.find(text)
         items = lists.get(name) if name else []
         if not items:
-            speak("Ta lista jest pusta." if name else "Nie masz jeszcze żadnej listy.")
+            speak(lists.empty_answer(name))
         else:
             # {"list"}: a tap on an item crosses it off (list_tap)
             _show("list", 12, (f"Lista: {name}", [("•", i) for i in items], {"list": name}))

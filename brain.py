@@ -1780,7 +1780,7 @@ _COMMAND_OK = re.compile(
     r"dwójkę|dwojke|radio\s+357|nowy\s+świat|nowy\s+swiat|lampkę|lampke|szum\w*|napisy|"
     r"biały\s+szum)\b|^następna\s+stacja$|^(?:ciszej|głośniej)$|^mów\s+(?:wolniej|szybciej|"
     r"normalnie)$|^lampka\s+na\s+\w+$|^biały\s+szum$|^pokaż\s+(?:zegar|plan\s+dnia|"
-    r"listę\s+zakupów)$|^przepis\s+na\s+[\w ]{2,40}\s+krok\s+po\s+kroku$|"
+    r"listę\s+(?:zakupów|do\s+zrobienia|rzeczy\s+do\s+zrobienia|zadań|[\wąćęłńóśźż]{3,20}))$|^przepis\s+na\s+[\w ]{2,40}\s+krok\s+po\s+kroku$|"
     r"^przekaż\s+\w+,?\s+(?:że|żeby)\s+.{3,120}$|^zrób\s+(?:mi\s+|nam\s+)?zdjęcie$|"
     r"^nagraj\s+wiadomość(?:\s+dla\s+\w+)?$|^pokaż\s+na\s+ekranie[:,]?\s+.{1,80}$"
     r"|^wyszukaj\s+w\s+internecie[:,]?\s+.{3,200}$"
@@ -2008,6 +2008,17 @@ def run_command(label, reply=""):
     done = commands.handle(label, lambda *a, **k: None, lambda *a, **k: True)
     print(f"[brain] command {label!r}: {'done' if done else 'not understood'}", flush=True)
     return bool(done)
+
+
+_INVITES = re.compile(r"\?|\b(?:wybieraj|wybierz|wybierasz|jeśli\s+chcesz|chcesz|daj\s+znać|"
+                      r"powiedz(?:\s+mi)?|co\s+wolisz|mogę\s+zaproponować)\b", re.I)
+
+
+def awaits_answer():
+    """Her last words asked something or offered a choice — the next thing
+    said is the answer. 16 Oct 13:56, radio on: "…minutnik, listę, radio
+    albo krótki quiz — wybieraj." and the window closed on the answer."""
+    return bool(_INVITES.search(last_reply()[-160:]))
 
 
 def last_reply():

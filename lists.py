@@ -264,6 +264,24 @@ def clear_empty_answer(text):
             else f"Lista „{name}” już jest pusta.")
 
 
+def empty_answer(name, now=None):
+    """"Pokaż listę …" found nothing to show: say which list is empty, which
+    ones there are, and that a tap-emptied one can come back."""
+    if not name:
+        return "Nie masz jeszcze żadnej listy."
+    now = time.time() if now is None else now
+    title = "zakupów" if name == "zakupy" else name
+    have = [k for k in get() if k != name]
+    line = (f"Lista {title} jest pusta." if name in ("zakupy", "do zrobienia")
+            else f"Nie mam listy „{name}”.")
+    if _undo and _undo[1] == name and now - _undo[0] <= UNDO_SECS:
+        line += " Coś z niej niedawno zniknęło — powiedz: przywróć listę."
+    elif have:
+        line += " Mam listę: " + ", ".join("zakupów" if k == "zakupy" else k
+                                           for k in have) + "."
+    return line
+
+
 def read_answer(text):
     """"Co mam na liście zakupów?", "co mam kupić?" → the list read out, here
     and offline; None for anything else."""
@@ -316,14 +334,28 @@ def prompt_block():
             "person asks what THEY have to do, don't read it as theirs.\n")
 
 
+_TODO = re.compile(r"\bdo\s+zrobienia|\bzada[nńi]\w*|\bto\s*-?\s*do\b|\bspraw\w*\b", re.I)
+_NAMED = re.compile(r"\b(?:list[eęy]|liście)\s+(?:mi\s+)?(.+?)\W*$", re.I)
+
+
 def find(text):
-    """Which list does "pokaż listę …" mean? The one named in the text, else
-    the shopping list, else the only one there is."""
+    """Which list does "pokaż listę …" mean? The one named in the text — even
+    an empty or missing one: 16 Oct 13:59, the to-do list had just emptied and
+    "pokaż listę rzeczy do zrobienia" showed the shopping list. Unnamed: the
+    shopping list, else the only one there is."""
     lists = get()
     low = text.lower()
+    if _TODO.search(low):
+        return "do zrobienia"
     for k in lists:
         if k in low or k[:5] in low:
             return k
-    if "zakup" in low and "zakupy" in lists:
+    if "zakup" in low:
         return "zakupy"
-    return next(iter(lists), None)
+    named = _NAMED.search(low)
+    rest = re.sub(r"\b(?:proszę|prosze|teraz|jeszcze|raz|mi|moją|moja|tę|tą|tamtą|"
+                  r"luna|na\s+ekranie|please)\b", " ", named.group(1) if named else "")
+    rest = " ".join(re.findall(r"[^\W\d_]+", rest))
+    if rest:
+        return rest
+    return "zakupy" if "zakupy" in lists else next(iter(lists), None)
