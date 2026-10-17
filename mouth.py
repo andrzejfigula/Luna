@@ -315,17 +315,19 @@ def cut_short(who):
 def confirms_voice(strict, secs=1.5, now=None):
     """bargein heard a stop word: did the face in front of her say it?
     (verdict, why). Strict (a word like one of hers): talking() in a window
-    of the last `secs`. Otherwise also the looser sign — the mouth changing
-    MOUTH_LOOSE_RATIO× more than above the nose and by MOUTH_LOOSE_MIN, even
-    with the head moving
-    (17 Oct 22:59: "Luna, stop" said turning — mouth 0.32 vs nose 0.21)."""
-    from config import MOUTH_LOOSE_RATIO, MOUTH_LOOSE_MIN
+    of the last `secs`. Otherwise the face MOVING is enough (mouth change ≥
+    MOUTH_MOVE_MIN): talking with the head moving changes the mouth and the
+    nose alike, as a nod does — 17 Oct 22:59 and 23:14, "Luna, stop" said
+    leaning in over the radio: mouth 0.10–0.32, nose as much, even with the
+    frames aligned. A listening face is still (0.02–0.03), and the stop words
+    Vosk made of her own voice came while it was (23:13:52–23:14:08: 4 of them)."""
+    from config import MOUTH_MOVE_MIN
     now = time.time() if now is None else now
     with _lock:
         rows = [(t, d) for t, d in _hist if now - secs - WINDOW <= t <= now]
     if not any(d is not None for t, d in rows if t >= now - 0.5):
         return False, "no face in front of her"
-    loose = 0.0
+    moving = 0.0
     for t, _ in rows:
         if t < now - secs:
             continue
@@ -334,11 +336,11 @@ def confirms_voice(strict, secs=1.5, now=None):
             continue
         if talking(dm, dr, n):
             return True, f"talking (mouth {dm:.2f} vs nose {dr:.2f})"
-        if dm >= MOUTH_LOOSE_MIN:
-            loose = max(loose, dm / max(dr, 0.01))
-    if not strict and loose >= MOUTH_LOOSE_RATIO:
-        return True, f"mouth moving ×{loose:.1f}"
-    return False, (f"mouth still (×{loose:.1f})" if loose else "mouth still")
+        moving = max(moving, dm)
+    if not strict and moving >= MOUTH_MOVE_MIN:
+        return True, f"face moving ({moving:.2f})"
+    return False, (f"not talking (moving {moving:.2f})" if strict
+                   else f"face still ({moving:.2f})")
 
 
 def start():

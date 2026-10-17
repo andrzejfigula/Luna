@@ -128,10 +128,10 @@ MOUTH_RATIO      = 1.6     # mouth change ≥ this × the change above the nose 
 MOUTH_MIN_CHANGE = 0.07    # …and at least this much (a still face: 0.02–0.07)
 MOUTH_MAX_HEAD   = 0.15    # above the nose more than this: the head moves, no verdict
 MOUTH_TALK_SECS  = 0.4     # held this long (on top of the 0.6 s window)
-MOUTH_LOOSE_RATIO = 1.4    # a stop word heard (bargein.py): the mouth changing this × more
-MOUTH_LOOSE_MIN   = 0.15   # than above the nose, and at least this much, is enough even
-                           # with the head moving (on the dumps while she spoke: 4–11 % of
-                           # the time, talk-overs included; at 1.3 / 0.07 it was 31–41 %)
+MOUTH_MOVE_MIN   = 0.09    # a stop word heard (bargein.py): the face in front MOVING (mouth
+                           # change, head or not) is enough — talking with the head moving
+                           # looks like a nod to the camera (mouth ≈ nose, even aligned),
+                           # but a listener is still: 0.02–0.03 (17 Oct dumps)
 BARGE_IN        = True    # True / False / "log" ("[barge] (log only) would stop…"). Vosk
                            # alone stopped her by herself (1 in 15 replies, 6 Oct) — now it
                            # only nominates and the camera decides (bargein.py, 17 Oct)

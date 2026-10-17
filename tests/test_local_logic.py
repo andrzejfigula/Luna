@@ -6406,8 +6406,8 @@ class MouthTest(unittest.TestCase):
     def test_a_stop_word_needs_the_face_to_move_its_mouth(self):
         import mouth
         now = 1000.0
-        # 17 Oct 22:59, "Luna, stop" over a story, the head moving: mouth 0.32 vs nose 0.21
-        turning = [(now - 1.5 + i / 15, (0.32, 0.21)) for i in range(23)]
+        # 17 Oct 22:59 / 23:14, "Luna, stop" over her, the head moving: mouth ≈ nose
+        turning = [(now - 1.5 + i / 15, (0.13, 0.15)) for i in range(23)]
         still = [(now - 1.5 + i / 15, (0.03, 0.03)) for i in range(23)]
         talking = [(now - 1.5 + i / 15, (0.14, 0.04)) for i in range(23)]
         noface = [(now - 1.5 + i / 15, None) for i in range(23)]
