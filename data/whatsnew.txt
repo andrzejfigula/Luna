@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 17 października ==
+- „Ustaw ekran na 70% jasności” — ustawiam dokładnie tyle.
 - „Pokaż listę rzeczy do zrobienia” pokazuje zawsze tę listę — nie zakupy. Gdy radio gra, a ja o coś zapytam, słucham odpowiedzi bez „Luna”.
 
 == 15 października ==

@@ -94,6 +94,8 @@ def target_percent():
         return max(USER_OFF_PERCENT, want // 2)
     if user == "bright" and not asleep:
         return base
+    if isinstance(user, int):              # "jasność ekranu na 90"
+        return min(want, user) if asleep else user
     return want
 
 
@@ -106,7 +108,7 @@ _user = {"kind": None, "until": 0.0}
 
 
 def set_user_override(kind):
-    """kind: "off" | "dim" | "bright" | None (back to automatic)."""
+    """kind: "off" | "dim" | "bright" | a percent | None (back to automatic)."""
     with _lock:
         _user["kind"], _user["until"] = kind, (time.time() + USER_SECS if kind else 0.0)
     print(f"[display] user brightness: {kind or 'automatic'}", flush=True)

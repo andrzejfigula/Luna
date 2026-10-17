@@ -2369,6 +2369,14 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(said, ["stopped"])
         display.set_user_override("off")
         self.assertEqual(display._user_override(), "off")
+        # 17 Oct: "ustaw ekran na 90% jasności" — that percent, not just "bright"
+        for t, pct in (("Ustaw ekran na 90% jasności.", 90),
+                       ("A ustaw ekran na 50% jasności.", 50),
+                       ("ustaw jasność ekranu na 70 procent", 70)):
+            said = []
+            self.assertTrue(commands.handle(t, said.append, lambda *a, **k: True), t)
+            self.assertEqual(display._user_override(), pct, t)
+            self.assertEqual(said, [f"Dobrze, jasność ekranu na {pct} procent."])
         display.set_user_override(None)
         self.assertIsNone(display._user_override())
         old = state.proactive_muted_until
@@ -5934,6 +5942,33 @@ class StoryTest(unittest.TestCase):
         import screens
         screens.end_game_page("story")
         self.assertFalse(story.active())
+        story.handle("Zagrajmy w bajkę o kotku", spoken.append)
+        self.assertTrue(story.answer("Dobra, już nie bawimy się w bajki.", spoken.append))
+        self.assertFalse(story.active())
+
+    def test_the_topic_answer(self):
+        # 17 Oct 18:28: "Nie, Luna, ja mam inny pomysł." became the story's topic
+        import story
+        spoken = []
+        story.handle("Luna, opowiedz interaktywną bajkę.", spoken.append)
+        self.assertTrue(story.answer("Nie, Luna, ja mam inny pomysł.", spoken.append))
+        self.assertEqual(self._phase(), "topic")
+        self.assertEqual(spoken[-1], "Super! To o czym ma być bajka?")
+        self.assertTrue(story.answer("O jednorożcu w kosmosie.", spoken.append))
+        with story._lock:
+            self.assertEqual(story._s["topic"], "o jednorożcu w kosmosie")
+        story.stop(quiet=True)
+        story.handle("zagrajmy w bajkę", spoken.append)
+        story.answer("mam pomysł: o kocie piracie", spoken.append)
+        with story._lock:
+            self.assertEqual(story._s["topic"], "o kocie piracie")
+        story.stop(quiet=True)
+        story.handle("zagrajmy w bajkę", spoken.append)
+        with story._lock:
+            ideas = list(story._s["ideas"])
+        story.answer("nie wiem, ty wybierz", spoken.append)
+        with story._lock:
+            self.assertIn(story._s["topic"], ideas)
 
     def test_what_starts_it_and_what_doesnt(self):
         import story

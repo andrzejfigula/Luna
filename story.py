@@ -86,7 +86,10 @@ _DELETE = re.compile(r"\b(?:usuń|usun|skasuj|wyrzuć|wyrzuc)\s+(?:tę\s+|te\s+|
                      r"bajkę(?:\s+o\s+(.{2,40}?))?\W*$", re.I)
 _STOP = re.compile(r"^(?:luna,?\s+)?(?:koniec|stop|stój|zakończ\w*|zakoncz\w*|wystarczy|przestań|"
                    r"przestan|nie\s+chcę\s+już|nie\s+chce\s+juz|wróć\s+do\s+buzi|wroc\s+do\s+buzi|"
-                   r"zamknij\w*|zatrzymaj\w*|dość|dosc)(?:\s+(?:bajkę|bajke|bajki|już|juz|to))?\W*$",
+                   r"zamknij\w*|zatrzymaj\w*|dość|dosc|"
+                   # 17 Oct: "Dobra, już nie bawimy się w bajki."
+                   r"(?:dobra,?\s+)?(?:już\s+|juz\s+)?nie\s+bawimy\s+się(?:\s+już|\s+juz)?"
+                   r"(?:\s+w\s+bajk\w*)?)(?:\s+(?:bajkę|bajke|bajki|już|juz|to))?\W*$",
                    re.I)
 # "pierwsze", "to drugie", "numer dwa"
 _ORDINALS = [r"\b(?:pierwsz\w*|jeden|jedynk\w*|1)\b", r"\b(?:drug\w*|dwa|dwójk\w*|dwojk\w*|2)\b"]
@@ -506,8 +509,26 @@ def answer(text, speak):
     if s["kind"] == "replay":
         return False
     if s["phase"] == "topic":
-        topic = re.sub(r"^(?:luna,?\s+)?(?:niech\s+będzie\s+|niech\s+bedzie\s+|może\s+|moze\s+|"
-                       r"chcę\s+|chce\s+|bajka\s+|bajkę\s+)?", "", low).strip(" .!?")
+        # 17 Oct 18:28: "Nie, Luna, ja mam inny pomysł." became the story
+        # "o nie, luna, ja mam inny pomysł" — the idea itself was still to come
+        low = re.sub(r"\b(?:luna|luno)\b,?", " ", low)
+        low = re.sub(r"^[\s,]*(?:nie|no|dobra|a|to|ja|tak)\b[\s,]*", "", low)
+        low = re.sub(r"^[\s,]*(?:nie|no|dobra|a|to|ja|tak)\b[\s,]*", "", low).strip(" ,.!?")
+        idea = re.match(r"(?:ja\s+)?(?:mam|mamy)\s+(?:inny\s+|lepszy\s+|swój\s+|swoj\s+|własny\s+|"
+                        r"wlasny\s+)?pomysł\w*\s*[:,-]?\s*(.*)$|^(?:inny|inna|inne)\b\s*(.*)$", low)
+        if idea:
+            low = (idea.group(1) or idea.group(2) or "").strip(" ,.!?")
+            if len(low) < 2:
+                speak("Super! To o czym ma być bajka?")
+                _listen_longer()
+                return True
+        if len(low.split()) <= 5 and not re.search(r"\bo\s+\w", low) and re.search(
+                r"\b(?:wiem|obojętnie|obojetnie|cokolwiek|wszystko\s+jedno|"
+                r"ty\s+(?:wybierz|wymyśl|wymysl|zdecyduj)|wymyśl|wymysl|"
+                r"sama\s+(?:wybierz|wymyśl|wymysl))\b", low):
+            low = random.choice(s.get("ideas") or _TOPICS)
+        topic = re.sub(r"^(?:niech\s+będzie\s+|niech\s+bedzie\s+|może\s+|moze\s+|"
+                       r"chcę\s+|chce\s+|bajka\s+|bajkę\s+|bajke\s+)?", "", low).strip(" .!?")
         if len(topic) < 2:
             return True
         if not topic.startswith(("o ", "z ")):

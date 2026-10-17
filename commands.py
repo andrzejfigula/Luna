@@ -138,9 +138,12 @@ _SCREEN = re.compile(
     re.I)
 # the other way round: "ekran ciemniej", "jasność ekranu na 50" (14 Oct probe: the model)
 _SCREEN_AFTER = re.compile(
-    r"^(?:luna,?\s+|luno,?\s+)?(?:(?:ekran|wyświetlacz|wyswietlacz)\s+(?:trochę\s+|troche\s+)?"
-    r"(ciemniej|jaśniej|jasniej)|(?:jasność|jasnosc)\s+(?:ekranu\s+)?na\s+(\d{1,3})"
-    r"(?:\s*%|\s+procent)?)(?:\s+(?:proszę|prosze))?$", re.I)
+    r"^(?:luna,?\s+|luno,?\s+)?(?:a\s+|to\s+)?(?:(?:ekran|wyświetlacz|wyswietlacz)\s+(?:trochę\s+|troche\s+)?"
+    r"(ciemniej|jaśniej|jasniej)|(?:ustaw\s+)?(?:jasność|jasnosc)\s+(?:ekranu\s+)?na\s+(\d{1,3})"
+    r"(?:\s*%|\s+procent\w*)?"
+    # 17 Oct 18:58: "ustaw ekran na 90% jasności" — the model only had bright / dim
+    r"|(?:ustaw\s+)?(?:ekran|wyświetlacz|wyswietlacz)\s+na\s+(\d{1,3})(?:\s*%|\s+procent\w*)"
+    r"(?:\s+(?:jasności|jasnosci))?)(?:\s+(?:proszę|prosze))?$", re.I)
 _GAME_NAMES = [
     (r"kółk\w*|kolk\w*|krzyżyk", "zagrajmy w kółko i krzyżyk"),
     (r"memory|memo\b|pary|karty", "zagrajmy w memory"),
@@ -1416,8 +1419,11 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
             verb = m.group(1)
         elif m2.group(1):
             verb = m2.group(1)
-        else:                              # "jasność ekranu na 50": dim or bright, that's all
-            verb = "ciemniej" if int(m2.group(2)) < 60 else "jaśniej"
+        else:                              # "jasność ekranu na 50": that much
+            pct = max(display.USER_OFF_PERCENT, min(100, int(m2.group(2) or m2.group(3))))
+            display.set_user_override(pct)
+            speak(f"Dobrze, jasność ekranu na {pct} procent.")
+            return True
         if re.match(r"przyciemnij|ściemnij|sciemnij|ciemniej", verb):
             display.set_user_override("dim")
             speak("Dobrze, przyciemniam.")
