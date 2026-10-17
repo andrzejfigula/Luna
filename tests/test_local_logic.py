@@ -6538,6 +6538,16 @@ class ImprovementsTest(unittest.TestCase):
             with mock.patch.object(mouth, "during", lambda secs, now=None: None):
                 self.assertFalse(stt._wake_check_worth(words, peak=2000, secs=2.0))  # no camera
 
+    def test_no_transcript_and_vosk_unsure_is_a_guess(self):
+        import speech_to_text as stt
+        with mock.patch.object(stt, "_cloud", object()):
+            self.assertTrue(stt._unsure(None, 0.84))        # 23:22 "włącz drogie" 0.84
+            self.assertFalse(stt._unsure(None, 0.95))       # Vosk sure: taken
+            self.assertFalse(stt._unsure("Włącz radio.", 0.5))
+            self.assertFalse(stt._unsure("", 0.5))          # heard nothing: dropped elsewhere
+        with mock.patch.object(stt, "_cloud", None):        # no cloud set up: Vosk is all
+            self.assertFalse(stt._unsure(None, 0.5))
+
     def test_radio_on_a_sentence_seen_said_to_her_is_for_her(self):
         import faces
         import mouth

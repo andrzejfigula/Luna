@@ -1263,6 +1263,18 @@ def _expire_conversation():
 
 # ── Main listen ───────────────────────────────────────────────────────────────
 
+UNSURE_CONF = 0.9       # Vosk's words below this, with no cloud to check them: unsure
+heard_unsure = False    # the last text is Vosk's unsure guess — the cloud didn't answer
+
+
+def _unsure(cloud, conf):
+    """The cloud was asked and gave nothing back (network) and Vosk isn't
+    sure: the text is a guess. 17 Oct 23:21: after a restart the network
+    needed 38 s — "Luna, włącz radio" twice became "włącz robią", "włącz
+    drogie", and the model answered those (slowly: 13 s)."""
+    return cloud is None and _cloud is not None and conf < UNSURE_CONF
+
+
 def listen():
     """
     Waits until the mic is allowed (Luna not speaking, echo-guard passed),
@@ -1270,6 +1282,9 @@ def listen():
     Returns WAKE_ACK when a wake word was heard alone, the recognised text
     when actionable, "" otherwise.
     """
+
+    global heard_unsure
+    heard_unsure = False
 
     # no mic? — don't spin, just idle politely (keeper thread is retrying)
     if not _mic_ok:
@@ -1607,6 +1622,8 @@ def listen():
                         continue
                     if cloud:
                         cleaned = _strip_wake_from_cloud(cloud)
+                    elif _unsure(cloud, _avg_confidence(result)):
+                        heard_unsure = True
                     elif cloud == "":
                         # the cloud heard no words after "Luna" — whatever
                         # Vosk made of the rest was noise; just answer "Tak?"
@@ -1674,6 +1691,7 @@ def listen():
                 global last_utterance_pcm
                 last_utterance_pcm = utt_pcm
                 final = cloud if cloud else text     # None: cloud unreachable
+                heard_unsure = _unsure(cloud, conf)
                 if _held:
                     final = join_held(final)
                 if cut_off(final) and not messages_armed():

@@ -116,6 +116,11 @@ def _logged(said):
 _last_oops = 0.0      # when she last said something went wrong
 
 
+def _heard_unsure():
+    import speech_to_text
+    return speech_to_text.heard_unsure
+
+
 def _answer_awaited():
     """A game waits for an answer, a page is open (gallery.py) or she has
     just asked something (brain.awaits_answer): with the
@@ -189,6 +194,13 @@ def voice_loop():
                             process(handled[1])      # e.g. the weather question, now answerable
                     elif _is_self_echo(text):
                         print(f"[Luna] Ignoring self-echo: \"{text}\"")
+                    elif _heard_unsure():
+                        # the cloud didn't answer: Vosk's guess isn't worth an
+                        # answer (17 Oct: "włącz robią" for "włącz radio")
+                        print(f"[Luna] no transcript from the cloud, Vosk unsure of "
+                              f"\"{text}\" — asking again", flush=True)
+                        speak("Mam teraz kłopot z internetem i nie dosłyszałam. "
+                              "Powtórz, proszę.")
                     else:
                         # speak() serializes internally — an answer is never
                         # dropped
