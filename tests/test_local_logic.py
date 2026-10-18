@@ -6646,6 +6646,100 @@ class ImprovementsTest(unittest.TestCase):
         self.assertFalse(weekly.wanted("co robimy w tym tygodniu?"))
 
 
+
+class RadioVisualizerTest(unittest.TestCase):
+    """visualizer.py: the radio's bands follow the sound, heard when it's
+    heard (not when decoded), fade out when it stops; the voice styles."""
+
+    def setUp(self):
+        import visualizer
+        self.v = visualizer
+        self.clock = [1000.0]
+        self._time = visualizer.time
+        visualizer.time = type("T", (), {"time": staticmethod(lambda: self.clock[0])})()
+        visualizer.reset()
+        visualizer._ref[:] = 0.0
+        visualizer._cur.update(bands=visualizer._cur["bands"] * 0, l=0.0, r=0.0, on=0.0, t=0.0)
+        visualizer._style[:] = ["fala", 1e12]
+
+    def tearDown(self):
+        self.v.time = self._time
+        self.v.reset()
+        self.v._style[:] = [None, 0.0]
+
+    def _feed(self, f, n=30, amp=3000.0):
+        import numpy as np
+        t = np.arange(4410) / 44100.0
+        rng = np.random.default_rng(1)
+        u = None
+        for _ in range(n):
+            x = np.sin(2 * np.pi * f * t) * amp + rng.normal(0, 300, t.size)
+            self.v.tap(np.stack([x, x * 0.3], 1).ravel().astype(np.float32), 1500.0)
+            for _ in range(3):
+                self.clock[0] += 0.0333
+                u = self.v.uniforms()
+        return u
+
+    def _bands(self, u):
+        import numpy as np
+        return np.array(u["uVis0"] + u["uVis1"] + u["uVis2"] + u["uVis3"])
+
+    def test_bands_follow_the_pitch(self):
+        low = self._bands(self._feed(100)).argmax()
+        self.v.reset()
+        high = self._bands(self._feed(8000)).argmax()
+        self.assertLess(low, 4)
+        self.assertGreater(high, 11)
+
+    def test_shown_while_playing_left_louder_fades_after(self):
+        u = self._feed(440)
+        self.assertGreater(u["uVisK"][1], 0.8)            # on, full strength
+        self.assertEqual(u["uVisK"][0], 1.0)              # waves
+        self.assertGreater(u["uVisEye"][0], u["uVisEye"][1])   # (the left channel louder)
+        self.assertEqual(u["uVisEye"][2], 0.0)            # eyes: not in this style
+        for _ in range(90):                               # 3 s with nothing coming
+            self.clock[0] += 0.0333
+            u = self.v.uniforms()
+        self.assertLess(u["uVisK"][1], 0.05)
+
+    def test_waits_for_the_audio_to_be_heard(self):
+        import numpy as np
+        x = np.zeros(8820, np.float32) + 0.0
+        x[::2] = 4000.0 * np.sin(np.arange(4410) * 0.3)
+        self.v.tap(x, 1500.0)                              # queued ~0.47 s ahead
+        self.clock[0] += 0.1
+        self.assertLess(max(self._bands(self.v.uniforms())), 0.01)
+        self.clock[0] += 0.5
+        self.assertGreater(max(self._bands(self.v.uniforms())), 0.05)
+
+    def test_styles_and_talking(self):
+        self._feed(440, n=10)
+        self.v._style[:] = ["oczy", 1e12]
+        u = self.v.uniforms()
+        self.assertEqual(u["uVisK"][1], 0.0)
+        self.assertGreater(u["uVisEye"][2], 0.5)
+        self.v._style[:] = ["slupki", 1e12]
+        self.assertEqual(self.v.uniforms()["uVisK"][0], 2.0)
+        self.assertLess(self.v.uniforms(talking=True)["uVisK"][1], 0.5)
+        self.v._style[:] = ["off", 1e12]
+        self.assertEqual(self.v.uniforms()["uVisK"][1], 0.0)
+
+    def test_voice(self):
+        import settings
+        put, said, got = settings.put, [], []
+        settings.put = lambda k, val: got.append((k, val))
+        try:
+            for text, want in (("pokaż słupki", "slupki"), ("włącz falę", "fala"),
+                               ("pokaż wskaźnik w oczach", "oczy"),
+                               ("wyłącz efekty", "off"), ("zmień efekt", "fala")):
+                self.v._style[:] = ["off", 1e12]
+                self.assertTrue(self.v.handle(text, said.append), text)
+                self.assertEqual(got[-1], ("radio_vis", want), text)
+            for text in ("pokaż wszystkie stacje", "wyłącz radio", "zmień stację"):
+                self.assertFalse(self.v.handle(text, said.append), text)
+        finally:
+            settings.put = put
+
 # Off the Pi (Windows) the hardware / SDK modules are missing: those tests
 # skip instead of erroring, so the local quick run shows real failures only.
 _PI_ONLY = {"cv2", "pygame", "sounddevice", "openai", "vosk"}

@@ -32,6 +32,7 @@ import urllib.request
 
 import numpy as np
 
+import visualizer
 from shared_state import state
 
 RATE, CHANNELS = 44100, 2
@@ -620,6 +621,12 @@ def _play(p):
                 if p.get("fade"):                    # an alarm: from a whisper up
                     target *= min(1.0, 0.05 + (time.time() - p["t0"]) / p["fade"])
                 new = target if abs(target - gain) < 0.01 else gain + (target - gain) * 0.5
+                try:                                 # the face sees it as it's heard
+                    visualizer.tap(a, level, out.stdin.fileno(), CHANNELS)
+                except Exception as e:
+                    if not p.get("vis_err"):
+                        p["vis_err"] = True
+                        print(f"[vis] {e}", flush=True)
                 ramp = np.linspace(gain, new, a.size // CHANNELS).repeat(CHANNELS)
                 gain = new                           # ~0.3 s to duck, no clicks
                 out.stdin.write((a * ramp).clip(-32768, 32767).astype(np.int16).tobytes())
@@ -658,6 +665,7 @@ def _play(p):
             with state.lock:
                 state.radio = None
         _pulse[:] = [0.0, 0.0]
+        visualizer.reset()
         if not p["stop"].is_set():
             print("[radio] gave up", flush=True)
             _mark(p.get("url0") or p["url"], True)
@@ -779,6 +787,9 @@ def handle(text, speak):
     import settings
     _say[0] = speak
     low = text.lower().strip(" .!?")
+    if ((playing() or re.search(r"efekt|wizualiz", low))
+            and visualizer.handle(low, speak)):    # "zmień efekt", "pokaż słupki"
+        return True
     if _RESUME.match(low):
         text = low = "włącz radio"             # your last station (_station)
     if _COUNT.search(low):                 # "ile masz stacji?"

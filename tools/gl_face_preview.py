@@ -8,6 +8,11 @@ runs on the Pi beside the running Luna without touching her screen.
 Writes a sheet of poses (neutral, happy, sad, angry, surprised, listening,
 blink, talking, sleeping, glance, tilt, layer) and prints the GPU time per
 frame — the 30 fps budget is 33 ms.
+
+    … tools/gl_face_preview.py --radio [out.png] [stream-url]
+
+The radio visualizer (visualizer.py): 8 s of a station decoded (not played),
+fed through visualizer.tap on a fake clock, two frames per style.
 """
 
 import ctypes
@@ -166,7 +171,78 @@ def live(out, gpu=True):
     print(f"[live] wrote {out}")
 
 
+def radio_sheet(out, url=None):
+    import subprocess
+    import numpy as np
+    from PIL import Image, ImageDraw
+    import robot_face as rf
+    import gl_face
+    import radio
+    import visualizer
+    url = url or radio.CATALOG[0][3][0][1]
+    pcm = subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-t", "8",
+                          "-i", url, "-f", "s16le", "-ac", "2", "-ar", "44100", "-"],
+                         capture_output=True, timeout=40).stdout
+    a = np.frombuffer(pcm, np.int16).astype(np.float32)
+    print(f"[radio] {len(a) / 88200:.1f} s decoded from {url}")
+    clock = [1000.0]
+    visualizer.time = type("T", (), {"time": staticmethod(lambda: clock[0])})()
+    egl_context()
+    fbo = framebuffer()
+    rf.apply_style(3)
+    g = gl_face.GLFace(W, H)
+    g.target_fbo = fbo
+    face = FakeFace(rf)
+    fcx, fcy = W // 2, H // 2 + rf.FACE_Y_OFFSET
+    level = float(np.sqrt(np.mean(a * a))) or 1.0
+    chunk = 8820
+    tiles, ms = [], []
+    shots = [("fala", 30), ("fala", 55), ("slupki", 30), ("slupki", 55),
+             ("oczy", 30), ("oczy", 55), ("wszystko", 40), ("fala talking", 45)]
+    for name, at in shots:
+        sty = name.split()[0]
+        visualizer._style[:] = [sty, 1e12]
+        face.pose(speak=0.6 if "talking" in name else 0.0)
+        visualizer.reset()
+        for i in range(at):
+            visualizer.tap(a[i * chunk:(i + 1) * chunk], level)
+            for _ in range(3):
+                clock[0] += 0.0333
+                u = g.face_uniforms(face, rf, fcx, fcy)
+        GL.glFinish()
+        t0 = time.perf_counter()
+        g.render(u)
+        GL.glFinish()
+        ms.append((time.perf_counter() - t0) * 1000)
+        px = GL.glReadPixels(0, 0, W, H, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE)
+        img = Image.frombytes("RGBA", (W, H), px).transpose(Image.FLIP_TOP_BOTTOM)
+        ImageDraw.Draw(img).text((10, 8), name, fill=(255, 255, 255, 255))
+        tiles.append(img)
+    # GPU cost with and without (the same pose)
+    for sty in ("off", "fala", "slupki", "oczy"):
+        visualizer._style[:] = [sty, 1e12]
+        u = g.face_uniforms(face, rf, fcx, fcy)
+        GL.glFinish()
+        t0 = time.perf_counter()
+        for _ in range(60):
+            g.render(u)
+        GL.glFinish()
+        print(f"[radio] {sty}: {(time.perf_counter() - t0) / 60 * 1000:.1f} ms a frame")
+    cols = 2
+    rows = (len(tiles) + cols - 1) // cols
+    sheet = Image.new("RGB", (cols * W // 2, rows * H // 2))
+    for i, t in enumerate(tiles):
+        sheet.paste(t.convert("RGB").resize((W // 2, H // 2), Image.LANCZOS),
+                    ((i % cols) * W // 2, (i // cols) * H // 2))
+    sheet.save(out)
+    print(f"[radio] wrote {out}")
+
+
 def main():
+    if "--radio" in sys.argv:
+        args = [a for a in sys.argv[1:] if not a.startswith("--")]
+        return radio_sheet(args[0] if args else "/tmp/gl_face_radio.png",
+                           args[1] if len(args) > 1 else None)
     if "--live" in sys.argv or "--pygame" in sys.argv:
         gpu = "--pygame" not in sys.argv              # --pygame: today's face, to compare
         args = [a for a in sys.argv[1:] if not a.startswith("--")]
