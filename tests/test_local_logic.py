@@ -6076,6 +6076,10 @@ class FaceSpecTest(unittest.TestCase):
                         self.assertEqual(len(gl.shape_rects), 5)
 
     def test_the_moods_look_like_themselves(self):
+        with self._fake_clock():
+            self._the_moods_look_like_themselves()
+
+    def _the_moods_look_like_themselves(self):
         gl = self._gl()
         u = self._settle(gl, self._face("sleeping"))
         self.assertGreater(u["uLidB0"][1], 0.9)               # shut: the seam shows
@@ -6285,12 +6289,33 @@ class FaceSpecTest(unittest.TestCase):
                   IRIS_COL=(132, 58, 12), BLUSH_COL=(255, 120, 95), ANGRY_COL=(255, 55, 30),
                   EYE_SPREAD=150, BLOCK_PUPIL=True)
 
+    _clock = None                                 # [now] while _fake_clock() runs
+
     def _settle(self, gl, face, frames=40):
         import time as _t
         for _ in range(frames):
-            gl._t_last = _t.monotonic() - 0.05          # 20 fps worth of time each call
+            if self._clock:
+                self._clock[0] += 0.05
+            else:
+                gl._t_last = _t.monotonic() - 0.05      # 20 fps worth of time each call
             u = gl.face_uniforms(face, self._rf(), 400, 212)
         return u
+
+    def _fake_clock(self):
+        """gl_face on a clock that moves 50 ms per _settle frame, not with the
+        wall: timed habits (love's 1.2 s slow blink) can't spill into the next mood."""
+        import contextlib
+        import time as _t
+        from types import SimpleNamespace as NS
+        from unittest import mock
+        import gl_face
+        self._clock = [1000.0]
+        now = lambda: self._clock[0]
+        fake = NS(monotonic=now, time=now, localtime=lambda *a: _t.localtime(12 * 3600))
+        stack = contextlib.ExitStack()
+        stack.enter_context(mock.patch.object(gl_face, "time", fake))
+        stack.callback(setattr, self, "_clock", None)
+        return stack
 
 
 class GreetingsTest(unittest.TestCase):
