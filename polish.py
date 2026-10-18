@@ -133,6 +133,25 @@ _SCALES = [("", "", ""), ("tysiąc", "tysiące", "tysięcy"),
            ("milion", "miliony", "milionów"), ("miliard", "miliardy", "miliardów")]
 
 
+
+# "I'm doing it / I did it" for the app's own switches and lists (not
+# "przypomnę" — empty_promise asks for the time; not "zapisałam" — memory)
+_DOING = re.compile(r"(?<!nie )\b(?:włączam|wyłączam|nastawiam|ustawiam|puszczam|"
+                    r"dodałam|dopisałam|skreśliłam|usunęłam|wyczyściłam)\b", re.I)
+
+
+def claims_undone(reply, actions, refused=()):
+    """The reply says she did a switch / list change, and either no action came
+    with it or every command it came with was refused."""
+    if not _DOING.search(reply or ""):
+        return False
+    actions = actions or []
+    if not actions:
+        return True
+    others = [a for a in actions if a.get("type") != "command"]
+    return not others and len(refused) == len(actions)
+
+
 def _below_1000(n):
     h, rest = divmod(n, 100)
     t, o = divmod(rest, 10)

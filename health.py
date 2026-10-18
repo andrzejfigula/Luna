@@ -274,6 +274,9 @@ def _log():
         light = state.light
     if light is not None:
         audio += f", light {light:.2f}"
+    bits = body.throttle_bits()                  # now or since boot (heat / power)
+    if bits not in ("0x0", "?"):
+        audio += f", throttled {bits}"
     print(f"[health] {time.strftime('%H:%M')} CPU {t:.0f}°C, load {body.load_percent()}%, "
           f"RAM {_mem_used()}%, last hour: {s['replies']} answers (avg {avg}), "
           f"{s['failures']} failures{audio}; API calls: {api}", flush=True)
@@ -374,14 +377,20 @@ def _warm_up():
     except Exception:
         pass
     from config import OPENAI_MODEL
-    for name, c in clients:
-        if c is None:
-            continue
+
+    def warm(name, c):
         try:
             c.models.retrieve(OPENAI_MODEL)
             _ = (c.chat.completions, c.audio.speech, c.audio.transcriptions)
         except Exception as e:
             print(f"[health] warm-up {name}: {e}")
+    # side by side: one after another took 7.2-7.7 s (18 Oct), ~2.5 s each
+    threads = [threading.Thread(target=warm, args=(n, c), daemon=True, name=f"warm-{n}")
+               for n, c in clients if c is not None]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(20)
     print(f"[health] cloud clients warmed up in {time.time() - t0:.1f}s", flush=True)
 
 

@@ -632,7 +632,7 @@ def _year_facts(today=None):
             f"{d.isocalendar()[1]}; {left} days left until 31 December.\n")
 
 
-from polish import (feminize, offer_only, empty_promise, neutral_you,   # (polish.py)
+from polish import (feminize, offer_only, empty_promise, claims_undone, neutral_you,   # (polish.py)
                     looks_english, is_secret, fix_vocative, fix_desk, to_latin)
 
 
@@ -1302,6 +1302,15 @@ _CRAFT = re.compile(r"\b(?:wiersz\w*|rym\w*|rymowank\w*|piosenk\w*|limeryk\w*|"
                     r"poem\w*|rhym\w*|song|story|fairy)\b", re.I)
 
 
+def _log_usage(usage):
+    """Prompt tokens and how many came from OpenAI's prompt cache (log_report)."""
+    try:
+        cached = getattr(getattr(usage, "prompt_tokens_details", None), "cached_tokens", 0) or 0
+        print(f"[brain] prompt {usage.prompt_tokens} tokens, {cached} cached", flush=True)
+    except Exception:
+        pass
+
+
 def model_params(request):
     """GPT-5 models take max_completion_tokens and no temperature, and think
     before answering unless told not to — for her voice: no reasoning."""
@@ -1484,16 +1493,21 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                        messages=[{"role": "system", "content": system}, *_history],
                        max_tokens=OPENAI_MAX_TOKENS,
                        temperature=OPENAI_TEMPERATURE,
-                       response_format=_RESPONSE_FORMAT))
+                       response_format=_RESPONSE_FORMAT,
+                       prompt_cache_key="luna-chat"))   # same cache machine every turn
         if on_head is None:
             response = _client.chat.completions.create(**request)
+            _log_usage(getattr(response, "usage", None))
             raw = _message_json(response.choices[0].message)
         else:
             rs = ReplyStream(on_head, on_sentence)
             finish, refusal = None, ""
             for chunk in hedge.hedged(    # a slow start gets a second request (hedge.py)
-                    lambda: _client.chat.completions.create(stream=True, **request),
+                    lambda: _client.chat.completions.create(
+                        stream=True, stream_options={"include_usage": True}, **request),
                     CHAT_HEDGE_AFTER, "model"):
+                if getattr(chunk, "usage", None):
+                    _log_usage(chunk.usage)
                 if not chunk.choices:
                     continue
                 c = chunk.choices[0]
@@ -1696,6 +1710,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             import commands
             reading.start(lambda s: None, commands.reading_done, intro=None, question=text)
         searched = drew = tuned = False
+        refused = []                             # commands that did nothing
         for a in data.get("actions") or []:
             if a.get("type") == "command":
                 label = str(a.get("label", ""))
@@ -1705,8 +1720,10 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                                              r"pokaż\s+(?:mi\s+)?(?:swoje\s+)?rysunki)",
                                              label.strip(), re.I))
                 try:
-                    run_command(label, reply)
+                    if not run_command(label, reply):
+                        refused.append(label)
                 except Exception as e:
+                    refused.append(label)
                     # one broken switch must not lose the whole answer (its
                     # history and memory) — 7 Oct, seen with a test stand-in
                     print(f"[brain] command {label!r} failed: {e!r}", flush=True)
@@ -1734,6 +1751,17 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             print(f"[brain] promised a drawing without the command — {label!r}", flush=True)
             if label:
                 _spoken_command(label, "")
+                drew = True
+
+        if not (tuned or drew or translator()) and claims_undone(reply, data.get("actions"), refused):
+            # "Jasne, usunęłam to z listy." / "wyłączam ekran gry" and nothing
+            # happened (18 Oct log, 3 a day): she says so instead of leaving it
+            extra = "Ojej, poprawka — tego jednak nie zrobiłam."
+            print(f"[brain] claimed an action, nothing done — correcting: {reply[:60]!r}",
+                  flush=True)
+            if on_sentence:
+                on_sentence(extra)
+            reply = f"{reply} {extra}"
 
         if hw and homework.gives_away(reply, hw):
             if on_head is None:

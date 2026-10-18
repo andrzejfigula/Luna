@@ -27,6 +27,8 @@ PATTERNS = [
     ("voice stop: stopped her", r"interrupted by voice"),
     ("reading aloud sessions", r"\[reading\] listening"),
     ("reminder promised → asked when", r"promised a reminder without one"),
+    ("claimed an action, nothing done → said so", r"claimed an action, nothing done"),
+    ("prompt cache: answers with cached tokens", r"\[brain\] prompt \d+ tokens, [1-9]\d* cached"),
     ("actions held back (offer)", r"action\(s\) held back"),
     ("cloud heard nothing", r"cloud heard no speech|cloud heard nothing"),
     ("self-echo ignored", r"Ignoring self-echo"),

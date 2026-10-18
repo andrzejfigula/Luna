@@ -40,4 +40,5 @@ def main(argv):
 
 
 if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8")   # the Windows console is cp1252 ("✅")
     sys.exit(main(sys.argv))

@@ -445,6 +445,17 @@ class TimersTest(unittest.TestCase):
         self.assertFalse(empty_promise("Nie przypomnę sobie tego tytułu.", []))
         self.assertFalse(empty_promise("Pamiętaj o ładowarce.", []))
 
+    def test_claims_undone(self):
+        from polish import claims_undone
+        cmd = [{"type": "command", "label": "wyłącz ekran gry"}]
+        self.assertTrue(claims_undone("Jasne, usunęłam to z listy.", []))
+        self.assertTrue(claims_undone("Jasne — wyłączam ekran gry.", cmd, ["wyłącz ekran gry"]))
+        self.assertFalse(claims_undone("Włączam radio.", cmd, []))
+        self.assertFalse(claims_undone("Skreśliłam mleko.", [{"type": "list_remove"}]))
+        self.assertFalse(claims_undone("Nie wyłączam, spokojnie.", []))
+        self.assertFalse(claims_undone("Zapisałam to sobie.", []))
+        self.assertFalse(claims_undone("Mogę włączyć radio, chcesz?", []))
+
     def test_log_report_audio_by_hour(self):
         sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
             os.path.abspath(__file__))), "tools"))
@@ -6607,6 +6618,35 @@ class ImprovementsTest(unittest.TestCase):
         self.assertTrue(weekly.wanted("Luna, podsumowanie tygodnia"))
         self.assertFalse(weekly.wanted("jak ci minął tydzień?"))   # small talk: the model
         self.assertFalse(weekly.wanted("co robimy w tym tygodniu?"))
+
+
+# Off the Pi (Windows) the hardware / SDK modules are missing: those tests
+# skip instead of erroring, so the local quick run shows real failures only.
+_PI_ONLY = {"cv2", "pygame", "sounddevice", "openai", "vosk"}
+
+
+def _skip_missing(test):
+    method = getattr(test, test._testMethodName)
+
+    def run(*a, **k):
+        try:
+            return method(*a, **k)
+        except ModuleNotFoundError as e:
+            if e.name in _PI_ONLY:
+                raise unittest.SkipTest(f"no {e.name} here")
+            raise
+    setattr(test, test._testMethodName, run)
+
+
+def load_tests(loader, tests, pattern):
+    def walk(s):
+        for t in s:
+            if isinstance(t, unittest.TestSuite):
+                walk(t)
+            else:
+                _skip_missing(t)
+    walk(tests)
+    return tests
 
 
 if __name__ == "__main__":

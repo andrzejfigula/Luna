@@ -34,6 +34,17 @@ def throttled():
         return None
 
 
+def throttle_bits():
+    """vcgencmd get_throttled as hex, incl. the since-boot bits (0x50000 = it
+    throttled for heat earlier); "?" off the Pi."""
+    try:
+        out = subprocess.run(["vcgencmd", "get_throttled"], capture_output=True,
+                             text=True, timeout=2).stdout
+        return out.strip().split("=")[1]
+    except Exception:
+        return "?"
+
+
 def load_percent():
     try:
         return round(100 * os.getloadavg()[0] / (os.cpu_count() or 4))

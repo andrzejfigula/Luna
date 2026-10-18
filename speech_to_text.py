@@ -439,7 +439,9 @@ def _wav_bytes(pcm16k):
 # words may be for her), the audio so far is sent at once; if nothing more is
 # said it IS the utterance, and the answer is already on its way — about
 # 0.3 s sooner (6 Oct: "more snappy"). Speech that goes on cancels it.
-SPEC_AFTER = 0.3
+# 0.2 (was 0.3, 18 Oct): 180 of 239 used transcripts had 0.25 s of silence
+# still to come; a pause that goes on only costs one cancelled request.
+SPEC_AFTER = 0.2
 _spec_lock = threading.Lock()
 _spec = None          # {"pcm": bytes, "done": Event, "result": ...} or None
 
