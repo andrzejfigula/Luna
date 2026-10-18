@@ -6,7 +6,7 @@ the face's big shader stays as fast as it was (one shader with both: every
 face frame +4 ms, the effects 13–66 ms at full size; Pi 4, 18 Oct).
 
 Styles (uVisK.x): 1 ribbons, 2 rings, 3 sparks, 4 bars, 5 stereo waves +
-heart, 6 notes. All stand on a glossy floor that mirrors them. Sparks and
+heart, 6 notes. (A mirroring floor under them: taken out 19 Oct.) Sparks and
 notes come placed (uPart, uNote: visualizer.uniforms), each drawn in its own
 small box — a loop over all of them per pixel cost +12 ms.
 """
@@ -243,19 +243,11 @@ vec3 visEffect(vec2 f, float floorY) {
 
 void main() {
     vec2 f = vec2(gl_FragCoord.x, uHalf.y - gl_FragCoord.y) * (uRes / uHalf);
-    float fy = uRes.y * 0.90;                      // the floor
     vec3 c;
-    if (uDraw > 0.5) {                             // one spark or note, added
-        c = f.y < fy ? (uDraw < 1.5 ? oneSpark(f) : oneNote(f)) : vec3(0.0);
-    } else if (f.y < fy) {
-        c = visEffect(f, fy);
-    } else {                                       // its rippling reflection
-        float k = (f.y - fy) / (uRes.y - fy);
-        vec2 m = vec2(f.x + 3.0 * sin(f.y * 0.35 + uVisK.w * 3.0), 2.0 * fy - f.y);
-        c = visEffect(m, fy) * 0.35 * (1.0 - k);
-        float s = abs(f.x / uRes.x - 0.5) * 2.0;
-        c += uVisCol * 0.30 * exp(-(f.y - fy) / 2.0) * (0.3 + uVisK.z) * (1.0 - s * s);
-    }
+    if (uDraw > 0.5)                               // one spark or note, added
+        c = uDraw < 1.5 ? oneSpark(f) : oneNote(f);
+    else
+        c = visEffect(f, uRes.y - 6.0);            // (the bars stand on the bottom edge)
     gl_FragColor = vec4(c * uVisK.y, 1.0);
 }
 """

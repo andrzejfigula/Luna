@@ -6699,8 +6699,7 @@ class RadioVisualizerTest(unittest.TestCase):
         u = self._feed(440)
         self.assertGreater(u["uVisK"][1], 0.8)            # on, full strength
         self.assertEqual(u["uVisK"][0], 1.0)              # ribbons
-        self.assertGreater(u["uVisEye"][0], u["uVisEye"][1])   # (the left channel louder)
-        self.assertEqual(u["uVisEye"][2], 0.0)            # eyes: not in this style
+        self.assertGreater(u["uVisLR"][0], u["uVisLR"][1])   # (the left channel louder)
         for _ in range(90):                               # 3 s with nothing coming
             self.clock[0] += 0.0333
             u = self.v.uniforms()
@@ -6718,10 +6717,6 @@ class RadioVisualizerTest(unittest.TestCase):
 
     def test_styles_and_talking(self):
         self._feed(440, n=10)
-        self.v._style[:] = ["oczy", 1e12]
-        u = self.v.uniforms()
-        self.assertEqual(u["uVisK"][1], 0.0)
-        self.assertGreater(u["uVisEye"][2], 0.5)
         self.v._style[:] = ["slupki", 1e12]
         self.assertEqual(self.v.uniforms()["uVisK"][0], 4.0)
         self.v._style[:] = ["losowo", 1e12]
@@ -6729,7 +6724,7 @@ class RadioVisualizerTest(unittest.TestCase):
         first = self.v.shown()
         self.v.new_song("B")
         self.assertNotEqual(self.v.shown(), first)        # another with each song
-        self.assertNotIn(self.v.shown(), ("oczy", "losowo", "off"))
+        self.assertNotIn(self.v.shown(), ("losowo", "off"))
         self.assertLess(self.v.uniforms(talking=True)["uVisK"][1], 0.5)
         self.v._style[:] = ["off", 1e12]
         self.assertEqual(self.v.uniforms()["uVisK"][1], 0.0)
@@ -6741,11 +6736,11 @@ class RadioVisualizerTest(unittest.TestCase):
         settings.get = lambda k, d=None: st.get(k, d)
         try:
             for text, want in (("pokaż słupki", "slupki"), ("włącz falę", "wstegi"),
-                               ("pokaż wskaźnik w oczach", "oczy"),
+                               ("pokaż nutki", "nutki"),
                                ("wyłącz efekty", "off"),
-                               ("włącz efekt", "oczy"),           # 18 Oct: back to the last one
+                               ("włącz efekt", "nutki"),          # 18 Oct: back to the last one
                                ("wyłącz wizualizację", "off"),
-                               ("włącz wizualizację", "oczy"),
+                               ("włącz wizualizację", "nutki"),
                                ("włącz efekt w radiu fale", "wstegi"),   # (was the sea)
                                ("zmień efekt", "pierscienie"),
                                ("pokaż nutki", "nutki"), ("pokaż iskry", "iskry"),
@@ -6759,7 +6754,7 @@ class RadioVisualizerTest(unittest.TestCase):
             for text in ("pokaż wszystkie stacje", "wyłącz radio", "zmień stację",
                          "włącz szum fal", "włącz szum morza", "zagrajmy w kółko i krzyżyk",
                          "pokaż serduszko", "włącz minutnik na 5 minut",
-                         "włącz coś na zmianę"):
+                         "włącz coś na zmianę", "pokaż mi oczy"):
                 self.assertFalse(self.v.handle(text, said.append), text)
             self.assertFalse(self.v.handle("włącz fale", said.append, radio_on=False))
         finally:

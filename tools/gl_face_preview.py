@@ -198,7 +198,7 @@ def radio_sheet(out, url=None):
     chunk = 8820
     tiles, ms = [], []
     shots = [("wstegi", 40), ("pierscienie", 41), ("iskry", 42), ("slupki", 43),
-             ("oscyloskop", 44), ("nutki", 45), ("oczy", 46), ("wstegi jazz", 47),
+             ("oscyloskop", 44), ("nutki", 45), ("oscyloskop classic", 46), ("wstegi jazz", 47),
              ("iskry electronic", 48), ("nutki kids", 49), ("slupki rock", 50),
              ("pierscienie talking", 51)]
     for name, at in shots:

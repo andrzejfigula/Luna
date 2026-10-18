@@ -91,7 +91,6 @@ uniform vec2  uGlitch;        // (on, seed): the "glitch" scene tears the pictur
 uniform float uEnergy;        // her voice, 0..1: the eyes glow a little brighter
 uniform float uWarm;          // a warm mood: the pupils' rims glow warmer
 uniform float uDim;           // asleep: the eyes dim
-uniform vec3  uVisEye;        // (left, right channel 0..1, the eyes as a VU meter 0..1)
 
 float gA;                     // the coverage of the shape just drawn (stage 2)
 
@@ -322,7 +321,7 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
         float breath = 1.0 + 0.07 * sin(uTime);          // she breathes: so does the light
         float dg = max(min(d, mix(1e5, ds, sa)), 0.0);
         glow += gc * (0.40 * exp(-dg / 10.0) + 0.17 * breath * exp(-dg / 40.0))
-                * (1.0 + 0.35 * uEnergy + 0.6 * uVisEye.z * (side < 0.0 ? uVisEye.x : uVisEye.y)) * uDim
+                * (1.0 + 0.35 * uEnergy) * uDim
                 * smoothstep(0.0, 8.0, e.w);
         return col;
     }
@@ -371,14 +370,6 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
         st += uShine * 0.22 * bar;
         st *= 0.85 + 0.15 * step(0.5, fract(q.y / 4.0));
         c = mix(c, st, uFx.y);
-    }
-    if (uVisEye.z > 0.01) {               // the radio: a VU meter rising in each eye
-        float vu = side < 0.0 ? uVisEye.x : uVisEye.y;
-        float lvl = b.y - 2.0 * b.y * vu;
-        float fill = smoothstep(lvl - 3.0, lvl + 3.0, q.y);
-        float seg = smoothstep(0.15, 0.30, fract(q.y / 10.0));          // LED segments
-        vec3 hot = mix(mix(uTop, uShine, 0.55), vec3(1.0, 0.35, 0.2), smoothstep(0.1, -0.7, q.y / b.y));
-        c = mix(c, hot, fill * seg * 0.35 * uVisEye.z);
     }
     // sad: a wet line along the bottom edge
     c += uShine * 0.45 * exp(d / 1.8) * smoothstep(0.2 * b.y, b.y, q.y) * uMorph.y;
@@ -1495,11 +1486,10 @@ class GLFace:
         u["uGlitch"] = (1.0, float(int(sp * 24))) if tearing else (0.0, 0.0)
         try:                                      # the radio playing (visualizer.py)
             vis = visualizer.uniforms(talking, night > 0.5, self.w, self.h)
-            u["uVisEye"] = vis.pop("uVisEye")
             u["_vis"] = vis if vis["uVisK"][1] > 0.005 else None     # (gl_vis.py)
             u["uEnergy"] = max(u["uEnergy"], 0.5 * visualizer.music_energy())
         except Exception as e:
-            u["uVisEye"], u["_vis"] = (0.0, 0.0, 0.0), None
+            u["_vis"] = None
             if not getattr(self, "_vis_err", False):
                 self._vis_err = True
                 print(f"[vis] {e}", flush=True)

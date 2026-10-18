@@ -13,14 +13,11 @@ the station kind's colours (set_kind). Styles, settings "radio_vis":
   "slupki"      — spectrum bars either side, LED segments
   "oscyloskop"  — stereo waves either side, a heart beating in the middle
   "nutki"       — musical notes floating up over a staff of light
-  "oczy"        — a VU meter in her eyes (left / right channel), nothing behind
   "losowo"      — another of them with each new song
   "off"         — nothing (she still sways with the beat)
-All but "oczy" stand on a glossy floor that mirrors them.
 Voice: "włącz / wyłącz efekty", "zmień efekt" (the next one), "pokaż
-wstęgi / pierścienie / iskry / słupki / oscyloskop / nutki / wskaźnik w
-oczach", "efekty losowo" (commands.handle, before ambience: "fale" is not
-the sea).
+wstęgi / pierścienie / iskry / słupki / oscyloskop / nutki", "efekty
+losowo" (commands.handle, before ambience: "fale" is not the sea).
 """
 
 import collections
@@ -32,13 +29,12 @@ import time
 
 import numpy as np
 
-SHOWN = ("wstegi", "pierscienie", "iskry", "slupki", "oscyloskop", "nutki", "oczy")
+SHOWN = ("wstegi", "pierscienie", "iskry", "slupki", "oscyloskop", "nutki")
 STYLES = SHOWN + ("losowo", "off")
 NAMES = {"wstegi": "świecące wstęgi", "pierscienie": "pierścienie dźwięku",
          "iskry": "iskry", "slupki": "słupki", "oscyloskop": "fale stereo z serduszkiem",
-         "nutki": "nutki", "oczy": "wskaźnik w oczach",
-         "losowo": "co piosenkę inny efekt", "off": "bez efektów"}
-_OLD = {"fala": "wstegi", "wszystko": "wstegi"}           # (the first prototype's names)
+         "nutki": "nutki", "losowo": "co piosenkę inny efekt", "off": "bez efektów"}
+_OLD = {"fala": "wstegi", "wszystko": "wstegi", "oczy": "wstegi"}   # (taken out since)
 _MODE = {"wstegi": 1.0, "pierscienie": 2.0, "iskry": 3.0, "slupki": 4.0,
          "oscyloskop": 5.0, "nutki": 6.0}
 # the station's kind → (main, accent) colours
@@ -148,7 +144,7 @@ def set_kind(kind):
 
 def new_song(title=None):
     """A new song began (the stream's title): "losowo" picks another style."""
-    choices = [s for s in SHOWN if s not in ("oczy", _rand[0])]
+    choices = [s for s in SHOWN if s != _rand[0]]
     _rand[0] = random.choice(choices)
 
 
@@ -262,12 +258,11 @@ def uniforms(talking=False, night=False, w=800, h=480):
     sty = shown()
     on = c["on"]
     if on < 0.01 or sty == "off":
-        return {"uVisK": (0.0, 0.0, 0.0, 0.0), "uVisEye": (0.0, 0.0, 0.0)}
+        return {"uVisK": (0.0, 0.0, 0.0, 0.0)}
     k = on * (0.35 if talking else 1.0) * (0.6 if night else 1.0)
     b = c["bands"]
     lv, rv = _vu(c["l"]), _vu(c["r"])
     mode = _MODE.get(sty, 0.0)
-    eyes = k if sty == "oczy" else 0.0
     with _lock:
         ages = tuple(min(99.0, max(0.0, now - t)) for t in _beats)
     t = now % 600.0
@@ -276,8 +271,7 @@ def uniforms(talking=False, night=False, w=800, h=480):
          "uVisK": (mode, k if mode else 0.0, max(lv, rv), t),
          "uVisLR": (lv, rv),
          "uVisBeat": ages,
-         "uVisCol": tuple(map(float, _col[0])), "uVisCol2": tuple(map(float, _col[1])),
-         "uVisEye": (lv, rv, eyes)}
+         "uVisCol": tuple(map(float, _col[0])), "uVisCol2": tuple(map(float, _col[1]))}
     bt = float(np.exp(-ages[0] * 5.0))
     if sty == "iskry":
         u["uPart"] = _sparks(t, b, bt, w, h)
@@ -300,8 +294,7 @@ _KINDS = ((re.compile(r"losow|piosenk|na\s+zmian|r[oó][żz]n[eya]"), "losowo", 
           (re.compile(r"\biskr|\biskier|b[ąa]bel|kropk|bokeh|[śs]wietlik|cz[ąa]stecz"), "iskry", True),
           (re.compile(r"s[łl]up|korektor|equali[sz]er|\bwidmo"), "slupki", True),
           (re.compile(r"oscylo|stereo|serc|serduszk|\bekg\b"), "oscyloskop", False),
-          (re.compile(r"\bnut(?:k|y\b|a\b|ek\b)"), "nutki", True),
-          (re.compile(r"\boczach\b|\boczy\b|wska[źz]nik|\bvu\b"), "oczy", True))
+          (re.compile(r"\bnut(?:k|y\b|a\b|ek\b)"), "nutki", True))
 _VERB = re.compile(r"\b(?:poka[żz]|w[łl][aą]cz|daj|ustaw|zr[oó]b|chc[eę]|wr[oó][ćc])")
 _NEXT = re.compile(r"\b(?:zmie[ńn]|inn[ya]|nast[eę]pn[ya])\b")
 _OFFW = re.compile(r"\b(?:wy[łl][aą]cz|bez\b|schowaj|zga[śs]|nie\s+chc|wystarczy|koniec)")
