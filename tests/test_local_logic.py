@@ -794,6 +794,47 @@ class TimersTest(unittest.TestCase):
             audible = np.sqrt(spec[f > 60].sum() / spec.sum() * (x ** 2).mean())
             self.assertGreater(audible, 0.02, kind)
 
+    def test_switching_sleep_sounds_keeps_the_note_and_shows_effects(self):
+        # 18 Oct: sea → fire, the sea's player ending cleared the fire's note
+        import ambience
+        import visualizer
+        from shared_state import state
+
+        class FakeProc:
+            def __init__(self, *a, **k):
+                self.stdin = self
+                self.wrote = 0
+
+            def write(self, b):
+                self.wrote += len(b)
+
+            def close(self):
+                pass
+
+            def terminate(self):
+                pass
+
+            def kill(self):
+                pass
+
+        with mock.patch.object(ambience.subprocess, "Popen", FakeProc), \
+                mock.patch.object(visualizer, "tap") as tap:
+            try:
+                ambience.play("sea", 1)
+                time.sleep(0.2)
+                ambience.play("fire", 1)
+                time.sleep(0.3)
+                self.assertEqual(state.radio, "♪ " + ambience.NAMES["fire"])
+                self.assertEqual(ambience.playing(), "fire")
+                self.assertTrue(tap.called)
+                a, level, fd, ch = tap.call_args[0]
+                self.assertEqual((len(a), ch), (visualizer.RATE // 10, 1))
+                self.assertGreater(level, 100)
+            finally:
+                ambience.stop()
+                time.sleep(0.2)
+        self.assertIsNone(state.radio)
+
     def test_fire_and_forest_sounds(self):
         import numpy as np
         import ambience
@@ -811,6 +852,13 @@ class TimersTest(unittest.TestCase):
             played.clear()
             # "las" is not in "klasyczną": the radio's, not the forest
             self.assertFalse(ambience.handle("Włącz klasyczną muzykę", said.append))
+            # 18 Oct: switching by voice, and the fire off by its name
+            for text in ("Przełącz na kominek", "Zmień na szum morza"):
+                played.clear()
+                self.assertTrue(ambience.handle(text, said.append), text)
+                self.assertTrue(played, text)
+            with mock.patch.object(ambience, "stop", lambda: True):
+                self.assertTrue(ambience.handle("Wyłącz dźwięk kominka", said.append))
         for kind in ("fire", "forest"):
             g = ambience._Gen(kind)
             x = np.concatenate([g.block() for _ in range(80)])           # 8 s

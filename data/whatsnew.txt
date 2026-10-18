@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 18 października ==
+- Szumy (morze, kominek, deszcz, las) słychać od razu po włączeniu, a na ekranie tańczą przy nich efekty — morze na niebiesko, kominek na czerwono, las na zielono. Możesz przełączać: „przełącz na kominek”, „zmień na szum morza”, „wyłącz kominek”. Po włączeniu szumu, tak jak przy radiu, zacznij od „Luna”.
 - Szum morza znowu słychać (wcześniej grał za cicho, prawie bezgłośnie). Kominek też jest teraz wyraźniejszy.
 - Gdy gra radio, muzyka tańczy na moim ekranie: świecące wstęgi, pierścienie dźwięku, iskry, słupki, fale z serduszkiem albo nutki — co piosenkę w innych kolorach („zmień kolory”, „fioletowe efekty”). „Zmień efekt” — następny; „efekty losowo” — co piosenkę inny; „wyłącz efekty” / „włącz efekty”.
 - „Włącz coś z ulubionych”, „przełącz na ulubioną” — włączam jedną z twoich ulubionych stacji. Ulubioną stację możesz też włączyć po nazwie, np. „włącz Classic Vinyl HD”.

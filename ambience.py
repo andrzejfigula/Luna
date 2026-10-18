@@ -22,6 +22,7 @@ import time
 
 import numpy as np
 
+import visualizer
 from shared_state import state
 
 RATE = 24000
@@ -44,9 +45,12 @@ NIGHT_MINUTES = 8 * 60                 # "…na noc"
 # at the start of a word: "las" is not in "klasyczną" ("włącz klasyczną muzykę")
 _KIND_RX = {k: re.compile(r"(?<!\w)(?:" + "|".join(
     (r"las\b" if s == "las" else re.escape(s)) for s in stems) + ")") for k, stems in KINDS.items()}
+_SWITCH = re.compile(r"\b(?:przełącz|przelacz|zmie[ńn]\s+na)\b")   # "przełącz na kominek"
 _ON = re.compile(r"\b(?:włącz|wlacz|puść|pusc|zagraj|daj)\b|^(?:szum|deszcz|fale)\b")
 _OFF = ("wyłącz szum", "wylacz szum", "wyłącz deszcz", "wyłącz morze", "wyłącz fale",
-        "stop szum", "koniec szumu", "wyłącz dźwięki", "zatrzymaj szum")
+        "stop szum", "koniec szumu", "wyłącz dźwięki", "zatrzymaj szum",
+        "wyłącz kominek", "wyłącz kominka", "wyłącz dźwięk kominka", "wyłącz ognisko",
+        "wyłącz las", "wyłącz ptaki", "wyłącz odgłos")
 
 _lock = threading.Lock()
 _player = None                          # {"kind", "stop": Event, "until", "proc"}
@@ -163,6 +167,9 @@ def _play(p):
     p["proc"] = out
     gen, gain, t0 = _Gen(p["kind"]), 0.0, time.time()
     written = 0.0
+    level = float(np.sqrt((gen.loop ** 2).mean())) * 32767       # (the effects' scale)
+    vis_t = np.arange(BLOCK * visualizer.RATE // RATE) * (RATE / visualizer.RATE)
+    visualizer.set_kind(p["kind"])
     try:
         while not p["stop"].is_set():
             now = time.time()
@@ -174,8 +181,16 @@ def _play(p):
             target *= min(1.0, (now - t0) / 3.0)          # 3 s fade in
             target *= min(1.0, left / FADE_SECS)           # fade out at the end
             new = gain + (target - gain) * 0.3
-            x = gen.block() * np.linspace(gain, new, BLOCK)
+            raw = gen.block()
+            x = raw * np.linspace(gain, new, BLOCK)
             gain = new
+            try:                                       # the radio's effects show it too
+                visualizer.tap(np.interp(vis_t, np.arange(BLOCK), raw * 32767), level,
+                               None, 1)
+            except Exception as e:
+                if not p.get("vis_err"):
+                    p["vis_err"] = True
+                    print(f"[vis] {e}", flush=True)
             out.stdin.write((np.clip(x, -1, 1) * 32767).astype(np.int16).tobytes())
             written += BLOCK / RATE
             ahead = written - (time.time() - t0)
@@ -193,9 +208,12 @@ def _play(p):
         with _lock:
             if _player is p:
                 _player = None
-        with state.lock:
-            if state.radio and state.radio.startswith("♪"):
-                state.radio = None
+            idle = _player is None
+        if idle:                               # (switched: the new sound's note stays)
+            visualizer.reset()
+            with state.lock:
+                if state.radio and state.radio.startswith("♪"):
+                    state.radio = None
 
 
 def play(kind, minutes=DEFAULT_MINUTES):
@@ -259,7 +277,7 @@ def handle(text, speak):
         return False                            # "czy pada deszcz?" is a question
     import intent                               # not "szum morza mnie uspokaja"
     night = bool(re.search(r"\bna\s+(?:całą\s+|cala\s+)?noc\b", low))   # "biały szum na noc"
-    if not ((_ON.search(low) or "szum" in words) and (
+    if not (_SWITCH.search(low) or (_ON.search(low) or "szum" in words) and (
             intent.asked(low, 3) or night
             or re.search(r"\bna\s+\w+\s+(?:minut|godzin)", low))):
         return False

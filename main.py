@@ -139,8 +139,9 @@ def voice_loop():
         try:
             text = listen()
             import radio
+            import ambience
             # said over the radio ("Luna, wyłącz radio"): a command, then quiet
-            radio_was_on = bool(text) and bool(radio.playing())
+            radio_was_on = bool(text) and bool(radio.playing() or ambience.playing())
             if text:
                 import timing
                 timing.mark("text")             # (the "[latency]" breakdown)
@@ -216,9 +217,12 @@ def voice_loop():
                 # radio on: no open window after an answer — the next thing
                 # she hears is the radio, so every command needs "Luna". Also
                 # when this sentence turned the radio off (18 Oct: "wyłącz
-                # radio" left her listening 15 s after — nothing more to say)
+                # radio" left her listening 15 s after — nothing more to say).
+                # Sleep sounds too: the open window ducked them to silence
+                # (18 Oct: "nie włączył się kominek")
                 if text and text != WAKE_ACK:
-                    if (radio.playing() or radio_was_on) and not _answer_awaited():
+                    if ((radio.playing() or ambience.playing() or radio_was_on)
+                            and not _answer_awaited()):
                         with state.lock:
                             state.conversation_active = False
                             state.convo_closed_hard = True

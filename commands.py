@@ -1812,9 +1812,12 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
     if question:
         return False
 
+    import ambience
     import visualizer                              # "włącz efekty", "zmień efekt" —
-    if visualizer.handle(low.strip(" .!?"), speak,  # before the radio's "zmień"/"wyłącz"
-                         _radio.playing() is not None):   # and ambience's "fale"
+    vis_on = (_radio.playing() is not None         # before the radio's "zmień"/"wyłącz"
+              or (ambience.playing() is not None   # and ambience's "fale"
+                  and not re.search(r"\bfal", low)))   # (a sleep sound shows them too)
+    if visualizer.handle(low.strip(" .!?"), speak, vis_on):
         return True
 
     with state.lock:

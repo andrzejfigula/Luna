@@ -665,7 +665,8 @@ def _play(p):
             idle = _player is None
         if idle:
             with state.lock:
-                state.radio = None
+                if not (state.radio or "").startswith("♪"):   # a sleep sound took over
+                    state.radio = None
         _pulse[:] = [0.0, 0.0]
         visualizer.reset()
         if not p["stop"].is_set():

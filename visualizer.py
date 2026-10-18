@@ -52,7 +52,10 @@ COLOR_NAMES = {"pomaranczowe": "pomarańczowe", "fioletowe": "fioletowe", "neono
                "zielone": "zielone", "rozowe": "różowe", "niebieskie": "niebieskie",
                "zachod": "jak zachód słońca", "czerwone": "czerwone", "zlote": "złote"}
 _KIND_COLORS = {"calm": "zielone", "jazz": "fioletowe", "classic": "zlote", "rock": "czerwone",
-                "electronic": "neonowe", "kids": "rozowe"}
+                "electronic": "neonowe", "kids": "rozowe",
+                # ambience.py's sleep sounds
+                "sea": "niebieskie", "rain": "niebieskie", "fire": "czerwone",
+                "forest": "zielone", "noise": "fioletowe"}
 PALETTES = {k: COLORS[v] for k, v in _KIND_COLORS.items()}
 PALETTES[None] = COLORS["pomaranczowe"]
 BANDS = 16
