@@ -6070,6 +6070,8 @@ class FaceSpecTest(unittest.TestCase):
                         gl = self._gl()
                         u = self._settle(gl, self._face(mood, costume, blink, talking), 6)
                         for key, val in u.items():
+                            if key.startswith("_"):      # (the radio picture: gl_vis)
+                                continue
                             for v in (val if isinstance(val, tuple) else (val,)):
                                 self.assertTrue(_m.isfinite(v), (mood, costume, key, val))
                         self.assertIn(u["uMouthK"][3], (0.0, 1.0, 2.0, 3.0, 4.0, 5.0))
@@ -6151,6 +6153,8 @@ class FaceSpecTest(unittest.TestCase):
                 gl.life.lids.append((gl.life.lids[0][0] if gl.life.lids else 0.0, 0.5, 0.45))
                 u = self._settle(gl, self._face(mood, talking=True, listen=listen), 30)
                 for key, val in u.items():
+                    if key.startswith("_"):
+                        continue
                     for v in (val if isinstance(val, tuple) else (val,)):
                         self.assertTrue(_m.isfinite(v), (mood, key, val))
                 for i in (0, 1):
@@ -6660,7 +6664,7 @@ class RadioVisualizerTest(unittest.TestCase):
         visualizer.reset()
         visualizer._ref[:] = 0.0
         visualizer._cur.update(bands=visualizer._cur["bands"] * 0, l=0.0, r=0.0, on=0.0, t=0.0)
-        visualizer._style[:] = ["fala", 1e12]
+        visualizer._style[:] = ["wstegi", 1e12]
 
     def tearDown(self):
         self.v.time = self._time
@@ -6694,7 +6698,7 @@ class RadioVisualizerTest(unittest.TestCase):
     def test_shown_while_playing_left_louder_fades_after(self):
         u = self._feed(440)
         self.assertGreater(u["uVisK"][1], 0.8)            # on, full strength
-        self.assertEqual(u["uVisK"][0], 1.0)              # waves
+        self.assertEqual(u["uVisK"][0], 1.0)              # ribbons
         self.assertGreater(u["uVisEye"][0], u["uVisEye"][1])   # (the left channel louder)
         self.assertEqual(u["uVisEye"][2], 0.0)            # eyes: not in this style
         for _ in range(90):                               # 3 s with nothing coming
@@ -6719,7 +6723,13 @@ class RadioVisualizerTest(unittest.TestCase):
         self.assertEqual(u["uVisK"][1], 0.0)
         self.assertGreater(u["uVisEye"][2], 0.5)
         self.v._style[:] = ["slupki", 1e12]
-        self.assertEqual(self.v.uniforms()["uVisK"][0], 2.0)
+        self.assertEqual(self.v.uniforms()["uVisK"][0], 4.0)
+        self.v._style[:] = ["losowo", 1e12]
+        self.v.new_song("A")
+        first = self.v.shown()
+        self.v.new_song("B")
+        self.assertNotEqual(self.v.shown(), first)        # another with each song
+        self.assertNotIn(self.v.shown(), ("oczy", "losowo", "off"))
         self.assertLess(self.v.uniforms(talking=True)["uVisK"][1], 0.5)
         self.v._style[:] = ["off", 1e12]
         self.assertEqual(self.v.uniforms()["uVisK"][1], 0.0)
@@ -6730,19 +6740,26 @@ class RadioVisualizerTest(unittest.TestCase):
         settings.put = lambda k, val: st.__setitem__(k, val)
         settings.get = lambda k, d=None: st.get(k, d)
         try:
-            for text, want in (("pokaż słupki", "slupki"), ("włącz falę", "fala"),
+            for text, want in (("pokaż słupki", "slupki"), ("włącz falę", "wstegi"),
                                ("pokaż wskaźnik w oczach", "oczy"),
                                ("wyłącz efekty", "off"),
                                ("włącz efekt", "oczy"),           # 18 Oct: back to the last one
                                ("wyłącz wizualizację", "off"),
                                ("włącz wizualizację", "oczy"),
-                               ("włącz efekt w radiu fale", "fala"),   # (was the sea)
-                               ("zmień efekt", "slupki")):
+                               ("włącz efekt w radiu fale", "wstegi"),   # (was the sea)
+                               ("zmień efekt", "pierscienie"),
+                               ("pokaż nutki", "nutki"), ("pokaż iskry", "iskry"),
+                               ("efekt oscyloskop", "oscyloskop"),
+                               ("pokaż pierścienie", "pierscienie"),
+                               ("efekty losowo", "losowo"),
+                               ("efekt z serduszkiem", "oscyloskop")):
                 self.v._style[:] = [None, 0.0]
                 self.assertTrue(self.v.handle(text, said.append), text)
                 self.assertEqual(st["radio_vis"], want, text)
             for text in ("pokaż wszystkie stacje", "wyłącz radio", "zmień stację",
-                         "włącz szum fal", "włącz szum morza"):
+                         "włącz szum fal", "włącz szum morza", "zagrajmy w kółko i krzyżyk",
+                         "pokaż serduszko", "włącz minutnik na 5 minut",
+                         "włącz coś na zmianę"):
                 self.assertFalse(self.v.handle(text, said.append), text)
             self.assertFalse(self.v.handle("włącz fale", said.append, radio_on=False))
         finally:

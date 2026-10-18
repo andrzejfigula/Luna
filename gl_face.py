@@ -91,8 +91,6 @@ uniform vec2  uGlitch;        // (on, seed): the "glitch" scene tears the pictur
 uniform float uEnergy;        // her voice, 0..1: the eyes glow a little brighter
 uniform float uWarm;          // a warm mood: the pupils' rims glow warmer
 uniform float uDim;           // asleep: the eyes dim
-uniform vec4  uVis0, uVis1, uVis2, uVis3;   // the radio (visualizer.py): 16 bands 0..1, bass first
-uniform vec4  uVisK;          // (style 1 waves / 2 bars, strength, level, seconds)
 uniform vec3  uVisEye;        // (left, right channel 0..1, the eyes as a VU meter 0..1)
 
 float gA;                     // the coverage of the shape just drawn (stage 2)
@@ -308,50 +306,6 @@ float browSDF(vec2 p, vec4 s, float bend) {
     vec2 pp = vec2(p.x, p.y + bend * (1.0 - x * x));
     float taper = 0.62 + 0.38 * (1.0 - x * x);                  // fuller in the middle
     return sdSeg(pp, s.xy, s.zw) - uBrowK.z * 0.5 * taper;
-}
-
-// the radio's bands, i in 0..15, smooth between them
-float visBand1(float i) {
-    vec4 v = i < 4.0 ? uVis0 : (i < 8.0 ? uVis1 : (i < 12.0 ? uVis2 : uVis3));
-    float j = mod(i, 4.0);
-    return j < 1.0 ? v.x : (j < 2.0 ? v.y : (j < 3.0 ? v.z : v.w));
-}
-float visBand(float i) {
-    float i0 = floor(clamp(i, 0.0, 15.0));
-    float f = fract(i);
-    return mix(visBand1(i0), visBand1(min(i0 + 1.0, 15.0)), f * f * (3.0 - 2.0 * f));
-}
-
-// behind the face, the music: bass in the middle, treble out to the sides
-vec3 visBack(vec2 uv, vec3 gc) {
-    float s = abs(uv.x - 0.5) * 2.0;
-    vec3 c = vec3(0.0);
-    float t = uVisK.w;
-    if (uVisK.x < 1.5) {                              // waves: three glowing lines
-        float amp = visBand(s * 15.0);
-        for (int k = 0; k < 3; k++) {
-            float fk = float(k);
-            float y0 = 0.90 + 0.04 * fk;
-            float a = (0.01 + 0.11 * amp * (1.0 - 0.25 * fk)) * (1.0 - 0.45 * s * s);
-            float y = y0 - a * (0.6 + 0.4 * sin(uv.x * (8.0 + 5.0 * fk) - t * (1.3 + 0.8 * fk) + fk * 2.1))
-                      - 0.03 * uVisK.z * sin(uv.x * 3.0 + t * 0.7 + fk);
-            float d = abs(uv.y - y) * uRes.y;
-            vec3 lc = mix(gc, uShine, 0.25 * (2.0 - fk));
-            c += lc * (0.45 * exp(-d / 6.0) + 0.22 * exp(-d / 18.0)) * (0.55 - 0.15 * fk);
-            if (k == 0) c += gc * 0.05 * smoothstep(y - 0.01, y + 0.06, uv.y);
-        }
-    } else {                                          // bars, mirrored from the middle
-        float cell = floor(s * 16.0);
-        float fx = fract(s * 16.0);
-        float h = 0.02 + 0.20 * visBand1(cell);
-        float yb = 1.0 - uv.y;                        // up from the bottom edge
-        float w = smoothstep(0.12, 0.22, fx) * smoothstep(0.88, 0.78, fx);
-        float in_ = smoothstep(h + 0.012, h - 0.012, yb);
-        vec3 bc = mix(gc, uShine, smoothstep(0.05, 0.35, yb) * 0.6);
-        c += bc * w * in_ * 0.30;
-        c += gc * w * 0.18 * exp(-max(yb - h, 0.0) * uRes.y / 10.0);   // the glow over each
-    }
-    return c * uVisK.y;
 }
 
 // one eye over `col`; its glow is added to `glow`
@@ -624,8 +578,6 @@ void main() {
         // glass: a faint diagonal sheen across the panel
         float sheen = exp(-sq((uv.x + uv.y * 0.6 - 0.35) / 0.10));
         col += vec3(0.010, 0.009, 0.012) * sheen;
-        if (uVisK.y > 0.005)
-            col += visBack(uv, mix(uGlow, uTint, uTintAmt));
         if (uFace > 0.5) {
             if (uBlush.z > 0.01) {                       // blush under the eyes
                 vec2 bq = (p - uBlush.xy - vec2(-232.0, 70.0)) / vec2(uBlush.w * 1.5, uBlush.w);
@@ -984,6 +936,7 @@ class GLFace:
         self.life = _Life()
         self._t_last = 0.0
         self.shape_rects = []            # each shape's box on the screen (face_uniforms)
+        self.vis = None                  # the radio visualizer's pass (gl_vis.py), when needed
         print(f"[gl] face shader ready (GLSL {self.glsl}, "
               f"{GL.glGetString(GL.GL_RENDERER).decode(errors='replace')})", flush=True)
 
@@ -1103,7 +1056,8 @@ class GLFace:
         self._u("uRes", (self.w, self.h))
         self._u("uSoftRes", (self.sw, self.sh))
         for k, v in uniforms.items():
-            self._u(k, v)
+            if k[0] != "_":
+                self._u(k, v)
         full = (0.0, 0.0, float(self.w), float(self.h))
         self._sampler("uLayer", 0, self.screen_l.tex)
         self._sampler("uSoft", 1, 0)
@@ -1124,6 +1078,11 @@ class GLFace:
         self._quad()
         GL.glEnable(GL.GL_BLEND)
         GL.glBlendFunc(GL.GL_ONE, GL.GL_ONE_MINUS_SRC_ALPHA)    # premultiplied
+        if uniforms.get("_vis"):             # the radio's picture (gl_vis.py), behind it all
+            if self.vis is None:
+                import gl_vis
+                self.vis = gl_vis.VisPass(self)
+            self.vis.draw(uniforms["_vis"], uniforms.get("uBlush", (self.w / 2, self.h / 2))[:2])
         if has_back:                         # behind the face: costume ears, steam…
             self._u("uPass", 3.0)
             self._u("uLayerSel", 2.0)
@@ -1535,10 +1494,12 @@ class GLFace:
         tearing = (getattr(face, "_scene_name", None) == "glitch" and 0.12 < sp < 0.82)
         u["uGlitch"] = (1.0, float(int(sp * 24))) if tearing else (0.0, 0.0)
         try:                                      # the radio playing (visualizer.py)
-            u.update(visualizer.uniforms(talking, night > 0.5))
+            vis = visualizer.uniforms(talking, night > 0.5, self.w, self.h)
+            u["uVisEye"] = vis.pop("uVisEye")
+            u["_vis"] = vis if vis["uVisK"][1] > 0.005 else None     # (gl_vis.py)
             u["uEnergy"] = max(u["uEnergy"], 0.5 * visualizer.music_energy())
         except Exception as e:
-            u["uVisK"], u["uVisEye"] = (0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0)
+            u["uVisEye"], u["_vis"] = (0.0, 0.0, 0.0), None
             if not getattr(self, "_vis_err", False):
                 self._vis_err = True
                 print(f"[vis] {e}", flush=True)

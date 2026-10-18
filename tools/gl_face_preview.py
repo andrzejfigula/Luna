@@ -197,11 +197,16 @@ def radio_sheet(out, url=None):
     level = float(np.sqrt(np.mean(a * a))) or 1.0
     chunk = 8820
     tiles, ms = [], []
-    shots = [("fala", 30), ("fala", 55), ("slupki", 30), ("slupki", 55),
-             ("oczy", 30), ("oczy", 55), ("wszystko", 40), ("fala talking", 45)]
+    shots = [("wstegi", 40), ("pierscienie", 41), ("iskry", 42), ("slupki", 43),
+             ("oscyloskop", 44), ("nutki", 45), ("oczy", 46), ("wstegi jazz", 47),
+             ("iskry electronic", 48), ("nutki kids", 49), ("slupki rock", 50),
+             ("pierscienie talking", 51)]
     for name, at in shots:
         sty = name.split()[0]
         visualizer._style[:] = [sty, 1e12]
+        kind = name.split()[1] if len(name.split()) > 1 and "talking" not in name else None
+        visualizer.set_kind(kind)
+        visualizer._col[:] = [np.array(c) for c in visualizer.PALETTES[kind]]
         face.pose(speak=0.6 if "talking" in name else 0.0)
         visualizer.reset()
         for i in range(at):
@@ -219,7 +224,7 @@ def radio_sheet(out, url=None):
         ImageDraw.Draw(img).text((10, 8), name, fill=(255, 255, 255, 255))
         tiles.append(img)
     # GPU cost with and without (the same pose)
-    for sty in ("off", "fala", "slupki", "oczy"):
+    for sty in ("off",) + visualizer.SHOWN:
         visualizer._style[:] = [sty, 1e12]
         u = g.face_uniforms(face, rf, fcx, fcy)
         GL.glFinish()

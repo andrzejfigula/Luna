@@ -546,6 +546,7 @@ def _feed(p, r, mi, dec):
                 if title and title != p.get("title"):
                     p["title"] = title
                     print(f"[radio] now playing: {title}", flush=True)
+                    visualizer.new_song(title)
     except Exception:
         pass
     finally:
@@ -565,6 +566,7 @@ def _play(p):
     out = subprocess.Popen(out_cmd + ["-"], stdin=subprocess.PIPE,
                            stderr=subprocess.DEVNULL, preexec_fn=_die_with_parent)
     p["out"] = out
+    visualizer.set_kind(_category_of(p["name"]))     # (its colours)
     gain = 0.0
     fails = 0
     urls = [p["url"]] + FALLBACKS.get(p["url"], [])
