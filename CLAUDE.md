@@ -47,6 +47,11 @@ After a brain.py / prompt change, run ONE real-model line
 - Parked: interrupting her by voice/camera (until a hardware-AEC speakerphone,
   `docs/voice-interrupt.md`); the web panel.
 - User-visible change → a plain-Polish line on top of `data/whatsnew.txt`.
+- **Before proposing a feature, check it isn't built already** (741+ are):
+  `grep -n -i '<keyword>' CO_NOWEGO.md docs/backlog-done.md *.py | head`
+  (Polish and English words). E.g. messages for a family member exist
+  (`messages.py`). Propose only what's missing, or name the existing module
+  and suggest an improvement to it.
 
 ## Pitfalls
 
