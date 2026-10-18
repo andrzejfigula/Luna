@@ -1,6 +1,10 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
+== 18 października ==
+- „Włącz coś z ulubionych”, „przełącz na ulubioną” — włączam jedną z twoich ulubionych stacji. Ulubioną stację możesz też włączyć po nazwie, np. „włącz Classic Vinyl HD”.
+- Jeśli powiem, że coś zrobiłam, a jednak się nie udało — od razu się poprawiam.
+
 == 17 października ==
 - Gdy mówię, a ty zaczniesz mówić do mnie, przestaję i słucham — widzę to w kamerze. Przy radiu też lepiej cię słyszę, gdy patrzysz na mnie i mówisz: radio od razu cichnie.
 - „Co mnie dziś czeka?” — mówię plan dnia: przypomnienia, sprawy na dziś i zaległe, urodziny i pogodę. Sprawy z dniem („jutro”, „w piątek”) zapisuję z datą i przypominam rano.

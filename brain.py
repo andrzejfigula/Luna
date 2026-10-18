@@ -1715,12 +1715,14 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             if a.get("type") == "command":
                 label = str(a.get("label", ""))
                 searched = searched or label.lower().startswith("wyszukaj w internecie")
-                tuned = tuned or bool(re.match(r"(?:włącz|wlacz)\s", label.strip(), re.I))
+                turn_on = bool(re.match(r"(?:włącz|wlacz)\s", label.strip(), re.I))
                 drew = drew or bool(re.match(r"(?:narysuj|namaluj|zrób\s+(?:mi\s+)?rysunek|"
                                              r"pokaż\s+(?:mi\s+)?(?:swoje\s+)?rysunki)",
                                              label.strip(), re.I))
                 try:
-                    if not run_command(label, reply):
+                    if run_command(label, reply):
+                        tuned = tuned or turn_on     # (a refused one doesn't count)
+                    else:
                         refused.append(label)
                 except Exception as e:
                     refused.append(label)
@@ -1741,7 +1743,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             # (13 Oct 10:46: Andrzej said "Tak." to her offer of Trójka)
             print(f"[brain] said she'd play {station!r} without the command — playing",
                   flush=True)
-            run_command(f"włącz {station}", reply)
+            tuned = bool(run_command(f"włącz {station}", reply))
 
         if (not drew and not translator() and _promised_drawing(reply)
                 and _ABOUT_DRAWING.search(text or "")):
@@ -1823,7 +1825,10 @@ _COMMAND_OK = re.compile(
     r"|^głośność\s+na\s+\d{1,3}(?:\s*%|\s+procent)?$"
     r"|^(?:wyłącz\s+się|idź\s+spać)$"
     # a station by its name ("włącz Polskie Radio Chopin" was refused, 11 Oct)
-    r"|^(?:włącz|puść)\s+(?:[\w.]+\s+){0,4}(?:radio|fm)\b[\w .]{0,40}$", re.I)
+    r"|^(?:włącz|puść)\s+(?:[\w.]+\s+){0,4}(?:radio|fm)\b[\w .]{0,40}$"
+    # her own capability text says to send these (18 Oct: refused three times)
+    r"|^(?:włącz|puść)\s+(?:moją\s+)?ulubioną\s+stację$|^(?:włącz|puść)\s+coś\s+z\s+ulubionych$",
+    re.I)
 # a game she offered and they said "tak" (7 Oct probe: "Nudzi mi się" → "Tak"
 # → "zagrajmy w kamień, papier, nożyce" — not allowed, nothing started). A
 # game talks itself (intro, questions), so these run with her voice.
@@ -2003,7 +2008,10 @@ def run_command(label, reply=""):
     label = re.sub(r"^(?:zrób|zrob)\s+(?:mi\s+|nam\s+)?(?:rysunek|obrazek)\s+|^namaluj\s+",
                    "narysuj ", label, flags=re.I)
     game = bool(_GAME_OK.match(label))
-    if not (game or _COMMAND_OK.match(label) or _VOICED_OK.match(label)):
+    on = re.match(r"(?:włącz|wlacz|puść|pusc)\s+(.{2,60})$", label, re.I)
+    import radio
+    station = bool(on) and radio.known(on.group(1))     # "włącz Classic Vinyl HD"
+    if not (game or station or _COMMAND_OK.match(label) or _VOICED_OK.match(label)):
         print(f"[brain] command not allowed: {label!r}", flush=True)
         return False
     if re.match(r"narysuj\b", label, re.I) and _just_praise():

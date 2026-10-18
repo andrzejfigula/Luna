@@ -5797,6 +5797,32 @@ class RadioCatalogTest(unittest.TestCase):
             self.assertEqual(shown, [("fav",)])
             self.assertEqual(got, ["Radio Swiss Jazz"])           # (the only favourite)
 
+    def test_favourites_18_oct(self):
+        # Andrzej's words that went to the model, whose commands were refused
+        import radio
+        import brain
+        import commands
+        g, p, mem = self._store()
+        with g, p:
+            radio.fav_toggle("Classic Vinyl HD", "http://vinyl")
+            got = []
+            with mock.patch.object(radio, "playing", lambda: None), \
+                    mock.patch.object(radio, "play", lambda n, u, **k: got.append((n, u))), \
+                    mock.patch.object(radio, "_remember_station", lambda n, u: None), \
+                    mock.patch.object(radio, "_lookup", lambda n: self.fail("went online")):
+                for t in ("Spróbuj jeszcze raz włączyć ulubionych.", "Coś z ulubionych.",
+                          "Przełącz na ulubioną stację.", "Włącz Classic Vinyl HD."):
+                    self.assertTrue(commands.handle(t, lambda *a: None, lambda *a, **k: True), t)
+                for label in ("włącz moją ulubioną stację", "włącz Classic Vinyl HD",
+                              "włącz SomaFM Groove Salad"):
+                    self.assertTrue(brain.run_command(label), label)
+            self.assertEqual(got[0], ("Classic Vinyl HD", "http://vinyl"))
+            self.assertEqual(got[3], ("Classic Vinyl HD", "http://vinyl"))
+            self.assertEqual(len(got), 7)
+            self.assertFalse(radio.known("Radio Nieistniejące"))
+            for t in ("Dodaj do ulubionych.", "Usuń z ulubionych.", "Mai ulubiony kolor to fiolet."):
+                self.assertFalse(radio._FAV_PLAY.search(t.lower()), t)
+
     def test_count_similar_and_the_time_of_day(self):
         import radio
         import commands

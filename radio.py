@@ -248,8 +248,14 @@ _FAV_ADD = re.compile(r"\b(?:dodaj|zapisz|zapamiętaj|zapamietaj|wrzuć|wrzuc)\s
 _FAV_SHOW = re.compile(r"^(?:luna,?\s+)?(?:(?:pokaż|pokaz)\s+(?:mi\s+)?)?(?:moje\s+)?ulubione"
                        r"(?:\s+(?:stacje|radia))?\W*$")
 _FAV_DEL = re.compile(r"\b(?:usuń|usun|wyrzuć|wyrzuc|skasuj|wykreśl|wykresl)\b.*\bz\s+ulubionych")
-_FAV_PLAY = re.compile(r"\b(?:włącz|wlacz|puść|pusc|zagraj|daj)\s+(?:mi\s+)?(?:moją\s+|moja\s+|moje\s+)?"
-                       r"ulubion\w*")
+# (18 Oct: "Spróbuj jeszcze raz włączyć ulubionych", "Coś z ulubionych." went to
+# the model, whose command was refused — three tries, no music)
+_FAV_PLAY = re.compile(r"\b(?:włącz\w*|wlacz\w*|puść|pusc|puścić|puscic|zagraj|zagrać|zagrac|daj|"
+                       r"odpal\w*|przełącz\w*|przelacz\w*|zmień|zmien)"
+                       r"(?:\s+(?:mi|nam|na|coś|cos|jakąś|jakas|jedną|jedna|którąś|ktoras|z|"
+                       r"moją|moja|moje|moich|stację|stacje|radio))*\s+ulubion\w*"
+                       r"|^(?:luna,?\s+)?(?:coś|cos|jakąś|jakas|cokolwiek|którąś|ktoras|jedną|jedna)"
+                       r"\s+z\s+(?:moich\s+)?ulubionych\W*$")
 _COUNT = re.compile(r"\bile\s+(?:masz\s+|mamy\s+|jest\s+)?(?:stacji|radi\w*|rozgłośni)"
                     r"|\bjakie\s+(?:masz\s+|mamy\s+)?(?:rodzaje|gatunki)\s+(?:muzyki|radia|stacji)")
 # "coś podobnego", "inną w tym stylu" — the next of the same kind
@@ -394,6 +400,9 @@ def _station(words):
     saved = settings.get("radio_found", {})
     if key in saved:
         return tuple(saved[key])
+    for n, u in favs() + [(s[0], s[1]) for _, _, _, sts in CATALOG for s in sts]:
+        if n.lower() == key:                # a favourite / the catalog's own stream
+            return n, u
     found = _lookup(w)
     if found:
         saved[key] = list(found)
@@ -943,6 +952,8 @@ def handle(text, speak):
             what = key                     # "włącz Polskie Radio Chopin", "włącz BBC Radio 1"
         elif _kind_asked(key):
             what = key                     # "włącz jazz" → a jazz station
+        elif known(key):
+            what = key                     # "włącz Classic Vinyl HD" — a favourite
         elif key not in STATIONS:
             return False
         else:
@@ -1126,6 +1137,21 @@ def favs():
     """[(name, url)] — the house's favourite stations."""
     import settings
     return [tuple(f) for f in settings.get("radio_favs", []) or []]
+
+
+def known(name):
+    """A station she already has — the catalog, a favourite, one found before
+    (no network): the model may send "włącz <it>" (18 Oct: "włącz Classic Vinyl
+    HD" was refused)."""
+    import settings
+    w = re.sub(r"^(?:radio|stację|stacje)\s+", "", (name or "").strip(" .!?").lower())
+    if not w:
+        return False
+    key = _ALIASES.get(w, w)
+    names = ({k.lower() for k in STATIONS} | {v[0].lower() for v in STATIONS.values()}
+             | {n.lower() for n, _ in favs()} | set(settings.get("radio_found", {}) or {}))
+    names |= {s[0].lower() for _, _, _, sts in CATALOG for s in sts}
+    return key in names
 
 
 def fav_toggle(name, url):
