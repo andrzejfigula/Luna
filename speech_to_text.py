@@ -30,7 +30,6 @@ import subprocess
 import time
 import wave
 import difflib
-import collections
 import threading
 import numpy as np
 import sounddevice as sd
@@ -66,7 +65,6 @@ from config import (
     CLOUD_STT_MAX_SECS,
     STT_END_SILENCE,
     STT_END_SILENCE_SHORT,
-    BARGE_IN,
     STT_SAVE_UTTERANCES,
     CLOUD_WAKE_CHECK,
     CLOUD_WAKE_MIN_INTERVAL,
@@ -180,58 +178,19 @@ def _print_mic_help():
 
 # ── Persistent stream (background thread) ─────────────────────────────────────
 
-_bq = queue.Queue(maxsize=100)    # her speech time: blocks for bargein.py
 _blocked = [False]
-
-
-_tail = collections.deque(maxlen=6)   # her speech time's last 1.5 s of microphone
-_open_until = [0.0]                   # open_mic_now(): the listener hears it all till then
-_route_lock = threading.Lock()
-
-
-def open_mic_now(secs_back=1.5):
-    """Someone began talking while she speaks (mouth.py saw it) and she was
-    just cut short: the listener gets the last `secs_back` of microphone —
-    the start of their sentence, said while the mic was shut for her voice
-    (17 Oct: after the camera stopped her it heard only "hej i", "nich") —
-    and everything from now on, while her voice dies away too."""
-    with _route_lock:
-        blocks = list(_tail)[-max(1, int(secs_back / 0.25)):]
-        _flush_queue()
-        for b in blocks:
-            try:
-                _q.put_nowait(b)
-            except queue.Full:
-                break
-        _open_until[0] = time.time() + 3.0
-        _blocked[0] = False
 
 
 def _callback(indata, frames, time_info, status):
     data = bytes(indata)
-    with _route_lock:
-        if time.time() < _open_until[0]:   # cut short for someone talking
-            try:
-                _q.put_nowait(data)
-            except queue.Full:
-                pass
-            return
     # while she speaks (and a moment after: the echo) the listener gets nothing
     # — it used to collect it and throw it away later, along with the first
-    # words said right after her (6 Oct); her speech time goes to barge-in
+    # words said right after her (6 Oct)
     speaking = state.speaking
     if speaking or time.time() < state.mic_unblock_time:
         if not _blocked[0]:
             _blocked[0] = True
             _flush_queue()                 # what was before her speech is stale
-            _tail.clear()
-        if speaking:
-            _tail.append(data)
-        if speaking and BARGE_IN:
-            try:
-                _bq.put_nowait(data)
-            except queue.Full:
-                pass
         return
     _blocked[0] = False
     try:
@@ -240,55 +199,9 @@ def _callback(indata, frames, time_info, status):
         pass   # drop oldest-style: consumer is behind, losing a block is fine
 
 
-def _barge_loop():
-    """"stop!" / "Luna!" while she speaks: she stops and listens (bargein.py)."""
-    det, was = None, False
-    while True:
-        data = _bq.get()
-        try:
-            if not state.speaking:
-                if was and det is not None:
-                    print(f"[barge] her voice in the mic: median level {det.echo_level():.0f}",
-                          flush=True)
-                    det.reset()
-                was = False
-                continue
-            was = True
-            if det is None:                  # (imported late: not at module import)
-                import bargein
-                det = bargein.Detector(_model, VOSK_SAMPLE_RATE)
-            data = _resample_to_16k(data)
-            if not data:
-                continue
-            import text_to_speech
-            found = det.feed(_apply_gain(data), text_to_speech.current_text(), _energy_gate())
-            if not found:
-                continue
-            import mouth
-            word, like_hers = found
-            ok, why = mouth.confirms_voice(strict=like_hers)
-            if not ok:
-                print(f"[barge] {word!r}" + (" (like her own words)" if like_hers else "")
-                      + f" — the camera: {why}", flush=True)
-                continue
-            det.reset()
-            if BARGE_IN == "log":
-                print(f"[barge] (log only) would stop on {word!r} — {why}", flush=True)
-                continue
-            print(f"[barge] {word!r} and the camera: {why} — she stops and listens", flush=True)
-            mouth.cut_short(f"voice ({word!r}) + camera")
-        except Exception as e:
-            print(f"[barge] error: {e}", flush=True)
-
-
-if BARGE_IN:
-    threading.Thread(target=_barge_loop, daemon=True, name="barge-in").start()
-
-
 def _pw_record(node):
-    """LUNA_MIC=pw:<node>: the microphone through PipeWire (pw-record) — e.g.
-    the echo-cancelled source of pi/60-luna-echo-cancel.conf, which the plain
-    ALSA stream can't reach. Blocks while the recorder runs."""
+    """LUNA_MIC=pw:<node>: the microphone through PipeWire (pw-record) — a
+    PipeWire source the plain ALSA stream can't reach. Blocks while the recorder runs."""
     global _mic_ok, _mic_rate
     rate = VOSK_SAMPLE_RATE
     cmd = ["pw-record", "--raw", "--target", node, "--rate", str(rate), "--channels", "1",

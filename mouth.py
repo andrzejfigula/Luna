@@ -1,8 +1,8 @@
 """
 mouth.py — is the person in front of her talking? Seen, not heard.
 
-The microphone can't tell your "stop!" from her own voice (bargein.py) or
-your "Luna" from the radio; the camera can: a talking mouth moves. The
+The microphone can't tell your "Luna" from the radio; the camera can: a
+talking mouth moves. The
 vision loop's face detector (YuNet) gives five points per face — eyes, nose
 tip, mouth corners — a few times a second; this thread looks at every camera
 frame (15 a second) and measures how much the picture of the mouth changed
@@ -14,18 +14,12 @@ changes both alike; a talking mouth changes 2–3× more than the nose
     activity()       — now: (talking, mouth change, nose change, face seen)
     during(secs)     — the last `secs`: share of frames with a face, share of
                        them that looked like talking, the best ratio — for the
-                       log lines ("[STT] heard=… mouth…", "[mouth] while she spoke…")
+                       log lines ("[STT] heard=… mouth…") and the radio wake
     dump()           — the last 10 min of tiny patches, to tune it offline
 
-MOUTH_STOP (config): while she speaks, talking seen for MOUTH_TALK_SECS
-stops her and she listens at once, as a finger held on the screen does —
-17 Oct, Andrzej: "detect when I speak from the camera" (the voice "stop!"
-couldn't tell him from her own voice). Tuned on two dumps of him talking
-over her: at MOUTH_RATIO 2.0 a second story was stopped 28 s late (talking
-in bursts, the head moving a little); at 1.6 every try ~0.5–1 s in, and
-still never while he listened, nodded or turned. The microphone's last
-1.5 s go to the listener (speech_to_text.open_mic_now) — the words said
-before she stopped.
+Used with the radio on (speech_to_text._mouth_talked, _seen_saying_it, and
+_duck_radio here): the radio has no face. It also stopped her mid-sentence
+for a day (17–18 Oct); that was dropped — see docs/voice-interrupt.md.
 """
 
 import collections
@@ -218,7 +212,6 @@ def _loop():
             _hist.append((now, d))
             while _hist and now - _hist[0][0] > KEEP:
                 _hist.popleft()
-        _watch(now)
         _duck_radio(now)
         if int(now) != int(now - 1.0 / RATE) and os.path.exists(DUMP_REQUEST):
             try:
@@ -226,43 +219,6 @@ def _loop():
                 dump()
             except OSError as e:
                 print(f"[mouth] dump failed: {e}", flush=True)
-
-
-_reply = {"on": False, "since": None, "logged": False, "t0": 0.0}
-
-
-def _watch(now):
-    """While she speaks: would the camera have stopped her? (logged)"""
-    from config import MOUTH_STOP, MOUTH_TALK_SECS
-    with state.lock:
-        speaking = state.speaking
-    r = _reply
-    if speaking and not r["on"]:
-        r.update(on=True, since=None, logged=False, t0=now)
-    elif not speaking and r["on"]:
-        r["on"] = False
-        if now - r["t0"] < 1.5:              # a "hmm", a click: nothing to say
-            return
-        print(f"[mouth] while she spoke {now - r['t0']:.1f}s: {describe(now - r['t0'], now)}",
-              flush=True)
-        return
-    if not speaking or not MOUTH_STOP:
-        return
-    talk, dm, dr, face = activity()
-    if face and talk:
-        if r["since"] is None:
-            r["since"] = now
-        elif now - r["since"] >= MOUTH_TALK_SECS and not r["logged"]:
-            r["logged"] = True
-            what = (f"mouth {dm:.2f} vs nose {dr:.2f} for "
-                    f"{now - r['since'] + WINDOW:.1f}s")
-            if MOUTH_STOP == "log":
-                print(f"[mouth] (log only) would stop her — {what}", flush=True)
-            else:
-                print(f"[mouth] you're talking — {what}: she stops and listens", flush=True)
-                _stop()
-    else:
-        r["since"] = None
 
 
 _radio = {"since": None, "logged": 0.0}
@@ -291,56 +247,6 @@ def _duck_radio(now):
             _radio["logged"] = now
             print(f"[mouth] someone facing her is talking — the radio quiets "
                   f"(mouth {dm:.2f} vs nose {dr:.2f})", flush=True)
-
-
-def _stop():
-    cut_short("the camera (your mouth moving)")
-
-
-def cut_short(who):
-    """Stop her mid-sentence and listen at once, no "Luna" needed — with the
-    words said over her (speech_to_text.open_mic_now), and the window kept
-    open after the reply even with the radio on (state.interrupted_at)."""
-    import speech_to_text
-    import text_to_speech
-    speech_to_text.open_mic_now()            # your first words, said over her
-    text_to_speech.stop_speaking(who=who)
-    with state.lock:
-        state.conversation_active = True
-        state.last_activity_time = time.time()
-        state.mic_unblock_time = time.time()
-        state.interrupted_at = time.time()
-
-
-def confirms_voice(strict, secs=1.5, now=None):
-    """bargein heard a stop word: did the face in front of her say it?
-    (verdict, why). Strict (a word like one of hers): talking() in a window
-    of the last `secs`. Otherwise the face MOVING is enough (mouth change ≥
-    MOUTH_MOVE_MIN): talking with the head moving changes the mouth and the
-    nose alike, as a nod does — 17 Oct 22:59 and 23:14, "Luna, stop" said
-    leaning in over the radio: mouth 0.10–0.32, nose as much, even with the
-    frames aligned. A listening face is still (0.02–0.03), and the stop words
-    Vosk made of her own voice came while it was (23:13:52–23:14:08: 4 of them)."""
-    from config import MOUTH_MOVE_MIN
-    now = time.time() if now is None else now
-    with _lock:
-        rows = [(t, d) for t, d in _hist if now - secs - WINDOW <= t <= now]
-    if not any(d is not None for t, d in rows if t >= now - 0.5):
-        return False, "no face in front of her"
-    moving = 0.0
-    for t, _ in rows:
-        if t < now - secs:
-            continue
-        dm, dr, n = _window(rows, t)
-        if n < 3:
-            continue
-        if talking(dm, dr, n):
-            return True, f"talking (mouth {dm:.2f} vs nose {dr:.2f})"
-        moving = max(moving, dm)
-    if not strict and moving >= MOUTH_MOVE_MIN:
-        return True, f"face moving ({moving:.2f})"
-    return False, (f"not talking (moving {moving:.2f})" if strict
-                   else f"face still ({moving:.2f})")
 
 
 def start():

@@ -77,8 +77,6 @@ class SharedState:
                                  # in view besides state.person (faces.py)
         "person",                # (name, similarity, time) — who is in front of her
                                  # (faces.py), or None
-        "interrupted_at",        # when she was last cut short by voice or camera
-                                 # (mouth.cut_short) — the window stays open
         "convo_closed_hard",     # the window was closed on purpose ("pa!", radio):
                                  # no grace for speech that began just after
         "voice_mood",            # forces the TTS delivery ("sleepy" for the
@@ -163,7 +161,6 @@ class SharedState:
         self.heard_at            = 0.0
         self.motion              = None
         self.convo_closed_hard   = False
-        self.interrupted_at      = 0.0
         self.sunrise             = None
         self.overlay             = None
         self.costume             = None

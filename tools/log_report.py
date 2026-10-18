@@ -24,7 +24,6 @@ PATTERNS = [
     ("fast commands (no cloud)", r"sure of \".*\" — no cloud"),
     ("cut-off sentences held", r"cut off mid-sentence"),
     ("false wakes dropped", r"\[STT\] false wake"),
-    ("voice stop: would have stopped her", r"\[barge\] \(log only\)"),
     ("voice stop: stopped her", r"interrupted by voice"),
     ("reading aloud sessions", r"\[reading\] listening"),
     ("reminder promised → asked when", r"promised a reminder without one"),

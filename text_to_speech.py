@@ -208,7 +208,6 @@ def speak(text, can_drop=False):
     def run(style):
         print(f"[Luna] {text}")
         _caption(text)
-        _current[0] = text                  # (bargein.py: her own words aren't "stop")
         _engine_speak(text, style)
         _last_answer[0] = text
 
@@ -222,10 +221,8 @@ def speak_stream(sentences):
     said = []
 
     def collect():
-        _current[0] = ""
         for sentence in sentences:
             said.append(sentence)
-            _current[0] = " ".join(said)
             print(f"[Luna] {sentence}")
             _caption(sentence)
             yield sentence
@@ -333,15 +330,8 @@ def play_clip(pcm24, label="(wiadomość głosowa)"):
     _speaking(run, lambda: label, False)
 
 
-_current = [""]          # what she is saying now (bargein.py ignores these words)
-
-
-def current_text():
-    return _current[0]
-
-
 def stop_speaking(who="touch"):
-    """Cut her short (a tap on the screen, or "stop!" said — bargein.py)."""
+    """Cut her short (a finger held on the screen)."""
     with state.lock:
         talking = state.speaking
     if talking:

@@ -118,29 +118,15 @@ CONVO_GRACE        = 4    # speech that STARTED up to this long after the window
                            # closed is still answered — you began in time
 POST_SPEAK_DELAY   = 0.2   # settle time after Luna speaks before listening again
 DOUBLE_FLUSH       = True  # flush audio queue twice (before and after delay)
-# Barge-in (bargein.py): while she speaks, these words stop her and she listens
-# Talking seen by the camera (mouth.py): while she speaks, the mouth of the
-# face in front of her changing much more than the part above the nose stops
-# her and she listens. Tuned on 17 Oct's dump (see mouth.py).
-MOUTH_STOP       = True    # True / False / "log" (only "[mouth] (log only) would stop her")
-MOUTH_RATIO      = 1.6     # mouth change ≥ this × the change above the nose (2.0:
-                           # a talk-over in bursts was caught 28 s late, 17 Oct 22:35)
+# Talking seen by the camera (mouth.py): the mouth of the face in front of her
+# changing much more than the part above the nose — with the radio on it
+# quiets the radio and wakes her (the radio has no face). Tuned on 17 Oct's
+# dumps. (Stopping her mid-sentence by voice or camera: dropped 18 Oct —
+# docs/voice-interrupt.md.)
+MOUTH_RATIO      = 1.6     # mouth change ≥ this × the change above the nose
 MOUTH_MIN_CHANGE = 0.07    # …and at least this much (a still face: 0.02–0.07)
 MOUTH_MAX_HEAD   = 0.15    # above the nose more than this: the head moves, no verdict
 MOUTH_TALK_SECS  = 0.4     # held this long (on top of the 0.6 s window)
-MOUTH_MOVE_MIN   = 0.09    # a stop word heard (bargein.py): the face in front MOVING (mouth
-                           # change, head or not) is enough — talking with the head moving
-                           # looks like a nod to the camera (mouth ≈ nose, even aligned),
-                           # but a listener is still: 0.02–0.03 (17 Oct dumps)
-BARGE_IN        = True    # True / False / "log" ("[barge] (log only) would stop…"). Vosk
-                           # alone stopped her by herself (1 in 15 replies, 6 Oct) — now it
-                           # only nominates and the camera decides (bargein.py, 17 Oct)
-BARGE_WORDS     = ["stop", "przestań", "cicho", "luna", "luno"]   # (not "poczekaj", "dość":
-                   # her own "poszukajmy" was heard as "poczekaj" — offline test, 6 Oct)
-BARGE_MIN_CONF  = 0.5     # (0.85 when Vosk decided alone; the camera decides now)
-BARGE_OVER_ECHO = 1.2      # louder than her own voice in the mic by this much (was 1.6
-                           # and 2× the noise gate — with the radio on the gate was above
-                           # Andrzej's "luna", 17 Oct 22:59)
 MIC_BLOCK_AFTER_SPEAK = 0.2   # (was 0.45, and listen() then waited 0.2 s more and threw
                               # away what came: "I start talking before she listens",
                               # 6 Oct) — echo-guard after speech ends (speech itself already
