@@ -155,6 +155,11 @@ LOCAL = {
     "Mów do mnie po angielsku": "language",
     "Mów po polsku": "language",
     "Włącz szum deszczu": "ambience",
+    "Luna, włącz efekty": "vis",                   # 18 Oct: to the model ("nie mogę")
+    "Włącz wizualizację": "vis",
+    "Włącz efekt w radiu fale": "vis",             # (18 Oct: the sea, the radio off)
+    "Wyłącz efekty": "vis",
+    "Zmień efekt": "vis",
     "Szum morza na 30 minut": "ambience",
     "Biały szum": "ambience",
     "Wyłącz szum": "ambience",
@@ -359,7 +364,8 @@ class RoutingTest(unittest.TestCase):
             (commands, "get_volume", lambda: 0.5),
             (commands.settings, "put", lambda k, v: self._mark(
                 {"captions": "captions", "tts_speed": "speed",
-                 "reply_length": "length"}.get(k, "radio"))),
+                 "reply_length": "length", "radio_vis": "vis",
+                 "radio_vis_last": "vis"}.get(k, "radio"))),
             (commands, "go_to_sleep", lambda: self._mark("sleep")),
             (greetings, "bye", lambda *a, **k: "<BYE>"),
             (commands, "DONE_REPLIES", ["<BYE>"]),
@@ -484,6 +490,9 @@ class RoutingTest(unittest.TestCase):
             self._mark("asked")
         if any(t.startswith(("Przywróciłam", "Nie mam czego przywrócić")) for t in said):
             self._mark("lists")
+        if any(t.startswith(("Dobrze, bez efektów", "Efekty są", "Dobrze — fala",
+                             "Dobrze — słupki", "Dobrze — wskaźnik")) for t in said):
+            self._mark("vis")
         if any(t.startswith("Stoper") for t in said):
             self._mark("count")
         if any(t.startswith("Dobrze, nie słucham") for t in said):

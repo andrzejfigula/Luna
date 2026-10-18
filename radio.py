@@ -787,9 +787,6 @@ def handle(text, speak):
     import settings
     _say[0] = speak
     low = text.lower().strip(" .!?")
-    if ((playing() or re.search(r"efekt|wizualiz", low))
-            and visualizer.handle(low, speak)):    # "zmień efekt", "pokaż słupki"
-        return True
     if _RESUME.match(low):
         text = low = "włącz radio"             # your last station (_station)
     if _COUNT.search(low):                 # "ile masz stacji?"

@@ -6726,18 +6726,27 @@ class RadioVisualizerTest(unittest.TestCase):
 
     def test_voice(self):
         import settings
-        put, said, got = settings.put, [], []
-        settings.put = lambda k, val: got.append((k, val))
+        put, get, said, st = settings.put, settings.get, [], {"radio_vis": "off"}
+        settings.put = lambda k, val: st.__setitem__(k, val)
+        settings.get = lambda k, d=None: st.get(k, d)
         try:
             for text, want in (("pokaż słupki", "slupki"), ("włącz falę", "fala"),
                                ("pokaż wskaźnik w oczach", "oczy"),
-                               ("wyłącz efekty", "off"), ("zmień efekt", "fala")):
-                self.v._style[:] = ["off", 1e12]
+                               ("wyłącz efekty", "off"),
+                               ("włącz efekt", "oczy"),           # 18 Oct: back to the last one
+                               ("wyłącz wizualizację", "off"),
+                               ("włącz wizualizację", "oczy"),
+                               ("włącz efekt w radiu fale", "fala"),   # (was the sea)
+                               ("zmień efekt", "slupki")):
+                self.v._style[:] = [None, 0.0]
                 self.assertTrue(self.v.handle(text, said.append), text)
-                self.assertEqual(got[-1], ("radio_vis", want), text)
-            for text in ("pokaż wszystkie stacje", "wyłącz radio", "zmień stację"):
+                self.assertEqual(st["radio_vis"], want, text)
+            for text in ("pokaż wszystkie stacje", "wyłącz radio", "zmień stację",
+                         "włącz szum fal", "włącz szum morza"):
                 self.assertFalse(self.v.handle(text, said.append), text)
+            self.assertFalse(self.v.handle("włącz fale", said.append, radio_on=False))
         finally:
+            settings.get = get
             settings.put = put
 
 # Off the Pi (Windows) the hardware / SDK modules are missing: those tests

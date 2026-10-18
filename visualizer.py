@@ -11,8 +11,9 @@ second). gl_face reads uniforms() every frame and draws, by settings
   "oczy"    — a VU meter in her eyes (left / right channel), nothing behind
   "wszystko"— the waves and the eyes
   "off"     — nothing (she still sways with the beat)
-Voice: "zmień efekt" (the next one), "pokaż falę / słupki / wskaźnik w
-oczach", "wyłącz efekty".
+Voice: "włącz / wyłącz efekty", "zmień efekt" (the next one), "pokaż
+falę / słupki / wskaźnik w oczach" (commands.handle, before ambience: "fale"
+is not the sea).
 """
 
 import collections
@@ -176,34 +177,48 @@ def music_energy():
     return c["on"] * max(_vu(c["l"]), _vu(c["r"]))
 
 
-_SET = re.compile(r"\b(?:poka[żz]|w[łl][aą]cz|daj|ustaw)\w*\s+(?:mi\s+)?"
-                  r"(fal[eęaiy]|s[łl]upki|korektor|equalizer|widmo|wska[źz]nik\w*"
-                  r"(?:\s+w\s+oczach)?|vu)\b")
-_NEXT = re.compile(r"\b(?:zmie[ńn]|inny|inna|nast[eę]pny)\s+(?:efekt|wizualizacj[eęa])\b")
-_OFF = re.compile(r"\b(?:wy[łl][aą]cz|bez|schowaj|zgaś)\s+(?:te\s+)?(?:efekt\w*|wizualizacj\w*"
-                  r"|fal[eęaiy]|s[łl]upki|korektor)\b")
+_WORD = re.compile(r"\befekt|\bwizualiz|\bwizualn")
+_KINDS = ((re.compile(r"\bfal[aęeiy]?\b|\bfalk"), "fala"),
+          (re.compile(r"s[łl]up|korektor|equali[sz]er|\bwidmo"), "slupki"),
+          (re.compile(r"\boczach\b|\boczy\b|wska[źz]nik|\bvu\b"), "oczy"))
+_VERB = re.compile(r"\b(?:poka[żz]|w[łl][aą]cz|daj|ustaw|zr[oó]b|chc[eę]|wr[oó][ćc])")
+_NEXT = re.compile(r"\b(?:zmie[ńn]|inn[ya]|nast[eę]pn[ya])\b")
+_OFFW = re.compile(r"\b(?:wy[łl][aą]cz|bez\b|schowaj|zga[śs]|nie\s+chc|wystarczy|koniec)")
+_NOT_US = re.compile(r"\bszum|\bmorz|\bdeszcz|\bocean")      # sea waves: ambience.py
 
 
-def handle(low, speak):
-    """'zmień efekt', 'pokaż falę / słupki / wskaźnik w oczach', 'wyłącz
-    efekty' — True when handled."""
+def handle(low, speak, radio_on=True):
+    """'włącz / wyłącz efekty', 'zmień efekt', 'pokaż falę / słupki /
+    wskaźnik w oczach' — True when handled. Without the word "efekt" /
+    "wizualizacja" only while the radio plays."""
     import settings
-    new = None
-    if _OFF.search(low):
-        new = "off"
-    elif _NEXT.search(low):
-        cur = style()
-        new = STYLES[(STYLES.index(cur) + 1) % len(STYLES)]
-    else:
-        m = _SET.search(low)
-        if m:
-            w = m.group(1)
-            new = ("fala" if w.startswith("fal") else
-                   "oczy" if w.startswith(("wska", "vu")) else "slupki")
-    if new is None:
+    if _NOT_US.search(low):
         return False
+    word = bool(_WORD.search(low))
+    named = next((k for rx, k in _KINDS if rx.search(low)), None)
+    if not word and not (radio_on and named and (_VERB.search(low) or _OFFW.search(low))):
+        return False
+    cur = style()
+    if _OFFW.search(low):
+        new = "off"
+    elif named:
+        new = named
+    elif _NEXT.search(low):
+        new = STYLES[(STYLES.index(cur) + 1) % len(STYLES)]
+    elif cur == "off":
+        last = settings.get("radio_vis_last", "fala")
+        new = last if last in STYLES and last != "off" else "fala"
+    else:
+        speak(f"Efekty są włączone — teraz {NAMES[cur]}. Powiedz „zmień efekt”, "
+              "a pokażę inny.")
+        return True
     settings.put("radio_vis", new)
+    if new != "off":
+        settings.put("radio_vis_last", new)
     _style[0] = None
     print(f"[vis] style: {new}", flush=True)
-    speak("Dobrze, bez efektów." if new == "off" else f"Dobrze — {NAMES[new]}.")
+    if new == "off":
+        speak("Dobrze, bez efektów. Powiedz „włącz efekty”, gdy zechcesz je z powrotem.")
+    else:
+        speak(f"Dobrze — {NAMES[new]}." + ("" if radio_on else " Zobaczysz, gdy włączysz radio."))
     return True

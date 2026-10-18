@@ -2,7 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 18 października ==
-- Gdy gra radio, muzykę widać na moim ekranie: świecąca fala pod buzią. „Zmień efekt” — słupki, wskaźnik w oczach albo fala; „wyłącz efekty”, gdy wolisz bez.
+- Gdy gra radio, muzykę widać na moim ekranie: świecąca fala pod buzią. „Zmień efekt” — słupki, wskaźnik w oczach albo fala; „wyłącz efekty”, gdy wolisz bez, i „włącz efekty”, żeby wróciły.
 - „Włącz coś z ulubionych”, „przełącz na ulubioną” — włączam jedną z twoich ulubionych stacji. Ulubioną stację możesz też włączyć po nazwie, np. „włącz Classic Vinyl HD”.
 - Jeśli powiem, że coś zrobiłam, a jednak się nie udało — od razu się poprawiam.
 

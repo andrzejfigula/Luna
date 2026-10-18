@@ -1812,6 +1812,11 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
     if question:
         return False
 
+    import visualizer                              # "włącz efekty", "zmień efekt" —
+    if visualizer.handle(low.strip(" .!?"), speak,  # before the radio's "zmień"/"wyłącz"
+                         _radio.playing() is not None):   # and ambience's "fale"
+        return True
+
     with state.lock:
         online = state.online
     if not online:                                 # the model can't do it now:
