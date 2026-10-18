@@ -823,7 +823,10 @@ class TimersTest(unittest.TestCase):
                 ambience.play("sea", 1)
                 time.sleep(0.2)
                 ambience.play("fire", 1)
-                time.sleep(0.3)
+                end = time.time() + 10                # (a busy Pi builds a loop slowly)
+                while not tap.called and time.time() < end:
+                    time.sleep(0.05)
+                time.sleep(0.2)
                 self.assertEqual(state.radio, "♪ " + ambience.NAMES["fire"])
                 self.assertEqual(ambience.playing(), "fire")
                 self.assertTrue(tap.called)
