@@ -2357,6 +2357,16 @@ class KidsTest(unittest.TestCase):
             self.assertFalse(brain.awaits_answer())
             brain._history[-1]["content"] = "Włączam Lofi 24/7 — spokojna muzyka do pracy."
             self.assertFalse(brain.awaits_answer())
+            # a phrase for later is no question (19 Oct: radio on, she listened on)
+            for said in ("Dobrze, bez efektów. Powiedz „włącz efekty”, gdy zechcesz je z powrotem.",
+                         "Dobrze, tłumaczę na angielski. Powiedz „koniec tłumaczenia”, żeby skończyć.",
+                         "Dodałam. Gdy gra taka, którą lubisz, powiedz „dodaj do ulubionych”."):
+                brain._history[-1]["content"] = said
+                self.assertFalse(brain.awaits_answer(), said)
+            for said in ("Mam to zrobić? Powiedz „tak” albo „nie”.",
+                         "Powiedz „włącz efekty”, gdy zechcesz. A może coś jeszcze?"):
+                brain._history[-1]["content"] = said
+                self.assertTrue(brain.awaits_answer(), said)
         finally:
             brain._history[:] = old
 

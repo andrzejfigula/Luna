@@ -2057,11 +2057,19 @@ _INVITES = re.compile(r"\?|\b(?:wybieraj|wybierz|wybierasz|jeśli\s+chcesz|chces
                       r"powiedz(?:\s+mi)?|co\s+wolisz|mogę\s+zaproponować)\b", re.I)
 
 
+# "Powiedz „włącz efekty”, gdy zechcesz…" — a phrase for later, not a question
+# (19 Oct: she listened on with the radio on); „tak” albo „nie” still asks
+_HOWTO = re.compile(r"[^.!?]*\bpowiedz(?:\s+mi)?\s*:?\s*[„\"][^”\"]*[”\"][^.!?]*[.!]?", re.I)
+_CHOICE = re.compile(r"[”\"]\s*(?:,\s*)?(?:albo|lub|czy)\s+[„\"]", re.I)
+
+
 def awaits_answer():
     """Her last words asked something or offered a choice — the next thing
     said is the answer. 16 Oct 13:56, radio on: "…minutnik, listę, radio
     albo krótki quiz — wybieraj." and the window closed on the answer."""
-    return bool(_INVITES.search(last_reply()[-160:]))
+    text = last_reply()[-160:]
+    text = _HOWTO.sub(lambda m: m.group(0) if _CHOICE.search(m.group(0)) else " ", text)
+    return bool(_INVITES.search(text))
 
 
 def last_reply():
