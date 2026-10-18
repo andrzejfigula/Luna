@@ -120,13 +120,12 @@ POST_SPEAK_DELAY   = 0.2   # settle time after Luna speaks before listening agai
 DOUBLE_FLUSH       = True  # flush audio queue twice (before and after delay)
 # Talking seen by the camera (mouth.py): the mouth of the face in front of her
 # changing much more than the part above the nose — with the radio on it
-# quiets the radio and wakes her (the radio has no face). Tuned on 17 Oct's
+# helps her hear "Luna" (the radio has no face). Tuned on 17 Oct's
 # dumps. (Stopping her mid-sentence by voice or camera: dropped 18 Oct —
 # docs/voice-interrupt.md.)
 MOUTH_RATIO      = 1.6     # mouth change ≥ this × the change above the nose
 MOUTH_MIN_CHANGE = 0.07    # …and at least this much (a still face: 0.02–0.07)
 MOUTH_MAX_HEAD   = 0.15    # above the nose more than this: the head moves, no verdict
-MOUTH_TALK_SECS  = 0.4     # held this long (on top of the 0.6 s window)
 MIC_BLOCK_AFTER_SPEAK = 0.2   # (was 0.45, and listen() then waited 0.2 s more and threw
                               # away what came: "I start talking before she listens",
                               # 6 Oct) — echo-guard after speech ends (speech itself already

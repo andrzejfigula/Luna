@@ -27,10 +27,14 @@ if [ -n "$new" ]; then
     echo "[deploy] not in git yet, so NOT copied (git add them first):"; sed 's/^/  /' <<<"$new"
 fi
 files=$(git ls-files | grep -v -E '\.md$|^\.git|^\.env')
-local_sums=$(for f in $files; do printf '%s %s\n' "$(tr -d '\r' < "$f" | md5sum | cut -c1-32)" "$f"; done)
-remote_sums=$(printf '%s\n' $files | ssh "$PI" 'cd ~/luna && while read f; do
-    if [ -f "$f" ]; then printf "%s %s\n" "$(tr -d "\r" < "$f" | md5sum | cut -c1-32)" "$f";
-    else printf "missing %s\n" "$f"; fi; done')
+# one checksum program per side for all the files (it was three programs per
+# file — ~20 s on Windows); raw bytes, so a file differing only in line
+# endings is copied too (harmless)
+local_sums=$(printf '%s\n' $files | xargs -d '\n' md5sum | awk '{sub(/^\*/, "", $2); print $1, $2}')
+remote_sums=$(printf '%s\n' $files | ssh -o ConnectTimeout=10 "$PI" 'cd ~/luna && ./venv/bin/python -c "
+import hashlib, os, sys
+for f in sys.stdin.read().split():
+    print(hashlib.md5(open(f, \"rb\").read()).hexdigest() if os.path.isfile(f) else \"missing\", f)"')
 changed=$(join -1 2 -2 2 <(sort -k2 <<<"$local_sums") <(sort -k2 <<<"$remote_sums") \
           | awk '$2 != $3 {print $1}')
 
@@ -39,10 +43,11 @@ if [ -z "$changed" ]; then
 else
     echo "[deploy] differs on the Pi:"; sed 's/^/  /' <<<"$changed"
     if [ "${1:-}" != "--dry-run" ]; then
-        for f in $changed; do
-            ssh "$PI" "mkdir -p ~/luna/$(dirname "$f")"
-            scp -q "$f" "$PI:luna/$f"
-        done
+        # all of them in one connection (it was two per file)
+        tar -cf - $changed | ssh -o ConnectTimeout=10 "$PI" \
+            'cd ~/luna && tar -xf -'
+        sh_files=$(grep '\.sh$' <<<"$changed" || true)
+        [ -n "$sh_files" ] && ssh "$PI" "cd ~/luna && chmod +x $(tr '\n' ' ' <<<"$sh_files")"
         echo "[deploy] copied $(wc -l <<<"$changed") file(s)"
     fi
 fi

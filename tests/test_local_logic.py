@@ -6493,27 +6493,18 @@ class ImprovementsTest(unittest.TestCase):
              mock.patch.object(mouth, "during", talk(0.48)):
             self.assertIsNone(stt._seen_saying_it("Jaka będzie jutro pogoda?", 2.0))
 
-    def test_the_radio_quiets_for_a_talking_face(self):
-        import mouth
-        with state.lock:
-            saved = (state.radio, state.speaking, state.name_heard_at)
-            state.radio, state.speaking, state.name_heard_at = "Jazz", False, 0.0
-        try:
-            with mock.patch.object(mouth, "activity", lambda: (True, 0.15, 0.04, True)):
-                mouth._radio["since"] = None
-                mouth._duck_radio(100.0)
-                self.assertEqual(state.name_heard_at, 0.0)       # not held long enough yet
-                mouth._duck_radio(100.5)
-                self.assertEqual(state.name_heard_at, 100.5)
-            with mock.patch.object(mouth, "activity", lambda: (False, 0.03, 0.03, True)):
-                state.name_heard_at = 0.0
-                mouth._duck_radio(101.0)
-                mouth._duck_radio(102.0)
-                self.assertEqual(state.name_heard_at, 0.0)
-        finally:
-            with state.lock:
-                state.radio, state.speaking, state.name_heard_at = saved
-            mouth._radio["since"] = None
+    def test_the_radio_quiets_for_her_name_not_for_any_talking_face(self):
+        import speech_to_text as stt
+        talked = lambda yes: mock.patch.object(stt, "_mouth_talked", lambda secs: yes)
+        with mock.patch.object(stt, "_radio_on", lambda: True):
+            with talked(True):
+                self.assertTrue(stt._name_in_partial("nuda jaka jutro".split()))   # Vosk's "Luna"
+                self.assertFalse(stt._name_in_partial("co dziś na obiad".split()))  # talking, no name
+            with talked(False):
+                self.assertTrue(stt._name_in_partial("luna jaka".split()))         # her name: always
+                self.assertFalse(stt._name_in_partial("nuda jaka jutro".split()))  # the radio's own
+        with mock.patch.object(stt, "_radio_on", lambda: False), talked(True):
+            self.assertFalse(stt._name_in_partial("nuda jaka jutro".split()))
 
     def test_the_radio_ducks_as_soon_as_her_name_is_said(self):
         import radio

@@ -17,8 +17,8 @@ changes both alike; a talking mouth changes 2–3× more than the nose
                        log lines ("[STT] heard=… mouth…") and the radio wake
     dump()           — the last 10 min of tiny patches, to tune it offline
 
-Used with the radio on (speech_to_text._mouth_talked, _seen_saying_it, and
-_duck_radio here): the radio has no face. It also stopped her mid-sentence
+Used with the radio on (speech_to_text._mouth_talked, _seen_saying_it,
+_name_in_partial): the radio has no face. It also stopped her mid-sentence
 for a day (17–18 Oct); that was dropped — see docs/voice-interrupt.md.
 """
 
@@ -212,41 +212,12 @@ def _loop():
             _hist.append((now, d))
             while _hist and now - _hist[0][0] > KEEP:
                 _hist.popleft()
-        _duck_radio(now)
         if int(now) != int(now - 1.0 / RATE) and os.path.exists(DUMP_REQUEST):
             try:
                 os.remove(DUMP_REQUEST)
                 dump()
             except OSError as e:
                 print(f"[mouth] dump failed: {e}", flush=True)
-
-
-_radio = {"since": None, "logged": 0.0}
-
-
-def _duck_radio(now):
-    """The radio plays and the face in front of her starts talking: it quiets
-    at once (radio._ducked, the same 4 s as when her name is in Vosk's words)
-    — so the rest of "Luna, jaka jutro pogoda?" is heard over it."""
-    from config import MOUTH_TALK_SECS
-    with state.lock:
-        playing, speaking = state.radio, state.speaking
-    if not playing or speaking:
-        _radio["since"] = None
-        return
-    talk, dm, dr, face = activity()
-    if not (face and talk):
-        _radio["since"] = None
-        return
-    if _radio["since"] is None:
-        _radio["since"] = now
-    elif now - _radio["since"] >= MOUTH_TALK_SECS:
-        with state.lock:
-            state.name_heard_at = now
-        if now - _radio["logged"] > 20:
-            _radio["logged"] = now
-            print(f"[mouth] someone facing her is talking — the radio quiets "
-                  f"(mouth {dm:.2f} vs nose {dr:.2f})", flush=True)
 
 
 def start():

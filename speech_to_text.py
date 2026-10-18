@@ -824,6 +824,17 @@ def _maybe_wake(words):
     return _sounds_like_name(words) or len(words) <= 2
 
 
+def _name_in_partial(words):
+    """Her name at the start of the words still being said — the radio
+    quiets at once (radio._ducked). Her exact name; or, with the radio on,
+    a word like it ("nuda", "runda" — how Vosk hears "Luna" over music)
+    said by the face in front of her, seen talking. (The camera alone
+    quieted it whenever anyone facing her talked, 18 Oct: "at random".)"""
+    if _find_wake_word(words[:4]) is not None:
+        return True
+    return _sounds_like_name(words) and _radio_on() and _mouth_talked(1.5)
+
+
 def _sounds_like_name(words, strict=False):
     """One of the first three words a bit like "Luna". Strict (the radio
     on): a short everyday word doesn't count — "nie" is 0.75
@@ -1645,7 +1656,7 @@ def listen():
 
         partial = json.loads(rec.PartialResult()).get("partial", "")
         if partial:
-            named = not active and _find_wake_word(partial.split()[:4]) is not None
+            named = not active and _name_in_partial(partial.split())
             with state.lock:
                 state.heard_text = partial
                 if named:                        # the radio quiets now (radio._ducked)
