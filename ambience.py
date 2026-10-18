@@ -64,13 +64,16 @@ def _die_with_parent():
 LOOP_SECS = 30
 
 
-def _shaped_noise(n, power, rng):
+def _shaped_noise(n, power, rng, corner=1.0):
     """Noise with a 1/f^power spectrum, made with one FFT. An FFT-made signal
-    is periodic, so it loops with no seam (pink: 1, brown: 2)."""
+    is periodic, so it loops with no seam (pink: 1, brown: 2). Flat below
+    `corner` Hz and nothing under 30 Hz — else brown noise is all sub-audio
+    drift and plays as silence."""
     spec = rng.standard_normal(n // 2 + 1) + 1j * rng.standard_normal(n // 2 + 1)
-    f = np.arange(n // 2 + 1, dtype=float)
-    f[0] = 1.0
-    x = np.fft.irfft(spec / f ** (power / 2), n)
+    f = np.arange(n // 2 + 1, dtype=float) * RATE / n
+    shape = 1.0 / np.maximum(f, corner) ** (power / 2)
+    shape[f < 30] = 0.0
+    x = np.fft.irfft(spec * shape, n)
     return x / (np.abs(x).max() + 1e-9)
 
 
@@ -83,8 +86,9 @@ class _Gen:
         self.rng = np.random.default_rng()
         n = LOOP_SECS * RATE
         power = {"sea": 2.0, "fire": 2.0}.get(kind, 1.0)
-        level = {"sea": 0.9, "fire": 0.45, "forest": 0.22}.get(kind, 0.5)
-        self.loop = _shaped_noise(n, power, self.rng) * level
+        level = {"sea": 0.6, "fire": 0.35, "forest": 0.22}.get(kind, 0.5)
+        corner = {"sea": 250.0, "fire": 120.0}.get(kind, 1.0)
+        self.loop = _shaped_noise(n, power, self.rng, corner) * level
         self.drop = np.exp(-np.arange(160) / 30.0)          # one raindrop's decay
         self.crack = np.exp(-np.arange(90) / 7.0)           # one crackle's decay
         self.bird = np.zeros(0)                             # a song still being sung

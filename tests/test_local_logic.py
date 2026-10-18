@@ -782,6 +782,18 @@ class TimersTest(unittest.TestCase):
         self.assertTrue(commands._SCREEN_AFTER.match("ekran ciemniej"))
         self.assertEqual(commands._SCREEN_AFTER.match("jasność ekranu na 50").group(2), "50")
 
+    def test_every_ambience_sound_is_audible(self):
+        # 18 Oct: the sea was brown noise all below 30 Hz — it played as silence
+        import numpy as np
+        import ambience
+        for kind in ambience.NAMES:
+            g = ambience._Gen(kind)
+            x = np.concatenate([g.block() for _ in range(100)])
+            spec = np.abs(np.fft.rfft(x)) ** 2
+            f = np.fft.rfftfreq(len(x), 1 / ambience.RATE)
+            audible = np.sqrt(spec[f > 60].sum() / spec.sum() * (x ** 2).mean())
+            self.assertGreater(audible, 0.02, kind)
+
     def test_fire_and_forest_sounds(self):
         import numpy as np
         import ambience
