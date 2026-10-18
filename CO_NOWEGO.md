@@ -1,7 +1,7 @@
 # Luna — co nowego (paczka-niespodzianka)
 
 Ściąga: co Luna teraz potrafi i jak to wywołać. Wszystko po polsku, zwykłymi
-zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `BACKLOG.md`.
+zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `docs/backlog-done.md`.
 
 > **Nowe (13.10, przed południem):** „Jak zrobić naleśniki **krok po kroku**?” · „**Usuń budzik** na 6:40” · „**Daj** jakąś muzykę”, „puść coś do biegania” · „Ile dni do **wakacji**?” · „Jestem Kasia, **zapamiętaj mnie**” · „Czy mam jakieś wiadomości?” — także to, co ktoś prosił przekazać · „**Nie patrz na mnie**”, „wycisz się”, „przestań gadać” · „bądź cicho do 15” i wyłączona kamera **zostają po restarcie** · zdjęcia i rysunki: broń, wojna, alkohol, papierosy itp. — „to nie jest dla dzieci” · „zagrajmy w zwierzaki”, „jak wyglądają pingwiny?” · „Umyłam zęby” w wieczornej liście = krok zrobiony.
 >
