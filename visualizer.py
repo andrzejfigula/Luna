@@ -37,14 +37,24 @@ NAMES = {"wstegi": "świecące wstęgi", "pierscienie": "pierścienie dźwięku"
 _OLD = {"fala": "wstegi", "wszystko": "wstegi", "oczy": "wstegi"}   # (taken out since)
 _MODE = {"wstegi": 1.0, "pierscienie": 2.0, "iskry": 3.0, "slupki": 4.0,
          "oscyloskop": 5.0, "nutki": 6.0}
-# the station's kind → (main, accent) colours
-PALETTES = {None: ((1.0, 0.52, 0.12), (1.0, 0.80, 0.35)),
-            "calm": ((1.0, 0.58, 0.20), (0.30, 0.85, 0.80)),
-            "jazz": ((0.62, 0.30, 1.0), (0.25, 0.55, 1.0)),
-            "classic": ((1.0, 0.76, 0.32), (1.0, 0.93, 0.78)),
-            "rock": ((1.0, 0.28, 0.06), (1.0, 0.62, 0.10)),
-            "electronic": ((1.0, 0.25, 0.75), (0.20, 0.85, 1.0)),
-            "kids": ((1.0, 0.45, 0.70), (1.0, 0.85, 0.25))}
+# colour pairs (main, accent); settings "radio_vis_col": one of them, or "auto"
+# (the station kind's at its start, then another with each song)
+COLORS = {"pomaranczowe": ((1.0, 0.52, 0.12), (1.0, 0.80, 0.35)),
+          "fioletowe": ((0.62, 0.30, 1.0), (0.25, 0.55, 1.0)),
+          "neonowe": ((1.0, 0.25, 0.75), (0.20, 0.85, 1.0)),
+          "zielone": ((0.20, 1.0, 0.55), (0.15, 0.70, 1.0)),
+          "rozowe": ((1.0, 0.45, 0.70), (1.0, 0.85, 0.25)),
+          "niebieskie": ((0.20, 0.55, 1.0), (0.65, 0.95, 1.0)),
+          "zachod": ((1.0, 0.35, 0.40), (0.60, 0.30, 1.0)),
+          "czerwone": ((1.0, 0.28, 0.06), (1.0, 0.62, 0.10)),
+          "zlote": ((1.0, 0.76, 0.32), (1.0, 0.93, 0.78))}
+COLOR_NAMES = {"pomaranczowe": "pomarańczowe", "fioletowe": "fioletowe", "neonowe": "neonowe",
+               "zielone": "zielone", "rozowe": "różowe", "niebieskie": "niebieskie",
+               "zachod": "jak zachód słońca", "czerwone": "czerwone", "zlote": "złote"}
+_KIND_COLORS = {"calm": "zielone", "jazz": "fioletowe", "classic": "zlote", "rock": "czerwone",
+                "electronic": "neonowe", "kids": "rozowe"}
+PALETTES = {k: COLORS[v] for k, v in _KIND_COLORS.items()}
+PALETTES[None] = COLORS["pomaranczowe"]
 BANDS = 16
 RATE = 44100
 HOP = RATE // 40                          # a frame every 25 ms
@@ -61,6 +71,8 @@ _cur = {"bands": np.zeros(BANDS, np.float32), "l": 0.0, "r": 0.0,
         "on": 0.0, "t": 0.0}
 _style = [None, 0.0]                      # (cached setting, when read)
 _kind = [None]
+_pal = ["pomaranczowe"]                   # "auto": the colours showing now
+_colset = [None]                          # (cached setting "radio_vis_col", read with the style)
 _col = [np.array(PALETTES[None][0]), np.array(PALETTES[None][1])]
 _rand = [None]                            # "losowo": the one showing now
 
@@ -137,15 +149,31 @@ def reset():
         _last_tap[0] = 0.0
 
 
+def _other_colors():
+    return random.choice([c for c in COLORS if c != _pal[0]])
+
+
 def set_kind(kind):
-    """The station's kind (radio.CATALOG key, or None): its colours."""
+    """A station starts — its kind (radio.CATALOG key, or None): "auto" colours
+    are the kind's own, or any (18 Oct: most stations had none — all orange)."""
     _kind[0] = kind if kind in PALETTES else None
+    _pal[0] = _KIND_COLORS.get(_kind[0]) or _other_colors()
 
 
 def new_song(title=None):
-    """A new song began (the stream's title): "losowo" picks another style."""
+    """A new song began (the stream's title): "losowo" picks another style,
+    "auto" colours other colours."""
     choices = [s for s in SHOWN if s != _rand[0]]
     _rand[0] = random.choice(choices)
+    if title is not None:
+        _pal[0] = _other_colors()
+
+
+def colors():
+    """The colours showing: the one set, or with "auto" today's pick."""
+    style()
+    c = _colset[0]
+    return c if c in COLORS else _pal[0]
 
 
 def style():
@@ -160,6 +188,7 @@ def style():
             s = settings.get("radio_vis", "wstegi")
             s = _OLD.get(s, s)
             _style[0] = s if s in STYLES else "wstegi"
+            _colset[0] = settings.get("radio_vis_col", "auto")
         _style[1] = now
     return _style[0]
 
@@ -198,8 +227,8 @@ def _advance(now):
         c["bands"] *= max(0.0, 1.0 - dt * 4.0)
         c["l"] *= max(0.0, 1.0 - dt * 4.0)
         c["r"] *= max(0.0, 1.0 - dt * 4.0)
-    want = PALETTES[_kind[0]]
-    for i in (0, 1):                      # a new station's colours, over a second
+    want = COLORS[colors()]
+    for i in (0, 1):                      # new colours, over a second
         _col[i] = _col[i] + (np.array(want[i]) - _col[i]) * min(1.0, dt * 3.0)
     return c
 
@@ -298,19 +327,58 @@ _KINDS = ((re.compile(r"losow|piosenk|na\s+zmian|r[oó][żz]n[eya]"), "losowo", 
 _VERB = re.compile(r"\b(?:poka[żz]|w[łl][aą]cz|daj|ustaw|zr[oó]b|chc[eę]|wr[oó][ćc])")
 _NEXT = re.compile(r"\b(?:zmie[ńn]|inn[ya]|nast[eę]pn[ya])\b")
 _OFFW = re.compile(r"\b(?:wy[łl][aą]cz|bez\b|schowaj|zga[śs]|nie\s+chc|wystarczy|koniec)")
-_NOT_US = re.compile(r"\bszum|\bmorz|\bdeszcz|\bocean")      # sea waves: ambience.py
+_NOT_US = re.compile(r"\bszum|\bmorz|\bdeszcz|\bocean|\blamp")   # sea: ambience; lamp: fun.py
+_COLW = re.compile(r"\bkolor(?:y|[óo]w)?\b|\bbarw[yaę]?\b|\bkolorow\w*\s+efekt|\befekt\w*\s+kolorow")
+_PALW = ((re.compile(r"pomara[ńn]cz"), "pomaranczowe"), (re.compile(r"fiolet"), "fioletowe"),
+         (re.compile(r"\bneon"), "neonowe"), (re.compile(r"zielon"), "zielone"),
+         (re.compile(r"r[oó][żz]ow"), "rozowe"), (re.compile(r"niebiesk"), "niebieskie"),
+         (re.compile(r"zach[oó]d"), "zachod"), (re.compile(r"czerwon"), "czerwone"),
+         (re.compile(r"z[łl]ot"), "zlote"))
+_AUTOW = re.compile(r"losow|piosenk|automat|same|sam[eio]\b|r[oó][żz]n|zmienn")
+
+
+def _colour(low, settings):
+    """'zmień kolory' (the next, kept), 'fioletowe efekty', 'kolory losowo'
+    (another with each song) → what to say."""
+    pal = next((k for rx, k in _PALW if rx.search(low)), None)
+    if pal:
+        new = pal
+    elif _AUTOW.search(low):
+        new = "auto"
+    else:
+        names = list(COLORS)
+        new = names[(names.index(colors()) + 1) % len(names)]
+    settings.put("radio_vis_col", new)
+    _style[0] = None
+    if new != "auto":
+        _pal[0] = new
+    print(f"[vis] colours: {new}", flush=True)
+    if new == "auto":
+        return "Dobrze, kolory będą się zmieniać z każdą piosenką."
+    return f"Dobrze — kolory {COLOR_NAMES[new]}."
 
 
 def handle(low, speak, radio_on=True):
     """'włącz / wyłącz efekty', 'zmień efekt', 'pokaż wstęgi / iskry / nutki…',
-    'efekty losowo' — True when handled. Without the word "efekt" /
-    "wizualizacja" only while the radio plays, and only the plain names."""
+    'efekty losowo', 'zmień kolory', 'fioletowe efekty' — True when handled.
+    Without the word "efekt" / "wizualizacja" only while the radio plays, and
+    only the plain names."""
     import settings
     if _NOT_US.search(low):
         return False
     word = bool(_WORD.search(low))
     found = next(((k, strong) for rx, k, strong in _KINDS if rx.search(low)), None)
     named = found[0] if found and (word or found[1]) else None
+    pal = any(rx.search(low) for rx, _ in _PALW)
+    asked = word or _VERB.search(low) or _NEXT.search(low) or pal or _AUTOW.search(low)
+    if ((_COLW.search(low) and asked) or (pal and (word or named))) and (word or radio_on):
+        said = _colour(low, settings)
+        if named and named != "losowo":               # "fioletowe iskry"
+            settings.put("radio_vis", named)
+            settings.put("radio_vis_last", named)
+            _style[0] = None
+        speak(said)
+        return True
     if not word and not (radio_on and named and (_VERB.search(low) or _OFFW.search(low))):
         return False
     cur = style()

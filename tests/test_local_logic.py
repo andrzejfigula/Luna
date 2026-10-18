@@ -6757,6 +6757,29 @@ class RadioVisualizerTest(unittest.TestCase):
                          "włącz coś na zmianę", "pokaż mi oczy"):
                 self.assertFalse(self.v.handle(text, said.append), text)
             self.assertFalse(self.v.handle("włącz fale", said.append, radio_on=False))
+            # colours (18 Oct: every station but a few kinds was orange)
+            for text, want in (("zmień kolory", None), ("fioletowe efekty", "fioletowe"),
+                               ("efekty na zielono", None), ("kolory losowo", "auto"),
+                               ("ustaw neonowe kolory", "neonowe"),
+                               ("kolorowe efekty", None)):
+                before = self.v.colors()
+                self.assertTrue(self.v.handle(text, said.append), text)
+                if want:
+                    self.assertEqual(st["radio_vis_col"], want, text)
+                elif text == "zmień kolory":
+                    self.assertNotEqual(st["radio_vis_col"], before, text)
+            self.v.handle("pokaż złote iskry", said.append)
+            self.assertEqual((st["radio_vis_col"], st["radio_vis"]), ("zlote", "iskry"))
+            for text in ("zmień kolor lampki na zielony", "słodkich snów, kolorowych",
+                         "jaki kolor ma niebo"):
+                self.assertFalse(self.v.handle(text, said.append), text)
+            self.assertFalse(self.v.handle("zmień kolory", said.append, radio_on=False))
+            st["radio_vis_col"] = "auto"
+            self.v._style[:] = [None, 0.0]
+            self.v.set_kind("jazz")
+            self.assertEqual(self.v.colors(), "fioletowe")
+            self.v.new_song("Next")
+            self.assertNotEqual(self.v.colors(), "fioletowe")     # another with each song
         finally:
             settings.get = get
             settings.put = put

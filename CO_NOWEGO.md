@@ -106,7 +106,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `docs/backlog-d
 | Co gra | „Jakie to radio?”, „Co teraz gra?” — tytuł piosenki (RMF FM, 357, Nowy Świat go podają) |
 | Głośność muzyki | gdy gra radio, „ciszej” / „głośniej” zmienia muzykę, nie głos Luny („mów ciszej” — jej głos) |
 | Następna stacja | „Następna stacja”, „Zmień stację” |
-| Efekty na ekranie | gdy gra radio, muzyka tańczy na ekranie: „**Zmień efekt**” (kolejny), „pokaż wstęgi / pierścienie / iskry / słupki / nutki”, „efekt oscyloskop” (fale z serduszkiem), „**efekty losowo**” (co piosenkę inny); „wyłącz efekty” / „włącz efekty”. Kolory zależą od stacji (jazz fioletowy, elektronika różowo-niebieska, dla dzieci różowo-żółta) |
+| Efekty na ekranie | gdy gra radio, muzyka tańczy na ekranie: „**Zmień efekt**” (kolejny), „pokaż wstęgi / pierścienie / iskry / słupki / nutki”, „efekt oscyloskop” (fale z serduszkiem), „**efekty losowo**” (co piosenkę inny); „wyłącz efekty” / „włącz efekty”. Kolory same zmieniają się z każdą piosenką; „**zmień kolory**” — kolejne (zostają), „fioletowe / neonowe / zielone / różowe / niebieskie / czerwone / złote / pomarańczowe efekty”, „kolory losowo” — znowu co piosenkę |
 | Komendy przy radiu | każde polecenie zaczynaj od „Luna” — przy grającym radiu nie słucha bez imienia, żeby nie odpowiadać radiu |
 | Budzenie radiem | „Budź mnie radiem” — budzik włącza ostatnią stację, najpierw cichutko, przez minutę coraz głośniej; „Budź mnie dzwonkiem” — z powrotem dzwonek. „Dobranoc” wyłącza radio (chyba że ustawiłeś „radio na 30 minut”) |
 | Mówienie przy muzyce | gdy słucha albo mówi, muzyka sama ścisza się prawie do zera; nutka na ekranie = radio gra |

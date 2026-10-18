@@ -160,6 +160,9 @@ LOCAL = {
     "Włącz efekt w radiu fale": "vis",             # (18 Oct: the sea, the radio off)
     "Wyłącz efekty": "vis",
     "Zmień efekt": "vis",
+    "Fioletowe efekty": "vis",
+    "Zmień kolory efektów": "vis",
+    "Zmień kolor lampki na zielony": "lamp",
     "Szum morza na 30 minut": "ambience",
     "Biały szum": "ambience",
     "Wyłącz szum": "ambience",
@@ -365,7 +368,7 @@ class RoutingTest(unittest.TestCase):
             (commands.settings, "put", lambda k, v: self._mark(
                 {"captions": "captions", "tts_speed": "speed",
                  "reply_length": "length", "radio_vis": "vis",
-                 "radio_vis_last": "vis"}.get(k, "radio"))),
+                 "radio_vis_last": "vis", "radio_vis_col": "vis"}.get(k, "radio"))),
             (commands, "go_to_sleep", lambda: self._mark("sleep")),
             (greetings, "bye", lambda *a, **k: "<BYE>"),
             (commands, "DONE_REPLIES", ["<BYE>"]),

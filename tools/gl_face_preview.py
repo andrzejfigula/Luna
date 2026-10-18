@@ -197,16 +197,15 @@ def radio_sheet(out, url=None):
     level = float(np.sqrt(np.mean(a * a))) or 1.0
     chunk = 8820
     tiles, ms = [], []
-    shots = [("wstegi", 40), ("pierscienie", 41), ("iskry", 42), ("slupki", 43),
-             ("oscyloskop", 44), ("nutki", 45), ("oscyloskop classic", 46), ("wstegi jazz", 47),
-             ("iskry electronic", 48), ("nutki kids", 49), ("slupki rock", 50),
-             ("pierscienie talking", 51)]
+    shots = [("wstegi pomaranczowe", 40), ("pierscienie neonowe", 41), ("iskry zachod", 42),
+             ("slupki zielone", 43), ("oscyloskop niebieskie", 44), ("nutki rozowe", 45),
+             ("wstegi fioletowe", 46), ("iskry neonowe", 47), ("wstegi zachod", 48),
+             ("nutki zlote", 49), ("slupki czerwone", 50), ("pierscienie fioletowe talking", 51)]
     for name, at in shots:
-        sty = name.split()[0]
+        sty, pal = name.split()[:2]                   # (a style, its colours)
         visualizer._style[:] = [sty, 1e12]
-        kind = name.split()[1] if len(name.split()) > 1 and "talking" not in name else None
-        visualizer.set_kind(kind)
-        visualizer._col[:] = [np.array(c) for c in visualizer.PALETTES[kind]]
+        visualizer._colset[0] = pal
+        visualizer._col[:] = [np.array(c) for c in visualizer.COLORS[pal]]
         face.pose(speak=0.6 if "talking" in name else 0.0)
         visualizer.reset()
         for i in range(at):

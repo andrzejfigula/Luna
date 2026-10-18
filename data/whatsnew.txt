@@ -2,7 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 18 października ==
-- Gdy gra radio, muzyka tańczy na moim ekranie: świecące wstęgi, pierścienie dźwięku, iskry, słupki, fale z serduszkiem albo nutki — w kolorach stacji. „Zmień efekt” — następny; „efekty losowo” — co piosenkę inny; „wyłącz efekty” / „włącz efekty”.
+- Gdy gra radio, muzyka tańczy na moim ekranie: świecące wstęgi, pierścienie dźwięku, iskry, słupki, fale z serduszkiem albo nutki — co piosenkę w innych kolorach („zmień kolory”, „fioletowe efekty”). „Zmień efekt” — następny; „efekty losowo” — co piosenkę inny; „wyłącz efekty” / „włącz efekty”.
 - „Włącz coś z ulubionych”, „przełącz na ulubioną” — włączam jedną z twoich ulubionych stacji. Ulubioną stację możesz też włączyć po nazwie, np. „włącz Classic Vinyl HD”.
 - Jeśli powiem, że coś zrobiłam, a jednak się nie udało — od razu się poprawiam.
 
