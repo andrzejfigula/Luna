@@ -441,7 +441,7 @@ def idle_loop():
                         _hello_said[who] = time.time()
                         try:
                             import brain           # the answer to it needs its context
-                            brain.note_said(hello)
+                            brain.note_said(hello, hello=True)
                         except Exception:
                             pass
                         if "?" in hello and not stranger:

@@ -3477,6 +3477,19 @@ class KidsTest(unittest.TestCase):
             self.assertEqual(brain._history, [{"role": "assistant",
                                                "content": "Dobry wieczór, Andrzeju! Jak mija wieczór?"}])
 
+    def test_no_second_hello(self):
+        import brain
+        # 19 Oct 15:28: the welcome back, then "…miło cię znowu widzieć — wróciłeś…"
+        with mock.patch.object(brain, "_history", []), \
+                mock.patch.object(brain, "save_history", lambda: None), \
+                mock.patch.object(brain, "_last_hello", (0.0, "")):
+            brain.note_said("Masz wiadomość od Emilki.")
+            self.assertEqual(brain._hello_line(), "")
+            brain.note_said("O, Andrzeju, wróciłeś!", hello=True)
+            t = brain._last_hello[0]
+            self.assertIn("O, Andrzeju, wróciłeś!", brain._hello_line(t + 30))
+            self.assertEqual(brain._hello_line(t + 301), "")
+
     def test_hellos_differ(self):
         import brain
         # 12 Oct: "Cześć, Andrzeju, fajne / miłe popołudnie u nas na biurku" — each

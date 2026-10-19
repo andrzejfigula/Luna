@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 19 października ==
+- Luna wita się raz: kiedy już powiedziała „cześć”, następna odpowiedź nie wita drugi raz.
 - Buzia Luny rysuje się płynniej: 45 klatek na sekundę zamiast 20–30, a mruganie, oczy i oddech mają to samo tempo co dotąd.
 - Po poleceniach, po których nie ma już nic do dodania — lampka, minutnik, budzik, przypomnienie, ekran, kamera — Luna od razu przestaje słuchać, więc nie odpowiada na szmery w pokoju. Następne polecenie zacznij od „Luna”. Po „ciszej”, dopisaniu do listy i po pytaniach dalej chwilę słucha.
 - Lampka z obrazkiem: „lampka meduzy”, „włącz zorzę polarną”, „lampka zegar”, „włącz świetliki”, „lampa lawa”, „lampka kominek”. Ekran staje się spokojnym, ciemnym obrazem, który powoli się rusza. „Zmień lampkę” albo przesunięcie palcem — następna; „lampka meduzy na 20 minut” — sama zgaśnie; stuknięcie gasi.

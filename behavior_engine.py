@@ -172,7 +172,7 @@ def _behavior_step(speak, confirm_wave):
             speak(said, can_drop=True)
             try:
                 import brain
-                brain.note_said(said)
+                brain.note_said(said, hello=True)
             except Exception:
                 pass
 

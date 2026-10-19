@@ -209,6 +209,18 @@ def _long_weekends(day, horizon=200, n=3):
 
 
 
+def _hello_line(now=None):
+    """She has just said hello — the next answer doesn't greet again (19 Oct
+    15:28: "O, Andrzeju, wróciłeś…", then "Luna, świeć słońce" → "…miło cię
+    znowu widzieć — wróciłeś…"). '' after 5 minutes."""
+    when, text = _last_hello
+    ago = (now or time.time()) - when
+    if not text or ago > 300:
+        return ""
+    return (f"You already greeted them {ago:.0f} s ago (\"{text}\") — no second "
+            "hello or welcome back now: just answer.\n")
+
+
 def _variety_rule(history=None):
     """How her last replies began, so the next one starts differently —
     7 Oct: four answers to "Co tam?" in a row opened "Spokojnie, Andrzeju"
@@ -1472,6 +1484,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                      "\"reply\" must not be empty: answer it, warmly and briefly (a "
                      "statement like \"Kupiłam mleko\" gets a short reaction, e.g. "
                      "\"Super — to skreślam mleko z listy.\").\n" if _forced else "")
+                  + _hello_line()
                   + _variety_rule()
                   + _translator_rule()
                   + _length_rule()
@@ -2161,13 +2174,19 @@ def note_local(user_text, said):
                                    # "co dziś robiłyśmy?" → "nikt ze mną nie rozmawiał")
 
 
-def note_said(text):
+_last_hello = (0.0, "")    # (when, what) her last spoken hello
+
+
+def note_said(text, hello=False):
     """Something she said on her own (a hello, "Jak mija wieczór?") — her turn
     in the history, so the answer to it makes sense to the model (12 Oct
     19:15: "Jak mija wieczór?" → "W porządku." → "Jasne.", the hello unseen)."""
+    global _last_hello
     text = (text or "").strip()
     if not text:
         return
+    if hello:
+        _last_hello = (time.time(), text)
     _history.append({"role": "assistant", "content": text})
     while len(_history) > OPENAI_MAX_HISTORY:
         _history.pop(0)
