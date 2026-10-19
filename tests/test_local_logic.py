@@ -7233,7 +7233,7 @@ class SettingsPageTest(unittest.TestCase):
 
 # Off the Pi (Windows) the hardware / SDK modules are missing: those tests
 # skip instead of erroring, so the local quick run shows real failures only.
-_PI_ONLY = {"cv2", "pygame", "sounddevice", "openai", "vosk"}
+_PI_ONLY = {"cv2", "pygame", "sounddevice", "openai", "vosk", "fcntl"}
 
 
 def _skip_missing(test):
@@ -7369,6 +7369,36 @@ class ScheduleTest(unittest.TestCase):
         self.s.add("Maja", "angielski", [0, 1, 2, 3, 4], "17:00", "18:00")
         self.assertIn("Maja: angielski od poniedziałku do piątku 17:00–18:00",
                       self.s.prompt_line())
+
+
+class TouchPageTest(unittest.TestCase):
+    """Fast taps on a page are taps — 19 Oct: the plan's days went dead (poking)."""
+
+    def _kinds(self, page):
+        import struct
+        import threading
+        import touch_module as tm
+        path = os.path.join(TMP, "touch-events")
+        with open(path, "wb") as f:
+            for _ in range(4):
+                for et, code, val in ((tm.EV_ABS, tm.ABS_X, 400), (tm.EV_ABS, tm.ABS_Y, 100),
+                                      (tm.EV_KEY, tm.BTN_TOUCH, 1), (tm.EV_KEY, tm.BTN_TOUCH, 0)):
+                    f.write(struct.pack(tm._FMT, 0, 0, et, code, val))
+        got = []
+        with state.lock:
+            state.overlay = ("schedule", time.time() + 30, {}) if page else None
+            state.speaking = False
+        with mock.patch.object(tm, "_abs_range", lambda fd, axis: (0, 800)), \
+                mock.patch.object(tm, "_publish", lambda kind, *a, **k: got.append(kind)):
+            threading.Thread(target=tm._reader_loop, args=(path,), daemon=True).start()
+            time.sleep(0.6)
+        with state.lock:
+            state.overlay = None
+        return got
+
+    def test_fast_taps(self):
+        self.assertEqual(self._kinds(page=True), ["tap"] * 4)
+        self.assertIn("multi", self._kinds(page=False))       # on her face: still poking
 
 
 def load_tests(loader, tests, pattern):

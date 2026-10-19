@@ -76,6 +76,12 @@ def _find_device():
 
 # ── gesture recognition ───────────────────────────────────────────────────────
 
+def _page_up(now):
+    with state.lock:
+        ov = state.overlay
+    return bool(ov and now < ov[1])
+
+
 def _publish(kind, nx, ny, dx=0.0):
     if kind in ("tap", "hold"):
         with state.lock:
@@ -174,7 +180,12 @@ def _reader_loop(path):
                         _publish("swipe", x, y, dx)
                     if not stroked and not held and dur <= TOUCH_TAP_MAX_SECS:
                         now = time.time()
-                        if now < poking_until:
+                        if _page_up(now):
+                            # a page's buttons: quick taps are choices, not poking
+                            # (19 Oct: the plan's days went dead after 3 fast taps)
+                            taps, poking_until = [], 0.0
+                            _publish("tap", x, y)
+                        elif now < poking_until:
                             # still being poked — don't fall back to a
                             # friendly "tap" on the 4th, 5th, ... touch
                             poking_until = now + TOUCH_POKE_HOLD
