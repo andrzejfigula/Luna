@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 19 października ==
+- „Kogo znasz?” pokazuje właściwe zdjęcia: Luna zmienia czyjeś zdjęcie tylko wtedy, gdy jest pewna, że to ta osoba, a nie ktoś podobny (Emilka miała zdjęcie taty).
 - Podgląd kamery w rogu ekranu na życzenie: „Luna, pokaż podgląd kamery” — widać mały obraz z kamery w prawym dolnym rogu; „ukryj podgląd” go chowa. Luna pamięta wybór po restarcie.
 - Luna wita się raz: kiedy już powiedziała „cześć”, następna odpowiedź nie wita drugi raz.
 - Buzia Luny rysuje się płynniej: 45 klatek na sekundę zamiast 20–30, a mruganie, oczy i oddech mają to samo tempo co dotąd.

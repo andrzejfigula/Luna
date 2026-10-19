@@ -5621,6 +5621,14 @@ class GalleryDeletePeopleTest(unittest.TestCase):
             self.assertEqual(items[1]["path"], faces.portrait("Maja"))
             self.assertFalse(faces.keep_portrait("Maja", 0.46, frame, row, 2.0,     # (not the
                                                  now + 2 * faces.PORTRAIT_EVERY))     # first: surer)
+            later = now + 2 * faces.PORTRAIT_EVERY
+            self.assertFalse(faces.keep_portrait("Maja", 0.51, frame, row, 2.0, later))
+            with mock.patch.object(faces, "_scores", lambda f: {"Maja": 0.7, "Kasia": 0.55}):
+                self.assertFalse(faces.keep_portrait("Maja", 0.7, frame, row, 2.0, later,
+                                                     feature=np.ones(128)))   # too like Kasia
+            with mock.patch.object(faces, "_scores", lambda f: {"Maja": 0.7, "Kasia": 0.2}):
+                self.assertTrue(faces.keep_portrait("Maja", 0.7, frame, row, 2.0, later,
+                                                    feature=np.ones(128)))
             faces.forget("Maja")                             # the portrait goes too…
             self.assertIsNone(faces.portrait("Maja"))
             faces.restore("Maja")                            # …and comes back

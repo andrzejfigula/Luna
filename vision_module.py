@@ -83,7 +83,7 @@ def _who(frame, rows, last_seen):
     name, sim = faces_mod.identify(feat)
     if name:                                  # "kogo znasz?" shows this (once a day)
         try:
-            faces_mod.keep_portrait(name, sim, frame, big, scale)
+            faces_mod.keep_portrait(name, sim, frame, big, scale, feature=feat)
         except Exception as e:
             print(f"[faces] portrait failed: {e}", flush=True)
     # the others in view (up to two more): who else is here

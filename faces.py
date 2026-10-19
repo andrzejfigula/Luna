@@ -45,6 +45,9 @@ PORTRAITS = os.path.join(DATA_DIR, "faces")
 PORTRAIT_EVERY = 24 * 3600   # a new portrait at most this often…
 PORTRAIT_MIN_W = 70          # …of a face at least this wide (full frame, px)
 PORTRAIT_FIRST = 0.45        # the first one: a little less sure is enough
+PORTRAIT_MIN = 0.60          # a new one over an old: sure (19 Oct: Andrzej side-on
+                             # in the dark became Emilka's portrait at 0.51)…
+PORTRAIT_MARGIN = 0.20       # …and well ahead of the second-best person
 
 DETECT_SCORE = 0.75        # YuNet confidence for a face
 MATCH_COSINE = 0.40        # SFace: same person above this (paper: 0.363; a bit
@@ -618,19 +621,26 @@ def portrait(name):
     return p if os.path.exists(p) else None
 
 
-def keep_portrait(name, sim, frame, row_small, scale, now=None):
+def keep_portrait(name, sim, frame, row_small, scale, now=None, feature=None):
     """A portrait of `name` cut from this frame, if she is sure and the last
     one is old (vision_module). True when one was saved. The first one asks
-    a little less (PORTRAIT_FIRST): Emilka was never "sure" enough at once."""
+    a little less (PORTRAIT_FIRST): Emilka was never "sure" enough at once.
+    With `feature`, the second-best person must be far behind."""
     now = now if now is not None else time.time()
     old = portrait(name)
-    if sim < (AUTO_MIN if old else PORTRAIT_FIRST):
+    if sim < (PORTRAIT_MIN if old else PORTRAIT_FIRST):
         return False
     x, y, w, h = (float(v) * scale for v in row_small[:4])
     if w < PORTRAIT_MIN_W:
         return False
     if old and now - os.path.getmtime(old) < PORTRAIT_EVERY:
         return False
+    if feature is not None:
+        second = max((v for n, v in _scores(feature).items() if n != name), default=0.0)
+        if sim - second < PORTRAIT_MARGIN:
+            print(f"[faces] no portrait of {name} ({sim:.2f}): too like "
+                  f"someone else ({second:.2f})", flush=True)
+            return False
     if not _save_portrait(name, frame, (x, y, w, h), flip=True):
         return False
     print(f"[faces] new portrait of {name} ({sim:.2f})", flush=True)
