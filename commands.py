@@ -1370,6 +1370,11 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
               "jesteś sama, zadzwoń do nich.")
         return True
 
+    # the week's plan: "pokaż plan tygodnia", "dodaj do planu …", the answer after "+"
+    import schedule
+    if schedule.handle(text, speak):
+        return True
+
     # an interactive story: a choice, a topic, "koniec"; or one asked for
     import story
     if story.active() and story.answer(text, speak):

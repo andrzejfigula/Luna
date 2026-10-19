@@ -406,6 +406,11 @@ def today_rows():
     except Exception:
         pass
     try:
+        import schedule                        # the week's plan: today's entries
+        rows += schedule.today_rows()
+    except Exception:
+        pass
+    try:
         import errands
         with errands._lock:
             notes = errands._load()

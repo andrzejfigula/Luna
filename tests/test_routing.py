@@ -14,6 +14,7 @@ import commands
 import games
 import idle_engine
 import memory
+import schedule
 import screens
 from shared_state import state
 
@@ -31,6 +32,9 @@ LOCAL = {
     "Pokaż pandę": "photo",
     "Zrób selfie": "screen",                         # (14 Oct probe: to the model)
     "Pokaż kalendarz": "screen",
+    "Pokaż plan tygodnia": "schedule",
+    "Pokaż harmonogram": "schedule",
+    "Dodaj do planu: angielski od poniedziałku do piątku o 17": "schedule",
     "Ekran ciemniej": "handled-but-unknown",
     "Odliczaj do startu rakiety": "count",
     "Obudź mnie za 20 minut": "timer",
@@ -201,6 +205,9 @@ LOCAL = {
     "Normalne odpowiedzi proszę": "length",
 }
 MODEL = [
+    "Maja ma angielski w poniedziałki o 17",         # a fact for her memory, not the plan
+    "Jaki jest plan na weekend?",
+    "Co Maja ma w środę?",
     "Czy w Polsce widać zorzę polarną?",
     "Opowiedz mi o meduzach",
     "Dlaczego świetliki świecą?",
@@ -417,6 +424,10 @@ class RoutingTest(unittest.TestCase):
             (cooking, "start", lambda *a: self._mark("cooking")),
             (twenty, "start", lambda *a: self._mark("twenty")),
             (radio, "play", lambda *a, **k: self._mark("radio")),
+            (schedule, "show", lambda *a, **k: self._mark("schedule")),
+            (schedule, "add", lambda *a, **k: self._mark("schedule") or {
+                "id": "x", "who": "", "title": "t", "days": [0], "at": "17:00", "end": "",
+                "remind": None}),
             (ambience, "play", lambda *a, **k: self._mark("ambience")),
             (ambience, "stop", lambda: self._mark("ambience") or True),
             (radio, "stop", lambda: self._mark("radio") or True),
