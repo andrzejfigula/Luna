@@ -1826,7 +1826,16 @@ class MicroExpressions:
 # ── RobotFace ─────────────────────────────────────────────────────────────────
 # where a frame's time goes (main.py's SIGUSR1 dump)
 frame_stats = {"frames": 0, "update": 0.0, "face": 0.0, "compose": 0.0, "flip": 0.0,
-               "tilted": 0}
+               "tilted": 0, "gl": 0.0, "swap": 0.0, "fps": {}, "gaps": [0] * 6, "_t": 0.0}
+
+
+def _count_present(st, now):
+    """How long the last frame stayed up, in 60 Hz refreshes (1, 2, 3…) —
+    uneven counts are what a judder looks like."""
+    if st["_t"]:
+        n = int((now - st["_t"]) * 60.03 + 0.5)
+        st["gaps"][max(0, min(5, n))] += 1
+    st["_t"] = now
 
 
 class RobotFace:
@@ -2764,6 +2773,7 @@ class RobotFace:
             st["frames"] += 1
             st["update"] += t1 - t0
             st["flip"] += time.perf_counter() - t1
+            _count_present(st, time.perf_counter())
             return
 
         base = self.base   # reused surface — no per-frame allocation
@@ -2992,8 +3002,13 @@ class RobotFace:
             u = self.gl.face_uniforms(self, sys.modules[__name__], fcx, fcy)
             self.gl.render(u, face_layer=base, screen_layer=self.screen,
                            back_layer=self.back)
+        t35 = time.perf_counter()
         pygame.display.flip()
         t4 = time.perf_counter()
+        st["gl"] += t35 - t3
+        st["swap"] += t4 - t35
+        st["fps"][self.fps] = st["fps"].get(self.fps, 0) + 1
+        _count_present(st, t4)
         st["frames"] += 1
         st["update"] += t1 - t0
         st["face"] += t2 - t1

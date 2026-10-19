@@ -338,7 +338,9 @@ def _dump_threads(*_):
         n = max(1, f["frames"])
         print(f"[threads] face: {f['frames']} frames ({f['tilted']} tilted), per frame "
               f"update {1000 * f['update'] / n:.1f} ms, face {1000 * f['face'] / n:.1f} ms, "
-              f"compose {1000 * f['compose'] / n:.1f} ms, flip {1000 * f['flip'] / n:.1f} ms",
+              f"compose {1000 * f['compose'] / n:.1f} ms, flip {1000 * f['flip'] / n:.1f} ms "
+              f"(gl {1000 * f['gl'] / n:.1f}, swap {1000 * f['swap'] / n:.1f}); "
+              f"fps asked {f['fps']}, refreshes per frame {f['gaps'][1:]}",
               flush=True)
     except Exception as e:
         print(f"[threads] face stats: {e}", flush=True)
