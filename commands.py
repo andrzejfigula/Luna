@@ -234,6 +234,14 @@ _CAPTIONS_OFF = ("wyłącz napisy", "wylacz napisy", "bez napisów", "captions o
 _STATUS_BAR = re.compile(r"^(?:luna,?\s+)?(ukryj|schowaj|wyłącz|wylacz|pokaż|pokaz|włącz|wlacz)\s+"
                          r"(?:ten\s+|górny\s+|gorny\s+)?(?:pasek|pasek\s+u\s+góry|pasek\s+u\s+gory|"
                          r"pasek\s+stanu|pasek\s+statusu|status\s+bar)$", re.I)
+# the little camera picture, bottom-right (robot_face._draw_camera_preview)
+_CAM_PREVIEW = re.compile(
+    r"^(?:luna,?\s+)?(?:(pokaż|pokaz|pokazuj|włącz|wlacz|show)|ukryj|schowaj|wyłącz|wylacz|zamknij|"
+    r"nie\s+pokazuj|hide)\s+(?:mi\s+)?(?:ten\s+|the\s+)?"
+    r"(?:podgląd\w*|podglad\w*|obraz\w*\s+z\s+kamery|widok\w*\s+z\s+kamery|okienk\w*\s+kamery|"
+    r"camera\s+(?:preview|view))(?:\s+(?:z\s+)?kamery)?(?:\s+(?:proszę|prosze|please))?$", re.I)
+_CAM_PREVIEW_K = re.compile(r"^(?:luna,?\s+)?(?:(pokaż|pokaz)|ukryj|schowaj)\s+(?:mi\s+)?"
+                            r"kamer[ęe](?:\s+(?:proszę|prosze))?$", re.I)
 _MSG_RECORD = ("nagraj wiadomość", "nagraj wiadomosc", "zostaw wiadomość",
                "nagraj notatkę", "nagraj mi wiadomość", "chcę zostawić wiadomość",
                "record a message")
@@ -1320,6 +1328,18 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
             state.mic_muted_until = time.time() + secs
             state.conversation_active = False
         print(f"[cmd] microphone off for {secs} s", flush=True)
+        return True
+
+    # "pokaż podgląd kamery" / "ukryj podgląd" — the little camera picture
+    m = _CAM_PREVIEW.match(low.strip(" .!?")) or _CAM_PREVIEW_K.match(low.strip(" .!?"))
+    if m:
+        on = bool(m.group(1))
+        settings.put("camera_preview", on)
+        if on and time.time() < state.camera_off_until:
+            speak("Dobrze, ale kamera jest teraz wyłączona. Powiedz: włącz kamerę.")
+        else:
+            speak("Dobrze, pokazuję, co widzę." if on else "Dobrze, chowam podgląd kamery.")
+        close_after()
         return True
 
     # "wyłącz kamerę" — privacy: the camera is let go for a while (9 Oct

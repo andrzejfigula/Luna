@@ -2996,8 +2996,11 @@ class RobotFace:
             self._scene.post(self, self.screen, self._scene_p)
 
         # ── camera preview (on top, not rotated with the head) ───────────
-        if CAMERA_PREVIEW:
+        import settings
+        if settings.get("camera_preview", CAMERA_PREVIEW):     # "pokaż podgląd kamery"
             self._draw_camera_preview()
+        else:
+            self._preview_surf = None
 
         # ── subtitles: what she says / what she heard ─────────────────────
         self._draw_caption()
@@ -3590,6 +3593,8 @@ class RobotFace:
                     pygame.draw.rect(surf, EYE_MID,
                                      pygame.Rect(cx - bw // 2, cy - bh // 2, bw, bh), 2)
                 self._preview_surf = surf
+            else:
+                self._preview_surf = None      # camera off: no frozen picture
         if self._preview_surf is None:
             return
         surf = self._preview_surf

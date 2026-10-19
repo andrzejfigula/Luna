@@ -2994,6 +2994,16 @@ class KidsTest(unittest.TestCase):
             m = commands._STATUS_BAR.match(t.lower().strip(" .!?"))
             self.assertTrue(m, t)
         self.assertFalse(commands._STATUS_BAR.match("pokaż pasek czekolady"))
+        for t, on in (("Pokaż podgląd kamery", True), ("Luna, ukryj podgląd.", False),
+                      ("włącz podgląd z kamery", True), ("wyłącz podgląd", False),
+                      ("nie pokazuj obrazu z kamery", False), ("pokaż mi kamerę", True),
+                      ("schowaj kamerę", False), ("show camera preview", True)):
+            low = t.lower().strip(" .!?")
+            m = commands._CAM_PREVIEW.match(low) or commands._CAM_PREVIEW_K.match(low)
+            self.assertTrue(m, t)
+            self.assertEqual(bool(m.group(1)), on, t)
+        for t in ("wyłącz kamerę", "włącz kamerę", "pokaż podgląd pogody na jutro"):
+            self.assertFalse(commands._CAM_PREVIEW.match(t) or commands._CAM_PREVIEW_K.match(t), t)
 
     def test_quiz_would_accept(self):
         import quiz

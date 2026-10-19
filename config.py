@@ -64,6 +64,7 @@ HIDE_CURSOR    = True
 
 # Small live camera preview in the bottom-right corner (mirrored, with the
 # face box). .env: LUNA_CAMERA_PREVIEW=1   (size in px: LUNA_CAMERA_PREVIEW=200)
+# — the default only: "pokaż / ukryj podgląd kamery" sets settings camera_preview
 _cp = os.environ.get("LUNA_CAMERA_PREVIEW", "").strip().lower()
 CAMERA_PREVIEW   = _cp not in ("", "0", "false", "no", "off")
 CAMERA_PREVIEW_W = int(_cp) if _cp.isdigit() and int(_cp) > 1 else 160
