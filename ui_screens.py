@@ -1185,3 +1185,106 @@ def draw_list(scr, heading, rows, now, W, H, meta=None):
             on = k == page
             d = rrect(20 if on else 8, 8, 4, (255, 255, 255, 235 if on else 90))
             scr.blit(d, d.get_rect(center=(x0 + k * gap, y)))
+
+
+# ── the settings page (settings_page.py): tabs on the left, rows to tap ──────
+
+def _settings_layout(W, H, n_rows):
+    """{"tabs": [...], "rows": [...], "ctrls": [...], "dialog", "yes", "no"}."""
+    top = 78
+    tabs = [pygame.Rect(16, top + k * 58, 168, 50) for k in range(4)]
+    x0 = 198
+    rh = min(72, (H - top - 10) // max(1, n_rows))
+    rws = [pygame.Rect(x0, top + k * rh, W - x0 - 16, rh - 8) for k in range(n_rows)]
+    ctrls = [pygame.Rect(r.right - 160, r.centery - 21, 148, 42) for r in rws]
+    dlg = pygame.Rect(W // 2 - 270, H // 2 - 125, 540, 250)
+    no = pygame.Rect(dlg.x + 30, dlg.bottom - 78, 225, 54)
+    yes = pygame.Rect(dlg.right - 255, dlg.bottom - 78, 225, 54)
+    return {"tabs": tabs, "rows": rws, "ctrls": ctrls, "dialog": dlg, "yes": yes, "no": no}
+
+
+def settings_hit(x, y, W, H, data):
+    """("tab", i) | ("row", i) | ("yes",) | ("no",) | None for a tap at (x, y) px."""
+    import settings_page
+    L = _settings_layout(W, H, len(settings_page.rows(data.get("tab", 0))))
+    if data.get("confirm"):
+        for key in ("yes", "no"):
+            if L[key].inflate(10, 10).collidepoint(x, y):
+                return (key,)
+        return None
+    for k, r in enumerate(L["tabs"]):
+        if r.collidepoint(x, y):
+            return ("tab", k)
+    for k, r in enumerate(L["rows"]):
+        if r.collidepoint(x, y):
+            return ("row", k)
+    return None
+
+
+def draw_settings(scr, data, now, W, H):
+    """Ustawienia: the tabs; each row a label, a line under it and its control
+    (a switch, a value to tap through, a number); the reset asks first."""
+    import settings_page
+    scr.blit(vgrad(W, H, (18, 20, 38), (40, 32, 66)), (0, 0))
+    gold, soft = (255, 205, 120), (200, 200, 220)
+    title = text("Ustawienia", 32, WHITE, "ExtraBold")
+    scr.blit(title, (24, 38 - title.get_height() // 2))
+    tab = data.get("tab", 0)
+    rows = settings_page.rows(tab, now)
+    L = _settings_layout(W, H, len(rows))
+    for k, (r, name) in enumerate(zip(L["tabs"], settings_page.TABS)):
+        sel = k == tab
+        scr.blit(rrect(r.w, r.h, 14, (255, 205, 120, 70) if sel else (255, 255, 255, 16)), r)
+        lab = text(name, 21, WHITE if sel else (225, 225, 240), "ExtraBold" if sel else "Bold")
+        scr.blit(lab, (r.x + 16, r.centery - lab.get_height() // 2))
+    for r, c, row in zip(L["rows"], L["ctrls"], rows):
+        scr.blit(rrect(r.w, r.h, 16, (255, 255, 255, 22)), r)
+        kind, val = row["kind"], row["value"]
+        room = (c.x if kind != "info" else r.right - 250) - r.x - 28
+        nm = text(fit(row["label"], 22, room, "ExtraBold"), 22, WHITE, "ExtraBold")
+        sub = text(fit(row["sub"], 16, room, "SemiBold"), 16, soft, "SemiBold")
+        y = r.centery - (nm.get_height() + sub.get_height()) // 2
+        scr.blit(nm, (r.x + 16, y))
+        scr.blit(sub, (r.x + 16, y + nm.get_height()))
+        if kind == "toggle":                          # a switch: gold and right when on
+            sw = pygame.Rect(c.right - 74, c.centery - 17, 66, 34)
+            scr.blit(rrect(sw.w, sw.h, 17, (255, 196, 110, 230) if val else (255, 255, 255, 50)), sw)
+            knob = rrect(26, 26, 13, (255, 255, 255, 255))
+            scr.blit(knob, (sw.right - 30 if val else sw.x + 4, sw.y + 4))
+            lab = text("Wł." if val else "Wył.", 17, WHITE if val else soft, "Bold")
+            scr.blit(lab, (sw.x - lab.get_width() - 10, c.centery - lab.get_height() // 2))
+        elif kind in ("cycle", "danger"):             # a value to tap through / the reset
+            col = (214, 52, 52, 230) if kind == "danger" else (255, 255, 255, 34)
+            scr.blit(rrect(c.w, c.h, 21, col), c)
+            v = text(fit(str(val), 19, c.w - 40, "ExtraBold"), 19, WHITE, "ExtraBold")
+            scr.blit(v, v.get_rect(center=(c.centerx - (8 if kind == "cycle" else 0), c.centery)))
+            if kind == "cycle":
+                ch = text("›", 24, gold, "ExtraBold")
+                scr.blit(ch, ch.get_rect(center=(c.right - 18, c.centery - 2)))
+        else:                                         # a number, a cost
+            v = text(fit(str(val), 21, 230, "ExtraBold"), 21, gold, "ExtraBold")
+            scr.blit(v, (r.right - 16 - v.get_width(), r.centery - v.get_height() // 2))
+    if data.get("confirm") and now - data["confirm"] < settings_page.CONFIRM_SECS:
+        shade = pygame.Surface((W, H), pygame.SRCALPHA)
+        shade.fill((0, 0, 0, 150))
+        scr.blit(shade, (0, 0))
+        d = L["dialog"]
+        scr.blit(rrect(d.w, d.h, 22, (34, 30, 54, 250)), d)
+        q = text("Reset fabryczny?", 28, WHITE, "ExtraBold")
+        scr.blit(q, q.get_rect(center=(d.centerx, d.y + 42)))
+        for j, ln in enumerate(("Luna zapomni wszystkie wspomnienia", "i wszystkie znane osoby.")):
+            t = text(ln, 19, soft, "SemiBold")
+            scr.blit(t, t.get_rect(center=(d.centerx, d.y + 86 + j * 26)))
+        for key, lab, col in (("no", "Anuluj", (255, 255, 255, 40)),
+                              ("yes", "Tak, wyczyść", (214, 52, 52, 240))):
+            b = L[key]
+            scr.blit(rrect(b.w, b.h, 24, col), b)
+            t = text(lab, 21, WHITE, "ExtraBold")
+            scr.blit(t, t.get_rect(center=b.center))
+    toast = data.get("toast")
+    if toast and now < toast[1]:                      # "Język: English", "Włączone"
+        img = text(toast[0], 20, WHITE, "Bold")
+        pill = rrect(img.get_width() + 36, 40, 20, (20, 22, 34, 235))
+        pr = pill.get_rect(center=(W // 2 + 90, H - 30))
+        scr.blit(pill, pr)
+        scr.blit(img, img.get_rect(center=pr.center))

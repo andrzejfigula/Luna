@@ -450,7 +450,10 @@ def short_lang(words):
     """"pl" for one or two words: there the cloud's language guess tips over
     ("Nie." → "Me.", "makaron" → "Макарон.", 7 Oct); longer speech keeps the
     automatic guess, which English side talk relies on."""
-    return "pl" if 0 < len(words) <= 2 and not CLOUD_STT_LANGUAGE else None
+    import settings
+    if CLOUD_STT_LANGUAGE or settings.get("language", "pl") == "en":
+        return None
+    return "pl" if 0 < len(words) <= 2 else None
 
 
 def _speculate(pcm16k, lang=None):

@@ -8,7 +8,7 @@ health.py — is Luna's cloud reachable, and how is she doing?
     going silent (TTS needs the network too).
   • Once an hour a "[health]" line in the log: temperature, load, memory,
     answers and their average time, failures.
-  • API calls per day by kind (data/usage.json, 30 days) — "pokaż status"
+  • API calls per day by kind (data/usage.json, 62 days) — "pokaż status"
     shows today's and yesterday's.
   • …and the log is kept under LOG_MAX_MB: the older half goes to
     luna.log.1. She runs for months; the SD card must never fill up.
@@ -90,7 +90,7 @@ def flush_usage(today=None):
     line = usage.setdefault(today, {})
     for k, v in new.items():
         line[k] = line.get(k, 0) + v
-    usage = dict(sorted(usage.items())[-30:])
+    usage = dict(sorted(usage.items())[-62:])     # (the settings page: this month)
     try:
         tmp = _usage_path() + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
@@ -100,15 +100,21 @@ def flush_usage(today=None):
         print(f"[health] usage not saved ({e})", flush=True)
 
 
-def usage_line(day):
-    """"chat 120, stt 300, tts 95" for that day (ISO date), counting the
-    calls not flushed yet when it is today."""
+def day_counts(day, usage=None):
+    """{kind: calls} for that day (ISO date), with the calls not flushed yet
+    when it is today."""
     from datetime import date
-    line = dict(_read_usage().get(day, {}))
+    line = dict((usage if usage is not None else _read_usage()).get(day, {}))
     if day == date.today().isoformat():
         with _lock:
             for k, v in _day.items():
                 line[k] = line.get(k, 0) + v
+    return line
+
+
+def usage_line(day):
+    """"chat 120, stt 300, tts 95" for that day (ISO date)."""
+    line = day_counts(day)
     return ", ".join(f"{k} {v}" for k, v in sorted(line.items()) if k != "ping") or "brak"
 
 

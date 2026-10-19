@@ -3,7 +3,8 @@ from shared_state import state
 from robot_face import RobotFace
 import lamp_scenes
 import ui_screens
-from config import SLEEP_AFTER_FRAMES, RENDER_FPS, RENDER_FPS_ASLEEP, RENDER_FPS_CALM, DRAW_FPS
+import settings_page                       # the face's fps can be set on the settings page
+from config import SLEEP_AFTER_FRAMES, RENDER_FPS, RENDER_FPS_ASLEEP, RENDER_FPS_CALM
 
 # state.emotion (set by brain.py from the LLM's choice) → face state
 EMOTION_MAP = {
@@ -87,7 +88,7 @@ def renderer_loop():
                          else RENDER_FPS_ASLEEP if sleepy else RENDER_FPS_CALM if calm else RENDER_FPS)
         # awake, the GPU face is drawn more often than its pace: smoother, not faster
         awake = face.gl and not (scene or still or sleepy)
-        face.fps = max(DRAW_FPS, face.anim_fps) if awake else face.anim_fps
+        face.fps = max(settings_page.draw_fps(), face.anim_fps) if awake else face.anim_fps
 
         try:
             face.draw()

@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 19 października ==
+- Ekran ustawień: „Luna, pokaż ustawienia”. Cztery zakładki: Ogólne (język — polski albo angielski, tempo mowy, długość odpowiedzi, napisy, pasek u góry), Ekran (podgląd kamery, płynność buzi), Koszty (ile mniej więcej kosztowała dziś, wczoraj, w tym tygodniu i miesiącu) i Reset (reset fabryczny: Luna zapomina wspomnienia i znane osoby — tylko dorosły, po potwierdzeniu, a kopia zostaje). Stuknij zakładkę albo przesuń palcem; ✕ zamyka.
 - Łatwiej zobaczyć, kogo Luna zna: działa też „pokaż profile”, „pokaż, kogo znasz”, „pokaż zdjęcia osób, które znasz”, „pokaż portrety”. A jeśli powiesz to inaczej, Luna i tak otworzy ekran z twarzami, zamiast tylko wymieniać imiona.
 - „Kogo znasz?” pokazuje właściwe zdjęcia: Luna zmienia czyjeś zdjęcie tylko wtedy, gdy jest pewna, że to ta osoba, a nie ktoś podobny (Emilka miała zdjęcie taty).
 - Podgląd kamery w rogu ekranu na życzenie: „Luna, pokaż podgląd kamery” — widać mały obraz z kamery w prawym dolnym rogu; „ukryj podgląd” go chowa. Luna pamięta wybór po restarcie.

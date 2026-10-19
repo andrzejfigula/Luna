@@ -7138,6 +7138,99 @@ class RadioVisualizerTest(unittest.TestCase):
             settings.get = get
             settings.put = put
 
+class SettingsPageTest(unittest.TestCase):
+    """The settings page: values cycle, the costs add up, the factory reset
+    moves (never deletes) memories and people, and asks first."""
+
+    def setUp(self):
+        import settings_page
+        self.sp = settings_page
+        for k in ("language", "captions", "status_bar", "draw_fps", "tts_speed"):
+            settings._load()
+            settings._data.pop(k, None)
+        settings_page._cache.clear()
+
+    def test_values_cycle(self):
+        sp = self.sp
+        self.assertEqual(sp.language(), "pl")
+        self.assertEqual(sp.change("language"), "Język: English")
+        self.assertEqual(settings.get("language"), "en")
+        sp.change("language")
+        self.assertEqual(settings.get("language"), "pl")
+        self.assertEqual(sp.change("status_bar"), "Wyłączone")       # on by default
+        self.assertIs(settings.get("status_bar"), False)
+        self.assertEqual(sp.change("captions"), "Włączone")          # off by default
+        fps = [sp.draw_fps()]
+        for _ in range(3):
+            sp.change("draw_fps")
+            fps.append(sp.draw_fps())
+        self.assertEqual(fps, [45, 60, 30, 45])
+        settings.put("tts_speed", 1.4)
+        sp.change("tts_speed")
+        self.assertEqual(settings.get("tts_speed"), 1.0)
+
+    def test_rows_of_every_tab(self):
+        for tab in range(3):
+            with mock.patch.object(self.sp, "cost_rows", return_value=[]):
+                rows = self.sp.rows(tab)
+            for r in rows:
+                self.assertIn(r["kind"], ("toggle", "cycle", "info", "danger"))
+                self.assertTrue(r["label"])
+
+    def test_cost(self):
+        from config import API_COST_USD, USD_PLN
+        self.assertAlmostEqual(self.sp.cost({"chat": 100, "ping": 5}),
+                               100 * API_COST_USD["chat"] * USD_PLN)
+        self.assertEqual(self.sp._zl(1.234), "≈ 1,23 zł")
+
+    def test_factory_reset_moves_not_deletes(self):
+        d = tempfile.mkdtemp(prefix="luna-reset-")
+        photos = os.path.join(d, "photos")
+        os.makedirs(os.path.join(d, "faces"))
+        os.makedirs(photos)
+        for name in ("memory.json", "people.json", "lists.json"):
+            with open(os.path.join(d, name), "w", encoding="utf-8") as f:
+                f.write("{}")
+        with open(os.path.join(d, "faces", "Maja.jpg"), "wb") as f:
+            f.write(b"x")
+        with open(os.path.join(photos, "people.json"), "w", encoding="utf-8") as f:
+            f.write("{}")
+        dest = self.sp.factory_reset(d, photos)
+        for name in ("memory.json", "people.json", "faces/Maja.jpg", "photos-people.json"):
+            self.assertTrue(os.path.exists(os.path.join(dest, name)), name)
+        self.assertFalse(os.path.exists(os.path.join(d, "memory.json")))
+        self.assertFalse(os.path.exists(os.path.join(photos, "people.json")))
+        self.assertTrue(os.path.exists(os.path.join(d, "lists.json")))   # lists stay
+        shutil.rmtree(d)
+
+    def test_reset_asks_first_and_not_a_child(self):
+        import ui_screens
+        sp = self.sp
+        sp.show(3)
+        with state.lock:
+            data = state.overlay[2]
+        L = ui_screens._settings_layout(800, 480, len(sp.rows(3)))
+        reset = L["rows"][2].center
+        with mock.patch.object(sp, "_reset_and_restart") as go, \
+                mock.patch.object(sp, "_child_here", return_value=True):
+            sp.tap(*reset, 800, 480)
+            self.assertTrue(data.get("confirm"))
+            self.assertFalse(go.called)
+            sp.tap(*L["yes"].center, 800, 480)          # a child: no
+            self.assertFalse(go.called)
+            self.assertEqual(data["toast"][0], "Poproś dorosłego")
+        with mock.patch.object(sp, "_reset_and_restart") as go, \
+                mock.patch.object(sp, "_child_here", return_value=False):
+            sp.tap(*reset, 800, 480)
+            sp.tap(*L["no"].center, 800, 480)           # Anuluj
+            sp.tap(*reset, 800, 480)
+            sp.tap(*L["yes"].center, 800, 480)
+            time.sleep(0.05)
+            self.assertEqual(go.call_count, 1)
+        with state.lock:
+            state.overlay = None
+
+
 # Off the Pi (Windows) the hardware / SDK modules are missing: those tests
 # skip instead of erroring, so the local quick run shows real failures only.
 _PI_ONLY = {"cv2", "pygame", "sounddevice", "openai", "vosk"}

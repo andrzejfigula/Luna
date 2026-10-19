@@ -182,6 +182,11 @@ OPENAI_TIMEOUT = 15.0               # seconds — a stall must never freeze Luna
 SEARCH_MODEL   = "gpt-5.4-mini"    # web search (websearch.py): 4.4 s vs 5.4 s for gpt-4.1-mini
                                    # on 3 real questions (7 Oct), reasoning off
 SEARCH_TIMEOUT = 20.0
+# The settings page's cost estimate: an average USD per call by kind (health.py's
+# counts; chat ~5k prompt tokens mostly cached, a sentence of speech / of audio).
+# A rough guide only — the real bill is on platform.openai.com.
+API_COST_USD = {"chat": 0.0025, "stt": 0.0006, "tts": 0.0015, "image": 0.011, "search": 0.012}
+USD_PLN = 3.7
 CHAT_HEDGE_AFTER = 2.0             # the reply stream hasn't started by then (the first
                                    # token normally comes in 0.65–0.9 s): a second request
 
