@@ -93,12 +93,11 @@ THEMES = {
             "weather, is said in character. Still 1-3 short sentences.\n"),
         # a dark red lens with a glowing red-gold core
         "eyes": {"uTop": (0.42, 0.03, 0.02), "uBottom": (0.10, 0.0, 0.0),
-                 "uGlow": (0.95, 0.06, 0.02), "uShine": (0.70, 0.30, 0.20),
+                 "uGlow": (0.95, 0.06, 0.02), "uShine": (1.0, 0.82, 0.60),
                  "uPupilCol": (0.85, 0.10, 0.04), "uIrisCol": (1.0, 0.80, 0.30),
                  "uTint": (1.0, 0.1, 0.05), "uTintAmt": 0.0},
         # round lenses, a big core, no brows, no mouth, never smiling
-        "spec": {"round": 1.0, "heart": 0.0, "star": 0.0, "pupil": (1.05, 1.05),
-                 "lid_bend": (0.0, 0.0), "gaze_x": 0.0, "gaze_y": 0.0,
+        "spec": {"round": 1.0, "heart": 0.0, "star": 0.0, "pupil": (1.6, 1.6),
                  "brow_a": 0.0, "mouth_a": 0.0, "blush": 0.0},
         "circle": True,
     },
