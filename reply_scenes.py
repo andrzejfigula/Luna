@@ -165,8 +165,8 @@ class Remember(Scene):
 
     def motion(self, face, p):
         s = math.sin(min(1.0, p * 1.3) * math.pi)
-        face.pupil_ox = rf.lerp(face.pupil_ox, -24.0 * s, 0.12)
-        face.pupil_oy = rf.lerp(face.pupil_oy, -26.0 * s, 0.12)
+        face.pupil_ox = rf.ease(face.pupil_ox, -24.0 * s, 0.12)
+        face.pupil_oy = rf.ease(face.pupil_oy, -26.0 * s, 0.12)
         face.target_tilt = -5.0 * s
 
     def eyes(self, face, p, e):
@@ -186,7 +186,7 @@ class Smirk(Scene):
     def motion(self, face, p):
         s = math.sin(p * math.pi)
         face.target_tilt = -6.0 * s
-        face.pupil_ox = rf.lerp(face.pupil_ox, 16.0 * s, 0.15)
+        face.pupil_ox = rf.ease(face.pupil_ox, 16.0 * s, 0.15)
 
     def eyes(self, face, p, e):
         s = math.sin(p * math.pi)
@@ -314,7 +314,7 @@ class BigPupils(Scene):
         hold = rf._prop_hold(p, 0.2, 0.2)
         face._pupil_mul = 1.0 + 1.1 * hold
         face.target_tilt = 7.0 * hold
-        face.pupil_oy = rf.lerp(face.pupil_oy, -8.0 * hold, 0.1)
+        face.pupil_oy = rf.ease(face.pupil_oy, -8.0 * hold, 0.1)
 
     def eyes(self, face, p, e):
         e.widen = max(e.widen, 0.6 * rf._prop_hold(p, 0.2, 0.2))
@@ -347,7 +347,7 @@ class Flutter(Scene):
     def motion(self, face, p):
         hold = rf._prop_hold(p, 0.15, 0.2)
         face.target_tilt = 8.0 * hold
-        face.pupil_oy = rf.lerp(face.pupil_oy, -10.0 * hold, 0.12)
+        face.pupil_oy = rf.ease(face.pupil_oy, -10.0 * hold, 0.12)
 
     def eyes(self, face, p, e):
         f = self._flap(p)
@@ -416,7 +416,7 @@ class Suspicious(Scene):
     def motion(self, face, p):
         hold = rf._prop_hold(p, 0.15, 0.2)
         look = -1.0 if p < 0.5 else 1.0
-        face.pupil_ox = rf.lerp(face.pupil_ox, 30.0 * look * hold, 0.05)
+        face.pupil_ox = rf.ease(face.pupil_ox, 30.0 * look * hold, 0.05)
         face.target_ox += 12.0 * look * hold
         face.target_tilt = -5.0 * look * hold
 
@@ -535,8 +535,8 @@ class ScratchHead(Scene):
     def motion(self, face, p):
         hold = rf._prop_hold(p, 0.2, 0.2)
         face.target_tilt = -7.0 * hold
-        face.pupil_ox = rf.lerp(face.pupil_ox, 18.0 * hold, 0.12)
-        face.pupil_oy = rf.lerp(face.pupil_oy, -14.0 * hold, 0.12)
+        face.pupil_ox = rf.ease(face.pupil_ox, 18.0 * hold, 0.12)
+        face.pupil_oy = rf.ease(face.pupil_oy, -14.0 * hold, 0.12)
 
     def eyes(self, face, p, e):
         e.squint = max(e.squint, 0.35 * rf._prop_hold(p, 0.2, 0.2))
@@ -560,8 +560,8 @@ class ChinRest(Scene):
         hold = rf._prop_hold(p, 0.15, 0.15)
         face.target_tilt = 6.0 * hold
         face.target_oy  += 6.0 * hold
-        face.pupil_ox = rf.lerp(face.pupil_ox, -20.0 * hold, 0.08)
-        face.pupil_oy = rf.lerp(face.pupil_oy, -12.0 * hold, 0.08)
+        face.pupil_ox = rf.ease(face.pupil_ox, -20.0 * hold, 0.08)
+        face.pupil_oy = rf.ease(face.pupil_oy, -12.0 * hold, 0.08)
 
     def eyes(self, face, p, e):
         e.squint = max(e.squint, 0.3 * rf._prop_hold(p, 0.15, 0.15))
@@ -597,7 +597,7 @@ class Please(Scene):
     def motion(self, face, p):
         hold = rf._prop_hold(p, 0.18, 0.18)
         face.target_tilt = 5.0 * math.sin(p * math.pi * 2) * hold
-        face.pupil_oy = rf.lerp(face.pupil_oy, -10.0 * hold, 0.1)
+        face.pupil_oy = rf.ease(face.pupil_oy, -10.0 * hold, 0.1)
 
     def eyes(self, face, p, e):
         e.widen = max(e.widen, 0.85 * rf._prop_hold(p, 0.18, 0.18))
@@ -724,8 +724,8 @@ class AirHeart(Scene):
     def motion(self, face, p):
         tx, ty = self._pt(self._drawn(p) * math.tau)
         if self.DRAW_FROM < p < self.DRAW_TO:     # watches her own finger
-            face.pupil_ox = rf.lerp(face.pupil_ox, tx * 0.2, 0.2)
-            face.pupil_oy = rf.lerp(face.pupil_oy, rf.clamp((ty - 20) * 0.2, -20, 26), 0.2)
+            face.pupil_ox = rf.ease(face.pupil_ox, tx * 0.2, 0.2)
+            face.pupil_oy = rf.ease(face.pupil_oy, rf.clamp((ty - 20) * 0.2, -20, 26), 0.2)
 
     def draw(self, face, surf, fcx, fcy, p):
         d = self._drawn(p)
@@ -868,7 +868,7 @@ class Impatient(Scene):
 
     def motion(self, face, p):
         hold = rf._prop_hold(p, 0.15, 0.15)
-        face.pupil_ox = rf.lerp(face.pupil_ox,
+        face.pupil_ox = rf.ease(face.pupil_ox,
                                 26.0 * math.sin(p * math.pi * 2.5) * hold, 0.1)
         face.target_tilt = 5.0 * hold
 
@@ -887,8 +887,8 @@ class ThinkBubble(Scene):
 
     def motion(self, face, p):
         hold = rf._prop_hold(p)
-        face.pupil_oy = rf.lerp(face.pupil_oy, -24.0 * hold, 0.1)
-        face.pupil_ox = rf.lerp(face.pupil_ox, 16.0 * hold, 0.08)
+        face.pupil_oy = rf.ease(face.pupil_oy, -24.0 * hold, 0.1)
+        face.pupil_ox = rf.ease(face.pupil_ox, 16.0 * hold, 0.08)
         face.target_tilt = -4.0 * hold
 
     def eyes(self, face, p, e):
@@ -940,8 +940,8 @@ class Shy(Scene):
 
     def motion(self, face, p):
         hold = rf._prop_hold(p, 0.2, 0.2)
-        face.pupil_ox = rf.lerp(face.pupil_ox, 26.0 * hold, 0.08)
-        face.pupil_oy = rf.lerp(face.pupil_oy, 14.0 * hold, 0.08)
+        face.pupil_ox = rf.ease(face.pupil_ox, 26.0 * hold, 0.08)
+        face.pupil_oy = rf.ease(face.pupil_oy, 14.0 * hold, 0.08)
         face.target_tilt = 8.0 * hold
         face.target_ox += 14.0 * hold
 
@@ -1059,7 +1059,7 @@ class Curious(Scene):
         hold = rf._prop_hold(p, 0.18, 0.18)
         face.target_tilt = 14.0 * hold
         face.target_ox  += 18.0 * hold
-        face.pupil_oy = rf.lerp(face.pupil_oy, -8.0 * hold, 0.1)
+        face.pupil_oy = rf.ease(face.pupil_oy, -8.0 * hold, 0.1)
 
     def eyes(self, face, p, e):
         hold = rf._prop_hold(p, 0.18, 0.18)
@@ -1129,8 +1129,8 @@ class Sunny(Scene):
 
     def motion(self, face, p):
         hold = rf._prop_hold(p, 0.2, 0.2)
-        face.pupil_ox = rf.lerp(face.pupil_ox, 18.0 * hold, 0.1)
-        face.pupil_oy = rf.lerp(face.pupil_oy, -16.0 * hold, 0.1)
+        face.pupil_ox = rf.ease(face.pupil_ox, 18.0 * hold, 0.1)
+        face.pupil_oy = rf.ease(face.pupil_oy, -16.0 * hold, 0.1)
 
     def draw(self, face, surf, fcx, fcy, p):
         hold = rf._prop_hold(p, 0.2, 0.2)
@@ -1155,7 +1155,7 @@ class Sunny(Scene):
 class Cloudy(Scene):
     """A little cloud settles on each eye and drifts a bit."""
     def motion(self, face, p):
-        face.pupil_oy = rf.lerp(face.pupil_oy, -14.0 * rf._prop_hold(p, 0.2, 0.2), 0.1)
+        face.pupil_oy = rf.ease(face.pupil_oy, -14.0 * rf._prop_hold(p, 0.2, 0.2), 0.1)
 
     def draw(self, face, surf, fcx, fcy, p):
         hold = rf._prop_hold(p, 0.2, 0.2)
@@ -1177,7 +1177,7 @@ class Rainy(Scene):
 
     def motion(self, face, p):
         hold = rf._prop_hold(p, 0.2, 0.2)
-        face.pupil_oy = rf.lerp(face.pupil_oy, -18.0 * hold, 0.1)
+        face.pupil_oy = rf.ease(face.pupil_oy, -18.0 * hold, 0.1)
         face.target_oy += 6.0 * hold                 # ducks a little
 
     def draw(self, face, surf, fcx, fcy, p):
@@ -1205,7 +1205,7 @@ class Snowy(Scene):
     """Snowflakes swirl down past her face."""
     def motion(self, face, p):
         hold = rf._prop_hold(p, 0.2, 0.2)
-        face.pupil_oy = rf.lerp(face.pupil_oy, 14.0 * math.sin(p * math.pi * 3) * hold, 0.08)
+        face.pupil_oy = rf.ease(face.pupil_oy, 14.0 * math.sin(p * math.pi * 3) * hold, 0.08)
 
     def draw(self, face, surf, fcx, fcy, p):
         hold = rf._prop_hold(p, 0.2, 0.2)

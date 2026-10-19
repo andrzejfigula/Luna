@@ -183,6 +183,18 @@ def apply_style(n):
 def lerp(a, b, t):
     return a + (b - a) * t
 
+
+# This frame's length in the animation's own frames: its per-frame steps
+# (eases, blinks, particles, counters) were tuned at face.anim_fps — 30 a
+# second, 20 when calm, 12 asleep — and keep that pace at any frame rate
+# drawn (RobotFace.update sets it).
+_K = 1.0
+
+
+def ease(a, b, t):
+    """lerp(a, b, t) once per tuned frame: the same speed at any frame rate."""
+    return a + (b - a) * (t if _K == 1.0 else 1.0 - (1.0 - t) ** _K)
+
 def clamp(v, lo, hi):
     return max(lo, min(hi, v))
 
@@ -404,10 +416,10 @@ class ZzzParticle:
         self.ph    = random.uniform(0, math.tau)
 
     def update(self):
-        self.age  += 1
+        self.age  += _K
         self.x     = self.x0 + 14 * math.sin(self.age * 0.05 + self.ph) + self.age * 0.35
-        self.y    += self.vy
-        self.alpha = max(0, self.alpha - 3)
+        self.y    += self.vy * _K
+        self.alpha = max(0, self.alpha - 3 * _K)
 
     def alive(self): return self.alpha > 0
 
@@ -415,7 +427,7 @@ class ZzzParticle:
         try:
             grow = 0.7 + 0.5 * min(1.0, self.age / 80.0)     # small, then bigger
             img = zzz_img(int(self.size * grow) // 2 * 2, self.size > 38)
-            img.set_alpha(self.alpha)
+            img.set_alpha(int(self.alpha))
             surf.blit(img, img.get_rect(center=(int(self.x), int(self.y))))
         except Exception:
             pass
@@ -491,10 +503,10 @@ class TearParticle:
         self.vx    = random.uniform(-0.2, 0.2)
 
     def update(self):
-        self.x    += self.vx
-        self.y    += self.vy
-        self.vy   += 0.1   # gravity
-        self.alpha = max(0, self.alpha - 2)
+        self.x    += self.vx * _K
+        self.y    += self.vy * _K
+        self.vy   += 0.1 * _K   # gravity
+        self.alpha = max(0, self.alpha - 2 * _K)
 
     def alive(self): return self.alpha > 0
 
@@ -535,10 +547,10 @@ class SteamParticle:
         self.vy    = random.uniform(-1.5, -0.8)
 
     def update(self):
-        self.x    += self.vx
-        self.y    += self.vy
-        self.alpha = max(0, self.alpha - 4)
-        self.r     = max(1, self.r - 0.1)
+        self.x    += self.vx * _K
+        self.y    += self.vy * _K
+        self.alpha = max(0, self.alpha - 4 * _K)
+        self.r     = max(1, self.r - 0.1 * _K)
 
     def alive(self): return self.alpha > 0
 
@@ -562,11 +574,11 @@ class StarParticle:
         self.vy    = math.sin(angle) * speed
 
     def update(self):
-        self.x    += self.vx
-        self.y    += self.vy
-        self.vx   *= 0.92
-        self.vy   *= 0.92
-        self.alpha = max(0, self.alpha - 6)
+        self.x    += self.vx * _K
+        self.y    += self.vy * _K
+        self.vx   *= 0.92 ** _K
+        self.vy   *= 0.92 ** _K
+        self.alpha = max(0, self.alpha - 6 * _K)
 
     def alive(self): return self.alpha > 0
 
@@ -602,10 +614,10 @@ class HeartParticle:
         self.sway  = random.uniform(0, math.pi * 2)
 
     def update(self):
-        self.sway += 0.1
-        self.x    += self.vx + math.sin(self.sway) * 0.6
-        self.y    += self.vy
-        self.alpha = max(0, self.alpha - 3)
+        self.sway += 0.1 * _K
+        self.x    += (self.vx + math.sin(self.sway) * 0.6) * _K
+        self.y    += self.vy * _K
+        self.alpha = max(0, self.alpha - 3 * _K)
 
     def alive(self): return self.alpha > 0
 
@@ -622,7 +634,7 @@ class SoundWave:
         self.max_r = random.randint(80, 140)
 
     def update(self):
-        self.r    += 3.5
+        self.r    += 3.5 * _K
         self.alpha = max(0, int(180 * (1 - self.r / self.max_r)))
 
     def alive(self): return self.r < self.max_r
@@ -647,7 +659,7 @@ class Blush:
         self.alpha = 0.0   # 0–255
 
     def update(self, target_alpha):
-        self.alpha = lerp(self.alpha, target_alpha, 0.04)
+        self.alpha = ease(self.alpha, target_alpha, 0.04)
 
     def draw(self, surf, fcx, fcy):
         if self.alpha < 3:
@@ -678,15 +690,15 @@ class Eye:
 
     def update(self, target_w, target_h, blink_t, pupil_ox, pupil_oy,
                pupil_scale=1.0, squint=0.0, widen=0.0, droop=0.0):
-        self.w           = lerp(self.w,           target_w,    0.10)
-        self.h           = lerp(self.h,           target_h,    0.10)
-        self.blink_t     = lerp(self.blink_t,     blink_t,     0.30)
-        self.pupil_ox    = lerp(self.pupil_ox,    pupil_ox,    0.18)
-        self.pupil_oy    = lerp(self.pupil_oy,    pupil_oy,    0.18)
-        self.pupil_scale = lerp(self.pupil_scale, pupil_scale, 0.10)
-        self.squint      = lerp(self.squint,      squint,      0.08)
-        self.widen       = lerp(self.widen,       widen,       0.08)
-        self.droop       = lerp(self.droop,       droop,       0.06)
+        self.w           = ease(self.w,           target_w,    0.10)
+        self.h           = ease(self.h,           target_h,    0.10)
+        self.blink_t     = ease(self.blink_t,     blink_t,     0.30)
+        self.pupil_ox    = ease(self.pupil_ox,    pupil_ox,    0.18)
+        self.pupil_oy    = ease(self.pupil_oy,    pupil_oy,    0.18)
+        self.pupil_scale = ease(self.pupil_scale, pupil_scale, 0.10)
+        self.squint      = ease(self.squint,      squint,      0.08)
+        self.widen       = ease(self.widen,       widen,       0.08)
+        self.droop       = ease(self.droop,       droop,       0.06)
 
     def draw(self, surf, cx, cy, angry=False, happy=False,
              sad=False, listening=False,
@@ -1538,7 +1550,7 @@ class Mouth:
 
     def update(self, energy, emotion, speaking):
         # fast to open, slow to let go — the tail is what reads as a fade
-        self.speak_fade = lerp(self.speak_fade, 1.0 if speaking else 0.0,
+        self.speak_fade = ease(self.speak_fade, 1.0 if speaking else 0.0,
                                0.35 if speaking else 0.09)
         if speaking:
             target_visible = 1.0
@@ -1552,8 +1564,8 @@ class Mouth:
             target_visible = 0.0
 
         target_visible    = max(target_visible, self.speak_fade)
-        self.visible      = lerp(self.visible, target_visible, 0.20)  # faster open
-        self.corner_lift  = lerp(self.corner_lift,
+        self.visible      = ease(self.visible, target_visible, 0.20)  # faster open
+        self.corner_lift  = ease(self.corner_lift,
                                     0.8 if emotion in ("happy", "excited", "love")
                                     else 0.0, 0.08)
 
@@ -1562,15 +1574,15 @@ class Mouth:
             # while speaking — prevents dead mouth between words
             effective_energy = max(0.04, energy)   # real lip sync: pauses close the mouth
             target_open      = effective_energy
-            self.talk_open   = lerp(self.talk_open, target_open, 0.55)   # (TTS smooths it)
-            self.mouth_w     = lerp(self.mouth_w,
+            self.talk_open   = ease(self.talk_open, target_open, 0.55)   # (TTS smooths it)
+            self.mouth_w     = ease(self.mouth_w,
                                     190.0 if energy > 0.5 else 150.0, 0.12)
             delta = energy - self.prev_energy
-            if delta > 0.15:
+            if delta > 0.15 * min(1.0, _K):         # (a jump within a tuned frame)
                 self.jaw_bounce = min(1.0, self.jaw_bounce + delta * 2)
-            self.jaw_bounce = lerp(self.jaw_bounce, 0.0, 0.20)
+            self.jaw_bounce = ease(self.jaw_bounce, 0.0, 0.20)
         else:
-            self.talk_open  = lerp(self.talk_open, 0.0, 0.15)
+            self.talk_open  = ease(self.talk_open, 0.0, 0.15)
             self.jaw_bounce = 0.0
 
         self.prev_energy = energy
@@ -1952,7 +1964,8 @@ class RobotFace:
         self._pupil_converge = 0.0
         self._pupil_mul = 1.0            # scenes: 0 hides the pupils, 2 = huge
         self._big_text = None            # (text, until) — game countdown
-        self.fps = RENDER_FPS            # face_renderer lowers it while she sleeps
+        self.fps = RENDER_FPS            # frames drawn a second (face_renderer sets both)
+        self.anim_fps = RENDER_FPS       # …and the pace the animation's steps were tuned at
         self._mouth_drive = 0.0
         self._wink_side = "R"
         self._scene_prev = None
@@ -2006,7 +2019,12 @@ class RobotFace:
             self.star_particles.append(StarParticle(fcx + ox, fcy + oy))
 
     def update(self):
-        self.breath_phase += 0.045
+        global _K
+        mono = time.monotonic()
+        last, self._update_t = getattr(self, "_update_t", 0.0), mono
+        # (rounded: a steady 30 fps is exactly 1 — the steps as they always were)
+        _K = round(min(4.0, (mono - last) * self.anim_fps), 3) if last else 1.0
+        self.breath_phase += 0.045 * _K
         now_t = time.time()
 
         if self.visual_state != self.state:
@@ -2047,14 +2065,14 @@ class RobotFace:
         # ── conversation window indicator ─────────────────────────────────
         # soft glow while awake; when the window times out play a subtle
         # "rest" cue — one slow dim blink and the glow fades out
-        self.awake_glow = lerp(self.awake_glow, 1.0 if convo_active else 0.0,
+        self.awake_glow = ease(self.awake_glow, 1.0 if convo_active else 0.0,
                                0.06)
         if convo_expired > self._last_expire:
             self._last_expire = convo_expired
             self.rest_pulse   = 1.0
             self._blink_dir   = -1        # start a blink…
             self.blink_counter = 0
-        self.rest_pulse *= 0.965          # ~1.5 s decay at 60 fps
+        self.rest_pulse *= 0.965 ** _K    # (~3 s at 30 fps)
 
         # emotion — frozen while speaking
         if speaking and frozen_emotion:
@@ -2069,7 +2087,7 @@ class RobotFace:
                               / (0.4 * SLEEP_AFTER_FRAMES), 0.0, 1.0)
                         if emotion != "sleeping" else 0.0)
         if not face_detected and not speaking:
-            self.idle_frames += 1
+            self.idle_frames += _K
         else:
             if self.idle_frames > 0 and emotion == "sleeping":
                 self.set_state("neutral")
@@ -2105,7 +2123,7 @@ class RobotFace:
         # phase "opening" eases back with a soft cubic — much cuter than
         # the old instant snap-shut.
         if emotion != "sleeping":
-            self.blink_counter += 1
+            self.blink_counter += _K
             trigger = self.blink_timer if not speaking else 180
 
             if listening and not speaking:
@@ -2117,7 +2135,7 @@ class RobotFace:
 
             d = getattr(self, "_blink_dir", 0)
             if d == -1:
-                self.blink_open -= 0.34          # fast close (~3 frames)
+                self.blink_open -= 0.34 * _K     # fast close (~3 frames)
                 if self.blink_open <= 0.0:
                     self.blink_open = 0.0
                     self._blink_dir = 1
@@ -2126,7 +2144,7 @@ class RobotFace:
                 # as a sleepy "back to rest" blink
                 # (sad and drowsy eyes open slowly)
                 slow = self.rest_pulse > 0.35 or emotion == "sad" or self._drowsy > 0.3
-                self.blink_open += 0.16 * (0.45 if slow else 1.0)
+                self.blink_open += 0.16 * (0.45 if slow else 1.0) * _K
                 if self.blink_open >= 1.0:
                     self.blink_open  = 1.0
                     self._blink_dir  = 0
@@ -2146,24 +2164,24 @@ class RobotFace:
 
         # ── listening pulse ───────────────────────────────────────────────
         # (the waves quicken and brighten with the voice she hears)
-        self._mic = lerp(getattr(self, "_mic", 0.0), mic_level if listening else 0.0,
+        self._mic = ease(getattr(self, "_mic", 0.0), mic_level if listening else 0.0,
                          0.35 if mic_level > getattr(self, "_mic", 0.0) else 0.12)
-        self.listen_phase += 0.08 + 0.10 * self._mic
+        self.listen_phase += (0.08 + 0.10 * self._mic) * _K
         if listening:
-            self.listen_pulse = lerp(self.listen_pulse,
+            self.listen_pulse = ease(self.listen_pulse,
                                      0.5 + 0.5 * math.sin(self.listen_phase),
                                      0.15)
         else:
-            self.listen_pulse = lerp(self.listen_pulse, 0.0, 0.1)
+            self.listen_pulse = ease(self.listen_pulse, 0.0, 0.1)
 
         # ── angry red pulse ───────────────────────────────────────────────
-        self.angry_pulse_phase += 0.06
+        self.angry_pulse_phase += 0.06 * _K
         if emotion == "angry":
-            self.angry_pulse = lerp(self.angry_pulse,
+            self.angry_pulse = ease(self.angry_pulse,
                                     0.3 + 0.3 * math.sin(
                                         self.angry_pulse_phase), 0.10)
         else:
-            self.angry_pulse = lerp(self.angry_pulse, 0.0, 0.08)
+            self.angry_pulse = ease(self.angry_pulse, 0.0, 0.08)
 
         # ── blush ─────────────────────────────────────────────────────────
         if emotion == "love":
@@ -2187,19 +2205,19 @@ class RobotFace:
         if emotion == "sleeping":
             self.target_ox = 0.0
             self.target_oy = 0.0
-            self.pupil_ox  = lerp(self.pupil_ox, 0.0, 0.05)
-            self.pupil_oy  = lerp(self.pupil_oy, 0.0, 0.05)
+            self.pupil_ox  = ease(self.pupil_ox, 0.0, 0.05)
+            self.pupil_oy  = ease(self.pupil_oy, 0.0, 0.05)
             self.target_tilt = 0.0
 
         elif emotion == "thinking":
             # pondering: pupils glance up and slowly wander side to side,
             # head tips a touch — the classic "hmm" look
-            self.think_phase = getattr(self, "think_phase", 0.0) + 0.035
+            self.think_phase = getattr(self, "think_phase", 0.0) + 0.035 * _K
             tx = 26 * math.sin(self.think_phase)
             self.target_ox   = tx * 0.6
             self.target_oy   = -12.0
-            self.pupil_ox    = lerp(self.pupil_ox, tx, 0.08)
-            self.pupil_oy    = lerp(self.pupil_oy, -22.0, 0.08)
+            self.pupil_ox    = ease(self.pupil_ox, tx, 0.08)
+            self.pupil_oy    = ease(self.pupil_oy, -22.0, 0.08)
             self.target_tilt = -4.0
 
         elif look_dir is not None:
@@ -2207,16 +2225,16 @@ class RobotFace:
             PUPIL_SHIFT = 28
             if look_dir == "left":
                 self.target_ox = -FACE_SHIFT
-                self.pupil_ox  = lerp(self.pupil_ox, -PUPIL_SHIFT, 0.15)
+                self.pupil_ox  = ease(self.pupil_ox, -PUPIL_SHIFT, 0.15)
             elif look_dir == "right":
                 self.target_ox =  FACE_SHIFT
-                self.pupil_ox  = lerp(self.pupil_ox,  PUPIL_SHIFT, 0.15)
+                self.pupil_ox  = ease(self.pupil_ox,  PUPIL_SHIFT, 0.15)
             elif look_dir == "up":
                 self.target_oy = -FACE_SHIFT
-                self.pupil_oy  = lerp(self.pupil_oy, -PUPIL_SHIFT, 0.15)
+                self.pupil_oy  = ease(self.pupil_oy, -PUPIL_SHIFT, 0.15)
             elif look_dir == "down":
                 self.target_oy =  FACE_SHIFT
-                self.pupil_oy  = lerp(self.pupil_oy,  PUPIL_SHIFT, 0.15)
+                self.pupil_oy  = ease(self.pupil_oy,  PUPIL_SHIFT, 0.15)
             self.target_tilt = 0.0
 
         elif face_detected:
@@ -2234,8 +2252,8 @@ class RobotFace:
                 target_oy += (m_oy - target_oy) * w * 0.3
             self.target_ox = target_ox
             self.target_oy = target_oy
-            self.pupil_ox  = lerp(self.pupil_ox, p_ox, 0.18)
-            self.pupil_oy  = lerp(self.pupil_oy, p_oy, 0.18)
+            self.pupil_ox  = ease(self.pupil_ox, p_ox, 0.18)
+            self.pupil_oy  = ease(self.pupil_oy, p_oy, 0.18)
             self.target_tilt = (8.0 if fx < 0.38
                                 else (-8.0 if fx > 0.62 else 0.0))
         elif self._motion_seen(motion, now_t):
@@ -2244,11 +2262,11 @@ class RobotFace:
             self.curiosity_timer = 0
             self.target_ox = m_ox * 0.7
             self.target_oy = m_oy * 0.7
-            self.pupil_ox  = lerp(self.pupil_ox, m_ox * GAZE_MOTION_PUPIL, 0.12)
-            self.pupil_oy  = lerp(self.pupil_oy, m_oy * GAZE_MOTION_PUPIL, 0.12)
+            self.pupil_ox  = ease(self.pupil_ox, m_ox * GAZE_MOTION_PUPIL, 0.12)
+            self.pupil_oy  = ease(self.pupil_oy, m_oy * GAZE_MOTION_PUPIL, 0.12)
             self.target_tilt = 0.0
         else:
-            self.curiosity_timer += 1
+            self.curiosity_timer += _K
             if self.curiosity_timer > 140:
                 self.curiosity_timer    = 0
                 # a big jump of the gaze often comes with a blink (as ours do)
@@ -2258,21 +2276,21 @@ class RobotFace:
                 self.curiosity_target_y = random.uniform(-35, 35)
             self.target_ox = self.curiosity_target_x
             self.target_oy = self.curiosity_target_y
-            self.pupil_ox  = lerp(self.pupil_ox,
+            self.pupil_ox  = ease(self.pupil_ox,
                                   self.curiosity_target_x * 0.20, 0.02)
-            self.pupil_oy  = lerp(self.pupil_oy,
+            self.pupil_oy  = ease(self.pupil_oy,
                                   self.curiosity_target_y * 0.20, 0.02)
             self.target_tilt = 0.0
 
         if emotion == "sad":                         # sad eyes look down
-            self.pupil_oy = lerp(self.pupil_oy, 18.0, 0.08)
+            self.pupil_oy = ease(self.pupil_oy, 18.0, 0.08)
 
         # cute decaying bounce on positive state changes
         bounce_y = 0.0
         if self.bounce_amp > 0.5:
-            self.bounce_phase += 0.28
+            self.bounce_phase += 0.28 * _K
             bounce_y = -abs(math.sin(self.bounce_phase)) * self.bounce_amp
-            self.bounce_amp *= 0.94   # decay
+            self.bounce_amp *= 0.94 ** _K   # decay
 
         # ── reply body language (see reply_scenes.py for the catalogue) ───
         i_el   = now_t - i_start
@@ -2440,7 +2458,7 @@ class RobotFace:
             self.hand_pose["R"] = pose
             tgt_R = (232, 50 + 5 * math.sin(now_t * 9.0), -6)
 
-        self._pupil_converge = lerp(self._pupil_converge, 0.0, 0.25)
+        self._pupil_converge = ease(self._pupil_converge, 0.0, 0.25)
         self._pupil_mul = 1.0
         self._mouth_drive = 0.0
         # the radio playing and nothing else going on: she moves a little
@@ -2449,7 +2467,7 @@ class RobotFace:
                 and not self._scene and not getattr(self, "_gesture", None)):
             import radio
             if radio.playing():
-                self._music_bob = lerp(getattr(self, "_music_bob", 0.0), radio.music_pulse(), 0.35)
+                self._music_bob = ease(getattr(self, "_music_bob", 0.0), radio.music_pulse(), 0.35)
                 self.target_oy += 6.0 * self._music_bob
                 self.target_tilt += 2.0 * math.sin(now_t * 1.3)
             else:
@@ -2464,7 +2482,7 @@ class RobotFace:
         # the hands on springs: quick, a little overshoot, settling — in
         # real time (4 ms steps), not "x % of the way each frame"
         tnow = time.monotonic()
-        hdt = max(1.0 / 30.0, min(0.1, tnow - getattr(self, "_hand_t", tnow - 0.05)))
+        hdt = max(1.0 / 120.0, min(0.1, tnow - getattr(self, "_hand_t", tnow - 0.05)))
         self._hand_t = tnow
         vel = getattr(self, "_hand_vel", None) or {"L": [0.0, 0.0, 0.0], "R": [0.0, 0.0, 0.0]}
         self._hand_vel = vel
@@ -2492,11 +2510,11 @@ class RobotFace:
             self.target_oy   += 8.0 * k
             self.target_tilt += 5.0 * k * self._touch_pull
 
-        self.face_ox = lerp(self.face_ox, self.target_ox, 0.30 if head_fast else 0.12)
-        self.face_oy = lerp(self.face_oy,
+        self.face_ox = ease(self.face_ox, self.target_ox, 0.30 if head_fast else 0.12)
+        self.face_oy = ease(self.face_oy,
                             self.target_oy + breath_y + bounce_y,
                             0.30 if head_fast else 0.16)
-        self.head_angle = lerp(self.head_angle, self.target_tilt,
+        self.head_angle = ease(self.head_angle, self.target_tilt,
                                0.35 if head_fast or self._gesture == "wave" else 0.07)
 
         # ── update eye/mouth ──────────────────────────────────────────────
@@ -2566,7 +2584,7 @@ class RobotFace:
 
         # zzz
         if emotion == "sleeping":
-            self.zzz_spawn_t += 1
+            self.zzz_spawn_t += _K
             if self.zzz_spawn_t > 40:
                 self.zzz_spawn_t = 0
                 self.zzz_particles.append(
@@ -2576,7 +2594,7 @@ class RobotFace:
 
         # tears
         if emotion == "sad":
-            self.tear_spawn_t += 1
+            self.tear_spawn_t += _K
             if self.tear_spawn_t > 90:
                 self.tear_spawn_t = 0
                 # drip from left eye
@@ -2588,7 +2606,7 @@ class RobotFace:
 
         # steam (angry)
         if emotion == "angry" and EYE_MODE != "block":
-            self.steam_spawn_t += 1
+            self.steam_spawn_t += _K
             if self.steam_spawn_t > 12:
                 self.steam_spawn_t = 0
                 for eye_x in [fcx - 190, fcx + 190]:
@@ -2609,7 +2627,7 @@ class RobotFace:
 
         # excited keeps sprinkling a few extra stars while it lasts
         if emotion == "excited" and EYE_MODE != "block":
-            self.excite_spawn_t += 1
+            self.excite_spawn_t += _K
             if self.excite_spawn_t > 25:
                 self.excite_spawn_t = 0
                 self.star_particles.append(
@@ -2618,7 +2636,7 @@ class RobotFace:
 
         # floating hearts (love)
         if emotion == "love":
-            self.heart_spawn_t += 1
+            self.heart_spawn_t += _K
             if self.heart_spawn_t > 18:
                 self.heart_spawn_t = 0
                 self.heart_particles.append(
@@ -2629,7 +2647,7 @@ class RobotFace:
 
         # sound waves ripple from the mouth while speaking — nice talking effect
         if speaking and audio_energy > 0.45 and EYE_MODE != "block":   # (the block face:
-            self.wave_spawn_t += 1                               #  its mouth is enough)
+            self.wave_spawn_t += _K                               #  its mouth is enough)
             if self.wave_spawn_t > 14:
                 self.wave_spawn_t = 0
                 mx = fcx + self.mouth.rel_x
@@ -2652,7 +2670,7 @@ class RobotFace:
 
         # wake ripple
         if self.wake_anim == self._WAKE_ACTIVE:
-            self.wake_ripple += 0.04
+            self.wake_ripple += 0.04 * _K
             if self.wake_ripple >= 1.0:
                 self.wake_anim   = self._WAKE_NONE
                 self.wake_ripple = 0.0

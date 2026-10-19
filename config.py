@@ -46,13 +46,15 @@ FACE_MIN_SIZE      = 24      # px on the half-size (320x240) analysis frame
 FACE_EQUALIZE      = True    # CLAHE (local contrast) — handles a backlit face
 FACE_HOLD_SECS     = 0.6
 VISION_DEBUG       = False   # log detections (position, size, count) every ~2 s
-RENDER_FPS      = 30     # face animation; 30 is smooth on the 7" DSI panel
+RENDER_FPS      = 30     # the face animation's pace: its steps (blinks, eases, particles,
+                         # the sleep countdown) are tuned per frame at these rates
 RENDER_FPS_CALM = 20     # awake but calm (not speaking, no gesture, scene or touch):
-                         # slow eye moves and blinks look the same, and a frame
-                         # costs ~18 ms on the Pi — 30 fps was half a core
-RENDER_FPS_ASLEEP = 12   # while she sleeps (nobody around / "dobranoc"): the
-                         # sleeping face barely moves, and drawing it at 30 fps
-                         # was half a CPU core
+                         # slower eye moves and blinks
+RENDER_FPS_ASLEEP = 12   # while she sleeps (nobody around / "dobranoc"): drawn at this
+                         # rate too — the sleeping face barely moves
+DRAW_FPS        = 45     # frames drawn a second while she's awake (the GPU face): the
+                         # animation keeps the pace above (robot_face._K), only smoother.
+                         # ~8 ms of CPU and ~11 ms of GPU a frame on the Pi 4 (19 Oct)
 
 # ── Display (official 7" DSI touchscreen) ─────────────────────────────────────
 SCREEN_WIDTH   = 800

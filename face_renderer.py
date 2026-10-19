@@ -3,7 +3,7 @@ from shared_state import state
 from robot_face import RobotFace
 import lamp_scenes
 import ui_screens
-from config import SLEEP_AFTER_FRAMES, RENDER_FPS, RENDER_FPS_ASLEEP, RENDER_FPS_CALM
+from config import SLEEP_AFTER_FRAMES, RENDER_FPS, RENDER_FPS_ASLEEP, RENDER_FPS_CALM, DRAW_FPS
 
 # state.emotion (set by brain.py from the LLM's choice) → face state
 EMOTION_MAP = {
@@ -69,7 +69,7 @@ def renderer_loop():
             face.set_state(mapped)
 
         # asleep → fewer frames (the face barely moves); anything that wakes
-        # her (an override from a touch, speech, listening) restores 30 fps
+        # her (an override from a touch, speech, listening) restores the pace
         sleepy = (not override and not speaking and not listening
                   and (asleep or face.idle_frames > SLEEP_AFTER_FRAMES))
         with state.lock:
@@ -83,8 +83,11 @@ def renderer_loop():
                      and now < ov[1] - 0.6)          # (full speed for the fade-out)
         calm = not (override or speaking or busy or face._gesture or face._scene)
         scene = ov and ov[0] == "lamp" and (ov[2] or {}).get("scene")
-        face.fps = (lamp_scenes.FPS.get(scene, 20) if scene and face.gl else 8 if still else RENDER_FPS_ASLEEP if sleepy
-                    else RENDER_FPS_CALM if calm else RENDER_FPS)
+        face.anim_fps = (lamp_scenes.FPS.get(scene, 20) if scene and face.gl else 8 if still
+                         else RENDER_FPS_ASLEEP if sleepy else RENDER_FPS_CALM if calm else RENDER_FPS)
+        # awake, the GPU face is drawn more often than its pace: smoother, not faster
+        awake = face.gl and not (scene or still or sleepy)
+        face.fps = max(DRAW_FPS, face.anim_fps) if awake else face.anim_fps
 
         try:
             face.draw()

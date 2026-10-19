@@ -6294,6 +6294,33 @@ class GLLayerUploadTest(unittest.TestCase):
         self.assertEqual(s.get_bounding_rect().width, 0)
 
 
+class FramePaceTest(unittest.TestCase):
+    """robot_face.ease: the animation's per-frame steps keep their pace at
+    any frame rate — two half-length frames ease as far as one whole one,
+    and a whole one is exactly the old lerp."""
+
+    def test_ease_by_frame_length(self):
+        try:
+            import robot_face as rf
+        except ImportError:
+            self.skipTest("pygame")
+        old = rf._K
+        try:
+            rf._K = 1.0
+            self.assertEqual(rf.ease(10.0, 0.0, 0.3), rf.lerp(10.0, 0.0, 0.3))
+            whole = rf.ease(10.0, 0.0, 0.3)
+            rf._K = 0.5
+            self.assertAlmostEqual(rf.ease(rf.ease(10.0, 0.0, 0.3), 0.0, 0.3), whole)
+            rf._K = 2 / 3                             # 45 fps at the 30 fps pace
+            x = 10.0
+            for _ in range(3):
+                x = rf.ease(x, 0.0, 0.3)
+            rf._K = 1.0
+            self.assertAlmostEqual(x, rf.ease(rf.ease(10.0, 0.0, 0.3), 0.0, 0.3))
+        finally:
+            rf._K = old
+
+
 class FaceSpecTest(unittest.TestCase):
     """The face library (face_spec.py → gl_face's uniforms): every mood has
     its settings, every combination makes sane shader inputs — no GL needed."""

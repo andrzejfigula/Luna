@@ -6,10 +6,11 @@ the sleeping zzz, the same pixels every run. Prints the cost of a frame
 code pixel for pixel. Runs on the Pi beside Luna (EGL, no window).
 
     cd <a luna copy> && ~/luna/venv/bin/python -X utf8 tools/render_bench.py \\
-        [--fps 30] [--secs 24] [--save DIR] [--every 6]
+        [--fps 30] [--anim 30] [--secs 24] [--save DIR] [--every 6]
     python3 tools/render_bench.py --diff DIR_A DIR_B
 """
 
+import math
 import os
 import random
 import sys
@@ -52,6 +53,7 @@ def arg(name, default):
 FPS, SECS = arg("--fps", 30), arg("--secs", 24.0)
 PROFILE = arg("--profile", -1.0)          # cProfile one second of the script from here
 SAVE, EVERY = arg("--save", ""), arg("--every", 6)
+TRACE = arg("--trace", "")                # a CSV of the animation's values per frame
 
 # the fake clock: every frame moves it 1/FPS (the script's times are seconds)
 T0 = 1_760_000_000.0
@@ -93,6 +95,7 @@ def main():
     face.back = gl_face.layer_surface(W, H)
     face.clock = type("NoWait", (), {"tick": lambda self, fps: 0})()
     face.fps = FPS
+    face.anim_fps = arg("--anim", 30)           # the animation's pace (face_renderer's)
     costume = next(iter(rf.COSTUMES), None)
     if SAVE:
         os.makedirs(SAVE, exist_ok=True)
@@ -102,6 +105,7 @@ def main():
     cur = {}
     step = 0
     seg = {}
+    trace = ["t,blink_open,eye_w,eye_h,pupil_ox,face_oy,head_angle,idle,talk_open"]
     for i in range(n):
         t = i / FPS
         while step < len(SCRIPT) and SCRIPT[step][0] <= t + 1e-9:
@@ -111,7 +115,9 @@ def main():
             state.face_detected = cur.get("face", True)
             state.listening = cur.get("listening", False)
             state.speaking = state.audio_playing = cur.get("speaking", False)
-            state.audio_energy = (0.5 + 0.5 * ((i * 7919) % 13) / 13.0) if state.speaking else 0.0
+            # (a voice by the clock, not by the frame: the same at any frame rate)
+            state.audio_energy = (0.45 + 0.4 * math.sin(19.0 * t) * math.sin(4.3 * t)
+                                  if state.speaking else 0.0)
             state.conversation_active = cur.get("convo", False)
             c = cur.get("costume")
             state.costume = ((costume if c else None), NOW[0] + 600) if c and costume else None
@@ -131,6 +137,11 @@ def main():
         cpu.append(t1 - t0)
         gpu.append(t2 - t1)
         seg.setdefault(step, []).append(t1 - t0)
+        if TRACE:
+            e = face.left_eye
+            trace.append(f"{t:.4f},{face.blink_open:.4f},{e.w:.3f},{e.h:.3f},{face.pupil_ox:.3f},"
+                         f"{face.face_oy:.3f},{face.head_angle:.4f},{face.idle_frames:.2f},"
+                         f"{face.mouth.talk_open:.4f}")
         if SAVE and i % EVERY == 0:
             px = GL.glReadPixels(0, 0, W, H, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE)
             img = Image.frombytes("RGBA", (W, H), px).transpose(Image.FLIP_TOP_BOTTOM)
@@ -138,6 +149,9 @@ def main():
             img.convert("RGB").save(os.path.join(SAVE, f"t{int(round(t * 1000)):06d}.png"))
         NOW[0] += 1.0 / FPS
 
+    if TRACE:
+        with open(TRACE, "w") as f:
+            f.write("\n".join(trace) + "\n")
     if PROFILE >= 0:
         import pstats
         pstats.Stats(pr).sort_stats("tottime").print_stats(18)
