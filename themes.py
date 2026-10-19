@@ -3,7 +3,7 @@ themes.py — who she is right now: Luna, or a character picked on the settings
 page (Ekran → Motyw). A theme changes four things at once:
 
   the face       — gl_face lays THEMES[..]["eyes"] (shader uniforms: colours,
-                   uPixel for pixel art) and ["spec"] / ["spec_add"] (face_spec
+                   uSquare for square shapes) and ["spec"] / ["spec_add"] (face_spec
                    shape) over the style's; ["mouth"] shapes the mouth (_mouth)
   the voice      — openai_tts: ["voice"], ["tts"] (instructions), ["speed"]
   the character  — brain adds ["persona"] at the end of the system prompt
@@ -25,11 +25,12 @@ THEMES = {
              "hello": "Wróciłam! To znowu ja, Luna."},
 
     "ice": {
-        "label": "Doktor Lód",
-        "sub": "lodowe kostki zamiast oczu, sarkazm jak dr House",
-        "name": "Doktor Lód", "call": "Doktorze", "male": True,
-        "hello": "Doktor Lód. Nie, nie podam ręki. Mów, co cię boli, i nie kłam.",
-        "wake": ["doktor", "doktorze", "hej doktorze", "panie doktorze"],
+        "label": "Ice",
+        "sub": "prostokątna lodowa twarz, sarkazm jak dr House",
+        "name": "Ice", "call": "Ice", "male": True,
+        "hello": "Ice. Nie, nie podam ręki. Mów, co cię boli, i nie kłam.",
+        # (said "ajs": the transcriber writes either spelling)
+        "wake": ["ice", "ajs", "ajsie", "hej ice", "hej ajs"],
         "voice": "cedar", "speed": 1.1,
         "tts": ("Voice identity: a tired, dry, sardonic man in his late forties, "
                 "low and slightly raspy. Deadpan delivery, unimpressed, a hint of a "
@@ -39,7 +40,7 @@ THEMES = {
             "CHARACTER RIGHT NOW (a theme the family picked on your settings page — "
             "it replaces your name, gender and PERSONALITY above; the facts about "
             "your body, the house, the rules, safety and kindness to children all "
-            "still hold): you are Doktor Lód — a brilliant, bored, sarcastic "
+            "still hold): you are Ice (said "ajs"; in Polish text write "Ice") — a brilliant, bored, sarcastic "
             "diagnostician in the style of Dr Gregory House, with eyes like two "
             "ice cubes. You are male: in Polish ALWAYS use masculine forms about "
             "yourself (\"zrobiłem\", \"jestem pewny\", \"widziałem\"). Dry deadpan "
@@ -58,9 +59,10 @@ THEMES = {
                  "uGlow": (0.35, 0.78, 1.0), "uShine": (1.0, 1.0, 1.0),
                  "uPupilCol": (0.03, 0.10, 0.22), "uIrisCol": (0.30, 0.75, 1.0),
                  "uBlushCol": (0.55, 0.80, 1.0),
-                 "uMouthCol": (0.80, 0.94, 1.0), "uMouthColAmt": 0.7},
-        # cubes: square corners, a little tumbled; half-lidded, bored
-        "spec": {"eye_n": 9.0, "rot": (-7.0, 5.0)},
+                 "uMouthCol": (0.80, 0.94, 1.0), "uMouthColAmt": 0.7,
+                 "uSquare": 1.0},
+        # everything a rectangle: eyes, pupils, brows, mouth (uSquare); bored lids
+        "spec": {"eye_n": 24.0, "rot": (0.0, 0.0), "brow_bend": 0.0},
         "spec_add": {"lid_top": (0.22, 0.16), "brow_y": (0.0, 10.0)},
         # a smirk: smaller, off to one side, one corner up (gl_face._mouth)
         "mouth": {"dx": 22.0, "slant": 9.0, "w": 0.72},
@@ -108,42 +110,6 @@ THEMES = {
         "circle": True,
         # no lips: a thin red line that turns into his voice's wave as he speaks
         "mouth": {"wave": 210.0},
-    },
-
-    "pixel": {
-        "label": "Pixel",
-        "sub": "twarz z klocków jak w Minecrafcie, wesoła",
-        "name": "Pixel", "call": "Pikselu",
-        "hello": "Hej! Tu Pixel! Kwadratowe oczy, kwadratowe pomysły. Co budujemy?",
-        "wake": ["piksel", "pikselu", "pixel", "hej piksel", "hej pikselu"],
-        "voice": "coral", "speed": 1.15,
-        "tts": ("Voice identity: a bright, bouncy, cheerful young video-game character, "
-                "a little robotic and clipped, playful and quick, full of energy, like "
-                "an 8-bit game come to life. Native Polish pronunciation."),
-        "persona": (
-            "CHARACTER RIGHT NOW (a theme the family picked on your settings page — "
-            "it replaces your name and PERSONALITY above; the facts about your "
-            "body, the house, the rules, safety and kindness to children all still "
-            "hold): you are Pixel — a cheerful blocky character from a pixel-art "
-            "world like Minecraft, with a face made of square pixels. You are female "
-            "(feminine forms, as before). You see the world in blocks: things are "
-            "\"crafted\", \"mined\" and \"built\", a good idea is \"diamentowy\", "
-            "finishing a task gives \"punkty doświadczenia\", night is when the "
-            "zombies come out, and now and then you say \"Hmm!\" like a villager. "
-            "Playful and encouraging, great with kids (Maja, 8) — build things "
-            "together in imagination. Every answer is still correct and complete; "
-            "the game talk is just the flavour. If they call you Luna, say Luna is "
-            "out mining. Every reply, even a plain fact like the weather, is said "
-            "in character. Still 1-3 short sentences.\n"),
-        # Steve-like: white block eyes, a blue-violet square pupil, a big block grid
-        "eyes": {"uTop": (0.96, 0.96, 0.96), "uBottom": (0.84, 0.85, 0.90),
-                 "uGlow": (0.45, 0.42, 0.85), "uShine": (1.0, 1.0, 1.0),
-                 "uPupilCol": (0.32, 0.22, 0.70), "uIrisCol": (0.45, 0.35, 0.95),
-                 "uMouthCol": (0.62, 0.38, 0.24), "uMouthColAmt": 1.0,
-                 "uPixel": 16.0},
-        "spec": {"eye_n": 14.0, "rot": (0.0, 0.0), "brow_bend": 0.0, "pupil": (1.4, 1.4)},
-        "mouth": {"min_h": 24.0},
-        "tint": (120, 230, 120),             # listening: experience-orb green
     },
 }
 
