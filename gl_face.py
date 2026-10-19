@@ -1543,6 +1543,8 @@ class GLFace:
             fl = 1.0 + 0.12 * math.sin(now * 13.0) * math.sin(now * 7.3)
             u["uGlow"] = tuple(min(1.0, c * fl) for c in u["uGlow"])
         tint = face._eye_color
+        if tint and theme.get("tint"):            # listening: the theme's own tint, not amber
+            tint = theme["tint"]
         amt = 0.45 if tint else 0.0
         heat = cur["tint"] + 0.45 * face.angry_pulse          # angry: red, and pulsing
         if heat > 0.01:

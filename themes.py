@@ -64,6 +64,7 @@ THEMES = {
         "spec_add": {"lid_top": (0.22, 0.16), "brow_y": (0.0, 10.0)},
         # a smirk: smaller, off to one side, one corner up (gl_face._mouth)
         "mouth": {"dx": 22.0, "slant": 9.0, "w": 0.72},
+        "tint": (150, 215, 255),             # listening (0..255): bluer ice
     },
 
     "hal": {
@@ -142,6 +143,7 @@ THEMES = {
                  "uPixel": 16.0},
         "spec": {"eye_n": 14.0, "rot": (0.0, 0.0), "brow_bend": 0.0},
         "mouth": {"min_h": 24.0},
+        "tint": (120, 230, 120),             # listening: experience-orb green
     },
 }
 
