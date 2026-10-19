@@ -23,7 +23,6 @@ import os
 import random
 import sys
 import time
-from time import perf_counter as _pc
 
 import face_spec
 import visualizer
@@ -608,16 +607,89 @@ void main() {
     } else {
         vec4 l = vec4(0.0);
         if (uLayerSel < 0.5) {
-            l = texture2D(uLayer, uv);
+            l = LAYER(texture2D(uLayer, uv));
         } else {
             vec2 lu = p / uRes;
             if (lu.x >= 0.0 && lu.x <= 1.0 && lu.y >= 0.0 && lu.y <= 1.0)
-                l = (uLayerSel < 1.5) ? texture2D(uFaceLayer, lu) : texture2D(uBackLayer, lu);
+                l = LAYER((uLayerSel < 1.5) ? texture2D(uFaceLayer, lu) : texture2D(uBackLayer, lu));
         }
         gl_FragColor = vec4(l.rgb * l.a, l.a);
     }
 }
 """
+
+# passes 1 and 3 on their own: the same lines as in _FRAG, without the face's
+# big shader around them (in it the stretch alone took ~5 ms of the GPU, as a
+# shader of its own well under one; 19 Oct, Pi 4)
+_FRAG_FLAT = """
+uniform vec2  uRes;
+uniform float uTime;
+uniform float uTilt;
+uniform vec2  uGlitch;
+uniform float uLayerSel;
+uniform sampler2D uSoft;
+uniform sampler2D uLayer;
+uniform sampler2D uFaceLayer;
+uniform sampler2D uBackLayer;
+
+""" + _FRAG[_FRAG.index("float hash(vec2 p)"):_FRAG.index("// ── the light")] + """
+void main() {
+    vec2 fc = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y);
+    fc.x -= glitchShift(fc.y);
+    vec2 uv = fc / uRes;
+#ifdef STRETCH
+    vec3 col = texture2D(uSoft, vec2(uv.x, 1.0 - uv.y)).rgb;   // (drawn bottom row first)
+    col += (hash(fc + fract(uTime)) - 0.5) / 255.0;            // dither: no banding
+    gl_FragColor = vec4(col, 1.0);
+#else
+    vec2 c0 = uRes * 0.5;
+    vec2 dv = fc - c0;
+    float cs = cos(uTilt), sn = sin(uTilt);
+    vec2 p = c0 + vec2(cs * dv.x - sn * dv.y, sn * dv.x + cs * dv.y);
+    vec4 l = vec4(0.0);
+    if (uLayerSel < 0.5) {
+        l = LAYER(texture2D(uLayer, uv));
+    } else {
+        vec2 lu = p / uRes;
+        if (lu.x >= 0.0 && lu.x <= 1.0 && lu.y >= 0.0 && lu.y <= 1.0)
+            l = LAYER((uLayerSel < 1.5) ? texture2D(uFaceLayer, lu) : texture2D(uBackLayer, lu));
+    }
+    gl_FragColor = vec4(l.rgb * l.a, l.a);
+#endif
+}
+"""
+
+
+class _Prog:
+    """A small program's id, its uniforms' locations and the values they hold."""
+
+    def __init__(self, GL, pid):
+        self.GL, self.id, self.loc, self.set = GL, pid, {}, {}
+
+    def u(self, name, value):
+        GL = self.GL
+        loc = self.loc.get(name)
+        if loc is None:
+            loc = self.loc[name] = GL.glGetUniformLocation(self.id, name)
+        if loc < 0:
+            return
+        v = float(value) if isinstance(value, (int, float)) else tuple(map(float, value))
+        if self.set.get(loc) == v:
+            return
+        self.set[loc] = v
+        if isinstance(v, float):
+            GL.glUniform1f(loc, v)
+        elif len(v) == 2:
+            GL.glUniform2f(loc, *v)
+        elif len(v) == 3:
+            GL.glUniform3f(loc, *v)
+        else:
+            GL.glUniform4f(loc, *v)
+
+    def unit(self, name, unit):
+        loc = self.GL.glGetUniformLocation(self.id, name)
+        if loc >= 0:
+            self.GL.glUniform1i(loc, unit)
 
 
 def _pick_platform():
@@ -635,10 +707,6 @@ def _pick_platform():
         os.environ["PYOPENGL_PLATFORM"] = "egl"
 
 
-PROF = {"n": 0, "nf": 0, "up_face": 0.0, "up_back": 0.0, "up_screen": 0.0, "draw": 0.0,
-        "finish": 0.0, "uni": 0.0}
-
-
 class _Layer:
     """A pygame layer's texture and the bytes last sent, per 32-row band."""
     BAND = 32
@@ -647,42 +715,66 @@ class _Layer:
         self.tex = tex
         self.w = width
         self.bands = [(y, min(self.BAND, height - y)) for y in range(0, height, self.BAND)]
-        self.sent = [None] * len(self.bands)      # the band's bytes on the texture
+        self.h = height
+        self.sent = [None] * len(self.bands)      # the band's pixels on the texture
         self.zero = {h: bytes(width * 4 * h) for _, h in self.bands}
 
-    def runs(self):
-        """(y0, y1) of the runs of bands with something on them."""
+    def runs(self, pad=0):
+        """(y0, y1) of the runs of bands with something on them, each widened
+        by pad rows (a turned layer reaches past its own rows)."""
         out = []
         for (y, h), data in zip(self.bands, self.sent):
             if data is None:
                 continue
-            if out and out[-1][1] == y:
-                out[-1] = (out[-1][0], y + h)
+            y0, y1 = max(0, y - pad), min(self.h, y + h + pad)
+            if out and out[-1][1] >= y0:
+                out[-1] = (out[-1][0], y1)
             else:
-                out.append((y, y + h))
+                out.append((y0, y1))
         return out
 
 
+_np = []
+
+
+def _numpy():
+    """numpy, or None where it isn't installed (loaded once, when needed)."""
+    if not _np:
+        try:
+            import numpy
+            _np.append(numpy)
+        except ImportError:
+            _np.append(None)
+    return _np[0]
+
+
+# the layers' memory is pygame's own (B, G, R, A on a little-endian Pi): its
+# blits take their fast paths there — an image blitted into an R, G, B, A
+# layer went the slow generic way, 1.7 ms for a sound wave instead of 0.06.
+# GL takes the bytes as they are (as RGBA: Mesa swapping them on the CPU was
+# 26 ms a layer) and the shader swaps them back (LAYER).
+_SWAP = sys.byteorder == "little"
+_LAYER_MASKS = (0xFF0000, 0xFF00, 0xFF, 0xFF000000)
+_LAYER_DEF = "#define LAYER(c) (c).bgra\n" if _SWAP else "#define LAYER(c) (c)\n"
+
+
 def layer_surface(width, height):
-    """A transparent pygame surface whose memory is R, G, B, A — what the
-    GPU takes as it is. pygame's usual layout (B, G, R, A) made Mesa swap
-    every pixel on the CPU: 26 ms for a whole layer instead of ~2 (Pi 4)."""
+    """A transparent pygame surface laid out the way the layers' textures
+    take it as it is (_SWAP)."""
     import pygame
-    if sys.byteorder == "little":
-        return pygame.Surface((width, height), pygame.SRCALPHA, 32,
-                              masks=(0xFF, 0xFF00, 0xFF0000, 0xFF000000))
-    return pygame.Surface((width, height), pygame.SRCALPHA)
+    if _SWAP:
+        return pygame.Surface((width, height), pygame.SRCALPHA, 32, masks=_LAYER_MASKS)
+    return pygame.Surface((width, height), pygame.SRCALPHA, 32,
+                          masks=(0xFF000000, 0xFF0000, 0xFF00, 0xFF))
 
 
 def _gl_format(GL, surface):
-    """The GL format of a 32-bit pygame surface's own memory, or None when
-    it isn't one GL reads directly (or its rows are padded)."""
+    """GL_RGBA when a 32-bit pygame surface's own memory is what the layers'
+    textures hold (layer_surface), or None: convert it (or its rows are padded)."""
     if surface.get_bytesize() != 4 or surface.get_pitch() != surface.get_width() * 4:
         return None
     masks = tuple(surface.get_masks())
-    if masks == (0xFF0000, 0xFF00, 0xFF, 0xFF000000) and sys.byteorder == "little":
-        return GL.GL_BGRA
-    if masks == (0xFF, 0xFF00, 0xFF0000, 0xFF000000) and sys.byteorder == "little":
+    if masks == (_LAYER_MASKS if _SWAP else (0xFF000000, 0xFF0000, 0xFF00, 0xFF)):
         return GL.GL_RGBA
     return None
 
@@ -889,15 +981,25 @@ class GLFace:
         errors = []
         for head in ("#version 120\n", "#version 100\nprecision mediump float;\n"):
             try:
-                self.prog = self._program(head + _VERT, head + _FRAG)
+                self.prog = self._program(head + _VERT, head + _LAYER_DEF + _FRAG)
                 self.glsl = head.split()[1]
                 break
             except RuntimeError as e:
                 errors.append(str(e))
         if self.prog is None:
             raise RuntimeError("shader did not compile: " + " | ".join(errors))
+        # the stretch and the layers: small shaders of their own
+        head += _LAYER_DEF
+        self.p_stretch = _Prog(GL, self._program(head + _VERT, head + "#define STRETCH\n" + _FRAG_FLAT))
+        self.p_layer = _Prog(GL, self._program(head + _VERT, head + _FRAG_FLAT))
+        for p in (self.p_stretch, self.p_layer):
+            GL.glUseProgram(p.id)
+            p.u("uRes", (width, height))
+            for name, unit in (("uLayer", 0), ("uSoft", 1), ("uFaceLayer", 2), ("uBackLayer", 3)):
+                p.unit(name, unit)
         GL.glUseProgram(self.prog)
         self._loc = {}
+        self._set = {}                   # uniform location → the value it holds
         quad = (ctypes.c_float * 8)(-1, -1, 1, -1, -1, 1, 1, 1)
         self.vbo = GL.glGenBuffers(1)
         GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.vbo)
@@ -966,20 +1068,26 @@ class GLFace:
         return prog
 
     def _u(self, name, value):
+        """Set a uniform of the face's program, skipped when it holds that
+        value already (a PyOpenGL call is ~20 µs, and most stay put)."""
         GL = self.GL
         loc = self._loc.get(name)
         if loc is None:
             loc = self._loc[name] = GL.glGetUniformLocation(self.prog, name)
         if loc < 0:
             return
-        if isinstance(value, (int, float)):
-            GL.glUniform1f(loc, float(value))
-        elif len(value) == 2:
-            GL.glUniform2f(loc, *map(float, value))
-        elif len(value) == 3:
-            GL.glUniform3f(loc, *map(float, value))
+        v = float(value) if isinstance(value, (int, float)) else tuple(map(float, value))
+        if self._set.get(loc) == v:
+            return
+        self._set[loc] = v
+        if isinstance(v, float):
+            GL.glUniform1f(loc, v)
+        elif len(v) == 2:
+            GL.glUniform2f(loc, *v)
+        elif len(v) == 3:
+            GL.glUniform3f(loc, *v)
         else:
-            GL.glUniform4f(loc, *map(float, value))
+            GL.glUniform4f(loc, *v)
 
     def upload(self, layer, surface):
         """A pygame layer (SRCALPHA, the screen's size) → its texture: its
@@ -990,9 +1098,17 @@ class GLFace:
         more than sending it all; 13 Oct, Pi 4.) True when anything is on it."""
         GL = self.GL
         fmt = _gl_format(GL, surface)
+        np = _numpy()
+        if fmt is not None and np is not None:
+            return self._upload_np(np, layer, surface, fmt)
+        return self._upload_bytes(layer, surface, fmt)
+
+    def _upload_bytes(self, layer, surface, fmt):
+        """upload() without numpy (or for a surface laid out differently)."""
+        GL = self.GL
         if fmt is None:                          # an unusual layout: convert it
             import pygame
-            raw, fmt = pygame.image.tobytes(surface, "RGBA"), GL.GL_RGBA
+            raw, fmt = pygame.image.tobytes(surface, "BGRA" if _SWAP else "RGBA"), GL.GL_RGBA
         else:
             raw = surface.get_view("2").raw
         pitch = layer.w * 4
@@ -1017,6 +1133,53 @@ class GLFace:
             layer.sent[i] = None if empty else data
         return any_
 
+    def _upload_np(self, np, layer, surface, fmt):
+        """upload() reading the surface's memory in place, 8 bytes at a time:
+        the empty and unchanged bands are found at memory speed (the bytes
+        copies of the whole layer cost 2-3 ms each; 19 Oct, Pi 4)."""
+        GL = self.GL
+        view = surface.get_view("1")
+        cur = chunk = None
+        try:
+            cur = np.frombuffer(view, dtype=np.uint64)
+            row = layer.w // 2                       # (uint64s in a row)
+            if all(h == layer.BAND for _, h in layer.bands) and cur.size == layer.h * row:
+                # (max of uint32s: 3x faster than any() on the Pi)
+                lit = cur.view(np.uint32).reshape(len(layer.bands), -1).max(axis=1).tolist()
+            else:
+                lit = [bool(cur[y * row:(y + h) * row].any()) for y, h in layer.bands]
+            any_ = bound = False
+            for i, (y, h) in enumerate(layer.bands):
+                prev = layer.sent[i]
+                if lit[i]:
+                    any_ = True
+                    chunk = cur[y * row:(y + h) * row]
+                    if prev is not None and np.array_equal(chunk, prev):
+                        continue                     # the same pixels are there already
+                    data = chunk.copy()
+                    sent = data.view(np.uint8)       # (PyOpenGL would cast uint64s)
+                elif prev is None:
+                    continue                         # (clear there already)
+                else:
+                    data = sent = layer.zero[h]
+                if not bound:
+                    GL.glBindTexture(GL.GL_TEXTURE_2D, layer.tex)
+                    bound = True
+                GL.glTexSubImage2D(GL.GL_TEXTURE_2D, 0, 0, y, layer.w, h, fmt,
+                                   GL.GL_UNSIGNED_BYTE, sent)
+                self.uploaded += layer.w * 4 * h
+                layer.sent[i] = data if lit[i] else None
+            return any_
+        finally:
+            del cur, chunk, view                     # (the view locks the surface)
+
+    def clear(self, layer, surface):
+        """Clear a layer's surface where its texture has something — the
+        rows the last upload found drawn on (three full-screen fills were
+        ~2 ms a frame; 19 Oct, Pi 4)."""
+        for y0, y1 in layer.runs():
+            surface.fill((0, 0, 0, 0), (0, y0, layer.w, y1 - y0))
+
     def upload_layer(self, surface):
         """(the preview's call) the screen layer."""
         return self.upload(self.screen_l, surface)
@@ -1028,14 +1191,19 @@ class GLFace:
         loc = self._loc.get(name)
         if loc is None:
             loc = self._loc[name] = GL.glGetUniformLocation(self.prog, name)
-        GL.glUniform1i(loc, unit)
+        if self._set.get(loc) != ("unit", unit):
+            self._set[loc] = ("unit", unit)
+            GL.glUniform1i(loc, unit)
 
-    def _quad(self):
+    def _bind_quad(self):
         GL = self.GL
         GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.vbo)
         GL.glEnableVertexAttribArray(self.apos)
         GL.glVertexAttribPointer(self.apos, 2, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
-        GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
+
+    def _quad(self):
+        self._bind_quad()
+        self.GL.glDrawArrays(self.GL.GL_TRIANGLE_STRIP, 0, 4)
 
     def render(self, uniforms, has_layer=False, face_layer=None, screen_layer=None,
                back_layer=None):
@@ -1045,18 +1213,10 @@ class GLFace:
         box, the layers over their rows — every pixel is worked on only where
         something is (one full-screen shader for all of it: 16 ms a frame)."""
         GL = self.GL
-        _t0 = _pc()
         has_face = face_layer is not None and self.upload(self.face_l, face_layer)
-        _t1 = _pc()
         has_back = back_layer is not None and self.upload(self.back_l, back_layer)
-        _t2 = _pc()
         if screen_layer is not None:
             has_layer = self.upload(self.screen_l, screen_layer)
-        _t3 = _pc()
-        PROF["up_face"] += _t1 - _t0
-        PROF["up_back"] += _t2 - _t1
-        PROF["up_screen"] += _t3 - _t2
-        PROF["n"] += 1
         GL.glUseProgram(self.prog)
         self._u("uRes", (self.w, self.h))
         self._u("uSoftRes", (self.sw, self.sh))
@@ -1079,8 +1239,14 @@ class GLFace:
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.target_fbo)
         GL.glViewport(0, 0, self.w, self.h)
         self._sampler("uSoft", 1, self.soft)
-        self._u("uPass", 1.0)
-        self._quad()
+        flat = [(k, uniforms[k]) for k in ("uTime", "uTilt", "uGlitch") if k in uniforms]
+        ps, pl = self.p_stretch, self.p_layer
+        GL.glUseProgram(ps.id)
+        for k, v in flat:
+            ps.u(k, v)
+        ps.u("uRect", full)
+        self._bind_quad()
+        GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
         GL.glEnable(GL.GL_BLEND)
         GL.glBlendFunc(GL.GL_ONE, GL.GL_ONE_MINUS_SRC_ALPHA)    # premultiplied
         if uniforms.get("_vis"):             # the radio's picture (gl_vis.py), behind it all
@@ -1088,38 +1254,47 @@ class GLFace:
                 import gl_vis
                 self.vis = gl_vis.VisPass(self)
             self.vis.draw(uniforms["_vis"], uniforms.get("uBlush", (self.w / 2, self.h / 2))[:2])
+            self._bind_quad()                # (its own buffer was bound)
+        # the turned layers reach this many rows past their own
+        t = abs(float(uniforms.get("uTilt", 0.0)))
+        pad = int(math.sin(min(t, 1.5)) * self.w / 2 + (1 - math.cos(t)) * self.h / 2) + 2
+        GL.glUseProgram(pl.id)
+        for k, v in flat:
+            pl.u(k, v)
         if has_back:                         # behind the face: costume ears, steam…
-            self._u("uPass", 3.0)
-            self._u("uLayerSel", 2.0)
-            self._u("uRect", full)
-            self._quad()
+            pl.u("uLayerSel", 2.0)
+            self._rows(pl, self.back_l.runs(pad))
         # 2: the sharp shapes, each in its own box
         if uniforms.get("uFace", 0.0) > 0.5:
+            GL.glUseProgram(self.prog)
             self._u("uPass", 2.0)
             for i, rect in enumerate(self.shape_rects):
                 if rect is None:
                     continue
                 self._u("uShape", float(i))
                 self._u("uRect", rect)
-                self._quad()
-        # 3: the pygame layers — the face's (turned) and the screen's, by rows
-        self._u("uPass", 3.0)
+                GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
+            GL.glUseProgram(pl.id)
+        # 3: the pygame layers — the face's (turned) and the screen's, by
+        # rows: only where something is (a full-screen pass of the face's
+        # layer was ~1.5 ms of the GPU's frame with a dot on it)
         if has_face:
-            self._u("uLayerSel", 1.0)
-            self._u("uRect", full)
-            self._quad()
+            pl.u("uLayerSel", 1.0)
+            self._rows(pl, self.face_l.runs(pad))
         if has_layer:
-            self._u("uLayerSel", 0.0)
-            for y0, y1 in self.screen_l.runs():
-                self._u("uRect", (0.0, float(y0), float(self.w), float(y1)))
-                self._quad()
+            pl.u("uLayerSel", 0.0)
+            self._rows(pl, self.screen_l.runs())
+        GL.glUseProgram(self.prog)
         GL.glDisable(GL.GL_BLEND)
-        _t4 = _pc()
-        PROF["draw"] += _t4 - _t3
-        if PROF["n"] % 32 == 0:
-            GL.glFinish()
-            PROF["finish"] += _pc() - _t4
-            PROF["nf"] += 1
+
+    def _rows(self, prog, runs):
+        """The layer pass over these (y0, y1) rows (the quad is bound;
+        prog: the layer's program, or None for the face's own)."""
+        GL = self.GL
+        set_u = prog.u if prog else self._u
+        for y0, y1 in runs:
+            set_u("uRect", (0.0, float(y0), float(self.w), float(y1)))
+            GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
 
     def render_lamp(self, lamp, screen_layer=None):
         """The lamp's scene (gl_lamp.py) alone over the whole screen — no
@@ -1139,9 +1314,8 @@ class GLFace:
             GL.glBlendFunc(GL.GL_ONE, GL.GL_ONE_MINUS_SRC_ALPHA)
             self._u("uPass", 3.0)
             self._u("uLayerSel", 0.0)
-            for y0, y1 in self.screen_l.runs():
-                self._u("uRect", (0.0, float(y0), float(self.w), float(y1)))
-                self._quad()
+            self._bind_quad()
+            self._rows(None, self.screen_l.runs())
             GL.glDisable(GL.GL_BLEND)
         GL.glUseProgram(self.prog)
 
@@ -1195,13 +1369,6 @@ class GLFace:
         globals). The mood's settings (face_spec.py), eased over real time,
         with the live animation on top: blinks close the lids, squints and
         wide eyes from the reply scenes, the gaze, the mouth while talking."""
-        _tu = _pc()
-        try:
-            return self._face_uniforms(face, rf, fcx, fcy)
-        finally:
-            PROF["uni"] += _pc() - _tu
-
-    def _face_uniforms(self, face, rf, fcx, fcy):
         now = time.monotonic()
         dt = (now - self._t_last) if self._t_last else 1.0 / 30
         self._t_last = now

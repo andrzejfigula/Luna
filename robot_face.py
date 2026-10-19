@@ -2779,11 +2779,13 @@ class RobotFace:
         base = self.base   # reused surface — no per-frame allocation
         # with the GPU face, pygame draws only what goes over it, on clear glass
         gl_face_on = self.gl is not None and EYE_MODE == "block"
-        base.fill((0, 0, 0, 0) if self.gl else BG)
         behind = base
-        if self.back is not None:
-            self.back.fill((0, 0, 0, 0))
+        if self.gl:                         # (only the rows drawn on last frame)
+            self.gl.clear(self.gl.face_l, base)
+            self.gl.clear(self.gl.back_l, self.back)
             behind = self.back
+        else:
+            base.fill(BG)
 
         fcx = int(self.face_cx + self.face_ox)
         fcy = int(self.face_cy + self.face_oy)
@@ -2961,7 +2963,7 @@ class RobotFace:
         if self.gl:
             # the GPU turns `base` itself (its own texture): the screen layer
             # keeps only what stays put — status bar, captions, overlays
-            self.screen.fill((0, 0, 0, 0))
+            self.gl.clear(self.gl.screen_l, self.screen)
         elif abs(self.head_angle) > 0.4:    # below that the rotation can't be seen,
             st["tilted"] += 1               # but it costs ~4 ms of a full-screen turn
             rotated = pygame.transform.rotate(base, self.head_angle)
@@ -3123,7 +3125,7 @@ class RobotFace:
             kind, until, data = state.overlay
         now = time.time()
         u = lamp_scenes.uniforms(data, now, until, WIDTH, HEIGHT)
-        self.screen.fill((0, 0, 0, 0))
+        self.gl.clear(self.gl.screen_l, self.screen)
         if data.get("scene") == "zegar":
             lamp_scenes.draw_clock(self.screen, now, WIDTH, HEIGHT, u["uK"][2])
         self.gl.render_lamp(u, self.screen)

@@ -6227,6 +6227,73 @@ class StoryTest(unittest.TestCase):
             self.assertTrue(brain._VOICED_OK.match(t), t)
 
 
+class GLLayerUploadTest(unittest.TestCase):
+    """gl_face.upload: the numpy way sends exactly the bands (and bytes) the
+    old bytes way did — changed ones only, cleared ones once — and clear()
+    wipes just the rows that were drawn on."""
+
+    def setUp(self):
+        try:
+            import numpy  # noqa: F401
+            import pygame  # noqa: F401
+        except ImportError:
+            self.skipTest("pygame / numpy")
+
+    def _gl(self):
+        import gl_face
+        from types import SimpleNamespace as NS
+        sent = []
+        GL = NS(GL_TEXTURE_2D=1, GL_UNSIGNED_BYTE=2, GL_RGBA=3, glBindTexture=lambda *a: None,
+                glTexSubImage2D=lambda t, lv, x, y, w, h, f, ty, data: sent.append((y, h, bytes(data))))
+        g = gl_face.GLFace.__new__(gl_face.GLFace)
+        g.GL, g.uploaded = GL, 0
+        return g, sent
+
+    def test_numpy_and_bytes_send_the_same(self):
+        import pygame
+        import gl_face
+        frames = []
+        for f in range(4):
+            s = gl_face.layer_surface(64, 96)
+            if f in (0, 1):
+                pygame.draw.circle(s, (250, 120, 30, 200), (20, 10), 6)    # band 0
+            if f == 1:
+                pygame.draw.rect(s, (10, 200, 90, 255), (5, 70, 30, 8))    # band 2 too
+            if f == 3:
+                pygame.draw.line(s, (255, 255, 255, 128), (0, 40), (63, 41), 3)
+            frames.append(s)
+        out = []
+        for way in ("np", "bytes"):
+            g, sent = self._gl()
+            layer = gl_face._Layer(0, 64, 96)
+            got = []
+            for s in frames:
+                del sent[:]
+                if way == "np":
+                    lit = g._upload_np(gl_face._numpy(), layer, s, 3)
+                else:
+                    lit = g._upload_bytes(layer, s, 3)
+                got.append((lit, list(sent), layer.runs()))
+            out.append(got)
+        self.assertEqual(out[0], out[1])
+        self.assertEqual([len(x[1]) for x in out[0]], [1, 1, 2, 1])   # changed bands only
+        self.assertEqual(out[0][2], (False, out[0][2][1], []))
+        self.assertEqual(out[0][3][2], [(32, 64)])
+
+    def test_clear_and_padded_rows(self):
+        import pygame
+        import gl_face
+        g, _ = self._gl()
+        s = gl_face.layer_surface(64, 96)
+        layer = gl_face._Layer(0, 64, 96)
+        pygame.draw.circle(s, (250, 120, 30, 255), (30, 50), 5)
+        self.assertTrue(g._upload_np(gl_face._numpy(), layer, s, 3))
+        self.assertEqual(layer.runs(), [(32, 64)])
+        self.assertEqual(layer.runs(40), [(0, 96)])          # (clamped to the layer)
+        g.clear(layer, s)
+        self.assertEqual(s.get_bounding_rect().width, 0)
+
+
 class FaceSpecTest(unittest.TestCase):
     """The face library (face_spec.py → gl_face's uniforms): every mood has
     its settings, every combination makes sane shader inputs — no GL needed."""
