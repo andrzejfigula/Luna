@@ -2,7 +2,7 @@
 settings_page.py — "pokaż ustawienia": one page on her screen, four tabs.
 
   Ogólne  — the default language, speech speed, reply length, captions, the bar
-  Ekran   — the camera preview, how smoothly the face is drawn (fps)
+  Ekran   — her theme (themes.py), the camera preview, how smoothly the face is drawn
   Koszty  — API calls by day and their estimated cost (health.py's counts)
   Reset   — what she remembers; the factory reset: memories and the people she
             knows MOVED to data/reset-<date>/ (never deleted), then a restart
@@ -18,6 +18,7 @@ import threading
 import time
 
 import settings
+import themes
 from shared_state import state
 from config import (DATA_DIR, PHOTOS_DIR, OPENAI_TTS_SPEED, CAMERA_PREVIEW, DRAW_FPS,
                     API_COST_USD, USD_PLN)
@@ -148,7 +149,10 @@ def _rows(tab):
              "sub": "godzina, pogoda, minutniki", "value": settings.get("status_bar", True) is not False},
         ]
     if tab == 1:
+        th = themes.get()
         return [
+            {"key": "theme", "kind": "cycle", "label": "Motyw",
+             "sub": th["sub"], "value": th["label"]},
             {"key": "camera_preview", "kind": "toggle", "label": "Podgląd kamery",
              "sub": "mały obraz z kamery w rogu",
              "value": bool(settings.get("camera_preview", CAMERA_PREVIEW))},
@@ -194,6 +198,12 @@ def change(key):
         new = _next(_LENGTHS, settings.get("reply_length", "normal"))
         settings.put("reply_length", new)
         return f"Odpowiedzi: {_label(_LENGTHS, new).lower()}"
+    if key == "theme":
+        keys = list(themes.THEMES)
+        new = keys[(keys.index(themes.current()) + 1) % len(keys)]
+        themes.set_theme(new)
+        threading.Thread(target=_introduce, args=(new,), daemon=True, name="theme").start()
+        return f"Motyw: {themes.THEMES[new]['label']}"
     if key == "draw_fps":
         new = _next(_FPS, draw_fps())
         settings.put("draw_fps", new)
@@ -205,6 +215,14 @@ def change(key):
         settings.put(key, new)
         return "Włączone" if new else "Wyłączone"
     return None
+
+
+def _introduce(key):
+    """A new theme says hello in its own voice (it was tapped: someone's there)."""
+    from text_to_speech import speak
+    time.sleep(0.3)
+    if themes.current() == key:            # (not tapped on past it already)
+        speak(themes.THEMES[key]["hello"])
 
 
 # ── the factory reset ─────────────────────────────────────────────────────────

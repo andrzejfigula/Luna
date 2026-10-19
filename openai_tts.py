@@ -30,6 +30,7 @@ import time
 import numpy as np
 
 import settings
+import themes
 from voicecheck import pitch
 
 from openai import OpenAI
@@ -75,7 +76,27 @@ def speech_speed():
     except Exception:
         who = None
     by = settings.get("tts_speed_by", {}) or {}
-    return by.get(who) or settings.get("tts_speed", OPENAI_TTS_SPEED)
+    v = by.get(who) or settings.get("tts_speed", OPENAI_TTS_SPEED)
+    th = themes.get()
+    return round(v * th["speed"] / OPENAI_TTS_SPEED, 2) if th.get("speed") else v
+
+
+def voice_kwargs(style=""):
+    """The voice and its instructions: Luna's (+ this line's emotion), or the
+    theme's own (themes.py) — her emotion styles say "keep the high voice"."""
+    th = themes.get()
+    if th.get("voice"):
+        return {"voice": th["voice"], "instructions": th["tts"]}
+    out = {"voice": OPENAI_TTS_VOICE}
+    instructions = "\n".join(x for x in (OPENAI_TTS_INSTRUCTIONS, style) if x)
+    if instructions:
+        out["instructions"] = instructions
+    return out
+
+
+def deep_hz():
+    """Below this a take is the voice drifting deep — not for a man's voice."""
+    return 0 if themes.male() else DEEP_HZ
 
 CACHE_MAX_CHARS = 140
 STEADY_SECS = 0.6              # speech held back to check its pitch (_steady)
@@ -104,7 +125,7 @@ def cache_get(key):
         with open(path, "rb") as f:
             pcm = f.read()
         low = pitch(pcm[:HEAD_BYTES])                # (the head: a drift is the whole take)
-        if low and low < DEEP_HZ:                    # a deep take kept before 11 Oct
+        if low and low < deep_hz():                  # a deep take kept before 11 Oct
             os.remove(path)
             return None
         os.utime(path)                               # recently used: kept longer
@@ -401,7 +422,7 @@ class OpenAITTS:
                     break
             pcm = b"".join(head)
             low = pitch(pcm)
-            if attempt == 0 and low and low < DEEP_HZ and not self._cut.is_set():
+            if attempt == 0 and low and low < deep_hz() and not self._cut.is_set():
                 print(f"[TTS] deep take ({low:.0f} Hz) — asked again: {text[:40]!r}",
                       flush=True)
                 stream.close()
@@ -412,12 +433,8 @@ class OpenAITTS:
             return
 
     def _tts_kwargs(self, style):
-        kwargs = dict(model=OPENAI_TTS_MODEL, voice=OPENAI_TTS_VOICE,
-                      response_format="pcm",
-                      speed=speech_speed())
-        instructions = "\n".join(x for x in (OPENAI_TTS_INSTRUCTIONS, style) if x)
-        if instructions:
-            kwargs["instructions"] = instructions
+        kwargs = dict(model=OPENAI_TTS_MODEL, response_format="pcm",
+                      speed=speech_speed(), **voice_kwargs(style))
         return kwargs
 
     def _speak_persistent(self, text, on_audio_start, style=""):
@@ -465,7 +482,7 @@ class OpenAITTS:
         # least ~0.03 s of audio per character)
         if ok and key and played and len(out.last_utterance) >= len(text) * 1500:
             low = pitch(out.last_utterance[:HEAD_BYTES])
-            if not (low and low < DEEP_HZ):
+            if not (low and low < deep_hz()):
                 self._cache_if_clear(key, text, out.last_utterance)
 
     def _cache_if_clear(self, key, text, pcm):
@@ -572,12 +589,8 @@ class OpenAITTS:
         started = False
         self._cut.clear()
         try:
-            kwargs = dict(model=OPENAI_TTS_MODEL, voice=OPENAI_TTS_VOICE,
-                          input=text, response_format="pcm",
-                          speed=speech_speed())
-            instructions = "\n".join(x for x in (OPENAI_TTS_INSTRUCTIONS, style) if x)
-            if instructions:
-                kwargs["instructions"] = instructions
+            kwargs = dict(model=OPENAI_TTS_MODEL, input=text, response_format="pcm",
+                          speed=speech_speed(), **voice_kwargs(style))
 
             # Prebuffer: hold back the first TTS_PREBUFFER_SECS of audio before
             # the player starts, so a network stutter drains the buffer instead
@@ -657,12 +670,8 @@ class OpenAITTS:
         if self._client is None or self._raw_cmd is None:
             return None
         self._cut.clear()
-        kwargs = dict(model=OPENAI_TTS_MODEL, voice=OPENAI_TTS_VOICE,
-                      response_format="pcm",
-                      speed=speech_speed())
-        instructions = "\n".join(x for x in (OPENAI_TTS_INSTRUCTIONS, style) if x)
-        if instructions:
-            kwargs["instructions"] = instructions
+        kwargs = dict(model=OPENAI_TTS_MODEL, response_format="pcm",
+                      speed=speech_speed(), **voice_kwargs(style))
 
         parts = queue.Queue()        # one chunk queue per sentence, in order
 

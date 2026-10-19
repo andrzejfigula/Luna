@@ -200,6 +200,10 @@ def get(name):
     The synthesised ones (chime, tick) are always available."""
     if name in _SYNTH and name not in _cache:
         _cache[name] = _SYNTH[name]()
+    if name not in _SYNTH:
+        import themes
+        if not themes.is_default():          # her "mhm" in HAL's voice: none at all
+            return None
     return _cache.get(name)
 
 

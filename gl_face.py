@@ -25,6 +25,7 @@ import sys
 import time
 
 import face_spec
+import themes
 import visualizer
 
 _VERT = """
@@ -956,6 +957,18 @@ COSTUME_SPEC = {
 }
 
 
+def theme_spec(target, theme):
+    """A theme's face settings over the mood's: some set ("spec"), some added
+    ("spec_add": HAL's round lens; the doctor's bored half-closed lids)."""
+    target.update(theme.get("spec") or {})
+    for k, add in (theme.get("spec_add") or {}).items():
+        top = 1.0 if k.startswith("lid_") else float("inf")      # (a lid shuts, no more)
+        v = target[k]
+        target[k] = (tuple(min(top, a + b) for a, b in zip(v, add)) if isinstance(v, tuple)
+                     else min(top, v + add))
+    return target
+
+
 def _rgb(c):
     return tuple(v / 255.0 for v in c[:3])
 
@@ -1376,6 +1389,8 @@ class GLFace:
         costume = getattr(face, "_costume", None)
         target = face_spec.spec(emo, listening=face._listen)
         target.update(getattr(face, "_spec_mod", None) or {})   # a reply scene's touch
+        theme = themes.get()                      # Doktor Lód's ice cubes, HAL's lens
+        theme_spec(target, theme)
         googly = costume == "googly_eyes"
         if googly:                                # big round googly eyes, nothing else
             target.update(COSTUME_SPEC["googly_eyes"])
@@ -1519,6 +1534,7 @@ class GLFace:
                        cur["round"], cur["star"])
         fx = getattr(face, "_eye_fx", None) or (0.0, 0.0)
         u["uFx"] = (fx[0], fx[1], now % 1000.0, float(int(now * 20.0) % 997))
+        u.update(theme.get("eyes") or {})
         look = COSTUME_EYES.get(costume)
         if look:                                  # a costume's own eyes (googly, robot…)
             u.update(look)
@@ -1547,7 +1563,7 @@ class GLFace:
             if getattr(face, "wake_anim", 0):     # waking: a big stretch
                 wk = 0.10 * math.sin(math.pi * max(0.0, min(1.0, getattr(face, "wake_ripple", 1.0))))
                 w, h = w * (1.0 - 0.4 * wk), h * (1.0 + wk)
-            if googly:
+            if googly or theme.get("circle"):
                 w = h = min(w, eye.h * 1.3)
             # the eye leans a little toward where she looks; the iris does the rest
             ex, ey = cx + eye.pupil_ox * 0.30, cy + eye.pupil_oy * 0.30

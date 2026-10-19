@@ -36,8 +36,8 @@ import sounddevice as sd
 from vosk import Model, KaldiRecognizer
 
 from shared_state import state
+import themes
 from config import (
-    WAKE_WORDS,
     AUDIO_INPUT_DEVICE,
     VOSK_MODEL_PATH,
     MIC_SAMPLE_RATE,
@@ -374,6 +374,11 @@ def _flush_queue():
             break
 
 
+def _wake_words():
+    """Luna's wake words plus the theme's ("doktorze", "hal" — themes.py)."""
+    return themes.wake_words()
+
+
 def _find_wake_word(words):
     """Locate a wake word/phrase in the token list.
 
@@ -383,14 +388,14 @@ def _find_wake_word(words):
     (≥ 4 chars) are matched fuzzily so Vosk near-misses on poor capture
     (e.g. "lunar" for "luna") still summon her — the caller applies a stricter
     confidence bar to fuzzy hits so this never fires from noise."""
-    for wake in sorted(WAKE_WORDS, key=lambda w: -len(w.split())):
+    for wake in sorted(_wake_words(), key=lambda w: -len(w.split())):
         wake_parts = wake.split()
         n = len(wake_parts)
         for i in range(len(words) - n + 1):
             if words[i:i + n] == wake_parts:
                 return i, n, True
 
-    for wake in WAKE_WORDS:
+    for wake in _wake_words():
         if " " in wake or len(wake) < 4:
             continue
         for i, w in enumerate(words):
@@ -599,7 +604,8 @@ def stt_prompt():
         names = faces.names()
     except Exception:
         names = []
-    return CLOUD_STT_PROMPT + (f" Domownicy: {', '.join(names)}." if names else "")
+    base = CLOUD_STT_PROMPT.replace("Luna.", themes.stt_name() + ".")
+    return base + (f" Domownicy: {', '.join(names)}." if names else "")
 
 
 # Short commands Vosk hears reliably: when it is sure (FAST_CONF), the cloud
@@ -677,7 +683,7 @@ def english_side_talk(text):
     """An English sentence with no "Luna" in it, while she isn't translating:
     the family speaks Polish to her, so it is someone's call or a video."""
     words = re.findall(r"[a-ząćęłńóśźż']+", text.lower())
-    if len(words) < 3 or any(w in ("luna", "luno") for w in words):
+    if len(words) < 3 or any(w in themes.name_words() for w in words):
         return False
     if re.search(r"[ąćęłńóśźż]", text.lower()):
         return False
@@ -748,21 +754,29 @@ def _is_prompt_echo(text):
 # Vosk's mishearings; on correctly spelled text it ate real words ("lina",
 # "luka", "lupa" are 0.75 similar to "luna") and flattened the sentence to
 # lowercase with no punctuation, losing the question mark the LLM uses.
-_WAKE_RE = re.compile(
-    r"(?<!\w)(" + "|".join(re.escape(w) for w in
-                           sorted(WAKE_WORDS, key=len, reverse=True))
-    + r")(?!\w)", re.IGNORECASE)
+_wake_rx = {}
+
+
+def _wake_re():
+    ws = tuple(_wake_words())
+    rx = _wake_rx.get(ws)
+    if rx is None:
+        _wake_rx.clear()
+        rx = _wake_rx[ws] = re.compile(
+            r"(?<!\w)(" + "|".join(re.escape(w) for w in sorted(ws, key=len, reverse=True))
+            + r")(?!\w)", re.IGNORECASE)
+    return rx
 
 
 def _cloud_has_wake(cloud_text):
-    return bool(_WAKE_RE.search(cloud_text or ""))
+    return bool(_wake_re().search(cloud_text or ""))
 
 
 def _strip_wake_from_cloud(cloud_text):
     """Remove the first wake word from the cloud transcript, keeping its
     casing and punctuation: "Luna, która godzina?" -> "Która godzina?",
     "Co to jest, Luno?" -> "Co to jest?", "Luna." -> ""."""
-    m = _WAKE_RE.search(cloud_text)
+    m = _wake_re().search(cloud_text)
     if m is None:
         return cloud_text
     before = cloud_text[:m.start()].rstrip(" ,")
@@ -844,7 +858,7 @@ def _sounds_like_name(words, strict=False):
     """One of the first three words a bit like "Luna". Strict (the radio
     on): a short everyday word doesn't count — "nie" is 0.75
     like "lunie", and the radio says it all the time."""
-    singles = [w for w in WAKE_WORDS if " " not in w]
+    singles = [w for w in _wake_words() if " " not in w]
     need, short = (0.5, 4) if strict else (0.5, 3)    # ("nuda" 0.5, "panie" 0.6)
     return any((len(w) >= short or (strict and w in ("una", "łuna", "lun")))
                and max(difflib.SequenceMatcher(None, w, k).ratio() for k in singles) >= need
@@ -1057,7 +1071,7 @@ def _name_like(word):
             return True
     except Exception:
         pass
-    return max(difflib.SequenceMatcher(None, w, k).ratio() for k in ("luna", "luno")) >= 0.5
+    return max(difflib.SequenceMatcher(None, w, k).ratio() for k in themes.name_words()) >= 0.5
 
 
 def _cloud_wake_check(pcm16k, words=None, peak=None):

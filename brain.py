@@ -34,6 +34,7 @@ import faces
 import hedge
 import mood as luna_mood     # ("mood" is the user's mood inside _ask_openai)
 import relationship
+import themes
 from reply_stream import ReplyStream
 import body
 import health
@@ -691,7 +692,8 @@ def _feminize(text):
     """Her own forms feminine; and with nobody recognised in front of her, no
     guessed gender for "you" either."""
     text = _latin(text or "")
-    text = fix_desk(feminize(re.sub(r"\s*(?:\\n|\n)+\s*", " ", text or "")))   # a poem's "\n"
+    text = re.sub(r"\s*(?:\\n|\n)+\s*", " ", text or "")              # a poem's "\n"
+    text = fix_desk(text if themes.male() else feminize(text))    # (HAL is a he)
     try:
         text = fix_vocative(text, faces.vocatives())     # "Maja, …" → "Maju, …"
     except Exception:
@@ -1510,7 +1512,8 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   + lists.prompt_block()
                   + _cooking_line()
                   + memory.prompt_block()
-                  + (context or ""))          # e.g. news headlines, this question only
+                  + (context or "")           # e.g. news headlines, this question only
+                  + themes.persona_line())    # a character from the settings (themes.py)
 
         import timing
         timing.mark("model")

@@ -31,6 +31,7 @@ ap.add_argument("--at", help="pretend local time HH:MM (today)")
 ap.add_argument("--day", help="pretend date YYYY-MM-DD (with --at; default today)")
 ap.add_argument("--keep", action="store_true", help="one conversation, history kept")
 ap.add_argument("--hello", action="store_true", help="leave the morning briefing on")
+ap.add_argument("--theme", help="a theme from themes.py (ice, hal)")
 ap.add_argument("--max-calls", type=int, default=80, help="stop after this many API calls")
 args = ap.parse_args()
 
@@ -93,6 +94,9 @@ for _ in range(30):
     if weather._summary:
         break
     time.sleep(0.5)
+if args.theme:                       # (scratch settings: the real ones untouched)
+    import themes           # noqa: E402
+    themes.set_theme(args.theme)
 if not args.hello:
     idle_engine.first_hello_due = lambda who: False
 

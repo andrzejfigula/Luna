@@ -7231,6 +7231,70 @@ class SettingsPageTest(unittest.TestCase):
             state.overlay = None
 
 
+class ThemesTest(unittest.TestCase):
+    """Themes (settings → Ekran → Motyw): eyes, voice, character, wake word;
+    "Luna" still wakes every one of them."""
+
+    def tearDown(self):
+        import themes
+        themes.set_theme("luna")
+
+    def test_cycle_on_the_settings_page(self):
+        import themes
+        import settings_page as sp
+        sp._cache.clear()
+        with mock.patch.object(sp, "_introduce"):
+            self.assertEqual(sp.change("theme"), "Motyw: Doktor Lód")
+            self.assertEqual(themes.current(), "ice")
+            self.assertEqual(sp.rows(1)[0]["value"], "Doktor Lód")
+            self.assertEqual(sp.change("theme"), "Motyw: HAL 9000")
+            self.assertEqual(sp.change("theme"), "Motyw: Luna")
+        settings.put("theme", "nonsense")
+        themes.set_theme(settings.get("theme"))
+        self.assertEqual(themes.current(), "luna")
+
+    def test_every_theme_is_complete(self):
+        import themes
+        import face_spec
+        import gl_face
+        for key, th in themes.THEMES.items():
+            self.assertTrue(th["label"] and th["sub"] and th["hello"], key)
+            if key == "luna":
+                continue
+            for k in ("wake", "voice", "tts", "persona", "eyes", "name"):
+                self.assertIn(k, th, key)
+            spec = gl_face.theme_spec(face_spec.spec("happy"), th)
+            self.assertEqual(set(spec), set(face_spec.spec("happy")), key)   # no new keys
+            self.assertTrue(all(0.0 <= v <= 1.0 for v in spec["lid_top"]), key)
+
+    def test_wake_words_follow_the_theme(self):
+        import themes
+        import speech_to_text as s
+        themes.set_theme("hal")
+        self.assertIsNotNone(s._find_wake_word(["hal", "która", "godzina"]))
+        self.assertIsNotNone(s._find_wake_word(["luna", "która", "godzina"]))   # always
+        self.assertEqual(s._strip_wake_from_cloud("HAL, otwórz drzwi."), "Otwórz drzwi.")
+        self.assertIn("HAL", s.stt_prompt())
+        themes.set_theme("luna")
+        self.assertIsNone(s._find_wake_word(["hal", "która", "godzina"]))
+        self.assertFalse(s._cloud_has_wake("HAL, otwórz drzwi."))
+
+    def test_voice_and_grammar(self):
+        import themes
+        import brain
+        import openai_tts
+        themes.set_theme("hal")
+        self.assertEqual(openai_tts.voice_kwargs("cheerful")["voice"], "onyx")
+        self.assertNotIn("cheerful", openai_tts.voice_kwargs("cheerful")["instructions"])
+        self.assertEqual(openai_tts.deep_hz(), 0)              # a man's voice is not a drift
+        self.assertIn("zrobiłem", brain._feminize("Już to zrobiłem."))
+        self.assertIn("HAL 9000", themes.persona_line())
+        themes.set_theme("luna")
+        self.assertIn("zrobiłam", brain._feminize("Już to zrobiłem."))
+        self.assertEqual(themes.persona_line(), "")
+        self.assertGreater(openai_tts.deep_hz(), 0)
+
+
 # Off the Pi (Windows) the hardware / SDK modules are missing: those tests
 # skip instead of erroring, so the local quick run shows real failures only.
 _PI_ONLY = {"cv2", "pygame", "sounddevice", "openai", "vosk"}
