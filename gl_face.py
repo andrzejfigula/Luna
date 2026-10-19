@@ -53,6 +53,7 @@ uniform vec4  uLidB0;         // lower lid's arch (+ middle up), the closed seam
 uniform vec4  uLidB1;         //   alpha, the eye's turn (rad), its squircle exponent
 uniform vec4  uPupil0;        // dx, dy (from the eye centre), iris radius, shown
 uniform vec4  uPupil1;
+uniform vec4  uBlink;         // shut by a blink (left, right), lids' speed (l, r) — the lid skin
 uniform vec4  uMorph;         // heart (love), wet (sad), round (surprised), star (excited)
 uniform vec4  uFx;            // (spiral, static, time, seed): dizzy and lost-signal eyes
 uniform vec3  uHeartTop;
@@ -217,9 +218,12 @@ float sdSquircle(vec2 q, vec2 b, float n) {
     return (f - 1.0) * min(b.x, b.y) * (0.75 + 0.25 * min(b.x, b.y) / max(b.x, b.y));
 }
 
+float gSq;                    // eyeSDF's last squircle: the eye's whole open shape
+
 float eyeSDF(vec2 q, vec4 e, vec4 la, vec4 lb, float side) {
     vec2 b = e.zw * 0.5;
     float d = sdSquircle(q, b, mix(lb.w, 2.0, uMorph.z));       // round when surprised
+    gSq = d;
     vec2 t = lidTop(q.x, b, la, side);
     d = max(d, (t.x - q.y) / sqrt(1.0 + t.y * t.y));
     vec2 u = lidBot(q.x, b, la, lb);
@@ -243,21 +247,36 @@ float seamSDF(vec2 q, vec4 e, vec4 la, vec4 lb, float side) {
     return length(vec2(q.x - xc, (q.y - ys) / sqrt(1.0 + sl * sl))) - 5.5;
 }
 
-vec3 eyeColour(vec2 q, vec2 b, float d, vec2 look, vec4 la, float side) {
+vec3 eyeColour(vec2 q, vec2 b, float d, float df, vec2 look, vec4 la, float side) {
     vec3 top = mix(mix(uTop, uTint, uTintAmt), uHeartTop, uMorph.x);
     vec3 bot = mix(mix(uBottom, uTint, uTintAmt * 0.85), uHeartBottom, uMorph.x);
     // pale gold above, through amber, to orange below; the brightest part
     // a little above the middle — lit from inside
     float v = clamp((q.y + b.y) / (2.0 * b.y), 0.0, 1.0);
     vec3 col = mix(top, bot, smoothstep(0.05, 1.0, v));
+    // depth: the light is a core deep inside — it moves with the gaze, the
+    // glass's highlight against it (parallax), and fades toward the walls
+    vec2 cq = (q - look * 0.14 - vec2(0.0, -0.20 * b.y)) / vec2(b.x, 1.4 * b.y);
+    col *= 0.86 + 0.22 * exp(-dot(cq, cq) * 1.5);
     // the upper lid's shadow on the eye below it
     vec2 t = lidTop(q.x, b, la, side);
     float lidded = smoothstep(0.02, 0.12, la.x) * (1.0 - uMorph.x);   // (hearts have no lids)
     col *= 1.0 - 0.32 * lidded * exp(-max(q.y - t.x, 0.0) / (0.16 * b.y));
+    // thick glass (its outline, not the lids): inside the rim a shaded band,
+    // deeper at the top, and low down a faint line of light bent through it
+    float din = max(-df, 0.0);
+    col *= 1.0 - 0.20 * exp(-din / 3.5) * mix(1.0, 0.4, v);
+    col += mix(top, uShine, 0.5) * 0.10 * exp(-sq((din - 7.0) / 2.5)) * smoothstep(0.55, 1.0, v);
     // glass: a soft highlight up and to the left, drifting against the gaze
     vec2 gq = q + look * 0.22;
     vec2 hp = (gq - vec2(-0.38 * b.x, -0.58 * b.y)) / vec2(0.32 * b.x, 0.14 * b.y);
-    col = mix(col, uShine, 0.50 * exp(-dot(hp, hp) * 1.6) * (1.0 - 0.7 * lidded));
+    col = mix(col, uShine, 0.42 * exp(-dot(hp, hp) * 1.6) * (1.0 - 0.7 * lidded));
+    // …and a crisp window reflection in it, bent over the dome
+    vec2 wq = gq - vec2(-0.50 * b.x, -0.50 * b.y);
+    wq = vec2(0.94 * wq.x + 0.34 * wq.y, -0.34 * wq.x + 0.94 * wq.y);
+    wq.y -= 0.9 * wq.x * wq.x / b.x;
+    float win = sdRoundBox(wq, vec2(0.17 * b.x, 0.045 * b.y + 2.0), 0.045 * b.y + 2.0);
+    col = mix(col, uShine, 0.55 * smoothstep(1.2, -1.2, win) * (1.0 - lidded) * (1.0 - uMorph.x));
     // light coming through the glass: the lower edge glows
     col += bot * 0.28 * exp(min(d, 0.0) / 7.0) * smoothstep(0.55, 1.0, v);
     return col;
@@ -326,8 +345,9 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
              float side) {
     vec2 b = e.zw * 0.5;
     vec2 q = eyeLocal(p, e, lb, side);
-    if (uPass > 0.5 && (abs(q.x) > b.x + 4.0 || abs(q.y) > b.y + 4.0)) return col;
+    if (uPass > 0.5 && (abs(q.x) > b.x + 10.0 || abs(q.y) > b.y + 10.0)) return col;
     float d = eyeSDF(q, e, la, lb, side);
+    float df = gSq;
     float ds = lb.y > 0.01 ? seamSDF(q, e, la, lb, side) : 1e5;
     float sa = lb.y * (1.0 - uMorph.x);
     if (uPass < 0.5) {
@@ -341,8 +361,22 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
     }
     float a = clamp(0.5 - d, 0.0, 1.0);
     float as_ = clamp(0.5 - ds, 0.0, 1.0) * sa;
-    if (a <= 0.0 && as_ <= 0.0) return col;
-    vec3 c = eyeColour(q, b, d, pu.xy, la, side);
+    // the socket the eye sits in (its whole open shape): a groove round it
+    // and the lip below catching the eye's light; in a blink, the lid skin
+    float bl = side < 0.0 ? uBlink.x : uBlink.y;
+    float bv = side < 0.0 ? uBlink.z : uBlink.w;
+    float noLid = 1.0 - uMorph.x;
+    float groove = 0.38 * exp(-sq((df - 2.5) / 2.2)) * noLid * smoothstep(8.0, 30.0, e.w);
+    vec3 lip = mix(mix(uGlow, uTint, uTintAmt), uShine, 0.2) * 0.30 * noLid
+               * exp(-sq((df - 6.5) / 1.8)) * smoothstep(-0.3, 0.9, q.y / b.y) * uDim
+               * (1.0 - smoothstep(0.08, 0.35, la.w + max(lb.x, 0.0)));   // (not under a smile)
+    float ask = clamp(0.5 - df, 0.0, 1.0) * smoothstep(0.0, 0.10, bl) * noLid;
+    if (a <= 0.0 && as_ <= 0.0 && ask <= 0.0) {
+        if (groove < 0.004) return col;
+        gA = groove;
+        return col * (1.0 - groove) + lip;
+    }
+    vec3 c = eyeColour(q, b, d, df, pu.xy, la, side);
     // its volume: a bevel round the edge (lids too), a dome over the middle
     vec2 g = vec2(0.0);                   // (only the bevel needs the edge's direction)
     if (d > -16.0)
@@ -390,10 +424,34 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
     c *= (1.0 + 0.10 * uEnergy) * uDim;
     // the seam: lit like the top of the eye
     vec3 sc = mix(mix(uTop, uTint, uTintAmt), uShine, 0.25);
-    float cov = max(a, as_);
-    vec3 outc = mix(sc, c, a / max(cov, 1e-4));
-    gA = cov;
-    return mix(col, outc, cov);
+    // the lid skin: a dark rounded lid over the socket, its rolled edge lit
+    // (smeared upward while it moves fast); premultiplied, under seam and eye
+    vec3 P = vec3(0.0);
+    float A = 0.0;
+    if (ask > 0.0) {
+        vec2 gf = df > -16.0
+            ? normalize(vec2(sdSquircle(q + vec2(1.0, 0.0), b, mix(lb.w, 2.0, uMorph.z)) - df,
+                             sdSquircle(q + vec2(0.0, 1.0), b, mix(lb.w, 2.0, uMorph.z)) - df) + 1e-6)
+            : vec2(0.0);
+        vec3 sk = lit(mix(uBottom, uTint, uTintAmt) * 0.20 + vec3(0.025, 0.018, 0.012),
+                      gf, df, 14.0, q / b * 0.45);
+        float up = lt.x - q.y;                           // above the upper lid's edge
+        float dn = q.y - lw.x;                           // below the lower lid's edge
+        sk += mix(top, uShine, 0.3) * step(0.0, up) * (0.42 * exp(-up / 2.6)
+                                      + 0.16 * bv * exp(-up / (4.0 + 26.0 * bv)));
+        sk += top * 0.22 * step(0.0, dn) * exp(-dn / 2.4);
+        sk *= uDim;
+        P = sk * ask;
+        A = ask;
+    }
+    P = sc * as_ + P * (1.0 - as_);
+    A = as_ + A * (1.0 - as_);
+    P = c * a + P * (1.0 - a);
+    A = a + A * (1.0 - a);
+    P += lip * (1.0 - A);
+    A = A + groove * (1.0 - A);
+    gA = A;
+    return col * (1.0 - A) + P;
 }
 
 
@@ -865,6 +923,7 @@ class _Life:
         self.hmm_t, self.hmm_next = -9.0, 0.0     # thinking: a "hmm" purse of the lips
         self.rem_t = time.monotonic() + random.uniform(20, 40)   # asleep: dreaming
         self.closed_at = -9.0             # the last blink: a fresh wet glint after
+        self.blink_at, self.blink_slow = -9.0, False   # (blink(): its start)
         self.touched = 0.0                # the last touch we reacted to
         self.taps = []                    # recent taps: three quick ones tickle
         self.giggle_t = -9.0
@@ -884,9 +943,41 @@ class _Life:
                 continue
             el = (now - b[0]) / b[1]
             if 0.0 <= el < 1.0:
-                c = el / 0.3 if el < 0.3 else 1.0 - (el - 0.3) / 0.7
-                v = max(v, b[2] * c * c * (3.0 - 2.0 * c))
+                c = (el / 0.3) ** 2 if el < 0.3 else (1.0 - (el - 0.3) / 0.7) ** 2.5
+                v = max(v, b[2] * c)
         return v
+
+    # a blink: lids drop fast and speed up, touch, then lift slower and
+    # settle a hair past open (seconds: close, hold, open)
+    BLINK = (0.075, 0.035, 0.19)
+
+    def blink(self, now, face):
+        """robot_face starts the blinks, this times them: (shut 0..1 or None
+        when not blinking, the lids' speed 0..1, the settle after: −1..1)."""
+        if getattr(face, "_blink_dir", 0) == -1 and now - self.blink_at > 0.2:
+            slow = (getattr(face, "rest_pulse", 0.0) > 0.35 or getattr(face, "_emotion", "") == "sad"
+                    or getattr(face, "_drowsy", 0.0) > 0.3)
+            self.blink_at, self.blink_slow = now, slow
+        c, hold, o = self.BLINK
+        if self.blink_slow:
+            c, hold, o = c * 1.3, hold * 2.0, o * 2.4
+        el = now - self.blink_at
+        settle = 0.0
+        if el < 0.0 or el > c + hold + o + 0.5:
+            return None, 0.0, 0.0
+        if el < c:                                     # ease in: gravity
+            k = el / c
+            shut, speed = k * k, k
+        elif el < c + hold:
+            shut, speed = 1.0, 0.0
+        elif el < c + hold + o:                        # ease out: lifting off
+            k = (el - c - hold) / o
+            shut, speed = (1.0 - k) ** 3, 1.5 * (1.0 - k) ** 2 * c / o
+        else:
+            shut, speed = 0.0, 0.0
+            x = el - c - hold - o
+            settle = math.exp(-x * 9.0) * math.sin(x * 22.0)
+        return shut, min(1.0, speed), settle
 
     def prune(self, now):
         self.lids = [b for b in self.lids if now - b[0] < b[1]]
@@ -1383,7 +1474,7 @@ class GLFace:
             return [(0.0, 0.0, float(self.w), float(self.h))] * 5
         for i in (0, 1):
             ex, ey, w, h = u[f"uEye{i}"]
-            boxes.append(self._box(ex, ey, w / 2 + 8, h / 2 + 8, tilt))
+            boxes.append(self._box(ex, ey, w / 2 + 11, h / 2 + 11, tilt))   # (+ the socket)
         bend0, bend1, thick, alpha = u["uBrowK"]
         for i, bend in ((0, bend0), (1, bend1)):
             x0, y0, x1, y1 = u[f"uBrow{i}"]
@@ -1571,6 +1662,8 @@ class GLFace:
         conv = getattr(face, "_pupil_converge", 0.0)
         brows = []
         asleep = emo == "sleeping"
+        bshut, bspeed, settle = life.blink(now, face)
+        blinks = [0.0, 0.0]
         for i, (eye, side) in enumerate(((face.left_eye, -1), (face.right_eye, 1))):
             cx, cy = fcx + eye.rel_x, fcy + eye.rel_y + cur["eye_dy"]
             if asleep:                            # the shut eyes rise and fall with her breath
@@ -1638,6 +1731,8 @@ class GLFace:
             top, bot = top * (1.0 - 0.7 * eye.widen), bot * (1.0 - 0.7 * eye.widen)
             # a blink: the lids meet ~60 % of the way down, their curves meet too
             shut = 1.0 - max(0.0, min(1.0, eye.blink_t))
+            if bshut is not None and not asleep:  # her own blink: timed by life.blink
+                shut = bshut
             shut = max(shut, life.lid(now, i))    # half blinks, slow blinks, a take
             if shut > 0.8 and not asleep:
                 life.closed_at = now
@@ -1645,13 +1740,17 @@ class GLFace:
                 shut, life.shut_prev = 0.5 * (shut + life.shut_prev), life.shut_prev
             else:
                 life.shut_prev = shut
-            ey += 4.0 * shut                      # a blink squashes the eye down a little
-            h *= 1.0 - 0.04 * shut
+            ey += 5.0 * shut                      # a blink squashes the eye down a little…
+            h *= 1.0 - 0.07 * shut + 0.025 * settle   # …and it springs back past open
+            w *= 1.0 + 0.03 * shut
+            top, bot = top * (1.0 - 0.35 * settle), bot * (1.0 - 0.35 * settle)
+            blinks[i] = 0.0 if asleep else shut
             open_ = max(0.0, 1.0 - top - bot)
             top, bot = top + shut * open_ * 0.62, bot + shut * open_ * 0.38
             mid = 0.5 * (bend + bbend)
             bend, bbend = _lerp(bend, mid, shut), _lerp(bbend, mid, shut)
             tilt *= 1.0 - shut
+            bend -= 0.10 * bspeed                 # moving fast, the lid's middle leads
             # shut (or nearly): the glowing seam where the lids meet
             gap = max(1.0 - top - bot, 1.0 - top - bot + bend - bbend) * h
             seam = max(0.0, min(1.0, 1.0 - gap / 14.0))
@@ -1673,6 +1772,7 @@ class GLFace:
             pr *= 1.0 - 0.35 * dazzle
             dx = eye.pupil_ox * 0.85 + cur["gaze_x"] - side * conv * 0.6   # cross-eyed: in
             dy = eye.pupil_oy * 0.85 + cur["gaze_y"]
+            dy += 0.10 * h * blinks[i]            # in a blink the eyes roll down a little
             if not asleep:                        # micro-saccades
                 dx, dy = dx + life.sacc_now[0], dy + life.sacc_now[1]
             if i == 0 and seen:
@@ -1712,6 +1812,7 @@ class GLFace:
             shown = (1.0 - cur["heart"]) if rf.BLOCK_PUPIL else 0.0
             shown *= max(0.0, min(1.0, (gap - 8.0) / 22.0))     # a slit: just the glow
             u[f"uPupil{i}"] = (dx, dy, pr, shown)
+            u["uBlink"] = (blinks[0], blinks[1], bspeed, bspeed)
             # the brow over it: 66 % of the eye's width, its inner end tilted
             bw = w * 0.66
             by = ey - h / 2 - cur["brow_gap"] - cur["brow_y"][i]

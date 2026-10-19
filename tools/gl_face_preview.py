@@ -110,6 +110,7 @@ POSES = [
     ("surprised", dict(emotion="surprised", w=230, h=190, widen=1.0)),
     ("listening", dict(listen=True, widen=0.6, tint=(255, 245, 215))),
     ("blink", dict(blink=0.18)),
+    ("blink 1/2", dict(blink=0.5)),
     ("talking", dict(speak=0.7)),
     ("sleeping", dict(emotion="sleeping", blink=0.05)),
     ("glance", dict(ox=-40, oy=-14)),
@@ -340,8 +341,57 @@ def lamp_motion(out, scene, secs=8.0, fps=12, start=30.0):
     print(f"[lamp] wrote {gif} and {out} (every {5 / fps:.2f} s)")
 
 
+def blink_strip(out, slow=False):
+    """One blink on a fake clock: 16 frames 25 ms apart (eyes cropped) and a GIF."""
+    from PIL import Image, ImageDraw
+    import robot_face as rf
+    import gl_face
+    egl_context()
+    fbo = framebuffer()
+    rf.apply_style(3)
+    clock = [1000.0]
+    gl_face.time = type("T", (), {"monotonic": staticmethod(lambda: clock[0]),
+                                  "time": staticmethod(time.time),
+                                  "localtime": staticmethod(time.localtime)})()
+    g = gl_face.GLFace(W, H)
+    g.target_fbo = fbo
+    face = FakeFace(rf)
+    face.pose(emotion="sad" if slow else "neutral")
+    face.rest_pulse, face._drowsy = 0.0, 0.0
+    fcx, fcy = W // 2, H // 2 + rf.FACE_Y_OFFSET
+    for _ in range(30):
+        clock[0] += 0.016
+        g.face_uniforms(face, rf, fcx, fcy)
+    frames = []
+    for i in range(int(0.8 / 0.0125)):
+        face._blink_dir = -1 if i == 0 else 0
+        u = g.face_uniforms(face, rf, fcx, fcy)
+        clock[0] += 0.0125
+        if i % 2:
+            continue
+        g.render(u)
+        px = GL.glReadPixels(0, 0, W, H, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE)
+        img = Image.frombytes("RGBA", (W, H), px).transpose(Image.FLIP_TOP_BOTTOM)
+        img = img.convert("RGB").crop((110, 60, 690, 300))
+        ImageDraw.Draw(img).text((6, 4), f"{i * 12.5:.0f} ms", fill=(255, 255, 255))
+        frames.append(img)
+    cw, ch = frames[0].size
+    picks = frames[:16]
+    strip = Image.new("RGB", (4 * cw, 4 * ch))
+    for i, f in enumerate(picks):
+        strip.paste(f, ((i % 4) * cw, (i // 4) * ch))
+    strip.save(out)
+    gif = os.path.splitext(out)[0] + ".gif"
+    frames[0].save(gif, save_all=True, append_images=frames[1:] + [frames[-1]] * 20,
+                   duration=25, loop=0)
+    print(f"[blink] wrote {out} and {gif}")
+
+
 def main():
-    if "--motion" in sys.argv:                        # --motion out.png scene [secs]
+    if "--blink" in sys.argv:                         # --blink [out.png] [--slow]
+        args = [a for a in sys.argv[1:] if not a.startswith("--")]
+        return blink_strip(args[0] if args else "/tmp/gl_blink.png", "--slow" in sys.argv)
+    if "--motion" in sys.argv:                       # --motion out.png scene [secs]
         args = [a for a in sys.argv[1:] if not a.startswith("--")]
         return lamp_motion(args[0], args[1], float(args[2]) if len(args) > 2 else 8.0,
                            start=float(args[3]) if len(args) > 3 else 30.0)
@@ -374,6 +424,8 @@ def main():
         face.pose(**kw)
         for _ in range(30):                     # let the eased shapes settle
             u = g.face_uniforms(face, rf, fcx, fcy)
+        g.life.lids = []                        # (a still: no lid move caught halfway)
+        u = g.face_uniforms(face, rf, fcx, fcy)
         g.render(u)
         px = GL.glReadPixels(0, 0, W, H, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE)
         img = Image.frombytes("RGBA", (W, H), px).transpose(Image.FLIP_TOP_BOTTOM)
