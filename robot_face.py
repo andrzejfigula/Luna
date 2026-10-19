@@ -3020,8 +3020,11 @@ class RobotFace:
         t3 = time.perf_counter()
         if self.gl:
             u = self.gl.face_uniforms(self, sys.modules[__name__], fcx, fcy)
+            # the layer behind the face is nearly always empty: not read at
+            # all then (~0.7 ms a frame), unless it still has to be wiped
+            drew_back = HAIR or costume or self.sound_waves or self.steam_particles
             self.gl.render(u, face_layer=base, screen_layer=self.screen,
-                           back_layer=self.back)
+                           back_layer=self.back if drew_back or self.gl.back_l.runs() else None)
         t35 = time.perf_counter()
         pygame.display.flip()
         t4 = time.perf_counter()
