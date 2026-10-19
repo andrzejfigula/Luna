@@ -29,7 +29,7 @@ import time
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from shared_state import state
+from shared_state import close_after, state
 from config import (TIMERS_PATH, TIMERS_MAX, TIMER_REPEAT_SECS, LUNA_TIMEZONE,
                     SUNRISE_SECS)
 
@@ -284,6 +284,7 @@ def apply(actions, said=""):
             _save()
     if done:
         print("[timers] " + "; ".join(done), flush=True)
+        close_after()
     return done
 
 
@@ -313,6 +314,7 @@ def cancel_answer(text):
             _timers[:] = [t for t in _timers if t["kind"] != kind]
             _save()
     print(f"[timers] cancelled {len(gone)} {kind}(s) by voice", flush=True)
+    close_after()
     if not gone:
         return _CANCEL_NONE[kind]
     n = len(gone)
@@ -1077,6 +1079,7 @@ def snooze(seconds):
         _timers.sort(key=lambda x: x["due"])
         _save()
     _last_rang["entry"] = None
+    close_after()
     print(f"[timers] snoozed {seconds}s: {t['kind']} '{t['label']}'", flush=True)
     return True
 
@@ -1093,6 +1096,7 @@ def extend(seconds):
         _timers.sort(key=lambda x: x["due"])
         _save()
     print(f"[timers] extended by {seconds}s", flush=True)
+    close_after()
     return True
 
 
@@ -1101,6 +1105,7 @@ def remove_entries(entries):
     with _lock:
         _timers[:] = [t for t in _timers if not any(t is e for e in entries)]
         _save()
+    close_after()
 
 
 def remove(labels):

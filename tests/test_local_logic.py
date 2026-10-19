@@ -4115,6 +4115,39 @@ class KidsTest(unittest.TestCase):
         finally:
             fun.lamp_off()
 
+    def test_done_commands_close_the_window(self):
+        """The lamp, timers, the screen: done, nothing follows — the window
+        closes (main.py reads state.close_after). Volume, lists, answers: not."""
+        import commands
+        import display
+        import fun
+        import lists
+        said = []
+
+        def closes(text):
+            with state.lock:
+                state.close_after = False
+            commands.handle(text, said.append, lambda *a, **k: True)
+            with state.lock:
+                return state.close_after
+        old = list(timers._timers)
+        try:
+            with mock.patch.object(timers, "_save", lambda: None), \
+                    mock.patch.object(display, "set_user_override", lambda v: None), \
+                    mock.patch.object(lists, "_save", lambda *a, **k: None, create=True):
+                for text in ("Włącz lampkę", "Lampka meduzy", "Zmień lampkę", "Wyłącz lampkę",
+                             "Minutnik na 10 minut", "Przypomnij mi za 20 minut o praniu",
+                             "Obudź mnie o 6:30", "Anuluj minutnik", "Przyciemnij ekran"):
+                    self.assertTrue(closes(text), text)
+                for text in ("Ciszej", "Mów wolniej", "Jakie masz lampki?", "Która godzina?",
+                             "Ile to jest 17 razy 23?"):
+                    self.assertFalse(closes(text), text)
+        finally:
+            timers._timers[:] = old
+            fun.lamp_off()
+            with state.lock:
+                state.close_after = False
+
     def test_lamp_scenes_move(self):
         import math
         import numpy as np

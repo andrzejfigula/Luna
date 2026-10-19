@@ -53,7 +53,7 @@ import subprocess
 import threading
 import time
 
-from shared_state import state
+from shared_state import close_after, state
 import settings
 from config import (SPEED_STEP, SPEED_MIN, SPEED_MAX, OPENAI_TTS_SPEED,
                     VOLUME_STEP, VOLUME_MIN, VOLUME_MAX,
@@ -1186,6 +1186,7 @@ def close_page(text, speak):
             with state.lock:
                 state.overlay = None
             print(f"[cmd] closed the {ov[0]} page by voice", flush=True)
+            close_after()
             speak("Dobrze.")
             return True
     with state.lock:
@@ -1194,6 +1195,7 @@ def close_page(text, speak):
             return False
         state.overlay = None
     print(f"[cmd] closed the {ov[0]} page by voice", flush=True)
+    close_after()
     speak("Dobrze.")
     return True
 
@@ -1332,6 +1334,7 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         speak(f"Dobrze, wyłączam kamerę na {timers.say_duration(secs)} — nic nie widzę. "
               "Żeby ją włączyć wcześniej, powiedz: włącz kamerę.")
         print(f"[cmd] camera off for {secs} s", flush=True)
+        close_after()
         return True
     if any(k in low for k in _CAM_ON) and _short(text, 6):
         with state.lock:
@@ -1413,6 +1416,7 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
     m2 = _SCREEN_AFTER.match(low.strip(" .!?"))
     if m or m2:
         import display
+        close_after()                      # (the screen set: nothing follows)
         if m:
             verb = m.group(1)
         elif m2.group(1):

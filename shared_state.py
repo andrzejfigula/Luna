@@ -77,6 +77,9 @@ class SharedState:
                                  # in view besides state.person (faces.py)
         "person",                # (name, similarity, time) — who is in front of her
                                  # (faces.py), or None
+        "close_after",           # this sentence's command is done, nothing follows
+                                 # (the lamp, a timer, the screen): main.py closes
+                                 # the window after it — close_after()
         "convo_closed_hard",     # the window was closed on purpose ("pa!", radio):
                                  # no grace for speech that began just after
         "voice_mood",            # forces the TTS delivery ("sleepy" for the
@@ -161,6 +164,7 @@ class SharedState:
         self.heard_at            = 0.0
         self.motion              = None
         self.convo_closed_hard   = False
+        self.close_after         = False
         self.sunrise             = None
         self.overlay             = None
         self.costume             = None
@@ -171,3 +175,12 @@ class SharedState:
 
 
 state = SharedState()
+
+
+def close_after():
+    """The command just carried out needs nothing more ("wyłącz lampkę",
+    "minutnik na 10 minut", "przyciemnij ekran"): the conversation window
+    closes after her answer, so the room's noise isn't taken for the next
+    question (19 Oct: "wyłącz lampkę", then "Luterko" was answered)."""
+    with state.lock:
+        state.close_after = True

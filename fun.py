@@ -26,7 +26,7 @@ import re
 import time
 
 import lamp_scenes
-from shared_state import state
+from shared_state import close_after, state
 
 LAMP_ON  = ("włącz lampkę", "zapal lampkę", "włącz lampkę nocną", "tryb lampki",
             "wlacz lampke", "night light", "turn on the lamp")
@@ -295,6 +295,7 @@ def lamp_scenes_handle(low, words, colour, speak):
             else:
                 lamp_on(None, None, lamp_scenes.SCENES[0])
             print(f"[fun] lamp scene {lamp_scene()}", flush=True)
+            close_after()
             return True
         return False
     showing = lamp_scene() is not None
@@ -307,6 +308,7 @@ def lamp_scenes_handle(low, words, colour, speak):
     if secs:
         speak(f"Lampka zgaśnie za {timers.say_duration(secs)}.")
     print(f"[fun] lamp scene {scene}" + (f" for {secs}s" if secs else ""), flush=True)
+    close_after()
     return True
 
 
@@ -437,6 +439,7 @@ def handle(text, speak, play_sound, play_sound_async):
                           and not any(k in low for k in COIN)):
         return False                       # "czy możesz rzucić kostką?" is a request
     if any(k in low for k in LAMP_OFF):
+        close_after()                         # (lamp off, now or later: done)
         import timers
         secs, _ = timers.parse_duration(low) if re.search(r"\bza\b", low) else (None, None)
         when = None
@@ -480,6 +483,7 @@ def handle(text, speak, play_sound, play_sound_async):
         if secs:
             speak(f"Lampka zgaśnie za {timers.say_duration(secs)}.")
         print(f"[fun] lamp {colour or 'warm'}" + (f" for {secs}s" if secs else ""), flush=True)
+        close_after()
         return True
     if any(k in low for k in HIGH_FIVE):
         high_five(speak, play_sound)

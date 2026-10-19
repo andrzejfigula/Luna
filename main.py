@@ -79,7 +79,7 @@ import random
 from speech_to_text import listen, WAKE_ACK
 from text_to_speech import speak, play_sound
 from brain import process, note_local
-from shared_state import state
+from shared_state import close_after, state
 from config import (WAKE_REPLIES, ECHO_GUARD_WINDOW,
                     ECHO_RUN_THRESH, ECHO_OVERLAP_THRESH,
                     WAKE_SOUND_CHANCE)
@@ -143,6 +143,9 @@ def voice_loop():
             # said over the radio ("Luna, wyłącz radio"): a command, then quiet
             radio_was_on = bool(text) and bool(radio.playing() or ambience.playing())
             if text:
+                with state.lock:
+                    state.close_after = False   # (set by a command that needs nothing more)
+            if text:
                 import timing
                 timing.mark("text")             # (the "[latency]" breakdown)
             try:
@@ -188,7 +191,7 @@ def voice_loop():
                         voicefx.play(speech_to_text.last_utterance_pcm, speak, play_clip)
                         continue
                     if check_mute(text):
-                        pass          # "Luna, cicho" — handled, nothing to ask
+                        close_after()   # "Luna, cicho" — handled, nothing to ask
                     elif forget_reply := check_forget(text):
                         speak(forget_reply)   # never goes near the model
                     elif handled := commands.handle(text, _logged(said := []), play_sound):
@@ -228,6 +231,19 @@ def voice_loop():
                             state.convo_closed_hard = True
                             state.listening = False
                         print("[Luna] radio on — window closed, say \"Luna\" next time",
+                              flush=True)
+                    # a command that needs nothing more — the lamp, a timer, the
+                    # screen: no open window for the room's noise (19 Oct: after
+                    # "wyłącz lampkę" she answered "Luterko"). Volume, lists and
+                    # answers keep it: "jeszcze ciszej", "i chleb", "a jutro?"
+                    with state.lock:
+                        done, state.close_after = state.close_after, False
+                    if done and state.conversation_active and not _answer_awaited():
+                        with state.lock:
+                            state.conversation_active = False
+                            state.convo_closed_hard = True
+                            state.listening = False
+                        print("[Luna] done — window closed, say \"Luna\" next time",
                               flush=True)
         except Exception as e:
             # an unexpected error must never kill the voice thread — that
