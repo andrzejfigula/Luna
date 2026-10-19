@@ -136,12 +136,12 @@ THEMES = {
             "out mining. Every reply, even a plain fact like the weather, is said "
             "in character. Still 1-3 short sentences.\n"),
         # Steve-like: white block eyes, a blue-violet square pupil, a big block grid
-        "eyes": {"uTop": (0.96, 0.96, 0.96), "uBottom": (0.72, 0.74, 0.80),
+        "eyes": {"uTop": (0.96, 0.96, 0.96), "uBottom": (0.84, 0.85, 0.90),
                  "uGlow": (0.45, 0.42, 0.85), "uShine": (1.0, 1.0, 1.0),
                  "uPupilCol": (0.32, 0.22, 0.70), "uIrisCol": (0.45, 0.35, 0.95),
                  "uMouthCol": (0.62, 0.38, 0.24), "uMouthColAmt": 1.0,
                  "uPixel": 16.0},
-        "spec": {"eye_n": 14.0, "rot": (0.0, 0.0), "brow_bend": 0.0},
+        "spec": {"eye_n": 14.0, "rot": (0.0, 0.0), "brow_bend": 0.0, "pupil": (1.4, 1.4)},
         "mouth": {"min_h": 24.0},
         "tint": (120, 230, 120),             # listening: experience-orb green
     },
