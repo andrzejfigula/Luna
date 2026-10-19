@@ -4065,6 +4065,87 @@ class KidsTest(unittest.TestCase):
         finally:
             fun.lamp_off()
 
+    def test_lamp_scenes_by_voice(self):
+        import ambience
+        import fun
+        said = []
+
+        def h(text):
+            return fun.handle(text, said.append, None, None)
+        try:
+            for text, scene in (("Lampka meduzy", "meduzy"), ("Włącz zorzę polarną", "zorza"),
+                                ("Luna, włącz lampkę z meduzami", "meduzy"),
+                                ("Lampa lawa", "lawa"), ("Włącz świetliki", "swietliki"),
+                                ("Lampka zegar", "zegar"), ("Czy możesz włączyć lampkę lawę?", "lawa")):
+                fun.lamp_off()
+                self.assertTrue(h(text), text)
+                self.assertEqual(fun.lamp_scene(), scene, text)
+            # "kominek" alone is the sleep sound; with the lamp's name, the picture
+            fun.lamp_off()
+            self.assertFalse(h("Włącz kominek"))
+            self.assertFalse(ambience.handle("Włącz lampkę kominek", said.append))
+            self.assertTrue(h("Włącz lampkę kominek"))
+            self.assertEqual(fun.lamp_scene(), "kominek")
+            # not a lamp: a story about jellyfish, the clock page
+            fun.lamp_off()
+            self.assertFalse(h("Włącz bajkę o meduzach"))
+            self.assertFalse(h("Pokaż zegar"))
+            self.assertIsNone(fun.lamp_scene())
+            # the next one; the timer kept, the motion not restarted
+            h("Lampka meduzy na 20 minut")
+            self.assertEqual(said[-1], "Lampka zgaśnie za 20 minut.")
+            h("Zmień lampkę")
+            self.assertEqual(fun.lamp_scene(), "zorza")
+            with state.lock:
+                until, data = state.overlay[1], state.overlay[2]
+            self.assertAlmostEqual(until - time.time(), 1200, delta=5)
+            h("Wyłącz lampkę za kwadrans")
+            with state.lock:
+                self.assertIs(state.overlay[2], data)
+            self.assertAlmostEqual(state.overlay[1] - time.time(), 900, delta=5)
+            h("A teraz lawa")                   # a picture showing: its name is enough
+            self.assertEqual(fun.lamp_scene(), "lawa")
+            h("Lampka na niebiesko")            # plain light again, in a colour
+            self.assertIsNone(fun.lamp_scene())
+            self.assertTrue(fun.lamp_lit())
+            self.assertTrue(h("Jakie masz lampki?"))
+            self.assertIn("meduzy", said[-1])
+            self.assertTrue(h("Wyłącz lampkę"))
+            self.assertFalse(fun.lamp_lit())
+        finally:
+            fun.lamp_off()
+
+    def test_lamp_scenes_move(self):
+        import math
+        import lamp_scenes
+        self.assertEqual(lamp_scenes.next_scene("kominek"), "meduzy")
+        self.assertEqual(lamp_scenes.next_scene(None), "meduzy")
+        self.assertEqual(lamp_scenes.next_scene("meduzy", -1), "kominek")
+        self.assertEqual(lamp_scenes.clock_text(time.struct_time((2026, 10, 19, 7, 5, 0, 0, 292, 1))),
+                         ("7:05", "PON, 19 PAŹ"))
+        for scene in lamp_scenes.SCENES:
+            t0 = 1000.0
+            data = {"scene": scene, "t0": t0}
+            for i in range(20 * 240):                 # four minutes at 20 fps
+                u = lamp_scenes.uniforms(data, t0 + i / 20, t0 + 3600, 800, 480)
+            k, t, fade, _ = u["uK"]
+            self.assertEqual((k, round(t), fade), (lamp_scenes.SCENES.index(scene) + 1, 240, 1.0))
+            for row in u.get("uBlob", []) + u.get("uBlobA", []):
+                self.assertTrue(all(math.isfinite(x) for x in row), scene)
+            for kind, box, item, itemk, iteml in u.get("items", []):
+                self.assertLess(box[0], box[2])
+                self.assertLess(box[1], box[3])
+                self.assertTrue(all(math.isfinite(x) for x in item + itemk + iteml), scene)
+            if scene == "meduzy":                     # they drift up, new ones come
+                self.assertTrue(any(-200 < it[2][1] < 700 for it in u["items"]))
+            if scene == "swietliki":                  # inside the screen, mostly
+                inside = [it for it in u["items"] if 0 < it[2][0] < 800 and 0 < it[2][1] < 480]
+                self.assertGreater(len(inside), 12)
+        # fading in at the start and out at the end
+        data = {"scene": "lawa", "t0": 0.0}
+        self.assertEqual(lamp_scenes.uniforms(data, 0.0, 100.0, 800, 480)["uK"][2], 0.0)
+        self.assertEqual(lamp_scenes.uniforms(data, 100.0, 100.0, 800, 480)["uK"][2], 0.0)
+
     def test_move_alarm(self):
         import commands
         import timers

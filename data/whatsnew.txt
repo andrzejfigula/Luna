@@ -1,6 +1,9 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
+== 19 października ==
+- Lampka z obrazkiem: „lampka meduzy”, „włącz zorzę polarną”, „lampka zegar”, „włącz świetliki”, „lampa lawa”, „lampka kominek”. Ekran staje się spokojnym, ciemnym obrazem, który powoli się rusza. „Zmień lampkę” albo przesunięcie palcem — następna; „lampka meduzy na 20 minut” — sama zgaśnie; stuknięcie gasi.
+
 == 18 października ==
 - Szumy (morze, kominek, deszcz, las) słychać od razu po włączeniu, a na ekranie tańczą przy nich efekty — morze na niebiesko, kominek na czerwono, las na zielono. Możesz przełączać: „przełącz na kominek”, „zmień na szum morza”, „wyłącz kominek”. Po włączeniu szumu, tak jak przy radiu, zacznij od „Luna”.
 - Szum morza znowu słychać (wcześniej grał za cicho, prawie bezgłośnie). Kominek też jest teraz wyraźniejszy.

@@ -73,9 +73,10 @@ def target_percent():
         dawn    = state.sunrise
         lamp    = bool(state.overlay and state.overlay[0] == "lamp"
                        and time.time() < state.overlay[1])
+        scene   = lamp and (state.overlay[2] or {}).get("scene")
     if lamp:
-        from config import LAMP_BRIGHTNESS
-        return min(base, LAMP_BRIGHTNESS)
+        from config import LAMP_BRIGHTNESS, LAMP_SCENE_BRIGHTNESS
+        return min(base, LAMP_SCENE_BRIGHTNESS if scene else LAMP_BRIGHTNESS)
     if dawn:
         start, end = dawn
         k = max(0.0, min(1.0, (time.time() - start) / max(1.0, end - start)))

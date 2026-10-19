@@ -13,6 +13,11 @@ frame — the 30 fps budget is 33 ms.
 
 The radio visualizer (visualizer.py): 8 s of a station decoded (not played),
 fed through visualizer.tap on a fake clock, two frames per style.
+
+    … tools/gl_face_preview.py --lamp [out.png] [scene…]
+
+The lamp's scenes (lamp_scenes.py): two frames each and the GPU time; one
+scene named: full size.
 """
 
 import ctypes
@@ -242,7 +247,58 @@ def radio_sheet(out, url=None):
     print(f"[radio] wrote {out}")
 
 
+def lamp_sheet(out, only=None):
+    """The lamp's scenes (lamp_scenes.py, gl_lamp.py): each simulated for a
+    while on a fake clock, two frames apart, and its GPU time per frame."""
+    from PIL import Image, ImageDraw
+    import pygame
+    import gl_face
+    import lamp_scenes
+    egl_context()
+    fbo = framebuffer()
+    pygame.init()
+    g = gl_face.GLFace(W, H)
+    g.target_fbo = fbo
+    layer = gl_face.layer_surface(W, H)
+    tiles = []
+    for scene in only or lamp_scenes.SCENES:
+        t0 = 1_000_000.0
+        data = {"scene": scene, "t0": t0}
+        for i, at in enumerate((20.0, 47.0)):
+            now = t0
+            while now < t0 + at:                      # the simulation, in steps
+                now += 1 / 20
+                u = lamp_scenes.uniforms(data, now, t0 + 3600, W, H)
+            layer.fill((0, 0, 0, 0))
+            if scene == "zegar":
+                lamp_scenes.draw_clock(layer, now + 5, W, H)
+            g.render_lamp(u, layer)
+            px = GL.glReadPixels(0, 0, W, H, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE)
+            img = Image.frombytes("RGBA", (W, H), px).transpose(Image.FLIP_TOP_BOTTOM)
+            ImageDraw.Draw(img).text((10, 8), f"{scene} {at:.0f}s", fill=(255, 255, 255, 255))
+            tiles.append(img)
+        GL.glFinish()
+        t1 = time.perf_counter()
+        for _ in range(30):
+            g.render_lamp(u, layer)
+        GL.glFinish()
+        print(f"[lamp] {scene}: {(time.perf_counter() - t1) / 30 * 1000:.1f} ms a frame")
+    cols = 2
+    rows = (len(tiles) + cols - 1) // cols
+    full = only is not None and len(only) == 1
+    tw, th = (W, H) if full else (W // 2, H // 2)
+    sheet = Image.new("RGB", (cols * tw, rows * th))
+    for i, t in enumerate(tiles):
+        sheet.paste(t.convert("RGB").resize((tw, th), Image.LANCZOS),
+                    ((i % cols) * tw, (i // cols) * th))
+    sheet.save(out)
+    print(f"[lamp] wrote {out}")
+
+
 def main():
+    if "--lamp" in sys.argv:                          # --lamp [out.png] [scene…]
+        args = [a for a in sys.argv[1:] if not a.startswith("--")]
+        return lamp_sheet(args[0] if args else "/tmp/gl_lamp.png", args[1:] or None)
     if "--radio" in sys.argv:
         args = [a for a in sys.argv[1:] if not a.startswith("--")]
         return radio_sheet(args[0] if args else "/tmp/gl_face_radio.png",

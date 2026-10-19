@@ -187,6 +187,12 @@ LOCAL = {
     "Lampka na niebiesko": "fun",
     "Zmień kolor lampki na zielony": "fun",
     "Włącz lampkę na 20 minut": "fun",
+    "Lampka meduzy": "fun",
+    "Włącz zorzę polarną": "fun",
+    "Włącz lampkę kominek": "fun",
+    "Luna, lampa lawa": "fun",
+    "Zmień lampkę": "fun",
+    "Włącz kominek": "ambience",
     "Luna, pokaż galerię": "screen",
     "Jak wygląda żyrafa?": "photo",
     "Luna, a jak wygląda Mars?": "photo",
@@ -195,6 +201,9 @@ LOCAL = {
     "Normalne odpowiedzi proszę": "length",
 }
 MODEL = [
+    "Czy w Polsce widać zorzę polarną?",
+    "Opowiedz mi o meduzach",
+    "Dlaczego świetliki świecą?",
     "Co widzisz?",
     "Pokaż mi, co potrafisz",
     "Jaka jest teraz głośność?",

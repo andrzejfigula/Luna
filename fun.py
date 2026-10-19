@@ -6,6 +6,9 @@ fun.py — small on-request games and gadgets (all local, no model call).
   "lampka na niebiesko"    → in a colour (czerwony, zielony, niebieski, fioletowy,
                              różowy, żółty, pomarańczowy, biały, ciepły)
   "lampka na 20 minut"     → goes out by itself
+  "lampka meduzy" / "włącz zorzę" / "lampka lawa" / "lampka kominek" /
+  "lampka zegar" / "włącz świetliki" → a living picture instead (lamp_scenes.py);
+                             "zmień lampkę": the next one, a swipe too
   "przybij piątkę"         → her hand comes up; tap the screen within 4 s
   "rzuć kostką"            → a die rolls on her screen ("dwiema kostkami": two)
   "rzuć monetą" / "orzeł czy reszka" → a coin flips
@@ -22,6 +25,7 @@ import random
 import re
 import time
 
+import lamp_scenes
 from shared_state import state
 
 LAMP_ON  = ("włącz lampkę", "zapal lampkę", "włącz lampkę nocną", "tryb lampki",
@@ -214,9 +218,54 @@ def _colour(low):
     return next((c for stem, c in LAMP_COLOURS.items() if stem in low), None)
 
 
-def lamp_on(colour=None, secs=None):
-    _overlay("lamp", secs or LAMP_HOURS * 3600,
-             {"col": colour or LAMP_COLOURS["ciepł"]})
+def lamp_on(colour=None, secs=None, scene=None):
+    data = {"col": colour or LAMP_COLOURS["ciepł"]}
+    if scene:
+        data.update(scene=scene, t0=time.time())
+    _overlay("lamp", secs or LAMP_HOURS * 3600, data)
+
+
+def lamp_scene():
+    """The scene the lamp shows ("meduzy"…), or None (plain light, or off)."""
+    with state.lock:
+        ov = state.overlay
+    if ov and ov[0] == "lamp" and time.time() < ov[1]:
+        return (ov[2] or {}).get("scene")
+    return None
+
+
+def _lamp_left():
+    """A timed lamp's seconds left (None: on for the night, or off)."""
+    with state.lock:
+        ov = state.overlay
+    if ov and ov[0] == "lamp":
+        left = ov[1] - time.time()
+        if 0 < left < LAMP_HOURS * 3600 - 60:
+            return left
+    return None
+
+
+def _lamp_retime(secs):
+    """The lamp goes out in secs — its colour, picture and motion kept."""
+    with state.lock:
+        ov = state.overlay
+        if ov and ov[0] == "lamp":
+            state.overlay = ("lamp", time.time() + secs, ov[2])
+
+
+def lamp_next(step=1):
+    """The next scene (a swipe, "zmień lampkę"); keeps its timer."""
+    lamp_on(None, _lamp_left(), lamp_scenes.next_scene(lamp_scene(), step))
+
+
+_LAMP_NEXT = re.compile(r"\b(?:zmień|zmien|inn[aąy]|następn\w*|nastepn\w*|kolejn\w*)\b.*\blamp"
+                        r"|\blamp\w*\s+(?:dalej|następn\w*|nastepn\w*|inna)\b")
+_LAMP_LIST = re.compile(r"\bjakie\b.*\blamp|\blamp\w*\s+(?:masz|są|sa)\b.*\?")
+# "włącz zorzę", "zmień na meduzy" — not "włącz bajkę o meduzach"
+_SCENE_VERB = re.compile(r"\b(?:włącz|wlacz|zapal|daj|ustaw|przełącz|przelacz|zmień|zmien)\s+"
+                         r"(?:mi\s+|nam\s+|na\s+)?(?:meduz|zorz|aurora|świetlik|swietlik|"
+                         r"robaczk|law[aąęeo])")
+_OFF_WORD = re.compile(r"\b(?:wyłącz|wylacz|zgaś|zgas|stop|zatrzymaj)\b")
 
 
 def lamp_lit():
@@ -229,6 +278,36 @@ def lamp_off():
     with state.lock:
         if state.overlay and state.overlay[0] == "lamp":
             state.overlay = None
+
+
+def lamp_scenes_handle(low, words, colour, speak):
+    """"Lampka meduzy", "włącz zorzę", "zmień lampkę" → the lamp's pictures.
+    "Kominek" and "zegar" need the lamp's name ("włącz kominek" is the sound,
+    "pokaż zegar" the clock page) — or a picture showing already."""
+    if _OFF_WORD.search(low):
+        return False
+    scene = lamp_scenes.scene_in(low)
+    lampword = re.search(r"\blamp", low)
+    if scene is None:
+        if colour is None and _LAMP_NEXT.search(low):
+            if lamp_lit():
+                lamp_next()
+            else:
+                lamp_on(None, None, lamp_scenes.SCENES[0])
+            print(f"[fun] lamp scene {lamp_scene()}", flush=True)
+            return True
+        return False
+    showing = lamp_scene() is not None
+    if not ((lampword and len(words) <= 8) or _SCENE_VERB.search(low)
+            or (showing and len(words) <= 4)):
+        return False
+    import timers
+    secs, _ = timers.parse_duration(low)
+    lamp_on(None, secs or _lamp_left(), scene)
+    if secs:
+        speak(f"Lampka zgaśnie za {timers.say_duration(secs)}.")
+    print(f"[fun] lamp scene {scene}" + (f" for {secs}s" if secs else ""), flush=True)
+    return True
 
 
 def high_five(speak, play_sound):
@@ -347,6 +426,11 @@ def handle(text, speak, play_sound, play_sound_async):
         return True
     low = text.lower()
     words = re.findall(r"\w+", low)
+    if _LAMP_LIST.search(low) and len(words) <= 8:          # "jakie masz lampki?"
+        speak("Mam zwykłą lampkę, w każdym kolorze, i lampki z obrazkiem: "
+              + ", ".join(lamp_scenes.NAMES[s] for s in lamp_scenes.SCENES[:-1])
+              + " i " + lamp_scenes.NAMES[lamp_scenes.SCENES[-1]] + ".")
+        return True
     polite = re.search(r"\b(?:możesz|mozesz|mogłabyś|moglabys|mogłabys|can\s+you|could\s+you)\b",
                        low)
     if len(words) > 8 or (low.strip().endswith("?") and not polite
@@ -369,9 +453,7 @@ def handle(text, speak, play_sound, play_sound_async):
                 import clock
                 when = f"o {clock.hour_locative(hh, mm)}"
         if secs and lamp_lit():               # "wyłącz lampkę za kwadrans" — later
-            with state.lock:
-                col = (state.overlay[2] or {}).get("col")
-            lamp_on(col, secs)
+            _lamp_retime(secs)
             speak(f"Lampka zgaśnie {when or 'za ' + timers.say_duration(secs)}.")
             return True
         if secs and not lamp_lit():           # "zgaś lampkę za godzinę" — it isn't on
@@ -380,6 +462,8 @@ def handle(text, speak, play_sound, play_sound_async):
         lamp_off()
         return True
     colour = _colour(low)
+    if lamp_scenes_handle(low, words, colour, speak):
+        return True
     lampish = any(k in low for k in LAMP_ON) or re.search(r"\blamp", low)
     # "lampka na niebiesko", "zmień kolor lampki na zielony", "lampka na 20 minut"
     if lampish and (any(k in low for k in LAMP_ON) or colour
@@ -389,9 +473,10 @@ def handle(text, speak, play_sound, play_sound_async):
         import timers
         secs, _ = timers.parse_duration(low)
         if colour is None and lamp_lit():           # "lampka na 20 minut" while on:
-            with state.lock:                        # keep its colour
-                colour = (state.overlay[2] or {}).get("col")
-        lamp_on(colour, secs)
+            if secs:                                # just the timer (colour, picture kept)
+                _lamp_retime(secs)
+        else:
+            lamp_on(colour, secs)
         if secs:
             speak(f"Lampka zgaśnie za {timers.say_duration(secs)}.")
         print(f"[fun] lamp {colour or 'warm'}" + (f" for {secs}s" if secs else ""), flush=True)

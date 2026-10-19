@@ -1,6 +1,7 @@
 import time
 from shared_state import state
 from robot_face import RobotFace
+import lamp_scenes
 import ui_screens
 from config import SLEEP_AFTER_FRAMES, RENDER_FPS, RENDER_FPS_ASLEEP, RENDER_FPS_CALM
 
@@ -81,7 +82,8 @@ def renderer_loop():
                      and not (ov[0] in ("gallery", "weather") and ui_screens.moving(ov[0], ov[2], now))
                      and now < ov[1] - 0.6)          # (full speed for the fade-out)
         calm = not (override or speaking or busy or face._gesture or face._scene)
-        face.fps = (8 if still else RENDER_FPS_ASLEEP if sleepy
+        scene = ov and ov[0] == "lamp" and (ov[2] or {}).get("scene")
+        face.fps = (lamp_scenes.FPS.get(scene, 20) if scene and face.gl else 8 if still else RENDER_FPS_ASLEEP if sleepy
                     else RENDER_FPS_CALM if calm else RENDER_FPS)
 
         try:

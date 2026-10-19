@@ -155,6 +155,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `docs/backlog-d
 | Plan dnia | „Pokaż plan dnia”, „Jaki jest plan na dziś?” — przypomnienia, sprawy do przekazania, urodziny, pogoda i listy na jednym ekranie |
 | Minutnik | „Minutnik na 10 minut”, „na pół godziny”, „na kwadrans” — od razu, bez chmury (działa też bez internetu); „Minutnik na 10 minut na makaron” — z nazwą; „Ile zostało na minutniku?” — dokładnie |
 | Lampka | „Włącz lampkę”, „Lampka na niebiesko” (czerwony, zielony, fioletowy, różowy, żółty, pomarańczowy, biały), „Lampka na 20 minut” — sama zgaśnie; „Wyłącz lampkę” albo stuknięcie |
+| Lampka z obrazkiem | „Lampka meduzy”, „Włącz zorzę polarną”, „Lampka zegar”, „Włącz świetliki”, „Lampa lawa”, „Lampka kominek” — ciemny, powoli ruszający się obraz zamiast światła; „Zmień lampkę” albo przesunięcie palcem — następny; „Jakie masz lampki?”; „Lampka lawa na pół godziny” — sama zgaśnie; „Włącz kominek” (bez „lampki”) to dźwięk kominka |
 | Przypomnienie | „Przypomnij mi za 20 minut o praniu”, „Przypomnij mi o 17, żeby zadzwonić do mamy” — na dziś działa też bez internetu; „Przypomnij mi jutro o dentyście” |
 | Ile zostało | „Ile zostało na minutniku?” — odliczanie widać też w prawym górnym rogu, a ostatnie 5 sekund wielkimi cyframi |
 | Stoper | „Włącz stoper”, „Ile na stoperze?”, „Zatrzymaj stoper” — czas widać w prawym górnym rogu |

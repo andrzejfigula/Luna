@@ -928,6 +928,7 @@ class GLFace:
         self._t_last = 0.0
         self.shape_rects = []            # each shape's box on the screen (face_uniforms)
         self.vis = None                  # the radio visualizer's pass (gl_vis.py), when needed
+        self.lamp = None                 # the lamp's scenes (gl_lamp.py), when needed
         print(f"[gl] face shader ready (GLSL {self.glsl}, "
               f"{GL.glGetString(GL.GL_RENDERER).decode(errors='replace')})", flush=True)
 
@@ -1100,6 +1101,30 @@ class GLFace:
                 self._u("uRect", (0.0, float(y0), float(self.w), float(y1)))
                 self._quad()
         GL.glDisable(GL.GL_BLEND)
+
+    def render_lamp(self, lamp, screen_layer=None):
+        """The lamp's scene (gl_lamp.py) alone over the whole screen — no
+        face under it — and the screen layer (the clock's digits) on top."""
+        GL = self.GL
+        has_layer = screen_layer is not None and self.upload(self.screen_l, screen_layer)
+        if self.lamp is None:
+            import gl_lamp
+            self.lamp = gl_lamp.LampPass(self)
+        self.lamp.draw(lamp)
+        self._t_last = 0.0                   # (the face's easing: no jump when it is back)
+        if has_layer:
+            GL.glUseProgram(self.prog)
+            self._u("uRes", (self.w, self.h))
+            self._sampler("uLayer", 0, self.screen_l.tex)
+            GL.glEnable(GL.GL_BLEND)
+            GL.glBlendFunc(GL.GL_ONE, GL.GL_ONE_MINUS_SRC_ALPHA)
+            self._u("uPass", 3.0)
+            self._u("uLayerSel", 0.0)
+            for y0, y1 in self.screen_l.runs():
+                self._u("uRect", (0.0, float(y0), float(self.w), float(y1)))
+                self._quad()
+            GL.glDisable(GL.GL_BLEND)
+        GL.glUseProgram(self.prog)
 
     def _box(self, cx, cy, hx, hy, tilt):
         """A shape's box (centre, half sizes, in the face's own coordinates)

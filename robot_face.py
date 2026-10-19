@@ -36,6 +36,7 @@ import numpy as np
 from shared_state import state
 import face_spec
 import gallery
+import lamp_scenes
 import screens
 import ui_screens
 from config import (RENDER_FPS, FACE_STYLE, SCREEN_WIDTH, SCREEN_HEIGHT,
@@ -2303,6 +2304,11 @@ class RobotFace:
                     dx = state.touch_dx
                 import radio
                 radio.swipe(dx)
+            elif ov_kind == "lamp" and touch_kind == "swipe":
+                with state.lock:                    # the lamp's next picture
+                    dx = state.touch_dx
+                import fun
+                fun.lamp_next(-1 if dx > 0 else 1)
             elif ov_kind == "gallery":                  # ‹ › ✕, a swipe (gallery.py)
                 with state.lock:
                     dx = state.touch_dx
@@ -2753,6 +2759,12 @@ class RobotFace:
         t0 = time.perf_counter()
         self.update()
         t1 = time.perf_counter()
+        if self.gl is not None and self._lamp_scene():
+            self._draw_lamp_scene()          # (the whole screen: no face to draw under it)
+            st["frames"] += 1
+            st["update"] += t1 - t0
+            st["flip"] += time.perf_counter() - t1
+            return
 
         base = self.base   # reused surface — no per-frame allocation
         # with the GPU face, pygame draws only what goes over it, on clear glass
@@ -3082,6 +3094,26 @@ class RobotFace:
         band = self._cap_cache[1]
         self.screen.blit(band, (0, HEIGHT - band.get_height()))
 
+    def _lamp_scene(self):
+        with state.lock:
+            ov = state.overlay
+        if ov and ov[0] == "lamp" and time.time() < ov[1]:
+            return (ov[2] or {}).get("scene")
+        return None
+
+    def _draw_lamp_scene(self):
+        """The lamp's picture (lamp_scenes.py, gl_lamp.py): the GPU draws it
+        all; pygame only the clock's digits."""
+        with state.lock:
+            kind, until, data = state.overlay
+        now = time.time()
+        u = lamp_scenes.uniforms(data, now, until, WIDTH, HEIGHT)
+        self.screen.fill((0, 0, 0, 0))
+        if data.get("scene") == "zegar":
+            lamp_scenes.draw_clock(self.screen, now, WIDTH, HEIGHT, u["uK"][2])
+        self.gl.render_lamp(u, self.screen)
+        pygame.display.flip()
+
     def _overlay_on(self):
         with state.lock:
             ov = state.overlay
@@ -3122,7 +3154,8 @@ class RobotFace:
         elif kind == "weather":                         # "pokaż pogodę"
             ui_screens.draw_weather(scr, data, time.time(), WIDTH, HEIGHT)
         elif kind == "lamp":
-            inner, outer = (data or {}).get("col") or ((255, 214, 150), (120, 50, 8))
+            inner, outer = (lamp_scenes.FALLBACK.get((data or {}).get("scene"))   # (no GPU)
+                            or (data or {}).get("col") or ((255, 214, 150), (120, 50, 8)))
             if getattr(self, "_lamp", (None,))[0] != (inner, outer):
                 lamp = pygame.Surface((WIDTH, HEIGHT))
                 cx, cy = WIDTH // 2, HEIGHT // 2

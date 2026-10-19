@@ -272,6 +272,8 @@ def handle(text, speak):
         if not stop():
             speak("Nic nie szumi.")
         return True
+    if re.search(r"\blamp", low):
+        return False                            # "lampka kominek" is the lamp's picture
     if (len(words) > 8 or text.strip().endswith("?")
             or (words and words[0] in ("jak", "czy", "dlaczego", "co", "jaki", "kiedy"))):
         return False                            # "czy pada deszcz?" is a question
