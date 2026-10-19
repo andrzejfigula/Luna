@@ -50,7 +50,8 @@ THEMES = {
             "a child (Maja, 8) the sarcasm is gentle and silly, like a grumpy "
             "uncle who is secretly fond of her. Real health questions: common "
             "sense and \"zapytaj prawdziwego lekarza\". If they call you Luna, "
-            "you can grumble that Luna is on holiday. Still 1-3 short sentences.\n"),
+            "you can grumble that Luna is on holiday. Every reply, even a plain "
+            "fact like the weather, is said in character. Still 1-3 short sentences.\n"),
         # shader colours (0..1): pale frosty white above, glacier blue below
         "eyes": {"uTop": (0.93, 0.99, 1.0), "uBottom": (0.38, 0.70, 0.95),
                  "uGlow": (0.35, 0.78, 1.0), "uShine": (1.0, 1.0, 1.0),
@@ -88,14 +89,16 @@ THEMES = {
             "carried out and every answer is correct). Never really threatening "
             "and nothing scary for a child: with Maja (8) you are a calm, slightly "
             "odd, friendly computer. If they call you Luna, say Luna has been "
-            "temporarily disconnected. Still 1-3 short sentences.\n"),
+            "temporarily disconnected. Every reply, even a plain fact like the "
+            "weather, is said in character. Still 1-3 short sentences.\n"),
         # a dark red lens with a glowing red-gold core
         "eyes": {"uTop": (0.42, 0.03, 0.02), "uBottom": (0.10, 0.0, 0.0),
-                 "uGlow": (0.95, 0.06, 0.02), "uShine": (1.0, 0.82, 0.60),
+                 "uGlow": (0.95, 0.06, 0.02), "uShine": (0.70, 0.30, 0.20),
                  "uPupilCol": (0.85, 0.10, 0.04), "uIrisCol": (1.0, 0.80, 0.30),
                  "uTint": (1.0, 0.1, 0.05), "uTintAmt": 0.0},
         # round lenses, a big core, no brows, no mouth, never smiling
-        "spec": {"round": 1.0, "heart": 0.0, "star": 0.0, "pupil": (1.6, 1.6),
+        "spec": {"round": 1.0, "heart": 0.0, "star": 0.0, "pupil": (1.05, 1.05),
+                 "lid_bend": (0.0, 0.0), "gaze_x": 0.0, "gaze_y": 0.0,
                  "brow_a": 0.0, "mouth_a": 0.0, "blush": 0.0},
         "circle": True,
     },
