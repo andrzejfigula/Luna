@@ -466,6 +466,14 @@ def handle(text, speak):
         return True
     m = _ADD.match(low)
     if m:
+        body = text.strip()[m.start(1):]
+        first = re.match(r"^([A-ZĄĆĘŁŃÓŚŹŻ][\wąćęłńóśźż]+)\s*,\s*(.+)$", body)
+        if first and _who_of(body)[0] is None and first.group(2).count(",") >= 1:
+            # "dodaj do planu: Babcia, wizyta, w sobotę o 15" — someone she doesn't know by face
+            p = parse(first.group(2), partial=True)
+            if p:
+                p["who"] = first.group(1)
+                return _take(p, speak)
         p = parse(m.group(1), who_default=_speaker(), partial=True)
         if not p:
             who, rest = _who_of(m.group(1))

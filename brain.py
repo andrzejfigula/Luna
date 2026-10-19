@@ -1844,6 +1844,9 @@ _COMMAND_OK = re.compile(
     r"^przekaż\s+\w+,?\s+(?:że|żeby)\s+.{3,120}$|^zrób\s+(?:mi\s+|nam\s+)?zdjęcie$|"
     r"^nagraj\s+wiadomość(?:\s+dla\s+\w+)?$|^pokaż\s+na\s+ekranie[:,]?\s+.{1,80}$"
     r"|^pokaż\s+osoby,?\s+które\s+znasz$"
+    # the week's plan (schedule.py; the sweep of 19 Oct: "dodaj do planu" refused)
+    r"|^pokaż\s+plan\s+tygodnia$|^dodaj\s+do\s+planu[:,]?\s+.{3,160}$"
+    r"|^usuń\s+z\s+planu[:,]?\s+.{2,80}$"
     r"|^wyszukaj\s+w\s+internecie[:,]?\s+.{3,200}$"
     r"|^(?:przyciemnij|zgaś|rozjaśnij)\s+ekran$"
     r"|^głośność\s+na\s+\d{1,3}(?:\s*%|\s+procent)?$"

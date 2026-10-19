@@ -7266,6 +7266,10 @@ class ScheduleTest(unittest.TestCase):
         self.assertTrue(self.s.handle("Usuń z planu basen Mai", said.append))
         self.assertEqual([e["who"] for e in self.s.events()], ["Emilka"])
         self.assertFalse(self.s.handle("Pokaż plan dnia", said.append))
+        self.assertTrue(self.s.handle("dodaj do planu: Babcia, wizyta, w sobotę o 15",
+                                      said.append))
+        self.assertEqual((self.s.events()[-1]["who"], self.s.events()[-1]["title"]),
+                         ("Babcia", "wizyta"))
 
     def test_prompt_line(self):
         self.assertEqual(self.s.prompt_line(), "")
