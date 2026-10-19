@@ -4132,10 +4132,11 @@ class KidsTest(unittest.TestCase):
             self.assertEqual((k, round(t), fade), (lamp_scenes.SCENES.index(scene) + 1, 240, 1.0))
             for row in u.get("uBlob", []) + u.get("uBlobA", []):
                 self.assertTrue(all(math.isfinite(x) for x in row), scene)
-            for kind, box, item, itemk, iteml in u.get("items", []):
+            for it in u.get("items", []):
+                box = it[1]
                 self.assertLess(box[0], box[2])
                 self.assertLess(box[1], box[3])
-                self.assertTrue(all(math.isfinite(x) for x in item + itemk + iteml), scene)
+                self.assertTrue(all(math.isfinite(x) for v in it[2:] for x in v), scene)
             if scene == "meduzy":                     # they drift up, new ones come
                 self.assertTrue(any(-200 < it[2][1] < 700 for it in u["items"]))
             if scene == "swietliki":                  # inside the screen, mostly

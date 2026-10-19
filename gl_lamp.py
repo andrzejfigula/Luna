@@ -21,7 +21,7 @@ uniform sampler2D uNoise;
 uniform vec4  uBlob[8];       // lava: x, y, radius (P units), hue
 uniform vec4  uBlobA[8];      // lava: cos, sin of the stretch axis, along, across
 uniform float uDraw;          // 0 the background; 1 a firefly, 2 a jellyfish — in its box
-uniform vec4  uItem, uItemK, uItemL;
+uniform vec4  uItem, uItemK, uItemL, uItemM;
 
 float hash(vec2 p) {
     vec3 p3 = fract(vec3(p.xyx) * 0.1031);
@@ -76,63 +76,101 @@ vec3 deepWater(vec2 P, float t) {
 
 // ── a jellyfish in its box ───────────────────────────────────────────────
 // uItem: x, y (where the bell's rim is), size px, brightness
-// uItemK: cos, sin of its tilt, contraction 0..1, lean of the tentacles
+// uItemK: cos, sin of its tilt, the pulse's phase 0..1, lean of the tentacles
 // uItemL: its own clock (s), hue 0..1, tentacle length (sizes), seed
+// uItemM: its turn about its axis (rad), streaming 0..1 (fast: tentacles
+//         drawn straight behind), -, -
+float squeeze(float ph) {                  // the pulse: a quick squeeze, slow relaxing
+    ph = fract(ph);
+    return ph < 0.28 ? smoothstep(0.0, 0.28, ph) : 1.0 - smoothstep(0.28, 1.0, ph);
+}
 vec3 jelly(vec2 f) {
     float s = uItem.z;
     vec2 v = (f - uItem.xy) / s;
     v.y = -v.y;                                        // y up
     vec2 q = vec2(uItemK.x * v.x + uItemK.y * v.y, -uItemK.y * v.x + uItemK.x * v.y);
-    float c = uItemK.z, lean = uItemK.w;
+    float ph = uItemK.z, lean = uItemK.w;
     float T = uItemL.x, hue = uItemL.y, L = uItemL.z, seed = uItemL.w;
-    float bw = 1.0 - 0.16 * c, bh = 0.74 + 0.14 * c;
-    vec3 cTop = mix(vec3(0.32, 0.30, 1.0), vec3(0.62, 0.32, 1.0), hue);
-    vec3 cRim = mix(vec3(0.22, 0.85, 1.0), vec3(0.38, 0.55, 1.0), hue);
-    float xr = clamp(q.x / bw, -1.0, 1.0);
-    float under = 0.22 * bh * (1.0 - xr * xr) - 0.05;    // the bell's hollow underside
-    float de = (length(q / vec2(bw, bh)) - 1.0) * min(bw, bh);
+    float yaw = uItemM.x, stream = uItemM.y;
+    // the squeeze runs from the top of the bell down to its rim
+    float cTop = squeeze(ph), cRim = squeeze(ph - 0.07), cTail = squeeze(ph - 0.18);
+    float flare = 0.07 * (1.0 - cRim) * smoothstep(0.5, 0.9, fract(ph - 0.07));
+    float wTop = 0.92 - 0.20 * cTop, wRim = 1.0 - 0.30 * cRim + flare;
+    float bh = 0.70 + 0.20 * cTop;
+    float hy0 = clamp(q.y / bh, 0.0, 1.0);
+    float bw = mix(wRim, wTop, smoothstep(0.0, 0.8, hy0));
+    vec3 cT = mix(vec3(0.32, 0.30, 1.0), vec3(0.62, 0.32, 1.0), hue);
+    vec3 cR = mix(vec3(0.22, 0.85, 1.0), vec3(0.38, 0.55, 1.0), hue);
+    float xr = clamp(q.x / wRim, -1.0, 1.0);
+    float under = (0.20 + 0.14 * cRim) * bh * (1.0 - xr * xr) - 0.05;   // the hollow, curling in
+    vec3 col = vec3(0.0);
+    float glowP = 0.85 + 0.35 * cTop;                              // it brightens as it squeezes
+    if (q.y > under - 0.35 && abs(q.x) < wRim + 0.45) {
+    float wob = 0.035 * (noise(vec2(atan(q.x, q.y) * 2.5 + seed * 9.0, T * 0.9)) - 0.5);
+    float de = (length(vec2(q.x / bw, q.y / bh)) - 1.0) * min(bw, bh) + wob;
     float d = max(de, under - q.y);
     float inside = smoothstep(0.025, -0.025, d);
     float hy = clamp(q.y / bh, 0.0, 1.0);
-    vec3 cb = mix(cRim, cTop, clamp(hy * 1.4, 0.0, 1.0));
-    vec3 col = cb * (0.11 + 0.13 * hy) * inside;                   // translucent body
-    col += cTop * 0.18 * inside * exp(-dot(q - vec2(0.0, 0.45 * bh), q - vec2(0.0, 0.45 * bh)) * 5.0);
+    vec3 cb = mix(cR, cT, clamp(hy * 1.4, 0.0, 1.0));
+    col = cb * (0.10 + 0.12 * hy) * inside;                        // translucent body
+    col += cT * 0.16 * inside * exp(-dot(q - vec2(0.0, 0.45 * bh), q - vec2(0.0, 0.45 * bh)) * 5.0);
     col += cb * 0.50 * exp(-abs(de) * 20.0) * smoothstep(under - 0.03, under + 0.05, q.y);
-    float ang = atan(q.x, q.y + 0.2);                              // radial canals
-    col += cTop * 0.10 * inside * pow(abs(cos(ang * 4.0)), 14.0) * smoothstep(0.05, 0.45, q.y);
-    vec2 gq = vec2(abs(q.x) - 0.30 * bw, q.y - 0.26 * bh);         // the gonads
-    col += mix(cTop, vec3(0.85, 0.50, 1.0), 0.4) * 0.22 * inside * exp(-dot(gq, gq) * 45.0);
-    float hem = exp(-abs(q.y - under) * 26.0) * smoothstep(bw + 0.04, bw - 0.12, abs(q.x));
-    col += cRim * 0.30 * hem * (0.75 + 0.25 * sin(q.x * 38.0 + T * 2.0));
-    col += cb * 0.12 * exp(-max(d, 0.0) * 7.0) * (1.0 - inside);   // its own faint light
-    // tentacles: a wave running down each one, so they follow the bell late
+    // light rippling down the bell
+    col += cR * 0.07 * inside * smoothstep(0.6, 1.0, sin(hy * 11.0 - T * 2.6 + seed * 6.0));
+    // meridians and four gonads, turning with it: seen through the glassy bell
+    float u = clamp(q.x / max(bw, 0.05), -0.999, 0.999);
+    float lon = asin(u);
+    float front = sqrt(1.0 - u * u);
+    float canal = pow(abs(cos((lon - yaw) * 4.0)), 18.0);
+    col += cT * 0.11 * inside * canal * smoothstep(0.05, 0.45, q.y) * (0.5 + 0.5 * front);
+    for (int i = 0; i < 4; i++) {
+        float lg = yaw + 1.5708 * float(i) + 0.785;
+        float gx = sin(lg) * 0.42 * bw, depth = 0.55 + 0.45 * cos(lg);
+        vec2 gq = vec2((q.x - gx) / (0.55 + 0.45 * abs(cos(lg))), q.y - 0.30 * bh);
+        col += mix(cT, vec3(0.85, 0.50, 1.0), 0.4) * 0.20 * depth * inside * exp(-dot(gq, gq) * 55.0);
+    }
+    float hem = exp(-abs(q.y - under) * 26.0) * smoothstep(wRim + 0.04, wRim - 0.12, abs(q.x));
+    col += cR * 0.32 * hem * (0.7 + 0.3 * sin(lon * 9.0 - yaw * 9.0 + T * 2.0));
+    col += cb * 0.12 * exp(-max(d, 0.0) * 9.0) * (1.0 - inside);   // its own faint light
+    col *= glowP;
+    }
+    if (q.y > 0.25) return col * uItem.w;                          // (above the tentacles)
+    // tentacles round the rim, turning with it; a wave runs down each, so
+    // they follow late; fast: streaming close behind, slow: spread and curling
+    float pull = 1.0 - 0.14 * cTail;                       // drawn up as the bell squeezes
+    float amp = mix(0.20, 0.07, stream);
     for (int i = 0; i < 8; i++) {
         float fi = float(i);
-        float u0 = -0.86 + 1.72 * fi / 7.0;
-        float x0 = bw * u0;
-        float y0 = 0.22 * bh * (1.0 - u0 * u0) - 0.05;
-        float len = L * (0.8 + 0.4 * hash(vec2(fi, seed * 17.0)));
+        float lg = yaw + 0.7854 * fi + seed;
+        float x0 = sin(lg) * wRim * 0.94;
+        float depth = 0.55 + 0.45 * cos(lg);               // the far side: dimmer
+        float y0 = (0.20 + 0.14 * cRim) * bh * (1.0 - x0 * x0 / (wRim * wRim)) - 0.05;
+        float len = L * pull * (0.75 + 0.5 * fract(fi * 0.618 + seed * 7.0));
         float sa = (y0 - q.y) / len;
         if (sa > 0.0 && sa < 1.0) {
-            float ph = fi * 1.7 + seed * 6.0;
-            float xt = x0 * (1.0 - 0.30 * sa)
-                     + 0.14 * sa * sin(5.0 * sa - 1.7 * T + ph)
-                     + 0.05 * sa * sin(12.0 * sa - 2.9 * T + 2.0 * ph)
+            float ph2 = fi * 1.7 + seed * 6.0;
+            float xt = x0 * mix(1.0 + 0.35 * sa, 1.0 - 0.45 * sa, stream)
+                     + amp * sa * sin(4.5 * sa - 1.9 * T + ph2)
+                     + 0.06 * sa * sin(11.0 * sa - 3.3 * T + 2.0 * ph2)
                      + lean * sa * sa;
             float dx = abs(q.x - xt);
-            col += cRim * (exp(-dx / 0.020) * 0.40 + exp(-dx * 9.0) * 0.025) * pow(1.0 - sa, 1.3);
+            float bead = 0.65 + 0.35 * smoothstep(0.6, 1.0, sin(sa * 9.0 - T * 2.4 + ph2));
+            col += cR * depth * bead * 0.42 * exp(-dx / (0.022 * (1.0 - 0.5 * sa))) * (1.0 - sa);
         }
     }
-    // oral arms: three frilled ribbons from the middle, shorter
+    // oral arms: frilled ribbons from the middle, swaying slower
     for (int i = 0; i < 3; i++) {
         float fi = float(i) - 1.0;
-        float sa = (0.10 - q.y) / (L * 0.45);
+        float lg = yaw * 0.5 + 2.1 * fi;
+        float sa = (0.10 - q.y) / (L * 0.5 * pull);
         if (sa > 0.0 && sa < 1.0) {
-            float xt = fi * 0.12 * (1.0 + sa) + 0.10 * sa * sin(3.5 * sa - 1.3 * T + 2.0 * fi)
+            float xt = sin(lg) * 0.14 * (1.0 + sa * (1.0 - stream))
+                     + mix(0.16, 0.06, stream) * sa * sin(3.0 * sa - 1.2 * T + 2.0 * fi)
                      + 0.6 * lean * sa * sa;
-            float wd = 0.055 * (1.0 - 0.6 * sa);
-            float frill = 0.55 + 0.45 * noise(vec2(sa * 14.0 - T * 0.8, fi * 3.0 + seed * 10.0));
-            col += cTop * 0.24 * smoothstep(wd, 0.0, abs(q.x - xt)) * frill * (1.0 - sa);
+            float wd = 0.06 * (1.0 - 0.6 * sa);
+            float frill = 0.55 + 0.45 * noise(vec2(sa * 14.0 - T * 1.2, fi * 3.0 + seed * 10.0));
+            col += cT * 0.24 * smoothstep(wd, 0.0, abs(q.x - xt)) * frill * (1.0 - sa)
+                   * (0.6 + 0.4 * cos(lg));
         }
     }
     return col * uItem.w;
@@ -145,30 +183,39 @@ vec3 aurora(vec2 P, float t) {
     for (int k = 0; k < 3; k++) {
         float fk = float(k);
         float dir = k == 1 ? -1.0 : 1.0;
-        float x = P.x * (0.75 + 0.2 * fk) + t * 0.008 * dir + fk * 3.1;
-        float xf = x + 0.45 * (noise(vec2(x * 0.9 + t * 0.006, fk * 5.0)) - 0.5);   // folds
-        // the hem sweeps across the sky in big slow curves
-        float edge = 0.32 + 0.08 * fk
-                   + 1.10 * (noise(vec2(xf * 0.8, t * 0.012 + fk * 9.0)) - 0.5)
-                   + 0.10 * sin(xf * 1.3 + t * 0.02 + fk)
-                   + 0.18 * (noise(vec2(xf * 2.2, t * 0.04 + fk * 2.0)) - 0.5);
+        float x = P.x * (0.75 + 0.2 * fk) + fk * 3.1;
+        // folds sliding along: they bunch the rays up and spread them out
+        float xf = x + 0.38 * (noise(vec2(x * 0.9 + t * 0.03 * dir, fk * 5.0)) - 0.5)
+                 + 0.05 * sin(x * 5.0 + t * 0.45 * dir + fk);
+        // the hem: big curves that keep changing, ripples running along it
+        float rip = smoothstep(0.35, 0.75, noise(vec2(x * 0.8 - t * 0.05 * dir, fk * 3.0 + 20.0)));
+        float edge = (k == 0 ? 0.30 : (k == 1 ? 0.24 : 0.42))
+                   + 0.95 * (noise(vec2(xf * 0.75 + t * 0.012 * dir, t * 0.035 + fk * 9.0)) - 0.5)
+                   + 0.030 * sin(xf * 8.0 - t * 0.9 * dir + fk * 2.0) * rip
+                   + 0.012 * (noise(vec2(xf * 15.0 - t * 1.1 * dir, fk)) - 0.5);
         float d = P.y - edge;
-        float lower = smoothstep(-0.03, 0.01, d);
-        float top = 0.30 + 0.25 * noise(vec2(xf * 1.5, fk * 4.0 + t * 0.02));
-        float up = exp(-max(d, 0.0) * 2.2) * smoothstep(top + 0.15, top - 0.10, d);
-        // rays: denser where the curtain folds
-        float rays = 0.35 + 0.65 * noise(vec2(xf * 22.0, P.y * 0.6 - t * 0.03 + fk));
-        rays *= 0.7 + 0.3 * noise(vec2(xf * 60.0, t * 0.12));
-        float m = smoothstep(0.30 + 0.08 * fk, 0.70, noise(vec2(x * 0.7 - t * 0.006, fk * 13.0 + 1.0)));
-        float pulse = 0.8 + 0.2 * sin(t * (0.11 + 0.03 * fk) + fk * 2.0);
-        vec3 lo = k == 0 ? vec3(0.10, 1.00, 0.62) : (k == 1 ? vec3(0.05, 0.85, 0.85)
+        float lower = smoothstep(-0.03, 0.008, d);
+        float top = 0.28 + 0.28 * noise(vec2(xf * 1.5 - t * 0.04 * dir, fk * 4.0 + t * 0.05));
+        float up = exp(-max(d, 0.0) * (2.2 + 0.4 * fk)) * smoothstep(top + 0.15, top - 0.10, d);
+        // rays drifting along and shimmering, light running up them
+        float xr = xf * 22.0 + t * 0.6 * dir;
+        float rays = 0.30 + 0.70 * noise(vec2(xr, P.y * 0.6 + fk));
+        rays *= 0.65 + 0.35 * noise(vec2(xf * 55.0 - t * 0.9 * dir, t * 0.7));
+        rays *= 0.70 + 0.30 * noise(vec2(xr * 0.7, P.y * 5.0 - t * 0.8));
+        // bright patches travelling along the curtain; where it is at all
+        float wave = 0.40 + 0.60 * smoothstep(0.25, 0.85, noise(vec2(xf * 1.3 - t * 0.10 * dir, fk * 7.0 + 3.0)));
+        float m = smoothstep(0.24, 0.64, noise(vec2(x * 0.7 - t * 0.025 * dir, fk * 13.0 + 1.0)));
+        float pulse = 0.75 + 0.25 * noise(vec2(t * 0.15, fk * 5.0 + 40.0));
+        vec3 lo = k == 0 ? vec3(0.10, 1.00, 0.60) : (k == 1 ? vec3(0.05, 0.85, 0.85)
                                                             : vec3(0.20, 0.55, 1.00));
-        vec3 hi = k == 2 ? vec3(0.55, 0.22, 1.00) : (k == 1 ? vec3(0.30, 0.25, 1.00)
+        vec3 hi = k == 2 ? vec3(0.55, 0.22, 1.00) : (k == 1 ? vec3(0.32, 0.25, 1.00)
                                                             : vec3(0.10, 0.45, 1.00));
         vec3 c = mix(lo, hi, smoothstep(0.02, 0.35, d));
-        float g = k == 0 ? 0.85 : (k == 1 ? 0.60 : 0.50);
-        col += c * lower * up * rays * m * pulse * g;
-        col += lo * 0.12 * exp(-abs(d) * 28.0) * m * pulse;          // the bright hem
+        float g = (k == 0 ? 0.85 : (k == 1 ? 0.70 : 0.50)) * m * wave * pulse;
+        col += c * lower * up * rays * g;
+        col += lo * 0.14 * exp(-abs(d) * 30.0) * g;                       // the bright hem
+        col += lo * 0.10 * exp(min(d, 0.0) * 7.0) * (1.0 - lower) * g;    // its glow below
+        col += vec3(0.65, 0.18, 0.55) * 0.07 * exp(-abs(d + 0.012) * 70.0) * g * wave;  // pink fringe
     }
     return col;
 }
@@ -451,12 +498,15 @@ class LampPass:
         if items:                            # fireflies, jellyfish: each in its own box
             GL.glEnable(GL.GL_BLEND)
             GL.glBlendFunc(GL.GL_ONE, GL.GL_ONE)
-            for kind, box, item, itemk, iteml in items:
+            for it in items:
+                kind, box, item, itemk, iteml = it[:5]
                 self._set(self.prog, "uDraw", kind)
                 self._set(self.prog, "uRect", box)
                 self._set(self.prog, "uItem", item)
                 self._set(self.prog, "uItemK", itemk)
                 self._set(self.prog, "uItemL", iteml)
+                if len(it) > 5:
+                    self._set(self.prog, "uItemM", it[5])
                 face._quad()
             GL.glDisable(GL.GL_BLEND)
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, face.target_fbo)

@@ -295,7 +295,52 @@ def lamp_sheet(out, only=None):
     print(f"[lamp] wrote {out}")
 
 
+def lamp_motion(out, scene, secs=8.0, fps=12, start=30.0):
+    """One scene moving: a GIF (half size) and next to it a strip of every
+    5th frame — how alive it looks, not just how it looks."""
+    from PIL import Image
+    import pygame
+    import gl_face
+    import lamp_scenes
+    egl_context()
+    fbo = framebuffer()
+    pygame.init()
+    g = gl_face.GLFace(W, H)
+    g.target_fbo = fbo
+    layer = gl_face.layer_surface(W, H)
+    t0 = 1_000_000.0
+    data = {"scene": scene, "t0": t0}
+    now = t0
+    while now < t0 + start:                           # (settled, faded in)
+        now += 1 / 20
+        u = lamp_scenes.uniforms(data, now, t0 + 3600, W, H)
+    frames = []
+    for i in range(int(secs * fps)):
+        now += 1 / fps
+        u = lamp_scenes.uniforms(data, now, t0 + 3600, W, H)
+        layer.fill((0, 0, 0, 0))
+        if scene == "zegar":
+            lamp_scenes.draw_clock(layer, now, W, H)
+        g.render_lamp(u, layer)
+        px = GL.glReadPixels(0, 0, W, H, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE)
+        frames.append(Image.frombytes("RGBA", (W, H), px).transpose(Image.FLIP_TOP_BOTTOM)
+                      .convert("RGB"))
+    small = [f.resize((W // 2, H // 2), Image.LANCZOS) for f in frames]
+    gif = os.path.splitext(out)[0] + ".gif"
+    small[0].save(gif, save_all=True, append_images=small[1:], duration=int(1000 / fps), loop=0)
+    picks = small[::5][:8]
+    strip = Image.new("RGB", (2 * W // 2, 4 * H // 2))
+    for i, f in enumerate(picks):
+        strip.paste(f, ((i % 2) * W // 2, (i // 2) * H // 2))
+    strip.save(out)
+    print(f"[lamp] wrote {gif} and {out} (every {5 / fps:.2f} s)")
+
+
 def main():
+    if "--motion" in sys.argv:                        # --motion out.png scene [secs]
+        args = [a for a in sys.argv[1:] if not a.startswith("--")]
+        return lamp_motion(args[0], args[1], float(args[2]) if len(args) > 2 else 8.0,
+                           start=float(args[3]) if len(args) > 3 else 30.0)
     if "--lamp" in sys.argv:                          # --lamp [out.png] [scene…]
         args = [a for a in sys.argv[1:] if not a.startswith("--")]
         return lamp_sheet(args[0] if args else "/tmp/gl_lamp.png", args[1:] or None)

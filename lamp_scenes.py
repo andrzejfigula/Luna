@@ -95,60 +95,87 @@ class _Lava:
 
 
 class _Jelly:
-    def __init__(self, rng, w, h, y=None):
-        self.rng = rng
+    """Swims in pulses along its bell's axis, which follows a slowly wandering
+    heading (mostly up), sinks a little between pulses, turns about its axis."""
+
+    def __init__(self, rng, w, h, y=None, x=None):
+        self.rng, self.w, self.h = rng, w, h
         self.z = rng.uniform(0.35, 1.0)
         self.size = 40 + 55 * self.z
-        self.x = rng.uniform(0.12, 0.88) * w
+        self.x = x if x is not None else rng.uniform(0.12, 0.88) * w
         self.y = y if y is not None else h + self.size * 0.9
-        self.period = rng.uniform(3.6, 5.6)
-        self.ph = rng.random()
+        self.period = rng.uniform(2.8, 4.4)
+        self.ph0 = rng.random()
         self.hue = rng.random()
         self.L = rng.uniform(2.4, 3.4)
         self.seed = rng.random()
-        self.sway = rng.uniform(0, 2 * math.pi)
-        self.vy = -0.1 * self.size
-        self.lean = self.tilt = self.c = 0.0
-
-    def contraction(self, t):
-        ph = (t / self.period + self.ph) % 1.0
-        if ph < 0.3:                                         # quick squeeze
-            k = ph / 0.3
-            return k * k * (3 - 2 * k), ph
-        k = (ph - 0.3) / 0.7                                 # slow relaxing
-        return 1.0 - k * k * (3 - 2 * k), ph
+        self.heading = self.axis = rng.gauss(0.0, 0.2)      # rad from straight up, + right
+        self.turn = 0.0
+        self.vx, self.vy = 0.0, -0.15 * self.size
+        self.yaw = rng.uniform(0, 2 * math.pi)
+        self.spin = rng.choice((-1, 1)) * rng.uniform(0.08, 0.25)
+        self.lean = self.stream = self.ph = 0.0
+        self.tilt = -self.axis
 
     def step(self, t, dt):
-        c, ph = self.contraction(t)
-        push = math.sin(math.pi * ph / 0.3) if ph < 0.3 else -0.06
-        want = -self.size * (0.06 + 0.40 * push) * (0.7 + 0.3 * self.z)
-        self.vy += (want - self.vy) * min(1.0, dt * 3.0)
-        vx = 7 * self.z * math.sin(t / 15.0 + self.sway) + 3 * math.sin(t / 6.3 + 2 * self.sway)
-        self.x += vx * dt
+        rng, w = self.rng, self.w
+        self.ph = ph = (t / self.period + self.ph0) % 1.0
+        push = math.sin(math.pi * ph / 0.28) if ph < 0.28 else 0.0
+        thrust = self.size * 1.25 * push * (0.7 + 0.3 * self.z)
+        self.vx += math.sin(self.axis) * thrust * dt
+        self.vy -= math.cos(self.axis) * thrust * dt
+        drag = math.exp(-dt * 1.1)
+        self.vx *= drag
+        self.vy = self.vy * drag + 4.0 * dt                   # sinking a little meanwhile
+        self.x += self.vx * dt
         self.y += self.vy * dt
-        self.tilt = 0.12 * math.sin(t / 9.0 + self.sway) - vx * 0.01
-        # the tentacles trail behind, late: opposite to the way it goes
-        target = -vx / self.size * 1.4 + self.tilt * 0.8
-        self.lean += (target - self.lean) * min(1.0, dt / 1.5)
-        self.c = c
+        # the heading wanders, back toward up, away from the sides
+        self.turn += rng.gauss(0.0, 0.16) * math.sqrt(max(dt, 1e-6)) - self.turn * 0.5 * dt
+        side = (min(1.0, max(0.0, (0.15 * w - self.x) / (0.12 * w)))
+                - min(1.0, max(0.0, (self.x - 0.85 * w) / (0.12 * w))))
+        self.heading += (self.turn - 0.25 * self.heading + 0.5 * side) * dt
+        self.heading = max(-0.6, min(0.6, self.heading))
+        self.axis += (self.heading - self.axis) * min(1.0, dt * 0.6)   # the body turns late
+        self.tilt = -(self.axis + 0.05 * math.sin(2 * math.pi * ph))
+        self.spin += rng.gauss(0.0, 0.05) * math.sqrt(max(dt, 1e-6))
+        self.spin = max(-0.3, min(0.3, self.spin))
+        self.yaw += self.spin * dt
+        # the water against it, in its own frame: across → the tentacles bend
+        # away (late); along → they stream behind it
+        c, sn = math.cos(self.tilt), math.sin(self.tilt)
+        across = self.vx * c - self.vy * sn
+        along = -self.vx * sn - self.vy * c
+        self.lean += (-across / self.size * 1.2 - self.lean) * min(1.0, dt / 1.2)
+        want = min(1.0, max(0.0, along / (self.size * 0.5)))
+        self.stream += (want - self.stream) * min(1.0, dt / 0.6)
 
     def gone(self):
-        return self.y + self.L * 1.25 * self.size < -10
+        reach = (self.L * 1.25 + 1.5) * self.size
+        return (self.y < -reach or self.y > self.h + reach
+                or self.x < -reach or self.x > self.w + reach)
 
     def item(self, t):
         s = self.size
-        m = (self.L * 1.25 + 0.5) * s
-        box = (self.x - 1.6 * s - abs(self.lean) * s, self.y - 1.1 * s,
-               self.x + 1.6 * s + abs(self.lean) * s, self.y + m)
-        return (2.0, box, (self.x, self.y, s, (0.35 + 0.65 * self.z) * (0.9 + 0.1 * self.c)),
-                (math.cos(self.tilt), math.sin(self.tilt), self.c, self.lean),
-                (t + self.seed * 50, self.hue, self.L, self.seed))
+        st, ct = math.sin(self.tilt), math.cos(self.tilt)
+        ux, uy = -st, -ct                                     # its "up" on the screen
+        tail = (self.L * 1.25 + 0.1) * s
+        xs = (self.x + ux * s, self.x - ux * tail)
+        ys = (self.y + uy * s, self.y - uy * tail)
+        m = s * (1.45 + 0.5 * (1.0 - self.stream) + abs(self.lean))    # (spread tentacles)
+        box = (min(xs) - m, min(ys) - m, max(xs) + m, max(ys) + m)
+        return (2.0, box, (self.x, self.y, s, 0.35 + 0.65 * self.z),
+                (ct, st, self.ph, self.lean),
+                (t + self.seed * 50, self.hue, self.L, self.seed),
+                (self.yaw, self.stream, 0.0, 0.0))
 
 
 class _Jellies:
     def __init__(self, rng, w, h):
         self.rng, self.w, self.h = rng, w, h
-        self.all = [_Jelly(rng, w, h, y=h * k) for k in (0.2, 0.5, 0.8, 1.05, 1.3)]
+        xs = [(0.14 + 0.18 * i + rng.uniform(-0.05, 0.05)) * w for i in range(5)]
+        rng.shuffle(xs)                                       # spread across, not bunched
+        self.all = [_Jelly(rng, w, h, y=h * k, x=x)
+                    for k, x in zip((0.2, 0.5, 0.8, 1.05, 1.3), xs)]
         self.t = None
 
     def uniforms(self, now):
@@ -157,7 +184,11 @@ class _Jellies:
         for i, j in enumerate(self.all):
             j.step(now, dt)
             if j.gone():                                     # a new one from the deep
-                self.all[i] = _Jelly(self.rng, self.w, self.h)
+                others = [o.x for o in self.all if o is not j]   # where there is room
+                x = max((self.rng.uniform(0.12, 0.88) * self.w for _ in range(6)),
+                        key=lambda x: min(abs(x - o) for o in others))
+                self.all[i] = _Jelly(self.rng, self.w, self.h, x=x)
+                self.all[i].step(now, 0.0)
         return {"items": [j.item(now) for j in sorted(self.all, key=lambda j: j.z)]}
 
 
