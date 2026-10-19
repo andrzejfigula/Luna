@@ -18,6 +18,8 @@ import math
 import random
 import time
 
+import numpy as np
+
 SCENES = ("meduzy", "zorza", "zegar", "swietliki", "lawa", "kominek")
 NAMES = {"meduzy": "meduzy", "zorza": "zorza polarna", "zegar": "zegar",
          "swietliki": "świetliki", "lawa": "lampa lawa", "kominek": "kominek"}
@@ -94,9 +96,28 @@ class _Lava:
         return {"uBlob": blobs, "uBlobA": axes}
 
 
+def _smooth(k):
+    k = min(1.0, max(0.0, k))
+    return k * k * (3 - 2 * k)
+
+
+def _squeeze(ph):
+    """The bell's pulse, as gl_lamp's squeeze(): a quick squeeze, slow relaxing."""
+    ph %= 1.0
+    return _smooth(ph / 0.28) if ph < 0.28 else 1.0 - _smooth((ph - 0.28) / 0.72)
+
+
+ROPE = 12                     # points along each tentacle (gl_lamp's uRope)
+_TENT, _ARMS = 8, 3
+
+
 class _Jelly:
     """Swims in pulses along its bell's axis, which follows a slowly wandering
-    heading (mostly up), sinks a little between pulses, turns about its axis."""
+    heading (mostly up), sinks a little between pulses, turns about its axis.
+    Its tentacles are chains of points in the water: each point follows the
+    one before it (the first one is on the rim), with drag, a slight sinking
+    and a gentle current - so the bell's moves run down them late, and they
+    drape and curl when it glides."""
 
     def __init__(self, rng, w, h, y=None, x=None):
         self.rng, self.w, self.h = rng, w, h
@@ -109,13 +130,42 @@ class _Jelly:
         self.hue = rng.random()
         self.L = rng.uniform(2.4, 3.4)
         self.seed = rng.random()
-        self.heading = self.axis = rng.gauss(0.0, 0.2)      # rad from straight up, + right
+        self.heading = self.axis = rng.gauss(0.0, 0.2)       # rad from straight up, + right
         self.turn = 0.0
         self.vx, self.vy = 0.0, -0.15 * self.size
         self.yaw = rng.uniform(0, 2 * math.pi)
         self.spin = rng.choice((-1, 1)) * rng.uniform(0.08, 0.25)
-        self.lean = self.stream = self.ph = 0.0
+        self.ph = 0.0
         self.tilt = -self.axis
+        i = np.arange(_TENT + _ARMS)
+        frac = (i * 0.618 + self.seed * 7.0) % 1.0
+        self.rest = np.where(i < _TENT, self.L * (0.75 + 0.5 * frac),
+                             self.L * 0.5 * (0.9 + 0.2 * frac)) * self.size
+        self.phase = np.array([rng.uniform(0, 2 * math.pi) for _ in i])
+        self.pts = self.prev = self.a1 = None
+
+    def _anchors(self):
+        """Where each tentacle (and oral arm) starts, on the screen."""
+        s, ph = self.size, self.ph
+        c_rim, c_top = _squeeze(ph - 0.07), _squeeze(ph)
+        flare = 0.07 * (1.0 - c_rim) * _smooth((((ph - 0.07) % 1.0) - 0.5) / 0.4)
+        w_rim = 1.0 - 0.30 * c_rim + flare
+        bh = 0.70 + 0.20 * c_top
+        lg = self.yaw + 0.7854 * np.arange(_TENT) + self.seed
+        lx = np.sin(lg) * w_rim * 0.94
+        ly = (0.20 + 0.14 * c_rim) * bh * (1.0 - (lx / w_rim) ** 2) - 0.05
+        la = self.yaw * 0.5 + 2.1 * np.arange(-1, 2)
+        lx = np.concatenate([lx, np.sin(la) * 0.14])
+        ly = np.concatenate([ly, np.full(_ARMS, 0.10)])
+        c, sn = math.cos(self.tilt), math.sin(self.tilt)
+        return np.stack([self.x + (c * lx - sn * ly) * s, self.y - (sn * lx + c * ly) * s], -1)
+
+    def _hang(self):
+        """Its tentacles hanging straight behind it (a new one)."""
+        st, ct = math.sin(self.tilt), math.cos(self.tilt)
+        k = np.arange(ROPE)[None, :, None] * self.seg[:, :, None]
+        self.pts = self.a1[:, None, :] + k * np.array([st, ct])
+        self.prev = self.pts.copy()
 
     def step(self, t, dt):
         rng, w = self.rng, self.w
@@ -140,33 +190,81 @@ class _Jelly:
         self.spin += rng.gauss(0.0, 0.05) * math.sqrt(max(dt, 1e-6))
         self.spin = max(-0.3, min(0.3, self.spin))
         self.yaw += self.spin * dt
-        # the water against it, in its own frame: across → the tentacles bend
-        # away (late); along → they stream behind it
-        c, sn = math.cos(self.tilt), math.sin(self.tilt)
-        across = self.vx * c - self.vy * sn
-        along = -self.vx * sn - self.vy * c
-        self.lean += (-across / self.size * 1.2 - self.lean) * min(1.0, dt / 1.2)
-        want = min(1.0, max(0.0, along / (self.size * 0.5)))
-        self.stream += (want - self.stream) * min(1.0, dt / 0.6)
+        self.a0 = self.a1 if self.pts is not None else None   # (the rim a step ago)
+        self.a1 = self._anchors()
+        self.seg = (self.rest * (1.0 - 0.14 * _squeeze(ph - 0.18)) / (ROPE - 1))[:, None]
+        if self.pts is None:
+            self._hang()
 
     def gone(self):
         reach = (self.L * 1.25 + 1.5) * self.size
         return (self.y < -reach or self.y > self.h + reach
                 or self.x < -reach or self.x > self.w + reach)
 
-    def item(self, t):
+    def items(self, t):
         s = self.size
         st, ct = math.sin(self.tilt), math.cos(self.tilt)
-        ux, uy = -st, -ct                                     # its "up" on the screen
-        tail = (self.L * 1.25 + 0.1) * s
-        xs = (self.x + ux * s, self.x - ux * tail)
-        ys = (self.y + uy * s, self.y - uy * tail)
-        m = s * (1.45 + 0.5 * (1.0 - self.stream) + abs(self.lean))    # (spread tentacles)
-        box = (min(xs) - m, min(ys) - m, max(xs) + m, max(ys) + m)
-        return (2.0, box, (self.x, self.y, s, 0.35 + 0.65 * self.z),
-                (ct, st, self.ph, self.lean),
-                (t + self.seed * 50, self.hue, self.L, self.seed),
-                (self.yaw, self.stream, 0.0, 0.0))
+        bright = 0.35 + 0.65 * self.z
+        clock = t + self.seed * 50
+        out = [(2.0, (self.x - 1.5 * s, self.y - 1.5 * s, self.x + 1.5 * s, self.y + 1.5 * s),
+                (self.x, self.y, s, bright), (ct, st, self.ph, 0.0),
+                (clock, self.hue, self.L, self.seed), (self.yaw, 0.0, 0.0, 0.0))]
+        glow = 0.85 + 0.35 * _squeeze(self.ph)
+        h = self.hue
+        rim = (0.22 + 0.16 * h, 0.85 - 0.30 * h, 1.0)
+        top = (0.32 + 0.30 * h, 0.30 + 0.02 * h, 1.0)
+        lo, hi = self.pts.min(1).tolist(), self.pts.max(1).tolist()
+        ropes = self.pts.reshape(_TENT + _ARMS, -1, 4).tolist()
+        for i in range(_TENT + _ARMS):
+            arm = i >= _TENT
+            if arm:
+                depth = 0.6 + 0.4 * math.cos(self.yaw * 0.5 + 2.1 * (i - _TENT - 1))
+                wd, b, col = 0.024 * s, 0.24 * depth * bright * glow, top
+            else:
+                depth = 0.55 + 0.45 * math.cos(self.yaw + 0.7854 * i + self.seed)   # far: dimmer
+                wd, b, col = 0.026 * s, 0.50 * depth * bright * glow, rim
+            m = wd * (3.0 if arm else 7.0) + 2.0
+            box = (lo[i][0] - m, lo[i][1] - m, hi[i][0] + m, hi[i][1] + m)
+            out.append((3.0, box, None, (wd, b, 1.0 if arm else 0.0, (self.seed + i * 0.37) % 1.0),
+                        col + (clock,), None, ropes[i]))
+        return out
+
+
+def _sim_ropes(jellies, t, dt):
+    """Every tentacle at once: each point follows the one before it (the first
+    is on the rim), with water drag, a slight sinking, a gentle current and a
+    wave running down it — the bell's moves reach the tips late."""
+    if dt <= 0:
+        return
+    n_r = _TENT + _ARMS
+    P = np.concatenate([j.pts for j in jellies])
+    prev = np.concatenate([j.prev for j in jellies])
+    a0 = np.concatenate([j.a0 for j in jellies])
+    a1 = np.concatenate([j.a1 for j in jellies])
+    seg = np.concatenate([j.seg for j in jellies])
+    size = np.repeat([j.size for j in jellies], n_r)[:, None]
+    ph = np.concatenate([j.phase for j in jellies])[:, None]
+    n = max(1, int(math.ceil(dt / (1 / 40))))
+    h = dt / n
+    damp = math.exp(-3.0 * h)
+    amp = 0.20 * size                                         # the current, px/s^2
+    along = np.arange(ROPE)[None, :] * 0.75
+    wave = 1.6 * size * np.linspace(0.2, 1.4, ROPE)[None, :]
+    for i in range(n):
+        vel = (P - prev) * damp
+        prev = P
+        tt = t - dt + (i + 1) * h
+        acc_x = amp * np.sin(P[..., 1] * 0.012 + tt * 0.8 + ph) + wave * np.sin(along - tt * 1.7 + ph)
+        acc_y = 0.12 * size + 0.5 * amp * np.cos(P[..., 0] * 0.010 + tt * 0.6 + ph)
+        P = P + vel + np.stack([acc_x, acc_y], -1) * (h * h)
+        P[:, 1:-1] += 0.03 * (P[:, :-2] + P[:, 2:] - 2 * P[:, 1:-1])   # (a little stiff)
+        P[:, 0] = a0 + (a1 - a0) * ((i + 1) / n)
+        for k in range(1, ROPE):                              # each follows the one before
+            d = P[:, k] - P[:, k - 1]
+            ln = np.hypot(d[:, 0], d[:, 1])[:, None] + 1e-6
+            P[:, k] = P[:, k - 1] + d * (seg / ln)
+    for i, j in enumerate(jellies):
+        j.pts, j.prev = P[i * n_r:(i + 1) * n_r], prev[i * n_r:(i + 1) * n_r]
 
 
 class _Jellies:
@@ -181,15 +279,21 @@ class _Jellies:
     def uniforms(self, now):
         dt = 0.0 if self.t is None else min(0.2, now - self.t)
         self.t = now
+        moving = []
         for i, j in enumerate(self.all):
-            j.step(now, dt)
             if j.gone():                                     # a new one from the deep
                 others = [o.x for o in self.all if o is not j]   # where there is room
                 x = max((self.rng.uniform(0.12, 0.88) * self.w for _ in range(6)),
                         key=lambda x: min(abs(x - o) for o in others))
-                self.all[i] = _Jelly(self.rng, self.w, self.h, x=x)
-                self.all[i].step(now, 0.0)
-        return {"items": [j.item(now) for j in sorted(self.all, key=lambda j: j.z)]}
+                self.all[i] = j = _Jelly(self.rng, self.w, self.h, x=x)
+            new = j.pts is None
+            j.step(now, dt)
+            if not new:
+                moving.append(j)
+        if moving:
+            _sim_ropes(moving, now, dt)
+        return {"items": [it for j in sorted(self.all, key=lambda j: j.z)
+                          for it in j.items(now)]}
 
 
 _AMBER, _GOLD, _CYAN = (1.0, 0.62, 0.18), (1.0, 0.82, 0.42), (0.30, 0.85, 1.0)

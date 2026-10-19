@@ -22,6 +22,7 @@ uniform vec4  uBlob[8];       // lava: x, y, radius (P units), hue
 uniform vec4  uBlobA[8];      // lava: cos, sin of the stretch axis, along, across
 uniform float uDraw;          // 0 the background; 1 a firefly, 2 a jellyfish — in its box
 uniform vec4  uItem, uItemK, uItemL, uItemM;
+uniform vec4  uRope[6];       // a tentacle: 12 points (px), two to a vec4
 
 float hash(vec2 p) {
     vec3 p3 = fract(vec3(p.xyx) * 0.1031);
@@ -78,8 +79,8 @@ vec3 deepWater(vec2 P, float t) {
 // uItem: x, y (where the bell's rim is), size px, brightness
 // uItemK: cos, sin of its tilt, the pulse's phase 0..1, lean of the tentacles
 // uItemL: its own clock (s), hue 0..1, tentacle length (sizes), seed
-// uItemM: its turn about its axis (rad), streaming 0..1 (fast: tentacles
-//         drawn straight behind), -, -
+// uItemM: its turn about its axis (rad), -, -, -
+// (its tentacles: ropes, simulated in lamp_scenes.py, each drawn by rope())
 float squeeze(float ph) {                  // the pulse: a quick squeeze, slow relaxing
     ph = fract(ph);
     return ph < 0.28 ? smoothstep(0.0, 0.28, ph) : 1.0 - smoothstep(0.28, 1.0, ph);
@@ -91,7 +92,7 @@ vec3 jelly(vec2 f) {
     vec2 q = vec2(uItemK.x * v.x + uItemK.y * v.y, -uItemK.y * v.x + uItemK.x * v.y);
     float ph = uItemK.z, lean = uItemK.w;
     float T = uItemL.x, hue = uItemL.y, L = uItemL.z, seed = uItemL.w;
-    float yaw = uItemM.x, stream = uItemM.y;
+    float yaw = uItemM.x;
     // the squeeze runs from the top of the bell down to its rim
     float cTop = squeeze(ph), cRim = squeeze(ph - 0.07), cTail = squeeze(ph - 0.18);
     float flare = 0.07 * (1.0 - cRim) * smoothstep(0.5, 0.9, fract(ph - 0.07));
@@ -134,46 +135,37 @@ vec3 jelly(vec2 f) {
     col += cb * 0.12 * exp(-max(d, 0.0) * 9.0) * (1.0 - inside);   // its own faint light
     col *= glowP;
     }
-    if (q.y > 0.25) return col * uItem.w;                          // (above the tentacles)
-    // tentacles round the rim, turning with it; a wave runs down each, so
-    // they follow late; fast: streaming close behind, slow: spread and curling
-    float pull = 1.0 - 0.14 * cTail;                       // drawn up as the bell squeezes
-    float amp = mix(0.20, 0.07, stream);
-    for (int i = 0; i < 8; i++) {
-        float fi = float(i);
-        float lg = yaw + 0.7854 * fi + seed;
-        float x0 = sin(lg) * wRim * 0.94;
-        float depth = 0.55 + 0.45 * cos(lg);               // the far side: dimmer
-        float y0 = (0.20 + 0.14 * cRim) * bh * (1.0 - x0 * x0 / (wRim * wRim)) - 0.05;
-        float len = L * pull * (0.75 + 0.5 * fract(fi * 0.618 + seed * 7.0));
-        float sa = (y0 - q.y) / len;
-        if (sa > 0.0 && sa < 1.0) {
-            float ph2 = fi * 1.7 + seed * 6.0;
-            float xt = x0 * mix(1.0 + 0.35 * sa, 1.0 - 0.45 * sa, stream)
-                     + amp * sa * sin(4.5 * sa - 1.9 * T + ph2)
-                     + 0.06 * sa * sin(11.0 * sa - 3.3 * T + 2.0 * ph2)
-                     + lean * sa * sa;
-            float dx = abs(q.x - xt);
-            float bead = 0.65 + 0.35 * smoothstep(0.6, 1.0, sin(sa * 9.0 - T * 2.4 + ph2));
-            col += cR * depth * bead * 0.42 * exp(-dx / (0.022 * (1.0 - 0.5 * sa))) * (1.0 - sa);
-        }
-    }
-    // oral arms: frilled ribbons from the middle, swaying slower
-    for (int i = 0; i < 3; i++) {
-        float fi = float(i) - 1.0;
-        float lg = yaw * 0.5 + 2.1 * fi;
-        float sa = (0.10 - q.y) / (L * 0.5 * pull);
-        if (sa > 0.0 && sa < 1.0) {
-            float xt = sin(lg) * 0.14 * (1.0 + sa * (1.0 - stream))
-                     + mix(0.16, 0.06, stream) * sa * sin(3.0 * sa - 1.2 * T + 2.0 * fi)
-                     + 0.6 * lean * sa * sa;
-            float wd = 0.06 * (1.0 - 0.6 * sa);
-            float frill = 0.55 + 0.45 * noise(vec2(sa * 14.0 - T * 1.2, fi * 3.0 + seed * 10.0));
-            col += cT * 0.24 * smoothstep(wd, 0.0, abs(q.x - xt)) * frill * (1.0 - sa)
-                   * (0.6 + 0.4 * cos(lg));
-        }
-    }
     return col * uItem.w;
+}
+
+// ── a jellyfish's tentacle or oral arm: a chain of points in the water
+// uItemK: width px, brightness, frilled (an arm) 0/1, seed; uItemL: colour, clock
+vec3 rope(vec2 f) {
+    float best = 1e6, bs = 0.0;
+    vec2 prev = uRope[0].xy;
+    for (int j = 0; j < 6; j++) {
+        vec4 r = uRope[j];
+        vec2 pa = f - prev, ba = r.xy - prev;
+        float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-4), 0.0, 1.0);
+        float d = length(pa - ba * h);
+        if (d < best) { best = d; bs = (float(j) * 2.0 - 1.0 + h) / 11.0; }
+        pa = f - r.xy; ba = r.zw - r.xy;
+        h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-4), 0.0, 1.0);
+        d = length(pa - ba * h);
+        if (d < best) { best = d; bs = (float(j) * 2.0 + h) / 11.0; }
+        prev = r.zw;
+    }
+    bs = clamp(bs, 0.0, 1.0);
+    float w = uItemK.x * (1.0 - 0.55 * bs);
+    float T = uItemL.w, seed = uItemK.w;
+    float k;
+    if (uItemK.z > 0.5) {                              // an oral arm: wide, frilled
+        float frill = 0.55 + 0.45 * noise(vec2(bs * 14.0 - T * 1.2, seed * 10.0));
+        k = smoothstep(w * 2.5, 0.0, best) * frill;
+    } else {                                           // beads of light running down
+        k = exp(-best / w) * (0.65 + 0.35 * smoothstep(0.6, 1.0, sin(bs * 9.0 - T * 2.4 + seed * 6.0)));
+    }
+    return uItemL.rgb * k * (1.0 - bs) * uItemK.y;
 }
 
 // ── 2 aurora ─────────────────────────────────────────────────────────────
@@ -381,7 +373,9 @@ vec3 fireplace(vec2 P, float t) {
 void main() {
     vec2 f = vec2(gl_FragCoord.x, uFbo.y - gl_FragCoord.y) * (uRes / uFbo);
     vec3 c;
-    if (uDraw > 1.5) {
+    if (uDraw > 2.5) {
+        c = rope(f);
+    } else if (uDraw > 1.5) {
         c = jelly(f);
     } else if (uDraw > 0.5) {
         c = firefly(f);
@@ -502,11 +496,14 @@ class LampPass:
                 kind, box, item, itemk, iteml = it[:5]
                 self._set(self.prog, "uDraw", kind)
                 self._set(self.prog, "uRect", box)
-                self._set(self.prog, "uItem", item)
+                if item is not None:
+                    self._set(self.prog, "uItem", item)
                 self._set(self.prog, "uItemK", itemk)
                 self._set(self.prog, "uItemL", iteml)
-                if len(it) > 5:
+                if len(it) > 5 and it[5] is not None:
                     self._set(self.prog, "uItemM", it[5])
+                if len(it) > 6:                      # a rope's points
+                    self._set_array(self.prog, "uRope", it[6])
                 face._quad()
             GL.glDisable(GL.GL_BLEND)
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, face.target_fbo)

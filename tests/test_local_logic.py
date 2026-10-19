@@ -4117,6 +4117,7 @@ class KidsTest(unittest.TestCase):
 
     def test_lamp_scenes_move(self):
         import math
+        import numpy as np
         import lamp_scenes
         self.assertEqual(lamp_scenes.next_scene("kominek"), "meduzy")
         self.assertEqual(lamp_scenes.next_scene(None), "meduzy")
@@ -4136,9 +4137,17 @@ class KidsTest(unittest.TestCase):
                 box = it[1]
                 self.assertLess(box[0], box[2])
                 self.assertLess(box[1], box[3])
-                self.assertTrue(all(math.isfinite(x) for v in it[2:] for x in v), scene)
+                nums = [x for v in it[2:] if v is not None for x in v]
+                nums = [y for x in nums for y in (x if isinstance(x, list) else [x])]
+                self.assertTrue(all(math.isfinite(x) for x in nums), scene)
+            if scene == "meduzy":                     # tentacles keep their length
+                j = lamp_scenes._sim["obj"].all[0]
+                seg = np.hypot(*np.diff(j.pts[0], axis=0).T)
+                self.assertTrue(np.all(seg < j.rest[0] / (lamp_scenes.ROPE - 1) + 0.01))
             if scene == "meduzy":                     # they drift up, new ones come
-                self.assertTrue(any(-200 < it[2][1] < 700 for it in u["items"]))
+                bells = [it for it in u["items"] if it[0] == 2.0]
+                self.assertEqual(len(bells), 5)
+                self.assertTrue(any(-200 < it[2][1] < 700 for it in bells))
             if scene == "swietliki":                  # inside the screen, mostly
                 inside = [it for it in u["items"] if 0 < it[2][0] < 800 and 0 < it[2][1] < 480]
                 self.assertGreater(len(inside), 12)

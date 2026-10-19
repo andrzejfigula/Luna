@@ -333,6 +333,10 @@ def lamp_motion(out, scene, secs=8.0, fps=12, start=30.0):
     for i, f in enumerate(picks):
         strip.paste(f, ((i % 2) * W // 2, (i // 2) * H // 2))
     strip.save(out)
+    full = Image.new("RGB", (2 * W, 2 * H))           # four frames full size, 0.5 s apart
+    for i, f in enumerate(frames[:4 * fps // 2:fps // 2]):
+        full.paste(f, ((i % 2) * W, (i // 2) * H))
+    full.save(os.path.splitext(out)[0] + "_full.png")
     print(f"[lamp] wrote {gif} and {out} (every {5 / fps:.2f} s)")
 
 
