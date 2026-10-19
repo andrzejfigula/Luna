@@ -7248,6 +7248,7 @@ class ThemesTest(unittest.TestCase):
             self.assertEqual(themes.current(), "ice")
             self.assertEqual(sp.rows(1)[0]["value"], "Doktor Lód")
             self.assertEqual(sp.change("theme"), "Motyw: HAL 9000")
+            self.assertEqual(sp.change("theme"), "Motyw: Pixel")
             self.assertEqual(sp.change("theme"), "Motyw: Luna")
         settings.put("theme", "nonsense")
         themes.set_theme(settings.get("theme"))

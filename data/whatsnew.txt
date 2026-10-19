@@ -2,7 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 19 października ==
-- Motywy w ustawieniach (Ekran → Motyw): Doktor Lód — lodowe oczy i sarkazm jak dr House, woła się go "Doktorze"; HAL 9000 — czerwone oko i spokojny, groźny głos, woła się go "HAL". "Luna" zawsze działa.
+- Motywy w ustawieniach (Ekran → Motyw): Doktor Lód — lodowe oczy, krzywy uśmieszek i sarkazm jak dr House, woła się go "Doktorze"; HAL 9000 — czerwone oko, spokojny, groźny głos i fala głosu zamiast ust, woła się go "HAL"; Pixel — twarz z klocków jak w Minecrafcie, woła się ją "Pikselu". "Luna" zawsze działa.
 - Ekran ustawień: „Luna, pokaż ustawienia”. Cztery zakładki: Ogólne (język — polski albo angielski, tempo mowy, długość odpowiedzi, napisy, pasek u góry), Ekran (podgląd kamery, płynność buzi), Koszty (ile mniej więcej kosztowała dziś, wczoraj, w tym tygodniu i miesiącu) i Reset (reset fabryczny: Luna zapomina wspomnienia i znane osoby — tylko dorosły, po potwierdzeniu, a kopia zostaje). Stuknij zakładkę albo przesuń palcem; ✕ zamyka.
 - Łatwiej zobaczyć, kogo Luna zna: działa też „pokaż profile”, „pokaż, kogo znasz”, „pokaż zdjęcia osób, które znasz”, „pokaż portrety”. A jeśli powiesz to inaczej, Luna i tak otworzy ekran z twarzami, zamiast tylko wymieniać imiona.
 - „Kogo znasz?” pokazuje właściwe zdjęcia: Luna zmienia czyjeś zdjęcie tylko wtedy, gdy jest pewna, że to ta osoba, a nie ktoś podobny (Emilka miała zdjęcie taty).

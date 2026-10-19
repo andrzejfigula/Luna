@@ -92,6 +92,10 @@ uniform vec2  uGlitch;        // (on, seed): the "glitch" scene tears the pictur
 uniform float uEnergy;        // her voice, 0..1: the eyes glow a little brighter
 uniform float uWarm;          // a warm mood: the pupils' rims glow warmer
 uniform float uDim;           // asleep: the eyes dim
+uniform float uPixel;         // a theme's pixel art (themes.py): block size px, 0 off
+uniform vec3  uMouthCol;      // …its mouth's own colour, by uMouthColAmt
+uniform float uMouthColAmt;
+uniform float uWave;          // > 0: the wavy mouth is a voice wave this tall (HAL)
 
 float gA;                     // the coverage of the shape just drawn (stage 2)
 
@@ -458,8 +462,15 @@ float mouthSDF(vec2 q, out float inner, out float teeth, out float tongue) {
     } else {                                  // wavy: nervous
         float x = clamp(q.x, -hw, hw);
         float k = 3.0 * 3.14159 / hw;
-        float y = 7.0 * sin(x * k);
-        float sl = 7.0 * k * cos(x * k);
+        float amp = 7.0, ph = 0.0;
+        if (uWave > 0.0) {                    // a voice wave: still at its ends, moving
+            float xn = x / hw;
+            amp = uWave * (1.0 - xn * xn);
+            ph = uTime * 9.0;
+            k *= 1.6;
+        }
+        float y = amp * sin(x * k + ph);
+        float sl = amp * k * cos(x * k + ph);
         d = length(vec2(q.x - x, (q.y - y) / sqrt(1.0 + sl * sl))) - h * 0.5;
     }
     return d;
@@ -480,7 +491,7 @@ vec3 drawMouth(vec2 p, vec3 col, inout vec3 glow) {
     if (uPass > 0.5 && (abs(q.x) > hw + h * 0.5 + 6.0
                         || abs(q.y) > max(h, uMouth.z * step(1.5, kind) * step(kind, 2.5)) * 0.5
                                       + h * step(2.5, kind) + abs(uMouthK.x)
-                                      + abs(uMouthSlant) + 6.0)) return col;
+                                      + abs(uMouthSlant) + uWave + 6.0)) return col;
     float inner, teeth, tongue;
     float d = mouthSDF(q, inner, teeth, tongue);
     if (uPass < 0.5) {
@@ -492,6 +503,7 @@ vec3 drawMouth(vec2 p, vec3 col, inout vec3 glow) {
     gA = a;
     vec2 g = GRAD(mouthD, q, d);
     vec3 c = mix(mix(uTop, uTint, uTintAmt), mix(uBottom, uTint, uTintAmt), 0.35);
+    c = mix(c, uMouthCol, uMouthColAmt);
     // the lips: a line is a rounded tube; an open mouth's rim rolls over
     c = lit(c, g, d, kind < 0.5 || kind > 4.5 ? h * 0.5 : 8.0, vec2(0.0));
     if (inner < 1e4) {                        // the dark inside: teeth, a tongue
@@ -556,6 +568,8 @@ void main() {
         fc = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y);
         fc.x -= glitchShift(fc.y);
     }
+    if (uPixel > 1.5 && uPass < 2.5)          // pixel art: one sample per block
+        fc = (floor(fc / uPixel) + 0.5) * uPixel;
     vec2 uv = fc / uRes;
     // the head's tilt: turn the face (and its layer) about the screen centre
     vec2 c0 = uRes * 0.5;
@@ -604,6 +618,11 @@ void main() {
         else if (uShape < 2.5) c = drawBrow(p, c, glow, uBrow0, uBrowK.x);
         else if (uShape < 3.5) c = drawBrow(p, c, glow, uBrow1, uBrowK.y);
         else                   c = drawMouth(p, c, glow);
+        if (uPixel > 1.5) {                   // …and a small palette
+            vec3 s = c / max(gA, 0.001);      // (c is premultiplied)
+            gA = step(0.5, gA);
+            c = floor(s * 5.0 + 0.5) / 5.0 * gA;
+        }
         gl_FragColor = vec4(c, gA);
     } else {
         vec4 l = vec4(0.0);
@@ -1351,28 +1370,29 @@ class GLFace:
     def _shape_boxes(self, u):
         """Where stage 2 draws: the eyes, the brows, the mouth."""
         tilt = u["uTilt"]
+        px = u.get("uPixel", 0.0)               # (a block may reach past the shape)
         boxes = []
         if u["uGlitch"][0] > 0.5:                  # torn sideways: anywhere in the rows
             return [(0.0, 0.0, float(self.w), float(self.h))] * 5
         for i in (0, 1):
             ex, ey, w, h = u[f"uEye{i}"]
-            boxes.append(self._box(ex, ey, w / 2 + 8, h / 2 + 8, tilt))
+            boxes.append(self._box(ex, ey, w / 2 + 8 + px, h / 2 + 8 + px, tilt))
         bend0, bend1, thick, alpha = u["uBrowK"]
         for i, bend in ((0, bend0), (1, bend1)):
             x0, y0, x1, y1 = u[f"uBrow{i}"]
             if alpha <= 0.01:
                 boxes.append(None)
                 continue
-            pad = thick + abs(bend) + 2
+            pad = thick + abs(bend) + 2 + px
             boxes.append(self._box((x0 + x1) / 2, (y0 + y1) / 2,
-                                   abs(x1 - x0) / 2 + thick, abs(y1 - y0) / 2 + pad, tilt))
+                                   abs(x1 - x0) / 2 + thick + px, abs(y1 - y0) / 2 + pad, tilt))
         mx, my, w, h = u["uMouth"]
         bend, open_, alpha, kind = u["uMouthK"]
         if alpha <= 0.01:
             boxes.append(None)
         else:
-            hx = w / 2 + h / 2 + 8
-            hy = (max(h, w) / 2 + h + abs(bend) + abs(u["uMouthSlant"]) + 10)
+            hx = w / 2 + h / 2 + 8 + px
+            hy = (max(h, w) / 2 + h + abs(bend) + abs(u["uMouthSlant"]) + 10 + px)
             boxes.append(self._box(mx, my, hx, hy, tilt))
         return boxes
 
@@ -1534,6 +1554,7 @@ class GLFace:
                        cur["round"], cur["star"])
         fx = getattr(face, "_eye_fx", None) or (0.0, 0.0)
         u["uFx"] = (fx[0], fx[1], now % 1000.0, float(int(now * 20.0) % 997))
+        u.update(uPixel=0.0, uMouthCol=(0.0, 0.0, 0.0), uMouthColAmt=0.0)
         u.update(theme.get("eyes") or {})
         look = COSTUME_EYES.get(costume)
         if look:                                  # a costume's own eyes (googly, robot…)
@@ -1837,5 +1858,18 @@ class GLFace:
                 slant = 0.0
         if pr > 0.0 and kind == face_spec.LINE:
             w, h, bend = w * (1.0 - 0.12 * pr), h * (1.0 - 0.2 * pr), bend - 6.0 * pr
+        wave = 0.0
+        tm = themes.get().get("mouth")            # a theme's own mouth (themes.py)
+        if tm:
+            if tm.get("wave"):                    # HAL: a voice wave, flat when quiet
+                kind, w, h, bend, slant, open_ = face_spec.WAVY, tm["wave"], 6.0, 0.0, 0.0, 0.0
+                wave = 1.5 + (48.0 * min(1.0, m.talk_open * 1.6) if talking else 0.0)
+                alpha = 1.0
+            mx += tm.get("dx", 0.0)               # the doctor's smirk: off-centre, lopsided
+            slant += tm.get("slant", 0.0)
+            if not talking:
+                w *= tm.get("w", 1.0)
+            if kind == face_spec.LINE:
+                h = max(h, tm.get("min_h", 0.0))  # pixel art: a chunky line
         return {"uMouth": (mx, my, w, h), "uMouthK": (bend, open_, alpha, float(kind)),
-                "uMouthSlant": slant}
+                "uMouthSlant": slant, "uWave": wave}

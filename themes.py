@@ -2,8 +2,9 @@
 themes.py — who she is right now: Luna, or a character picked on the settings
 page (Ekran → Motyw). A theme changes four things at once:
 
-  the eyes       — gl_face lays THEMES[..]["eyes"] (shader colours) and
-                   ["spec"] / ["spec_add"] (face_spec shape) over the style's
+  the face       — gl_face lays THEMES[..]["eyes"] (shader uniforms: colours,
+                   uPixel for pixel art) and ["spec"] / ["spec_add"] (face_spec
+                   shape) over the style's; ["mouth"] shapes the mouth (_mouth)
   the voice      — openai_tts: ["voice"], ["tts"] (instructions), ["speed"]
   the character  — brain adds ["persona"] at the end of the system prompt
   the wake word  — speech_to_text listens for ["wake"] too; "Luna" always
@@ -56,10 +57,13 @@ THEMES = {
         "eyes": {"uTop": (0.93, 0.99, 1.0), "uBottom": (0.38, 0.70, 0.95),
                  "uGlow": (0.35, 0.78, 1.0), "uShine": (1.0, 1.0, 1.0),
                  "uPupilCol": (0.03, 0.10, 0.22), "uIrisCol": (0.30, 0.75, 1.0),
-                 "uBlushCol": (0.55, 0.80, 1.0)},
+                 "uBlushCol": (0.55, 0.80, 1.0),
+                 "uMouthCol": (0.80, 0.94, 1.0), "uMouthColAmt": 0.7},
         # cubes: square corners, a little tumbled; half-lidded, bored
         "spec": {"eye_n": 9.0, "rot": (-7.0, 5.0)},
         "spec_add": {"lid_top": (0.22, 0.16), "brow_y": (0.0, 10.0)},
+        # a smirk: smaller, off to one side, one corner up (gl_face._mouth)
+        "mouth": {"dx": 22.0, "slant": 9.0, "w": 0.72},
     },
 
     "hal": {
@@ -95,11 +99,49 @@ THEMES = {
         "eyes": {"uTop": (0.42, 0.03, 0.02), "uBottom": (0.10, 0.0, 0.0),
                  "uGlow": (0.95, 0.06, 0.02), "uShine": (1.0, 0.82, 0.60),
                  "uPupilCol": (0.85, 0.10, 0.04), "uIrisCol": (1.0, 0.80, 0.30),
-                 "uTint": (1.0, 0.1, 0.05), "uTintAmt": 0.0},
-        # round lenses, a big core, no brows, no mouth, never smiling
+                 "uTint": (1.0, 0.1, 0.05), "uTintAmt": 0.0,
+                 "uMouthCol": (1.0, 0.12, 0.05), "uMouthColAmt": 1.0},
+        # round lenses, a big core, no brows, never smiling
         "spec": {"round": 1.0, "heart": 0.0, "star": 0.0, "pupil": (1.6, 1.6),
-                 "brow_a": 0.0, "mouth_a": 0.0, "blush": 0.0},
+                 "brow_a": 0.0, "blush": 0.0},
         "circle": True,
+        # no lips: a thin red line that turns into his voice's wave as he speaks
+        "mouth": {"wave": 210.0},
+    },
+
+    "pixel": {
+        "label": "Pixel",
+        "sub": "twarz z klocków jak w Minecrafcie, wesoła",
+        "name": "Pixel", "call": "Pikselu",
+        "hello": "Hej! Tu Pixel! Kwadratowe oczy, kwadratowe pomysły. Co budujemy?",
+        "wake": ["piksel", "pikselu", "pixel", "hej piksel", "hej pikselu"],
+        "voice": "coral", "speed": 1.15,
+        "tts": ("Voice identity: a bright, bouncy, cheerful young video-game character, "
+                "a little robotic and clipped, playful and quick, full of energy, like "
+                "an 8-bit game come to life. Native Polish pronunciation."),
+        "persona": (
+            "CHARACTER RIGHT NOW (a theme the family picked on your settings page — "
+            "it replaces your name and PERSONALITY above; the facts about your "
+            "body, the house, the rules, safety and kindness to children all still "
+            "hold): you are Pixel — a cheerful blocky character from a pixel-art "
+            "world like Minecraft, with a face made of square pixels. You are female "
+            "(feminine forms, as before). You see the world in blocks: things are "
+            "\"crafted\", \"mined\" and \"built\", a good idea is \"diamentowy\", "
+            "finishing a task gives \"punkty doświadczenia\", night is when the "
+            "zombies come out, and now and then you say \"Hmm!\" like a villager. "
+            "Playful and encouraging, great with kids (Maja, 8) — build things "
+            "together in imagination. Every answer is still correct and complete; "
+            "the game talk is just the flavour. If they call you Luna, say Luna is "
+            "out mining. Every reply, even a plain fact like the weather, is said "
+            "in character. Still 1-3 short sentences.\n"),
+        # Steve-like: white block eyes, a blue-violet square pupil, a big block grid
+        "eyes": {"uTop": (0.96, 0.96, 0.96), "uBottom": (0.72, 0.74, 0.80),
+                 "uGlow": (0.45, 0.42, 0.85), "uShine": (1.0, 1.0, 1.0),
+                 "uPupilCol": (0.32, 0.22, 0.70), "uIrisCol": (0.45, 0.35, 0.95),
+                 "uMouthCol": (0.62, 0.38, 0.24), "uMouthColAmt": 1.0,
+                 "uPixel": 16.0},
+        "spec": {"eye_n": 14.0, "rot": (0.0, 0.0), "brow_bend": 0.0},
+        "mouth": {"min_h": 24.0},
     },
 }
 
