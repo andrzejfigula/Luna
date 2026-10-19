@@ -846,7 +846,9 @@ Always answer as JSON with exactly these keys:
                 "pokaż plan dnia", "pokaż listę zakupów", "przepis na <danie>
                 krok po kroku" (cooking along on the screen), "przekaż <Imię>,
                 że …" (a note you say to that person when you next see them),
-                "zrób zdjęcie", "nagraj wiadomość dla <Imię>", "pokaż na ekranie:
+                "zrób zdjęcie", "nagraj wiadomość dla <Imię>", "pokaż osoby, które
+                znasz" (the faces you know on your screen — when they ask to
+                see them, never just list names), "pokaż na ekranie:
                 <tekst>" (a name, number or word big on her screen for 30 s — when
                 they want to see it or copy it down), "wyszukaj w internecie:
                 <zapytanie>" (see below), "przyciemnij ekran", "zgaś ekran",
@@ -1835,6 +1837,7 @@ _COMMAND_OK = re.compile(
     r"listę\s+(?:zakupów|do\s+zrobienia|rzeczy\s+do\s+zrobienia|zadań|[\wąćęłńóśźż]{3,20}))$|^przepis\s+na\s+[\w ]{2,40}\s+krok\s+po\s+kroku$|"
     r"^przekaż\s+\w+,?\s+(?:że|żeby)\s+.{3,120}$|^zrób\s+(?:mi\s+|nam\s+)?zdjęcie$|"
     r"^nagraj\s+wiadomość(?:\s+dla\s+\w+)?$|^pokaż\s+na\s+ekranie[:,]?\s+.{1,80}$"
+    r"|^pokaż\s+osoby,?\s+które\s+znasz$"
     r"|^wyszukaj\s+w\s+internecie[:,]?\s+.{3,200}$"
     r"|^(?:przyciemnij|zgaś|rozjaśnij)\s+ekran$"
     r"|^głośność\s+na\s+\d{1,3}(?:\s*%|\s+procent)?$"

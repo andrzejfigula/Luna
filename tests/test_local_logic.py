@@ -5595,8 +5595,8 @@ class GalleryDeletePeopleTest(unittest.TestCase):
             with mock.patch.object(screens, "photos_of", lambda n: [ph] if n == "Maja" else []),                     mock.patch.object(faces, "available", lambda: False):
                 self.assertIsNone(screens.people_items()[1]["path"])
             for t in ("Pokaż osoby, które znasz", "Luna, pokaż galerię osób", "Kogo pamiętasz?"):
-                self.assertTrue(screens._PEOPLE.match(t.lower()), t)
-            self.assertFalse(screens._PEOPLE.match("kogo znasz w szkole"))
+                self.assertTrue(screens._people_asked(t.lower()), t)
+            self.assertFalse(screens._people_asked("kogo znasz w szkole"))
             gallery.step(1)                                  # Maja
             self.assertTrue(gallery.voice("Zapomnij tę osobę", self.speak))
             self.assertEqual(faces.names(), ["Kasia"])
@@ -5675,8 +5675,15 @@ class Oct14NightTest(unittest.TestCase):
             self.assertIsNone(calc.day_claim(t, wed), t)
 
     def test_show_who_you_know(self):
-        for t in ("luna pokaż kogo znasz", "pokaż mi kogo znasz", "kogo znasz"):
-            self.assertTrue(screens._PEOPLE.match(t), t)
+        for t in ("luna pokaż kogo znasz", "pokaż mi kogo znasz", "kogo znasz",
+                  # 19 Oct 20:00–20:08: four tries before one matched
+                  "luna kogoś kogo znasz", "pokaż, kogo znasz.",
+                  "pokaż profile ludzi, których znasz.", "luna, pokaż ludzi, których znasz.",
+                  "pokaż profile", "pokaż mi zdjęcia osób, które znasz", "pokaż portrety"):
+            self.assertTrue(screens._people_asked(t), t)
+        for t in ("kogo znasz w szkole", "pokaż galerię", "pokaż zdjęcia", "znasz kogoś",
+                  "pokaż zdjęcia mai", "kogoś znasz"):
+            self.assertFalse(screens._people_asked(t), t)
 
     def test_wake_time(self):
         now = datetime.datetime(2026, 10, 14, 21, 0).timestamp()

@@ -47,12 +47,23 @@ _GALLERY = ("pokaż zdjęcia", "pokaż ostatnie zdjęcie", "pokaż moje zdjęcia
             "pokaż galerię", "pokaz galerie", "pokaż galerie", "otwórz galerię",
             "otworz galerie", "galeria zdjęć", "pokaż swoje zdjęcia")
 # the people she knows, with their faces (gallery.py; the bin forgets one)
-_PEOPLE = re.compile(r"^(?:luna,?\s+)?(?:(?:pokaż\s+|pokaz\s+)(?:mi\s+|nam\s+)?)?(?:kogo\s+(?:już\s+|juz\s+|wszystkiego\s+)?(?:znasz|pamiętasz|"
-                     r"pamietasz|rozpoznajesz)|(?:pokaż|pokaz)\s+(?:mi\s+)?(?:wszystkie\s+)?"
-                     r"(?:osoby|ludzi|twarze|znajomych|wszystkich)(?:,?\s+(?:które|ktore|których|"
-                     r"ktorych|co|kogo)\s+(?:znasz|pamiętasz|pamietasz|rozpoznajesz))?|"
-                     r"(?:pokaż\s+|pokaz\s+|otwórz\s+|otworz\s+)?(?:galeri\w+)\s+(?:osób|osob|twarzy|"
-                     r"ludzi|znajomych))\W*$", re.I)
+# (19 Oct 20:00–20:08: "kogoś kogo znasz" (Vosk), "Pokaż, kogo znasz.", "Pokaż
+# profile ludzi, których znasz." all went to the model — 4 tries; matched on
+# text without punctuation, see _people_asked)
+_KNOWN = r"(?:już\s+|juz\s+|wszystkiego\s+)?(?:znasz|pamiętasz|pamietasz|rozpoznajesz)"
+_PEOPLE = re.compile(
+    r"^(?:luna\s+)?(?:"
+    r"(?:(?:pokaż|pokaz)\s+(?:mi\s+|nam\s+)?)?kogo(?:ś\s+kogo|s\s+kogo)?\s+" + _KNOWN +
+    r"|(?:pokaż|pokaz|otwórz|otworz)\s+(?:mi\s+|nam\s+)?(?:wszystkie\s+|swoje\s+)?"
+    r"(?:(?:profile|profil|portrety|zdjęcia|zdjecia|twarze|galeri\w*)\s+)?"
+    r"(?:osoby|osób|osob|ludzi|twarze|twarzy|znajomych|wszystkich|profile|profil\w*|portrety)"
+    r"(?:\s+(?:które|ktore|których|ktorych|co|kogo|jakich|jakie)\s+" + _KNOWN + r")?"
+    r"|galeri\w+\s+(?:osób|osob|twarzy|ludzi|znajomych)"
+    r")$", re.I)
+
+
+def _people_asked(low):
+    return bool(_PEOPLE.match(" ".join(re.findall(r"[\w-]+", low))))
 # ("co mamy dzisiaj?" is left alone: it may mean "what day is it")
 _TODAY = ("plan dnia", "plan na dziś", "plan na dzisiaj", "co mamy w planie",
           "dzisiejszy plan", "plany na dziś", "plany na dzisiaj",
@@ -530,7 +541,7 @@ def handle(text, speak, play_sound_async):
         else:
             _show("list", 10, ("Przypomnienia", lines))
         return True
-    if _PEOPLE.match(low.strip()):
+    if _people_asked(low):
         return show_people(speak)
     if any(k in low for k in _GALLERY):
         shots = sorted((f for f in os.listdir(PHOTOS_DIR) if f.endswith(".jpg")),
