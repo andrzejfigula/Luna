@@ -232,6 +232,24 @@ def _timed_errand_ok(who, now):
         return False
 
 
+def _schedule_tick(now, p, speak):
+    """The week's plan (schedule.py): a reminder to its person when she sees
+    them, from 5:00 like a timed errand, not after "Luna, cicho"; an "always"
+    one at its time whoever is there — never into her own speech."""
+    try:
+        import schedule
+        with state.lock:
+            muted = state.proactive_muted_until
+            someone = now - state.last_face_time < 10
+            busy = state.speaking or state.luna_mode in ("listening", "processing", "speaking")
+        person = p[0] if p and now - p[2] < 6 else None
+        can = (now > muted and time.localtime(now).tm_hour >= 5
+               and not _people_talking())
+        schedule.tick(now, person, someone, can, busy, lambda t: speak(t, can_drop=False))
+    except Exception as e:
+        print(f"[idle] schedule reminder failed: {e}", flush=True)
+
+
 def _voice_allowed(now):
     """Quiet hours and "Luna, cicho" apply to every sound she makes on her
     own — touch sounds included."""
@@ -482,6 +500,7 @@ def idle_loop():
                     import errands
                     if errands.waiting(p[0]):
                         errands.deliver(p[0], lambda t: speak(t, can_drop=False))
+                _schedule_tick(now, p, speak)
 
             # ── finger held on the screen: "I want to talk to you" ───────
             if touch_t > last_touch_t and touch_kind == "hold":

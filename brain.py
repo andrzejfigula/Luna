@@ -30,6 +30,7 @@ from openai import OpenAI
 import reply_scenes
 import birthdays
 import errands
+import schedule
 import faces
 import hedge
 import mood as luna_mood     # ("mood" is the user's mood inside _ask_openai)
@@ -853,7 +854,11 @@ Always answer as JSON with exactly these keys:
                 normalnie", "włącz lampkę", "wyłącz lampkę", "lampka na
                 <kolor>", "włącz szum deszczu / morza", "biały szum",
                 "wyłącz szum", "włącz napisy", "wyłącz napisy", "pokaż zegar",
-                "pokaż plan dnia", "pokaż listę zakupów", "przepis na <danie>
+                "pokaż plan dnia", "pokaż plan tygodnia" (the family's week,
+                by person), "dodaj do planu: <kto>, <co>, <dni>, o <godzina>"
+                (a weekly entry, e.g. "dodaj do planu: Maja, angielski, od
+                poniedziałku do piątku o 17" — she reminds by herself), "usuń
+                z planu <co> <kto>", "pokaż listę zakupów", "przepis na <danie>
                 krok po kroku" (cooking along on the screen), "przekaż <Imię>,
                 że …" (a note you say to that person when you next see them),
                 "zrób zdjęcie", "nagraj wiadomość dla <Imię>", "pokaż osoby, które
@@ -1505,6 +1510,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   + luna_mood.prompt_line()
                   + birthdays.prompt_line()
                   + errands.prompt_line()
+                  + schedule.prompt_line()
                   + _mood_rule(image_b64 is not None)
                   + body.prompt_line()
                   + weather.prompt_line()
@@ -1849,6 +1855,9 @@ _COMMAND_OK = re.compile(
     r"^przekaż\s+\w+,?\s+(?:że|żeby)\s+.{3,120}$|^zrób\s+(?:mi\s+|nam\s+)?zdjęcie$|"
     r"^nagraj\s+wiadomość(?:\s+dla\s+\w+)?$|^pokaż\s+na\s+ekranie[:,]?\s+.{1,80}$"
     r"|^pokaż\s+osoby,?\s+które\s+znasz$"
+    # the week's plan (schedule.py; the sweep of 19 Oct: "dodaj do planu" refused)
+    r"|^pokaż\s+plan\s+tygodnia$|^dodaj\s+do\s+planu[:,]?\s+.{3,160}$"
+    r"|^usuń\s+z\s+planu[:,]?\s+.{2,80}$"
     r"|^wyszukaj\s+w\s+internecie[:,]?\s+.{3,200}$"
     r"|^(?:przyciemnij|zgaś|rozjaśnij)\s+ekran$"
     r"|^głośność\s+na\s+\d{1,3}(?:\s*%|\s+procent)?$"

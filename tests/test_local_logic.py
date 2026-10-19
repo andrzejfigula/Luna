@@ -7297,7 +7297,7 @@ class ThemesTest(unittest.TestCase):
 
 # Off the Pi (Windows) the hardware / SDK modules are missing: those tests
 # skip instead of erroring, so the local quick run shows real failures only.
-_PI_ONLY = {"cv2", "pygame", "sounddevice", "openai", "vosk"}
+_PI_ONLY = {"cv2", "pygame", "sounddevice", "openai", "vosk", "fcntl"}
 
 
 def _skip_missing(test):
@@ -7311,6 +7311,158 @@ def _skip_missing(test):
                 raise unittest.SkipTest(f"no {e.name} here")
             raise
     setattr(test, test._testMethodName, run)
+
+
+class ScheduleTest(unittest.TestCase):
+    """The week's plan (schedule.py): reading an entry, the reminders."""
+
+    def setUp(self):
+        import faces
+        import schedule
+        self.s = schedule
+        schedule.PATH = os.path.join(TMP, "schedule.json")
+        if os.path.exists(schedule.PATH):
+            os.remove(schedule.PATH)
+        schedule._mem.update(mtime=None, data=None)
+        schedule._expect.update(until=0.0, draft=None, who=None, day=None)
+        self.p = [mock.patch.object(faces, "names", lambda: ["Andrzej", "Emilka", "Maja"]),
+                  mock.patch.object(faces, "notes", lambda: {"Andrzej": "tata Mai"}),
+                  mock.patch.object(faces, "vocatives",
+                                    lambda: {"Maja": "Maju", "Andrzej": "Andrzeju"})]
+        for p in self.p:
+            p.start()
+
+    def tearDown(self):
+        for p in self.p:
+            p.stop()
+
+    def test_parse(self):
+        P = self.s.parse
+        self.assertEqual(P("Maja angielski od poniedziałku do piątku o 17"),
+                         {"who": "Maja", "title": "angielski", "days": [0, 1, 2, 3, 4],
+                          "at": "17:00", "end": ""})
+        self.assertEqual(P("Mai lekcje pianina w środę od 17 do 18")["end"], "18:00")
+        e = P("Emilka joga we wtorki i czwartki o siódmej wieczorem")
+        self.assertEqual((e["days"], e["at"]), ([1, 3], "19:00"))
+        self.assertEqual(P("wszyscy obiad u babci w niedzielę o 13")["who"], "")
+        self.assertEqual(P("taty trening w weekendy o wpół do ósmej wieczorem")["who"], "Andrzej")
+        self.assertEqual(P("Andrzej siłownia w poniedziałki o 6:30 rano")["at"], "06:30")
+        self.assertIsNone(P("Maja angielski"))                  # no day, no time
+        self.assertEqual(P("Maja angielski", partial=True)["days"], None)
+
+    def test_days_said(self):
+        self.assertEqual(self.s.days_said([0, 1, 2, 3, 4]), "od poniedziałku do piątku")
+        self.assertEqual(self.s.days_said([1, 3]), "we wtorek i w czwartek")
+        self.assertEqual(self.s.days_said([5, 6]), "w weekendy")
+
+    def _at(self, wd_hm):
+        # 19 Oct 2026 is a Monday
+        d, h, m = wd_hm
+        return datetime.datetime(2026, 10, 19 + d, h, m).timestamp()
+
+    def test_reminder_to_its_owner_when_seen(self):
+        self.s.add("Maja", "angielski", [0, 1, 2, 3, 4], "17:00")
+        said = []
+        self.assertEqual(self.s.tick(self._at((0, 16, 40)), "Maja", True, True, False,
+                                     said.append), 0)          # too early
+        self.assertEqual(self.s.tick(self._at((0, 16, 46)), "Andrzej", True, True, False,
+                                     said.append), 0)          # not her
+        self.assertEqual(self.s.tick(self._at((0, 16, 46)), "Maja", True, True, False,
+                                     said.append), 1)
+        self.assertEqual(said, ["Maju, za 14 minut masz angielski."])
+        self.assertEqual(self.s.tick(self._at((0, 16, 50)), "Maja", True, True, False,
+                                     said.append), 0)          # once a day
+        self.assertEqual(self.s.tick(self._at((1, 16, 50)), "Maja", True, True, False,
+                                     said.append), 1)          # and again on Tuesday
+        self.assertEqual(self.s.tick(self._at((5, 16, 50)), "Maja", True, True, False,
+                                     said.append), 0)          # not on Saturday
+
+    def test_reminder_to_someone_else_and_always(self):
+        e = self.s.add("Maja", "angielski", [0], "17:00")
+        self.s.update(e["id"], remind={"to": "Andrzej", "always": True, "before": 30})
+        said = []
+        with mock.patch.object(self.s, "_say", lambda t: None):
+            n = self.s.tick(self._at((0, 16, 30)), "Maja", True, True, False, said.append)
+        self.assertEqual(n, 1)               # nobody right: said aloud anyway (always)
+        self.assertEqual(said, ["Andrzeju, przypominam: Maja za 30 minut ma angielski."])
+
+    def test_reminder_dropped_when_nobody_came(self):
+        self.s.add("", "obiad", [0], "13:00")
+        said = []
+        self.assertEqual(self.s.tick(self._at((0, 12, 50)), None, False, True, False,
+                                     said.append), 0)
+        self.assertEqual(self.s.tick(self._at((0, 12, 55)), None, True, True, False,
+                                     said.append), 1)          # anyone in view, for the house
+        self.assertEqual(said, ["Przypominam: za 5 minut obiad."])
+        self.s.add("Maja", "basen", [0], "15:00")
+        self.s.tick(self._at((0, 15, 10)), None, False, True, False, said.append)
+        self.assertEqual(self.s.due(self._at((0, 15, 5))), [])   # missed: gone for the day
+
+    def test_add_after_plus_asks_for_what_is_missing(self):
+        said = []
+        self.s.expect(who=None, day=None)
+        self.assertTrue(self.s.handle("Maja angielski", said.append))
+        self.assertEqual(said[-1], "W jakie dni?")
+        self.assertTrue(self.s.handle("od poniedziałku do piątku", said.append))
+        self.assertEqual(said[-1], "O której godzinie?")
+        self.assertTrue(self.s.handle("o piątej", said.append))
+        self.assertIn("Maja ma angielski od poniedziałku do piątku o 17:00", said[-1])
+        self.assertEqual(len(self.s.events()), 1)
+        self.s.expect()
+        self.assertFalse(self.s.handle("włącz radio Trójkę proszę bardzo", said.append))
+        self.assertFalse(self.s.expecting())                    # something else: let go
+
+    def test_voice_add_and_remove(self):
+        said = []
+        self.assertTrue(self.s.handle("Dodaj do planu: Maja, basen w czwartki o 16:30",
+                                      said.append))
+        self.assertEqual(self.s.events()[0]["days"], [3])
+        self.s.add("Emilka", "basen", [5], "10:00")
+        self.assertTrue(self.s.handle("Usuń z planu basen", said.append))
+        self.assertIn("Pasuje kilka", said[-1])
+        self.assertTrue(self.s.handle("Usuń z planu basen Mai", said.append))
+        self.assertEqual([e["who"] for e in self.s.events()], ["Emilka"])
+        self.assertFalse(self.s.handle("Pokaż plan dnia", said.append))
+        self.assertTrue(self.s.handle("dodaj do planu: Babcia, wizyta, w sobotę o 15",
+                                      said.append))
+        self.assertEqual((self.s.events()[-1]["who"], self.s.events()[-1]["title"]),
+                         ("Babcia", "wizyta"))
+
+    def test_prompt_line(self):
+        self.assertEqual(self.s.prompt_line(), "")
+        self.s.add("Maja", "angielski", [0, 1, 2, 3, 4], "17:00", "18:00")
+        self.assertIn("Maja: angielski od poniedziałku do piątku 17:00–18:00",
+                      self.s.prompt_line())
+
+
+class TouchPageTest(unittest.TestCase):
+    """Fast taps on a page are taps — 19 Oct: the plan's days went dead (poking)."""
+
+    def _kinds(self, page):
+        import struct
+        import threading
+        import touch_module as tm
+        path = os.path.join(TMP, "touch-events")
+        with open(path, "wb") as f:
+            for _ in range(4):
+                for et, code, val in ((tm.EV_ABS, tm.ABS_X, 400), (tm.EV_ABS, tm.ABS_Y, 100),
+                                      (tm.EV_KEY, tm.BTN_TOUCH, 1), (tm.EV_KEY, tm.BTN_TOUCH, 0)):
+                    f.write(struct.pack(tm._FMT, 0, 0, et, code, val))
+        got = []
+        with state.lock:
+            state.overlay = ("schedule", time.time() + 30, {}) if page else None
+            state.speaking = False
+        with mock.patch.object(tm, "_abs_range", lambda fd, axis: (0, 800)), \
+                mock.patch.object(tm, "_publish", lambda kind, *a, **k: got.append(kind)):
+            threading.Thread(target=tm._reader_loop, args=(path,), daemon=True).start()
+            time.sleep(0.6)
+        with state.lock:
+            state.overlay = None
+        return got
+
+    def test_fast_taps(self):
+        self.assertEqual(self._kinds(page=True), ["tap"] * 4)
+        self.assertIn("multi", self._kinds(page=False))       # on her face: still poking
 
 
 def load_tests(loader, tests, pattern):

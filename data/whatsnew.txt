@@ -3,6 +3,7 @@
 
 == 19 października ==
 - Motywy w ustawieniach (Ekran → Motyw): Ice (czyt. "ajs") — prostokątne lodowe oczy, brwi i usta, krzywy uśmieszek i sarkazm jak dr House, woła się go "Ice"; HAL 9000 — czerwone oko, spokojny, groźny głos i fala głosu zamiast ust, woła się go "HAL". "Luna" zawsze działa.
+- Plan tygodnia dla każdego: „pokaż plan tygodnia” (albo „pokaż plan Mai”) otwiera ekran z dniami i osobami. Dotknij „+ Dodaj” i powiedz np. „Maja, angielski, od poniedziałku do piątku o siedemnastej” — albo od razu „dodaj do planu: …”. Dotknięcie wpisu pozwala zmienić dni, godzinę, przypomnienie (ile minut wcześniej, komu, czy mówić też, gdy nikogo nie ma) albo go usunąć. Luna sama przypomni, gdy zobaczy tę osobę.
 - Ekran ustawień: „Luna, pokaż ustawienia”. Cztery zakładki: Ogólne (język — polski albo angielski, tempo mowy, długość odpowiedzi, napisy, pasek u góry), Ekran (podgląd kamery, płynność buzi), Koszty (ile mniej więcej kosztowała dziś, wczoraj, w tym tygodniu i miesiącu) i Reset (reset fabryczny: Luna zapomina wspomnienia i znane osoby — tylko dorosły, po potwierdzeniu, a kopia zostaje). Stuknij zakładkę albo przesuń palcem; ✕ zamyka.
 - Łatwiej zobaczyć, kogo Luna zna: działa też „pokaż profile”, „pokaż, kogo znasz”, „pokaż zdjęcia osób, które znasz”, „pokaż portrety”. A jeśli powiesz to inaczej, Luna i tak otworzy ekran z twarzami, zamiast tylko wymieniać imiona.
 - „Kogo znasz?” pokazuje właściwe zdjęcia: Luna zmienia czyjeś zdjęcie tylko wtedy, gdy jest pewna, że to ta osoba, a nie ktoś podobny (Emilka miała zdjęcie taty).

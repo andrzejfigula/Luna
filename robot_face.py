@@ -2341,6 +2341,11 @@ class RobotFace:
                     dx = state.touch_dx
                 import fun
                 fun.lamp_next(-1 if dx > 0 else 1)
+            elif ov_kind == "schedule" and touch_kind == "swipe":
+                with state.lock:                    # the next day / the one before
+                    dx = state.touch_dx
+                import schedule
+                schedule.swipe(dx)
             elif ov_kind == "gallery":                  # ‹ › ✕, a swipe (gallery.py)
                 with state.lock:
                     dx = state.touch_dx
@@ -2353,6 +2358,9 @@ class RobotFace:
                 elif ov_kind == "story":                # an idea, a choice, a story
                     import story
                     story.tap(touch_pt[0] * WIDTH, touch_pt[1] * HEIGHT, WIDTH, HEIGHT)
+                elif ov_kind == "schedule":             # a day, a person, an entry, "+"
+                    import schedule
+                    schedule.tap(touch_pt[0] * WIDTH, touch_pt[1] * HEIGHT, WIDTH, HEIGHT)
                 elif ov_kind == "radio":                # a kind, a station, Stop
                     import radio
                     radio.tap(touch_pt[0] * WIDTH, touch_pt[1] * HEIGHT, WIDTH, HEIGHT)
@@ -3384,6 +3392,9 @@ class RobotFace:
             scr.blit(txt, txt.get_rect(center=(WIDTH // 2, HEIGHT - 45)))
         elif kind == "story":                           # a story: picture, choices; the list
             ui_screens.draw_story(scr, data, time.time(), WIDTH, HEIGHT)
+        elif kind == "schedule":                        # "plan tygodnia" (schedule.py)
+            import ui_schedule
+            ui_schedule.draw(scr, data, time.time(), WIDTH, HEIGHT)
         elif kind == "radio":                           # the stations to pick from
             ui_screens.draw_radio(scr, data, time.time(), WIDTH, HEIGHT)
         elif kind == "settings":                        # "pokaż ustawienia" (settings_page.py)
