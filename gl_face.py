@@ -23,6 +23,7 @@ import os
 import random
 import sys
 import time
+from time import perf_counter as _pc
 
 import face_spec
 import visualizer
@@ -634,6 +635,10 @@ def _pick_platform():
         os.environ["PYOPENGL_PLATFORM"] = "egl"
 
 
+PROF = {"n": 0, "nf": 0, "up_face": 0.0, "up_back": 0.0, "up_screen": 0.0, "draw": 0.0,
+        "finish": 0.0, "uni": 0.0}
+
+
 class _Layer:
     """A pygame layer's texture and the bytes last sent, per 32-row band."""
     BAND = 32
@@ -1040,10 +1045,18 @@ class GLFace:
         box, the layers over their rows — every pixel is worked on only where
         something is (one full-screen shader for all of it: 16 ms a frame)."""
         GL = self.GL
+        _t0 = _pc()
         has_face = face_layer is not None and self.upload(self.face_l, face_layer)
+        _t1 = _pc()
         has_back = back_layer is not None and self.upload(self.back_l, back_layer)
+        _t2 = _pc()
         if screen_layer is not None:
             has_layer = self.upload(self.screen_l, screen_layer)
+        _t3 = _pc()
+        PROF["up_face"] += _t1 - _t0
+        PROF["up_back"] += _t2 - _t1
+        PROF["up_screen"] += _t3 - _t2
+        PROF["n"] += 1
         GL.glUseProgram(self.prog)
         self._u("uRes", (self.w, self.h))
         self._u("uSoftRes", (self.sw, self.sh))
@@ -1101,6 +1114,12 @@ class GLFace:
                 self._u("uRect", (0.0, float(y0), float(self.w), float(y1)))
                 self._quad()
         GL.glDisable(GL.GL_BLEND)
+        _t4 = _pc()
+        PROF["draw"] += _t4 - _t3
+        if PROF["n"] % 32 == 0:
+            GL.glFinish()
+            PROF["finish"] += _pc() - _t4
+            PROF["nf"] += 1
 
     def render_lamp(self, lamp, screen_layer=None):
         """The lamp's scene (gl_lamp.py) alone over the whole screen — no
@@ -1176,6 +1195,13 @@ class GLFace:
         globals). The mood's settings (face_spec.py), eased over real time,
         with the live animation on top: blinks close the lids, squints and
         wide eyes from the reply scenes, the gaze, the mouth while talking."""
+        _tu = _pc()
+        try:
+            return self._face_uniforms(face, rf, fcx, fcy)
+        finally:
+            PROF["uni"] += _pc() - _tu
+
+    def _face_uniforms(self, face, rf, fcx, fcy):
         now = time.monotonic()
         dt = (now - self._t_last) if self._t_last else 1.0 / 30
         self._t_last = now
