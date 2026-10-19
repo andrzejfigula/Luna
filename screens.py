@@ -8,6 +8,7 @@ screens.py — things Luna shows on her whole screen for a moment, on request.
   "pokaż przypomnienia"              → timers, reminders and alarms, 10 s
   "pokaż listę zakupów"              → a list from lists.py, 12 s
   "pokaż status"                     → temperature, uptime, cloud, API calls
+  "pokaż ustawienia"                 → the settings page (settings_page.py)
   "pokaż zdjęcia"                    → her photos, newest first, 6 s each
                                        (gallery.py: "następne", "poprzednie",
                                        ‹ › and ✕ on the screen)
@@ -60,6 +61,13 @@ _PEOPLE = re.compile(
     r"(?:\s+(?:które|ktore|których|ktorych|co|kogo|jakich|jakie)\s+" + _KNOWN + r")?"
     r"|galeri\w+\s+(?:osób|osob|twarzy|ludzi|znajomych)"
     r")$", re.I)
+
+
+# "pokaż ustawienia" — the settings page with its tabs (settings_page.py)
+_SETTINGS = re.compile(
+    r"^(?:luna\s+)?(?:(?:pokaż|pokaz|otwórz|otworz|włącz|wlacz|show|open)\s+(?:mi\s+|nam\s+|the\s+)?)?"
+    r"(?:ustawienia|ustawień|ustawien|panel\s+ustawień|menu\s+ustawień|swoje\s+ustawienia|settings)$",
+    re.I)
 
 
 def _people_asked(low):
@@ -587,6 +595,11 @@ def handle(text, speak, play_sound_async):
         said, rows = weekly.report()
         _show("list", 25, ("Mój tydzień", rows or [("—", "jeszcze nic")]))
         speak(said)
+        return True
+    if _SETTINGS.match(" ".join(re.findall(r"[\w-]+", low))):
+        import settings_page
+        _show("settings", settings_page.PAGE_SECS, {"tab": 0})
+        speak("Proszę, oto ustawienia.")
         return True
     if any(k in low for k in _STATUS):
         import health

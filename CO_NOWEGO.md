@@ -206,6 +206,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 
 ## Pod maską
 
+- „Pokaż ustawienia” — ekran z zakładkami: Ogólne (język, tempo mowy, długość odpowiedzi, napisy, pasek), Ekran (podgląd kamery, płynność buzi 30/45/60 kl./s), Koszty (szacunek: dziś, wczoraj, 7 dni, miesiąc), Reset (reset fabryczny — wspomnienia i znane osoby trafiają do `data/reset-<data>/`, nic nie jest kasowane; dziecko przed kamerą nie może go zrobić).
 - „Pokaż status” — temperatura, obciążenie, czas pracy, połączenie z chmurą, pamięć, wywołania API w tej godzinie, przerwy w dźwięku.
 - „Luna, zrestartuj się” — wychodzi, a autostart uruchamia ją od nowa (np. po zmianie `.env`).
 - Mniejsze koszty w tle: słowo „Luna” sprawdzane w chmurze tylko, gdy coś brzmi podobnie (max 60/h); w `[health]` widać liczbę wywołań API.

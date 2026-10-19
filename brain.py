@@ -280,16 +280,24 @@ def _reply_language_line(text):
 
 
 _english_until = [0.0]
+_polish_until = [0.0]        # "mów po polsku" with English the default language
 
 
 def set_english(on, hours=2):
     """"Mów do mnie po angielsku" — her replies in English for a while (9 Oct:
     the model said "I'll speak English" and nothing kept it)."""
-    _english_until[0] = time.time() + hours * 3600 if on else 0.0
+    now = time.time()
+    _english_until[0] = now + hours * 3600 if on else 0.0
+    _polish_until[0] = 0.0 if on else now + hours * 3600
 
 
 def english_wanted():
-    return time.time() < _english_until[0]
+    """Asked for lately, or English the default language (the settings page)."""
+    now = time.time()
+    if now < _english_until[0]:
+        return True
+    import settings
+    return now >= _polish_until[0] and settings.get("language", "pl") == "en"
 
 
 def _morning_line():
