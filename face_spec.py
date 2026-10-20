@@ -147,23 +147,57 @@ def ease(cur, target, k):
     return cur + (target - cur) * k
 
 
+def spring(x, v, target, w, dt):
+    """One exact step of a critically damped spring (w: 1/s): (x, v) after dt.
+    It keeps its speed, so a glide starts and ends softly — an ease that jumps
+    a share of the way each frame starts at full speed (a jerk on a new mood)."""
+    e = x - target
+    c = v + w * e
+    k = math.exp(-w * dt)
+    return target + (e + c * dt) * k, (c - w * (e + c * dt)) * k
+
+
+class Springs:
+    """Named values (numbers or tuples) on springs; a new name starts at its target."""
+
+    def __init__(self):
+        self.x, self.v = {}, {}
+
+    def step(self, key, target, w, dt):
+        dt = max(0.0, min(dt, 0.5))
+        if key not in self.x:
+            self.x[key] = target
+            self.v[key] = tuple(0.0 for _ in target) if isinstance(target, tuple) else 0.0
+            return target
+        x, v = self.x[key], self.v[key]
+        if isinstance(target, tuple):
+            pairs = [spring(a, b, t, w, dt) for a, b, t in zip(x, v, target)]
+            self.x[key] = tuple(p[0] for p in pairs)
+            self.v[key] = tuple(p[1] for p in pairs)
+        else:
+            self.x[key], self.v[key] = spring(x, v, target, w, dt)
+        return self.x[key]
+
+
 class Eased:
-    """The settings on screen: they glide toward the mood's, at the same
-    speed whatever the frame rate (8 fps asleep, 30 awake). The mouth's kind
+    """The settings on screen: they glide toward the mood's on springs, the
+    same whatever the frame rate (8 fps asleep, 30 awake). The mouth's kind
     can't glide — it fades out, switches, and fades back in."""
-    RATE = 9.0                     # 1/s: ~90 % of the way in a quarter second
+    RATE = 14.0                    # the springs' 1/s: ~90 % of the way in 0.28 s
 
     def __init__(self):
         self.cur = dict(BASE)
+        self.springs = Springs()
+        for key, val in BASE.items():
+            self.springs.step(key, val, self.RATE, 0.0)
         self.mouth = LINE
         self.mouth_fade = 1.0
 
     def step(self, target, dt):
-        k = 1.0 - math.exp(-self.RATE * max(0.0, min(dt, 0.25)))
         for key, val in target.items():
             if key == "mouth":
                 continue
-            self.cur[key] = ease(self.cur[key], val, k)
+            self.cur[key] = self.springs.step(key, val, self.RATE, dt)
         want = target["mouth"]
         if want != self.mouth:
             self.mouth_fade = max(0.0, self.mouth_fade - dt * 8.0)

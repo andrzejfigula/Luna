@@ -31,6 +31,7 @@ os.environ.setdefault("SDL_AUDIODRIVER", "dummy")   # pygame must not open an au
 import pygame
 import math
 import random
+import threading
 import time
 import numpy as np
 from shared_state import state
@@ -130,6 +131,22 @@ STYLES = {
 # active style values (module globals so particles pick them up live)
 CURRENT_STYLE = 1
 _HAND_CACHE = {}   # rendered hand images per (pose, side); cleared on style change
+_HAND_GEN = [0]    # …and which style they are for (the warm-up thread checks it)
+HAND_POSES = ("open", "thumb", "thumb_down", "fist", "point", "ok", "scissors")
+
+
+def _warm_hands(gen):
+    """Every hand pose built in the background, a few seconds after start."""
+    time.sleep(4.0)
+    for pose in HAND_POSES:
+        for side in ("R", "L"):
+            if _HAND_GEN[0] != gen:
+                return
+            try:
+                hand_surface(pose, side)
+            except Exception as e:
+                print(f"[face] hand warm-up: {e}", flush=True)
+                return
 
 
 def apply_style(n):
@@ -175,6 +192,10 @@ def apply_style(n):
     HAND_GRAD_TOP    = s.get("HAND_GRAD_TOP", EYE_INNER)
     HAND_GRAD_BOTTOM = s.get("HAND_GRAD_BOTTOM", EYE_OUTER)
     _HAND_CACHE.clear()
+    _HAND_GEN[0] += 1
+    if HANDS:                 # (built on first use they cost a frame ~250 ms: a hitch)
+        threading.Thread(target=_warm_hands, args=(_HAND_GEN[0],), daemon=True,
+                         name="hands").start()
     _GLOW_CACHE.clear()   # cached glows are per-palette
     _GRAD_CACHE.clear()
     print(f"[face] Style {n} ({s['name']}) active")
@@ -1336,6 +1357,10 @@ def hand_surface(pose, side):
     s = _HAND_CACHE.get(key)
     if s is not None:
         return s
+    if side == "L":                           # the right one, mirrored (half the work)
+        s = pygame.transform.flip(hand_surface(pose, "R"), True, False)
+        _HAND_CACHE[key] = s
+        return s
     S, K, P = 1.6, 3, 16                      # hand scale, supersampling, padding (px)
     W_, H_ = int(120 * S), int(150 * S)
     big = pygame.Surface(((W_ + 2 * P) * K, (H_ + 2 * P) * K), pygame.SRCALPHA)
@@ -1412,8 +1437,6 @@ def hand_surface(pose, side):
     s = pygame.transform.smoothscale(out, (BW // K, BH // K))
     if pose == "thumb_down":
         s = pygame.transform.flip(s, False, True)
-    if side == "L":
-        s = pygame.transform.flip(s, True, False)
     _HAND_CACHE[key] = s
     return s
 

@@ -144,6 +144,11 @@ float hash(vec2 p) {
     return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
 }
 
+// the dither's noise: interleaved gradient noise (no sin — every pixel, every frame)
+float ign(vec2 p) {
+    return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715))));
+}
+
 // the "glitch" scene: a few bands of rows slide sideways
 float glitchShift(float y) {
     if (uGlitch.x < 0.5) return 0.0;
@@ -218,16 +223,29 @@ float sdSquircle(vec2 q, vec2 b, float n) {
     return (f - 1.0) * min(b.x, b.y) * (0.75 + 0.25 * min(b.x, b.y) / max(b.x, b.y));
 }
 
-float gSq;                    // eyeSDF's last squircle: the eye's whole open shape
+float gSq;                    // eyeSDF's last squircle: the eye's whole open shape…
+vec2 gSqG;                    // …its outward direction
+vec2 gEyeG;                   // …and the whole eye's (lids too; not the heart's)
 
 float eyeSDF(vec2 q, vec4 e, vec4 la, vec4 lb, float side) {
     vec2 b = e.zw * 0.5;
-    float d = sdSquircle(q, b, mix(lb.w, 2.0, uMorph.z));       // round when surprised
+    // the squircle, and its gradient on the way (no extra evaluations)
+    float n = mix(lb.w, 2.0, uMorph.z);                         // round when surprised
+    vec2 a = max(abs(q) / b, vec2(1e-4));
+    vec2 an = pow(a, vec2(n));
+    float f = pow(an.x + an.y, 1.0 / n);
+    float d = (f - 1.0) * min(b.x, b.y) * (0.75 + 0.25 * min(b.x, b.y) / max(b.x, b.y));
     gSq = d;
+    gSqG = normalize(sign(q) * an / (a * b) + 1e-6);
+    gEyeG = gSqG;
     vec2 t = lidTop(q.x, b, la, side);
-    d = max(d, (t.x - q.y) / sqrt(1.0 + t.y * t.y));
+    float lt = inversesqrt(1.0 + t.y * t.y);
+    float dt = (t.x - q.y) * lt;
+    if (dt > d) { d = dt; gEyeG = vec2(t.y, -1.0) * lt; }
     vec2 u = lidBot(q.x, b, la, lb);
-    d = max(d, (q.y - u.x) / sqrt(1.0 + u.y * u.y));
+    float lu = inversesqrt(1.0 + u.y * u.y);
+    float du = (q.y - u.x) * lu;
+    if (du > d) { d = du; gEyeG = vec2(-u.y, 1.0) * lu; }
     if (uMorph.x > 0.001) {                         // love: the eye becomes a heart
         float s = min(b.x / 0.64, 2.0 * b.y / 1.12);
         float heart = sdHeart(vec2(q.x, 0.56 * s - q.y) / s) * s;
@@ -263,10 +281,9 @@ vec3 eyeColour(vec2 q, vec2 b, float d, float df, vec2 look, vec4 la, float side
     float lidded = smoothstep(0.02, 0.12, la.x) * (1.0 - uMorph.x);   // (hearts have no lids)
     col *= 1.0 - 0.32 * lidded * exp(-max(q.y - t.x, 0.0) / (0.16 * b.y));
     // thick glass (its outline, not the lids): inside the rim a shaded band,
-    // deeper at the top, and low down a faint line of light bent through it
+    // deeper at the top
     float din = max(-df, 0.0);
     col *= 1.0 - 0.38 * exp(-din / 3.0) * mix(1.0, 0.5, v);
-    col += mix(top, uShine, 0.5) * 0.16 * exp(-sq((din - 6.0) / 2.5)) * smoothstep(0.50, 1.0, v);
     // light caught along the side walls, and pooled low in the middle
     col += top * 0.20 * exp(-sq((din - 9.0) / 5.0)) * smoothstep(0.4, 1.0, abs(q.x) / b.x)
            * smoothstep(0.1, 0.5, v);
@@ -275,13 +292,7 @@ vec3 eyeColour(vec2 q, vec2 b, float d, float df, vec2 look, vec4 la, float side
     // glass: a soft highlight up and to the left, drifting against the gaze
     vec2 gq = q + look * 0.22;
     vec2 hp = (gq - vec2(-0.38 * b.x, -0.58 * b.y)) / vec2(0.32 * b.x, 0.14 * b.y);
-    col = mix(col, uShine, 0.42 * exp(-dot(hp, hp) * 1.6) * (1.0 - 0.7 * lidded));
-    // …and a crisp window reflection in it, bent over the dome
-    vec2 wq = gq - vec2(-0.50 * b.x, -0.50 * b.y);
-    wq = vec2(0.94 * wq.x + 0.34 * wq.y, -0.34 * wq.x + 0.94 * wq.y);
-    wq.y -= 0.9 * wq.x * wq.x / b.x;
-    float win = sdRoundBox(wq, vec2(0.17 * b.x, 0.045 * b.y + 2.0), 0.045 * b.y + 2.0);
-    col = mix(col, uShine, 0.55 * smoothstep(1.2, -1.2, win) * (1.0 - lidded) * (1.0 - uMorph.x));
+    col = mix(col, uShine, 0.50 * exp(-dot(hp, hp) * 1.6) * (1.0 - 0.7 * lidded));
     // light coming through the glass: the lower edge glows
     col += bot * 0.28 * exp(min(d, 0.0) / 7.0) * smoothstep(0.55, 1.0, v);
     return col;
@@ -350,14 +361,30 @@ float browSDF(vec2 p, vec4 s, float bend) {
     return sdSeg(pp, s.xy, s.zw) - uBrowK.z * 0.5 * taper;
 }
 
+// the frame round the glass: a dark tube, lit on top, its outer edge rim-lit
+vec3 frameColour(vec2 q, vec2 b, float df, float bw, vec2 gf) {
+    vec3 top = mix(uTop, uTint, uTintAmt);
+    float t = clamp(-df / bw, 0.0, 1.0);
+    vec3 fr = lit(mix(uBottom, uTint, uTintAmt) * 0.17 + vec3(0.022, 0.014, 0.008),
+                  gf * (1.0 - 2.0 * t), 0.0, 1.0, vec2(0.0));
+    fr += mix(top, uShine, 0.35) * 0.35 * exp(-sq((df + 1.0) / 0.8))
+          * (0.55 + 0.45 * abs(q.y) / b.y);
+    fr += mix(top, uShine, 0.4) * 0.30 * exp(-sq((t - 0.38) / 0.16))   // its round top
+          * smoothstep(0.2, -0.9, q.y / b.y);
+    fr *= mix(1.0, 0.55, smoothstep(0.6, 1.0, t));   // the glass's edge sinks into it
+    return fr * uDim;
+}
+
 // one eye over `col`; its glow is added to `glow`
 vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 pu,
              float side) {
     vec2 b = e.zw * 0.5;
     vec2 q = eyeLocal(p, e, lb, side);
     if (uPass > 0.5 && (abs(q.x) > b.x + 10.0 || abs(q.y) > b.y + 10.0)) return col;
+    if (length(max(abs(q) - b, 0.0)) > 220.0) return col;      // (its glow: gone by here)
     float d = eyeSDF(q, e, la, lb, side);
     float df = gSq;
+    vec2 eg = gEyeG, sg = gSqG;
     float ds = lb.y > 0.01 ? seamSDF(q, e, la, lb, side) : 1e5;
     float sa = lb.y * (1.0 - uMorph.x);
     if (uPass < 0.5) {
@@ -386,12 +413,18 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
         gA = groove;
         return col * (1.0 - groove);
     }
+    if (df < -0.5 && dgl > 0.5 && bw >= 1.0 && max(a, ask) >= 1.0) {
+        gA = 1.0;                         // all frame here: the glass under it unseen
+        return frameColour(q, b, df, bw, sg);
+    }
     vec3 c = eyeColour(q, b, d, dgl, pu.xy, la, side);
     // its volume: a bevel round the edge (lids too), a dome over the middle
     vec2 g = vec2(0.0);                   // (only the bevel needs the edge's direction)
     if (d > -16.0)
-        g = normalize(vec2(eyeSDF(q + vec2(1.0, 0.0), e, la, lb, side) - d,
-                           eyeSDF(q + vec2(0.0, 1.0), e, la, lb, side) - d) + 1e-6);
+        g = uMorph.x > 0.001                  // (a heart: by differences)
+            ? normalize(vec2(eyeSDF(q + vec2(1.0, 0.0), e, la, lb, side) - d,
+                             eyeSDF(q + vec2(0.0, 1.0), e, la, lb, side) - d) + 1e-6)
+            : eg;
     c = lit(c, g, d, 16.0, q / b * 0.30);
     c = drawIris(q, c, pu);
     if (uBrowK.w > 0.01) {                // the brow's soft shadow, falling down onto it
@@ -440,10 +473,7 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
     float A = 0.0;
     float fa = clamp(0.5 - df, 0.0, 1.0) * clamp(0.5 + dgl, 0.0, 1.0) * max(a, ask)
                * step(1.0, bw);
-    vec2 gf = vec2(0.0);
-    if ((ask > 0.0 || fa > 0.0) && df > -16.0)
-        gf = normalize(vec2(sdSquircle(q + vec2(1.0, 0.0), b, mix(lb.w, 2.0, uMorph.z)) - df,
-                            sdSquircle(q + vec2(0.0, 1.0), b, mix(lb.w, 2.0, uMorph.z)) - df) + 1e-6);
+    vec2 gf = df > -16.0 ? sg : vec2(0.0);
     if (ask > 0.0) {
         vec3 sk = lit(mix(uBottom, uTint, uTintAmt) * 0.20 + vec3(0.025, 0.018, 0.012),
                       gf, df, 14.0, q / b * 0.45);
@@ -460,16 +490,8 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
     A = as_ + A * (1.0 - as_);
     P = c * a + P * (1.0 - a);
     A = a + A * (1.0 - a);
-    if (fa > 0.0) {                       // the frame: a tube, its outer edge rim-lit
-        float t = clamp(-df / bw, 0.0, 1.0);
-        vec3 fr = lit(mix(uBottom, uTint, uTintAmt) * 0.17 + vec3(0.022, 0.014, 0.008),
-                      gf * (1.0 - 2.0 * t), 0.0, 1.0, vec2(0.0));
-        fr += mix(top, uShine, 0.35) * 0.35 * exp(-sq((df + 1.0) / 0.8))
-              * (0.55 + 0.45 * abs(q.y) / b.y);
-        fr += mix(top, uShine, 0.4) * 0.30 * exp(-sq((t - 0.38) / 0.16))   // its round top
-              * smoothstep(0.2, -0.9, q.y / b.y);
-        fr *= mix(1.0, 0.55, smoothstep(0.6, 1.0, t));   // the glass's edge sinks into it
-        fr *= uDim;
+    if (fa > 0.0) {
+        vec3 fr = frameColour(q, b, df, bw, gf);
         P = fr * fa + P * (1.0 - fa);
         A = fa + A * (1.0 - fa);
     }
@@ -628,6 +650,7 @@ float eyeShadow(vec2 p, vec4 e, vec4 la, vec4 lb, float side) {
     if (e.w < 8.0) return 0.0;
     vec2 b = e.zw * 0.5;
     vec2 q = eyeLocal(p - vec2(0.0, 0.06 * e.w + 4.0), e, lb, side);
+    if (length(max(abs(q) - b, 0.0)) > 90.0) return 0.0;      // (too far to matter)
     float d = max(eyeSDF(q, e, la, lb, side), 0.0);
     float below = smoothstep(e.y - 0.2 * b.y, e.y + 0.9 * b.y, p.y);
     return (0.85 * exp(-d / 5.0) + 0.35 * exp(-d / 18.0)) * below;
@@ -702,7 +725,7 @@ void main() {
         gl_FragColor = vec4(col, 1.0);
     } else if (uPass < 1.5) {
         vec3 col = texture2D(uSoft, vec2(uv.x, 1.0 - uv.y)).rgb;   // (drawn bottom row first)
-        col += (hash(fc + fract(uTime)) - 0.5) / 255.0;            // dither: no banding
+        col += (ign(fc + 37.0 * fract(uTime * 7.0)) - 0.5) / 255.0;            // dither: no banding
         gl_FragColor = vec4(col, 1.0);
     } else if (uPass < 2.5) {
         // one shape, premultiplied: blended over what is there
@@ -749,7 +772,7 @@ void main() {
     vec2 uv = fc / uRes;
 #ifdef STRETCH
     vec3 col = texture2D(uSoft, vec2(uv.x, 1.0 - uv.y)).rgb;   // (drawn bottom row first)
-    col += (hash(fc + fract(uTime)) - 0.5) / 255.0;            // dither: no banding
+    col += (ign(fc + 37.0 * fract(uTime * 7.0)) - 0.5) / 255.0;            // dither: no banding
     gl_FragColor = vec4(col, 1.0);
 #else
     vec2 c0 = uRes * 0.5;
@@ -1537,6 +1560,8 @@ class GLFace:
         if googly:                                # big round googly eyes, nothing else
             target.update(COSTUME_SPEC["googly_eyes"])
         cur = self.eased.step(target, dt)
+        sm = getattr(self, "_sm", None) or face_spec.Springs()   # the last jumps, gliding
+        self._sm = sm
         life = getattr(self, "life", None) or _Life()
         self.life = life
         talking = face._speaking
@@ -1665,12 +1690,15 @@ class GLFace:
             fl = 1.0 + 0.12 * math.sin(now * 13.0) * math.sin(now * 7.3)
             u["uGlow"] = tuple(min(1.0, c * fl) for c in u["uGlow"])
         tint = face._eye_color
-        if tint and theme.get("tint"):            # listening: the theme's own tint, not amber
+        # (as strong as the pulse that makes it: a faint one, a faint tint)
+        lp = getattr(face, "listen_pulse", 0.0)
+        amt = 0.45 * min(1.0, max(lp, 0.5 * getattr(face, "awake_glow", 0.0),
+                                  getattr(face, "rest_pulse", 0.0))) if tint else 0.0
+        if tint and theme.get("tint") and lp > 0.05:   # listening: the theme's own tint
             tint = theme["tint"]
-        amt = 0.45 if tint else 0.0
         heat = cur["tint"] + 0.45 * face.angry_pulse          # angry: red, and pulsing
-        if heat > 0.01:
-            tint = rf.ANGRY_COL if not tint else tint
+        if heat > 0.01:                           # (red over the tint, by how angry)
+            tint = _lerp_col(tint or rf.ANGRY_COL, rf.ANGRY_COL, min(1.0, heat / (heat + amt)))
             amt = max(amt, heat)
         u["uTint"] = _rgb(tint or rf.EYE_GRAD_TOP)
         u["uTintAmt"] = min(0.85, amt)
@@ -1687,6 +1715,8 @@ class GLFace:
         brows = []
         asleep = emo == "sleeping"
         bshut, bspeed, settle = life.blink(now, face)
+        bspeed = max(0.0, sm.step("bspeed", bspeed, 45.0, dt))   # (no step between phases)
+        awake_k = sm.step("awake", 0.0 if asleep else 1.0, 6.0, dt)   # the lid skin fades in
         blinks = [0.0, 0.0]
         for i, (eye, side) in enumerate(((face.left_eye, -1), (face.right_eye, 1))):
             cx, cy = fcx + eye.rel_x, fcy + eye.rel_y + cur["eye_dy"]
@@ -1754,7 +1784,7 @@ class GLFace:
             top, bot = top + (1.0 - top) * 0.30 * sq, bot + (1.0 - bot) * 0.18 * sq
             top, bot = top * (1.0 - 0.7 * eye.widen), bot * (1.0 - 0.7 * eye.widen)
             # a blink: the lids meet ~60 % of the way down, their curves meet too
-            shut = 1.0 - max(0.0, min(1.0, eye.blink_t))
+            shut = sm.step(f"shut{i}", 1.0 - max(0.0, min(1.0, eye.blink_t)), 22.0, dt)
             if bshut is not None and not asleep:  # her own blink: timed by life.blink
                 shut = bshut
             shut = max(shut, life.lid(now, i))    # half blinks, slow blinks, a take
@@ -1768,7 +1798,7 @@ class GLFace:
             h *= 1.0 - 0.07 * shut + 0.025 * settle   # …and it springs back past open
             w *= 1.0 + 0.03 * shut
             top, bot = top * (1.0 - 0.35 * settle), bot * (1.0 - 0.35 * settle)
-            blinks[i] = 0.0 if asleep else shut
+            blinks[i] = shut * max(0.0, min(1.0, awake_k))
             open_ = max(0.0, 1.0 - top - bot)
             top, bot = top + shut * open_ * 0.62, bot + shut * open_ * 0.38
             mid = 0.5 * (bend + bbend)
@@ -1882,6 +1912,19 @@ class GLFace:
             if not getattr(self, "_vis_err", False):
                 self._vis_err = True
                 print(f"[vis] {e}", flush=True)
+        # a tint coming or going, dimming, the mouth (talking: open ↔ closed
+        # between words) — on springs, not in one frame
+        if u["uTintAmt"] < 0.01 and "uTint" in sm.x:
+            u["uTint"] = sm.x["uTint"]            # (fading out: keep its colour)
+        u["uTint"] = sm.step("uTint", u["uTint"], 10.0, dt)
+        u["uTintAmt"] = max(0.0, sm.step("uTintAmt", u["uTintAmt"], 10.0, dt))
+        u["uDim"] = sm.step("uDim", u["uDim"], 5.0, dt)
+        mx, my, mw, mh = sm.step("mouth", u["uMouth"], 30.0, dt)
+        bend, open_, alpha, kind = u["uMouthK"]
+        bend, open_, alpha = sm.step("mouthK", (bend, open_, alpha), 30.0, dt)
+        u["uMouth"] = (mx, my, max(1.0, mw), max(1.0, mh))
+        u["uMouthK"] = (bend, max(0.0, open_), max(0.0, min(1.0, alpha)), kind)
+        u["uMouthSlant"] = sm.step("slant", u["uMouthSlant"], 30.0, dt)
         self.shape_rects = self._shape_boxes(u)
         return u
 

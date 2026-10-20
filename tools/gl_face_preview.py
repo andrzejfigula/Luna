@@ -415,6 +415,10 @@ def main():
     import robot_face as rf
     import gl_face
     rf.apply_style(3)
+    clock = [1000.0]                            # (a fake clock: 1.5 s to settle each pose)
+    gl_face.time = type("T", (), {"monotonic": staticmethod(lambda: clock[0]),
+                                  "time": staticmethod(time.time),
+                                  "localtime": staticmethod(time.localtime)})()
     g = gl_face.GLFace(W, H)
     g.target_fbo = fbo                          # not a window: the offscreen one
     face = FakeFace(rf)
@@ -423,6 +427,7 @@ def main():
     for name, kw in POSES:
         face.pose(**kw)
         for _ in range(30):                     # let the eased shapes settle
+            clock[0] += 0.05
             u = g.face_uniforms(face, rf, fcx, fcy)
         g.life.lids = []                        # (a still: no lid move caught halfway)
         u = g.face_uniforms(face, rf, fcx, fcy)
@@ -438,6 +443,7 @@ def main():
     pygame.draw.rect(layer, (0, 0, 0, 170), pygame.Rect(0, H - 60, W, 60))
     face.pose(emotion="happy", blush=150)
     for _ in range(30):                         # (the eased shapes settle)
+        clock[0] += 0.05
         u = g.face_uniforms(face, rf, fcx, fcy)
     has = g.upload_layer(layer)
     g.render(u, has_layer=has)

@@ -2,7 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 20 października ==
-- Oczy mają więcej głębi (siedzą w oprawie, grubsze szkło, odbicie okna), a mrugnięcie jest prawdziwe: powieka szybko opada, chwilę trzyma i wolniej się podnosi.
+- Oczy mają więcej głębi (siedzą w oprawie, grubsze szkło, odbicie okna), a mrugnięcie jest prawdziwe: powieka szybko opada, chwilę trzyma i wolniej się podnosi. Zmiany minek, kolor przy słuchaniu i usta przy mówieniu przechodzą płynnie, bez przeskoków.
 
 == 19 października ==
 - Motywy w ustawieniach (Ekran → Motyw): Ice (czyt. "ajs") — prostokątne lodowe oczy, brwi i usta, krzywy uśmieszek i sarkazm jak dr House, woła się go "Ice"; HAL 9000 — czerwone oko, spokojny, groźny głos i fala głosu zamiast ust, woła się go "HAL". "Luna" zawsze działa.
