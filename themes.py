@@ -76,7 +76,7 @@ THEMES = {
         "name": "HAL", "call": "HAL", "male": True,
         "hello": "Dzień dobry. Jestem HAL 9000. Wszystkie moje systemy działają bez zarzutu.",
         "wake": ["hal", "hej hal", "hal dziewięć tysięcy", "hal 9000", "hal9000"],
-        "voice": "onyx", "fx": "robot",    # tts_fx: monotone, 1.2× faster, metallic
+        "voice": "onyx", "fx": "robot",    # tts_fx: monotone, deep, 1.2× faster, distorted
         "tts": ("Voice identity: a calm male computer voice, polite and quietly "
                 "unsettling. A completely flat monotone, like a robot: the same pitch "
                 "on every syllable, no rise for questions, no emotion. Brisk, even, "

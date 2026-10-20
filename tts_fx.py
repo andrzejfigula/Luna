@@ -3,9 +3,11 @@ tts_fx.py — a theme's voice changed on the Pi, as it streams (themes.py "fx").
 
   "robot" (HAL) — monotone and faster: each 32 ms frame rebuilt with zero
                   phase every 10 ms (the classic "robotization": one steady
-                  100 Hz buzz instead of the voice's melody), read TEMPO× faster
+                  75 Hz buzz instead of the voice's melody, its resonances
+                  moved down by FORMANT: a bigger machine), read TEMPO× faster
                   than it is written; then a metallic comb (a short echo feeding
-                  back: a ringing tube) and a light ring modulator
+                  back: a ringing tube), a light ring modulator, an overdrive
+                  (DRIVE) and a bit crusher (CRUSH bits)
   "deep"  (Ice) — pitch down, TEMPO× faster: WSOLA squeezes the time by
                   PITCH·TEMPO (overlapping 40 ms pieces, each placed where it
                   matches best), then resampling stretches it by PITCH, lower.
@@ -21,8 +23,9 @@ import numpy as np
 
 RATE = 24000
 PRESETS = {
-    "robot": {"robot_hz": 100.0, "tempo": 1.2,
-              "comb_ms": 4.5, "feedback": 0.4, "ring_hz": 52.0, "ring": 0.15},
+    "robot": {"robot_hz": 75.0, "formant": 1.15, "tempo": 1.2,
+              "comb_ms": 4.5, "feedback": 0.4, "ring_hz": 52.0, "ring": 0.15,
+              "drive": 2.5, "crush": 8},
     "deep": {"pitch": 1.3, "tempo": 1.2},     # ~4.5 semitones down, 20% faster
 }
 N, HS, SEEK = 960, 480, 240        # WSOLA: piece, output hop, search ±10 ms
@@ -85,7 +88,11 @@ class Chain:
             if at + RN > end:
                 break
             fr = self.rbuf[at - self.rbase:at - self.rbase + RN] * _RWIN
-            y = np.fft.fftshift(np.fft.irfft(np.abs(np.fft.rfft(fr)), RN)) * _RWIN
+            mag = np.abs(np.fft.rfft(fr))
+            if self.p.get("formant", 1.0) != 1.0:   # bin k takes what was at k·FORMANT
+                k = np.arange(mag.size)
+                mag = np.interp(k * self.p["formant"], k, mag, right=0.0)
+            y = np.fft.fftshift(np.fft.irfft(mag, RN)) * _RWIN
             self.rola += y.astype(np.float32) * (1.4 * hs / (RN * 0.375))   # Hann² overlap = 1; a buzz sounds quieter
             out.append(self.rola[:hs].copy())
             self.rola = np.concatenate([self.rola[hs:], np.zeros(hs, np.float32)])
@@ -110,7 +117,12 @@ class Chain:
         self.n += x.size
         m = self.p["ring"]
         y = y * ((1 - m) + m * np.sin(2 * np.pi * self.p["ring_hz"] * t))
-        return 30000 * np.tanh(y / 30000)           # soft, never a hard clip
+        dr = self.p.get("drive", 1.0)               # overdrive: soft, never a hard clip
+        y = 22000 * np.tanh(dr * y / 30000) / np.tanh(dr)    # (louder when driven: kept level)
+        if self.p.get("crush"):
+            q = 32768 / 2 ** (self.p["crush"] - 1)  # fewer levels: a gritty, digital edge
+            y = np.round(y / q) * q
+        return y
 
     def _wsola(self, x):
         """Shorter by PITCH·TEMPO, same pitch: 50%-overlapped Hann pieces taken
