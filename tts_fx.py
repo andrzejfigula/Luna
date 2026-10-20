@@ -6,9 +6,9 @@ tts_fx.py — a theme's voice changed on the Pi, as it streams (themes.py "fx").
                   100 Hz buzz instead of the voice's melody), read TEMPO× faster
                   than it is written; then a metallic comb (a short echo feeding
                   back: a ringing tube) and a light ring modulator
-  "deep"  (Ice) — pitch down at the same pace: WSOLA squeezes the time by
-                  PITCH (overlapping 40 ms pieces, each placed where it
-                  matches best), then resampling stretches it back lower.
+  "deep"  (Ice) — pitch down, TEMPO× faster: WSOLA squeezes the time by
+                  PITCH·TEMPO (overlapping 40 ms pieces, each placed where it
+                  matches best), then resampling stretches it by PITCH, lower.
                   (Asking the voice for a faster speed and stretching does
                   not work: 20 Oct, speed 1.1 and 1.28 gave the same length.)
 
@@ -23,7 +23,7 @@ RATE = 24000
 PRESETS = {
     "robot": {"robot_hz": 100.0, "tempo": 1.2,
               "comb_ms": 4.5, "feedback": 0.4, "ring_hz": 52.0, "ring": 0.15},
-    "deep": {"pitch": 1.16},       # ~2.5 semitones down
+    "deep": {"pitch": 1.3, "tempo": 1.2},     # ~4.5 semitones down, 20% faster
 }
 N, HS, SEEK = 960, 480, 240        # WSOLA: piece, output hop, search ±10 ms
 _WIN = (0.5 - 0.5 * np.cos(2 * np.pi * np.arange(N) / N)).astype(np.float32)
@@ -58,7 +58,8 @@ class Chain:
 
     def flush(self):
         if "pitch" in self.p:
-            return self._run(np.zeros(N + 2 * SEEK + int(HS * self.p["pitch"]), np.float32))
+            ha = HS * self.p["pitch"] * self.p.get("tempo", 1.0)
+            return self._run(np.zeros(N + 2 * SEEK + int(ha), np.float32))
         if "robot_hz" in self.p:
             return self._run(np.zeros(RN + int(RATE / self.p["robot_hz"] * 2), np.float32))
         return b""
@@ -112,9 +113,9 @@ class Chain:
         return 30000 * np.tanh(y / 30000)           # soft, never a hard clip
 
     def _wsola(self, x):
-        """Shorter by PITCH, same pitch: 50%-overlapped Hann pieces taken
-        every HS·PITCH input samples, each nudged ±SEEK to continue the last."""
-        ha = HS * self.p["pitch"]
+        """Shorter by PITCH·TEMPO, same pitch: 50%-overlapped Hann pieces taken
+        every HS·PITCH·TEMPO input samples, each nudged ±SEEK to continue the last."""
+        ha = HS * self.p["pitch"] * self.p.get("tempo", 1.0)
         self.ibuf = np.concatenate([self.ibuf, x])
         end, out = self.ibase + self.ibuf.size, []
         while True:

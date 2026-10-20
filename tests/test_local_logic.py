@@ -7324,7 +7324,7 @@ class ThemesTest(unittest.TestCase):
         self.assertLess(np.abs(robot).max(), 30001)
         deep = run("deep")
         k = tts_fx.PRESETS["deep"]["pitch"]
-        self.assertAlmostEqual(deep.size / 24000, 1.0, delta=0.08)  # the same pace
+        self.assertAlmostEqual(deep.size / 24000, 1 / 1.2, delta=0.06)  # Ice 1.2× faster
         zc = np.sum(np.diff(deep[1000:-1000] > 0) != 0) / 2 / ((deep.size - 2000) / 24000)
         self.assertAlmostEqual(zc, 200 / k, delta=3)  # the pitch is lower
         self.assertEqual(b"".join(tts_fx.wrap([tone[:5000], tone[5000:]], None)), tone)

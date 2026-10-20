@@ -32,7 +32,7 @@ THEMES = {
         "hello": "Ice. Nie, nie podam ręki. Mów, co cię boli, i nie kłam.",
         # (said "ajs": the transcriber writes either spelling)
         "wake": ["ice", "ajs", "ajsie", "hej ice", "hej ajs"],
-        "voice": "cedar", "speed": 1.1, "fx": "deep",     # tts_fx: lower, same pace
+        "voice": "cedar", "speed": 1.1, "fx": "deep",     # tts_fx: lower, 1.2× faster
         "tts": ("Voice identity: a tired, dry, sardonic man in his late forties, "
                 "low and slightly raspy. Deadpan delivery, unimpressed, a hint of a "
                 "smirk on the punchlines, short pauses before the sarcastic bit. "
