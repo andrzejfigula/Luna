@@ -3,7 +3,7 @@ tts_fx.py — a theme's voice changed on the Pi, as it streams (themes.py "fx").
 
   "robot" (HAL) — monotone and faster: each 32 ms frame rebuilt with zero
                   phase every 10 ms (the classic "robotization": one steady
-                  75 Hz buzz instead of the voice's melody, its resonances
+                  60 Hz buzz instead of the voice's melody, its resonances
                   moved down by FORMANT: a bigger machine), read TEMPO× faster
                   than it is written; then a metallic comb (a short echo feeding
                   back: a ringing tube), a light ring modulator, an overdrive
@@ -23,7 +23,7 @@ import numpy as np
 
 RATE = 24000
 PRESETS = {
-    "robot": {"robot_hz": 75.0, "formant": 1.15, "tempo": 1.2,
+    "robot": {"robot_hz": 60.0, "formant": 1.27, "tempo": 1.2,
               "comb_ms": 4.5, "feedback": 0.4, "ring_hz": 52.0, "ring": 0.15,
               "drive": 2.5, "crush": 8},
     "deep": {"pitch": 1.3, "tempo": 1.2},     # ~4.5 semitones down, 20% faster

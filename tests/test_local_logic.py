@@ -7319,7 +7319,8 @@ class ThemesTest(unittest.TestCase):
         for k in range(1, 3):
             seg = out[k * 6000:(k + 1) * 6000] - out[k * 6000:(k + 1) * 6000].mean()
             ac = np.correlate(seg, seg, "full")[seg.size:]
-            self.assertIn(round(24000 / (np.argmax(ac[100:400]) + 100)), (75, 150))
+            hz = tts_fx.PRESETS["robot"]["robot_hz"]
+            self.assertIn(round(24000 / (np.argmax(ac[100:450]) + 100)), (hz, 2 * hz))
         self.assertGreater(np.abs(robot).max(), 3000)  # still loud, never clipped hard
         self.assertLess(np.abs(robot).max(), 30001)
         deep = run("deep")
