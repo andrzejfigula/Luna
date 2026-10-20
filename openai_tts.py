@@ -31,6 +31,7 @@ import numpy as np
 
 import settings
 import themes
+import tts_fx
 from voicecheck import pitch
 
 from openai import OpenAI
@@ -78,7 +79,9 @@ def speech_speed():
     by = settings.get("tts_speed_by", {}) or {}
     v = by.get(who) or settings.get("tts_speed", OPENAI_TTS_SPEED)
     th = themes.get()
-    return round(v * th["speed"] / OPENAI_TTS_SPEED, 2) if th.get("speed") else v
+    if th.get("speed"):
+        v = v * th["speed"] / OPENAI_TTS_SPEED
+    return round(v * tts_fx.speed_factor(th.get("fx")), 2)   # Ice: stretched back here
 
 
 def voice_kwargs(style=""):
@@ -115,7 +118,8 @@ def _cache_dir():
 def _cache_key(text, kwargs):
     import hashlib
     blob = json.dumps([text, kwargs.get("model"), kwargs.get("voice"), kwargs.get("speed"),
-                       kwargs.get("instructions", "")], ensure_ascii=False)
+                       kwargs.get("instructions", ""), themes.get().get("fx")],
+                      ensure_ascii=False)
     return hashlib.sha1(blob.encode("utf-8")).hexdigest()
 
 
@@ -427,9 +431,13 @@ class OpenAITTS:
                       flush=True)
                 stream.close()
                 continue
+            fx = tts_fx.Chain(themes.get().get("fx"))      # HAL's robot, Ice's depth
             if pcm:
-                yield pcm
-            yield from stream
+                yield fx.process(pcm)
+            for chunk in stream:
+                out = fx.process(chunk)
+                if out:
+                    yield out
             return
 
     def _tts_kwargs(self, style):
@@ -605,8 +613,9 @@ class OpenAITTS:
             if leadin:
                 envelope.feed(leadin)
 
+            fx = tts_fx.Chain(themes.get().get("fx"))
             with self._client.audio.speech.with_streaming_response.create(**kwargs) as resp:
-                for chunk in resp.iter_bytes(chunk_size=TTS_READ_BYTES):
+                for chunk in map(fx.process, resp.iter_bytes(chunk_size=TTS_READ_BYTES)):
                     if self._cut.is_set():
                         break                      # tapped: stop downloading
                     if not chunk:

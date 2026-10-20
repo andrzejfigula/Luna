@@ -7294,6 +7294,32 @@ class ThemesTest(unittest.TestCase):
         self.assertEqual(themes.persona_line(), "")
         self.assertGreater(openai_tts.deep_hz(), 0)
 
+    def test_voice_fx(self):
+        import numpy as np
+        import themes
+        import tts_fx
+        self.assertEqual(themes.THEMES["hal"]["fx"], "robot")
+        self.assertEqual(themes.THEMES["ice"]["fx"], "deep")
+        t = np.arange(24000) / 24000
+        tone = (8000 * np.sin(2 * np.pi * 200 * t)).astype(np.int16).tobytes()
+
+        def run(name):                                 # in uneven chunks, like the stream
+            ch, out = tts_fx.Chain(name), b""
+            for i in range(0, len(tone), 4094):
+                out += ch.process(tone[i:i + 4094])
+            return np.frombuffer(out, np.int16).astype(np.float32)
+        self.assertEqual(tts_fx.Chain(None).process(tone), tone)   # Luna: untouched
+        robot = run("robot")
+        self.assertEqual(robot.size, 24000)
+        self.assertGreater(np.abs(robot).max(), 3000)  # still loud, never clipped hard
+        self.assertLess(np.abs(robot).max(), 30001)
+        deep = run("deep")
+        k = tts_fx.speed_factor("deep")
+        self.assertAlmostEqual(deep.size / 24000, k, delta=0.01)    # asked k× faster → same pace
+        zc = np.sum(np.diff(deep[1000:-1000] > 0) != 0) / 2 / ((deep.size - 2000) / 24000)
+        self.assertAlmostEqual(zc, 200 / k, delta=3)  # the pitch is lower
+        self.assertEqual(tts_fx.speed_factor("robot"), 1.0)
+
 
 # Off the Pi (Windows) the hardware / SDK modules are missing: those tests
 # skip instead of erroring, so the local quick run shows real failures only.

@@ -1,6 +1,9 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
+== 20 października ==
+- Głosy motywów: HAL brzmi jak prawdziwy komputer (metaliczny, robotyczny pogłos), a Ice ma niższy, głębszy głos — w tym samym tempie co dotąd.
+
 == 19 października ==
 - Motywy w ustawieniach (Ekran → Motyw): Ice (czyt. "ajs") — prostokątne lodowe oczy, brwi i usta, krzywy uśmieszek i sarkazm jak dr House, woła się go "Ice"; HAL 9000 — czerwone oko, spokojny, groźny głos i fala głosu zamiast ust, woła się go "HAL". "Luna" zawsze działa.
 - Plan tygodnia dla każdego: „pokaż plan tygodnia” (albo „pokaż plan Mai”) otwiera ekran z dniami i osobami. Dotknij „+ Dodaj” i powiedz np. „Maja, angielski, od poniedziałku do piątku o siedemnastej” — albo od razu „dodaj do planu: …”. Dotknięcie wpisu pozwala zmienić dni, godzinę, przypomnienie (ile minut wcześniej, komu, czy mówić też, gdy nikogo nie ma) albo go usunąć. Luna sama przypomni, gdy zobaczy tę osobę.

@@ -5,7 +5,8 @@ page (Ekran → Motyw). A theme changes four things at once:
   the face       — gl_face lays THEMES[..]["eyes"] (shader uniforms: colours,
                    uSquare for square shapes) and ["spec"] / ["spec_add"] (face_spec
                    shape) over the style's; ["mouth"] shapes the mouth (_mouth)
-  the voice      — openai_tts: ["voice"], ["tts"] (instructions), ["speed"]
+  the voice      — openai_tts: ["voice"], ["tts"] (instructions), ["speed"],
+                   ["fx"] (tts_fx: HAL robotic, Ice deeper)
   the character  — brain adds ["persona"] at the end of the system prompt
   the wake word  — speech_to_text listens for ["wake"] too; "Luna" always
                    still wakes her, so nobody is locked out
@@ -31,7 +32,7 @@ THEMES = {
         "hello": "Ice. Nie, nie podam ręki. Mów, co cię boli, i nie kłam.",
         # (said "ajs": the transcriber writes either spelling)
         "wake": ["ice", "ajs", "ajsie", "hej ice", "hej ajs"],
-        "voice": "cedar", "speed": 1.1,
+        "voice": "cedar", "speed": 1.1, "fx": "deep",     # tts_fx: lower, same pace
         "tts": ("Voice identity: a tired, dry, sardonic man in his late forties, "
                 "low and slightly raspy. Deadpan delivery, unimpressed, a hint of a "
                 "smirk on the punchlines, short pauses before the sarcastic bit. "
@@ -75,7 +76,7 @@ THEMES = {
         "name": "HAL", "call": "HAL", "male": True,
         "hello": "Dzień dobry. Jestem HAL 9000. Wszystkie moje systemy działają bez zarzutu.",
         "wake": ["hal", "hej hal", "hal dziewięć tysięcy", "hal 9000", "hal9000"],
-        "voice": "onyx", "speed": 0.95,
+        "voice": "onyx", "speed": 0.95, "fx": "robot",    # tts_fx: metallic
         "tts": ("Voice identity: a calm, soft, perfectly even male computer voice, "
                 "polite and gentle, quietly unsettling. Slow measured pace, no "
                 "emotion in the pitch at all, every word precise. Native Polish "
