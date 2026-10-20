@@ -76,11 +76,11 @@ THEMES = {
         "name": "HAL", "call": "HAL", "male": True,
         "hello": "Dzień dobry. Jestem HAL 9000. Wszystkie moje systemy działają bez zarzutu.",
         "wake": ["hal", "hej hal", "hal dziewięć tysięcy", "hal 9000", "hal9000"],
-        "voice": "onyx", "speed": 0.95, "fx": "robot",    # tts_fx: metallic
-        "tts": ("Voice identity: a calm, soft, perfectly even male computer voice, "
-                "polite and gentle, quietly unsettling. Slow measured pace, no "
-                "emotion in the pitch at all, every word precise. Native Polish "
-                "pronunciation."),
+        "voice": "onyx", "fx": "robot",    # tts_fx: monotone, 1.2× faster, metallic
+        "tts": ("Voice identity: a calm male computer voice, polite and quietly "
+                "unsettling. A completely flat monotone, like a robot: the same pitch "
+                "on every syllable, no rise for questions, no emotion. Brisk, even, "
+                "mechanical pace, every word precise. Native Polish pronunciation."),
         "persona": (
             "CHARACTER RIGHT NOW (a theme the family picked on your settings page — "
             "it replaces your name, gender and PERSONALITY above; the facts about "

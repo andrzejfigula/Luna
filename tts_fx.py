@@ -1,8 +1,11 @@
 """
 tts_fx.py — a theme's voice changed on the Pi, as it streams (themes.py "fx").
 
-  "robot" (HAL) — a metallic comb (a short echo feeding back: a ringing
-                  tube) and a slow ring modulator; still easy to understand
+  "robot" (HAL) — monotone and faster: each 32 ms frame rebuilt with zero
+                  phase every 10 ms (the classic "robotization": one steady
+                  100 Hz buzz instead of the voice's melody), read TEMPO× faster
+                  than it is written; then a metallic comb (a short echo feeding
+                  back: a ringing tube) and a light ring modulator
   "deep"  (Ice) — pitch down at the same pace: WSOLA squeezes the time by
                   PITCH (overlapping 40 ms pieces, each placed where it
                   matches best), then resampling stretches it back lower.
@@ -18,11 +21,14 @@ import numpy as np
 
 RATE = 24000
 PRESETS = {
-    "robot": {"comb_ms": 4.5, "feedback": 0.55, "ring_hz": 52.0, "ring": 0.35},
+    "robot": {"robot_hz": 100.0, "tempo": 1.2,
+              "comb_ms": 4.5, "feedback": 0.4, "ring_hz": 52.0, "ring": 0.15},
     "deep": {"pitch": 1.16},       # ~2.5 semitones down
 }
 N, HS, SEEK = 960, 480, 240        # WSOLA: piece, output hop, search ±10 ms
 _WIN = (0.5 - 0.5 * np.cos(2 * np.pi * np.arange(N) / N)).astype(np.float32)
+RN = 768                           # robotization frame (32 ms)
+_RWIN = (0.5 - 0.5 * np.cos(2 * np.pi * np.arange(RN) / RN)).astype(np.float32)
 
 
 def preset(name):
@@ -40,6 +46,9 @@ class Chain:
         self.ibuf = np.zeros(0, np.float32)         # WSOLA input, from absolute ibase
         self.ibase, self.m, self.last = 0, 0, None
         self.ola = np.zeros(N, np.float32)
+        self.rbuf = np.zeros(0, np.float32)         # robotization input, from rbase
+        self.rbase, self.rk = 0, 0
+        self.rola = np.zeros(RN, np.float32)
 
     def process(self, pcm):
         if not self.p or not pcm:
@@ -48,19 +57,48 @@ class Chain:
         return self._run(a)
 
     def flush(self):
-        if "pitch" not in self.p:
-            return b""
-        return self._run(np.zeros(N + 2 * SEEK + int(HS * self.p["pitch"]), np.float32))
+        if "pitch" in self.p:
+            return self._run(np.zeros(N + 2 * SEEK + int(HS * self.p["pitch"]), np.float32))
+        if "robot_hz" in self.p:
+            return self._run(np.zeros(RN + int(RATE / self.p["robot_hz"] * 2), np.float32))
+        return b""
 
     def _run(self, a):
+        if "robot_hz" in self.p:
+            a = self._robotize(a)
         if "comb_ms" in self.p:
             a = self._robot(a)
         if "pitch" in self.p:
             a = self._stretch(self._wsola(a))
         return np.clip(a, -32768, 32767).astype(np.int16).tobytes()
 
+    def _robotize(self, x):
+        """Zero-phase frames laid every RATE/robot_hz samples: a flat buzz at
+        robot_hz shaped by the words; taken every hop·TEMPO input samples."""
+        hs = int(RATE / self.p["robot_hz"])
+        ha = hs * self.p.get("tempo", 1.0)
+        self.rbuf = np.concatenate([self.rbuf, x])
+        end, out = self.rbase + self.rbuf.size, []
+        while True:
+            at = int(round(self.rk * ha))
+            if at + RN > end:
+                break
+            fr = self.rbuf[at - self.rbase:at - self.rbase + RN] * _RWIN
+            y = np.fft.fftshift(np.fft.irfft(np.abs(np.fft.rfft(fr)), RN)) * _RWIN
+            self.rola += y.astype(np.float32) * (1.4 * hs / (RN * 0.375))   # Hann² overlap = 1; a buzz sounds quieter
+            out.append(self.rola[:hs].copy())
+            self.rola = np.concatenate([self.rola[hs:], np.zeros(hs, np.float32)])
+            self.rk += 1
+            keep = int(round(self.rk * ha))
+            if keep > self.rbase:
+                self.rbuf = self.rbuf[keep - self.rbase:]
+                self.rbase = keep
+        return np.concatenate(out) if out else np.zeros(0, np.float32)
+
     def _robot(self, x):
         g, d = self.p["feedback"], self.tail.size
+        if x.size == 0:
+            return x
         y = np.concatenate([self.tail, np.zeros(x.size, np.float32)])
         for i in range(0, x.size, d):               # y[n] = x[n] + g·y[n−d], d at a time
             j = min(i + d, x.size)
