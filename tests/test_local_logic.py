@@ -7307,6 +7307,7 @@ class ThemesTest(unittest.TestCase):
             ch, out = tts_fx.Chain(name), b""
             for i in range(0, len(tone), 4094):
                 out += ch.process(tone[i:i + 4094])
+            out += ch.flush()
             return np.frombuffer(out, np.int16).astype(np.float32)
         self.assertEqual(tts_fx.Chain(None).process(tone), tone)   # Luna: untouched
         robot = run("robot")
@@ -7314,11 +7315,11 @@ class ThemesTest(unittest.TestCase):
         self.assertGreater(np.abs(robot).max(), 3000)  # still loud, never clipped hard
         self.assertLess(np.abs(robot).max(), 30001)
         deep = run("deep")
-        k = tts_fx.speed_factor("deep")
-        self.assertAlmostEqual(deep.size / 24000, k, delta=0.01)    # asked k× faster → same pace
+        k = tts_fx.PRESETS["deep"]["pitch"]
+        self.assertAlmostEqual(deep.size / 24000, 1.0, delta=0.08)  # the same pace
         zc = np.sum(np.diff(deep[1000:-1000] > 0) != 0) / 2 / ((deep.size - 2000) / 24000)
         self.assertAlmostEqual(zc, 200 / k, delta=3)  # the pitch is lower
-        self.assertEqual(tts_fx.speed_factor("robot"), 1.0)
+        self.assertEqual(b"".join(tts_fx.wrap([tone[:5000], tone[5000:]], None)), tone)
 
 
 # Off the Pi (Windows) the hardware / SDK modules are missing: those tests

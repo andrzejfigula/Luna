@@ -79,9 +79,7 @@ def speech_speed():
     by = settings.get("tts_speed_by", {}) or {}
     v = by.get(who) or settings.get("tts_speed", OPENAI_TTS_SPEED)
     th = themes.get()
-    if th.get("speed"):
-        v = v * th["speed"] / OPENAI_TTS_SPEED
-    return round(v * tts_fx.speed_factor(th.get("fx")), 2)   # Ice: stretched back here
+    return round(v * th["speed"] / OPENAI_TTS_SPEED, 2) if th.get("speed") else v
 
 
 def voice_kwargs(style=""):
@@ -438,6 +436,9 @@ class OpenAITTS:
                 out = fx.process(chunk)
                 if out:
                     yield out
+            tail = fx.flush()                           # the effect's last ~60 ms
+            if tail and not self._cut.is_set():
+                yield tail
             return
 
     def _tts_kwargs(self, style):
@@ -613,9 +614,9 @@ class OpenAITTS:
             if leadin:
                 envelope.feed(leadin)
 
-            fx = tts_fx.Chain(themes.get().get("fx"))
             with self._client.audio.speech.with_streaming_response.create(**kwargs) as resp:
-                for chunk in map(fx.process, resp.iter_bytes(chunk_size=TTS_READ_BYTES)):
+                for chunk in tts_fx.wrap(resp.iter_bytes(chunk_size=TTS_READ_BYTES),
+                                         themes.get().get("fx")):
                     if self._cut.is_set():
                         break                      # tapped: stop downloading
                     if not chunk:

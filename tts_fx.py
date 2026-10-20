@@ -3,11 +3,15 @@ tts_fx.py — a theme's voice changed on the Pi, as it streams (themes.py "fx").
 
   "robot" (HAL) — a metallic comb (a short echo feeding back: a ringing
                   tube) and a slow ring modulator; still easy to understand
-  "deep"  (Ice) — pitch down without slowing: the line is asked for
-                  PITCH× faster (speed_factor) and stretched back here
+  "deep"  (Ice) — pitch down at the same pace: WSOLA squeezes the time by
+                  PITCH (overlapping 40 ms pieces, each placed where it
+                  matches best), then resampling stretches it back lower.
+                  (Asking the voice for a faster speed and stretching does
+                  not work: 20 Oct, speed 1.1 and 1.28 gave the same length.)
 
 Each spoken take gets a fresh Chain; process() takes 24 kHz s16 mono chunks of
-any size and keeps its state between them, so it runs on the stream itself.
+any size and keeps its state between them, so it runs on the stream itself;
+flush() returns what is still held back at the end of the take.
 """
 
 import numpy as np
@@ -17,16 +21,12 @@ PRESETS = {
     "robot": {"comb_ms": 4.5, "feedback": 0.55, "ring_hz": 52.0, "ring": 0.35},
     "deep": {"pitch": 1.16},       # ~2.5 semitones down
 }
+N, HS, SEEK = 960, 480, 240        # WSOLA: piece, output hop, search ±10 ms
+_WIN = (0.5 - 0.5 * np.cos(2 * np.pi * np.arange(N) / N)).astype(np.float32)
 
 
 def preset(name):
     return PRESETS.get(name or "")
-
-
-def speed_factor(name):
-    """How much faster to ask the voice for, so the stretch keeps the tempo."""
-    p = preset(name)
-    return p.get("pitch", 1.0) if p else 1.0
 
 
 class Chain:
@@ -35,17 +35,28 @@ class Chain:
         self.n = 0                                  # samples seen (ring phase)
         d = int(RATE * self.p.get("comb_ms", 0) / 1000)
         self.tail = np.zeros(d, np.float32)         # the comb's last d outputs
-        self.pos = 0.0                              # stretch: read position in prev+cur
+        self.pos = 0.0                              # stretch: read position in prev
         self.prev = np.zeros(0, np.float32)
+        self.ibuf = np.zeros(0, np.float32)         # WSOLA input, from absolute ibase
+        self.ibase, self.m, self.last = 0, 0, None
+        self.ola = np.zeros(N, np.float32)
 
     def process(self, pcm):
         if not self.p or not pcm:
             return pcm
         a = np.frombuffer(pcm[:len(pcm) // 2 * 2], np.int16).astype(np.float32)
+        return self._run(a)
+
+    def flush(self):
+        if "pitch" not in self.p:
+            return b""
+        return self._run(np.zeros(N + 2 * SEEK + int(HS * self.p["pitch"]), np.float32))
+
+    def _run(self, a):
         if "comb_ms" in self.p:
             a = self._robot(a)
         if "pitch" in self.p:
-            a = self._stretch(a)
+            a = self._stretch(self._wsola(a))
         return np.clip(a, -32768, 32767).astype(np.int16).tobytes()
 
     def _robot(self, x):
@@ -53,7 +64,7 @@ class Chain:
         y = np.concatenate([self.tail, np.zeros(x.size, np.float32)])
         for i in range(0, x.size, d):               # y[n] = x[n] + g·y[n−d], d at a time
             j = min(i + d, x.size)
-            y[d + i:d + j] = x[i:j] + g * y[i:i + j - i]
+            y[d + i:d + j] = x[i:j] + g * y[i:j]
         self.tail = y[-d:].copy()
         y = y[d:] * (1 - g) * 1.4                   # back to about the input's loudness
         t = (self.n + np.arange(x.size)) / RATE
@@ -61,6 +72,37 @@ class Chain:
         m = self.p["ring"]
         y = y * ((1 - m) + m * np.sin(2 * np.pi * self.p["ring_hz"] * t))
         return 30000 * np.tanh(y / 30000)           # soft, never a hard clip
+
+    def _wsola(self, x):
+        """Shorter by PITCH, same pitch: 50%-overlapped Hann pieces taken
+        every HS·PITCH input samples, each nudged ±SEEK to continue the last."""
+        ha = HS * self.p["pitch"]
+        self.ibuf = np.concatenate([self.ibuf, x])
+        end, out = self.ibase + self.ibuf.size, []
+        while True:
+            p = int(round(self.m * ha))
+            if p + SEEK + N > end:
+                break
+            b = self.ibase
+            if self.last is None:
+                at = p
+            else:
+                nat = self.last + HS                # where the last piece would go on
+                tpl = self.ibuf[nat - b:nat - b + HS]
+                lo = max(p - SEEK, b)
+                reg = self.ibuf[lo - b:p + SEEK + HS - b]
+                c = np.correlate(reg, tpl, "valid")
+                e = np.sqrt(np.convolve(reg * reg, np.ones(HS, np.float32), "valid")) + 1.0
+                at = lo + int(np.argmax(c / e))
+            self.ola += self.ibuf[at - b:at - b + N] * _WIN
+            out.append(self.ola[:HS].copy())
+            self.ola = np.concatenate([self.ola[HS:], np.zeros(HS, np.float32)])
+            self.last, self.m = at, self.m + 1
+            keep = min(int(round(self.m * ha)) - SEEK, at + HS)
+            if keep > self.ibase:                   # drop what no piece needs again
+                self.ibuf = self.ibuf[keep - self.ibase:]
+                self.ibase = keep
+        return np.concatenate(out) if out else np.zeros(0, np.float32)
 
     def _stretch(self, x):
         """Resample by 1/pitch (longer, lower) with linear interpolation,
@@ -82,12 +124,8 @@ class Chain:
 
 
 def wrap(chunks, name):
-    """The chunks of one take with the effect on (unchanged without one)."""
-    if not preset(name):
-        yield from chunks
-        return
+    """The chunks of one take with the effect on (as they come, then the tail)."""
     ch = Chain(name)
     for c in chunks:
-        out = ch.process(c)
-        if out:
-            yield out
+        yield ch.process(c)
+    yield ch.flush()
