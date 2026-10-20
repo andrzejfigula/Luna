@@ -265,8 +265,13 @@ vec3 eyeColour(vec2 q, vec2 b, float d, float df, vec2 look, vec4 la, float side
     // thick glass (its outline, not the lids): inside the rim a shaded band,
     // deeper at the top, and low down a faint line of light bent through it
     float din = max(-df, 0.0);
-    col *= 1.0 - 0.20 * exp(-din / 3.5) * mix(1.0, 0.4, v);
-    col += mix(top, uShine, 0.5) * 0.10 * exp(-sq((din - 7.0) / 2.5)) * smoothstep(0.55, 1.0, v);
+    col *= 1.0 - 0.38 * exp(-din / 3.0) * mix(1.0, 0.5, v);
+    col += mix(top, uShine, 0.5) * 0.16 * exp(-sq((din - 6.0) / 2.5)) * smoothstep(0.50, 1.0, v);
+    // light caught along the side walls, and pooled low in the middle
+    col += top * 0.20 * exp(-sq((din - 9.0) / 5.0)) * smoothstep(0.4, 1.0, abs(q.x) / b.x)
+           * smoothstep(0.1, 0.5, v);
+    vec2 pq_ = (q - vec2(0.0, 0.55 * b.y)) / vec2(0.75 * b.x, 0.38 * b.y);
+    col += mix(bot, top, 0.5) * 0.22 * exp(-dot(pq_, pq_));
     // glass: a soft highlight up and to the left, drifting against the gaze
     vec2 gq = q + look * 0.22;
     vec2 hp = (gq - vec2(-0.38 * b.x, -0.58 * b.y)) / vec2(0.32 * b.x, 0.14 * b.y);
@@ -297,6 +302,10 @@ vec3 drawIris(vec2 q, vec3 c, vec4 pu) {
     iris += uIrisCol * 0.30 * exp(-sq((pq.y - 0.62 * pr) / (0.18 * pr)))
             * smoothstep(1.0, 0.75, k);
     iris += uIrisCol * 0.55 * uWarm * smoothstep(0.70, 0.97, k);         // a warm rim
+    vec3 amber = mix(uBottom, uTop, 0.35);                                // lit from the glass
+    iris += amber * 0.85 * smoothstep(0.35, 0.95, k) * smoothstep(1.0, 0.9, k)
+            * smoothstep(-0.1, 0.9, (0.75 * pq.y + 0.45 * pq.x) / pr);
+    iris *= mix(1.0, 0.75, smoothstep(0.3, 0.0, k));                      // the deep middle
     iris += uShine * 0.08 * exp(-sq((k - 0.80) / 0.05))                   // a glassy ring
             * clamp(0.5 - (pq.x + pq.y) / (2.0 * pr), 0.0, 1.0);
     vec3 o = mix(c, iris, ia);
@@ -313,7 +322,8 @@ vec3 drawIris(vec2 q, vec3 c, vec4 pu) {
     float h3 = smoothstep(1.0, 0.70, length(s3)) * uMorph.y;
     vec2 s4 = (hq - vec2(-0.05 * pr, 0.62 * pr)) / vec2(0.50 * pr, 0.08 * pr);
     float h4 = smoothstep(1.0, 0.5, length(s4)) * uMorph.y * 0.7;         // a wet shine
-    o = mix(o, uShine, max(max(h1, h2), max(h3, h4)) * ia);
+    o = mix(o, uShine, max(max(h1, h3), h4) * ia);
+    o = mix(o, mix(uShine, uTop, 0.55), h2 * ia);                          // (warm)
     if (uMorph.w > 0.01) {                 // excited: a star shines in each iris
         float wa = 0.25 * sin(uTime * 2.0);           // the star wobbles, and breathes
         vec2 sp = mat2(cos(wa), -sin(wa), sin(wa), cos(wa)) * vec2(pq.x, -pq.y + 0.06 * pr);
@@ -361,22 +371,22 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
     }
     float a = clamp(0.5 - d, 0.0, 1.0);
     float as_ = clamp(0.5 - ds, 0.0, 1.0) * sa;
-    // the socket the eye sits in (its whole open shape): a groove round it
-    // and the lip below catching the eye's light; in a blink, the lid skin
+    // round the frame its contact shadow; in a blink, the lid skin
     float bl = side < 0.0 ? uBlink.x : uBlink.y;
     float bv = side < 0.0 ? uBlink.z : uBlink.w;
     float noLid = 1.0 - uMorph.x;
-    float groove = 0.38 * exp(-sq((df - 2.5) / 2.2)) * noLid * smoothstep(8.0, 30.0, e.w);
-    vec3 lip = mix(mix(uGlow, uTint, uTintAmt), uShine, 0.2) * 0.30 * noLid
-               * exp(-sq((df - 6.5) / 1.8)) * smoothstep(-0.3, 0.9, q.y / b.y) * uDim
-               * (1.0 - smoothstep(0.08, 0.35, la.w + max(lb.x, 0.0)));   // (not under a smile)
+    // the frame: a dark rounded rim round the glass, on the whole open shape
+    float bw = noLid * clamp(0.09 * min(e.z, e.w), 0.0, 14.0) * smoothstep(20.0, 50.0, e.w);
+    float dgl = df + bw;                  // the glass's own outline
+    float groove = 0.45 * exp(-max(df, 0.0) / 3.5) * step(0.0, df) * noLid
+                   * smoothstep(8.0, 30.0, e.w);          // the frame's contact shadow
     float ask = clamp(0.5 - df, 0.0, 1.0) * smoothstep(0.0, 0.10, bl) * noLid;
     if (a <= 0.0 && as_ <= 0.0 && ask <= 0.0) {
         if (groove < 0.004) return col;
         gA = groove;
-        return col * (1.0 - groove) + lip;
+        return col * (1.0 - groove);
     }
-    vec3 c = eyeColour(q, b, d, df, pu.xy, la, side);
+    vec3 c = eyeColour(q, b, d, dgl, pu.xy, la, side);
     // its volume: a bevel round the edge (lids too), a dome over the middle
     vec2 g = vec2(0.0);                   // (only the bevel needs the edge's direction)
     if (d > -16.0)
@@ -428,11 +438,13 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
     // (smeared upward while it moves fast); premultiplied, under seam and eye
     vec3 P = vec3(0.0);
     float A = 0.0;
+    float fa = clamp(0.5 - df, 0.0, 1.0) * clamp(0.5 + dgl, 0.0, 1.0) * max(a, ask)
+               * step(1.0, bw);
+    vec2 gf = vec2(0.0);
+    if ((ask > 0.0 || fa > 0.0) && df > -16.0)
+        gf = normalize(vec2(sdSquircle(q + vec2(1.0, 0.0), b, mix(lb.w, 2.0, uMorph.z)) - df,
+                            sdSquircle(q + vec2(0.0, 1.0), b, mix(lb.w, 2.0, uMorph.z)) - df) + 1e-6);
     if (ask > 0.0) {
-        vec2 gf = df > -16.0
-            ? normalize(vec2(sdSquircle(q + vec2(1.0, 0.0), b, mix(lb.w, 2.0, uMorph.z)) - df,
-                             sdSquircle(q + vec2(0.0, 1.0), b, mix(lb.w, 2.0, uMorph.z)) - df) + 1e-6)
-            : vec2(0.0);
         vec3 sk = lit(mix(uBottom, uTint, uTintAmt) * 0.20 + vec3(0.025, 0.018, 0.012),
                       gf, df, 14.0, q / b * 0.45);
         float up = lt.x - q.y;                           // above the upper lid's edge
@@ -448,7 +460,19 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
     A = as_ + A * (1.0 - as_);
     P = c * a + P * (1.0 - a);
     A = a + A * (1.0 - a);
-    P += lip * (1.0 - A);
+    if (fa > 0.0) {                       // the frame: a tube, its outer edge rim-lit
+        float t = clamp(-df / bw, 0.0, 1.0);
+        vec3 fr = lit(mix(uBottom, uTint, uTintAmt) * 0.17 + vec3(0.022, 0.014, 0.008),
+                      gf * (1.0 - 2.0 * t), 0.0, 1.0, vec2(0.0));
+        fr += mix(top, uShine, 0.35) * 0.35 * exp(-sq((df + 1.0) / 0.8))
+              * (0.55 + 0.45 * abs(q.y) / b.y);
+        fr += mix(top, uShine, 0.4) * 0.30 * exp(-sq((t - 0.38) / 0.16))   // its round top
+              * smoothstep(0.2, -0.9, q.y / b.y);
+        fr *= mix(1.0, 0.55, smoothstep(0.6, 1.0, t));   // the glass's edge sinks into it
+        fr *= uDim;
+        P = fr * fa + P * (1.0 - fa);
+        A = fa + A * (1.0 - fa);
+    }
     A = A + groove * (1.0 - A);
     gA = A;
     return col * (1.0 - A) + P;
@@ -1750,7 +1774,7 @@ class GLFace:
             mid = 0.5 * (bend + bbend)
             bend, bbend = _lerp(bend, mid, shut), _lerp(bbend, mid, shut)
             tilt *= 1.0 - shut
-            bend -= 0.10 * bspeed                 # moving fast, the lid's middle leads
+            bend -= 0.40 * shut * (1.0 - shut) + 0.10 * bspeed   # the lid's middle leads
             # shut (or nearly): the glowing seam where the lids meet
             gap = max(1.0 - top - bot, 1.0 - top - bot + bend - bbend) * h
             seam = max(0.0, min(1.0, 1.0 - gap / 14.0))
