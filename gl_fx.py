@@ -40,11 +40,20 @@ def arcs(x, y, side, rings, col, core=None):
 
 
 def lines(pts, width, col, alpha=1.0, core=None, core_w=0.0, pairs=False, glow=0.0):
-    """A polyline (or, pairs: separate segments 0-1, 2-3…) up to 16 points,
-    width px with round ends; core: a thinner line of another colour along
-    it (core_w px). One point: a dot."""
+    """A polyline (or, pairs: separate segments 0-1, 2-3…; "fill": the closed
+    polygon filled) up to 16 points, width px with round ends; core: a
+    thinner line of another colour along it (core_w px). One point: a dot."""
+    mode = 2.0 if pairs == "fill" else 1.0 if pairs else 0.0
+    if mode == 2.0:
+        pts = list(pts[:15]) + [pts[0]]
     return ("lines", tuple((float(x), float(y)) for x, y in pts[:16]), float(width),
-            col, float(alpha), core or col, float(core_w), bool(pairs), float(glow))
+            col, float(alpha), core or col, float(core_w), mode, float(glow))
+
+
+def polyline(pts, width, col, alpha=1.0, glow=0.0):
+    """A polyline of any length: lines() of 16 points each, overlapping."""
+    return [lines(pts[i:i + 16], width, col, alpha, glow=glow)
+            for i in range(0, max(1, len(pts) - 1), 15)]
 
 
 def ring(x, y, r, width, col, alpha=1.0, glow=0.0):
@@ -62,7 +71,8 @@ def hand(parts, x, y, angle, cols, flip=(1.0, 1.0), alpha=1.0):
 
 
 GLYPHS = {"hourglass": 1, "cursor": 2, "check": 3, "cross": 4, "rock": 5, "paper": 6,
-          "scissors": 7, "signal": 8, "heart": 9}
+          "scissors": 7, "signal": 8, "heart": 9,
+          "sun": 10, "cloud": 11, "bulb": 12, "note": 13}     # (HAL's reply props)
 CURSOR_TIP = (-0.45, -0.80)          # the cursor's tip, × its size, from its centre
 
 
@@ -327,10 +337,40 @@ vec3 glyph(vec2 q, float id, float t) {
             ln = min(ln, max(abs(r - rr), (ang - 0.62) * r));
         }
         fl = big;
-    } else {                                          // heart
+    } else if (id < 9.5) {                            // heart
         vec2 hp = vec2(q.x, -q.y) * 0.62 + vec2(0.0, 0.52);
         fl = sdHeart(hp) / 0.62;
         ln = abs(fl);
+    } else if (id < 10.5) {                           // sun: a ring, eight rays
+        fl = length(q) - 0.40;
+        ln = abs(fl);
+        float a = atan(q.y, q.x);
+        float ra = floor(a / 0.785398 + 0.5) * 0.785398;
+        vec2 dir = vec2(cos(ra), sin(ra));
+        ln = min(ln, sdSeg(q, dir * 0.58, dir * (0.84 + 0.06 * sin(t * 6.0 + ra * 3.0))));
+    } else if (id < 11.5) {                           // cloud
+        fl = min(min(length(q - vec2(-0.45, 0.10)) - 0.32, length(q - vec2(0.0, -0.10)) - 0.45),
+                 min(length(q - vec2(0.45, 0.10)) - 0.32,
+                     sdRBox(q - vec2(0.0, 0.26), vec2(0.45, 0.16), 0.0)));
+        ln = abs(fl);
+    } else if (id < 12.5) {                           // light bulb (t: lit 0..1)
+        float glass = length(q - vec2(0.0, -0.28)) - 0.50;
+        float neck = sdRBox(q - vec2(0.0, 0.22), vec2(0.22, 0.16), 0.04);
+        fl = min(glass, neck);
+        ln = abs(fl);
+        ln = min(ln, min(sdSeg(q, vec2(-0.20, 0.52), vec2(0.20, 0.52)),
+                         sdSeg(q, vec2(-0.15, 0.66), vec2(0.15, 0.66))));
+        float fil = min(min(sdSeg(q, vec2(-0.12, 0.08), vec2(-0.06, -0.24)),
+                            sdSeg(q, vec2(-0.06, -0.24), vec2(0.0, -0.06))),
+                        min(sdSeg(q, vec2(0.0, -0.06), vec2(0.06, -0.24)),
+                            sdSeg(q, vec2(0.06, -0.24), vec2(0.12, 0.08))));
+        if (t > 0.5) so = fil - 0.03; else ln = min(ln, fil);
+    } else {                                          // a quaver
+        vec2 h = q - vec2(-0.22, 0.52);
+        so = (length(h / vec2(0.28, 0.20)) - 1.0) * 0.20;
+        ln = min(sdSeg(q, vec2(0.04, 0.50), vec2(0.04, -0.78)),
+                 min(sdSeg(q, vec2(0.04, -0.78), vec2(0.40, -0.46)),
+                     sdSeg(q, vec2(0.40, -0.46), vec2(0.34, -0.20))));
     }
     return vec3(ln, fl, so);
 }
@@ -361,16 +401,24 @@ void main() {
         }
         gl_FragColor = min(o, vec4(1.0));
     } else if (uKind < 2.5) {                         // lines
-        float d = 1e5;
+        float d = 1e5, dd = 1e9, sg = 1.0;
         if (uN < 1.5) {
             d = length(p - uPts[0]);
         } else {
             for (int i = 0; i < 15; i++) {
-                if (float(i) < uN - 1.0 && (uP.x < 0.5 || mod(float(i), 2.0) < 0.5))
+                if (float(i) < uN - 1.0 && (uP.x < 0.5 || uP.x > 1.5 || mod(float(i), 2.0) < 0.5))
                     d = min(d, sdSeg(p, uPts[i], uPts[i + 1]));
             }
         }
-        float o = clamp(uP.y * 0.5 - d + 0.5, 0.0, 1.0);
+        float fillA = 0.0;
+        if (uP.x > 1.5) {                             // the closed polygon, filled
+            for (int i = 0; i < 15; i++) {           // (lines() closed it: last = first)
+                if (float(i) < uN - 1.0)
+                    edge(p, uPts[i], uPts[i + 1], dd, sg);
+            }
+            fillA = clamp(0.5 - sg * sqrt(dd), 0.0, 1.0);
+        }
+        float o = max(clamp(uP.y * 0.5 - d + 0.5, 0.0, 1.0), fillA);
         float c = clamp(uP.z * 0.5 - d + 0.5, 0.0, 1.0);
         float halo = uP.w > 0.0 ? 0.4 * exp(-max(d - uP.y * 0.5, 0.0) / uP.w) * (1.0 - o) : 0.0;
         vec3 rgb = mix(uCol.rgb, uCore, c) * o + uCol.rgb * halo;
@@ -514,7 +562,7 @@ class FxPass:
                     flat = [v for xy in pts for v in xy]
                     GL.glUniform2fv(self.pts, len(pts), (ctypes.c_float * len(flat))(*flat))
                     p.u("uN", float(len(pts)))
-                    p.u("uP", (1.0 if pairs else 0.0, w, core_w, glow))
+                    p.u("uP", (pairs, w, core_w, glow))         # (pairs: the mode)
                     p.u("uCol", (*_rgb(col), alpha))
                     p.u("uCore", _rgb(core))
                 elif kind == "ring":

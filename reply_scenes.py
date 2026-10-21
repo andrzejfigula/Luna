@@ -22,6 +22,7 @@ import random
 
 import pygame
 
+import gl_fx
 import robot_face as rf          # used at call time only (circular by design)
 
 SCENES = {}
@@ -255,6 +256,30 @@ def _dim(col, k):
     return rf._lerp_col((0, 0, 0), col, rf.clamp(k, 0.0, 1.0))
 
 
+def _gpu(surf):
+    """The list gl_fx draws from, when this layer is the GPU face's."""
+    return rf._fx(surf)
+
+
+def _hal():
+    """HAL's glyph colours (glow, core) — or None: a cartoon prop."""
+    return rf.theme_fx().get("glyphs")
+
+
+def _ink(col):
+    """A prop's colour: HAL's display colour on HAL, else col."""
+    h = _hal()
+    return h[1] if h else col
+
+
+def _fade(surf, col, k):
+    """(colour, alpha) for something fading by k: on the GPU an alpha; the
+    pygame face canvas has none, so the colour goes toward black (_dim)."""
+    if _gpu(surf) is not None:
+        return col, rf.clamp(k, 0.0, 1.0)
+    return _dim(col, k), 1.0
+
+
 def _star4(surf, x, y, r, col, alpha):
     """A four-pointed twinkle (robot_face.twinkle: the same everywhere)."""
     if r < 2 or alpha <= 4:
@@ -330,8 +355,8 @@ class BigPupils(Scene):
             px, py = _pupil_at(eye, rect)
             r = min(rect.w, rect.h) * 0.2 * eye.pupil_scale
             a = int(220 * hold)                   # extra catch-lights = "wet" eyes
-            pygame.draw.circle(surf, rf.IRIS_SHINE,
-                               (int(px + r * 0.35), int(py + r * 0.4)), max(2, int(r * 0.12)))
+            rf._lines(surf, [(px + r * 0.35, py + r * 0.4)], 2 * max(2.0, r * 0.12),
+                      rf.IRIS_SHINE)
             _star4(surf, px - r * 0.35, py - r * 0.4,
                    r * (0.3 + 0.05 * math.sin(t * 6)), rf.IRIS_SHINE, a)
 
@@ -355,7 +380,7 @@ class Flutter(Scene):
 
     def draw(self, face, surf, fcx, fcy, p):
         hold = rf._prop_hold(p, 0.1, 0.15)
-        if hold < 0.05:
+        if hold < 0.05 or _hal():                 # (a computer's lens has no lashes)
             return
         for i, (eye, rect) in enumerate(_eye_rects(face, fcx, fcy)):
             out = -1 if i == 0 else 1             # lashes sweep outward
@@ -364,8 +389,8 @@ class Flutter(Scene):
                 y = rect.top + 4 + 6 * k
                 ang = math.radians(-90 + out * (25 + 18 * k))
                 ln = 22 + 4 * k
-                pygame.draw.line(surf, rf.EYE_MID, (x, y),
-                                 (x + math.cos(ang) * ln, y + math.sin(ang) * ln), 7)
+                rf._lines(surf, [(x, y), (x + math.cos(ang) * ln, y + math.sin(ang) * ln)],
+                          7, _ink(rf.EYE_MID))
 
 
 @scene("heart_eyes", duration=4.0)
@@ -663,16 +688,19 @@ class Snap(Scene):
             Snap._font = rf._get_font(34)
         x = fcx + 250 + _PINCH[0]
         y = fcy + 20 + _PINCH[1]
-        a = int(250 * (1.0 - d))
+        tx = x + 70                             # (the word stays where it was)
+        if _hal():                              # (HAL: his glyph sits further out)
+            x += 70
+        pts = []
         for k in range(7):                      # a spark off the fingers
             ang = -math.pi / 2 + (k - 3) * 0.42
             r0, r1 = 26 + 30 * d, 46 + 52 * d
-            pygame.draw.line(surf, _dim(rf.STAR_COL, 1.0 - d),
-                             (x + math.cos(ang) * r0, y + math.sin(ang) * r0),
-                             (x + math.cos(ang) * r1, y + math.sin(ang) * r1), 5)
-        txt = Snap._font.render("pstryk!", True, rf.EYE_INNER)
-        txt.set_alpha(a)
-        surf.blit(txt, txt.get_rect(center=(int(x + 70), int(y - 150 - 20 * d))))
+            pts += [(x + math.cos(ang) * r0, y + math.sin(ang) * r0),
+                    (x + math.cos(ang) * r1, y + math.sin(ang) * r1)]
+        col, a = _fade(surf, _ink(rf.STAR_COL), 1.0 - d)
+        rf._lines(surf, pts, 5, col, a, pairs=True)
+        rf.glow_text(surf, "pstryk!", 34, _ink(rf.EYE_INNER), tx, y - 150 - 20 * d,
+                     alpha=1.0 - d)
 
 
 @scene("ok_sign", duration=2.8, mood="happy")
@@ -735,6 +763,18 @@ class AirHeart(Scene):
         n = max(2, int(80 * d))
         pts = [(fcx + x, fcy + y)
                for x, y in (self._pt(i / 79 * math.tau) for i in range(n))]
+        out = _gpu(surf)
+        if out is not None:                        # antialiased, glowing, to the sub-pixel
+            col = _hal()[0] if _hal() else rf.HEART_COL
+            if d >= 1.0:                           # finished: it fills and beats
+                beat = 0.5 + 0.5 * math.sin(p * self.duration * 9.0)
+                fill = [(fcx + x, fcy + y)
+                        for x, y in (self._pt(i / 15 * math.tau) for i in range(15))]
+                out.append(gl_fx.lines(fill, 0.0, col, (90 + 70 * beat) / 255 * fade,
+                                       pairs="fill"))
+                pts.append(pts[0])
+            out += gl_fx.polyline(pts, 8, col, 0.96 * fade, glow=5.0)
+            return
         layer = pygame.Surface((340, 300), pygame.SRCALPHA)
         ox, oy = fcx - 170, fcy - 60
         local = [(x - ox, y - oy) for x, y in pts]
@@ -782,7 +822,7 @@ class Glitch(Scene):
 
 def _puff(surf, x, y, t, hold, n=5, spread=1.0, col=None):
     """A little cloud of breath drifting up and out."""
-    col = col or rf.TEETH_COL
+    col = col or _ink(rf.TEETH_COL)
     for i in range(n):
         k = ((t * 0.9 + i * 0.21) % 1.0)
         a = int(170 * hold * (1.0 - k))
@@ -790,8 +830,7 @@ def _puff(surf, x, y, t, hold, n=5, spread=1.0, col=None):
             continue
         dx = (i - n / 2) * 15 * spread * (0.4 + k)
         dy = -k * 70
-        r = int(6 + k * 13)
-        pygame.draw.circle(surf, (*col, a), (int(x + dx), int(y + dy)), r)
+        rf._lines(surf, [(x + dx, y + dy)], 2 * (6 + k * 13), col, a / 255)
 
 
 @scene("laugh", duration=3.4, mood="happy")
@@ -828,7 +867,7 @@ class Laugh(Scene):
                 continue
             x = fcx + side * 250
             y = fcy - 20 + k * 120
-            pygame.draw.circle(surf, (*rf.TEAR_COL, a), (int(x), int(y)), 9)
+            rf.drop(surf, x, y, 9, a / 255)
 
 
 @scene("sigh", duration=3.2)
@@ -903,9 +942,8 @@ class ThinkBubble(Scene):
             k = rf.clamp(p * 3.4 - i * 0.55, 0.0, 1.0)
             if k <= 0:
                 continue
-            a = int(235 * hold * k)
-            pygame.draw.circle(surf, (*rf.EYE_MID, a),
-                               (int(fcx + dx), int(fcy + dy)), int(r * k), 4)
+            rf._ring(surf, fcx + dx, fcy + dy, r * k, 4, _ink(rf.EYE_MID), 0.92 * hold * k,
+                     glow=3.0)
 
 
 @scene("proud", duration=3.2, mood="excited")
@@ -977,9 +1015,7 @@ class Scared(Scene):
         if hold < 0.05:
             return
         k = (p * 1.6) % 1.0                         # a drop running down
-        a = int(230 * hold * (1.0 - k * 0.6))
-        pygame.draw.circle(surf, (*rf.TEAR_COL, a),
-                           (int(fcx + 268), int(fcy - 130 + k * 150)), 11)
+        rf.drop(surf, fcx + 268, fcy - 130 + k * 150, 11, 0.9 * hold * (1.0 - k * 0.6))
 
 
 @scene("dance", duration=6.0, mood="happy")
@@ -1069,6 +1105,10 @@ class Curious(Scene):
         hold = rf._prop_hold(p, 0.18, 0.18)
         if hold < 0.04:
             return
+        if _gpu(surf) is not None:                # a glowing "?", turned by the GPU
+            rf.glow_text(surf, "?", 96, _ink(rf.EYE_MID), fcx + 208, fcy - 92,
+                         12 * math.sin(p * math.pi * 3), hold)
+            return
         if Curious._font is None:
             Curious._font = rf._get_font(96)
         img = Curious._font.render("?", True, rf.EYE_MID)
@@ -1094,6 +1134,18 @@ _PROP_X, _PROP_Y = rf.face_spec.LAYOUT["prop"]   # relative to the face centre
 def _cloud(w, col, alpha):
     """A soft cartoon cloud on its own layer (w px wide): antialiased, lit
     from above, a darker belly."""
+    img = _cloud_base(w, col).copy()
+    img.set_alpha(int(alpha))
+    return img
+
+
+def _cloud_sprite(surf, x, y, w, col, alpha):
+    """The cloud on the GPU (made at 2×), alpha 0..1."""
+    _gpu(surf).append(gl_fx.sprite(("cloud", w, tuple(col)),
+                                   lambda res: _cloud_base(w * res, col), x, y, 0.0, 1.0, alpha))
+
+
+def _cloud_base(w, col):
     key = ("cloud", w, tuple(col))
     base = rf._SMOOTH_CACHE.get(key)
     if base is None:
@@ -1108,9 +1160,7 @@ def _cloud(w, col, alpha):
             for fx, fy, fr in ((0.28, 0.58, 0.86), (0.5, 0.38, 1.2), (0.72, 0.58, 0.86)):
                 pygame.draw.circle(s, col, (int(w * fx * k), int(h * fy * k)), int(r * fr * k))
         base = rf._SMOOTH_CACHE[key] = rf._smooth(w, h, draw)
-    img = base.copy()
-    img.set_alpha(int(alpha))
-    return img
+    return base
 
 
 def _blit_glow(surf, img, center, hold, glow=110):
@@ -1137,6 +1187,21 @@ class Sunny(Scene):
         if hold < 0.04:
             return
         t = p * self.duration
+        x, y = fcx + _PROP_X, fcy + _PROP_Y
+        if rf.prop_glyph(surf, "sun", x, y, 62, hold, math.degrees(t * 0.9), t):
+            return
+        out = _gpu(surf)
+        if out is not None:                        # rays, a disc, a glow round it
+            for half in (0, 1):
+                pts = []
+                for i in range(half, 10, 2):
+                    a = t * 0.9 + i * math.tau / 10
+                    r0, r1 = 34, 52 + 6 * math.sin(t * 4 + i)
+                    pts += [(x + math.cos(a) * r0, y + math.sin(a) * r0),
+                            (x + math.cos(a) * r1, y + math.sin(a) * r1)]
+                out.append(gl_fx.lines(pts, 6, rf.STAR_COL, 0.92 * hold, pairs=True, glow=3.0))
+            out.append(gl_fx.lines([(x, y)], 54, rf.STAR_COL, hold, glow=7.0))
+            return
         size = 150
         s = pygame.Surface((size, size), pygame.SRCALPHA)
         c = size // 2
@@ -1164,6 +1229,12 @@ class Cloudy(Scene):
         t = p * self.duration
         for i, (eye, rect) in enumerate(_eye_rects(face, fcx, fcy)):
             drift = 14 * math.sin(t * 1.4 + i * 2.0)
+            x, y = rect.centerx + drift, rect.top - 6 - 18 * (1 - hold)
+            if rf.prop_glyph(surf, "cloud", x, y, 60, hold):
+                continue
+            if _gpu(surf) is not None:
+                _cloud_sprite(surf, x, y, 150, rf.TEETH_COL, 0.94 * hold)
+                continue
             c = _cloud(150, rf.TEETH_COL, int(240 * hold))
             surf.blit(c, c.get_rect(center=(int(rect.centerx + drift),
                                             int(rect.top - 6 - 18 * (1 - hold)))))
@@ -1187,6 +1258,17 @@ class Rainy(Scene):
         t = p * self.duration
         for n, (eye, rect) in enumerate(_eye_rects(face, fcx, fcy)):
             cx, cy = rect.centerx, rect.top - 10
+            if _gpu(surf) is not None:              # the drops, then the cloud over them
+                pts = []
+                for i in range(8):
+                    k = (t * 1.5 + i * 0.37 + n * 0.5) % 1.0
+                    x = cx - 80 + 22 + (i * 41) % 120
+                    y = cy + 20 + k * 160
+                    pts += [(x, y), (x - 3, y + 14)]
+                rf._lines(surf, pts, 4, _ink(rf.TEAR_COL), 0.75 * hold, pairs=True)
+                if not rf.prop_glyph(surf, "cloud", cx, cy, 64, hold):
+                    _cloud_sprite(surf, cx, cy, 160, (150, 160, 178), 0.96 * hold)
+                continue
             layer = pygame.Surface((160, 190), pygame.SRCALPHA)
             for i in range(8):                        # the drops, over the eye
                 k = (t * 1.5 + i * 0.37 + n * 0.5) % 1.0
@@ -1212,6 +1294,24 @@ class Snowy(Scene):
         if hold < 0.04:
             return
         t = p * self.duration
+        out = _gpu(surf)
+        if out is not None:                         # each flake its own few lines
+            rnd = random.Random(7)
+            col = _ink(rf.TEETH_COL)
+            for i in range(26):
+                x0, speed, ph = rnd.random(), rnd.uniform(0.18, 0.35), rnd.uniform(0, 6.3)
+                y = ((rnd.random() + t * speed) % 1.1) * rf.HEIGHT - 20
+                x = x0 * rf.WIDTH + 18 * math.sin(t * 1.5 + ph)
+                r = 5 + (i % 3) * 3
+                spin = t * (0.8 + 0.3 * (i % 3)) + ph
+                pts = []
+                for arm in range(3):
+                    a = spin + arm * math.pi / 3
+                    dx, dy = math.cos(a) * r, math.sin(a) * r
+                    pts += [(x - dx, y - dy), (x + dx, y + dy)]
+                out.append(gl_fx.lines(pts, 2.2 if r < 8 else 3.0, col, 0.92 * hold,
+                                       pairs=True, glow=1.5 if _hal() else 0.0))
+            return
         layer = pygame.Surface((rf.WIDTH, rf.HEIGHT), pygame.SRCALPHA)
         rnd = random.Random(7)
         for i in range(26):
@@ -1248,6 +1348,26 @@ class Lightbulb(Scene):
             return
         # flickers on: off, on, off, ON
         lit = p > self.ON and not (self.ON + 0.04 < p < self.ON + 0.08)
+        out = _gpu(surf)
+        if out is not None:
+            bx, by = fcx, fcy - 150
+            t = p * self.duration
+            if not rf.prop_glyph(surf, "bulb", bx, by - 6, 58, hold if lit else 0.55 * hold,
+                                 t=1.0 if lit else 0.0):
+                if lit:                             # the glow round it
+                    out.append(gl_fx.lines([(bx, by - 14)], 70, rf.STAR_COL, 0.22 * hold,
+                                           glow=14.0))
+                out.append(gl_fx.sprite(("bulb", lit, rf.STAR_COL, rf.EYE_MID),
+                                        lambda res: _bulb_img(lit, res), bx, by, 0.0, 1.0, hold))
+            if lit:
+                pts = []
+                for i in range(8):                               # rays
+                    a = i * math.tau / 8 + t * 0.5
+                    r0, r1 = 46, 58 + 4 * math.sin(t * 8 + i)
+                    pts += [(bx + math.cos(a) * r0, by - 14 + math.sin(a) * r0),
+                            (bx + math.cos(a) * r1, by - 14 + math.sin(a) * r1)]
+                out.append(gl_fx.lines(pts, 4, _ink(rf.STAR_COL), hold, pairs=True, glow=2.0))
+            return
         s = pygame.Surface((110, 150), pygame.SRCALPHA)
         glass = (*(rf.STAR_COL if lit else (120, 110, 90)), 245)
         pygame.draw.circle(s, glass, (55, 52), 40)
@@ -1270,6 +1390,22 @@ class Lightbulb(Scene):
                 pygame.draw.line(surf, _dim(rf.STAR_COL, hold),
                                  (x + math.cos(a) * r0, y + math.sin(a) * r0),
                                  (x + math.cos(a) * r1, y + math.sin(a) * r1), 4)
+
+
+def _bulb_img(lit, res):
+    """The light bulb (82×112 at res 1), lit or not."""
+    k = 3 * res
+    s = pygame.Surface((110 * k, 150 * k), pygame.SRCALPHA)
+    glass = (*(rf.STAR_COL if lit else (120, 110, 90)), 245)
+    pygame.draw.circle(s, glass, (55 * k, 52 * k), 40 * k)
+    pygame.draw.polygon(s, glass, [(30 * k, 70 * k), (80 * k, 70 * k), (70 * k, 100 * k),
+                                   (40 * k, 100 * k)])
+    for i in range(3):                                   # the screw base
+        pygame.draw.rect(s, (*rf.EYE_MID, 245), pygame.Rect(38 * k, (102 + i * 11) * k,
+                                                             34 * k, 8 * k), border_radius=3 * k)
+    if lit:
+        pygame.draw.circle(s, (*rf.IRIS_SHINE, 230), (42 * k, 40 * k), 9 * k)
+    return pygame.transform.smoothscale(s, (82 * res, 112 * res))
 
 
 def _note(size, col):
@@ -1316,7 +1452,16 @@ class MusicNotes(Scene):
             side = 1 if i % 2 else -1
             x = fcx + side * (230 + 30 * math.sin(t * 2 + i))
             y = fcy + 60 - k * 230
-            n = _note(26 + (i % 2) * 8, (*rf.EYE_INNER, 255))
-            n = pygame.transform.rotate(n, 14 * math.sin(t * 3 + i))
+            size, ang = 26 + (i % 2) * 8, 14 * math.sin(t * 3 + i)
+            if rf.prop_glyph(surf, "note", x, y, size * 1.1, a / 255, ang):
+                continue
+            if _gpu(surf) is not None:
+                col = (*rf.EYE_INNER, 255)
+                _gpu(surf).append(gl_fx.sprite(("note", size, col),
+                                               lambda res, size=size, col=col: _note(size * res, col),
+                                               x, y, ang, 1.0, a / 255))
+                continue
+            n = _note(size, (*rf.EYE_INNER, 255))
+            n = pygame.transform.rotate(n, ang)
             n.set_alpha(a)
             surf.blit(n, n.get_rect(center=(int(x), int(y))))

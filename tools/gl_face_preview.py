@@ -203,6 +203,10 @@ FX_LOOKS = [            # (name, how to set it up: a state field → value; "sta
     ("excited", {"emotion": "excited"}),
     ("waves", {"inject": "wave"}),
 ]
+# the reply scenes that draw props (reply_scenes.py), caught a little past halfway
+SCENE_LOOKS = ("big_pupils", "flutter", "heart_eyes", "sparkle_eyes", "snap", "air_heart",
+               "laugh", "sigh", "think_bubble", "scared", "relief", "curious", "sunny",
+               "cloudy", "rainy", "snowy", "lightbulb", "music_notes")
 
 
 def fx_sheet(out_dir, theme_keys=("luna", "ice", "hal"), only=None):
@@ -227,14 +231,19 @@ def fx_sheet(out_dir, theme_keys=("luna", "ice", "hal"), only=None):
     face.back = gl_face.layer_surface(W, H)
     face.clock = type("NoWait", (), {"tick": lambda self, fps: 0})()
     os.makedirs(out_dir, exist_ok=True)
+    import reply_scenes
+    looks = list(FX_LOOKS) + [
+        ("s_" + n, {"reply_scene": n,
+                    "reply_scene_start": reply_scenes.SCENES[n].duration * 0.6 - 0.8})
+        for n in SCENE_LOOKS]
     blank = {"listening": False, "mic_level": 0.0, "gesture_anim": None, "game_hand": None,
              "reply_scene": None, "costume": None}
     face.draw()                              # (the shaders compiled: not in the numbers)
     for key in theme_keys:
         themes.current = lambda now=None, key=key: key
         tiles = []
-        for name, setup in FX_LOOKS:
-            if only and name not in only:
+        for name, setup in looks:
+            if only and name not in only and not (name.startswith("s_") and "scenes" in only):
                 continue
             with state.lock:
                 for k, v in blank.items():

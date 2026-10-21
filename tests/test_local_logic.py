@@ -6364,6 +6364,19 @@ class GlFxTest(unittest.TestCase):
         self.assertLess(x0, 412.37 - 87.07)                # "(" reaches left of its centre
         self.assertEqual(x1, 412.37)
 
+    def test_long_lines_and_fills(self):
+        import gl_fx
+        pts = [(float(i), float(i % 7)) for i in range(80)]       # the air heart's trail
+        parts = gl_fx.polyline(pts, 8, (255, 80, 130))
+        self.assertTrue(all(len(it[1]) <= 16 for it in parts))     # uPts[16]
+        self.assertEqual(parts[0][1][-1], parts[1][1][0])          # chunks join up
+        self.assertEqual(parts[-1][1][-1], pts[-1])
+        fill = gl_fx.lines([(0, 0), (10, 0), (5, 8)], 0, (255, 0, 0), pairs="fill")
+        self.assertEqual(fill[7], 2.0)                              # the fill mode
+        self.assertEqual(fill[1][-1], fill[1][0])                   # closed
+        for name in ("sun", "cloud", "bulb", "note"):              # HAL's props
+            self.assertIn(name, gl_fx.GLYPHS)
+
     def test_hands_fit_the_shader(self):
         try:
             import robot_face as rf

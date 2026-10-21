@@ -1,6 +1,9 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
+== 22 października ==
+- Rekwizyty przy odpowiedziach (słońce, chmurki, deszcz, śnieg, żarówka, nutki, znak zapytania, serce rysowane palcem) są teraz gładkie i płynne. HAL pokazuje je jako świecące czerwone ikonki jak na ekranie komputera.
+
 == 21 października ==
 - Płynniejsze fale przy słuchaniu i gładkie dłonie, uszy, gogle, czapki, łzy, „zzz” i iskierki (rysuje je teraz karta graficzna). HAL nie ma rąk: zamiast nich pokazuje komputerowe znaczki — klepsydrę, gdy myśli, kursor, ptaszek, nożyczki. Ice ma lodowe dłonie.
 - Ustawienia → Urządzenia: można wybrać głośnik, mikrofon i kamerę. Gdy głośnik USB zostanie odłączony, Luna sama przełącza się na gniazdo słuchawkowe, a po podłączeniu wraca.

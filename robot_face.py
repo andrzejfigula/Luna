@@ -1166,11 +1166,12 @@ def _sprite(surf, key, make, x, y, angle=0.0, alpha=1.0, scale=1.0, flip=(1.0, 1
     _blit_rot(surf, img, (x, y), angle)
 
 
-def _lines(surf, pts, width, col, alpha=1.0, core=None, core_w=0.0, pairs=False):
-    """Antialiased round-ended lines (pairs: 0-1, 2-3…; one point: a dot)."""
+def _lines(surf, pts, width, col, alpha=1.0, core=None, core_w=0.0, pairs=False, glow=0.0):
+    """Antialiased round-ended lines (pairs: 0-1, 2-3…; one point: a dot;
+    glow: a halo, on the GPU only)."""
     out = _fx(surf)
     if out is not None:
-        out.append(gl_fx.lines(pts, width, col, alpha, core, core_w, pairs))
+        out.append(gl_fx.lines(pts, width, col, alpha, core, core_w, pairs, glow))
         return
     a = int(255 * max(0.0, min(1.0, alpha)))
     for c, w in ((col, width), (core, core_w)):
@@ -1183,6 +1184,69 @@ def _lines(surf, pts, width, col, alpha=1.0, core=None, core_w=0.0, pairs=False)
                 pygame.draw.line(surf, (*c, a), p0, p1, max(1, int(w)))
         else:
             pygame.draw.lines(surf, (*c, a), False, pts, max(1, int(w)))
+
+
+def _ring(surf, x, y, r, width, col, alpha=1.0, glow=0.0):
+    """An antialiased circle outline (a thought bubble, a ripple)."""
+    out = _fx(surf)
+    if out is not None:
+        out.append(gl_fx.ring(x, y, r, width, col, alpha, glow))
+        return
+    a = int(255 * max(0.0, min(1.0, alpha)))
+    if r >= 1 and a > 0:
+        pygame.draw.circle(surf, (*col, a), (int(x), int(y)), int(r), max(1, int(width)))
+
+
+def drop(surf, x, y, r, alpha=1.0):
+    """A glossy tear drop centred at (x, y), r its radius (tear_img)."""
+    out = _fx(surf)
+    if out is not None:
+        out.append(gl_fx.sprite(("tear", TEAR_COL), lambda res: tear_img(10 * res),
+                                x, y, 0.0, r / 10.0, alpha))
+        return
+    img = tear_img(r)
+    img.set_alpha(int(255 * max(0.0, min(1.0, alpha))))
+    surf.blit(img, img.get_rect(center=(int(x), int(y))))
+
+
+def glow_text_img(text, size, col, glow_col):
+    """Text with a soft halo baked round it (cached)."""
+    key = ("gtext", text, size, col, glow_col)
+    img = _SMOOTH_CACHE.get(key)
+    if img is None:
+        txt = _get_font(size).render(text, True, col)
+        pad = max(8, size // 4)
+        w, h = txt.get_width() + 2 * pad, txt.get_height() + 2 * pad
+        halo = pygame.Surface((w, h), pygame.SRCALPHA)
+        halo.blit(txt, (pad, pad))
+        halo.fill((*glow_col, 0), special_flags=pygame.BLEND_RGBA_MAX)
+        halo = pygame.transform.smoothscale(
+            pygame.transform.smoothscale(halo, (max(1, w // 6), max(1, h // 6))), (w, h))
+        halo.fill((255, 255, 255, 140), special_flags=pygame.BLEND_RGBA_MULT)
+        img = pygame.Surface((w, h), pygame.SRCALPHA)
+        img.blit(halo, (0, 0))
+        img.blit(txt, (pad, pad))
+        _SMOOTH_CACHE[key] = img
+    return img
+
+
+def glow_text(surf, text, size, col, x, y, angle=0.0, alpha=1.0):
+    """Glowing text centred at (x, y), turned angle degrees — on the GPU a
+    2× image placed to the sub-pixel; here blitted."""
+    glow_col = GLOW_COL
+    _sprite(surf, ("gtext", text, size, col, glow_col),
+            lambda res: glow_text_img(text, size * res, col, glow_col), x, y, angle, alpha)
+
+
+def prop_glyph(surf, name, x, y, size, alpha=1.0, angle=0.0, t=0.0):
+    """HAL's line-art prop instead of a cartoon one (gl_fx.GLYPHS), when the
+    theme has glyphs and the GPU draws: True if drawn."""
+    cols = theme_fx().get("glyphs")
+    out = _fx(surf)
+    if not cols or out is None:
+        return False
+    out.append(gl_fx.glyph(name, x, y, size, *cols, angle=angle, alpha=alpha, t=t))
+    return True
 
 
 def theme_fx():
@@ -1735,6 +1799,11 @@ def _heart_img(size):
 def draw_heart(surf, cx, cy, size, alpha=255):
     """A heart whose lobes sit at (cx, cy), size ~ its half width."""
     out = _fx(surf)
+    cols = theme_fx().get("glyphs")
+    if out is not None and cols:         # HAL: a glowing outline, like his other glyphs
+        out.append(gl_fx.glyph("heart", cx, cy + size * 0.38, size * 0.95, *cols,
+                               alpha=alpha / 255.0, width=max(2.0, size / 12)))
+        return
     if out is not None:                  # one image, scaled by the GPU
         out.append(gl_fx.sprite(("heart", HEART_COL), lambda res: _heart_img(64 * res),
                                 cx, cy + size * 0.38, 0.0, size / 64.0, alpha / 255.0))
@@ -3384,6 +3453,17 @@ class RobotFace:
 
     def _draw_big(self, surf, text, fcx, fcy, left):
         """A glowing number between her eyes; it pops in and fades out."""
+        k = min(1.0, left / 0.25)                        # fade at the end
+        scale = 1.0 + 0.25 * max(0.0, (left - 0.5))      # pops in slightly large
+        out = _fx(surf)
+        if out is not None:                  # (the GPU scales it smoothly, every frame)
+            cols = theme_fx().get("glyphs")
+            col, glow = (cols[1], cols[0]) if cols else (STAR_COL, GLOW_COL)
+            out.append(gl_fx.sprite(("big", text, col, glow),
+                                    lambda res: glow_text_img(text, 150 * res, col, glow),
+                                    self.face_cx + self.face_ox, self.face_cy + self.face_oy - 30,
+                                    0.0, scale, k))
+            return
         font = _get_font(150)
         img = font.render(text, True, STAR_COL)
         k = min(1.0, left / 0.25)                        # fade at the end
