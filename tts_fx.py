@@ -1,16 +1,12 @@
 """
 tts_fx.py — a theme's voice changed on the Pi, as it streams (themes.py "fx").
 
-  "robot" (HAL) — a GLaDOS-like machine voice, faster: 32 ms frames rebuilt
-                  with zero phase and laid one per pitch period (the classic
-                  "robotization": a buzz shaped by the words). The buzz follows
-                  the voice's melody MELODY× exaggerated around ROBOT_HZ, each
-                  syllable may JUMP to another note, and it snaps to semitones
-                  (hard autotune: steady notes, stepped leaps);
-                  LAYERS add the same voice an octave and a fifth up, quieter
-                  (the "more harmonics" choir). Resonances moved down by
-                  FORMANT (a bigger machine), read TEMPO× faster than written;
-                  then a metallic comb (a short echo feeding
+  "robot" (HAL) — monotone and faster: 32 ms frames rebuilt with zero phase
+                  and laid one per period of ROBOT_HZ (the classic
+                  "robotization": one steady buzz shaped by the words; LAYERS
+                  could add more buzzes, e.g. ((1, 1), (2, 0.3)) an octave up).
+                  Resonances moved down by FORMANT (a bigger machine), read
+                  TEMPO× faster than written; then a metallic comb (a short echo feeding
                   back: a ringing tube), a light ring modulator, an overdrive
                   (DRIVE), a bit crusher (CRUSH bits) and a reverb (REVERB
                   wet: a big metal room — 4 combs and 2 allpasses, Schroeder)
@@ -25,18 +21,14 @@ any size and keeps its state between them, so it runs on the stream itself;
 flush() returns what is still held back at the end of the take.
 """
 
-import random
-
 import numpy as np
 
 RATE = 24000
 PRESETS = {
     # (21 Oct: 60 Hz with formants down 27% was hard to understand — back to 75 / 15%)
-    # (21 Oct: melody 0.6 around a fixed 110 Hz "sounded like no effect at all")
-    "robot": {"robot_hz": 120.0, "melody": 1.6, "range": (-7, 12),   # (80 Hz hid the melody)
-              "jumps": (-4, -2, 0, 0, 3, 5, 7),
-              "layers": ((1.0, 1.0), (2.0, 0.3), (1.5, 0.15)),
-              "formant": 1.15, "tempo": 1.2,
+    # (22 Oct: the GLaDOS melody — stepped notes, leaps, octave/fifth layers — not
+    # liked: monotone again; it is in git history, commits 50a5ccb..7b7be38)
+    "robot": {"robot_hz": 75.0, "formant": 1.15, "tempo": 1.2,
               "comb_ms": 4.5, "feedback": 0.4, "ring_hz": 52.0, "ring": 0.15,
               "drive": 2.5, "crush": 8, "reverb": 0.3},
     "deep": {"pitch": 1.3, "tempo": 1.2},     # ~4.5 semitones down, 20% faster
@@ -72,8 +64,6 @@ class Chain:
         self.layers = [(r, g, [RN / 2]) for r, g in layers]   # ratio, gain, next pulse
         self.hz = self.p.get("robot_hz", 100.0)
         self.shape = (-10 ** 9, None)               # (input position, pulse) last made
-        self.ref, self.gap, self.jump = None, 0, 0  # _follow: average pitch, syllables
-        self.rng = random.Random(7)
         self.rcomb = [np.zeros(d, np.float32) for d, _ in REV_COMBS]
         self.rap = [(np.zeros(d, np.float32), np.zeros(d, np.float32)) for d, _ in REV_ALLPASS]
 
@@ -108,8 +98,7 @@ class Chain:
 
     def _robotize(self, x):
         """Each layer lays a pulse every 1/(hz·ratio) s of output; a pulse is the
-        zero-phase frame of the input at that time·TEMPO. hz moves with the
-        voice's pitch (layer 1's frames), compressed and snapped to semitones."""
+        zero-phase frame of the input at that time·TEMPO."""
         p, tempo = self.p, self.p.get("tempo", 1.0)
         self.rbuf = np.concatenate([self.rbuf, x])
         end, half = self.rbase + self.rbuf.size, RN // 2
@@ -122,8 +111,6 @@ class Chain:
             s = max(s, self.rbase)
             if abs(s - self.shape[0]) > 96:         # pulses within 4 ms share one frame
                 mag = np.abs(np.fft.rfft(self.rbuf[s - self.rbase:s - self.rbase + RN] * _RWIN))
-                if p.get("melody"):
-                    self._follow(mag)
                 if p.get("formant", 1.0) != 1.0:    # bin k takes what was at k·FORMANT
                     k = np.arange(mag.size)
                     mag = np.interp(k * p["formant"], k, mag, right=0.0)
@@ -146,26 +133,6 @@ class Chain:
             self.rbuf = self.rbuf[keep - self.rbase:]
             self.rbase = keep
         return out
-
-    def _follow(self, mag):
-        """The frame's pitch (autocorrelation, 60–350 Hz) → hz: its distance
-        from the take's own average pitch, ×MELODY (exaggerated), plus a JUMP
-        drawn for each new syllable (voice after a gap: GLaDOS's sing-song),
-        on the nearest semitone around ROBOT_HZ. Breath and hiss keep the note."""
-        ac = np.fft.irfft(mag * mag, RN)
-        lo, hi = int(RATE / 350), int(RATE / 60)
-        k = lo + int(np.argmax(ac[lo:hi]))
-        if ac[0] <= 0 or ac[k] < 0.35 * ac[0]:
-            self.gap += 1
-            return
-        lf = np.log2(RATE / k)
-        self.ref = lf if self.ref is None else self.ref + 0.03 * (lf - self.ref)
-        if self.gap >= 4 and self.p.get("jumps"):
-            self.jump = self.rng.choice(self.p["jumps"])
-        self.gap = 0
-        semis = 12 * (lf - self.ref) * self.p["melody"] + self.jump
-        a, b = self.p.get("range", (-5, 7))
-        self.hz = self.p["robot_hz"] * 2 ** (min(b, max(a, round(semis))) / 12)
 
     def _robot(self, x):
         g, d = self.p["feedback"], self.tail.size
