@@ -2046,6 +2046,7 @@ class RobotFace:
             listening      = state.listening
             audio_energy   = state.audio_energy
             self._audio_shape = state.audio_shape
+            self._audio_bands = state.audio_bands
             mic_level      = state.mic_level
             look_dir       = state.look_dir
             motion         = state.motion

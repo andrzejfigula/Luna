@@ -95,6 +95,7 @@ uniform float uDim;           // asleep: the eyes dim
 uniform vec3  uMouthCol;      // …its mouth's own colour, by uMouthColAmt
 uniform float uMouthColAmt;
 uniform float uWave;          // > 0: the wavy mouth is a voice wave this tall (HAL)
+uniform vec3  uWaveBands;     // …made of her voice's low / mid / high share (long, short, fine waves)
 uniform float uSquare;        // 1: pupils, brows and mouth are rectangles (Ice)
 
 float gA;                     // the coverage of the shape just drawn (stage 2)
@@ -478,14 +479,19 @@ float mouthSDF(vec2 q, out float inner, out float teeth, out float tongue) {
         float x = clamp(q.x, -hw, hw);
         float k = 3.0 * 3.14159 / hw;
         float amp = 7.0, ph = 0.0;
-        if (uWave > 0.0) {                    // a voice wave: still at its ends, moving
-            float xn = x / hw;
+        float y, sl;
+        if (uWave > 0.0) {                    // a voice wave: still at its ends, moving;
+            float xn = x / hw;                // a hum rolls long, a vowel ripples, a hiss buzzes
             amp = uWave * (1.0 - xn * xn);
-            ph = uTime * 9.0;
-            k *= 1.6;
+            vec3 kk = vec3(2.5, 5.5, 12.0) * 3.14159 / hw;
+            vec3 pp = kk * x + uTime * vec3(6.0, 11.0, 19.0);
+            vec3 bb = uWaveBands * vec3(1.15, 1.0, 0.7);
+            y = amp * dot(bb, sin(pp));
+            sl = amp * dot(bb * kk, cos(pp));
+        } else {
+            y = amp * sin(x * k + ph);
+            sl = amp * k * cos(x * k + ph);
         }
-        float y = amp * sin(x * k + ph);
-        float sl = amp * k * cos(x * k + ph);
         d = length(vec2(q.x - x, (q.y - y) / sqrt(1.0 + sl * sl))) - h * 0.5;
     }
     return d;
@@ -1867,16 +1873,26 @@ class GLFace:
                 slant = 0.0
         if pr > 0.0 and kind == face_spec.LINE:
             w, h, bend = w * (1.0 - 0.12 * pr), h * (1.0 - 0.2 * pr), bend - 6.0 * pr
-        wave = 0.0
+        wave, bands = 0.0, (1.0, 0.0, 0.0)
         tm = themes.get().get("mouth")            # a theme's own mouth (themes.py)
         if tm:
             if tm.get("wave"):                    # HAL: a voice wave, flat when quiet
                 kind, w, h, bend, slant, open_ = face_spec.WAVY, tm["wave"], 6.0, 0.0, 0.0, 0.0
                 wave = 1.5 + (48.0 * min(1.0, m.talk_open * 1.6) if talking else 0.0)
                 alpha = 1.0
+                bands = self._wave_bands(getattr(face, "_audio_bands", None) if talking else None)
             mx += tm.get("dx", 0.0)               # the doctor's smirk: off-centre, lopsided
             slant += tm.get("slant", 0.0)
             if not talking:
                 w *= tm.get("w", 1.0)
         return {"uMouth": (mx, my, w, h), "uMouthK": (bend, open_, alpha, float(kind)),
-                "uMouthSlant": slant, "uWave": wave}
+                "uMouthSlant": slant, "uWave": wave, "uWaveBands": bands}
+
+    QUIET_BANDS = (0.75, 0.25, 0.0)               # no sound to read: a calm, long wave
+
+    def _wave_bands(self, bd):
+        """HAL's wave's (low, mid, high) mix, gliding to her voice's."""
+        tgt = bd if bd is not None else self.QUIET_BANDS
+        cur = getattr(self, "_bands", self.QUIET_BANDS)
+        self._bands = tuple(c + (t - c) * 0.35 for c, t in zip(cur, tgt))
+        return self._bands

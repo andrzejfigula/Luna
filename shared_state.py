@@ -29,6 +29,7 @@ class SharedState:
         "heard_text", "response",
         "speaking", "listening",
         "audio_shape",           # her voice right now: (brightness, zero-crossings) | None
+        "audio_bands",           # …and its (low, mid, high) share, 0..1 | None (HAL's wave)
         "mic_level",             # the room's voice over the gate, 0..1 (listening waves)
         "audio_energy",
         "audio_playing",         # True only while real TTS audio is playing
@@ -129,6 +130,7 @@ class SharedState:
         self.listening           = False
         self.audio_energy        = 0.0
         self.audio_shape         = None
+        self.audio_bands         = None
         self.mic_level           = 0.0
         self.audio_playing       = False
         self.look_dir            = None

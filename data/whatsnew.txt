@@ -1,6 +1,9 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
+== 21 października ==
+- HAL: fala na jego ustach zmienia kształt z dźwiękiem — niskie głoski toczą się długą falą, samogłoski falują drobniej, a „s”, „sz”, „cz” drgają gęstym szumem.
+
 == 20 października ==
 - Głosy motywów: HAL brzmi jak prawdziwy robot (niski, szybki, jednym równym tonem, metaliczny, lekko przesterowany, z pogłosem jak w statku kosmicznym), a Ice ma dużo niższy, głęboki głos i mówi szybciej.
 

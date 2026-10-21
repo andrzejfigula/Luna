@@ -6558,6 +6558,36 @@ class FaceSpecTest(unittest.TestCase):
         ue = self._settle(gl, face, 12)
         self.assertLess(uo["uMouth"][2], ue["uMouth"][2] - 40)
 
+    def test_hals_wave_follows_the_pitch(self):
+        import numpy as np
+        import openai_tts
+        import gl_face
+        import themes
+        t = np.arange(480 * 4) / 24000.0
+        def split(hz):
+            a = (8000 * np.sin(2 * np.pi * hz * t)).astype(np.float32).reshape(-1, 480)
+            return openai_tts.Envelope.band_split(a).mean(axis=0)
+        lo, mid, hi = split(200), split(900), split(3500)
+        self.assertGreater(lo[0], 0.8)                        # a hum: the long wave
+        self.assertGreater(mid[1], 0.8)                       # a vowel: the ripple
+        self.assertGreater(hi[2], 0.8)                        # a hiss: the fine buzz
+        env = openai_tts.Envelope()
+        env.feed((8000 * np.sin(2 * np.pi * 3500 * t)).astype(np.int16).tobytes())
+        env.start_at(100.0)
+        self.assertGreater(env.bands_at(100.01)[2], 0.8)
+        themes.set_theme("hal")
+        try:
+            gl = self._gl()
+            face = self._face("neutral", talking=True)
+            face._audio_bands = (0.0, 0.0, 1.0)
+            u = self._settle(gl, face, 12)
+            self.assertGreater(u["uWaveBands"][2], 0.9)       # the lips buzz with the hiss
+            face._audio_bands = (1.0, 0.0, 0.0)
+            u = self._settle(gl, face, 12)
+            self.assertGreater(u["uWaveBands"][0], 0.9)
+        finally:
+            themes.set_theme("luna")
+
     def test_people_coming_and_going(self):
         gl = self._gl()
         face = self._face("neutral")

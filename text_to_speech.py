@@ -113,6 +113,7 @@ def _energy_loop():
     global _energy_phase
     smoothed = 0.0
     shape = None
+    bands = None
 
     while True:
 
@@ -136,6 +137,9 @@ def _energy_loop():
                                                   shape[1] + (sh[1] - shape[1]) * 0.5)
             else:
                 shape = None
+            bd = envelope.bands_at(t_heard) if sh is not None else None
+            bands = (None if bd is None else bd if bands is None
+                     else tuple(o + (n - o) * 0.5 for o, n in zip(bands, bd)))
             e = max(0.0, min(1.0, e * LIPSYNC_GAIN))
 
             # asymmetric smoothing — snappy open, softer close
@@ -145,6 +149,7 @@ def _energy_loop():
             with state.lock:
                 state.audio_energy = smoothed
                 state.audio_shape  = shape
+                state.audio_bands  = bands
 
             time.sleep(0.016)   # ~60 fps mouth animation while speaking
 
@@ -153,10 +158,12 @@ def _energy_loop():
             _energy_phase = 0.0
             smoothed = 0.0
             shape = None
+            bands = None
 
             with state.lock:
                 state.audio_energy = 0.0
                 state.audio_shape  = None
+                state.audio_bands  = None
 
             time.sleep(0.05)    # idle — poll slower, saves CPU on the Pi
 

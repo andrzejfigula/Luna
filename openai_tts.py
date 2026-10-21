@@ -203,6 +203,7 @@ class Envelope:
         self.lock     = threading.Lock()
         self.frames   = []          # energy per frame, playback order
         self.shape    = []          # (brightness, zero-crossing rate) per frame
+        self.bands    = []          # (low, mid, high) share of the sound per frame (HAL's wave)
         self.t0       = None        # wall-clock time byte 0 hit the player
         self._carry   = b""
 
@@ -210,6 +211,7 @@ class Envelope:
         with self.lock:
             self.frames = []
             self.shape  = []
+            self.bands  = []
             self.t0     = None
             self._carry = b""
 
@@ -240,9 +242,25 @@ class Envelope:
         d   = np.diff(a, axis=1)
         br  = np.sqrt(np.mean(d * d, axis=1)) / (rms + 1e-3)
         zc  = np.mean(np.abs(np.diff(np.sign(a), axis=1)) > 0, axis=1)
+        bd  = self.band_split(a)
         with self.lock:
             self.frames.extend(e.tolist())
             self.shape.extend(zip(br.tolist(), zc.tolist()))
+            self.bands.extend(map(tuple, bd.tolist()))
+
+    _EDGES = (80.0, 400.0, 1500.0, 6000.0)       # Hz: voice/"o" · vowels · hiss
+
+    @classmethod
+    def band_split(cls, a):
+        """(low, mid, high) share of each frame's sound (rows of a), summing
+        to 1 — how much of it is a deep hum, a vowel, a hiss."""
+        win = np.hanning(a.shape[1]).astype(np.float32)
+        pw  = np.abs(np.fft.rfft(a * win, axis=1)) ** 2
+        f   = np.fft.rfftfreq(a.shape[1], 1.0 / 24000)
+        e   = cls._EDGES
+        bd  = np.stack([np.sqrt(pw[:, (f >= e[i]) & (f < e[i + 1])].sum(axis=1))
+                        for i in range(3)], axis=1)
+        return bd / (bd.sum(axis=1, keepdims=True) + 1e-6)
 
     def energy_at(self, t):
         """Energy of the frame playing at wall-clock time t (None = not
@@ -264,6 +282,14 @@ class Envelope:
                 return None
             i = int((t - self.t0) * 1000 / LIPSYNC_FRAME_MS)
             return self.shape[i] if 0 <= i < len(self.shape) else None
+
+    def bands_at(self, t):
+        """(low, mid, high) of the frame playing at t, or None."""
+        with self.lock:
+            if self.t0 is None:
+                return None
+            i = int((t - self.t0) * 1000 / LIPSYNC_FRAME_MS)
+            return self.bands[i] if 0 <= i < len(self.bands) else None
 
 
 envelope = Envelope()
