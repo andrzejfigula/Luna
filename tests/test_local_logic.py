@@ -7218,7 +7218,7 @@ class SettingsPageTest(unittest.TestCase):
         self.assertEqual(settings.get("tts_speed"), 1.0)
 
     def test_rows_of_every_tab(self):
-        for tab in range(3):
+        for tab in range(4):
             with mock.patch.object(self.sp, "cost_rows", return_value=[]):
                 rows = self.sp.rows(tab)
             for r in rows:
@@ -7254,10 +7254,10 @@ class SettingsPageTest(unittest.TestCase):
     def test_reset_asks_first_and_not_a_child(self):
         import ui_screens
         sp = self.sp
-        sp.show(3)
+        sp.show(4)
         with state.lock:
             data = state.overlay[2]
-        L = ui_screens._settings_layout(800, 480, len(sp.rows(3)))
+        L = ui_screens._settings_layout(800, 480, len(sp.rows(4)))
         reset = L["rows"][2].center
         with mock.patch.object(sp, "_reset_and_restart") as go, \
                 mock.patch.object(sp, "_child_here", return_value=True):
@@ -7277,6 +7277,64 @@ class SettingsPageTest(unittest.TestCase):
             self.assertEqual(go.call_count, 1)
         with state.lock:
             state.overlay = None
+
+
+class DevicesTest(unittest.TestCase):
+    """Speaker / mic / camera: LUNA_SPEAKER=pebble,jack falls back to the jack,
+    the settings page's pick wins and an unplugged pick falls back to .env."""
+
+    SINKS = [{"node.name": "alsa_output.platform-fe00b840.mailbox.stereo-fallback",
+              "node.description": "Built-in Audio Stereo"},
+             {"node.name": "alsa_output.usb-Creative_Technology_Ltd_Pebble_V3-01.analog-stereo",
+              "node.description": "Pebble V3 Analog Stereo"}]
+
+    def setUp(self):
+        import devices
+        self.d = devices
+        for k in ("speaker", "mic", "camera"):
+            settings._load()
+            settings._data.pop(k, None)
+        devices._lists.clear()
+
+    def test_speaker_chain_falls_back(self):
+        d = self.d
+        jack, pebble = self.SINKS[0]["node.name"], self.SINKS[1]["node.name"]
+        self.assertEqual(d.resolve_sink(["pebble", "jack"], self.SINKS), pebble)
+        self.assertEqual(d.resolve_sink(["pebble", "jack"], self.SINKS[:1]), jack)
+        self.assertIsNone(d.resolve_sink(["pebble"], self.SINKS[:1]))     # default output
+        self.assertIsNone(d.resolve_sink(["default", "jack"], self.SINKS))
+        with mock.patch.object(d, "AUDIO_OUTPUT_DEVICE", "pebble, jack"):
+            self.assertEqual(d.speaker_chain(), ["pebble", "jack"])
+            settings.put("speaker", jack)
+            self.assertEqual(d.speaker_chain(), [jack, "pebble", "jack"])
+            self.assertEqual(d.resolve_sink(sinks=self.SINKS), jack)
+        settings.put("speaker", None)
+
+    def test_labels(self):
+        self.assertEqual(self.d.sink_label(self.SINKS[0]), "Gniazdo słuchawkowe")
+        self.assertEqual(self.d.sink_label(self.SINKS[1]), "Pebble V3")
+
+    def test_pick_cycles_through_what_is_plugged_in(self):
+        d = self.d
+        found = [("a", "Kamera A"), ("b", "Kamera B")]
+        with mock.patch.object(d, "cameras", return_value=found):
+            self.assertEqual(d.pick_next("camera"), "Kamera A")
+            self.assertEqual(settings.get("camera"), "a")
+            self.assertEqual(d.pick_next("camera"), "Kamera B")
+            self.assertEqual(d.pick_next("camera"), d.AUTO)
+            self.assertIsNone(settings.get("camera"))
+        settings.put("camera", "gone")                      # unplugged: still listed
+        with mock.patch.object(d, "cameras", return_value=found):
+            self.assertIn(("gone", "gone (odłączony)"), d.options("camera"))
+        settings.put("camera", None)
+
+    def test_mic_specs(self):
+        d = self.d
+        with mock.patch.object(d, "AUDIO_INPUT_DEVICE", "C270"):
+            self.assertEqual(d.mic_specs(), ["C270"])
+            settings.put("mic", "Pebble V3")
+            self.assertEqual(d.mic_specs(), ["Pebble V3", "C270"])
+        settings.put("mic", None)
 
 
 class ThemesTest(unittest.TestCase):

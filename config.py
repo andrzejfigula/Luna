@@ -199,7 +199,8 @@ if isinstance(AUDIO_INPUT_DEVICE, str) and AUDIO_INPUT_DEVICE.isdigit():
     AUDIO_INPUT_DEVICE = int(AUDIO_INPUT_DEVICE)
 
 # Speaker — .env: LUNA_SPEAKER=jack | hdmi | bluetooth | default | <PipeWire node name>
-# ("jack" = 3.5 mm headphone jack). List sinks: wpctl status
+# ("jack" = 3.5 mm headphone jack); a list falls back in order: LUNA_SPEAKER=pebble,jack.
+# The settings page (Urządzenia) can pick another (devices.py). List sinks: wpctl status
 AUDIO_OUTPUT_DEVICE = _env("LUNA_SPEAKER", "default")
 
 # ── STT ───────────────────────────────────────────────────────────────────────

@@ -29,6 +29,7 @@ import time
 
 import numpy as np
 
+import devices
 import settings
 import themes
 import tts_fx
@@ -50,7 +51,6 @@ from config import (
     AUDIO_PREBUFFER_SECS,
     TTS_LEADIN_SECS,
     TTS_PLAYER,
-    AUDIO_OUTPUT_DEVICE,
     LIPSYNC_FRAME_MS,
     LIPSYNC_RMS_FULL,
 )
@@ -106,6 +106,7 @@ HEAD_BYTES = int(STEADY_SECS * PCM_RATE * 2)
 
 CACHE_STATS = [0, 0]           # hits, misses since start
 CACHE_MAX_FILES = 400          # ~3 s each at 48 kB/s: about 60 MB at most
+SPEAKER_CHECK_SECS = 10        # how often the speaker is re-checked (pw-dump: ~70 ms)
 
 
 def _cache_dir():
@@ -152,42 +153,6 @@ def cache_put(key, pcm):
                 os.remove(old)
     except OSError as e:
         print(f"[TTS] cache write failed ({e})", flush=True)
-
-# LUNA_SPEAKER aliases → substrings of the PipeWire sink's node.name
-_SINK_ALIASES = {
-    "jack":       ["mailbox", "headphones"],   # Pi's 3.5 mm output
-    "headphones": ["mailbox", "headphones"],
-    "hdmi":       ["hdmi"],
-    "bluetooth":  ["bluez_output"],
-    "bt":         ["bluez_output"],
-}
-
-
-def _resolve_sink(spec):
-    """Turn LUNA_SPEAKER into a PipeWire node name for pw-play --target.
-    Returns None for "default" (follow the desktop's default output)."""
-    if not spec or spec.lower() == "default":
-        return None
-    try:
-        dump  = subprocess.run(["pw-dump"], capture_output=True, text=True,
-                               timeout=5).stdout
-        sinks = [o["info"]["props"] for o in json.loads(dump)
-                 if o.get("info", {}).get("props", {}).get("media.class") == "Audio/Sink"]
-    except Exception as e:
-        print(f"[TTS] pw-dump failed ({e}) — using {spec!r} as-is")
-        return spec
-    names = [s.get("node.name", "") for s in sinks]
-    if spec in names:
-        return spec
-    for needle in _SINK_ALIASES.get(spec.lower(), [spec.lower()]):
-        for s in sinks:
-            hay = (s.get("node.name", "") + " " + s.get("node.description", "")).lower()
-            if needle in hay:
-                return s["node.name"]
-    print(f"[TTS] No PipeWire sink matches LUNA_SPEAKER={spec!r} "
-          f"(have: {', '.join(names) or 'none'}) — using default output")
-    return None
-
 
 class Envelope:
     """Loudness-over-time of the audio currently being played, for lip sync.
@@ -304,12 +269,15 @@ class OpenAITTS:
         self._client = (OpenAI(api_key=OPENAI_API_KEY, timeout=OPENAI_TTS_TIMEOUT,
                                max_retries=1)
                         if OPENAI_API_KEY else None)
-        self._sink    = _resolve_sink(AUDIO_OUTPUT_DEVICE)
+        self._sink    = devices.resolve_sink()
         self._raw_cmd = self._build_raw_player_cmd()
         self._out     = None
         if AUDIO_PERSISTENT and self._raw_cmd:
             from audio_out import AudioOut
             self._out = AudioOut(self._raw_cmd, envelope, AUDIO_AHEAD_SECS)
+        if self._raw_cmd:
+            threading.Thread(target=self._watch_speaker, daemon=True,
+                             name="speaker").start()
         if self._client is None:
             print("[TTS] No OPENAI_API_KEY — replies will be printed, not spoken")
         elif self._raw_cmd is None:
@@ -319,6 +287,24 @@ class OpenAITTS:
             print(f"[TTS] OpenAI {OPENAI_TTS_MODEL}/{OPENAI_TTS_VOICE} "
                   f"→ {os.path.basename(TTS_PLAYER)} @ {PCM_RATE} Hz "
                   f"→ {self._sink or 'default output'}")
+
+    def _watch_speaker(self):
+        """Re-check the speaker every few seconds (or at once after a pick on
+        the settings page): USB speaker pulled → the next in the chain
+        (LUNA_SPEAKER=pebble,jack), plugged back → back to it."""
+        while True:
+            devices.speaker_changed.wait(SPEAKER_CHECK_SECS)
+            devices.speaker_changed.clear()
+            new = devices.resolve_sink()
+            if new == self._sink:
+                continue
+            print(f"[TTS] speaker {self._sink or 'default output'} → "
+                  f"{new or 'default output'}", flush=True)
+            self._sink = new
+            self._raw_cmd = self._build_raw_player_cmd()
+            if self._out:
+                self._out.cmd = self._raw_cmd      # a respawn uses it
+            devices.move_our_streams(new)          # voice, radio, sleep sounds
 
     # ── player command for raw PCM on stdin ─────────────────────────────────
     def _build_raw_player_cmd(self):

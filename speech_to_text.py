@@ -36,9 +36,9 @@ import sounddevice as sd
 from vosk import Model, KaldiRecognizer
 
 from shared_state import state
+import devices
 import themes
 from config import (
-    AUDIO_INPUT_DEVICE,
     VOSK_MODEL_PATH,
     MIC_SAMPLE_RATE,
     VOSK_SAMPLE_RATE,
@@ -88,7 +88,7 @@ WAKE_ACK = "__WAKE_ACK__"
 # ── Device + sample rate detection ────────────────────────────────────────────
 
 def _resolve_input_device(spec):
-    """AUDIO_INPUT_DEVICE may be an index or a case-insensitive substring of
+    """LUNA_MIC / the settings page's pick may be an index or a case-insensitive substring of
     the device name (LUNA_MIC=C270). Returns an index or None."""
     if spec is None or isinstance(spec, int):
         return spec
@@ -99,9 +99,18 @@ def _resolve_input_device(spec):
     return None
 
 
-def _pick_input_device():
-    """Return (device_index_or_None, sample_rate) or (None, None) if no mic."""
-    wanted = _resolve_input_device(AUDIO_INPUT_DEVICE)
+def _pick_input_device(specs=None):
+    """Return (device_index_or_None, sample_rate) or (None, None) if no mic.
+    specs: the settings page's pick, then .env's (devices.mic_specs())."""
+    for spec in (devices.mic_specs() if specs is None else specs):
+        found = _configured_device(spec)
+        if found:
+            return found
+    return _auto_input_device()
+
+
+def _configured_device(spec):
+    wanted = _resolve_input_device(spec)
     if wanted is not None:
         try:
             dev = sd.query_devices(wanted)
@@ -115,6 +124,10 @@ def _pick_input_device():
         except Exception as e:
             print(f"[STT] Configured device {wanted} error: {e} "
                   f"— falling back to auto-detect")
+    return None
+
+
+def _auto_input_device():
 
     # auto-detect: prefer the system default input, then any input device
     candidates = []
@@ -172,7 +185,7 @@ def _print_mic_help():
     print("[STT] Will retry the microphone every 5 seconds.")
     print("[STT] To fix, see the Troubleshooting section in README.md:")
     print("[STT]   python3 -c \"import sounddevice as sd; print(sd.query_devices())\"")
-    print("[STT]   then set AUDIO_INPUT_DEVICE in config.py")
+    print("[STT]   then pick it in Ustawienia → Urządzenia, or LUNA_MIC in .env")
     print("=" * 60)
 
 
@@ -227,11 +240,17 @@ def _pw_record(node):
     with state.lock:
         state.mic_ok = True
     print(f"[STT] Microphone stream running @ {rate} Hz (PipeWire node {node})", flush=True)
+    _mic_name[0] = node
     block = int(rate * 0.25) * 2                    # 250 ms, like the ALSA stream
+    specs, n = devices.mic_specs(), 0
     try:
         while True:
             data = proc.stdout.read(block)
             if not data:
+                break
+            n += 1
+            if n % 4 == 0 and devices.mic_specs() != specs:   # picked on the settings page
+                print(f"[STT] microphone changed to {devices.mic_specs() or 'auto'}", flush=True)
                 break
             _callback(data, len(data) // 2, None, None)
     finally:
@@ -247,6 +266,31 @@ def _pw_record(node):
 
 
 _open_fails = [0]          # failed opens in a row while the device was busy
+_specs_open = [None]       # devices.mic_specs() the open stream was picked by
+_mic_name = [None]         # the device it opened (settings page: "teraz: …")
+
+
+def _close_for_new_mic():
+    global _stream, _mic_ok
+    print(f"[STT] microphone changed to {devices.mic_specs() or 'auto'} — reopening",
+          flush=True)
+    try:
+        _stream.stop()
+        _stream.close()
+    except Exception:
+        pass
+    _stream, _mic_ok = None, False
+    with state.lock:
+        state.mic_ok = False
+
+
+def _refresh_devices():
+    """PortAudio lists devices once, at start: re-read the list (no stream is open)."""
+    try:
+        sd._terminate()
+        sd._initialize()
+    except Exception:
+        pass
 
 
 def _stream_keeper():
@@ -254,14 +298,18 @@ def _stream_keeper():
     global _stream, _mic_ok, _mic_rate, _help_printed
 
     while True:
-        if isinstance(AUDIO_INPUT_DEVICE, str) and AUDIO_INPUT_DEVICE.startswith("pw:"):
-            _pw_record(AUDIO_INPUT_DEVICE[3:])
+        specs = devices.mic_specs()
+        if specs and isinstance(specs[0], str) and specs[0].startswith("pw:"):
+            _pw_record(specs[0][3:])
             continue
         if _mic_ok:
             time.sleep(1.0)
+            if devices.mic_specs() != _specs_open[0]:      # picked on the settings page
+                _close_for_new_mic()
             continue
 
-        device, rate = _pick_input_device()
+        _refresh_devices()                                 # a mic plugged in since start
+        device, rate = _pick_input_device(specs)
         if device is None and rate is None:
             _print_mic_help()
             with state.lock:
@@ -279,6 +327,8 @@ def _stream_keeper():
                 device=device,
             )
             stream.start()
+            _specs_open[0] = specs
+            _mic_name[0] = sd.query_devices(device)["name"] if device is not None else None
             _stream       = stream
             _mic_rate     = rate
             _mic_ok       = True

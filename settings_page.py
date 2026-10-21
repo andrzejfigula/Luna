@@ -3,6 +3,7 @@ settings_page.py — "pokaż ustawienia": one page on her screen, four tabs.
 
   Ogólne  — the default language, speech speed, reply length, captions, the bar
   Ekran   — her theme (themes.py), the camera preview, how smoothly the face is drawn
+  Urządzenia — the speaker, microphone and camera she uses (devices.py)
   Koszty  — API calls by day and their estimated cost (health.py's counts)
   Reset   — what she remembers; the factory reset: memories and the people she
             knows MOVED to data/reset-<date>/ (never deleted), then a restart
@@ -17,6 +18,7 @@ import signal
 import threading
 import time
 
+import devices
 import settings
 import themes
 from shared_state import state
@@ -25,7 +27,7 @@ from config import (DATA_DIR, PHOTOS_DIR, OPENAI_TTS_SPEED, CAMERA_PREVIEW, DRAW
 
 PAGE_SECS = 60                # untouched this long, the page closes
 CONFIRM_SECS = 20             # the reset's "Na pewno?" waits this long
-TABS = ("Ogólne", "Ekran", "Koszty", "Reset")
+TABS = ("Ogólne", "Ekran", "Urządzenia", "Koszty", "Reset")
 
 _LANGS = (("pl", "Polski"), ("en", "English"))
 _SPEEDS = (1.0, 1.1, 1.2, 1.3, 1.4)
@@ -115,6 +117,28 @@ def cost_rows(today=None):
     return rows
 
 
+# ── the devices ───────────────────────────────────────────────────────────────
+
+_DEVICES = (("speaker", "Głośnik"), ("mic", "Mikrofon"), ("camera", "Kamera"))
+
+
+def device_rows():
+    rows = []
+    for key, label in _DEVICES:
+        pick = settings.get(key)
+        value = dict(devices.options(key)).get(pick or "", devices.AUTO)
+        rows.append({"key": key, "kind": "cycle", "label": label,
+                     "sub": f"teraz: {devices.now_label(key)}", "value": value})
+    return rows
+
+
+def _say_speaker():
+    """The speaker was tapped (someone's there): a word from the new one."""
+    from text_to_speech import speak
+    time.sleep(1.0)                        # (openai_tts moves to it first)
+    speak("Teraz mówię przez ten głośnik.")
+
+
 # ── the rows of each tab ──────────────────────────────────────────────────────
 
 _cache = {}                   # tab → (when, rows): drawn every frame, read once a second
@@ -148,7 +172,8 @@ def _rows(tab):
             {"key": "status_bar", "kind": "toggle", "label": "Pasek u góry",
              "sub": "godzina, pogoda, minutniki", "value": settings.get("status_bar", True) is not False},
         ]
-    if tab == 1:
+    name = TABS[tab]
+    if name == "Ekran":
         th = themes.get()
         return [
             {"key": "theme", "kind": "cycle", "label": "Motyw",
@@ -160,7 +185,9 @@ def _rows(tab):
              "sub": "klatki na sekundę; mniej = chłodniejszy procesor",
              "value": f"{draw_fps()} kl./s"},
         ]
-    if tab == 2:
+    if name == "Urządzenia":
+        return device_rows()
+    if name == "Koszty":
         return cost_rows()
     import memory
     import faces
@@ -204,6 +231,11 @@ def change(key):
         themes.set_theme(new)
         threading.Thread(target=_introduce, args=(new,), daemon=True, name="theme").start()
         return f"Motyw: {themes.THEMES[new]['label']}"
+    if key in dict(_DEVICES):
+        label = devices.pick_next(key)
+        if key == "speaker":
+            threading.Thread(target=_say_speaker, daemon=True, name="speaker-hello").start()
+        return f"{dict(_DEVICES)[key]}: {label}"
     if key == "draw_fps":
         new = _next(_FPS, draw_fps())
         settings.put("draw_fps", new)

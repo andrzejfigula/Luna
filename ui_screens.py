@@ -1191,8 +1191,9 @@ def draw_list(scr, heading, rows, now, W, H, meta=None):
 
 def _settings_layout(W, H, n_rows):
     """{"tabs": [...], "rows": [...], "ctrls": [...], "dialog", "yes", "no"}."""
+    import settings_page
     top = 78
-    tabs = [pygame.Rect(16, top + k * 58, 168, 50) for k in range(4)]
+    tabs = [pygame.Rect(16, top + k * 58, 168, 50) for k in range(len(settings_page.TABS))]
     x0 = 198
     rh = min(72, (H - top - 10) // max(1, n_rows))
     rws = [pygame.Rect(x0, top + k * rh, W - x0 - 16, rh - 8) for k in range(n_rows)]

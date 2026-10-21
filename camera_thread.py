@@ -16,6 +16,8 @@ import numpy as np
 from config import (CAMERA_ID, FRAME_WIDTH, FRAME_HEIGHT,
                     FPS, ESP32_STREAM, USE_ESP32_CAM)
 from shared_state import state
+import devices
+import settings
 
 
 def _esp32_loop():
@@ -53,10 +55,14 @@ def _esp32_loop():
         time.sleep(2)   # wait before reconnecting
 
 
+_opened = [None]           # the camera open now (settings page: "teraz: …")
+
+
 def _open_local_camera():
-    """Try the configured camera, then fall back to indices 0-2."""
+    """Try the settings page's pick, the configured camera, then indices 0-2."""
     tried = []
-    for cam_id in [CAMERA_ID, 0, 1, 2]:
+    ids = devices.camera_ids()
+    for cam_id in ids:
         if cam_id in tried:
             continue
         tried.append(cam_id)
@@ -70,8 +76,9 @@ def _open_local_camera():
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
             cap.set(cv2.CAP_PROP_FPS,          FPS)
             cap.set(cv2.CAP_PROP_BUFFERSIZE,   1)
-            if cam_id != CAMERA_ID:
-                print(f"[camera] Camera {CAMERA_ID} unavailable — using {cam_id}")
+            _opened[0] = cam_id
+            if cam_id != ids[0]:
+                print(f"[camera] Camera {ids[0]} unavailable — using {cam_id}")
             return cap
         cap.release()
     return None
@@ -118,6 +125,7 @@ def _local_loop():
     while True:
         if _privacy_wait():
             continue
+        picked = settings.get("camera")
         cap = _open_local_camera()
 
         if cap is None:
@@ -160,8 +168,12 @@ def _local_loop():
             if time.time() - last_light > 2.0:
                 last_light = time.time()
                 _measure_light(cap, frame)
+                if settings.get("camera") != picked:      # picked on the settings page
+                    print(f"[camera] camera changed to {settings.get('camera') or 'auto'}")
+                    break
 
         cap.release()
+        _opened[0] = None
         time.sleep(2.0)
 
 
