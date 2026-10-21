@@ -5535,6 +5535,9 @@ class GalleryDeletePeopleTest(unittest.TestCase):
         import gallery
         for f in ("20261012-120000.jpg", "20261013-120000.jpg"):
             open(os.path.join(self.d, f), "wb").close()
+        # the one binned first was taken later: restore goes by binning, not taking
+        later = time.time() + 60
+        os.utime(os.path.join(self.d, "20261013-120000.jpg"), (later, later))
         with mock.patch.object(screens, "PHOTOS_DIR", self.d),                 mock.patch.object(screens, "BIN", os.path.join(self.d, "kosz")):
             gallery.show(screens._items(["20261013-120000.jpg", "20261012-120000.jpg"], {}),
                          auto=False)
@@ -5555,6 +5558,7 @@ class GalleryDeletePeopleTest(unittest.TestCase):
                 self.assertIsNone(state.overlay)
             self.assertTrue(screens.photo_command("przywróć zdjęcie", self.speak))
         self.assertIn("20261012-120000.jpg", os.listdir(self.d))
+        self.assertEqual(os.listdir(os.path.join(self.d, "kosz")), ["20261013-120000.jpg"])
 
     def test_drawing_deleted_and_back(self):
         import drawing
