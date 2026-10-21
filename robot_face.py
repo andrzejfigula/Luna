@@ -426,8 +426,15 @@ class ZzzParticle:
     def alive(self): return self.alpha > 0
 
     def draw(self, surf):
+        grow = 0.7 + 0.5 * min(1.0, self.age / 80.0)         # small, then bigger
+        out = _fx(surf)
+        if out is not None:                  # the GPU: one "Z" scaled, to the sub-pixel
+            big = self.size > 38
+            out.append(gl_fx.sprite(("zzz", big, ZZZ_COL), lambda res: zzz_img(48 * res, big),
+                                    self.x, self.y, 0.0, self.size * grow / 48.0,
+                                    self.alpha / 255.0))
+            return
         try:
-            grow = 0.7 + 0.5 * min(1.0, self.age / 80.0)     # small, then bigger
             img = zzz_img(int(self.size * grow) // 2 * 2, self.size > 38)
             img.set_alpha(int(self.alpha))
             surf.blit(img, img.get_rect(center=(int(self.x), int(self.y))))
@@ -454,16 +461,27 @@ def zzz_img(size, big):
     return img.copy()
 
 
+def _blush_lines_img(res):
+    def draw(s, kk):
+        kk *= res
+        col = _lerp_col(BLUSH_COL, (255, 255, 255), 0.25)
+        for j in range(3):
+            x = (14 + j * 17) * kk
+            pygame.draw.line(s, col, (x + 9 * kk, 6 * kk), (x, 30 * kk), int(4 * kk))
+    return _smooth(70 * res, 36 * res, draw)
+
+
 def blush_lines(surf, fcx, fcy, k):
     """Three short slanted strokes on each cheek (gl_face's blush spots)."""
     img = _SMOOTH_CACHE.get(("blush_lines", BLUSH_COL))
     if img is None:
-        def draw(s, kk):
-            col = _lerp_col(BLUSH_COL, (255, 255, 255), 0.25)
-            for j in range(3):
-                x = (14 + j * 17) * kk
-                pygame.draw.line(s, col, (x + 9 * kk, 6 * kk), (x, 30 * kk), int(4 * kk))
-        img = _SMOOTH_CACHE[("blush_lines", BLUSH_COL)] = _smooth(70, 36, draw)
+        img = _SMOOTH_CACHE[("blush_lines", BLUSH_COL)] = _blush_lines_img(1)
+    out = _fx(surf)
+    if out is not None:
+        for side in (-1, 1):
+            out.append(gl_fx.sprite(("blush_lines", BLUSH_COL), _blush_lines_img,
+                                    fcx + side * 232, fcy + 70, 0.0, 1.0, 220 * k / 255.0))
+        return
     img = img.copy()
     img.set_alpha(int(220 * k))
     for side in (-1, 1):
@@ -472,6 +490,19 @@ def blush_lines(surf, fcx, fcy, k):
 
 def anger_mark(surf, x, y, r, alpha=255):
     """The cartoon anger mark: four bulging arcs in a cross (cached)."""
+    out = _fx(surf)
+    if out is not None:                  # (one image, scaled by the GPU)
+        out.append(gl_fx.sprite(("anger", ANGRY_COL), lambda res: anger_mark_img(48 * res),
+                                x, y, 0.0, r / 48.0, max(0, alpha) / 255.0))
+        return
+    img = anger_mark_img(r)
+    if alpha < 255:
+        img = img.copy()
+        img.set_alpha(int(max(0, alpha)))
+    surf.blit(img, img.get_rect(center=(int(x), int(y))))
+
+
+def anger_mark_img(r):
     r = int(r)
     key = ("anger", r, ANGRY_COL)
     img = _SMOOTH_CACHE.get(key)
@@ -489,10 +520,7 @@ def anger_mark(surf, x, y, r, alpha=255):
                 pygame.draw.lines(s, _lerp_col(ANGRY_COL, (90, 0, 0), 0.4), False, pts, int(10 * k))
                 pygame.draw.lines(s, ANGRY_COL, False, pts, int(6 * k))
         img = _SMOOTH_CACHE[key] = _smooth(2 * r + 8, 2 * r + 8, draw)
-    if alpha < 255:
-        img = img.copy()
-        img.set_alpha(int(max(0, alpha)))
-    surf.blit(img, img.get_rect(center=(int(x), int(y))))
+    return img
 
 
 class TearParticle:
@@ -513,6 +541,11 @@ class TearParticle:
     def alive(self): return self.alpha > 0
 
     def draw(self, surf):
+        out = _fx(surf)
+        if out is not None:                  # (one drop, scaled, to the sub-pixel)
+            out.append(gl_fx.sprite(("tear", TEAR_COL), lambda res: tear_img(10 * res),
+                                    self.x, self.y, 0.0, self.r / 10.0, self.alpha / 255.0))
+            return
         img = tear_img(self.r)
         img.set_alpha(int(self.alpha))
         surf.blit(img, img.get_rect(center=(int(self.x), int(self.y))))
@@ -557,6 +590,11 @@ class SteamParticle:
     def alive(self): return self.alpha > 0
 
     def draw(self, surf):
+        out = _fx(surf)
+        if out is not None:                  # a soft-edged puff
+            out.append(gl_fx.lines([(self.x, self.y)], 2 * self.r, STEAM_COL,
+                                   self.alpha / 255.0, glow=1.5))
+            return
         s = pygame.Surface((self.r * 2 + 4, self.r * 2 + 4), pygame.SRCALPHA)
         pygame.draw.circle(s, (*STEAM_COL, int(self.alpha)),
                            (int(self.r) + 2, int(self.r) + 2), int(self.r))
@@ -586,6 +624,19 @@ class StarParticle:
 
     def draw(self, surf):
         if self.size < 2:
+            return
+        out = _fx(surf)
+        if out is not None:                  # the spokes as antialiased lines
+            long_, short = [], []
+            for i in range(5):
+                a = math.pi / 2 + i * (2 * math.pi / 5)
+                b = a + math.pi / 5
+                long_ += [(self.x, self.y), (self.x + math.cos(a) * self.size,
+                                             self.y - math.sin(a) * self.size)]
+                short += [(self.x, self.y), (self.x + math.cos(b) * self.size * 0.4,
+                                             self.y - math.sin(b) * self.size * 0.4)]
+            out.append(gl_fx.lines(long_, 2.4, STAR_COL, self.alpha / 255.0, pairs=True))
+            out.append(gl_fx.lines(short, 1.6, STAR_COL, self.alpha / 255.0, pairs=True))
             return
         s = pygame.Surface((self.size * 4, self.size * 4), pygame.SRCALPHA)
         cx, cy = self.size * 2, self.size * 2
@@ -643,6 +694,10 @@ class SoundWave:
 
     def draw(self, surf):
         if self.r < 1 or self.alpha < 5:
+            return
+        out = _fx(surf)
+        if out is not None:
+            out.append(gl_fx.ring(self.x, self.y, self.r, 2.5, WAVE_COL, self.alpha / 255.0))
             return
         s = pygame.Surface((int(self.r * 2) + 4,
                             int(self.r * 2) + 4), pygame.SRCALPHA)
@@ -1597,9 +1652,20 @@ def _arc_img(r, col, side):
 def twinkle(surf, x, y, r, alpha, col=None):
     """A soft four-pointed sparkle (antialiased, cached by size): the few
     that belong to an expression, not confetti."""
-    r = max(4, int(r) // 2 * 2)
     col = col or IRIS_SHINE
-    key = ("twinkle", r, col)
+    out = _fx(surf)
+    if out is not None:                  # (one sparkle, scaled by the GPU)
+        out.append(gl_fx.sprite(("twinkle", col, GLOW_COL), lambda res: _twinkle_img(24 * res, col),
+                                x, y, 0.0, max(4.0, r) / 24.0,
+                                max(0.0, min(255.0, alpha)) / 255.0))
+        return
+    img = _twinkle_img(max(4, int(r) // 2 * 2), col)
+    img.set_alpha(int(max(0, min(255, alpha))))
+    surf.blit(img, img.get_rect(center=(int(x), int(y))))
+
+
+def _twinkle_img(r, col):
+    key = ("twinkle", r, col, GLOW_COL)
     img = _SMOOTH_CACHE.get(key)
     if img is None:
         def draw(s, k, r=r):
@@ -1612,8 +1678,7 @@ def twinkle(surf, x, y, r, alpha, col=None):
             pygame.draw.circle(s, (*GLOW_COL, 60), (int(c), int(c)), int(r * 0.55 * k))
             pygame.draw.polygon(s, (*col, 255), pts)
         img = _SMOOTH_CACHE[key] = _smooth(2 * r + 8, 2 * r + 8, draw)
-    img.set_alpha(int(max(0, min(255, alpha))))
-    surf.blit(img, img.get_rect(center=(int(x), int(y))))
+    return img
 
 
 def draw_side_arcs(surf, cx, cy, dx, arcs, col):
@@ -3159,18 +3224,26 @@ class RobotFace:
             pulse = 0.75 + 0.25 * math.sin(self.breath_phase * 1.6)
             a     = int(150 * self.awake_glow * pulse)
             r     = 7
-            dot   = pygame.Surface((r * 4, r * 4), pygame.SRCALPHA)
-            pygame.draw.circle(dot, (*AWAKE_COL, a // 3),
-                               (r * 2, r * 2), r * 2)          # halo
-            pygame.draw.circle(dot, (*AWAKE_COL, a),
-                               (r * 2, r * 2), r)              # core
-            base.blit(dot, (fcx - r * 2, fcy + AWAKE_DOT_Y - r * 2))
+            if _fx(base) is not None:            # a soft dot, its halo round it
+                _fx(base).append(gl_fx.lines([(fcx, fcy + AWAKE_DOT_Y)], 2 * r, AWAKE_COL,
+                                             a / 255.0, glow=3.0))
+            else:
+                dot = pygame.Surface((r * 4, r * 4), pygame.SRCALPHA)
+                pygame.draw.circle(dot, (*AWAKE_COL, a // 3),
+                                   (r * 2, r * 2), r * 2)          # halo
+                pygame.draw.circle(dot, (*AWAKE_COL, a),
+                                   (r * 2, r * 2), r)              # core
+                base.blit(dot, (fcx - r * 2, fcy + AWAKE_DOT_Y - r * 2))
 
         # ── wake ripple ───────────────────────────────────────────────────
         if self.wake_anim == self._WAKE_ACTIVE:
-            r     = int(self.wake_ripple * 300)
-            alpha = int((1.0 - self.wake_ripple) * 120)
-            if r > 0 and alpha > 0:
+            r     = self.wake_ripple * 300
+            alpha = (1.0 - self.wake_ripple) * 120
+            if r >= 1 and alpha > 0 and _fx(base) is not None:
+                _fx(base).append(gl_fx.ring(self.face_cx + self.face_ox, self.face_cy + self.face_oy,
+                                            r, 6.0, EYE_INNER, alpha / 255.0))
+            elif r >= 1 and alpha > 0:
+                r, alpha = int(r), int(alpha)
                 s = pygame.Surface((r * 2 + 4, r * 2 + 4), pygame.SRCALPHA)
                 pygame.draw.circle(s, (*EYE_INNER, alpha),
                                    (r + 2, r + 2), r, 6)
@@ -3226,7 +3299,7 @@ class RobotFace:
             u["_fx_back"], u["_fx"] = fx_back, fx_front
             # the layer behind the face is nearly always empty: not read at
             # all then (~0.7 ms a frame), unless it still has to be wiped
-            drew_back = HAIR or costume or self.sound_waves or self.steam_particles
+            drew_back = HAIR                     # (the rest behind it is gl_fx's now)
             self.gl.render(u, face_layer=base, screen_layer=self.screen,
                            back_layer=self.back if drew_back or self.gl.back_l.runs() else None)
         t35 = time.perf_counter()

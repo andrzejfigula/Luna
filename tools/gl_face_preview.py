@@ -194,6 +194,14 @@ FX_LOOKS = [            # (name, how to set it up: a state field → value; "sta
     ("steampunk", {"costume": "steampunk"}),
     ("crazy_robot", {"costume": "crazy_robot"}),
     ("party", {"costume": "party"}),
+    # the particles (one of each put in, the mood's own come on their own)
+    ("sad", {"emotion": "sad", "inject": "tear"}),
+    ("angry", {"emotion": "angry"}),
+    ("surprised", {"emotion": "surprised"}),
+    ("sleeping", {"emotion": "sleeping", "inject": "zzz"}),
+    ("love", {"emotion": "love"}),
+    ("excited", {"emotion": "excited"}),
+    ("waves", {"inject": "wave"}),
 ]
 
 
@@ -240,9 +248,25 @@ def fx_sheet(out_dir, theme_keys=("luna", "ice", "hal"), only=None):
                         state.game_hand = (v, now + 60)
                     elif k == "costume":
                         state.costume = (v, now + 600)
-                    elif k != "emotion":
+                    elif k not in ("emotion", "inject"):
                         setattr(state, k, v)
             emo = setup.get("emotion", "happy" if "costume" in setup else "neutral")
+            face.set_state(emo)
+            fcx, fcy = W // 2, H // 2 + rf.FACE_Y_OFFSET
+            inject = setup.get("inject")
+            if inject == "tear":
+                face.tear_particles += [rf.TearParticle(fcx - 160, fcy + 20),
+                                        rf.TearParticle(fcx + 160, fcy + 40)]
+            elif inject == "zzz":
+                face.zzz_particles += [rf.ZzzParticle(fcx + 40, fcy - 100),
+                                       rf.ZzzParticle(fcx - 30, fcy - 60)]
+            elif inject == "wave":
+                face.sound_waves += [rf.SoundWave(fcx, fcy + 120) for _ in range(3)]
+                face.sound_waves[1].r, face.sound_waves[2].r = 45.0, 70.0
+                face.wake_anim, face.wake_ripple = face._WAKE_ACTIVE, 0.25
+                face.steam_particles += [rf.SteamParticle(fcx + dx, fcy - 80) for dx in (-190, 190)]
+                for _ in range(4):
+                    face.star_particles.append(rf.StarParticle(fcx + 250, fcy - 120))
             t_end = time.monotonic() + (2.6 if name == "thinking" else 0.8)
             radii, costs = [], []
             while time.monotonic() < t_end:

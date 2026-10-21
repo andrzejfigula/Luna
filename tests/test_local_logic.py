@@ -6379,6 +6379,27 @@ class GlFxTest(unittest.TestCase):
             self.assertIn(rf.HAND_GLYPHS[pose], gl_fx.GLYPHS, pose)
         self.assertIn(rf.HAND_GLYPHS["hourglass"], gl_fx.GLYPHS)
 
+    def test_particles_go_to_the_gpu(self):
+        try:
+            import pygame
+            import robot_face as rf
+        except ImportError:
+            self.skipTest("pygame")
+        s = pygame.Surface((80, 60), pygame.SRCALPHA)
+        out = []
+        rf._FX[id(s)] = out
+        try:
+            for P in (rf.SteamParticle, rf.StarParticle, rf.TearParticle, rf.ZzzParticle,
+                      rf.HeartParticle, rf.SoundWave):
+                P(30.4, 20.7).draw(s)
+            rf.twinkle(s, 10.5, 10.5, 13, 200)
+            rf.anger_mark(s, 50.2, 50, 44)
+        finally:
+            rf._FX.clear()
+        self.assertEqual(s.get_bounding_rect().width, 0)          # nothing on the layer
+        self.assertTrue(any(i[0] == "sprite" and i[3] == 30.4 for i in out))   # (unrounded)
+        self.assertIn("ring", [i[0] for i in out])
+
     def test_theme_looks(self):
         import themes
         self.assertIn("glyphs", themes.THEMES["hal"]["look"])      # no hands for HAL

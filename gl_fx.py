@@ -47,6 +47,12 @@ def lines(pts, width, col, alpha=1.0, core=None, core_w=0.0, pairs=False, glow=0
             col, float(alpha), core or col, float(core_w), bool(pairs), float(glow))
 
 
+def ring(x, y, r, width, col, alpha=1.0, glow=0.0):
+    """A circle's outline, width px (a sound wave round the mouth, the
+    wake ripple); glow: a halo that far out (px)."""
+    return ("ring", float(x), float(y), float(r), float(width), col, float(alpha), float(glow))
+
+
 def hand(parts, x, y, angle, cols, flip=(1.0, 1.0), alpha=1.0):
     """A hand (robot_face.hand_parts) centred at (x, y), turned angle
     degrees; cols: (top, bottom, crease, glow); flip: (-1, 1) the left hand,
@@ -103,6 +109,10 @@ def bounds(item):
         return (min(xs) - pad, min(ys) - pad, max(xs) + pad, max(ys) + pad)
     if kind == "hand":
         return (-HAND_HALF[0], -HAND_HALF[1], HAND_HALF[0], HAND_HALF[1])
+    if kind == "ring":
+        _, x, y, r, w, _, _, glow = item
+        e = r + w / 2 + 2 + glow * 4
+        return (x - e, y - e, x + e, y + e)
     if kind == "glyph":
         x, y, s = item[2], item[3], item[4]
         r = s * 1.45 + 18                     # (any turn, and the glow)
@@ -135,7 +145,7 @@ void main() {
 
 _FRAG = """
 varying vec2  vL;
-uniform float uKind;          // 0 image, 1 crescents, 2 lines, 3 glyph, 4 hand
+uniform float uKind;          // 0 image, 1 crescents, 2 lines, 3 glyph, 4 hand, 5 ring
 uniform vec2  uHalf;
 uniform vec2  uOff;
 uniform vec2  uFlip;          // the image mirrored: -1
@@ -365,6 +375,11 @@ void main() {
         float halo = uP.w > 0.0 ? 0.4 * exp(-max(d - uP.y * 0.5, 0.0) / uP.w) * (1.0 - o) : 0.0;
         vec3 rgb = mix(uCol.rgb, uCore, c) * o + uCol.rgb * halo;
         gl_FragColor = vec4(rgb, o + halo) * uCol.a;
+    } else if (uKind > 4.5) {                         // a ring: uP = (radius, width, glow)
+        float d = abs(length(p) - uP.x);
+        float o = clamp(uP.y * 0.5 - d + 0.5, 0.0, 1.0);
+        float halo = uP.z > 0.0 ? 0.4 * exp(-max(d - uP.y * 0.5, 0.0) / uP.z) * (1.0 - o) : 0.0;
+        gl_FragColor = vec4(uCol.rgb * (o + halo), o + halo) * uCol.a;
     } else if (uKind > 3.5) {                         // a hand
         gl_FragColor = hand(p) * uCol.a;
     } else {                                          // a glyph
@@ -502,6 +517,16 @@ class FxPass:
                     p.u("uP", (1.0 if pairs else 0.0, w, core_w, glow))
                     p.u("uCol", (*_rgb(col), alpha))
                     p.u("uCore", _rgb(core))
+                elif kind == "ring":
+                    _, x, y, r, w, col, alpha, glow = it
+                    if alpha <= 0.004:
+                        continue
+                    p.u("uC", (x, y))
+                    p.u("uOff", (0.0, 0.0))
+                    p.u("uHalf", ((x1 - x0) / 2, (y1 - y0) / 2))
+                    p.u("uKind", 5.0)
+                    p.u("uP", (r, w, glow, 0.0))
+                    p.u("uCol", (*_rgb(col), alpha))
                 elif kind == "hand":
                     _, parts, x, y, angle, cols, flip, alpha = it
                     if alpha <= 0.004:
