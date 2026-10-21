@@ -486,7 +486,13 @@ def bin_photo(item):
     if name not in _shots():
         return False
     os.makedirs(BIN, exist_ok=True)
-    os.replace(os.path.join(PHOTOS_DIR, name), os.path.join(BIN, name))
+    # a rename keeps the mtime (when it was taken): stamp the binning, later than
+    # anything already there, so "przywróć zdjęcie" brings back the last one
+    newest = max((os.stat(os.path.join(BIN, f)).st_mtime_ns for f in os.listdir(BIN)), default=0)
+    dst = os.path.join(BIN, name)
+    os.replace(os.path.join(PHOTOS_DIR, name), dst)
+    t = max(time.time_ns(), newest + 1000)
+    os.utime(dst, ns=(t, t))
     print(f"[screens] photo {name} moved to the bin", flush=True)
     return True
 
@@ -523,7 +529,7 @@ def photo_command(low, speak):
         if not binned:
             speak("Nie mam czego przywrócić.")
             return True
-        name = max(binned, key=lambda f: os.path.getmtime(os.path.join(BIN, f)))
+        name = max(binned, key=lambda f: os.stat(os.path.join(BIN, f)).st_mtime_ns)
         os.replace(os.path.join(BIN, name), os.path.join(PHOTOS_DIR, name))
         print(f"[screens] photo {name} back from the bin", flush=True)
         _show("photo", PHOTO_SHOW_SECS, os.path.join(PHOTOS_DIR, name))
