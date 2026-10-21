@@ -6,6 +6,9 @@ import signal
 import threading
 
 from config import PI_MODEL
+import openai_client
+
+openai_client.warm()                 # the SDK loads beside the camera, mic, face…
 
 if PI_MODEL:
     print(f"[Luna] Running on Raspberry Pi {PI_MODEL} "

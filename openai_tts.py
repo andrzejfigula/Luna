@@ -33,7 +33,7 @@ import settings
 import themes
 from voicecheck import pitch
 
-from openai import OpenAI
+from openai_client import LazyOpenAI as OpenAI
 
 from config import (
     OPENAI_API_KEY,

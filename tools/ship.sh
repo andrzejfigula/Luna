@@ -3,6 +3,8 @@
 # limit, and it ends with her new pid or what went wrong.
 #
 #     tools/ship.sh            # check_pi.sh (all gates) → deploy.sh → restart --now --tested
+#     tools/ship.sh --quick    # only unit (here) + smoke (Pi) — for tuning, ~35 s;
+#                              # run the full one before calling it done
 #     tools/ship.sh --no-check # deploy and restart (restart.sh then runs its own tests)
 #
 # 17–18 Oct the separate steps kept hanging: a restart waiting for a quiet
@@ -15,10 +17,11 @@ SSH=(ssh -o HostKeyAlias=raspberrypi.local -o ConnectTimeout=10 -o ServerAliveIn
 t0=$(date +%s)
 step() { echo "ship: $1 ($(( $(date +%s) - t0 )) s)"; }
 
-if [ "${1:-}" != "--no-check" ]; then
-    step "testing on the Pi"
-    timeout 900 bash tools/check_pi.sh
-fi
+case "${1:-}" in
+    --no-check) ;;
+    --quick) step "testing (quick: unit + smoke)"; timeout 600 bash tools/check_pi.sh quick ;;
+    *)       step "testing";                       timeout 900 bash tools/check_pi.sh ;;
+esac
 step "copying"
 timeout 300 bash tools/deploy.sh
 step "restarting"
