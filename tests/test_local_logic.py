@@ -5580,6 +5580,20 @@ class GalleryDeletePeopleTest(unittest.TestCase):
                 g = state.overlay[2]
             self.assertEqual(os.path.basename(g["items"][g["i"]]["path"]), "20261013-120000.png")
 
+    def test_drawing_restore_brings_back_last_binned(self):
+        import drawing
+        for f in ("20261012-120000.png", "20261013-120000.png"):
+            open(os.path.join(self.d, f), "wb").close()
+        # the one binned first was drawn later: restore goes by binning, not drawing
+        later = time.time() + 60
+        os.utime(os.path.join(self.d, "20261013-120000.png"), (later, later))
+        with mock.patch.object(drawing, "DIR", self.d), \
+                mock.patch.object(drawing, "BIN", os.path.join(self.d, "kosz")):
+            self.assertTrue(drawing.bin_drawing(os.path.join(self.d, "20261013-120000.png")))
+            self.assertTrue(drawing.bin_drawing(os.path.join(self.d, "20261012-120000.png")))
+            self.assertEqual(drawing.restore_drawing(), os.path.join(self.d, "20261012-120000.png"))
+        self.assertEqual(os.listdir(os.path.join(self.d, "kosz")), ["20261013-120000.png"])
+
     def test_people_gallery_forget_and_restore(self):
         import faces
         import gallery
