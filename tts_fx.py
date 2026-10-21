@@ -33,7 +33,7 @@ RATE = 24000
 PRESETS = {
     # (21 Oct: 60 Hz with formants down 27% was hard to understand — back to 75 / 15%)
     # (21 Oct: melody 0.6 around a fixed 110 Hz "sounded like no effect at all")
-    "robot": {"robot_hz": 80.0, "melody": 1.6, "range": (-7, 12),
+    "robot": {"robot_hz": 120.0, "melody": 1.6, "range": (-7, 12),   # (80 Hz hid the melody)
               "jumps": (-4, -2, 0, 0, 3, 5, 7),
               "layers": ((1.0, 1.0), (2.0, 0.3), (1.5, 0.15)),
               "formant": 1.15, "tempo": 1.2,

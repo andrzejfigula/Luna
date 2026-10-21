@@ -7326,7 +7326,7 @@ class ThemesTest(unittest.TestCase):
         for k in range(0, out.size - 1200, 1200):
             seg = out[k:k + 1200] - out[k:k + 1200].mean()
             ac = np.correlate(seg, seg, "full")[seg.size:]
-            semis = 12 * np.log2(24000 / (60 + np.argmax(ac[60:450])) / 80)
+            semis = 12 * np.log2(24000 / (60 + np.argmax(ac[60:450])) / tts_fx.PRESETS["robot"]["robot_hz"])
             off += abs(semis - round(semis)) > 0.25                # between notes (a leap)
             notes.add(round(semis))
         self.assertLess(off, 6)                                    # steady notes…
