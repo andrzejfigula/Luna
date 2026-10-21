@@ -10,6 +10,8 @@ page (Ekran → Motyw). A theme changes four things at once:
   the character  — brain adds ["persona"] at the end of the system prompt
   the wake word  — speech_to_text listens for ["wake"] too; "Luna" always
                    still wakes her, so nobody is locked out
+  (and round the face: ["look"] — the hands' colours or HAL's glyphs, the
+   listening waves, a costume's — robot_face.theme_fx)
 
 Pure Python (settings only): the unit tests read it on Windows.
 """
@@ -68,6 +70,10 @@ THEMES = {
         # a smirk: smaller, off to one side, one corner up (gl_face._mouth)
         "mouth": {"dx": 22.0, "slant": 9.0, "w": 0.72},
         "tint": (150, 215, 255),             # listening (0..255): bluer ice
+        # round the face (robot_face.theme_fx): frosted hands, icy waves and ears
+        "look": {"listen": (170, 225, 255),
+               "hand": ((236, 250, 255), (96, 168, 232), (90, 190, 255)),
+               "accent": ((236, 250, 255), (100, 170, 230))},
     },
 
     "hal": {
@@ -111,6 +117,11 @@ THEMES = {
         "circle": True,
         # no lips: a thin red line that turns into his voice's wave as he speaks
         "mouth": {"wave": 210.0},
+        # a computer has no hands: glyphs like a display's instead (an hourglass
+        # while he thinks, a cursor, a tick…), red waves, red costume pieces
+        "look": {"listen": (255, 34, 12),
+               "glyphs": ((242, 16, 6), (255, 214, 160)),
+               "accent": ((255, 96, 64), (110, 8, 4))},
     },
 }
 

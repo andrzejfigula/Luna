@@ -36,6 +36,8 @@ import numpy as np
 from shared_state import state
 import face_spec
 import gallery
+import gl_fx
+import themes
 import lamp_scenes
 import screens
 import ui_screens
@@ -995,10 +997,17 @@ _EAR_INNER = {"cat": (255, 150, 160), "bunny": (255, 160, 175),
               "dog": (150, 80, 30), "squirrel": (170, 92, 40)}
 
 
-def _ear(w, h, triangle, kind=None):
+def accent_cols():
+    """(top, bottom): a costume's own colour (ears, nose) — the eyes' gold,
+    or the theme's (HAL's red, Ice's frost)."""
+    return theme_fx().get("accent") or (EYE_GRAD_TOP, EYE_GRAD_BOTTOM)
+
+
+def _ear(w, h, triangle, kind=None, cols=None):
     """An ear: antialiased, the eyes' gold lit from above, a soft inner
     colour (pink for the cat and bunny) and a highlight down its edge."""
-    key = ("ear", w, h, triangle, kind, EYE_GRAD_TOP, EYE_GRAD_BOTTOM)
+    g_top, g_bot = cols or accent_cols()
+    key = ("ear", w, h, triangle, kind, g_top, g_bot)
     if key in _SMOOTH_CACHE:
         return _SMOOTH_CACHE[key]
 
@@ -1009,7 +1018,7 @@ def _ear(w, h, triangle, kind=None):
             inner = [(W * 0.5, H * 0.30), (W * 0.76, H), (W * 0.24, H)]
         grad = pygame.Surface((W, H), pygame.SRCALPHA)
         for y in range(H):                        # gold, darker toward the root
-            grad.fill((*_lerp_col(EYE_GRAD_TOP, EYE_GRAD_BOTTOM, (y / H) ** 1.3), 255),
+            grad.fill((*_lerp_col(g_top, g_bot, (y / H) ** 1.3), 255),
                       pygame.Rect(0, y, W, 1))
         mask = pygame.Surface((W, H), pygame.SRCALPHA)
         if triangle:
@@ -1063,8 +1072,68 @@ def _smooth(w, h, draw, ss=3, key=None):
 
 def _blit_rot(surf, img, center, angle):
     if abs(angle) > 0.5:
-        img = pygame.transform.rotate(img, angle)
+        img = pygame.transform.rotozoom(img, angle, 1.0)     # (filtered: no jaggies)
     surf.blit(img, img.get_rect(center=(int(center[0]), int(center[1]))))
+
+
+# ── the GPU's own pieces (gl_fx.py) ──────────────────────────────────────────
+# With the GPU face, what is drawn into one of its layers through the calls
+# below goes to a list instead (id(layer) → the list, set by draw()): the GPU
+# places it to a fraction of a pixel and turns and filters it. Without it,
+# the same calls blit into the surface.
+_FX = {}
+
+
+def _fx(surf):
+    return _FX.get(id(surf))
+
+
+def _sprite(surf, key, make, x, y, angle=0.0, alpha=1.0, scale=1.0, flip=(1.0, 1.0),
+            res=2):
+    """An image centred at (x, y), turned angle degrees. make(res) draws it
+    at res× (the GPU's copy at res× — 4 for a gradient_block, whose corners
+    pygame doesn't smooth — mipmapped; cached by key either way)."""
+    out = _fx(surf)
+    if out is not None:
+        out.append(gl_fx.sprite(key, make, x, y, angle, scale, alpha, flip, res))
+        return
+    img = _SMOOTH_CACHE.get(("sprite", key))
+    if img is None:
+        img = _SMOOTH_CACHE[("sprite", key)] = make(1)
+    if flip[0] < 0 or flip[1] < 0:
+        img = pygame.transform.flip(img, flip[0] < 0, flip[1] < 0)
+    if scale != 1.0:
+        img = pygame.transform.smoothscale(img, (max(1, round(img.get_width() * scale)),
+                                                 max(1, round(img.get_height() * scale))))
+    if alpha < 1.0:
+        img = img.copy()
+        img.set_alpha(int(255 * max(0.0, alpha)))
+    _blit_rot(surf, img, (x, y), angle)
+
+
+def _lines(surf, pts, width, col, alpha=1.0, core=None, core_w=0.0, pairs=False):
+    """Antialiased round-ended lines (pairs: 0-1, 2-3…; one point: a dot)."""
+    out = _fx(surf)
+    if out is not None:
+        out.append(gl_fx.lines(pts, width, col, alpha, core, core_w, pairs))
+        return
+    a = int(255 * max(0.0, min(1.0, alpha)))
+    for c, w in ((col, width), (core, core_w)):
+        if c is None or w <= 0:
+            continue
+        if len(pts) == 1:
+            pygame.draw.circle(surf, (*c, a), (int(pts[0][0]), int(pts[0][1])), int(w / 2))
+        elif pairs:
+            for p0, p1 in zip(pts[::2], pts[1::2]):
+                pygame.draw.line(surf, (*c, a), p0, p1, max(1, int(w)))
+        else:
+            pygame.draw.lines(surf, (*c, a), False, pts, max(1, int(w)))
+
+
+def theme_fx():
+    """The theme's look round the face (themes.py "look"): the hands' light,
+    the listening waves, a costume's colour — or HAL's glyphs, no hands."""
+    return themes.get().get("look", {})
 
 
 _TAIL = {}
@@ -1115,16 +1184,18 @@ def _tail_image():
 
 def _squirrel_tail(surf, fcx, fcy, sway):
     """A big bushy tail curling up beside her on the right, wagging."""
-    img = _TAIL.get(CURRENT_STYLE)
-    if img is None:
-        img = _TAIL[CURRENT_STYLE] = pygame.transform.smoothscale(_tail_image(), (210, 294))
+    def make(res):
+        img = _TAIL.get(CURRENT_STYLE)
+        if img is None:
+            img = _TAIL[CURRENT_STYLE] = _tail_image()
+        return pygame.transform.smoothscale(img, (210 * res, 294 * res))
     wag = 5 * math.sin(time.time() * 2.2) + sway * 0.4
-    _blit_rot(surf, img, (fcx + EYE_SPREAD + 150, fcy + 30), wag)
+    _sprite(surf, ("tail", CURRENT_STYLE), make, fcx + EYE_SPREAD + 150, fcy + 30, wag)
 
 
 def _gear(r, teeth, col_top, col_bot):
     """A brass cog with a hole (cached by size)."""
-    key = ("gear", r, teeth, col_top)
+    key = ("gear", r, teeth, col_top, col_bot)
     if key in _SMOOTH_CACHE:
         return _SMOOTH_CACHE[key]
 
@@ -1153,21 +1224,25 @@ def draw_costume_back(surf, fcx, fcy, kind, sway):
     if kind == "squirrel":
         _squirrel_tail(surf, fcx, fcy, sway)
     ears = COSTUMES.get(kind, ([], False))[0]
+    cols = accent_cols()
     for (dx, oy, w, h, tilt, tri) in ears:
         for side in (-1, 1):
             ox = side * (62 if dx is None else EYE_SPREAD + dx)
-            img = _ear(w, h, tri, kind)
             swing = 0.0
             if kind == "dog":                     # floppy: they swing with the head
                 swing = 6.0 * math.sin(time.time() * 2.2 + side)
-            img = pygame.transform.rotate(img, side * (tilt + _ear_twitch(kind, side))
-                                          + sway * 0.4 + swing)
-            rect = img.get_rect(center=(fcx + ox + int(sway * 1.5), fcy + oy))
-            surf.blit(img, rect)
+            angle = side * (tilt + _ear_twitch(kind, side)) + sway * 0.4 + swing
+            x, y = fcx + ox + sway * 1.5, fcy + oy
+            _sprite(surf, ("ear", w, h, tri, kind, cols),
+                    lambda res, w=w, h=h, tri=tri: _ear(w * res, h * res, tri, kind, cols),
+                    x, y, angle)
             if kind == "squirrel":                # a tuft on the tip
-                tuft = gradient_block(20, 46, 10, HAIR_GRAD_TOP, HAIR_GRAD_BOTTOM)
-                _blit_rot(surf, tuft, (rect.centerx + side * 10, rect.top + 8),
-                          side * (tilt - 18))
+                a = math.radians(angle)
+                top = y - (w * abs(math.sin(a)) + h * abs(math.cos(a))) / 2
+                _sprite(surf, ("tuft", HAIR_GRAD_TOP, HAIR_GRAD_BOTTOM),
+                        lambda res: gradient_block(20 * res, 46 * res, 10 * res,
+                                                   HAIR_GRAD_TOP, HAIR_GRAD_BOTTOM),
+                        x + side * 10, top + 8, side * (tilt - 18), res=4)
     if kind == "crazy_robot":                     # two antennae with blinking bulbs
         t = time.time()
         for side, col in ((-1, (255, 140, 40)), (1, (90, 255, 130))):
@@ -1181,15 +1256,11 @@ def draw_costume_back(surf, fcx, fcy, kind, sway):
                 u = k / 12
                 px = bx + (tx - bx) * u + 9 * math.sin(u * math.tau * 3) * (1 - u * 0.3)
                 pts.append((px, by + (ty - by) * u))
-            pygame.draw.lines(surf, BRASS_BOTTOM, False, pts, 7)
-            pygame.draw.lines(surf, BRASS_TOP, False, pts, 3)
-            lit = round(0.6 + 0.4 * math.sin(t * 7 + side * 2), 1)
-            bulb = _smooth(44, 44, lambda s, k, c=col, lit=lit: (
-                pygame.draw.circle(s, (*c, int(80 * lit)), (22 * k, 22 * k), 21 * k),
-                pygame.draw.circle(s, (*c, 255), (22 * k, 22 * k), 14 * k),
-                pygame.draw.circle(s, (255, 255, 255, 220), (18 * k, 17 * k), 4 * k)),
-                key=("bulb", col, lit))
-            surf.blit(bulb, bulb.get_rect(center=(int(tx), int(ty))))
+            _lines(surf, pts, 7, BRASS_BOTTOM, core=BRASS_TOP, core_w=3)
+            lit = 0.6 + 0.4 * math.sin(t * 7 + side * 2)
+            _lines(surf, [(tx, ty)], 42, col, alpha=0.31 * lit)
+            _lines(surf, [(tx, ty)], 28, col)
+            _lines(surf, [(tx - 4, ty - 5)], 8, (255, 255, 255), alpha=0.86)
 
 
 def _eye_frames(face, fcx, fcy):
@@ -1202,34 +1273,56 @@ def _eye_frames(face, fcx, fcy):
     return out
 
 
+def _goggle_ring(W, H, brass, res):
+    ring = gradient_block(W * res, H * res, 52 * res, BRASS_TOP, BRASS_BOTTOM) if brass else         gradient_block(W * res, H * res, 52 * res, (200, 205, 215), (80, 86, 100))
+    ring = ring.copy()
+    hole = pygame.Surface(ring.get_size(), pygame.SRCALPHA)
+    pygame.draw.rect(hole, (255, 255, 255, 255), hole.get_rect().inflate(-26 * res, -26 * res),
+                     border_radius=42 * res)
+    ring.blit(hole, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
+    return ring
+
+
 def _goggles(surf, face, fcx, fcy, brass=True):
     """A thick ring round each eye, a bridge, rivets."""
     frames = _eye_frames(face, fcx, fcy)
+    rivets = []
     for (x, y, w, h) in frames:
         W, H = int(w + 34), int(h + 34)
-        ring = gradient_block(W, H, 52, BRASS_TOP, BRASS_BOTTOM) if brass else \
-            gradient_block(W, H, 52, (200, 205, 215), (80, 86, 100))
-        ring = ring.copy()
-        hole = pygame.Surface((W, H), pygame.SRCALPHA)
-        pygame.draw.rect(hole, (255, 255, 255, 255), hole.get_rect().inflate(-26, -26),
-                         border_radius=42)
-        ring.blit(hole, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
-        surf.blit(ring, ring.get_rect(center=(int(x), int(y))))
+        # (made in steps of 16 px, stretched to the eye: the eye's size eases)
+        qw, qh = max(64, W // 16 * 16), max(64, H // 16 * 16)
+        _goggle_stretched(surf, qw, qh, W, H, brass, x, y)
         for a in range(8):                        # rivets
             ang = a * math.tau / 8 + math.pi / 8
             rx = x + math.cos(ang) * (W / 2 - 6)
             ry = y + math.sin(ang) * (H / 2 - 6)
-            pygame.draw.circle(surf, (110, 66, 24) if brass else (60, 64, 76),
-                               (int(rx), int(ry)), 4)
+            rivets += [(rx, ry), (rx, ry)]
+    _lines(surf, rivets, 8, (110, 66, 24) if brass else (60, 64, 76), pairs=True)
     (x0, y0, w0, _), (x1, y1, w1, _) = frames
-    bridge = gradient_block(int(x1 - x0 - (w0 + w1) / 2 - 20), 18, 9,
-                            BRASS_TOP if brass else (200, 205, 215),
-                            BRASS_BOTTOM if brass else (80, 86, 100))
-    surf.blit(bridge, bridge.get_rect(center=(int((x0 + x1) / 2), int((y0 + y1) / 2))))
+    bw = int(x1 - x0 - (w0 + w1) / 2 - 20)
+    if bw > 4:
+        top, bot = (BRASS_TOP, BRASS_BOTTOM) if brass else ((200, 205, 215), (80, 86, 100))
+        qb = max(16, bw // 8 * 8)
+        _sprite(surf, ("bridge", qb, brass),
+                lambda res: gradient_block(qb * res, 18 * res, 9 * res, top, bot),
+                (x0 + x1) / 2, (y0 + y1) / 2, scale=bw / qb, res=4)
 
 
-def _top_hat(surf, cx, cy, angle):
+def _goggle_stretched(surf, qw, qh, W, H, brass, x, y):
+    """A goggle ring made at (qw, qh), drawn at (W, H)."""
+    out = _fx(surf)
+    make = lambda res: _goggle_ring(qw, qh, brass, res)        # noqa: E731
+    if out is not None:
+        out.append(gl_fx.sprite(("goggle", qw, qh, brass), make, x, y, 0.0,
+                                (W / qw, H / qh), 1.0, res=4))
+        return
+    img = pygame.transform.smoothscale(make(1), (W, H))
+    surf.blit(img, img.get_rect(center=(int(x), int(y))))
+
+
+def _top_hat_img(res):
     def draw(s, k):
+        k *= res
         W = s.get_width()
         crown = pygame.Rect(0, 0, 118 * k, 92 * k)
         crown.midbottom = (W // 2, 112 * k)
@@ -1243,11 +1336,16 @@ def _top_hat(surf, cx, cy, angle):
         brim.midtop = (W // 2, 106 * k)
         pygame.draw.ellipse(s, HAT_BOTTOM, brim)
         pygame.draw.ellipse(s, HAT_TOP, brim.inflate(-10 * k, -10 * k))
-    _blit_rot(surf, _smooth(200, 140, draw, key="top_hat"), (cx, cy), angle)
+    return _smooth(200 * res, 140 * res, draw)
 
 
-def _party_hat(surf, cx, cy, angle):
+def _top_hat(surf, cx, cy, angle):
+    _sprite(surf, ("top_hat",), _top_hat_img, cx, cy, angle)
+
+
+def _party_hat_img(res):
     def draw(s, k):
+        k *= res
         W = s.get_width()
         base, tip = 128 * k, 18 * k
         pts = [(W // 2, tip), (W // 2 + 54 * k, base), (W // 2 - 54 * k, base)]
@@ -1261,7 +1359,11 @@ def _party_hat(surf, cx, cy, angle):
         pygame.draw.circle(s, (255, 250, 230), (W // 2, tip), 15 * k)      # the pompom
         pygame.draw.ellipse(s, (255, 220, 90),
                             pygame.Rect(W // 2 - 62 * k, base - 8 * k, 124 * k, 18 * k))
-    _blit_rot(surf, _smooth(140, 150, draw, key="party_hat"), (cx, cy), angle)
+    return _smooth(140 * res, 150 * res, draw)
+
+
+def _party_hat(surf, cx, cy, angle):
+    _sprite(surf, ("party_hat",), _party_hat_img, cx, cy, angle)
 
 
 _CONFETTI = [(0.07 * i % 1.0, (i * 0.618) % 1.0, i) for i in range(28)]
@@ -1277,6 +1379,9 @@ def _confetti(surf):
         a = t * (2 + i % 3) + i
         dx, dy = math.cos(a) * 9, math.sin(a) * 4
         col = _CONFETTI_COLS[i % len(_CONFETTI_COLS)]
+        if _fx(surf) is not None:              # (the GPU: a short tumbling stroke)
+            _lines(surf, [(x - dx, y - dy), (x + dx, y + dy)], 6, col)
+            continue
         pygame.draw.polygon(surf, col, [(x - dx, y - dy - 3), (x + dx, y + dy - 3),
                                         (x + dx, y + dy + 3), (x - dx, y - dy + 3)])
 
@@ -1287,33 +1392,42 @@ def draw_costume_front(surf, fcx, fcy, kind, face=None):
     if kind not in COSTUMES:
         return
     if kind in _NOSE:
-        nose = gradient_block(44, 30, 14, EYE_GRAD_TOP, EYE_GRAD_BOTTOM)
+        top, bot = accent_cols()
         ny = face_spec.LAYOUT["nose_y"]
-        surf.blit(nose, nose.get_rect(center=(fcx, fcy + ny)))
+        _sprite(surf, ("nose", top, bot),
+                lambda res: gradient_block(44 * res, 30 * res, 14 * res, top, bot),
+                fcx, fcy + ny, res=4)
     if COSTUMES[kind][1]:
+        pts = []
         for side in (-1, 1):
             for dy, tip in ((-8, -26), (6, 0), (20, 26)):
-                pygame.draw.line(surf, MOUTH_COL, (fcx + side * 70, fcy + ny + 8 + dy),
-                                 (fcx + side * 230, fcy + ny + 8 + dy + tip), 5)
+                pts += [(fcx + side * 70, fcy + ny + 8 + dy),
+                        (fcx + side * 230, fcy + ny + 8 + dy + tip)]
+        wcol = theme_fx()["accent"][0] if "accent" in theme_fx() else MOUTH_COL
+        _lines(surf, pts, 5, wcol, pairs=True)
     if kind == "squirrel":                        # two big front teeth
         for side in (-1, 1):
-            tooth = gradient_block(20, 28, 6, (255, 252, 240), (220, 210, 190))
-            surf.blit(tooth, tooth.get_rect(
-                midtop=(fcx + side * 11, fcy + face_spec.LAYOUT["mouth_y"] + 10)))
+            _sprite(surf, ("tooth",),
+                    lambda res: gradient_block(20 * res, 28 * res, 6 * res,
+                                               (255, 252, 240), (220, 210, 190)),
+                    fcx + side * 11, fcy + face_spec.LAYOUT["mouth_y"] + 10 + 14, res=4)
     elif kind == "steampunk" and face is not None:
         _goggles(surf, face, fcx, fcy)
         _top_hat(surf, fcx + EYE_SPREAD + 150, fcy - 140, -18)   # on the top corner
         t = time.time()                           # two cogs turning on the other corner
         for (gx, gy, r, n, spin) in ((-EYE_SPREAD - 170, -130, 44, 10, 0.6),
                                      (-EYE_SPREAD - 112, -76, 28, 7, -0.6 * 44 / 28)):
-            g = _gear(r, n, BRASS_TOP, BRASS_BOTTOM)
-            _blit_rot(surf, g, (fcx + gx, fcy + gy), math.degrees(t * spin))
+            _sprite(surf, ("gear", r, n),
+                    lambda res, r=r, n=n: _gear(r * res, n, BRASS_TOP, BRASS_BOTTOM),
+                    fcx + gx, fcy + gy, math.degrees(t * spin) % 360.0)
     elif kind == "crazy_robot" and face is not None:
         _goggles(surf, face, fcx, fcy, brass=False)
         for side in (-1, 1):                      # bolts on the sides of her head
-            bolt = gradient_block(46, 92, 16, (200, 205, 215), (80, 86, 100))
-            surf.blit(bolt, bolt.get_rect(center=(fcx + side * (EYE_SPREAD + 168), fcy - 20)))
-            pygame.draw.circle(surf, (60, 64, 76), (fcx + side * (EYE_SPREAD + 168), fcy - 20), 9)
+            x, y = fcx + side * (EYE_SPREAD + 168), fcy - 20
+            _sprite(surf, ("bolt",),
+                    lambda res: gradient_block(46 * res, 92 * res, 16 * res,
+                                               (200, 205, 215), (80, 86, 100)), x, y, res=4)
+            _lines(surf, [(x, y)], 18, (60, 64, 76))
     elif kind == "party":
         _confetti(surf)
         _party_hat(surf, fcx - EYE_SPREAD - 150, fcy - 132, 24)
@@ -1327,19 +1441,69 @@ def draw_costume_front(surf, fcx, fcy, kind, face=None):
 #   point      — fist with the index finger up (drawing in the air)
 #   ok         — thumb and index make a ring, three fingers up
 #   scissors   — index and middle finger in a V (rock-paper-scissors)
-def hand_surface(pose, side):
+HAND_H0 = int(150 * 1.6)                  # the hand's height in its image (px)
+
+
+def hand_parts(pose):
+    """A pose's parts in the order they are painted, in the hand's own
+    120×150 frame (× 1.6 on screen): ("box", w, h, corner, cx, cy, degrees
+    anticlockwise) — a rounded block with a crease round it — and, for "ok",
+    ("ring", cx, cy): the thumb and index finger's "O". hand_surface paints
+    them with pygame; gl_fx draws them as distance fields."""
+    def box(w, h, r, cx, cy, angle=0):
+        return ("box", w, h, r, cx, cy, angle)
+    if pose == "fist":
+        return [box(66, 76, 22, 62, 106)] + [      # the fist, the curled fingers
+            box(52, 15, 7, 66, 84 + i * 15) for i in range(4)]
+    if pose == "point":
+        return ([box(17, 62, 8, 44, 60),           # index finger (base under the fist)
+                 box(66, 76, 22, 62, 106)]         # fist
+                + [box(52, 15, 7, 68, 99 + i * 15) for i in range(3)]   # the other three
+                + [box(18, 34, 8, 36, 104, 60)])   # thumb folded across
+    if pose == "scissors":
+        return ([box(16, 60, 7, 42, 60, 14),       # index, leaning out
+                 box(16, 62, 7, 62, 58, -14),      # middle, the other way
+                 box(66, 76, 22, 62, 106)]         # fist
+                + [box(52, 15, 7, 68, 108 + i * 15) for i in range(2)]  # ring + pinky
+                + [box(18, 34, 8, 36, 104, 60)])   # thumb folded across
+    if pose == "ok":
+        return ([box(16, fh, 7, 54 + dx, 80 - (fh - 40) // 2)      # middle, ring, pinky up
+                 for dx, fh in ((12, 52), (28, 48), (42, 40))]
+                + [box(66, 70, 26, 62, 110), ("ring", 36, 68)])     # palm; the "O"
+    if pose in ("thumb", "thumb_down"):            # (thumb_down: the image upside down)
+        return ([box(24, 62, 12, 34, 64, 6),       # thumb up (base under the fist)
+                 box(66, 76, 22, 62, 106)]         # fist
+                + [box(52, 15, 7, 66, 84 + i * 15) for i in range(4)])  # curled fingers
+    # open palm: the thumb first, so its base sits UNDER the palm (attached)
+    return ([box(20, 50, 9, 24, 88, 30), box(66, 70, 26, 60, 108)]
+            + [box(16, fh, 7, 60 + dx, 78 - (fh - 40) // 2)
+               for dx, fh in ((-24, 44), (-8, 52), (8, 50), (24, 42))])
+# HAL's glyph for each pose (gl_fx.GLYPHS): a computer has no hands
+HAND_GLYPHS = {"open": "signal", "paper": "paper", "thumb": "check", "ok": "check",
+               "thumb_down": "cross", "fist": "rock", "point": "cursor",
+               "scissors": "scissors", "hourglass": "hourglass"}
+
+
+def hand_cols():
+    """(top, bottom, glow): the hands' light — the theme's (Ice: frost) or the style's."""
+    return theme_fx().get("hand") or (HAND_GRAD_TOP, HAND_GRAD_BOTTOM, GLOW_COL)
+
+
+def hand_surface(pose, side, res=1, cols=None):
     """Cached hand image for a pose; side 'L'/'R' mirrors it. Drawn 3× and
     scaled down (smooth edges); one light across the whole hand, so the
     fingers join the palm without seams; a darker crease round each part;
-    the glow and a soft shadow baked in (no bloom per frame)."""
-    key = (pose, side)
+    the glow and a soft shadow baked in (no bloom per frame). res: its size
+    × res (the GPU's copy: 2); cols: hand_cols()."""
+    cols = cols or hand_cols()
+    key = (pose, side, res, cols)
     s = _HAND_CACHE.get(key)
     if s is not None:
         return s
-    S, K, P = 1.6, 3, 16                      # hand scale, supersampling, padding (px)
+    S, K, P = 1.6 * res, 3 if res < 2 else 2, 16 * res   # scale, supersampling, padding
     W_, H_ = int(120 * S), int(150 * S)
     big = pygame.Surface(((W_ + 2 * P) * K, (H_ + 2 * P) * K), pygame.SRCALPHA)
-    top, bot = HAND_GRAD_TOP, HAND_GRAD_BOTTOM
+    top, bot, glow_col = cols
     crease = _lerp_col(bot, (70, 25, 0), 0.55)
 
     def at(y):                                # the hand's light at height y (0..150)
@@ -1356,45 +1520,18 @@ def hand_surface(pose, side):
                 b = pygame.transform.rotate(b, angle)
             big.blit(b, b.get_rect(center=(int((cx * S + P) * K), int((cy * S + P) * K))))
 
-    if pose == "fist":
-        block(66, 76, 22, 62, 106)                 # the fist
-        for i in range(4):                         # curled fingers
-            block(52, 15, 7, 66, 84 + i * 15)
-    elif pose == "point":
-        block(17, 62, 8, 44, 60)                   # index finger (base under the fist)
-        block(66, 76, 22, 62, 106)                 # fist
-        for i in range(3):                         # the other three, curled
-            block(52, 15, 7, 68, 99 + i * 15)
-        block(18, 34, 8, 36, 104, 60)              # thumb folded across
-    elif pose == "scissors":
-        block(16, 60, 7, 42, 60, 14)               # index, leaning out
-        block(16, 62, 7, 62, 58, -14)              # middle, the other way
-        block(66, 76, 22, 62, 106)                 # fist
-        for i in range(2):                         # ring + pinky, curled
-            block(52, 15, 7, 68, 108 + i * 15)
-        block(18, 34, 8, 36, 104, 60)              # thumb folded across
-    elif pose == "ok":
-        for dx, fh in ((12, 52), (28, 48), (42, 40)):   # middle, ring, pinky up
-            block(16, fh, 7, 54 + dx, 80 - (fh - 40) // 2)
-        block(66, 70, 26, 62, 110)                 # palm
-        c = (int((36 * S + P) * K), int((68 * S + P) * K))
+    for part in hand_parts(pose):
+        if part[0] == "box":
+            block(*part[1:])
+            continue
+        _, cx, cy = part                           # (ok) thumb + index: the "O"
+        c = (int((cx * S + P) * K), int((cy * S + P) * K))
         pygame.draw.circle(big, (*crease, 255), c, int(24.5 * S * K))
         ring = gradient_block(int(46 * S * K), int(46 * S * K), int(23 * S * K),
-                              at(45), at(91)).copy()
+                              at(cy - 23), at(cy + 23)).copy()
         big.blit(ring, ring.get_rect(center=c))
         pygame.draw.circle(big, (*crease, 255), c, int(12.5 * S * K))
-        pygame.draw.circle(big, (0, 0, 0, 0), c, int(11 * S * K))   # thumb + index: the "O"
-    elif pose in ("thumb", "thumb_down"):
-        block(24, 62, 12, 34, 64, 6)               # thumb up (base under the fist)
-        block(66, 76, 22, 62, 106)                 # fist
-        for i in range(4):                         # curled fingers: horizontal
-            block(52, 15, 7, 66, 84 + i * 15)      # segments stacked down the fist
-    else:                                          # open palm
-        # thumb first so its base sits UNDER the palm (attached, not floating)
-        block(20, 50, 9, 24, 88, 30)              # base under the palm, tip leaning out
-        block(66, 70, 26, 60, 108)                 # palm
-        for i, (dx, fh) in enumerate(((-24, 44), (-8, 52), (8, 50), (24, 42))):
-            block(16, fh, 7, 60 + dx, 78 - (fh - 40) // 2)
+        pygame.draw.circle(big, (0, 0, 0, 0), c, int(11 * S * K))
     BW, BH = big.get_size()
     # the glow round it and a soft shadow below-right, under the hand
     sil = big.copy()
@@ -1402,12 +1539,12 @@ def hand_surface(pose, side):
     soft = pygame.transform.smoothscale(
         pygame.transform.smoothscale(sil, (BW // 16, BH // 16)), (BW, BH))
     glow = soft.copy()
-    glow.fill((*GLOW_COL, 0), special_flags=pygame.BLEND_RGBA_MAX)     # (colour; alpha kept)
+    glow.fill((*glow_col, 0), special_flags=pygame.BLEND_RGBA_MAX)     # (colour; alpha kept)
     glow.fill((255, 255, 255, 90), special_flags=pygame.BLEND_RGBA_MULT)
     out = pygame.Surface((BW, BH), pygame.SRCALPHA)
     out.blit(glow, (0, 0))
     soft.fill((255, 255, 255, 120), special_flags=pygame.BLEND_RGBA_MULT)
-    out.blit(soft, (5 * K, 9 * K))
+    out.blit(soft, (5 * K * res, 9 * K * res))
     out.blit(big, (0, 0))
     s = pygame.transform.smoothscale(out, (BW // K, BH // K))
     if pose == "thumb_down":
@@ -1482,6 +1619,13 @@ def twinkle(surf, x, y, r, alpha, col=None):
 def draw_side_arcs(surf, cx, cy, dx, arcs, col):
     """")" on the right, "(" on the left, dx from the middle — sound coming
     in, a head moving. arcs: (radius, alpha 0..1); antialiased, glowing."""
+    out = _fx(surf)
+    if out is not None:                  # the GPU: drawn exactly, to the sub-pixel
+        rings = [(r, a) for r, a in arcs if a > 0.01]
+        if rings:
+            for side in (-1, 1):
+                out.append(gl_fx.arcs(cx + side * dx, cy, side, rings, col))
+        return
     for r, a in arcs:
         if a <= 0.01:
             continue
@@ -1525,6 +1669,11 @@ def _heart_img(size):
 
 def draw_heart(surf, cx, cy, size, alpha=255):
     """A heart whose lobes sit at (cx, cy), size ~ its half width."""
+    out = _fx(surf)
+    if out is not None:                  # one image, scaled by the GPU
+        out.append(gl_fx.sprite(("heart", HEART_COL), lambda res: _heart_img(64 * res),
+                                cx, cy + size * 0.38, 0.0, size / 64.0, alpha / 255.0))
+        return
     img = _heart_img(size)
     if alpha < 255:
         img = img.copy()
@@ -2455,8 +2604,12 @@ class RobotFace:
         if emotion == "thinking" and not active and not self._scene:
             self._think_t = getattr(self, "_think_t", 0.0) or now_t
             if now_t - self._think_t > THINK_HAND_SECS:
-                tgt_R = (*face_spec.LAYOUT["chin"], -14.0)
-                self.hand_pose["R"] = "point"
+                if theme_fx().get("glyphs"):     # HAL: an hourglass beside his eye
+                    tgt_R = (EYE_SPREAD + 108.0, face_spec.LAYOUT["eye_y"], 0.0)
+                    self.hand_pose["R"] = "hourglass"
+                else:
+                    tgt_R = (*face_spec.LAYOUT["chin"], -14.0)
+                    self.hand_pose["R"] = "point"
         else:
             self._think_t = 0.0
 
@@ -2470,8 +2623,8 @@ class RobotFace:
 
         # rock-paper-scissors: her throw, held up by her cheek
         if game_hand and now_t < game_hand[1]:
-            pose = {"rock": "fist", "paper": "open", "scissors": "scissors"}.get(
-                game_hand[0], "open")
+            pose = {"rock": "fist", "paper": "paper", "scissors": "scissors"}.get(
+                game_hand[0], "open")             # ("paper": an open hand, HAL's sheet)
             self.hand_pose["R"] = pose
             tgt_R = (232, 50 + 5 * math.sin(now_t * 9.0), -6)
 
@@ -2824,6 +2977,13 @@ class RobotFace:
 
         fcx = int(self.face_cx + self.face_ox)
         fcy = int(self.face_cy + self.face_oy)
+        # the GPU's own pieces (gl_fx): what goes into these layers through
+        # _sprite / _lines / draw_side_arcs… lands in these lists instead
+        _FX.clear()
+        fx_back, fx_front = [], []
+        if self.gl:
+            _FX[id(self.back)] = fx_back
+            _FX[id(base)] = fx_front
 
         # ── hair (behind everything) ──────────────────────────────────────
         if HAIR:
@@ -2858,11 +3018,13 @@ class RobotFace:
             for j in range(3):                    # sound coming in: far and faint → near
                 u = (ph + j / 3.0) % 1.0
                 arcs.append((112 - 50 * u, k * math.sin(math.pi * u) ** 1.3))
-            draw_side_arcs(base, fcx, fcy - 30, EYE_SPREAD + 95, arcs, LISTEN_WAVE_COL)
+            draw_side_arcs(base, self.face_cx + self.face_ox, self.face_cy + self.face_oy - 30,
+                           EYE_SPREAD + 95, arcs, theme_fx().get("listen", LISTEN_WAVE_COL))
         if self._gesture in ("nod", "shake"):
             env = math.sin(math.pi * self._gesture_p)
             arcs = [(70, env)] + ([(98, env * 0.7)] if self._gesture == "shake" else [])
-            draw_side_arcs(base, fcx, fcy - 30, EYE_SPREAD + 95, arcs, EYE_MID)
+            draw_side_arcs(base, self.face_cx + self.face_ox, self.face_cy + self.face_oy - 30,
+                           EYE_SPREAD + 95, arcs, theme_fx().get("listen", EYE_MID))
 
         # ── eyes ──────────────────────────────────────────────────────────
         lx = fcx + self.left_eye.rel_x
@@ -2890,29 +3052,50 @@ class RobotFace:
         if costume:
             draw_costume_front(base, fcx, fcy, costume[0], self)
 
-        # ── hands (in front of the face) ──────────────────────────────────
+        # ── hands (in front of the face) — HAL: glyphs instead ─────────────
         if HANDS:
+            glyphs = theme_fx().get("glyphs")
+            ffx = self.face_cx + self.face_ox       # (unrounded: the GPU places
+            ffy = self.face_cy + self.face_oy       #  them to a fraction of a pixel)
+            heart = self._gesture == "heart"
+            cols = hand_cols()
             for side in ("L", "R"):
                 hx, hy, ha = self.hand[side]
                 if fcy + hy > HEIGHT + 60:      # fully tucked away
                     continue
-                img = hand_surface(self.hand_pose[side], side)
-                # rotate about the WRIST (bottom of the hand), not the centre:
+                pose = self.hand_pose[side]
+                if glyphs:
+                    if not heart:
+                        self._hand_glyph(base, pose, ffx + hx, ffy + hy, ha, glyphs)
+                    continue
+                # turned about the WRIST (bottom of the hand), not the centre:
                 # the fingers swing while the base stays put (the glow and
                 # the shadow are in the image: no bloom per frame)
-                h0 = img.get_height() - 32          # (the image has 16 px round it)
-                pivot = pygame.math.Vector2(0, h0 * 0.42)
-                if abs(ha) > 0.5:
-                    img = pygame.transform.rotozoom(img, ha, 1.0)   # (filtered: no jaggies)
-                    pivot = pivot.rotate(-ha)
-                wrist = pygame.math.Vector2(fcx + hx, fcy + hy + h0 * 0.42)
-                rect = img.get_rect(center=(int(wrist.x - pivot.x),
-                                            int(wrist.y - pivot.y)))
-                base.blit(img, rect)
-            if self._gesture == "heart":
-                sz = int(50 + 12 * self._heart_pulse)
-                draw_heart(base, fcx, fcy + (face_spec.LAYOUT["mouth_y"] + 70
-                                             if EYE_MODE == "block" else 112), sz)
+                pivot = pygame.math.Vector2(0, HAND_H0 * 0.42).rotate(-ha)
+                x = ffx + hx - pivot.x
+                y = ffy + hy + HAND_H0 * 0.42 - pivot.y
+                out = _fx(base)
+                if out is not None:             # the GPU: distance fields, exact edges
+                    out.append(gl_fx.hand(hand_parts(pose), x, y, ha, (*cols[:2], (
+                        _lerp_col(cols[1], (70, 25, 0), 0.55)), cols[2]),
+                        flip=(-1.0 if side == "L" else 1.0,
+                              -1.0 if pose == "thumb_down" else 1.0)))
+                    continue
+                _sprite(base, ("hand", pose, cols),
+                        lambda res, pose=pose: hand_surface(pose, "R", res, cols),
+                        x, y, ha, flip=(-1.0 if side == "L" else 1.0, 1.0))
+            if heart:
+                hy = face_spec.LAYOUT["mouth_y"] + 70 if EYE_MODE == "block" else 112
+                if glyphs:
+                    k = self._heart_pulse
+                    out = _fx(base)
+                    item = gl_fx.glyph("heart", ffx, ffy + hy - 10, 56 + 8 * k, *glyphs,
+                                       alpha=min(1.0, 2.5 * math.sin(math.pi * self._gesture_p)),
+                                       width=4.0 + 1.5 * k)
+                    if out is not None:
+                        out.append(item)
+                else:
+                    draw_heart(base, fcx, fcy + hy, int(50 + 12 * self._heart_pulse))
 
         # ── a big glyph between the eyes (game countdown) ────────────────
         big = self._big_text
@@ -2947,8 +3130,8 @@ class RobotFace:
                         ang = (math.pi / 2 - side * (0.9 + a)) if side > 0 else (math.pi / 2 + 0.9 + a)
                         r0, r1 = 14 + 22 * k, 38 + 30 * k
                         dx, dy = math.cos(ang), -math.sin(ang)
-                        pygame.draw.line(base, _lerp_col((0, 0, 0), IRIS_SHINE, k),
-                                         (ex + dx * r0, ey + dy * r0), (ex + dx * r1, ey + dy * r1), 5)
+                        _lines(base, [(ex + dx * r0, ey + dy * r0), (ex + dx * r1, ey + dy * r1)],
+                               5, IRIS_SHINE, alpha=k)
             blush = getattr(gl, "blush_now", 0.0)
             if blush > 0.55:                      # rosy: the "///" lines on the cheeks
                 blush_lines(base, fcx, fcy, min(1.0, (blush - 0.55) / 0.3))
@@ -3040,6 +3223,7 @@ class RobotFace:
         t3 = time.perf_counter()
         if self.gl:
             u = self.gl.face_uniforms(self, sys.modules[__name__], fcx, fcy)
+            u["_fx_back"], u["_fx"] = fx_back, fx_front
             # the layer behind the face is nearly always empty: not read at
             # all then (~0.7 ms a frame), unless it still has to be wiped
             drew_back = HAIR or costume or self.sound_waves or self.steam_particles
@@ -3057,6 +3241,35 @@ class RobotFace:
         st["face"] += t2 - t1
         st["compose"] += t3 - t2
         st["flip"] += t4 - t3
+
+    def _hand_glyph(self, surf, pose, x, y, angle, cols):
+        """HAL has no hands: where a hand would be, a glyph like a display's
+        (gl_fx.GLYPHS) — the hourglass while he thinks, a cursor pointing,
+        a tick for a thumb up. Only on the GPU face (nothing without it)."""
+        out = _fx(surf)
+        name = HAND_GLYPHS.get(pose)
+        if out is None or name is None:
+            return
+        size, t = 44.0, 0.0
+        dx = x - (self.face_cx + self.face_ox)
+        # out beside his lens, not over it (eased: a cursor passes through)
+        x += math.copysign(70.0 * max(0.0, min(1.0, (abs(dx) - 150.0) / 80.0)), dx)
+        x = max(size + 8, min(WIDTH - size - 8, x))
+        if name == "hourglass":
+            ph = (time.monotonic() % 2.8) / 2.8   # the sand runs, then it turns over
+            if ph < 0.82:
+                t = ph / 0.82
+            else:
+                t, u = 1.0, (ph - 0.82) / 0.18
+                angle += 180.0 * u * u * (3 - 2 * u)
+            size = 36.0
+        elif name == "cursor":                  # its tip where the finger's would be
+            tip = reply_scenes._POINT_TIP
+            x += tip[0] - gl_fx.CURSOR_TIP[0] * size
+            y += tip[1] - gl_fx.CURSOR_TIP[1] * size
+        # it fades in as it rises from below, as the hands slide up
+        alpha = max(0.0, min(1.0, (HEIGHT + 20 - y) / 160.0))
+        out.append(gl_fx.glyph(name, x, y, size, *cols, angle=angle, alpha=alpha, t=t))
 
     def _draw_corner_icons(self):
         """The status bar switched off ("ukryj pasek"): the small icons in

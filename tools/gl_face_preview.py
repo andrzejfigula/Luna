@@ -14,6 +14,11 @@ frame — the 30 fps budget is 33 ms.
 The radio visualizer (visualizer.py): 8 s of a station decoded (not played),
 fed through visualizer.tap on a fake clock, two frames per style.
 
+    … tools/gl_face_preview.py --fx [out_dir] [theme…] [look…]
+
+What gl_fx.py draws over the face — the listening waves, hands (HAL: glyphs),
+costumes — per theme, on the real RobotFace; a sheet each and every frame.
+
     … tools/gl_face_preview.py --lamp [out.png] [scene…]
 
 The lamp's scenes (lamp_scenes.py): two frames each and the GPU time; one
@@ -174,6 +179,99 @@ def live(out, gpu=True):
                     ((i % cols) * W // 2, (i // cols) * H // 2))
     sheet.save(out)
     print(f"[live] wrote {out}")
+
+
+FX_LOOKS = [            # (name, how to set it up: a state field → value; "start" fields: now)
+    ("listen", {"listening": True, "mic_level": 0.45}),
+    ("wave", {"gesture_anim": "wave", "gesture_anim_start": 0.9}),
+    ("thumbs_up", {"gesture_anim": "thumbs_up", "gesture_anim_start": 1.0}),
+    ("heart", {"gesture_anim": "heart", "gesture_anim_start": 1.4}),
+    ("thinking", {"emotion": "thinking"}),
+    ("scissors", {"game_hand": "scissors"}),
+    ("paper", {"game_hand": "paper"}),
+    ("air_heart", {"reply_scene": "air_heart", "reply_scene_start": 2.6}),
+    ("cat", {"costume": "cat"}),
+    ("steampunk", {"costume": "steampunk"}),
+    ("crazy_robot", {"costume": "crazy_robot"}),
+    ("party", {"costume": "party"}),
+]
+
+
+def fx_sheet(out_dir, theme_keys=("luna", "ice", "hal"), only=None):
+    """The real RobotFace with the GPU face, offscreen, per theme: listening,
+    the gestures, a costume — what gl_fx.py draws. A sheet per theme and each
+    frame at full size; the listening waves' radii frame by frame (smooth:
+    no steps) and the cost of a frame with them."""
+    egl_context()
+    fbo = framebuffer()
+    from PIL import Image, ImageDraw
+    import robot_face as rf
+    import gl_face
+    import themes
+    from shared_state import state
+    rf.FACE_GL = False
+    face = rf.RobotFace()
+    rf.apply_style(3)
+    face.gl = gl_face.GLFace(W, H)
+    face.gl.target_fbo = fbo
+    face.screen = gl_face.layer_surface(W, H)
+    face.base = gl_face.layer_surface(W, H)
+    face.back = gl_face.layer_surface(W, H)
+    face.clock = type("NoWait", (), {"tick": lambda self, fps: 0})()
+    os.makedirs(out_dir, exist_ok=True)
+    blank = {"listening": False, "mic_level": 0.0, "gesture_anim": None, "game_hand": None,
+             "reply_scene": None, "costume": None}
+    face.draw()                              # (the shaders compiled: not in the numbers)
+    for key in theme_keys:
+        themes.current = lambda now=None, key=key: key
+        tiles = []
+        for name, setup in FX_LOOKS:
+            if only and name not in only:
+                continue
+            with state.lock:
+                for k, v in blank.items():
+                    setattr(state, k, v)
+                state.face_detected = True
+                now = time.time()
+                for k, v in setup.items():
+                    if k.endswith("_start"):
+                        setattr(state, k, now - v)
+                    elif k == "game_hand":
+                        state.game_hand = (v, now + 60)
+                    elif k == "costume":
+                        state.costume = (v, now + 600)
+                    elif k != "emotion":
+                        setattr(state, k, v)
+            emo = setup.get("emotion", "happy" if "costume" in setup else "neutral")
+            t_end = time.monotonic() + (2.6 if name == "thinking" else 0.8)
+            radii, costs = [], []
+            while time.monotonic() < t_end:
+                face.set_state(emo)
+                t0 = time.perf_counter()
+                face.draw()
+                GL.glFinish()
+                costs.append(time.perf_counter() - t0)
+                if name == "listen":
+                    arcs = [i for i in getattr(rf, "_FX", {}).get(id(face.base), []) if i[0] == "arcs"]
+                    if arcs:
+                        radii.append(arcs[0][4][0])
+            px = GL.glReadPixels(0, 0, W, H, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE)
+            img = Image.frombytes("RGBA", (W, H), px).transpose(Image.FLIP_TOP_BOTTOM).convert("RGB")
+            img.save(os.path.join(out_dir, f"{key}_{name}.png"))
+            ImageDraw.Draw(img).text((10, 36), f"{key}: {name}", fill=(255, 255, 255))
+            tiles.append(img)
+            costs.sort()
+            print(f"[fx] {key} {name}: {len(costs)} frames, median {costs[len(costs) // 2] * 1000:.1f} ms"
+                  + (f", radii {' '.join(f'{r:.2f}' for r in radii[-8:])}" if radii else ""),
+                  flush=True)
+        cols = 4
+        rows = (len(tiles) + cols - 1) // cols
+        sheet = Image.new("RGB", (cols * W // 2, rows * H // 2))
+        for i, t in enumerate(tiles):
+            sheet.paste(t.resize((W // 2, H // 2), Image.LANCZOS),
+                        ((i % cols) * W // 2, (i // cols) * H // 2))
+        sheet.save(os.path.join(out_dir, f"{key}_sheet.png"))
+    print(f"[fx] wrote {out_dir}; images made {face.gl.fx.made if getattr(face.gl, "fx", None) else 0}")
 
 
 def radio_sheet(out, url=None):
@@ -352,6 +450,12 @@ def main():
         args = [a for a in sys.argv[1:] if not a.startswith("--")]
         return radio_sheet(args[0] if args else "/tmp/gl_face_radio.png",
                            args[1] if len(args) > 1 else None)
+    if "--fx" in sys.argv:                            # --fx [out_dir] [theme…] [look…]
+        args = [a for a in sys.argv[1:] if not a.startswith("--")]
+        import themes
+        keys = [a for a in args[1:] if a in themes.THEMES] or ("luna", "ice", "hal")
+        looks = [a for a in args[1:] if a not in themes.THEMES]
+        return fx_sheet(args[0] if args else "/tmp/gl_fx", keys, looks or None)
     if "--live" in sys.argv or "--pygame" in sys.argv:
         gpu = "--pygame" not in sys.argv              # --pygame: today's face, to compare
         args = [a for a in sys.argv[1:] if not a.startswith("--")]

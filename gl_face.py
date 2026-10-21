@@ -1082,6 +1082,7 @@ class GLFace:
         self.shape_rects = []            # each shape's box on the screen (face_uniforms)
         self.vis = None                  # the radio visualizer's pass (gl_vis.py), when needed
         self.lamp = None                 # the lamp's scenes (gl_lamp.py), when needed
+        self.fx = None                   # the waves, hands, costumes (gl_fx.py), when needed
         print(f"[gl] face shader ready (GLSL {self.glsl}, "
               f"{GL.glGetString(GL.GL_RENDERER).decode(errors='replace')})", flush=True)
 
@@ -1310,6 +1311,10 @@ class GLFace:
         if has_back:                         # behind the face: costume ears, steam…
             pl.u("uLayerSel", 2.0)
             self._rows(pl, self.back_l.runs(pad))
+        tilt = float(uniforms.get("uTilt", 0.0))
+        if uniforms.get("_fx_back"):         # the GPU's own pieces behind it (gl_fx.py)
+            self._fx().draw(uniforms["_fx_back"], tilt)
+            GL.glUseProgram(pl.id)
         # 2: the sharp shapes, each in its own box
         if uniforms.get("uFace", 0.0) > 0.5:
             GL.glUseProgram(self.prog)
@@ -1327,11 +1332,20 @@ class GLFace:
         if has_face:
             pl.u("uLayerSel", 1.0)
             self._rows(pl, self.face_l.runs(pad))
+        if uniforms.get("_fx"):              # the waves, hands, a costume (gl_fx.py)
+            self._fx().draw(uniforms["_fx"], tilt)
+            GL.glUseProgram(pl.id)
         if has_layer:
             pl.u("uLayerSel", 0.0)
             self._rows(pl, self.screen_l.runs())
         GL.glUseProgram(self.prog)
         GL.glDisable(GL.GL_BLEND)
+
+    def _fx(self):
+        if self.fx is None:
+            import gl_fx
+            self.fx = gl_fx.FxPass(self)
+        return self.fx
 
     def _rows(self, prog, runs):
         """The layer pass over these (y0, y1) rows (the quad is bound;

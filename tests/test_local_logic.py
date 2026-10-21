@@ -6350,6 +6350,43 @@ class GLLayerUploadTest(unittest.TestCase):
         self.assertEqual(s.get_bounding_rect().width, 0)
 
 
+class GlFxTest(unittest.TestCase):
+    """gl_fx: what the GPU draws over the face — the waves placed to a
+    fraction of a pixel, every hand pose fits the shader, HAL has a glyph
+    for each."""
+
+    def test_waves_are_not_rounded(self):
+        import gl_fx
+        a = gl_fx.arcs(412.37, 180.5, -1, [(87.07, 0.5), (61.3, 0.0)], (255, 196, 110))
+        self.assertEqual(a[4][:2], (87.07, 61.3))
+        self.assertEqual(a[5], (0.5, 0.0, 0.0))            # (padded to three, clamped)
+        x0, y0, x1, y1 = gl_fx.bounds(a)
+        self.assertLess(x0, 412.37 - 87.07)                # "(" reaches left of its centre
+        self.assertEqual(x1, 412.37)
+
+    def test_hands_fit_the_shader(self):
+        try:
+            import robot_face as rf
+        except ImportError:
+            self.skipTest("pygame")
+        import gl_fx
+        for pose in ("open", "paper", "fist", "point", "scissors", "ok", "thumb", "thumb_down"):
+            parts = rf.hand_parts(pose)
+            hb, hk, n, ring = gl_fx.hand_uniforms(parts)
+            self.assertEqual(n, len([p for p in parts if p[0] == "box"]), pose)
+            self.assertLessEqual(n, 8, pose)                  # uHB[8]
+            self.assertEqual(ring[3], 1.0 if pose == "ok" else 0.0, pose)
+            self.assertIn(rf.HAND_GLYPHS[pose], gl_fx.GLYPHS, pose)
+        self.assertIn(rf.HAND_GLYPHS["hourglass"], gl_fx.GLYPHS)
+
+    def test_theme_looks(self):
+        import themes
+        self.assertIn("glyphs", themes.THEMES["hal"]["look"])      # no hands for HAL
+        self.assertEqual(themes.THEMES["hal"]["fx"], "robot")       # (the voice's, apart)
+        top, bot, glow = themes.THEMES["ice"]["look"]["hand"]
+        self.assertGreater(top[2], top[0] - 30)                     # frosty, not amber
+
+
 class FramePaceTest(unittest.TestCase):
     """robot_face.ease: the animation's per-frame steps keep their pace at
     any frame rate — two half-length frames ease as far as one whole one,
