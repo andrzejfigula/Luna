@@ -7315,21 +7315,22 @@ class ThemesTest(unittest.TestCase):
         # a voice gliding ±6 semitones → steady notes a semitone apart (GLaDOS-like)
         f = 110 * 2 ** (np.sin(2 * np.pi * 0.75 * t) * 6 / 12)
         saw = (8000 * (2 * (np.cumsum(f) / 24000 % 1) - 1)).astype(np.int16).tobytes()
-        keys = ("robot_hz", "ref_hz", "melody", "range", "tempo")
+        keys = ("robot_hz", "melody", "range", "tempo")
         tts_fx.PRESETS["_test"] = {k: v for k, v in tts_fx.PRESETS["robot"].items() if k in keys}
         try:
             ch = tts_fx.Chain("_test")
             out = np.frombuffer(ch.process(saw) + ch.flush(), np.int16).astype(np.float32)
         finally:
             del tts_fx.PRESETS["_test"]
-        notes = set()
+        notes, off = set(), 0
         for k in range(0, out.size - 1200, 1200):
             seg = out[k:k + 1200] - out[k:k + 1200].mean()
             ac = np.correlate(seg, seg, "full")[seg.size:]
             semis = 12 * np.log2(24000 / (60 + np.argmax(ac[60:450])) / 80)
-            self.assertLess(abs(semis - round(semis)), 0.25)       # on a note, not between
+            off += abs(semis - round(semis)) > 0.25                # between notes (a leap)
             notes.add(round(semis))
-        self.assertGreaterEqual(len(notes), 5)                     # but not monotone
+        self.assertLess(off, 6)                                    # steady notes…
+        self.assertGreaterEqual(len(notes), 8)                     # …far from monotone
         self.assertGreater(np.abs(robot).max(), 3000)  # still loud, never clipped hard
         self.assertLess(np.abs(robot).max(), 30001)
         deep = run("deep")

@@ -116,7 +116,8 @@ def _cache_dir():
 def _cache_key(text, kwargs):
     import hashlib
     blob = json.dumps([text, kwargs.get("model"), kwargs.get("voice"), kwargs.get("speed"),
-                       kwargs.get("instructions", ""), themes.get().get("fx")],
+                       kwargs.get("instructions", ""), themes.get().get("fx"),
+                       repr(tts_fx.preset(themes.get().get("fx")))],   # new settings: new takes
                       ensure_ascii=False)
     return hashlib.sha1(blob.encode("utf-8")).hexdigest()
 
