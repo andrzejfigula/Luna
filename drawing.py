@@ -239,7 +239,13 @@ def bin_drawing(item):
     if not os.path.exists(path):
         return False
     os.makedirs(BIN, exist_ok=True)
-    os.replace(path, os.path.join(BIN, os.path.basename(path)))
+    # a rename keeps the mtime (when it was drawn): stamp the binning, later than
+    # anything already there, so "przywróć rysunek" brings back the last one
+    newest = max((os.stat(os.path.join(BIN, f)).st_mtime_ns for f in os.listdir(BIN)), default=0)
+    dst = os.path.join(BIN, os.path.basename(path))
+    os.replace(path, dst)
+    t = max(time.time_ns(), newest + 1000)
+    os.utime(dst, ns=(t, t))
     print(f"[draw] {os.path.basename(path)} moved to the bin", flush=True)
     return True
 
@@ -252,7 +258,7 @@ def restore_drawing():
         return None
     if not binned:
         return None
-    last = max(binned, key=os.path.getmtime)
+    last = max(binned, key=lambda f: os.stat(f).st_mtime_ns)
     out = os.path.join(DIR, os.path.basename(last))
     os.replace(last, out)
     return out
