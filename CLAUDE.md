@@ -17,12 +17,14 @@ while you work. Code here (`D:\Code\luna`, Windows + Git Bash); the Pi copy
   New rows: `python tools/backlog_add.py "**Title** — what changed" "why"`.
 - Keep new code comments to a line or two; the story goes in the commit.
 
-## Ship (test → copy → restart, ~1 min)
+## Ship (test → copy → restart, ~45 s)
 
-    git add -A && bash tools/ship.sh
+    git add -A && bash tools/ship.sh          # --quick (unit + smoke) while tuning
 
-check_pi.sh runs unit + routing + smoke + dialog on the Pi in a clean
-`/tmp/lunacheck` (two lanes), deploy.sh copies changed tracked files (one tar
+check_pi.sh runs the unit tests on the PC (the ones skipped here — cv2,
+pygame — then on the Pi) beside routing + smoke | dialog on the Pi, in a
+per-run `/tmp/lunacheck-run-*` (`full`: all four on the Pi, before a merge).
+New files must be `git add`ed or the Pi never sees them. deploy.sh copies changed tracked files (one tar
 connection; never `.env`, `data/`, `.md`), `restart.sh --now --tested` skips
 re-testing code that just passed and prints `restart: OK — pid N` or the error.
 Don't write your own ssh wait loops (`pgrep -f restart.sh` matches itself and
@@ -76,7 +78,7 @@ conversation window, radio-on wake with `mouth.py`), `echo.py` (her own voice
 coming back). `main.py` voice loop: mute → forget → `commands.handle` (local,
 no model) → `brain.py` (OpenAI chat, persona, actions). Voice out →
 `text_to_speech.py`, `openai_tts.py`, `audio_out.py`, `polish.py` (numbers,
-grammar). State: `shared_state.py`; settings: `config.py`, `settings.py`.
+grammar). `openai_client.py` (the SDK loaded on first use). State: `shared_state.py`; settings: `config.py`, `settings.py`.
 
 Camera: `camera_thread.py`, `vision_module.py` (faces, addressed speech),
 `faces.py` (who), `mouth.py` (talking, seen), `gesture_module.py`.

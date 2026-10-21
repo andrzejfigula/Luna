@@ -25,7 +25,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import cv2
-from openai import OpenAI
+from openai_client import LazyOpenAI as OpenAI
 
 import reply_scenes
 import birthdays

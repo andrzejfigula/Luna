@@ -34,10 +34,7 @@ import time
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-try:
-    from openai import OpenAI
-except ImportError:          # tests on a PC without the SDK
-    OpenAI = None
+from openai_client import LazyOpenAI as OpenAI
 
 from shared_state import state
 from config import (

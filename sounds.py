@@ -17,7 +17,7 @@ import os
 import threading
 
 import numpy as np
-from openai import OpenAI
+from openai_client import LazyOpenAI as OpenAI
 
 from config import (
     OPENAI_API_KEY,
