@@ -2,7 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 20 października ==
-- Głosy motywów: HAL brzmi jak prawdziwy robot (niski, szybki, jednym równym tonem, metaliczny, lekko przesterowany, z pogłosem jak w statku kosmicznym), a Ice ma dużo niższy, głęboki głos i mówi szybciej.
+- Głosy motywów: HAL brzmi jak prawdziwy robot w stylu GLaDOS z gry Portal (niski, szybki, śpiewa „po nutach”, z echem wyższych głosów, metaliczny, lekko przesterowany, z pogłosem jak w statku kosmicznym), a Ice ma dużo niższy, głęboki głos i mówi szybciej.
 
 == 19 października ==
 - Motywy w ustawieniach (Ekran → Motyw): Ice (czyt. "ajs") — prostokątne lodowe oczy, brwi i usta, krzywy uśmieszek i sarkazm jak dr House, woła się go "Ice"; HAL 9000 — czerwone oko, spokojny, groźny głos i fala głosu zamiast ust, woła się go "HAL". "Luna" zawsze działa.

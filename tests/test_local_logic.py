@@ -7312,15 +7312,24 @@ class ThemesTest(unittest.TestCase):
         self.assertEqual(tts_fx.Chain(None).process(tone), tone)   # Luna: untouched
         robot = run("robot")
         self.assertAlmostEqual(robot.size / 24000, 1 / 1.2 + 0.15, delta=0.05)   # 1.2× faster + the room
-        f = 150 + 60 * np.sin(2 * np.pi * 1.5 * t)        # a gliding "melody" → a flat buzz
-        glide = (8000 * np.sin(2 * np.pi * np.cumsum(f) / 24000)).astype(np.int16).tobytes()
-        ch = tts_fx.Chain("robot")
-        out = np.frombuffer(ch.process(glide) + ch.flush(), np.int16).astype(np.float32)
-        for k in range(1, 3):
-            seg = out[k * 6000:(k + 1) * 6000] - out[k * 6000:(k + 1) * 6000].mean()
+        # a voice gliding ±6 semitones → steady notes a semitone apart (GLaDOS-like)
+        f = 110 * 2 ** (np.sin(2 * np.pi * 0.75 * t) * 6 / 12)
+        saw = (8000 * (2 * (np.cumsum(f) / 24000 % 1) - 1)).astype(np.int16).tobytes()
+        keys = ("robot_hz", "ref_hz", "melody", "range", "tempo")
+        tts_fx.PRESETS["_test"] = {k: v for k, v in tts_fx.PRESETS["robot"].items() if k in keys}
+        try:
+            ch = tts_fx.Chain("_test")
+            out = np.frombuffer(ch.process(saw) + ch.flush(), np.int16).astype(np.float32)
+        finally:
+            del tts_fx.PRESETS["_test"]
+        notes = set()
+        for k in range(0, out.size - 1200, 1200):
+            seg = out[k:k + 1200] - out[k:k + 1200].mean()
             ac = np.correlate(seg, seg, "full")[seg.size:]
-            hz = tts_fx.PRESETS["robot"]["robot_hz"]
-            self.assertIn(round(24000 / (np.argmax(ac[100:450]) + 100)), (hz, 2 * hz))
+            semis = 12 * np.log2(24000 / (60 + np.argmax(ac[60:450])) / 80)
+            self.assertLess(abs(semis - round(semis)), 0.25)       # on a note, not between
+            notes.add(round(semis))
+        self.assertGreaterEqual(len(notes), 5)                     # but not monotone
         self.assertGreater(np.abs(robot).max(), 3000)  # still loud, never clipped hard
         self.assertLess(np.abs(robot).max(), 30001)
         deep = run("deep")
