@@ -7407,6 +7407,24 @@ class DevicesTest(unittest.TestCase):
             self.assertEqual(d.mic_specs(), ["Pebble V3", "C270"])
         settings.put("mic", None)
 
+    def test_make_default_lifts_a_near_silent_speaker(self):
+        d = self.d
+        dump = [{"id": 59, "info": {"props": {"node.name": self.SINKS[0]["node.name"]}}}]
+        calls = []
+
+        def run(cmd, **kw):
+            calls.append(cmd)
+            return mock.Mock(stdout=f"Volume: {vol}" if cmd[1] == "get-volume" else "")
+        for vol, lifted in (("0.10", True), ("0.60", False)):
+            calls.clear()
+            with mock.patch.object(d, "_pw_dump", return_value=dump), \
+                 mock.patch.object(d.subprocess, "run", side_effect=run):
+                d.make_default(self.SINKS[0]["node.name"])
+            self.assertIn(["wpctl", "set-default", "59"], calls)
+            self.assertEqual(["wpctl", "set-volume", "59", "0.50"] in calls, lifted)
+        with mock.patch.object(d, "_pw_dump", return_value=dump):
+            self.assertIsNone(d.make_default("gone"))
+
 
 class ThemesTest(unittest.TestCase):
     """Themes (settings → Ekran → Motyw): eyes, voice, character, wake word;

@@ -429,7 +429,7 @@ VISION_JPEG_QUALITY = 80
 
 # ── Local commands (commands.py) — handled without the model ─────────────────
 VOLUME_STEP      = 0.10   # "głośniej" / "ciszej"
-VOLUME_MIN       = 0.10   # never fully silent by voice — she must answer you
+VOLUME_MIN       = 0.25   # never silent by voice (wpctl is cubic: 0.10 = -60 dB)
 VOLUME_MAX       = 1.00
 SPEED_STEP       = 0.10   # "mów wolniej" / "mów szybciej"
 SPEED_MIN, SPEED_MAX = 0.75, 1.60

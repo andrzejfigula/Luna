@@ -113,6 +113,36 @@ def resolve_sink(chain=None, sinks=None):
     return None
 
 
+AUDIBLE_FLOOR = 0.25    # wpctl's cubic scale: 0.10 is -60 dB, silent in practice
+LIFT_TO = 0.50
+
+
+def make_default(sink):
+    """Make her speaker PipeWire's default too — the Pebble's knob (USB HID
+    volume keys → labwc → panel) and the panel slider turn the default — and
+    lift it if it was left near silent. Returns the volume it set, or None."""
+    if not sink:
+        return None
+    try:
+        node = next((str(o["id"]) for o in _pw_dump()
+                     if o.get("info", {}).get("props", {}).get("node.name") == sink), None)
+        if node is None:
+            return None
+        subprocess.run(["wpctl", "set-default", node], capture_output=True, timeout=5)
+        out = subprocess.run(["wpctl", "get-volume", node], capture_output=True,
+                             text=True, timeout=5).stdout
+        m = re.search(r"([\d.]+)", out)
+        if m and float(m[1]) < AUDIBLE_FLOOR:
+            subprocess.run(["wpctl", "set-volume", node, f"{LIFT_TO:.2f}"],
+                           capture_output=True, timeout=5)
+            print(f"[TTS] {sink} was at volume {m[1]} — lifted to {LIFT_TO:.2f}",
+                  flush=True)
+            return LIFT_TO
+    except Exception as e:
+        print(f"[TTS] default speaker not set ({e})", flush=True)
+    return None
+
+
 def move_our_streams(sink):
     """Move the pw-play streams Luna has open (radio, sleep sounds, her voice)
     to the sink — no restart of what's playing."""

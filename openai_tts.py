@@ -292,6 +292,7 @@ class OpenAITTS:
         """Re-check the speaker every few seconds (or at once after a pick on
         the settings page): USB speaker pulled → the next in the chain
         (LUNA_SPEAKER=pebble,jack), plugged back → back to it."""
+        devices.make_default(self._sink)
         while True:
             devices.speaker_changed.wait(SPEAKER_CHECK_SECS)
             devices.speaker_changed.clear()
@@ -305,6 +306,7 @@ class OpenAITTS:
             if self._out:
                 self._out.cmd = self._raw_cmd      # a respawn uses it
             devices.move_our_streams(new)          # voice, radio, sleep sounds
+            devices.make_default(new)              # the knob turns this one
 
     # ── player command for raw PCM on stdin ─────────────────────────────────
     def _build_raw_player_cmd(self):
