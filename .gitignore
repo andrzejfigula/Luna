@@ -66,3 +66,4 @@ data/errands.json.tmp
 data/backups/
 # face models from the OpenCV Zoo (download, see SETUP.md)
 data/models/
+screenshots/

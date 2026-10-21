@@ -3,11 +3,12 @@ tts_fx.py — a theme's voice changed on the Pi, as it streams (themes.py "fx").
 
   "robot" (HAL) — monotone and faster: each 32 ms frame rebuilt with zero
                   phase every 10 ms (the classic "robotization": one steady
-                  60 Hz buzz instead of the voice's melody, its resonances
+                  75 Hz buzz instead of the voice's melody, its resonances
                   moved down by FORMANT: a bigger machine), read TEMPO× faster
                   than it is written; then a metallic comb (a short echo feeding
                   back: a ringing tube), a light ring modulator, an overdrive
-                  (DRIVE) and a bit crusher (CRUSH bits)
+                  (DRIVE), a bit crusher (CRUSH bits) and a reverb (REVERB
+                  wet: a big metal room — 4 combs and 2 allpasses, Schroeder)
   "deep"  (Ice) — pitch down, TEMPO× faster: WSOLA squeezes the time by
                   PITCH·TEMPO (overlapping 40 ms pieces, each placed where it
                   matches best), then resampling stretches it by PITCH, lower.
@@ -23,14 +24,18 @@ import numpy as np
 
 RATE = 24000
 PRESETS = {
-    "robot": {"robot_hz": 60.0, "formant": 1.27, "tempo": 1.2,
+    # (21 Oct: 60 Hz with formants down 27% was hard to understand — back to 75 / 15%)
+    "robot": {"robot_hz": 75.0, "formant": 1.15, "tempo": 1.2,
               "comb_ms": 4.5, "feedback": 0.4, "ring_hz": 52.0, "ring": 0.15,
-              "drive": 2.5, "crush": 8},
+              "drive": 2.5, "crush": 8, "reverb": 0.3},
     "deep": {"pitch": 1.3, "tempo": 1.2},     # ~4.5 semitones down, 20% faster
 }
 N, HS, SEEK = 960, 480, 240        # WSOLA: piece, output hop, search ±10 ms
 _WIN = (0.5 - 0.5 * np.cos(2 * np.pi * np.arange(N) / N)).astype(np.float32)
 RN = 768                           # robotization frame (32 ms)
+REV_COMBS = ((677, 0.70), (797, 0.68), (911, 0.66), (1031, 0.64))   # 28–43 ms
+REV_ALLPASS = ((241, 0.6), (83, 0.6))
+REV_TAIL = int(0.15 * RATE)        # the room's ring kept after the last word
 _RWIN = (0.5 - 0.5 * np.cos(2 * np.pi * np.arange(RN) / RN)).astype(np.float32)
 
 
@@ -52,6 +57,8 @@ class Chain:
         self.rbuf = np.zeros(0, np.float32)         # robotization input, from rbase
         self.rbase, self.rk = 0, 0
         self.rola = np.zeros(RN, np.float32)
+        self.rcomb = [np.zeros(d, np.float32) for d, _ in REV_COMBS]
+        self.rap = [(np.zeros(d, np.float32), np.zeros(d, np.float32)) for d, _ in REV_ALLPASS]
 
     def process(self, pcm):
         if not self.p or not pcm:
@@ -64,7 +71,11 @@ class Chain:
             ha = HS * self.p["pitch"] * self.p.get("tempo", 1.0)
             return self._run(np.zeros(N + 2 * SEEK + int(ha), np.float32))
         if "robot_hz" in self.p:
-            return self._run(np.zeros(RN + int(RATE / self.p["robot_hz"] * 2), np.float32))
+            pad = RN + int(RATE / self.p["robot_hz"] * 2) + (REV_TAIL if self.p.get("reverb") else 0)
+            a = np.frombuffer(self._run(np.zeros(pad, np.float32)), np.int16).astype(np.float32)
+            fade = min(a.size, REV_TAIL)            # the room fades out, no click
+            a[a.size - fade:] *= np.linspace(1, 0, fade, dtype=np.float32)
+            return a.astype(np.int16).tobytes()
         return b""
 
     def _run(self, a):
@@ -72,6 +83,8 @@ class Chain:
             a = self._robotize(a)
         if "comb_ms" in self.p:
             a = self._robot(a)
+        if self.p.get("reverb") and a.size:
+            a = self._reverb(a)
         if "pitch" in self.p:
             a = self._stretch(self._wsola(a))
         return np.clip(a, -32768, 32767).astype(np.int16).tobytes()
@@ -123,6 +136,28 @@ class Chain:
             q = 32768 / 2 ** (self.p["crush"] - 1)  # fewer levels: a gritty, digital edge
             y = np.round(y / q) * q
         return y
+
+    def _reverb(self, x):
+        wet = 0.0
+        for k, (d, g) in enumerate(REV_COMBS):     # parallel feedback combs: the decay
+            y = np.concatenate([self.rcomb[k], np.zeros(x.size, np.float32)])
+            for i in range(0, x.size, d):
+                j = min(i + d, x.size)
+                y[d + i:d + j] = x[i:j] + g * y[i:j]
+            self.rcomb[k] = y[-d:].copy()
+            wet = wet + y[d:]
+        wet = wet * 0.25
+        for k, (d, g) in enumerate(REV_ALLPASS):   # in series: the echoes diffused
+            xt, yt = self.rap[k]
+            xs = np.concatenate([xt, wet])
+            y = np.concatenate([yt, np.zeros(wet.size, np.float32)])
+            for i in range(0, wet.size, d):         # y[n] = −g·x[n] + x[n−d] + g·y[n−d]
+                j = min(i + d, wet.size)
+                y[d + i:d + j] = -g * wet[i:j] + xs[i:j] + g * y[i:j]
+            self.rap[k] = (xs[-d:].copy(), y[-d:].copy())
+            wet = y[d:]
+        r = self.p["reverb"]
+        return x * (1 - r * 0.5) + wet * r
 
     def _wsola(self, x):
         """Shorter by PITCH·TEMPO, same pitch: 50%-overlapped Hann pieces taken

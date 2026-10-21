@@ -7311,7 +7311,7 @@ class ThemesTest(unittest.TestCase):
             return np.frombuffer(out, np.int16).astype(np.float32)
         self.assertEqual(tts_fx.Chain(None).process(tone), tone)   # Luna: untouched
         robot = run("robot")
-        self.assertAlmostEqual(robot.size / 24000, 1 / 1.2, delta=0.05)   # HAL 1.2× faster
+        self.assertAlmostEqual(robot.size / 24000, 1 / 1.2 + 0.15, delta=0.05)   # 1.2× faster + the room
         f = 150 + 60 * np.sin(2 * np.pi * 1.5 * t)        # a gliding "melody" → a flat buzz
         glide = (8000 * np.sin(2 * np.pi * np.cumsum(f) / 24000)).astype(np.int16).tobytes()
         ch = tts_fx.Chain("robot")
