@@ -7336,10 +7336,11 @@ class SettingsPageTest(unittest.TestCase):
     def test_reset_asks_first_and_not_a_child(self):
         import ui_screens
         sp = self.sp
-        sp.show(4)
+        tab = sp.TABS.index("Reset")
+        sp.show(tab)
         with state.lock:
             data = state.overlay[2]
-        L = ui_screens._settings_layout(800, 480, len(sp.rows(4)))
+        L = ui_screens._settings_layout(800, 480, len(sp.rows(tab)))
         reset = L["rows"][2].center
         with mock.patch.object(sp, "_reset_and_restart") as go, \
                 mock.patch.object(sp, "_child_here", return_value=True):
