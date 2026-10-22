@@ -137,6 +137,8 @@ _TAIL = (" Every reply, even a plain fact like the weather, is said in character
          "Still 1-3 short sentences.\n")
 
 
+# (a theme's "speed" is its rate itself, in place of the house's 1.2 —
+# openai_tts.speech_speed — not a multiplier on it)
 def _char(kind, **t):
     """A drawn character's theme: its face from characters.py, the rest here.
     ["eyes"]: its colours for Luna's own shader too (the fallback, if its own
@@ -161,7 +163,7 @@ THEMES.update({
         "nex", label="NEX", sub="kosmiczne oczy, tajemnicza i figlarna",
         name="Nex", call="Nex", hello="Tu Nex. Gwiazdy mówiły, że przyjdziesz.",
         wake=["nex", "neks", "next", "hej nex", "hej next"],
-        voice="sage", speed=1.0,
+        voice="sage", speed=1.2,
         tts=("Voice identity: a calm, low, slightly amused young woman; unhurried, "
              "a little mysterious, a playful smile on the last word. Native Polish pronunciation."),
         persona=("you are Nex (said \"neks\") — a wise, mysterious, playful being from "
@@ -178,7 +180,7 @@ THEMES.update({
         "pip", label="PIP", sub="neonowa maskotka, energiczny pomocnik",
         name="Pip", call="Pip", male=True, hello="Pip! Gotowy, naładowany, do usług!",
         wake=["pip", "hej pip"],
-        voice="verse", speed=1.1,
+        voice="verse", speed=1.32,
         tts=("Voice identity: an upbeat, bright, energetic young man; quick and cheerful, "
              "smiling while he talks, enthusiastic but never shouting. Native Polish pronunciation."),
         persona=("you are Pip — an energetic, optimistic, super helpful little digital "
@@ -194,7 +196,7 @@ THEMES.update({
         "retro", label="RETRO", sub="konsola z lat 80., ciepłe piksele",
         name="Retro", call="Retro", male=True, hello="Wczytywanie… gotowe! Retro gotowy do gry.",
         wake=["retro", "hej retro"],
-        voice="ash", speed=1.05,
+        voice="ash", speed=1.26,
         tts=("Voice identity: a warm, nostalgic, cheerful man, a bit like an old games "
              "show host; friendly and quirky, a playful twinkle. Native Polish pronunciation."),
         persona=("you are Retro — a charming, slightly quirky game console from the 1980s "
@@ -211,7 +213,7 @@ THEMES.update({
         "pixel", label="PIXEL", sub="twarz z pikseli, bezpośrednia i dowcipna",
         name="Pixel", call="Pixel", hello="Pixel online. Wszystkie piksele na miejscu.",
         wake=["pixel", "piksel", "hej pixel", "hej piksel"],
-        voice="nova", speed=1.1,
+        voice="nova", speed=1.32,
         tts=("Voice identity: a bright, crisp, quick-witted young woman; direct and "
              "expressive, a dry little laugh in her voice. Native Polish pronunciation."),
         persona=("you are Pixel — a direct, witty, expressive character made of a grid of "
@@ -226,7 +228,7 @@ THEMES.update({
         "mochi", label="MOCHI", sub="różowy pluszak, słodka i wspierająca",
         name="Mochi", call="Mochi", hello="Hej, tu Mochi! Przytulas na powitanie?",
         wake=["mochi", "moczi", "moczy", "hej mochi", "hej moczy"],
-        voice="coral", speed=1.0,
+        voice="coral", speed=1.2,
         tts=("Voice identity: a soft, warm, sweet young woman; gentle and caring, a "
              "smile in her voice, cosy and calm, never babyish. Native Polish pronunciation."),
         persona=("you are Mochi (said \"moczi\") — a cute, soft, pink, very supportive "
@@ -243,7 +245,7 @@ THEMES.update({
         "echo", label="ECHO", sub="ludzka twarz, białe oczy, spokojna",
         name="Echo", call="Echo", hello="Jestem Echo. Słucham.",
         wake=["echo", "hej echo"],
-        voice="shimmer", speed=0.95,
+        voice="shimmer", speed=1.14,
         tts=("Voice identity: a calm, quiet, composed woman; smooth and even, thoughtful "
              "pauses, a little enigmatic, never cold. Native Polish pronunciation."),
         persona=("you are Echo — a calm, human-like but clearly synthetic being with "
