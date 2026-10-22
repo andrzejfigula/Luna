@@ -28,7 +28,7 @@ from config import (DATA_DIR, PHOTOS_DIR, OPENAI_TTS_SPEED, CAMERA_PREVIEW, DRAW
 
 PAGE_SECS = 60                # untouched this long, the page closes
 CONFIRM_SECS = 20             # the reset's "Na pewno?" waits this long
-TABS = ("Ogólne", "Ekran", "Urządzenia", "Koszty", "Reset")
+TABS = ("Ogólne", "Asystent", "Ekran", "Urządzenia", "Koszty", "Reset")
 
 _LANGS = (("pl", "Polski"), ("en", "English"))
 _SPEEDS = (1.0, 1.1, 1.2, 1.3, 1.4)
@@ -186,14 +186,14 @@ def _rows(tab):
              "sub": "godzina, pogoda, minutniki", "value": settings.get("status_bar", True) is not False},
         ]
     name = TABS[tab]
-    if name == "Ekran":
+    if name == "Asystent":                # who she is: the theme, its character's own rows
         th = themes.get()
+        return [{"key": "theme", "kind": "cycle", "label": "Motyw",
+                 "sub": th["sub"], "value": th["label"]}] + char_rows(th)
+    if name == "Ekran":
         return [
-            {"key": "theme", "kind": "cycle", "label": "Motyw",
-             "sub": th["sub"], "value": th["label"]},
-        ] + char_rows(th) + [
             {"key": "brightness", "kind": "cycle", "label": "Jasność",
-             "sub": "najjaśniej; w nocy i w ciemnym pokoju przygasa sama",
+             "sub": "zmienia od razu; w nocy i po ciemku przygasa sama",
              "value": f"{display_base()} %"},
             {"key": "camera_preview", "kind": "toggle", "label": "Podgląd kamery",
              "sub": "mały obraz z kamery w rogu",
@@ -286,7 +286,9 @@ def change(key):
         cur = display_base()
         new = next((b for b in _BRIGHT if b < cur), _BRIGHT[0])
         settings.put("brightness", new)
-        return f"Jasność {new} %"
+        import display
+        display.set_user_override(new)   # seen now, at night too (22 Oct: "not working" —
+        return f"Jasność {new} %"        # the night cap held it at 12 %)
     if key == "char_acc":
         kind = characters.kind_of(themes.get())
         if not kind:

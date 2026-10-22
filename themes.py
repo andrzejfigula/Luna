@@ -1,6 +1,6 @@
 """
 themes.py — who she is right now: Luna, or a character picked on the settings
-page (Ekran → Motyw). A theme changes four things at once:
+page (Asystent → Motyw). A theme changes four things at once:
 
   the face       — gl_face lays THEMES[..]["eyes"] (shader uniforms: colours,
                    uSquare for square shapes) and ["spec"] / ["spec_add"] (face_spec

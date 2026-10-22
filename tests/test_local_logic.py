@@ -7300,7 +7300,7 @@ class SettingsPageTest(unittest.TestCase):
         self.assertEqual(settings.get("tts_speed"), 1.0)
 
     def test_rows_of_every_tab(self):
-        for tab in range(4):
+        for tab in range(len(self.sp.TABS) - 1):
             with mock.patch.object(self.sp, "cost_rows", return_value=[]):
                 rows = self.sp.rows(tab)
             for r in rows:
@@ -7516,7 +7516,9 @@ class DevicesTest(unittest.TestCase):
         except ImportError:
             self.skipTest("fcntl (the Pi)")
         sp._cache.clear()
-        keys = [r.get("key") for r in sp.rows(2)] + [r.get("key") for r in sp.rows(1)]
+        keys = [r.get("key") for t in range(len(sp.TABS) - 2) for r in sp.rows(t)]
+        self.assertIn("brightness", [r.get("key") for r in sp.rows(sp.TABS.index("Ekran"))])
+        self.assertNotIn("theme", [r.get("key") for r in sp.rows(sp.TABS.index("Ekran"))])
         for k in ("volume", "night_quiet", "brightness"):
             self.assertIn(k, keys)
         vol = [0.45]
@@ -7527,9 +7529,10 @@ class DevicesTest(unittest.TestCase):
             vol[0] = 1.0
             self.assertEqual(sp.change("volume"), "Głośność 30 %")    # round again
         try:
-            with mock.patch.dict(os.environ, {"LUNA_BRIGHTNESS": "100"}):   # (the Pi's .env: less)
+            with mock.patch.dict(os.environ, {"LUNA_BRIGHTNESS": "100"}),                  mock.patch.object(display, "set_user_override") as now:   # (the Pi's .env: less)
                 self.assertEqual(sp.change("brightness"), "Jasność 80 %")
                 self.assertEqual(display.base_percent(), 80)
+                now.assert_called_once_with(80)                        # seen at once
             self.assertEqual(sp.change("night_quiet"), "W nocy tak samo głośno")
             audio_out._nq[0] = 0.0
             self.assertFalse(audio_out.night_quiet())
