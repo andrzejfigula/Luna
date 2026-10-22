@@ -60,6 +60,8 @@ uniform vec4  uChG;     // music playing, the character's own (a, b, c)
 uniform vec4  uAcc;     // its accessories, each 0 / 1 (characters.py order)
 uniform vec3  uPal0, uPal1, uPal2, uPal3;
 uniform vec4  uPt0, uPt1, uPt2, uPt3;    // props: x, y, size, kind + alpha * 0.98
+uniform vec4  uPt4, uPt5, uPt6, uPt7;    // …the state's own (listening, asleep, a tear…)
+uniform vec4  uChH;     // the mic's level (listening), the wake (0 → 1; 1: awake)
 uniform float uT;       // seconds
 uniform sampler2D uCells;   // RETRO / PIXEL: each cell worked out once (stage 4)
 uniform vec4  uGrid;    // …its half size and size in cells
@@ -181,9 +183,67 @@ void prop(vec2 p, vec4 pt, inout vec4 acc) {
         c = body * 0.3 < fin ? mix(vec3(0.92, 0.90, 0.86), uPal3, step(q.y, -0.45)) : uPal3;
         if (fl * 0.2 < min(body * 0.3, fin)) c = mix(vec3(1.0, 0.9, 0.4), uPal0, q.y - 0.8);
         if (win < 0.0) c = vec3(0.25, 0.55, 0.85);
-    } else {                                            // !
+    } else if (kind < 7.5) {                            // !
         d = sdBang(q) * s;
         c = uPal3;
+    } else if (kind < 8.5) {                            // a tear
+        vec2 t = vec2(q.x, q.y < 0.1 ? 0.1 + (q.y - 0.1) * 0.55 : q.y);
+        d = (length(t - vec2(0.0, 0.1)) - 0.42) * s;
+        c = mix(vec3(0.55, 0.78, 1.0), vec3(1.0), 0.6 * smoothstep(0.2, 0.0, length(q - vec2(-0.13, 0.04))));
+    } else if (kind < 9.5) {                            // a "z"
+        d = (min(min(sdSeg(q, vec2(-0.42, -0.45), vec2(0.42, -0.45)),
+                     sdSeg(q, vec2(0.42, -0.45), vec2(-0.42, 0.45))),
+                 sdSeg(q, vec2(-0.42, 0.45), vec2(0.42, 0.45))) - 0.12) * s;
+        c = uPal0;
+    } else if (kind < 10.5) {                           // an anger mark
+        vec2 a = abs(q);
+        d = max(abs(length(a - vec2(0.62)) - 0.40) - 0.10, max(a.x, a.y) - 0.62) * s;
+        c = vec3(1.0, 0.30, 0.32);
+    } else if (kind < 11.5) {                           // a thought cloud, "…" filling it
+        float cl = min(min(length(q - vec2(-0.35, 0.05)) - 0.38, length(q - vec2(0.05, -0.18)) - 0.45),
+                       min(length(q - vec2(0.42, 0.06)) - 0.36,
+                           sdRoundBox(q - vec2(0.03, 0.18), vec2(0.62, 0.2), 0.2)));
+        float trail = min(length(q - vec2(-0.62, 0.62)) - 0.12, length(q - vec2(-0.85, 0.85)) - 0.07);
+        d = min(cl, trail) * s;
+        c = mix(uPal2, vec3(1.0), 0.55);
+        float dots = 1e5;
+        for (int k = 0; k < 3; k++) {
+            float fk = float(k);
+            float on = step(fk, mod(floor(uT * 3.0), 4.0) - 0.5);
+            dots = min(dots, mix(1e5, length(q - vec2(-0.32 + 0.32 * fk, 0.02)) - 0.09, on));
+        }
+        c = mix(c, uPal1 * 0.75, cover(dots * s));
+    } else if (kind < 12.5) {                           // signal arcs, filling with the mic
+        vec2 o = q - vec2(0.0, 0.55);
+        float r = length(o);
+        float ang = abs(atan(o.x, -o.y));
+        float k = clamp(floor((r - 0.14) / 0.36), 0.0, 2.0);
+        float arc = max(abs(r - (0.32 + 0.36 * k)) - 0.08, (ang - 0.8) * r);
+        float dot0 = r - 0.11;
+        d = min(arc, dot0) * s;
+        c = uPal0;
+        if (arc < dot0) al *= 0.22 + 0.78 * step(k / 3.0, uChH.x * 1.15);
+    } else if (kind < 13.5) {                           // a crescent moon
+        d = max(length(q) - 0.55, -(length(q - vec2(0.24, -0.16)) - 0.48)) * s;
+        c = mix(uPal3, vec3(1.0, 0.95, 0.8), 0.5);
+    } else if (kind < 14.5) {                           // a falling star, its tail behind it
+        vec2 dir = vec2(-0.7071, -0.7071);
+        float h = clamp(dot(q, dir), 0.0, 2.0);
+        float tail = length(q - dir * h) - 0.10 * (1.0 - h / 2.0);
+        float head = sdStar5(vec2(q.x, -q.y), 0.35, 0.45);
+        d = min(head, tail) * s;
+        c = mix(uPal3, vec3(1.0), 0.4);
+        if (tail < head) al *= 1.0 - h / 2.0;
+    } else {                                            // "(((" listening: arcs facing the face
+        vec2 qq = vec2(q.x * (pt.x < uChA.x ? 1.0 : -1.0), q.y);
+        vec2 o = qq - vec2(0.9, 0.0);
+        float r = length(o);
+        float ang = abs(atan(o.y, -o.x));
+        float k = clamp(floor((r - 0.2) / 0.3), 0.0, 2.0);
+        d = max(abs(r - (0.35 + 0.3 * k)) - 0.07, (ang - 0.75) * r) * s;
+        c = uPal3;
+        float wave = step(abs(k - mod(floor(-uT * 4.0), 3.0)), 0.5);       // sound coming in
+        al *= 0.25 + 0.5 * step(2.0 - k, uChH.x * 3.3) + 0.25 * wave;
     }
     over(acc, c, cover(d) * al);
     acc.rgb += c * 0.35 * exp(-max(d, 0.0) / 6.0) * clamp(1.0 - d / 18.0, 0.0, 1.0)
@@ -194,7 +254,11 @@ void props(vec2 p, inout vec4 acc) {
     if (uShape < 5.5) prop(p, uPt0, acc);
     else if (uShape < 6.5) prop(p, uPt1, acc);
     else if (uShape < 7.5) prop(p, uPt2, acc);
-    else prop(p, uPt3, acc);
+    else if (uShape < 8.5) prop(p, uPt3, acc);
+    else if (uShape < 12.5) prop(p, uPt4, acc);
+    else if (uShape < 13.5) prop(p, uPt5, acc);
+    else if (uShape < 14.5) prop(p, uPt6, acc);
+    else prop(p, uPt7, acc);
 }
 """
 
@@ -249,6 +313,66 @@ float rEye(vec2 cc, vec4 e, vec4 la, vec4 lb, vec4 pu, float side) {
     return v;
 }
 
+// the states on its screen, in cells: listening (● REC, the mic's bars),
+// speaking (an equaliser), asleep (Zs rising), sad (a tear), cross (#), surprised (!)
+float rGlyphZ(vec2 g) {                   // a 5×5 "Z", g the cell in it
+    if (g.x < 0.0 || g.y < 0.0 || g.x > 4.0 || g.y > 4.0) return 0.0;
+    return (g.y < 0.5 || g.y > 3.5 || abs(g.x - (4.0 - g.y)) < 0.5) ? 1.0 : 0.0;
+}
+
+float rStates(vec2 cc) {
+    vec2 sc = rSC(), sb = rSB();
+    vec2 tl = sc + vec2(-sb.x, sb.y) + vec2(2.0 * CELL, -7.0 * CELL);   // bottom left, inside
+    vec2 br = sc + sb + vec2(-3.0 * CELL, -7.0 * CELL);                   // bottom right
+    vec2 tr = sc + vec2(sb.x, -sb.y) + vec2(-3.0 * CELL, 2.0 * CELL);
+    float v = 0.0;
+    vec2 g = floor((cc - tl) / CELL);
+    if (uChE.w > 0.05 && g.y >= 0.0 && g.y <= 4.0) {
+        if (g.y <= 1.0 && g.x >= 0.0 && g.x <= 1.0)
+            v = max(v, uChE.w * step(0.45, fract(uT * 1.2)));        // ● blinking
+        if (g.x >= 3.0 && g.x <= 11.0 && mod(g.x - 3.0, 2.0) < 0.5) {
+            float k = (g.x - 3.0) / 2.0;                            // five bars, 1..5 tall
+            if (g.y >= 4.0 - k)
+                v = max(v, uChE.w * (0.22 + 0.78 * step(k / 5.0, uChH.x * 1.15)));
+        }
+    }
+    vec2 h = floor((cc - br) / CELL);
+    if (uChF.x > 0.3 && h.y >= 0.0 && h.y <= 4.0 && h.x <= 0.0 && h.x >= -8.0
+            && mod(-h.x, 2.0) < 0.5) {                               // speaking: an equaliser
+        float k = -h.x / 2.0;
+        float lv = floor(1.0 + 4.0 * clamp(uEnergy * (0.55 + 0.45 * sin(uT * 11.0 + k * 1.9)), 0.0, 1.0));
+        if (h.y >= 5.0 - lv) v = max(v, uChF.x * 0.9);
+    }
+    if (uChC.y > 0.05) {                                            // asleep: Zs, rising in steps
+        for (int k = 0; k < 2; k++) {
+            float fk = float(k);
+            float t = fract(uT * 0.3 + fk * 0.5);
+            vec2 at = tr + vec2(-(5.0 + 6.0 * fk) * CELL, (4.0 - floor(t * 5.0)) * CELL);
+            v = max(v, rGlyphZ(floor((cc - at) / CELL)) * uChC.y * (1.0 - t) * 1.4);
+        }
+    }
+    if (uChB.y > 0.05) {                                            // sad: a tear falls, cell by cell
+        float t = fract(uT * 0.6);
+        vec2 at = vec2(uEye0.x - uEye0.z * 0.25, uEye0.y + uEye0.w * 0.5 + CELL * (1.0 + floor(t * 6.0)));
+        vec2 d = floor((cc - at) / CELL);
+        float drop = (d.x == 0.0 && (d.y == 0.0 || d.y == 2.0)) || (abs(d.x) <= 1.0 && d.y == 1.0) ? 1.0 : 0.0;
+        v = max(v, drop * uChB.y * (1.0 - t));
+    }
+    if (uChB.z > 0.05) {                                            // cross: a pulsing "#"
+        vec2 at = vec2(uEye1.x + uEye1.z * 0.5 + 2.5 * CELL, uEye1.y - uEye1.w * 0.5 - 1.5 * CELL);
+        vec2 d = floor((cc - at) / CELL + 0.5);
+        float hash_ = (abs(d.x) <= 2.0 && abs(d.y) <= 2.0 && (abs(d.x) == 1.0 || abs(d.y) == 1.0)) ? 1.0 : 0.0;
+        v = max(v, hash_ * uChB.z * (0.55 + 0.45 * step(0.35, fract(uT * 2.0))));
+    }
+    if (uChB.w > 0.05) {                                            // surprised: "!"
+        vec2 at = vec2(uEye0.x - uEye0.z * 0.5 - 3.0 * CELL, uEye0.y - 2.0 * CELL);
+        vec2 d = floor((cc - at) / CELL + 0.5);
+        float bang = (d.x == 0.0 && ((d.y >= -2.0 && d.y <= 1.0) || d.y == 3.0)) ? 1.0 : 0.0;
+        v = max(v, bang * uChB.w);
+    }
+    return v;
+}
+
 float rCell(vec2 cc, vec2 ci) {
     float v = max(rEye(cc, uEye0, uLidA0, uLidB0, uPupil0, -1.0),
                   rEye(cc, uEye1, uLidA1, uLidB1, uPupil1, 1.0));
@@ -298,7 +422,8 @@ float rCell(vec2 cc, vec2 ci) {
 }
 
 vec4 gridCell(vec2 ci) {
-    return vec4(0.0, 0.0, 0.0, rCell(uChA.xy + (ci + 0.5) * CELL, ci));
+    vec2 cc = uChA.xy + (ci + 0.5) * CELL;
+    return vec4(0.0, 0.0, 0.0, max(rCell(cc, ci), rStates(cc)));
 }
 
 void rScreen(vec2 p, inout vec4 acc) {
@@ -427,6 +552,7 @@ vec3 soft(vec2 p, vec2 uv) {
 }
 
 void shape(vec2 p, inout vec4 acc) {
+    if (uShape > 11.5) { props(p, acc); return; }   // the state's props
     if (uShape < 3.5) rBody(p, acc);
     else if (uShape < 8.5) props(p, acc);
     else if (uShape < 9.5) rScreen(p, acc);
@@ -492,7 +618,8 @@ vec4 pCell(vec2 cc, vec2 ci) {
     vec2 g = cc - gC();
     float ax = abs(ci.x + 0.5);
     if (ax > 21.0) {                                   // the side bars: her voice, the music
-        float level = max(uChF.x * (0.15 + 0.95 * uEnergy), uChG.x * (0.2 + 0.8 * uEnergy));
+        float level = max(max(uChF.x * (0.15 + 0.95 * uEnergy), uChG.x * (0.2 + 0.8 * uEnergy)),
+                          uChE.w * (0.08 + 0.92 * uChH.x));       // listening: the mic
         float row = (G_HALF.y - g.y) / (2.0 * G_HALF.y);
         if (row < level) { c = mix(uPal0, uPal2, row); v = 0.9; }
     }
@@ -510,9 +637,45 @@ vec4 pCell(vec2 cc, vec2 ci) {
             v = max(v, max(uChD.x, uChD.y));
         }
     }
-    if (uChC.w > 0.2 && pat(sdBang((cc - (gC() + vec2(-272.0, -112.0))) / 76.0)) > 0.5) {
-        c = vec3(1.0, 0.28, 0.25);                     // alert: "!"
-        v = max(v, uChC.w);
+    float bang = max(uChC.w, uChB.w);
+    if (bang > 0.2 && pat(sdBang((cc - (gC() + vec2(-272.0, -112.0))) / 76.0)) > 0.5) {
+        c = vec3(1.0, 0.28, 0.25);                     // alert, surprised: "!"
+        v = max(v, bang);
+    }
+    if (uChC.y > 0.05) {                               // asleep: pixel Zs rising
+        for (int k = 0; k < 2; k++) {
+            float fk = float(k);
+            float t = fract(uT * 0.3 + fk * 0.5);
+            vec2 at = gC() + vec2(170.0 + 70.0 * fk, -60.0 - floor(t * 6.0) * PITCH);
+            vec2 z = floor((cc - at) / PITCH);
+            if (z.x >= 0.0 && z.y >= 0.0 && z.x <= 4.0 && z.y <= 4.0
+                    && (z.y < 0.5 || z.y > 3.5 || abs(z.x - (4.0 - z.y)) < 0.5)) {
+                c = uPal0;
+                v = max(v, uChC.y * (1.0 - t) * 1.6);
+            }
+        }
+    }
+    if (uChB.y > 0.05) {                               // sad: a pixel tear falling
+        float t = fract(uT * 0.6);
+        vec2 d = floor((cc - vec2(uEye0.x - uEye0.z * 0.25,
+                                  uEye0.y + uEye0.w * 0.5 + PITCH * (1.0 + floor(t * 6.0)))) / PITCH);
+        if ((d.x == 0.0 && (d.y == 0.0 || d.y == 2.0)) || (abs(d.x) <= 1.0 && d.y == 1.0)) {
+            c = vec3(0.45, 0.75, 1.0);
+            v = max(v, uChB.y * (1.0 - t));
+        }
+    }
+    if (uChB.z > 0.05) {                               // cross: a pulsing pixel anger mark
+        vec2 d = floor((cc - vec2(uEye1.x + uEye1.z * 0.5 + 34.0, uEye1.y - uEye1.w * 0.5 - 24.0)) / PITCH + 0.5);
+        vec2 a = abs(d);
+        if (max(a.x, a.y) == 2.0 && min(a.x, a.y) >= 1.0) {
+            c = vec3(1.0, 0.25, 0.25);
+            v = max(v, uChB.z * (0.55 + 0.45 * step(0.35, fract(uT * 2.0))));
+        }
+    }
+    if (uChH.y < 0.999) {                              // waking: a line scans down, lighting it up
+        float row = floor(uChH.y * 30.0) - 15.0;
+        if (ci.y == row) { c = uPal0; v = max(v, 1.0); }
+        else if (ci.y > row) v *= 0.0;
     }
     float cel = max(uChC.z, 0.8 * uMorph.x);
     if (uAcc.x > 0.5 && cel > 0.1) {                   // pixel hearts, rising
@@ -589,6 +752,7 @@ vec3 soft(vec2 p, vec2 uv) {
 }
 
 void shape(vec2 p, inout vec4 acc) {
+    if (uShape > 11.5) { props(p, acc); return; }   // the state's props
     pGrid(p, acc);
 }
 """
@@ -619,6 +783,7 @@ vec3 nIris(vec2 q, vec4 e, vec4 pu, float side, float d) {
     float fl = fract(uT * 0.9);                                          // thinking: flares
     col += uPal1 * uChC.x * exp(-sq((r - 0.3 - 0.75 * fl) / 0.05)) * (1.0 - fl) * 1.3;
     col += mix(uPal0, uPal3, 0.5) * exp(d / 2.5) * 0.9;                  // the lens's rim
+    col = mix(col, vec3(1.0, 0.22, 0.30) * (0.4 + 1.2 * maxc(col)), 0.55 * uChB.z);   // cross: red-hot
     return col;
 }
 
@@ -690,10 +855,26 @@ vec3 soft(vec2 p, vec2 uv) {
     col += uPal2 * 0.10 * exp(-dot(n1, n1)) + uPal1 * 0.035 * exp(-dot(n2, n2));   // nebulae
     vec2 sc = floor(uv * vec2(200.0, 120.0));                             // tiny stars
     float h = hash(sc);
-    col += uPal3 * step(0.988, h) * (0.35 + 0.3 * sin(uT * (1.0 + 3.0 * h) + h * 50.0)) * uChA.w;
+    col += uPal3 * step(0.988, h) * (0.35 + 0.3 * sin(uT * (1.0 + 3.0 * h) + h * 50.0)) * uChA.w
+           * (1.0 - 0.6 * uChC.y);
     float de = min(glowEye(p, uEye0, uLidA0), glowEye(p, uEye1, uLidA1));
     float k = uChA.w * uDim;
     col += uPal0 * (0.26 * exp(-max(de, 0.0) / 16.0) + 0.12 * exp(-max(de, 0.0) / 60.0)) * k;
+    if (uChE.w > 0.02) {                                                  // listening: rings fall in
+        for (int i = 0; i < 2; i++) {
+            vec4 e = i == 0 ? uEye0 : uEye1;
+            float R = 0.5 * min(e.z, e.w);
+            for (int k = 0; k < 3; k++) {
+                float ph = fract(-uT * 0.7 + float(k) / 3.0);
+                float dd = abs(length(p - e.xy) - R * (1.12 + 0.9 * ph));
+                col += uPal0 * 0.40 * exp(-dd / 4.0) * (1.0 - ph) * uChE.w * (0.35 + 0.65 * uChH.x);
+            }
+        }
+    }
+    if (uChH.y < 0.999) {                                                 // waking: a supernova
+        float dd = abs(length(p - uChA.xy) - uChH.y * 520.0);
+        col += mix(uPal1, uPal3, 0.5) * exp(-dd / 12.0) * (1.0 - uChH.y) * 1.3;
+    }
     if (uChF.y > 0.01) {                                                  // particles in orbit
         for (int i = 0; i < 2; i++) {
             vec4 e = i == 0 ? uEye0 : uEye1;
@@ -706,7 +887,7 @@ vec3 soft(vec2 p, vec2 uv) {
                 vec2 dq = p - e.xy - o;
                 float front = 0.6 + 0.4 * sin(a);
                 col += mix(uPal3, uPal1, mod(fj, 2.0)) * 0.55 * exp(-dot(dq, dq) / 40.0)
-                       * front * uChF.y * uChA.z;
+                       * front * uChF.y * uChA.z * (1.0 + 1.6 * uChF.x * uEnergy);   // her voice
             }
         }
     }
@@ -714,6 +895,7 @@ vec3 soft(vec2 p, vec2 uv) {
 }
 
 void shape(vec2 p, inout vec4 acc) {
+    if (uShape > 11.5) { props(p, acc); return; }   // the state's props
     if (uShape < 0.5) nEye(p, uEye0, uLidA0, uLidB0, uPupil0, -1.0, acc);
     else if (uShape < 1.5) nEye(p, uEye1, uLidA1, uLidB1, uPupil1, 1.0, acc);
     else if (uShape < 2.5) nMouth(p, acc);
@@ -754,11 +936,11 @@ void mBodyDraw(vec2 p, inout vec4 acc) {
     vec2 hq = (dq / M_DB - vec2(-0.45, -0.62)) * vec2(2.0, 4.5);
     disp += vec3(0.05, 0.04, 0.05) * exp(-dot(hq, hq));            // a sheen
     disp += uPal3 * 0.16 * exp(dd / 9.0);                           // its edge glows pink
-    if (uBlush.z > 0.01) {                                          // rosy cheeks
+    if (uBlush.z + uChF.x * uEnergy > 0.01) {                      // rosy cheeks (and her voice)
         for (int k = 0; k < 2; k++) {
             vec2 bq = (p - vec2(uChA.x + (k == 0 ? -150.0 : 150.0), uEye0.y + uEye0.w * 0.55 + 14.0))
                       / vec2(34.0, 16.0);
-            disp += uPal3 * 0.55 * uBlush.z * exp(-dot(bq, bq) * 1.5);
+            disp += uPal3 * (0.55 * uBlush.z + 0.35 * uChF.x * uEnergy) * exp(-dot(bq, bq) * 1.5);
         }
     }
     c = mix(c, disp, cover(dd));
@@ -769,7 +951,7 @@ void mBodyDraw(vec2 p, inout vec4 acc) {
 // bunny ears behind the head: droop when sad, prick up when surprised, wiggle when happy
 void mEars(vec2 p, inout vec4 acc) {
     float tilt = 0.30 + 0.55 * uChB.y - 0.16 * uChB.w + 0.06 * uChB.x * sin(uT * 7.0)
-                 + 0.25 * uChC.y;
+                 + 0.25 * uChC.y - 0.14 * uChE.w + 0.10 * uChB.z;      // (listening: pricked up)
     for (int k = 0; k < 2; k++) {
         float side = k == 0 ? -1.0 : 1.0;
         vec2 base = mBC() + vec2(side * 112.0, -M_BB.y + 10.0);
@@ -851,10 +1033,13 @@ vec3 soft(vec2 p, vec2 uv) {
     float d = mBody(p - vec2(0.0, 14.0));
     col *= 1.0 - 0.6 * exp(-max(d, 0.0) / 22.0);                 // its shadow
     col += uPal3 * 0.10 * exp(-max(mBody(p), 0.0) / 30.0) * uChA.w;   // a soft pink light round it
+    if (uChH.y < 0.999)                                              // waking: a pink pop
+        col += uPal3 * 0.6 * exp(-abs(length(p - mBC()) - 120.0 - uChH.y * 380.0) / 14.0) * (1.0 - uChH.y);
     return col;
 }
 
 void shape(vec2 p, inout vec4 acc) {
+    if (uShape > 11.5) { props(p, acc); return; }   // the state's props
     if (uShape < 0.5) mEye(p, uEye0, uLidA0, uLidB0, uPupil0, -1.0, acc);
     else if (uShape < 1.5) mEye(p, uEye1, uLidA1, uLidB1, uPupil1, 1.0, acc);
     else if (uShape < 2.5) mMouth(p, acc);
@@ -902,6 +1087,7 @@ void pEyeDraw(vec2 p, vec4 e, vec4 la, vec4 lb, vec4 pu, float side, inout vec4 
         over(acc, mix(uPal3, uPal1, 0.25) * uDim, da);
         acc.rgb += uPal1 * 0.25 * halo(dd, 4.0) * on * pu.w * uDim * (1.0 - da);
     }
+    c *= 1.0 + 0.35 * uChF.x * uEnergy;                // his voice: the neon flares
     over(acc, c * uDim, max(a, sa));
     float dg = min(ring, mix(1e5, ds, lb.y));
     acc.rgb += uPal0 * 0.55 * halo(dg, 7.0) * (1.0 - max(a, sa)) * uChA.w * uDim;
@@ -976,10 +1162,13 @@ vec3 soft(vec2 p, vec2 uv) {
     float de = min(glowEye(p, uEye0, uLidA0), glowEye(p, uEye1, uLidA1));
     float k = uChA.w * uDim;
     col += uPal0 * (0.20 * exp(-max(de, 0.0) / 18.0) + 0.10 * exp(-max(de, 0.0) / 70.0)) * k;
+    if (uChH.y < 0.999)                                // waking: a neon power-on ring
+        col += uPal0 * 0.7 * exp(-abs(length(p - uChA.xy) - uChH.y * 460.0) / 8.0) * (1.0 - uChH.y);
     return col;
 }
 
 void shape(vec2 p, inout vec4 acc) {
+    if (uShape > 11.5) { props(p, acc); return; }   // the state's props
     if (uShape < 0.5) pEyeDraw(p, uEye0, uLidA0, uLidB0, uPupil0, -1.0, acc);
     else if (uShape < 1.5) pEyeDraw(p, uEye1, uLidA1, uLidB1, uPupil1, 1.0, acc);
     else if (uShape < 2.5) pMouth(p, acc);
@@ -1068,8 +1257,26 @@ vec3 soft(vec2 p, vec2 uv) {
     }
     vec2 nq = (f - vec2(0.0, 8.0)) / vec2(10.0, 56.0);   // light down the bridge of the nose
     col += uPal2 * 0.035 * exp(-dot(nq, nq)) * inside;
-    col += uPal2 * 0.10 * exp(-abs(d) / 7.0) * smoothstep(240.0, 60.0, f.y)
-           * (0.7 + 0.3 * sin(uT * 0.6 + f.y * 0.01));   // the contour, faint
+    float rim = (0.7 + 0.3 * sin(uT * 0.6 + f.y * 0.01)) * (1.0 + 0.6 * uChC.y * sin(uT * 0.8));
+    if (uChH.y < 0.999)                                  // waking: the contour drawn in, top down
+        rim *= smoothstep(-E_FR.y + uChH.y * 2.2 * E_FR.y + 30.0, -E_FR.y + uChH.y * 2.2 * E_FR.y, f.y)
+               * (1.0 + 2.0 * exp(-abs(f.y + E_FR.y - uChH.y * 2.2 * E_FR.y) / 20.0));
+    col += uPal2 * 0.10 * exp(-abs(d) / 7.0) * smoothstep(240.0, 60.0, f.y) * rim;   // the contour
+    if (uChE.w > 0.02) {                                 // listening: echoes round her head
+        for (int k = 0; k < 3; k++) {
+            float ph = fract(uT * 0.55 + float(k) / 3.0);
+            col += uPal0 * 0.34 * exp(-abs(d - 20.0 - 110.0 * ph) / 6.0) * (1.0 - ph)
+                   * uChE.w * (0.3 + 0.7 * uChH.x) * smoothstep(200.0, 0.0, f.y);
+        }
+    }
+    if (uChC.x > 0.05) {                                 // thinking: motes of light circling above
+        for (int k = 0; k < 7; k++) {
+            float a = uT * 0.45 + float(k) * 0.8976;
+            vec2 m = vec2(0.0, -E_FR.y + 72.0) + vec2(cos(a) * 140.0, sin(a) * 22.0);
+            vec2 dq = f - m;
+            col += uPal3 * 0.45 * exp(-dot(dq, dq) / 30.0) * uChC.x * (0.55 + 0.45 * sin(a));
+        }
+    }
     if (uAcc.x > 0.5 && uChF.y > 0.01) {                // hair of light: slow flowing strands
         for (int k = 0; k < 6; k++) {
             float fk = float(k);
@@ -1078,10 +1285,11 @@ vec3 soft(vec2 p, vec2 uv) {
             float reach = E_FR.x + 14.0 + 13.0 * floor(fk / 2.0)
                           + 38.0 * smoothstep(-260.0, -40.0, y) * smoothstep(220.0, 40.0, y);
             float x = sx * reach * sqrt(max(0.0, 1.0 - sq(y / (E_FR.y + 40.0))))
-                      + 10.0 * sin(y * 0.013 + uT * (0.35 + 0.05 * fk) + fk * 1.7);
+                      + 10.0 * sin(y * 0.013 + uT * (0.35 + 0.05 * fk + 0.6 * uChF.x) + fk * 1.7);
             float line = abs(f.x - x);
             float fade = smoothstep(-E_FR.y - 30.0, -150.0, y) * smoothstep(170.0, -20.0, y);
-            col += mix(uPal0, uPal1, 0.4) * 0.20 * exp(-line / 3.0) * fade * uChF.y;
+            col += mix(uPal0, uPal1, 0.4) * 0.20 * exp(-line / 3.0) * fade * uChF.y
+                   * (1.0 + 1.8 * uChF.x * uEnergy);    // her voice: the light flows brighter
         }
     }
     float de = min(glowEye(p, uEye0, uLidA0), glowEye(p, uEye1, uLidA1));
@@ -1091,6 +1299,7 @@ vec3 soft(vec2 p, vec2 uv) {
 }
 
 void shape(vec2 p, inout vec4 acc) {
+    if (uShape > 11.5) { props(p, acc); return; }   // the state's props
     if (uShape < 0.5) eEye(p, uEye0, uLidA0, uLidB0, uPupil0, -1.0, acc);
     else if (uShape < 1.5) eEye(p, uEye1, uLidA1, uLidB1, uPupil1, 1.0, acc);
     else if (uShape < 2.5) eMouth(p, acc);
@@ -1104,8 +1313,8 @@ SOURCES = {"retro": _RETRO, "pixel": _PIXEL, "nex": _NEX, "mochi": _MOCHI, "pip"
 
 # shape ids in a character's boxes: 0, 1 the eyes, 2 the mouth, 3 the body,
 # 4 the brows, 5-8 props uPt0-3, 9 a screen / grid, 10 an accessory behind,
-# 11 one in front
-EYE0, EYE1, MOUTH, BODY, BROWS, PROP, SCREEN, ACC, FRONT = 0, 1, 2, 3, 4, 5, 9, 10, 11
+# 11 one in front, 12-15 the state's own marks uPt4-7
+EYE0, EYE1, MOUTH, BODY, BROWS, PROP, SCREEN, ACC, FRONT, STATE = 0, 1, 2, 3, 4, 5, 9, 10, 11, 12
 
 # the margin round an eye's / the mouth's box for its own halo (px)
 _HALO = {"nex": 16.0, "mochi": 14.0, "pip": 18.0, "echo": 12.0}
@@ -1260,9 +1469,51 @@ def _props(kind, life, ch, u, fcx, fcy, now, acc):
     if kind in ("mochi", "pip", "nex") and ch["confused"] + ch["curious"] > 0.03:
         k = max(ch["confused"], ch["curious"] * 0.7)
         out.append(((fcx + 270.0, fcy - 150.0 - 8.0 * math.sin(now * 3.0), 40.0, 2.0 + 0.98 * k), False))
-    if kind in ("mochi", "pip") and ch["alert"] > 0.03:
-        out.append(((fcx - 270.0, fcy - 150.0, 44.0, 7.0 + 0.98 * ch["alert"]), False))
     return out[:4]
+
+
+def _state_props(kind, ch, u, fcx, fcy, now):
+    """Up to four of the character's own state marks (uPt4-7): listening,
+    thinking, asleep, a tear, anger, surprise — RETRO and PIXEL draw theirs
+    in their cells, the rest here. (x, y, size, kind + alpha)."""
+    out = []
+
+    def at(x, y, size, k, a):
+        if a > 0.02 and len(out) < 4:
+            out.append((x, y, size, k + 0.98 * min(1.0, a)))
+
+    e0, e1 = u["uEye0"], u["uEye1"]
+    listen, think, sleep = ch["listen"], ch["think"] * (1.0 - ch["speak"]), ch["sleep"]
+    sad, angry, bang = ch["sad"], ch["angry"], max(ch["surprise"], ch["alert"])
+    zt, tt = (now * 0.45) % 1.0, (now * 0.6) % 1.0
+    tk = math.sin(math.pi * tt) ** 0.5
+    if kind == "mochi":
+        for side in (-1.0, 1.0):                         # "(((" by her pods
+            at(fcx + side * 336.0, fcy + 60.0, 46.0, 15.0, listen)
+        at(fcx + 240.0, fcy - 150.0, 62.0, 11.0, think)  # a thought cloud
+        for ph in (0.0, 0.5):
+            t = (zt + ph) % 1.0
+            at(fcx + 318.0 + 26.0 * t, fcy - 40.0 - 120.0 * t, 22.0 + 10.0 * t, 9.0,   # (past her ear)
+               sleep * math.sin(math.pi * t))
+    if kind == "pip":
+        at(e1[0] + e1[2] * 0.5 + 56.0, e1[1] - e1[3] * 0.5 - 10.0, 40.0, 12.0, listen)  # signal bars
+        for ph in (0.0, 0.5):
+            t = (zt + ph) % 1.0
+            at(fcx + 220.0 + 30.0 * t, fcy - 50.0 - 110.0 * t, 22.0 + 10.0 * t, 9.0,
+               sleep * math.sin(math.pi * t))
+    if kind == "nex":
+        at(fcx + 262.0, fcy - 140.0, 34.0, 13.0, sleep)  # a crescent moon
+        if sad > 0.02:                                   # a falling star from her eye
+            at(e0[0] - e0[2] * 0.2 + 70.0 * tt, e0[1] + e0[3] * 0.5 + 10.0 + 70.0 * tt, 20.0,
+               14.0, sad * tk)
+    if kind in ("mochi", "pip", "echo") and sad > 0.02:  # a tear
+        at(e0[0] - e0[2] * 0.22, e0[1] + e0[3] * 0.5 + 10.0 + 60.0 * tt,
+           12.0 if kind == "echo" else 16.0, 8.0, sad * tk * (0.6 if kind == "echo" else 1.0))
+    if kind in ("mochi", "pip"):
+        at(e1[0] + e1[2] * 0.5 + 40.0, e1[1] - e1[3] * 0.5 - 30.0, 36.0, 10.0,
+           angry * (0.7 + 0.3 * math.sin(now * 6.0)))
+        at(fcx - 270.0, fcy - 150.0, 44.0, 7.0, bang)
+    return out
 
 
 def _remap(u, face, L, fcx, fcy, life, ch, dt, now, kind):
@@ -1313,7 +1564,7 @@ def _box(gl, x0, y0, x1, y1, tilt):
     return gl._box((x0 + x1) / 2.0, (y0 + y1) / 2.0, (x1 - x0) / 2.0, (y1 - y0) / 2.0, tilt)
 
 
-def _boxes(gl, kind, u, ch, props, fcx, fcy, console, acc):
+def _boxes(gl, kind, u, ch, props, fcx, fcy, console, acc, marks=()):
     """Where stage 2 draws, in order: what's behind first."""
     tilt = u["uTilt"]
     pad = 6.0 + abs(ch["body_x"]) + abs(ch["body_y"]) + 420.0 * abs(ch["body_rot"])
@@ -1383,6 +1634,9 @@ def _boxes(gl, kind, u, ch, props, fcx, fcy, console, acc):
     for i, (pt, behind) in enumerate(props):
         if not behind:
             add(PROP + i, pt[0], pt[1], pt[2] * 1.35 + 22, pt[2] * 1.35 + 22)
+    for i, pt in enumerate(marks):                     # the state's own marks, on top
+        r = pt[2] * (2.4 if int(pt[3]) == 14 else 1.35) + 22
+        add(STATE + i, pt[0], pt[1], r, r)
     return out
 
 
@@ -1414,6 +1668,8 @@ def apply(gl, face, u, cur, fcx, fcy, kind, now, dt):
     pal = cfg["pal"]
     props = _props(kind, life, ch, u, fcx, fcy, now, acc)
     pts = [p for p, _ in props] + [(0.0, 0.0, 0.0, 0.0)] * (4 - len(props))
+    marks = _state_props(kind, ch, u, fcx, fcy, now)
+    sts = marks + [(0.0, 0.0, 0.0, 0.0)] * (4 - len(marks))
     u.update({
         "uChA": (fcx, fcy, ch["motion"], 0.55 + 0.45 * ch["fx"]),
         "uChB": (ch["happy"], ch["sad"], ch["angry"], ch["surprise"]),
@@ -1425,10 +1681,12 @@ def apply(gl, face, u, cur, fcx, fcy, kind, now, dt):
         "uAcc": tuple(flags),
         "uPal0": pal[0], "uPal1": pal[1], "uPal2": pal[2], "uPal3": pal[3],
         "uPt0": pts[0], "uPt1": pts[1], "uPt2": pts[2], "uPt3": pts[3],
+        "uPt4": sts[0], "uPt5": sts[1], "uPt6": sts[2], "uPt7": sts[3],
+        "uChH": (ch["mic"], ch["wake"], 0.0, 0.0),
         "uT": now % 1000.0,
         "uShine": (1.0, 0.97, 0.92),
     })
     u["_char"] = kind
-    u["_char_boxes"] = _boxes(gl, kind, u, ch, props, fcx, fcy, console, acc)
+    u["_char_boxes"] = _boxes(gl, kind, u, ch, props, fcx, fcy, console, acc, marks)
     gl.char_now = ch
     return u

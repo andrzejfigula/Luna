@@ -8067,6 +8067,35 @@ class CharactersTest(unittest.TestCase):
             for k in ("uChA", "uChB", "uChC", "uChD", "uChE", "uChF", "uChG", "uAcc", "uPt3"):
                 self.assertEqual(len(u[k]), 4, (kind, k))
 
+    def test_each_state_has_its_own_marks(self):
+        """Listening, thinking, asleep, sad, cross, surprised: each character's
+        own marks (RETRO and PIXEL in their cells); Luna's generic ones off."""
+        import gl_chars
+        u = {"uEye0": (296.0, 180.0, 150.0, 110.0), "uEye1": (504.0, 180.0, 150.0, 110.0)}
+        base = dict.fromkeys(("listen", "think", "sleep", "sad", "angry", "surprise", "alert",
+                              "speak"), 0.0)
+        want = {"mochi": {"listen": 15, "think": 11, "sleep": 9, "sad": 8, "angry": 10, "surprise": 7},
+                "pip": {"listen": 12, "sleep": 9, "sad": 8, "angry": 10, "surprise": 7},
+                "nex": {"sleep": 13, "sad": 14}, "echo": {"sad": 8}}
+        for kind, states in want.items():
+            for state, mark in states.items():
+                ch = dict(base, **{state: 1.0})
+                kinds = {int(p[3]) for p in gl_chars._state_props(kind, ch, u, 400.0, 212.0, 100.15)}
+                self.assertIn(mark, kinds, (kind, state))
+            self.assertEqual(gl_chars._state_props(kind, base, u, 400.0, 212.0, 100.15), [])
+        for kind in ("retro", "pixel"):
+            self.assertEqual(gl_chars._state_props(kind, dict(base, listen=1.0, sleep=1.0), u,
+                                                   400.0, 212.0, 100.15), [])
+        try:
+            import robot_face as rf
+        except ImportError:
+            self.skipTest("pygame")
+        import themes
+        themes.set_theme("mochi")
+        self.assertTrue(rf.own_states())
+        themes.set_theme("luna")
+        self.assertFalse(rf.own_states())
+
     def test_settings_rows(self):
         import characters
         import settings_page as sp

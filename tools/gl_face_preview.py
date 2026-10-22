@@ -500,6 +500,7 @@ CHAR_POSES = [
     ("all accessories", dict(emotion="happy"), "acc:all"),
     ("no accessories", {}, "acc:none"),
     ("effects off", {}, "fx:off"),
+    ("waking", {}, "wake"),
 ]
 # a few of her real sounds: (brightness, zero-crossings) of openai_tts.Envelope, and the jaw
 VISEME_TRACK = [((0.10, 0.05), 0.7), ((0.07, 0.04), 0.55), ((0.20, 0.08), 0.45),
@@ -577,6 +578,9 @@ def chars_sheet(out_dir, kinds=None):
                 face.pose(**kw)
                 face._audio_shape, face._audio_energy, face._gesture = None, 0.0, None
                 face.fps = 30
+                face._mic = 0.75 if kw.get("listen") else 0.0      # (the mic's level)
+                face._WAKE_ACTIVE = 1
+                face.wake_anim, face.wake_ripple = (1, 0.42) if setup == "wake" else (0, 1.0)
                 if getattr(g, "char_life", None):     # (each pose on its own: no gesture left over)
                     g.char_life.active.clear()
                 u = frame(40, setup == "visemes", setup, kind)

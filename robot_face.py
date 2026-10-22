@@ -1256,6 +1256,12 @@ def theme_fx():
     return themes.get().get("look", {})
 
 
+def own_states():
+    """A drawn character (gl_chars.py) shows listening, thinking, sleep,
+    tears, anger… its own way: Luna's generic marks stay off."""
+    return characters.kind_of(themes.get()) is not None
+
+
 _TAIL = {}
 
 
@@ -2738,7 +2744,7 @@ class RobotFace:
 
         # thinking for a while: a finger on her chin (the face library, 15 Oct)
         # — not for every short wait, the hand would pop up after each question
-        if emotion == "thinking" and not active and not self._scene:
+        if emotion == "thinking" and not active and not self._scene and not own_states():
             self._think_t = getattr(self, "_think_t", 0.0) or now_t
             if now_t - self._think_t > THINK_HAND_SECS:
                 if theme_fx().get("glyphs"):     # HAL: an hourglass beside his eye
@@ -2889,8 +2895,9 @@ class RobotFace:
         fcx = int(self.face_cx + self.face_ox)
         fcy = int(self.face_cy + self.face_oy)
 
+        own = own_states()
         # zzz
-        if emotion == "sleeping":
+        if emotion == "sleeping" and not own:
             self.zzz_spawn_t += _K
             if self.zzz_spawn_t > 40:
                 self.zzz_spawn_t = 0
@@ -2900,7 +2907,7 @@ class RobotFace:
             self.zzz_particles.clear()
 
         # tears
-        if emotion == "sad":
+        if emotion == "sad" and not own:
             self.tear_spawn_t += _K
             if self.tear_spawn_t > 90:
                 self.tear_spawn_t = 0
@@ -2942,7 +2949,7 @@ class RobotFace:
                                  fcy + random.randint(-180, 120)))
 
         # floating hearts (love)
-        if emotion == "love":
+        if emotion == "love" and not own:
             self.heart_spawn_t += _K
             if self.heart_spawn_t > 18:
                 self.heart_spawn_t = 0
@@ -3148,7 +3155,8 @@ class RobotFace:
 
         # ── listening: sound waves coming in from both sides; a nod or a
         #    shake of the head: motion marks beside it ────────────────────
-        if self.listen_pulse > 0.05 or self._listen:
+        own = own_states()
+        if (self.listen_pulse > 0.05 or self._listen) and not own:
             k = (0.50 + 0.45 * self._mic) * max(self.listen_pulse, 0.6 if self._listen else 0.0)
             ph = self.listen_phase * 0.22
             arcs = []
@@ -3158,7 +3166,7 @@ class RobotFace:
             draw_side_arcs(base, self.face_cx + self.face_ox, self.face_cy + self.face_oy - 30,
                            theme_fx().get("listen_r", EYE_SPREAD + 95), arcs,
                            theme_fx().get("listen", LISTEN_WAVE_COL))
-        if self._gesture in ("nod", "shake"):
+        if self._gesture in ("nod", "shake") and not own:
             env = math.sin(math.pi * self._gesture_p)
             arcs = [(70, env)] + ([(98, env * 0.7)] if self._gesture == "shake" else [])
             draw_side_arcs(base, self.face_cx + self.face_ox, self.face_cy + self.face_oy - 30,
@@ -3247,7 +3255,7 @@ class RobotFace:
 
         # ── excited (the block face): three twinkles by the eyes' outer
         #    corners, anchored, coming and going — not a shower of stars ──
-        if EYE_MODE == "block" and self._emotion == "excited" and not self._scene:
+        if EYE_MODE == "block" and self._emotion == "excited" and not self._scene and not own:
             t = time.time()
             ex = EYE_SPREAD + self.left_eye.w * 0.5
             ey = fcy + self.left_eye.rel_y
@@ -3258,7 +3266,7 @@ class RobotFace:
 
         gl = getattr(self, "gl", None)
         life = getattr(gl, "life", None) if gl else None
-        if EYE_MODE == "block" and life and not self._scene:
+        if EYE_MODE == "block" and life and not self._scene and not own:
             mono = time.monotonic()
             k = life.bump(mono, life.pop_t, 0.5)
             if self._emotion == "surprised" and k > 0.02:   # the take: lines burst out
@@ -3276,7 +3284,7 @@ class RobotFace:
                 blush_lines(base, fcx, fcy, min(1.0, (blush - 0.55) / 0.3))
 
         # ── angry (the block face): a pulsing anger mark by the right brow ──
-        if EYE_MODE == "block" and self._emotion == "angry" and not self._scene:
+        if EYE_MODE == "block" and self._emotion == "angry" and not self._scene and not own:
             k = 0.5 + 0.5 * math.sin(time.time() * 6.0)
             anger_mark(base, fcx + EYE_SPREAD + self.right_eye.w * 0.5 + 34,
                        fcy + self.right_eye.rel_y - 92, 40 + 6 * k, 200 + 55 * k)
@@ -3310,7 +3318,7 @@ class RobotFace:
                 base.blit(dot, (fcx - r * 2, fcy + AWAKE_DOT_Y - r * 2))
 
         # ── wake ripple ───────────────────────────────────────────────────
-        if self.wake_anim == self._WAKE_ACTIVE:
+        if self.wake_anim == self._WAKE_ACTIVE and not own:
             r     = self.wake_ripple * 300
             alpha = (1.0 - self.wake_ripple) * 120
             if r >= 1 and alpha > 0 and _fx(base) is not None:

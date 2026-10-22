@@ -403,6 +403,10 @@ class CharLife:
             if not asleep and lvl > 0.0:
                 self.roll_at = now
         out["roll"] = max(0.0, 1.0 - (now - self.roll_at) / 0.5) if now >= self.roll_at else 0.0
+        out["mic"] = max(0.0, min(1.0, float(getattr(face, "_mic", 0.0) or 0.0)))
+        waking = getattr(face, "wake_anim", 0) and getattr(face, "wake_anim", 0) == getattr(
+            face, "_WAKE_ACTIVE", -1)
+        out["wake"] = max(0.0, min(1.0, float(getattr(face, "wake_ripple", 1.0)))) if waking else 1.0
         return out
 
     def quality_step(self, dt, fps):
