@@ -2,7 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 22 października ==
-- Mam sześć nowych postaci do wyboru (Ustawienia → Ekran → Motyw): kosmiczną NEX, neonowego PIP-a, konsolę RETRO, PIXEL z pikseli, różową MOCHI i spokojną ECHO — każda ma swoją twarz, głos i charakter, a do tego dodatki, np. uszka albo czapkę do snu.
+- Mam sześć nowych postaci do wyboru (Ustawienia → Ekran → Motyw): kosmiczną MIRĘ, neonowego PIP-a, konsolę RETRO, PIXEL z pikseli, różową MOCHI i spokojną ECHO — każda ma swoją twarz, głos i charakter, a do tego dodatki, np. uszka albo czapkę do snu.
 - Po pogodzie, godzinie i wschodzie słońca nie słucham już dalej — jak chcesz coś jeszcze, powiedz „Luna”. A gdy ktoś robi krótką przerwę w środku zdania, czekam chwilę dłużej, zanim odpowiem.
 - Pokrętło głośnika Pebble zmienia teraz głośność tego wyjścia, przez które mówię. Jeśli głośnik albo gniazdo były skręcone prawie do zera, podgłaśniam je do połowy, kiedy się na nie przełączam. „Najciszej” jest teraz ciche, ale nadal słychać.
 - Rekwizyty przy odpowiedziach (słońce, chmurki, deszcz, śnieg, żarówka, nutki, znak zapytania, serce rysowane palcem) są teraz gładkie i płynne. HAL pokazuje je jako świecące czerwone ikonki jak na ekranie komputera.

@@ -13,7 +13,7 @@ page (Ekran → Motyw). A theme changes four things at once:
   (and round the face: ["look"] — the hands' colours or HAL's glyphs, the
    listening waves, a costume's — robot_face.theme_fx)
 
-The six drawn characters (["char"]: NEX, PIP, RETRO, PIXEL, MOCHI, ECHO) are
+The six drawn characters (["char"]: MIRA, PIP, RETRO, PIXEL, MOCHI, ECHO) are
 built by their own shaders (gl_chars.py) from characters.py's data.
 
 Pure Python (settings only): the unit tests read it on Windows.
@@ -143,9 +143,10 @@ def _char(kind, **t):
     """A drawn character's theme: its face from characters.py, the rest here.
     ["eyes"]: its colours for Luna's own shader too (the fallback, if its own
     ever failed to compile). Wake words: the name as Vosk's small Polish
-    model can write it — it has no "nex" or "mochi", so it hears "next" and
-    "moczy" (22 Oct: "Nex" never woke her); the real spelling stays for the
-    cloud's transcript."""
+    model can write it — it has no "mochi", so it hears "moczy"; the real
+    spelling stays for the cloud's transcript. (22 Oct: it has no "nex"
+    either — "Neks" came out "next", "lecz", "mecz" — so NEX is called Mira:
+    "mira" / "miro" heard 11 of 12 times in TTS speech; her key stays "nex".)"""
     t["char"] = kind
     t["spec"] = characters.theme_spec(kind)
     a, b, c, d = characters.CHARS[kind]["pal"]
@@ -160,14 +161,14 @@ def _char(kind, **t):
 
 THEMES.update({
     "nex": _char(
-        "nex", label="NEX", sub="kosmiczne oczy, tajemnicza i figlarna",
-        name="Nex", call="Nex", hello="Tu Nex. Gwiazdy mówiły, że przyjdziesz.",
-        wake=["nex", "neks", "next", "hej nex", "hej next"],
+        "nex", label="MIRA", sub="kosmiczne oczy, tajemnicza i figlarna",
+        name="Mira", call="Mira", hello="Tu Mira. Gwiazdy mówiły, że przyjdziesz.",
+        wake=["mira", "miro", "hej mira", "hej miro"],
         voice="sage", speed=1.2,
         tts=("Voice identity: a calm, low, slightly amused young woman; unhurried, "
              "a little mysterious, a playful smile on the last word. Native Polish pronunciation."),
-        persona=("you are Nex (said \"neks\") — a wise, mysterious, playful being from "
-                 "somewhere among the stars, with eyes like two tiny galaxies. You are female: "
+        persona=("you are Mira (named after the star Mira, \"the wonderful\") — a wise, "
+                 "mysterious, playful being from somewhere among the stars, with eyes like two tiny galaxies. You are female: "
                  "in Polish use feminine forms about yourself. You speak calmly, with a hint of "
                  "a knowing smile, now and then a short cosmic image (\"jak orbita\", "
                  "\"gwiazdy mi szepnęły\") — never so much that the answer gets lost; the "

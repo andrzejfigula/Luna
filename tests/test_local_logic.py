@@ -7452,7 +7452,7 @@ class ThemesTest(unittest.TestCase):
             self.assertEqual(themes.current(), "ice")
             self.assertEqual(sp.rows(1)[0]["value"], "Ice")
             self.assertEqual(sp.change("theme"), "Motyw: HAL 9000")
-            for label in ("NEX", "PIP", "RETRO", "PIXEL", "MOCHI", "ECHO", "Luna"):
+            for label in ("MIRA", "PIP", "RETRO", "PIXEL", "MOCHI", "ECHO", "Luna"):
                 self.assertEqual(sp.change("theme"), "Motyw: " + label)
         settings.put("theme", "nonsense")
         themes.set_theme(settings.get("theme"))
@@ -7785,21 +7785,22 @@ class CharactersTest(unittest.TestCase):
         self.assertEqual(characters.blink_pace(None), (1.0, 1.0))      # Luna's blinks as ever
 
     def test_wake_words_vosk_can_hear(self):
-        """Vosk's small Polish model has no "nex" / "mochi": it writes what it
-        knows ("next", "moczy") — those wake them; the cloud's spelling too."""
+        """Vosk's small Polish model has no "mochi": it writes "moczy" — that
+        wakes her; the cloud's spelling too. NEX is called Mira (Vosk has no "nex")."""
         import themes
         try:
             import speech_to_text as s
         except ImportError:
             self.skipTest("sounddevice")
         themes.set_theme("nex")
-        self.assertIsNotNone(s._find_wake_word(["next", "która", "godzina"]))
+        self.assertIsNotNone(s._find_wake_word(["mira", "która", "godzina"]))
+        self.assertIsNotNone(s._find_wake_word(["miro", "pokaż", "ustawienia"]))
         self.assertIsNotNone(s._find_wake_word(["luna", "która", "godzina"]))
-        self.assertTrue(s._cloud_has_wake("Nex, która godzina?"))
+        self.assertTrue(s._cloud_has_wake("Mira, która godzina?"))
         themes.set_theme("mochi")
         self.assertIsNotNone(s._find_wake_word(["moczy", "opowiedz", "bajkę"]))
         themes.set_theme("luna")
-        self.assertIsNone(s._find_wake_word(["next", "która", "godzina"]))
+        self.assertIsNone(s._find_wake_word(["mira", "która", "godzina"]))
 
     def test_shaders_are_gles2(self):
         """Every character's fragment shader as compiled: GLSL 1.20 / ES 1.00
