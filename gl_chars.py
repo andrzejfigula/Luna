@@ -250,39 +250,39 @@ void prop(vec2 p, vec4 pt, inout vec4 acc) {
                * al * (1.0 - cover(d));
 }
 
+// (one call: each call of a big function is a copy of it in the compiled
+// shader — eight of prop() took the Pi's compiler most of a minute)
 void props(vec2 p, inout vec4 acc) {
-    if (uShape < 5.5) prop(p, uPt0, acc);
-    else if (uShape < 6.5) prop(p, uPt1, acc);
-    else if (uShape < 7.5) prop(p, uPt2, acc);
-    else if (uShape < 8.5) prop(p, uPt3, acc);
-    else if (uShape < 12.5) prop(p, uPt4, acc);
-    else if (uShape < 13.5) prop(p, uPt5, acc);
-    else if (uShape < 14.5) prop(p, uPt6, acc);
-    else prop(p, uPt7, acc);
+    vec4 pt = uShape < 5.5 ? uPt0 : uShape < 6.5 ? uPt1 : uShape < 7.5 ? uPt2
+            : uShape < 8.5 ? uPt3 : uShape < 12.5 ? uPt4 : uShape < 13.5 ? uPt5
+            : uShape < 14.5 ? uPt6 : uPt7;
+    prop(p, pt, acc);
 }
 """
 
+# one program per stage (PASS_CELLS / PASS_SOFT / the shapes): the compiler
+# drops what a stage doesn't call. 22 Oct: one program for all three took the
+# Pi's V3D compiler 50-80 s at its first draw (a new shader, no cache) — the
+# watchdog saw no frame for 30 s and restarted her into the same compile.
 _MAIN = """
 void main() {
-#ifdef GRID
-    if (uPass > 3.5) {                       // 4: each cell once, into the small texture
-        vec2 ci = floor(gl_FragCoord.xy) - uGrid.xy;
-        gl_FragColor = gridCell(ci);
-        return;
-    }
+#if defined(PASS_CELLS)
+    vec2 ci = floor(gl_FragCoord.xy) - uGrid.xy;   // each cell once, into the small texture
+    gl_FragColor = gridCell(ci);
+#elif defined(PASS_SOFT)
+    vec2 fc = vec2(gl_FragCoord.x, uSoftRes.y - gl_FragCoord.y) * (uRes / uSoftRes);
+    gl_FragColor = vec4(soft(facePos(fc), fc / uRes), 1.0);
+#else
+    vec2 fc = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y);
+    fc.x -= glitchShift(fc.y);
+    vec4 acc = vec4(0.0);
+    shape(facePos(fc), acc);
+    gl_FragColor = acc;
 #endif
-    if (uPass < 0.5) {
-        vec2 fc = vec2(gl_FragCoord.x, uSoftRes.y - gl_FragCoord.y) * (uRes / uSoftRes);
-        gl_FragColor = vec4(soft(facePos(fc), fc / uRes), 1.0);
-    } else {
-        vec2 fc = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y);
-        fc.x -= glitchShift(fc.y);
-        vec4 acc = vec4(0.0);
-        shape(facePos(fc), acc);
-        gl_FragColor = acc;
-    }
 }
 """
+
+PASSES = {"soft": "#define PASS_SOFT\n", "cells": "#define PASS_CELLS\n", "shape": ""}
 
 # ── RETRO: a beige console, its dark CRT, amber pixel eyes ──────────────────
 _RETRO = """
@@ -552,9 +552,12 @@ vec3 soft(vec2 p, vec2 uv) {
 }
 
 void shape(vec2 p, inout vec4 acc) {
-    if (uShape > 11.5) { props(p, acc); return; }   // the state's props
+    if ((uShape > 4.5 && uShape < 8.5) || uShape > 11.5) {   // props, the state's marks
+        props(p, acc);                               // (one call: see props)
+        return;
+    }
     if (uShape < 3.5) rBody(p, acc);
-    else if (uShape < 8.5) props(p, acc);
+    else if (uShape < 8.5) {}                      // (props: above)
     else if (uShape < 9.5) rScreen(p, acc);
     else rCart(p, acc);
 }
@@ -752,7 +755,10 @@ vec3 soft(vec2 p, vec2 uv) {
 }
 
 void shape(vec2 p, inout vec4 acc) {
-    if (uShape > 11.5) { props(p, acc); return; }   // the state's props
+    if ((uShape > 4.5 && uShape < 8.5) || uShape > 11.5) {   // props, the state's marks
+        props(p, acc);                               // (one call: see props)
+        return;
+    }
     pGrid(p, acc);
 }
 """
@@ -895,11 +901,16 @@ vec3 soft(vec2 p, vec2 uv) {
 }
 
 void shape(vec2 p, inout vec4 acc) {
-    if (uShape > 11.5) { props(p, acc); return; }   // the state's props
-    if (uShape < 0.5) nEye(p, uEye0, uLidA0, uLidB0, uPupil0, -1.0, acc);
-    else if (uShape < 1.5) nEye(p, uEye1, uLidA1, uLidB1, uPupil1, 1.0, acc);
-    else if (uShape < 2.5) nMouth(p, acc);
-    else if (uShape < 8.5) props(p, acc);
+    if ((uShape > 4.5 && uShape < 8.5) || uShape > 11.5) {   // props, the state's marks
+        props(p, acc);                               // (one call: see props)
+        return;
+    }
+    if (uShape < 1.5) {                        // an eye (one call: see props)
+        bool r = uShape > 0.5;
+        nEye(p, r ? uEye1 : uEye0, r ? uLidA1 : uLidA0, r ? uLidB1 : uLidB0,
+             r ? uPupil1 : uPupil0, r ? 1.0 : -1.0, acc);
+    } else if (uShape < 2.5) nMouth(p, acc);
+    else if (uShape < 8.5) {}                      // (props: above)
     else nCrown(p, acc);
 }
 """
@@ -1039,12 +1050,17 @@ vec3 soft(vec2 p, vec2 uv) {
 }
 
 void shape(vec2 p, inout vec4 acc) {
-    if (uShape > 11.5) { props(p, acc); return; }   // the state's props
-    if (uShape < 0.5) mEye(p, uEye0, uLidA0, uLidB0, uPupil0, -1.0, acc);
-    else if (uShape < 1.5) mEye(p, uEye1, uLidA1, uLidB1, uPupil1, 1.0, acc);
-    else if (uShape < 2.5) mMouth(p, acc);
+    if ((uShape > 4.5 && uShape < 8.5) || uShape > 11.5) {   // props, the state's marks
+        props(p, acc);                               // (one call: see props)
+        return;
+    }
+    if (uShape < 1.5) {                        // an eye (one call: see props)
+        bool r = uShape > 0.5;
+        mEye(p, r ? uEye1 : uEye0, r ? uLidA1 : uLidA0, r ? uLidB1 : uLidB0,
+             r ? uPupil1 : uPupil0, r ? 1.0 : -1.0, acc);
+    } else if (uShape < 2.5) mMouth(p, acc);
     else if (uShape < 3.5) mBodyDraw(p, acc);
-    else if (uShape < 8.5) props(p, acc);
+    else if (uShape < 8.5) {}                      // (props: above)
     else if (uShape < 10.5) mEars(p, acc);
     else mFront(p, acc);
 }
@@ -1168,11 +1184,16 @@ vec3 soft(vec2 p, vec2 uv) {
 }
 
 void shape(vec2 p, inout vec4 acc) {
-    if (uShape > 11.5) { props(p, acc); return; }   // the state's props
-    if (uShape < 0.5) pEyeDraw(p, uEye0, uLidA0, uLidB0, uPupil0, -1.0, acc);
-    else if (uShape < 1.5) pEyeDraw(p, uEye1, uLidA1, uLidB1, uPupil1, 1.0, acc);
-    else if (uShape < 2.5) pMouth(p, acc);
-    else if (uShape < 8.5) props(p, acc);
+    if ((uShape > 4.5 && uShape < 8.5) || uShape > 11.5) {   // props, the state's marks
+        props(p, acc);                               // (one call: see props)
+        return;
+    }
+    if (uShape < 1.5) {                        // an eye (one call: see props)
+        bool r = uShape > 0.5;
+        pEyeDraw(p, r ? uEye1 : uEye0, r ? uLidA1 : uLidA0, r ? uLidB1 : uLidB0,
+             r ? uPupil1 : uPupil0, r ? 1.0 : -1.0, acc);
+    } else if (uShape < 2.5) pMouth(p, acc);
+    else if (uShape < 8.5) {}                      // (props: above)
     else if (uShape < 10.5) pTop(p, acc);
     else pTie(p, acc);
 }
@@ -1299,13 +1320,17 @@ vec3 soft(vec2 p, vec2 uv) {
 }
 
 void shape(vec2 p, inout vec4 acc) {
-    if (uShape > 11.5) { props(p, acc); return; }   // the state's props
-    if (uShape < 0.5) eEye(p, uEye0, uLidA0, uLidB0, uPupil0, -1.0, acc);
-    else if (uShape < 1.5) eEye(p, uEye1, uLidA1, uLidB1, uPupil1, 1.0, acc);
-    else if (uShape < 2.5) eMouth(p, acc);
+    if ((uShape > 4.5 && uShape < 8.5) || uShape > 11.5) {   // props, the state's marks
+        props(p, acc);                               // (one call: see props)
+        return;
+    }
+    if (uShape < 1.5) {                        // an eye (one call: see props)
+        bool r = uShape > 0.5;
+        eEye(p, r ? uEye1 : uEye0, r ? uLidA1 : uLidA0, r ? uLidB1 : uLidB0,
+             r ? uPupil1 : uPupil0, r ? 1.0 : -1.0, acc);
+    } else if (uShape < 2.5) eMouth(p, acc);
     else if (uShape < 3.5) eNose(p, acc);
     else if (uShape < 4.5) eBrow(p, acc);
-    else props(p, acc);
 }
 """
 
@@ -1346,7 +1371,8 @@ class CharPass:
         if kind in self.broken or kind not in SOURCES:
             return False
         try:
-            self.prog(kind)
+            for stage in ("soft", "shape") + (("cells",) if kind in GRIDS else ()):
+                self.prog(kind, stage)
             return True
         except Exception as e:
             self.broken.add(kind)
@@ -1366,12 +1392,13 @@ class CharPass:
             g = self.grids[kind] = (tex, fbo)
         return g
 
-    def prog(self, kind):
-        p = self.progs.get(kind)
+    def prog(self, kind, stage="shape"):
+        p = self.progs.get((kind, stage))
         if p is None:
             gl = self.gl
             head = "#version 120\n" if gl.glsl == "120" else "#version 100\nprecision mediump float;\n"
-            fs = head + _HEAD + SOURCES[kind] + _MAIN
+            fs = head + PASSES[stage] + _HEAD + SOURCES[kind] + _MAIN
+            t0 = time.perf_counter()
             p = gl_face._Prog(gl.GL, gl._program(head + gl_face._VERT, fs))
             gl.GL.glUseProgram(p.id)
             p.u("uRes", (gl.w, gl.h))
@@ -1380,8 +1407,10 @@ class CharPass:
             if kind in GRIDS:
                 cols, rows = GRIDS[kind]
                 p.u("uGrid", (cols // 2, rows // 2, cols, rows))
-            self.progs[kind] = p
+            self.progs[(kind, stage)] = p
             self.made += 1
+            print(f"[gl] character {kind}: {stage} program ({time.perf_counter() - t0:.1f} s)",
+                  flush=True)
         return p
 
     def _uniforms(self, p, u):
@@ -1391,28 +1420,30 @@ class CharPass:
 
     def soft(self, kind, u):
         """Stage 0: into the small framebuffer (bound by the caller)."""
-        p = self.prog(kind)
+        p = self.prog(kind, "soft")
         GL = self.gl.GL
         GL.glUseProgram(p.id)
         self._uniforms(p, u)
-        p.u("uPass", 0.0)
         p.u("uRect", (0.0, 0.0, float(self.gl.w), float(self.gl.h)))
         self.gl._bind_quad()
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
-        if kind in GRIDS:                # 4: every cell once (the caller binds the screen after)
+        if kind in GRIDS:                # every cell once (the caller binds the screen after)
+            p = self.prog(kind, "cells")
+            GL.glUseProgram(p.id)
+            self._uniforms(p, u)
+            p.u("uRect", (0.0, 0.0, float(self.gl.w), float(self.gl.h)))
             tex, fbo = self.grid(kind)
             cols, rows = GRIDS[kind]
             GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, fbo)
             GL.glViewport(0, 0, cols, rows)
-            p.u("uPass", 4.0)
             GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
 
     def shapes(self, kind, u):
         """Stage 2: each piece in its own box, in order (blending is on)."""
-        p = self.prog(kind)
+        p = self.prog(kind, "shape")
         GL = self.gl.GL
         GL.glUseProgram(p.id)
-        p.u("uPass", 2.0)
+        self._uniforms(p, u)
         if kind in GRIDS:
             GL.glActiveTexture(GL.GL_TEXTURE4)
             GL.glBindTexture(GL.GL_TEXTURE_2D, self.grid(kind)[0])
