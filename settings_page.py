@@ -184,11 +184,11 @@ def _rows(tab):
     name = TABS[tab]
     if name == "Asystent":                # who she is: the theme, its character's own rows
         th = themes.get()
-        speed = settings.get("tts_speed", OPENAI_TTS_SPEED)
+        who, speed = _speed_of()
         return [{"key": "theme", "kind": "cycle", "label": "Motyw",
                  "sub": th["sub"], "value": th["label"]},
                 {"key": "tts_speed", "kind": "cycle", "label": "Tempo mowy",
-                 "sub": "wspólne dla całego domu",
+                 "sub": f"dla: {who} (własne)" if who else "wspólne dla całego domu",
                  "value": f"{speed:.1f}×".replace(".", ",")}] + char_rows(th)
     if name == "Ekran":
         return [
@@ -226,6 +226,19 @@ def _rows(tab):
     ]
 
 
+def _speed_of():
+    """(who, speed): the speed she speaks at for the person in front of her —
+    theirs if they set one by voice (settings "tts_speed_by"), else the
+    house's (who None). 22 Oct: the page changed the house's while
+    Andrzej's own 1.0 won — "the setting does nothing"."""
+    with state.lock:
+        who = state.person[0] if state.person else None
+    by = settings.get("tts_speed_by", {}) or {}
+    if who and by.get(who):
+        return who, by[who]
+    return None, settings.get("tts_speed", OPENAI_TTS_SPEED)
+
+
 def _acc_label(names):
     return ", ".join(characters.ACC_LABELS.get(n, n) for n in names) or "bez dodatków"
 
@@ -257,10 +270,15 @@ def change(key):
         settings.put("language", new)
         return f"Język: {_label(_LANGS, new)}"
     if key == "tts_speed":
-        cur = settings.get("tts_speed", OPENAI_TTS_SPEED)
+        who, cur = _speed_of()
         new = next((s for s in _SPEEDS if s > cur + 0.01), _SPEEDS[0])
-        settings.put("tts_speed", new)
-        return f"Tempo mowy {new:.1f}×".replace(".", ",")
+        if who:                              # their own speed ("mów wolniej") wins: change it
+            by = dict(settings.get("tts_speed_by", {}) or {})
+            by[who] = new
+            settings.put("tts_speed_by", by)
+        else:
+            settings.put("tts_speed", new)
+        return f"Tempo mowy {new:.1f}×".replace(".", ",") + (f" ({who})" if who else "")
     if key == "reply_length":
         new = _next(_LENGTHS, settings.get("reply_length", "normal"))
         settings.put("reply_length", new)

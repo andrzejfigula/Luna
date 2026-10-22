@@ -7298,6 +7298,21 @@ class SettingsPageTest(unittest.TestCase):
         settings.put("tts_speed", 1.4)
         sp.change("tts_speed")
         self.assertEqual(settings.get("tts_speed"), 1.0)
+        # the person in front has their own speed ("mów wolniej"): the page changes theirs
+        settings.put("tts_speed_by", {"Andrzej": 1.0, "Emilka": 1.3})
+        with state.lock:
+            old, state.person = state.person, ("Andrzej",)
+        try:
+            self.assertEqual(sp.change("tts_speed"), "Tempo mowy 1,1× (Andrzej)")
+            self.assertEqual(settings.get("tts_speed_by"), {"Andrzej": 1.1, "Emilka": 1.3})
+            self.assertEqual(settings.get("tts_speed"), 1.0)            # the house's: untouched
+            sp._cache.clear()
+            row = next(r for r in sp.rows(sp.TABS.index("Asystent")) if r["key"] == "tts_speed")
+            self.assertEqual((row["value"], row["sub"]), ("1,1×", "dla: Andrzej (własne)"))
+        finally:
+            with state.lock:
+                state.person = old
+            settings.put("tts_speed_by", {})
 
     def test_rows_of_every_tab(self):
         for tab in range(len(self.sp.TABS) - 1):

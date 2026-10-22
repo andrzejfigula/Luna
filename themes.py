@@ -137,8 +137,8 @@ _TAIL = (" Every reply, even a plain fact like the weather, is said in character
          "Still 1-3 short sentences.\n")
 
 
-# (a theme's "speed" is its rate itself, in place of the house's 1.2 —
-# openai_tts.speech_speed — not a multiplier on it)
+# (a theme's "speed" is relative to the house's 1.2: openai_tts.speech_speed
+# scales whatever rate is chosen — the page, "mów szybciej" — by speed / 1.2)
 def _char(kind, **t):
     """A drawn character's theme: its face from characters.py, the rest here.
     ["eyes"]: its colours for Luna's own shader too (the fallback, if its own
