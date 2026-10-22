@@ -87,8 +87,8 @@ CHARS = {
         "acc_default": ("ears", "hat", "hearts"),
     },
     # ── an energetic neon mascot: outlined eyes, dot pupils ──
-    "pip": {
-        "pal": ((0.25, 1.0, 0.45), (0.45, 1.0, 0.85), (0.10, 0.85, 0.80), (0.95, 1.0, 0.70)),
+    "pip": {   # (a wrist computer's phosphor green, nearly one hue; its sync slips)
+        "pal": ((0.22, 1.0, 0.42), (0.55, 1.0, 0.62), (0.12, 0.72, 0.34), (0.86, 1.0, 0.72)),
         "layout": {"eye_x": 150.0, "eye_y": -32.0, "eye_s": 0.84, "mouth_y": 112.0, "mouth_s": 0.7},
         "spec": {"eye_n": 4.0, "brow_a": 0.0, "blush": 0.0},
         "blink": (0.9, 1.2), "gaze": (1.1, 260.0, 9.0), "react": 14.0,
@@ -286,6 +286,9 @@ class CharLife:
         self.asym_t = now + self.rng.uniform(5.0, 10.0)   # NEX: one eye wanders
         self.asym = (-9.0, 0, 0.0, 0.0)
         self.roll_t = now + self.rng.uniform(15.0, 30.0)  # RETRO: a rolling scanline
+        self.sync_t = now + self.rng.uniform(4.0, 9.0)    # PIP: the sync slips now and then
+        self.sync_at = -9.0
+        self.sync_seed = 0.0
         self.roll_at = -9.0
         self.glitch_t = now + self.rng.uniform(2.0, 4.0)  # PIXEL: cross → glitches
         self.slow = 0.0                      # frame time too long: effects step down
@@ -407,6 +410,8 @@ class CharLife:
         waking = getattr(face, "wake_anim", 0) and getattr(face, "wake_anim", 0) == getattr(
             face, "_WAKE_ACTIVE", -1)
         out["wake"] = max(0.0, min(1.0, float(getattr(face, "wake_ripple", 1.0)))) if waking else 1.0
+        if self.kind == "pip":
+            out["sync"], out["seed"] = self.sync(now, out, lvl)
         return out
 
     def quality_step(self, dt, fps):
@@ -440,6 +445,32 @@ class CharLife:
             gz[1] += (dy - gz[1]) * k
             return gz[0], gz[1]
         return dx, dy
+
+    SYNC_SECS = 0.42
+
+    def sync(self, now, ch, lvl):
+        """PIP: (how badly the sync slips, a seed for where). Every 8-20 s,
+        every 2-4 s when cross; at once on an alert, a surprise, a glitch,
+        waking. Half as much on "spokojne", none with the effects off."""
+        if lvl <= 0.0:
+            return 0.0, 0.0
+        if now - self.sync_at > self.SYNC_SECS and (
+                ch["alert"] > 0.5 or ch["glitch"] > 0.5 or 0.0 < ch["wake"] < 0.2
+                or (ch["surprise"] > 0.6 and now - self.sync_at > 3.0)):
+            self.sync_at = now
+        if now > self.sync_t:
+            cross = ch["angry"] > 0.5
+            self.sync_t = now + (self.rng.uniform(2.0, 4.0) if cross else self.rng.uniform(8.0, 20.0))
+            if ch["sleep"] < 0.5:
+                self.sync_at = now
+        el = now - self.sync_at
+        if not 0.0 <= el < self.SYNC_SECS:
+            return 0.0, self.sync_seed
+        step = math.floor(el / 0.06)                       # it jumps in steps, like a signal
+        self.sync_seed = float((int(self.sync_at * 100) * 31 + step * 7) % 997)
+        env = math.sin(math.pi * el / self.SYNC_SECS) ** 0.5
+        flick = 0.45 + 0.55 * ((step * 0.618) % 1.0)
+        return min(1.0, env * flick) * (1.0 if lvl >= 1.0 else 0.5), self.sync_seed
 
     def nex_asym(self, now, asleep):
         """NEX: now and then one eye drifts off on its own for a moment."""

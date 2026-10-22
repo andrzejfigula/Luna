@@ -8076,6 +8076,31 @@ class CharactersTest(unittest.TestCase):
             for k in ("uChA", "uChB", "uChC", "uChD", "uChE", "uChF", "uChG", "uAcc", "uPt3"):
                 self.assertEqual(len(u[k]), 4, (kind, k))
 
+    def test_pip_loses_sync_now_and_then(self):
+        """PIP's CRT: the sync slips every 8-20 s (2-4 s when cross), briefly,
+        in steps; none with the effects off; the same when seeded."""
+        import characters
+        def run(emo, level, secs=60.0, seed=4):
+            face = self.Face(emo)
+            life = self.life("pip", seed=seed)
+            with mock.patch.object(characters, "fx_level", return_value=level):
+                out, t = [], 100.0
+                for _ in range(int(secs * 30)):
+                    t += 1 / 30
+                    ch = life.step(face, {"tint": 0.6 if emo == "angry" else 0.0}, t, 1 / 30)
+                    out.append((round(ch["sync"], 4), ch["seed"]))
+            return out
+        calm = run("neutral", 1.0)
+        starts = sum(1 for a, b in zip(calm, calm[1:]) if a[0] == 0.0 and b[0] > 0.0)
+        self.assertTrue(2 <= starts <= 8, starts)                     # 60 s: every 8-20 s
+        self.assertLess(sum(1 for v, _ in calm if v > 0.0) / len(calm), 0.08)   # brief
+        cross = run("angry", 1.0)
+        self.assertGreater(sum(1 for a, b in zip(cross, cross[1:]) if a[0] == 0.0 and b[0] > 0.0),
+                           starts)
+        self.assertTrue(all(v == 0.0 for v, _ in run("neutral", 0.0)))   # effects off
+        self.assertLessEqual(max(v for v, _ in run("neutral", 0.5)), 0.5)
+        self.assertEqual(run("neutral", 1.0), calm)                     # deterministic
+
     def test_each_state_has_its_own_marks(self):
         """Listening, thinking, asleep, sad, cross, surprised: each character's
         own marks (RETRO and PIXEL in their cells); Luna's generic ones off."""

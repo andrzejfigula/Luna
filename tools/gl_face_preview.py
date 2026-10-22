@@ -501,6 +501,7 @@ CHAR_POSES = [
     ("no accessories", {}, "acc:none"),
     ("effects off", {}, "fx:off"),
     ("waking", {}, "wake"),
+    ("sync lost", {}, "g:alert"),
 ]
 # a few of her real sounds: (brightness, zero-crossings) of openai_tts.Envelope, and the jaw
 VISEME_TRACK = [((0.10, 0.05), 0.7), ((0.07, 0.04), 0.55), ((0.20, 0.08), 0.45),

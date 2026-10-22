@@ -1,6 +1,9 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
+== 23 października ==
+- PIP wygląda teraz jak zielony ekran starego komputerka na nadgarstku: ma linie jak w kineskopie, lekkie migotanie, a co jakiś czas obraz mu się rozjeżdża i „gubi synchronizację” — częściej, kiedy jest zły.
+
 == 22 października ==
 - Każda nowa postać pokazuje po swojemu, co się dzieje: że słucha, myśli, mówi, śpi, budzi się, jest smutna, zła albo zaskoczona — RETRO ma np. „● REC” i wskaźnik mikrofonu, MIRA wciąga fale do oczu, MOCHI nastawia uszy, PIP łapie zasięg, a ECHO rozchodzi się echem.
 - W ustawieniach jest nowa zakładka Asystent (motyw, tempo mowy i postacie; tempo zmienia się dla osoby, która stoi przede mną, jeśli ma swoje), a także Głośność, Jasność i „Ciszej w nocy”. Głośność zapamiętuję — gdy głośnik się odłączy i wróci, wracam do niej, zamiast mówić bardzo cicho.

@@ -271,12 +271,23 @@ void main() {
     gl_FragColor = gridCell(ci);
 #elif defined(PASS_SOFT)
     vec2 fc = vec2(gl_FragCoord.x, uSoftRes.y - gl_FragCoord.y) * (uRes / uSoftRes);
-    gl_FragColor = vec4(soft(facePos(fc), fc / uRes), 1.0);
+    vec3 col = soft(facePos(fc), fc / uRes);
+#ifdef CRT
+    col = crtSoft(col, fc);
+#endif
+    gl_FragColor = vec4(col, 1.0);
 #else
     vec2 fc = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y);
     fc.x -= glitchShift(fc.y);
+#ifdef CRT
+    vec2 sc = fc;
+    fc = crtWarp(fc);                   // its picture's sync: wobbling, tearing
+#endif
     vec4 acc = vec4(0.0);
     shape(facePos(fc), acc);
+#ifdef CRT
+    acc = crtPost(acc, sc);             // scanlines, grain, blocks
+#endif
     gl_FragColor = acc;
 #endif
 }
@@ -1068,6 +1079,55 @@ void shape(vec2 p, inout vec4 acc) {
 
 # ── PIP: neon outlines, dot pupils ────────────────────────────────────────────
 _PIP = """
+// a wrist computer's phosphor CRT: scanlines, grain, a soft wobble always;
+// now and then (uChH.z, a seed in uChH.w) the sync slips — bands of lines
+// tear sideways, a bright tearing bar, blocks of the picture go wrong
+#define CRT
+
+vec2 crtWarp(vec2 fc) {
+    float fx = uChF.y;
+    float g = uChH.z;
+    fc.x += sin(fc.y * 0.045 + uT * 7.0) * 0.6 * fx;               // a soft wobble, always
+    if (g > 0.01) {
+        float band = floor(fc.y / 7.0);
+        float h = hash(vec2(band, uChH.w));
+        fc.x += step(0.62, h) * (h - 0.81) * 70.0 * g;              // lines slipping
+        float bar = uRes.y * fract(uChH.w * 0.137);                 // the tearing bar
+        float tb = exp(-sq((fc.y - bar) / 9.0));
+        fc.x += tb * 26.0 * g * sign(hash(vec2(uChH.w, 3.0)) - 0.5);
+        fc.y += (hash(vec2(uChH.w, 7.0)) - 0.5) * 10.0 * g;           // the picture jumps
+    }
+    return fc;
+}
+
+vec4 crtPost(vec4 acc, vec2 fc) {
+    float fx = uChF.y;
+    float g = uChH.z;
+    acc.rgb *= 0.74 + 0.26 * step(1.0, mod(fc.y, 3.0));             // scanlines
+    acc.rgb *= 1.0 - 0.05 * fx * hash(vec2(floor(uT * 24.0), 1.0)); // a faint flicker
+    acc.rgb += acc.rgb * (hash(fc + fract(uT * 3.7)) - 0.5) * 0.30 * (0.4 + 0.6 * fx);   // grain
+    if (g > 0.01) {                                                 // digital blocks
+        float h = hash(floor(fc / vec2(16.0, 8.0)) + uChH.w);
+        if (h > 1.0 - 0.18 * g) acc *= 0.15;
+        else if (h > 1.0 - 0.30 * g) acc.rgb = min(acc.rgb * 1.8 + uPal0 * 0.12 * acc.a, vec3(1.0));
+        float bar = uRes.y * fract(uChH.w * 0.137);
+        acc.rgb += uPal0 * 0.35 * exp(-sq((fc.y - bar) / 3.0)) * g * acc.a;
+    }
+    return acc;
+}
+
+vec3 crtSoft(vec3 col, vec2 fc) {
+    float fx = uChF.y;
+    vec2 uv = fc / uRes;
+    float roll = fract(uT * 0.08);                                  // a slow bright band rolling down
+    col += uPal0 * 0.025 * exp(-sq((uv.y - roll) / 0.05)) * (0.3 + 0.7 * fx);
+    vec2 v = uv - 0.5;
+    col *= 1.0 - 0.9 * dot(v * v, v * v) * 6.0;                     // the tube's corners darker
+    col += uPal0 * 0.006 * (0.3 + 0.7 * fx);                        // the phosphor's faint floor
+    col += uPal0 * 0.10 * uChH.z * step(0.7, hash(vec2(floor(fc.y / 7.0), uChH.w)));   // sync lost
+    return col;
+}
+
 const float P_T = 7.0;                        // the outline's width
 
 // an eye: a neon outline (the lids cut it: "^" when happy, "\" when cross),
@@ -1599,6 +1659,7 @@ def _boxes(gl, kind, u, ch, props, fcx, fcy, console, acc, marks=()):
     """Where stage 2 draws, in order: what's behind first."""
     tilt = u["uTilt"]
     pad = 6.0 + abs(ch["body_x"]) + abs(ch["body_y"]) + 420.0 * abs(ch["body_rot"])
+    pad += 36.0 * ch.get("sync", 0.0)                  # PIP: lines slip sideways
     out = []
 
     def add(sid, cx, cy, hx, hy):
@@ -1713,7 +1774,7 @@ def apply(gl, face, u, cur, fcx, fcy, kind, now, dt):
         "uPal0": pal[0], "uPal1": pal[1], "uPal2": pal[2], "uPal3": pal[3],
         "uPt0": pts[0], "uPt1": pts[1], "uPt2": pts[2], "uPt3": pts[3],
         "uPt4": sts[0], "uPt5": sts[1], "uPt6": sts[2], "uPt7": sts[3],
-        "uChH": (ch["mic"], ch["wake"], 0.0, 0.0),
+        "uChH": (ch["mic"], ch["wake"], ch.get("sync", 0.0), ch.get("seed", 0.0)),
         "uT": now % 1000.0,
         "uShine": (1.0, 0.97, 0.92),
     })
