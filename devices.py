@@ -116,31 +116,119 @@ def resolve_sink(chain=None, sinks=None):
 AUDIBLE_FLOOR = 0.25    # wpctl's cubic scale: 0.10 is -60 dB, silent in practice
 LIFT_TO = 0.50
 
+# Her volume is remembered (settings "volume": a voice command, the settings
+# page, the knob) and put back whenever the speaker (re)appears. 22 Oct: the
+# Pebble drops off USB now and then (and comes back over Bluetooth, or USB);
+# WirePlumber then restores the level it saved for that route — 0.25, once
+# 0.10 — and she stayed quiet: the same node.name, so nothing re-checked it.
+
+
+def remembered_volume():
+    v = settings.get("volume")
+    return float(v) if isinstance(v, (int, float)) else None
+
+
+def remember_volume(v):
+    settings.put("volume", round(float(v), 2))
+
+
+def node_id(sink, dump=None):
+    """The PipeWire node id of a sink (changes when it reconnects), or None."""
+    try:
+        dump = _pw_dump() if dump is None else dump
+    except Exception:
+        return None
+    return next((str(o["id"]) for o in dump
+                 if o.get("info", {}).get("props", {}).get("node.name") == sink), None)
+
+
+def get_volume(node):
+    """(volume, muted) of a node ("@DEFAULT_AUDIO_SINK@" works), or (None, False)."""
+    try:
+        out = subprocess.run(["wpctl", "get-volume", str(node)], capture_output=True,
+                             text=True, timeout=5).stdout
+        m = re.search(r"([\d.]+)", out)
+        return (float(m[1]) if m else None), "MUTED" in out
+    except Exception:
+        return None, False
+
+
+def set_volume(node, v):
+    subprocess.run(["wpctl", "set-volume", str(node), f"{v:.2f}"], capture_output=True,
+                   timeout=5)
+
 
 def make_default(sink):
     """Make her speaker PipeWire's default too — the Pebble's knob (USB HID
     volume keys → labwc → panel) and the panel slider turn the default — and
-    lift it if it was left near silent. Returns the volume it set, or None."""
+    give it her remembered volume (or lift it if it was left near silent, if
+    none is remembered yet). Returns the volume it set, or None."""
     if not sink:
         return None
     try:
-        node = next((str(o["id"]) for o in _pw_dump()
-                     if o.get("info", {}).get("props", {}).get("node.name") == sink), None)
+        node = node_id(sink)
         if node is None:
             return None
         subprocess.run(["wpctl", "set-default", node], capture_output=True, timeout=5)
-        out = subprocess.run(["wpctl", "get-volume", node], capture_output=True,
-                             text=True, timeout=5).stdout
-        m = re.search(r"([\d.]+)", out)
-        if m and float(m[1]) < AUDIBLE_FLOOR:
-            subprocess.run(["wpctl", "set-volume", node, f"{LIFT_TO:.2f}"],
-                           capture_output=True, timeout=5)
-            print(f"[TTS] {sink} was at volume {m[1]} — lifted to {LIFT_TO:.2f}",
-                  flush=True)
-            return LIFT_TO
+        return restore_volume(node, sink)
     except Exception as e:
         print(f"[TTS] default speaker not set ({e})", flush=True)
     return None
+
+
+def restore_volume(node, sink=""):
+    """Put her remembered volume back on a node (unmuted). The level set, or None."""
+    cur, muted = get_volume(node)
+    if muted:
+        subprocess.run(["wpctl", "set-mute", str(node), "0"], capture_output=True, timeout=5)
+        print(f"[vol] {sink or node} was muted — unmuted", flush=True)
+    want = remembered_volume()
+    if want is None:
+        want = LIFT_TO if cur is not None and cur < AUDIBLE_FLOOR else None
+    if want is None or cur is None or abs(cur - want) < 0.015:
+        return want if muted else None
+    set_volume(node, want)
+    print(f"[vol] {sink or node} was at {cur:.2f} — back to {want:.2f}", flush=True)
+    return want
+
+
+class VolumeWatch:
+    """Every speaker check (openai_tts, ~10 s): the speaker came back as a
+    new node → her volume put back; its volume moved and it wasn't her →
+    the knob or the panel: kept (remembered) — unless it fell near silent,
+    which is undone. Every change is logged ("[vol]")."""
+
+    def __init__(self):
+        self.node = None
+        self.seen = None
+
+    def check(self, sink, dump=None):
+        node = node_id(sink, dump) if sink else "@DEFAULT_AUDIO_SINK@"
+        if node is None:
+            return
+        if node != self.node:
+            if self.node is not None:
+                print(f"[vol] {sink} reconnected (node {self.node} → {node})", flush=True)
+                restore_volume(node, sink)
+            self.node = node
+            self.seen = get_volume(node)[0]
+            return
+        cur, muted = get_volume(node)
+        if cur is None:
+            return
+        mine = remembered_volume()
+        if muted or (cur < AUDIBLE_FLOOR and (mine is None or mine >= AUDIBLE_FLOOR)):
+            print(f"[vol] {sink or 'speaker'} fell to {cur:.2f}{' (muted)' if muted else ''},"
+                  " not by her — undone", flush=True)
+            restore_volume(node, sink)
+            self.seen = get_volume(node)[0]
+            return
+        if self.seen is not None and abs(cur - self.seen) >= 0.015 and (
+                mine is None or abs(cur - mine) >= 0.015):
+            print(f"[vol] {sink or 'speaker'} turned {self.seen:.2f} → {cur:.2f} "
+                  "(the knob or the panel) — kept", flush=True)
+            remember_volume(cur)
+        self.seen = cur
 
 
 def move_our_streams(sink):

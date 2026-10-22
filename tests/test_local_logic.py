@@ -1689,6 +1689,8 @@ class CommandsTest(unittest.TestCase):
         self.c = commands
         self.said = []
         self.volume = None
+        self.addCleanup(setattr, commands, "set_volume", commands.set_volume)   # (no leak
+        self.addCleanup(setattr, commands, "get_volume", commands.get_volume)   # into others)
         commands.set_volume = lambda v: setattr(self, "volume", v) or v
         commands.get_volume = lambda: 0.5
         with state.lock:
@@ -7434,6 +7436,108 @@ class DevicesTest(unittest.TestCase):
         with mock.patch.object(d, "_pw_dump", return_value=dump):
             self.assertIsNone(d.make_default("gone"))
 
+
+    class Pw:
+        """A fake wpctl / pw-dump: one sink, its node id and volume."""
+        def __init__(self, d, name, node="59", vol=0.6, muted=False):
+            self.d, self.name, self.node, self.vol, self.muted = d, name, node, vol, muted
+            self.calls = []
+
+        def dump(self):
+            return [{"id": int(self.node), "info": {"props": {"node.name": self.name}}}]
+
+        def run(self, cmd, **kw):
+            self.calls.append(cmd)
+            if cmd[1] == "get-volume":
+                return mock.Mock(stdout=f"Volume: {self.vol:.2f}" + (" [MUTED]" if self.muted else ""))
+            if cmd[1] == "set-volume":
+                self.vol = float(cmd[3])
+            if cmd[1] == "set-mute":
+                self.muted = cmd[3] == "1"
+            return mock.Mock(stdout="")
+
+        def patch(self):
+            import contextlib
+            stack = contextlib.ExitStack()
+            stack.enter_context(mock.patch.object(self.d, "_pw_dump", side_effect=self.dump))
+            stack.enter_context(mock.patch.object(self.d.subprocess, "run", side_effect=self.run))
+            return stack
+
+    def test_remembered_volume_comes_back(self):
+        """22 Oct: the Pebble dropped off USB and came back at WirePlumber's
+        saved 0.25 (once 0.10) — the same name, so nothing noticed."""
+        d = self.d
+        pw = self.Pw(d, self.SINKS[0]["node.name"], vol=0.25)
+        d.remember_volume(0.7)
+        try:
+            with pw.patch():
+                self.assertEqual(d.make_default(pw.name), 0.7)        # at start
+                self.assertEqual(pw.vol, 0.7)
+                w = d.VolumeWatch()
+                w.check(pw.name, pw.dump())
+                pw.node, pw.vol = "97", 0.25                           # unplugged, back
+                w.check(pw.name, pw.dump())
+                self.assertEqual(pw.vol, 0.7)
+                pw.vol = 0.55                                          # the knob: kept
+                w.check(pw.name, pw.dump())
+                self.assertEqual(d.remembered_volume(), 0.55)
+                self.assertEqual(pw.vol, 0.55)
+                pw.vol = 0.10                                          # near silent: undone
+                w.check(pw.name, pw.dump())
+                self.assertEqual(pw.vol, 0.55)
+                pw.muted = True                                        # muted: unmuted
+                w.check(pw.name, pw.dump())
+                self.assertFalse(pw.muted)
+                calls = len(pw.calls)
+                w.check(pw.name, pw.dump())                            # nothing new: nothing set
+                self.assertFalse(any(c[1] in ("set-volume", "set-mute") for c in pw.calls[calls:]))
+        finally:
+            settings.put("volume", None)
+
+    def test_a_volume_she_sets_is_remembered(self):
+        try:
+            import commands
+        except ImportError:
+            self.skipTest("commands' imports")
+        try:
+            with mock.patch.object(commands, "_sink_id", return_value="59"), \
+                 mock.patch.object(commands.subprocess, "run"):
+                commands.set_volume(0.8)
+            self.assertEqual(self.d.remembered_volume(), 0.8)
+        finally:
+            settings.put("volume", None)
+
+    def test_volume_brightness_and_night_rows(self):
+        import settings_page as sp
+        import display
+        try:
+            import commands
+            import audio_out
+        except ImportError:
+            self.skipTest("fcntl (the Pi)")
+        sp._cache.clear()
+        keys = [r.get("key") for r in sp.rows(2)] + [r.get("key") for r in sp.rows(1)]
+        for k in ("volume", "night_quiet", "brightness"):
+            self.assertIn(k, keys)
+        vol = [0.45]
+        with mock.patch.object(commands, "get_volume", side_effect=lambda: vol[0]), \
+             mock.patch.object(commands, "set_volume", side_effect=lambda v: vol.__setitem__(0, v) or v), \
+             mock.patch.object(sp, "_say_volume"):
+            self.assertEqual(sp.change("volume"), "Głośność 50 %")
+            vol[0] = 1.0
+            self.assertEqual(sp.change("volume"), "Głośność 30 %")    # round again
+        try:
+            self.assertEqual(sp.change("brightness"), "Jasność 80 %")
+            self.assertEqual(display.base_percent(), 80)
+            self.assertEqual(sp.change("night_quiet"), "W nocy tak samo głośno")
+            audio_out._nq[0] = 0.0
+            self.assertFalse(audio_out.night_quiet())
+            sp.change("night_quiet")
+            audio_out._nq[0] = 0.0
+            self.assertTrue(audio_out.night_quiet())
+        finally:
+            settings.put("brightness", None)
+            settings.put("night_quiet", None)
 
 class ThemesTest(unittest.TestCase):
     """Themes (settings → Ekran → Motyw): eyes, voice, character, wake word;

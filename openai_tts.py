@@ -293,11 +293,20 @@ class OpenAITTS:
         the settings page): USB speaker pulled → the next in the chain
         (LUNA_SPEAKER=pebble,jack), plugged back → back to it."""
         devices.make_default(self._sink)
+        watch = devices.VolumeWatch()
         while True:
             devices.speaker_changed.wait(SPEAKER_CHECK_SECS)
             devices.speaker_changed.clear()
-            new = devices.resolve_sink()
+            try:
+                dump = devices._pw_dump()
+            except Exception:
+                continue                           # PipeWire not up yet
+            new = devices.resolve_sink(sinks=devices._sinks(dump))
             if new == self._sink:
+                try:
+                    watch.check(new, dump)         # reconnected, the knob, a slip to silence
+                except Exception as e:
+                    print(f"[vol] check failed: {e}", flush=True)
                 continue
             print(f"[TTS] speaker {self._sink or 'default output'} → "
                   f"{new or 'default output'}", flush=True)

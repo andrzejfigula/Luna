@@ -1059,6 +1059,8 @@ def set_volume(v):
     v = max(VOLUME_MIN, min(VOLUME_MAX, v))
     subprocess.run(["wpctl", "set-volume", _sink_id(), f"{v:.2f}"], timeout=5)
     _vol_cache[:] = [v, time.time()]
+    import devices
+    devices.remember_volume(v)            # put back if the speaker reconnects
     return v
 
 

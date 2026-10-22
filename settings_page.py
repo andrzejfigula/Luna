@@ -123,6 +123,10 @@ def cost_rows(today=None):
 _DEVICES = (("speaker", "Głośnik"), ("mic", "Mikrofon"), ("camera", "Kamera"))
 
 
+_VOLUMES = (0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
+_BRIGHT = (100, 80, 60, 40)
+
+
 def device_rows():
     rows = []
     for key, label in _DEVICES:
@@ -130,6 +134,14 @@ def device_rows():
         value = dict(devices.options(key)).get(pick or "", devices.AUTO)
         rows.append({"key": key, "kind": "cycle", "label": label,
                      "sub": f"teraz: {devices.now_label(key)}", "value": value})
+    import commands
+    vol = commands.get_volume()
+    rows.append({"key": "volume", "kind": "cycle", "label": "Głośność",
+                 "sub": "zapamiętana — wraca po odłączeniu głośnika",
+                 "value": f"{round(vol * 100)} %" if vol is not None else "?"})
+    rows.append({"key": "night_quiet", "kind": "toggle", "label": "Ciszej w nocy",
+                 "sub": "od 22 do 8 mówi o połowę ciszej",
+                 "value": settings.get("night_quiet", True) is not False})
     return rows
 
 
@@ -180,6 +192,9 @@ def _rows(tab):
             {"key": "theme", "kind": "cycle", "label": "Motyw",
              "sub": th["sub"], "value": th["label"]},
         ] + char_rows(th) + [
+            {"key": "brightness", "kind": "cycle", "label": "Jasność",
+             "sub": "najjaśniej; w nocy i w ciemnym pokoju przygasa sama",
+             "value": f"{display_base()} %"},
             {"key": "camera_preview", "kind": "toggle", "label": "Podgląd kamery",
              "sub": "mały obraz z kamery w rogu",
              "value": bool(settings.get("camera_preview", CAMERA_PREVIEW))},
@@ -256,6 +271,22 @@ def change(key):
         themes.set_theme(new)
         threading.Thread(target=_introduce, args=(new,), daemon=True, name="theme").start()
         return f"Motyw: {themes.THEMES[new]['label']}"
+    if key == "volume":
+        import commands
+        cur = commands.get_volume() or 0.0
+        new = next((v for v in _VOLUMES if v > cur + 0.01), _VOLUMES[0])
+        v = commands.set_volume(new)
+        threading.Thread(target=_say_volume, daemon=True, name="volume").start()
+        return f"Głośność {round(v * 100)} %"
+    if key == "night_quiet":
+        new = settings.get("night_quiet", True) is False
+        settings.put("night_quiet", new)
+        return "Ciszej w nocy: tak" if new else "W nocy tak samo głośno"
+    if key == "brightness":
+        cur = display_base()
+        new = next((b for b in _BRIGHT if b < cur), _BRIGHT[0])
+        settings.put("brightness", new)
+        return f"Jasność {new} %"
     if key == "char_acc":
         kind = characters.kind_of(themes.get())
         if not kind:
@@ -293,6 +324,18 @@ def change(key):
         settings.put(key, new)
         return "Włączone" if new else "Wyłączone"
     return None
+
+
+def display_base():
+    import display
+    return display.base_percent()
+
+
+def _say_volume():
+    """The new volume, heard (the tap was someone in front of her)."""
+    from text_to_speech import play_sound_async
+    time.sleep(0.2)
+    play_sound_async("mhm")
 
 
 def _introduce(key):

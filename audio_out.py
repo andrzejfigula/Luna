@@ -51,6 +51,18 @@ REBUFFER   = 0.25               # the network fell behind mid-utterance: wait fo
                                 # instead of syllables chopped up by silence
 
 
+
+_nq = [0.0, True]
+
+
+def night_quiet():
+    """Half her voice in the quiet hours (settings "night_quiet", the page's
+    "Ciszej w nocy"; on unless switched off) — read once a second."""
+    if time.time() - _nq[0] > 1.0:
+        import settings
+        _nq[:] = [time.time(), settings.get("night_quiet", True) is not False]
+    return _nq[1]
+
 class AudioOut:
 
     def __init__(self, cmd, envelope, target_ahead=0.25):
@@ -235,7 +247,7 @@ class AudioOut:
     def _gain(self):
         """Quieter at night (the quiet hours): NIGHT_VOICE_GAIN."""
         from config import NIGHT_VOICE_GAIN, PROACTIVE_QUIET_FROM as a, PROACTIVE_QUIET_TO as b
-        if NIGHT_VOICE_GAIN >= 1.0 or time.time() < full_volume_until:
+        if NIGHT_VOICE_GAIN >= 1.0 or time.time() < full_volume_until or not night_quiet():
             return 1.0
         h = time.localtime().tm_hour
         night = a <= h < b if a <= b else (h >= a or h < b)

@@ -32,10 +32,14 @@ def _panels():
 
 
 def base_percent():
-    """The brightness you chose in .env (LUNA_BRIGHTNESS), default 100."""
+    """The brightness chosen on the settings page (settings "brightness"),
+    else .env's LUNA_BRIGHTNESS, default 100 — the ceiling: night, sleep and
+    a dark room dim her below it."""
+    import settings
     try:
-        return max(5, min(100, int(os.environ.get("LUNA_BRIGHTNESS", "100"))))
-    except ValueError:
+        v = settings.get("brightness") or os.environ.get("LUNA_BRIGHTNESS", "100")
+        return max(5, min(100, int(v)))
+    except (TypeError, ValueError):
         return 100
 
 
