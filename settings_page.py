@@ -18,6 +18,7 @@ import signal
 import threading
 import time
 
+import characters
 import devices
 import settings
 import themes
@@ -178,6 +179,7 @@ def _rows(tab):
         return [
             {"key": "theme", "kind": "cycle", "label": "Motyw",
              "sub": th["sub"], "value": th["label"]},
+        ] + char_rows(th) + [
             {"key": "camera_preview", "kind": "toggle", "label": "Podgląd kamery",
              "sub": "mały obraz z kamery w rogu",
              "value": bool(settings.get("camera_preview", CAMERA_PREVIEW))},
@@ -209,6 +211,29 @@ def _rows(tab):
     ]
 
 
+def _acc_label(names):
+    return ", ".join(characters.ACC_LABELS.get(n, n) for n in names) or "bez dodatków"
+
+
+def char_rows(th):
+    """A drawn character's own rows (characters.py): its accessories, RETRO's
+    case, how lively its effects are."""
+    kind = characters.kind_of(th)
+    if not kind:
+        return []
+    rows = [{"key": "char_acc", "kind": "cycle", "label": "Dodatki",
+             "sub": "co nosi " + th["label"], "value": _acc_label(characters.accessories(kind))}]
+    if kind == "retro":
+        rows.append({"key": "retro_mode", "kind": "toggle", "label": "Obudowa konsoli",
+                     "sub": "cała konsola albo sam ekran z twarzą",
+                     "value": characters.retro_console()})
+    rows.append({"key": "char_fx", "kind": "cycle", "label": "Efekty postaci",
+                 "sub": "ruch, poświata i drobinki; mniej = lżej dla procesora",
+                 "value": _label([(k, l) for k, l, _ in characters.FX_LEVELS],
+                                 settings.get("char_fx", "full"))})
+    return rows
+
+
 def change(key):
     """A tap on a row's control: the next value. Returns the toast text."""
     _cache.clear()
@@ -231,6 +256,27 @@ def change(key):
         themes.set_theme(new)
         threading.Thread(target=_introduce, args=(new,), daemon=True, name="theme").start()
         return f"Motyw: {themes.THEMES[new]['label']}"
+    if key == "char_acc":
+        kind = characters.kind_of(themes.get())
+        if not kind:
+            return None
+        choices = characters.acc_choices(kind)
+        cur = characters.accessories(kind)
+        i = next((j for j, c in enumerate(choices) if set(c) == set(cur)), -1)
+        new = choices[(i + 1) % len(choices)]
+        characters.set_accessories(kind, new)
+        return f"Dodatki: {_acc_label(new)}"
+    if key == "retro_mode":
+        new = "face" if characters.retro_console() else "console"
+        settings.put("retro_mode", new)
+        characters._scache.clear()
+        return "Cała konsola" if new == "console" else "Sam ekran"
+    if key == "char_fx":
+        levels = [(k, l) for k, l, _ in characters.FX_LEVELS]
+        new = _next(levels, settings.get("char_fx", "full"))
+        settings.put("char_fx", new)
+        characters._scache.clear()
+        return f"Efekty: {_label(levels, new)}"
     if key in dict(_DEVICES):
         label = devices.pick_next(key)
         if key == "speaker":

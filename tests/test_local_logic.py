@@ -7452,7 +7452,8 @@ class ThemesTest(unittest.TestCase):
             self.assertEqual(themes.current(), "ice")
             self.assertEqual(sp.rows(1)[0]["value"], "Ice")
             self.assertEqual(sp.change("theme"), "Motyw: HAL 9000")
-            self.assertEqual(sp.change("theme"), "Motyw: Luna")
+            for label in ("NEX", "PIP", "RETRO", "PIXEL", "MOCHI", "ECHO", "Luna"):
+                self.assertEqual(sp.change("theme"), "Motyw: " + label)
         settings.put("theme", "nonsense")
         themes.set_theme(settings.get("theme"))
         self.assertEqual(themes.current(), "luna")
@@ -7721,6 +7722,239 @@ def load_tests(loader, tests, pattern):
                 _skip_missing(t)
     walk(tests)
     return tests
+
+
+class CharactersTest(unittest.TestCase):
+    """The six drawn characters (characters.py, gl_chars.py): complete data,
+    shaders written for GLSL 1.00 too, expression channels eased one by one,
+    gestures by priority in their own channels, deterministic when seeded,
+    the pose moved to each one's layout, the settings rows."""
+
+    def tearDown(self):
+        import characters
+        import themes
+        themes.set_theme("luna")
+        characters._pending.clear()
+        characters._scache.clear()
+
+    class Face:
+        """What CharLife and gl_chars.apply read of a RobotFace."""
+        class Part:
+            def __init__(self, rx, ry):
+                self.rel_x, self.rel_y = rx, ry
+
+        def __init__(self, emo="neutral"):
+            self._emotion, self._speaking, self._listen = emo, False, False
+            self._scene_name, self._gesture, self._touch_kind = None, None, None
+            self.fps = 30
+            self.left_eye, self.right_eye = self.Part(-158, -30), self.Part(158, -30)
+            self.mouth = self.Part(0, 120)
+
+    def life(self, kind="nex", seed=3):
+        import random
+        import characters
+        return characters.CharLife(kind, 100.0, rng=random.Random(seed))
+
+    def run_life(self, life, face, t0, secs, dt=1 / 30):
+        out, t = None, t0
+        for _ in range(int(secs / dt)):
+            t += dt
+            out = life.step(face, {"tint": 0.0}, t, dt)
+        return out, t
+
+    def test_every_character_is_complete(self):
+        import characters
+        import face_spec
+        import gl_chars
+        import themes
+        self.assertEqual(set(characters.KINDS), set(characters.CHARS))
+        for kind, c in characters.CHARS.items():
+            self.assertEqual(len(c["pal"]), 4, kind)
+            self.assertTrue(all(0.0 <= v <= 1.0 for col in c["pal"] for v in col), kind)
+            for k in ("eye_x", "eye_y", "eye_s", "mouth_y", "mouth_s"):
+                self.assertIn(k, c["layout"], kind)
+            self.assertLessEqual(set(c["spec"]), set(face_spec.BASE), kind)
+            self.assertLessEqual(set(c["acc_default"]), set(c["accessories"]), kind)
+            self.assertLessEqual(len(c["accessories"]), 4, kind)      # (uAcc: four flags)
+            self.assertTrue(all(a in characters.ACC_LABELS for a in c["accessories"]), kind)
+            self.assertIn(kind, gl_chars.SOURCES)
+            th = themes.THEMES[kind]
+            self.assertEqual(characters.kind_of(th), kind)
+            self.assertTrue(all(" " in w for w in th["wake"]), kind)   # "hej …" only
+        self.assertIsNone(characters.kind_of(themes.THEMES["hal"]))
+        self.assertEqual(characters.blink_pace(None), (1.0, 1.0))      # Luna's blinks as ever
+
+    def test_shaders_are_gles2(self):
+        """Every character's fragment shader as compiled: GLSL 1.20 / ES 1.00
+        only, its two entry points there, braces balanced, every uniform the
+        Python side sets declared."""
+        import re
+        import gl_chars
+        for kind, src in gl_chars.SOURCES.items():
+            fs = gl_chars._HEAD + src + gl_chars._MAIN
+            code = re.sub(r"//[^\n]*", "", fs)
+            self.assertEqual(code.count("{"), code.count("}"), kind)
+            for bad in (r"\btexture\(", r"\buint\b", r"<<", r">>", r"(?<!&)&(?!&)", r"(?<!\|)\|(?!\|)",
+                        r"\bin\s+vec", r"\bout\s+vec4\s+\w+\s*;", r"\bround\(", r"\btanh\("):
+                self.assertIsNone(re.search(bad, code), f"{kind}: {bad}")
+            self.assertRegex(code, r"vec3 soft\(vec2 p, vec2 uv\)", kind)
+            self.assertRegex(code, r"void shape\(vec2 p, inout vec4 acc\)", kind)
+            for name in ("uChA", "uChB", "uChC", "uChD", "uChE", "uChF", "uChG", "uAcc",
+                         "uPal0", "uPt0", "uT", "uCells", "uGrid", "uBlush"):
+                self.assertIn(name, gl_chars._HEAD, name)
+            self.assertEqual("GRID" in src, kind in gl_chars.GRIDS, kind)
+
+    def test_channels_ease_one_by_one(self):
+        face = self.Face("happy")
+        life = self.life()
+        ch, t = self.run_life(life, face, 100.0, 1.5)
+        self.assertGreater(ch["happy"], 0.95)
+        face._emotion = "sad"
+        ch, t = self.run_life(life, face, t, 0.1)
+        self.assertTrue(0.2 < ch["happy"] < 0.9 and 0.1 < ch["sad"] < 0.8)   # a glide, not a cut
+        ch, t = self.run_life(life, face, t, 2.0)
+        self.assertLess(ch["happy"], 0.02)
+        self.assertGreater(ch["sad"], 0.98)
+
+    def test_gestures_by_priority_and_channel(self):
+        import characters
+        face = self.Face()
+        life = self.life()
+        _, t = self.run_life(life, face, 100.0, 0.5)
+        life.start("nod", t)
+        life.start("look_around", t)
+        g = None
+        for _ in range(9):
+            t += 1 / 30
+            g = life.resolve(t)
+        self.assertNotEqual(g.get("body_y", 0.0), 0.0)                  # the nod nods…
+        self.assertNotEqual(g["gaze"][0], 0.0)                          # …the glance goes on
+        nod_y = characters.gesture_value("nod", 9 / 30)["body_y"]
+        self.assertAlmostEqual(g["body_y"], nod_y, places=6)
+        life.start("alert", t)                                           # the alert wins body_y
+        t += 0.05
+        g = life.resolve(t)
+        self.assertAlmostEqual(g["body_y"], characters.gesture_value("alert", 0.05)["body_y"])
+        self.assertGreater(g["alert"], 0.0)
+        for _ in range(100):
+            t += 1 / 30
+            g = life.resolve(t)
+        self.assertEqual(life.active, {})                                # all over: back to rest
+        self.assertEqual(g, {})
+
+    def test_gestures_from_the_app(self):
+        import characters
+        face = self.Face()
+        life = self.life()
+        _, t = self.run_life(life, face, 100.0, 0.2)
+        face._scene_name = "laugh"                       # a reply scene: celebrate
+        face._gesture = "shake"                          # robot_face's own shake
+        characters.trigger("confused")
+        characters.trigger("no such gesture")
+        characters._pending.append(("nod", 0.0))         # asked for long ago: dropped
+        ch, t = self.run_life(life, face, t, 0.4)
+        self.assertEqual(set(life.active), {"celebrate", "shake", "confused"})
+        self.assertGreater(ch["celebrate"], 0.1)
+        self.assertGreater(ch["confused"], 0.1)
+        self.assertNotEqual(ch["body_rot"], 0.0)
+
+    def test_deterministic_when_seeded(self):
+        face = self.Face("excited")
+        runs = []
+        for _ in range(2):
+            life = self.life("pixel", seed=9)
+            face._emotion = "angry"
+            seq, t = [], 100.0
+            for i in range(240):
+                t += 1 / 30
+                seq.append(sorted(life.step(face, {"tint": 0.6}, t, 1 / 30).items(), key=str))
+            runs.append(seq)
+        self.assertEqual(runs[0], runs[1])
+
+    def test_pixel_hardware_steps(self):
+        import characters
+        face = self.Face("happy")
+        life = self.life("retro")
+        seen, t = [], 100.0
+        for _ in range(60):                                 # 2 s at 30 fps
+            t += 1 / 30
+            seen.append(life.step(face, {"tint": 0.0}, t, 1 / 30)["happy"])
+        changes = sum(1 for a, b in zip(seen, seen[1:]) if a != b)
+        self.assertLessEqual(changes, 25)                   # 12 Hz steps, not 30
+        self.assertEqual(life.mouth_step(0.4), 0.5)
+        self.assertEqual(characters.CharLife("nex", 0.0).mouth_step(0.4), 0.4)
+
+    def test_slow_frames_drop_the_effects(self):
+        life = self.life()
+        for _ in range(40):                                  # 0.11 s frames at 30 fps asked
+            life.quality_step(0.11, 30)
+        self.assertEqual(life.quality, 0.0)
+        for _ in range(4000):
+            life.quality_step(1 / 30, 30)
+        self.assertEqual(life.quality, 1.0)
+
+    def test_apply_moves_the_pose_to_the_layout(self):
+        import characters
+        import gl_chars
+        import gl_face
+
+        class GL:
+            w, h = 800, 480
+            _box = gl_face.GLFace._box
+            char_life = None
+        gl = GL()
+        face = self.Face()
+        for kind in characters.KINDS:
+            u = {"uEye0": (242.0, 182.0, 232.0, 172.0), "uEye1": (558.0, 182.0, 232.0, 172.0),
+                 "uPupil0": (0.0, 0.0, 45.0, 1.0), "uPupil1": (0.0, 0.0, 45.0, 1.0),
+                 "uBrow0": (165.0, 70.0, 318.0, 70.0), "uBrow1": (481.0, 70.0, 634.0, 70.0),
+                 "uBrowK": (6.0, 6.0, 21.0, 1.0), "uMouth": (400.0, 332.0, 160.0, 17.0),
+                 "uMouthK": (14.0, 0.0, 1.0, 0.0), "uMouthSlant": 0.0, "uWave": 0.0,
+                 "uMorph": (0.0, 0.0, 0.0, 0.0), "uTilt": 0.0, "uBlush": (400.0, 212.0, 0.0, 30.0)}
+            gl_chars.apply(gl, face, u, {"tint": 0.0}, 400.0, 212.0, kind, 100.0, 1 / 30)
+            self.assertEqual(u["_char"], kind)
+            self.assertIs(gl.char_life.kind, kind)                     # a new life per character
+            L = characters.CHARS[kind]["layout"]
+            self.assertAlmostEqual(u["uEye1"][0], 400.0 + L["eye_x"], places=3)
+            self.assertAlmostEqual(u["uEye0"][2], 232.0 * L["eye_s"], places=3)
+            self.assertAlmostEqual(u["uMouth"][1], 212.0 + L["mouth_y"], places=3)
+            boxes = u["_char_boxes"]
+            self.assertTrue(boxes, kind)
+            for sid, (x0, y0, x1, y1) in boxes:
+                self.assertTrue(0 <= x0 < x1 <= 800 and 0 <= y0 < y1 <= 480, (kind, sid))
+            for k in ("uChA", "uChB", "uChC", "uChD", "uChE", "uChF", "uChG", "uAcc", "uPt3"):
+                self.assertEqual(len(u[k]), 4, (kind, k))
+
+    def test_settings_rows(self):
+        import characters
+        import settings_page as sp
+        import themes
+        themes.set_theme("luna")
+        sp._cache.clear()
+        self.assertNotIn("char_acc", [r.get("key") for r in sp.rows(1)])
+        themes.set_theme("mochi")
+        sp._cache.clear()
+        keys = [r.get("key") for r in sp.rows(1)]
+        self.assertIn("char_acc", keys)
+        self.assertNotIn("retro_mode", keys)
+        self.assertEqual(characters.accessories("mochi"), ("ears", "hat", "hearts"))
+        seen = set()
+        for _ in range(len(characters.acc_choices("mochi"))):
+            sp.change("char_acc")
+            seen.add(characters.accessories("mochi"))
+        self.assertIn((), seen)                                         # none…
+        self.assertIn(("ears",), seen)                                  # …each alone…
+        self.assertIn(characters.CHARS["mochi"]["accessories"], seen)   # …and all
+        themes.set_theme("retro")
+        self.assertTrue(characters.retro_console())
+        self.assertEqual(sp.change("retro_mode"), "Sam ekran")
+        self.assertFalse(characters.retro_console())
+        sp.change("retro_mode")
+        self.assertEqual(sp.change("char_fx"), "Efekty: spokojne")
+        self.assertEqual(characters.fx_level(), 0.5)
+        sp.change("char_fx")
+        sp.change("char_fx")
+        self.assertEqual(characters.fx_level(), 1.0)
 
 
 if __name__ == "__main__":

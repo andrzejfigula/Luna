@@ -28,6 +28,15 @@ import face_spec
 import themes
 import visualizer
 
+# the clock the animation runs on, and the hour (night: softer eyes) — the
+# preview and the tests put a fake one in (deterministic frames)
+def _clock():
+    return time.monotonic()
+
+
+def _hour():
+    return time.localtime().tm_hour
+
 _VERT = """
 attribute vec2 aPos;
 uniform vec4 uRect;           // x0, y0, x1, y1 in pixels, top-left origin
@@ -836,7 +845,7 @@ class _Life:
         self.sacc_t = 0.0                 # the next jump
         self.sacc_v = [0.0, 0.0]
         self.flick = None                 # (side, start) — one brow up a moment
-        self.flick_t = time.monotonic() + random.uniform(15, 35)
+        self.flick_t = _clock() + random.uniform(15, 35)
         self.shut_prev = 0.0
         self.seen = False                 # someone in view (last frame)
         self.seen_t = -9.0                # …since when: the pupils open on seeing them
@@ -844,7 +853,7 @@ class _Life:
         self.pop_t = -9.0                 # a new mood: the eyes pop a little
         self.emph_t = -9.0                # a stressed syllable: the brows lift
         self.lids = []                    # (start, dur, depth): half blinks, slow blinks…
-        self.half_t = time.monotonic() + random.uniform(8, 20)
+        self.half_t = _clock() + random.uniform(8, 20)
         self.cat_t = 0.0                  # love: the next slow blink
         self.talk = False                 # talking (last frame)
         self.press_t = -9.0               # the end of a sentence: the lips press
@@ -854,7 +863,7 @@ class _Life:
         self.up_at = -9.0
         self.yawned = False               # one yawn as she gets drowsy
         self.yawn_t = -99.0
-        self.mumble_t = time.monotonic() + random.uniform(8, 15)
+        self.mumble_t = _clock() + random.uniform(8, 15)
         self.mumble_at = -9.0
         self.smirk_t = 0.0                # happy: now and then a lopsided smile
         self.smirk = (-9.0, 1.0)
@@ -867,17 +876,17 @@ class _Life:
         self.lost = (-9.0, 0.0, 0.0)      # they left: (when, where the eyes were)
         self.last_look = (0.0, 0.0)
         self.aha_t = -9.0                 # done thinking: "aha!"
-        self.sigh_t, self.sigh_next = -9.0, time.monotonic() + random.uniform(25, 45)
+        self.sigh_t, self.sigh_next = -9.0, _clock() + random.uniform(25, 45)
         self.hmm_t, self.hmm_next = -9.0, 0.0     # thinking: a "hmm" purse of the lips
-        self.rem_t = time.monotonic() + random.uniform(20, 40)   # asleep: dreaming
+        self.rem_t = _clock() + random.uniform(20, 40)   # asleep: dreaming
         self.closed_at = -9.0             # the last blink: a fresh wet glint after
         self.touched = 0.0                # the last touch we reacted to
         self.taps = []                    # recent taps: three quick ones tickle
         self.giggle_t = -9.0
         self.boop_t = -9.0                # a tap on the nose: cross-eyed
         self.boing = (-9.0, 0)            # a tapped eye squashes and springs back
-        self.mood_t = time.monotonic()    # since when this mood
-        self.dream_t = time.monotonic() + random.uniform(40, 80)   # asleep: a smile
+        self.mood_t = _clock()    # since when this mood
+        self.dream_t = _clock() + random.uniform(40, 80)   # asleep: a smile
         self.waking = False
 
     def lid(self, now, i=-1):
@@ -1279,9 +1288,17 @@ class GLFace:
         # 0: glow, blush and the screen, small
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.soft_fbo)
         GL.glViewport(0, 0, self.sw, self.sh)
-        self._u("uPass", 0.0)
-        self._u("uRect", full)
-        self._quad()
+        ch = uniforms.get("_char")
+        if ch and not self._chars().usable(ch):
+            ch = None                        # (its shader failed: Luna's face instead)
+            GL.glUseProgram(self.prog)
+        if ch:                               # a drawn character (gl_chars.py)
+            self._chars().soft(ch, uniforms)
+            GL.glUseProgram(self.prog)
+        else:
+            self._u("uPass", 0.0)
+            self._u("uRect", full)
+            self._quad()
         # 1: stretched over the whole screen
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.target_fbo)
         GL.glViewport(0, 0, self.w, self.h)
@@ -1316,7 +1333,10 @@ class GLFace:
             self._fx().draw(uniforms["_fx_back"], tilt)
             GL.glUseProgram(pl.id)
         # 2: the sharp shapes, each in its own box
-        if uniforms.get("uFace", 0.0) > 0.5:
+        if uniforms.get("uFace", 0.0) > 0.5 and ch:
+            self._chars().shapes(ch, uniforms)
+            GL.glUseProgram(pl.id)
+        elif uniforms.get("uFace", 0.0) > 0.5:
             GL.glUseProgram(self.prog)
             self._u("uPass", 2.0)
             for i, rect in enumerate(self.shape_rects):
@@ -1340,6 +1360,12 @@ class GLFace:
             self._rows(pl, self.screen_l.runs())
         GL.glUseProgram(self.prog)
         GL.glDisable(GL.GL_BLEND)
+
+    def _chars(self):
+        if getattr(self, "chars", None) is None:
+            import gl_chars
+            self.chars = gl_chars.CharPass(self)
+        return self.chars
 
     def _fx(self):
         if self.fx is None:
@@ -1429,7 +1455,7 @@ class GLFace:
         globals). The mood's settings (face_spec.py), eased over real time,
         with the live animation on top: blinks close the lids, squints and
         wide eyes from the reply scenes, the gaze, the mouth while talking."""
-        now = time.monotonic()
+        now = _clock()
         dt = (now - self._t_last) if self._t_last else 1.0 / 30
         self._t_last = now
         emo = face._emotion
@@ -1438,6 +1464,7 @@ class GLFace:
         target.update(getattr(face, "_spec_mod", None) or {})   # a reply scene's touch
         theme = themes.get()                      # Ice's rectangles, HAL's lens
         theme_spec(target, theme)
+        kind = theme.get("char")                  # a drawn character (gl_chars.py)
         googly = costume == "googly_eyes"
         if googly:                                # big round googly eyes, nothing else
             target.update(COSTUME_SPEC["googly_eyes"])
@@ -1540,7 +1567,7 @@ class GLFace:
         beatv = (max(0.0, math.sin(now * math.tau * 1.15)) ** 4) * cur["heart"]
         # after a blink: a fresh wet glint
         glint = life.bump(now, life.closed_at + 0.12, 0.7)
-        hour = time.localtime().tm_hour
+        hour = _hour()
         night = 1.0 if (hour >= 22 or hour < 6) else 0.0     # late: softer, warmer eyes
         yawn = life.yawn(now)
         away = life.bump(now, life.away[0], 0.9)
@@ -1777,6 +1804,9 @@ class GLFace:
             if not getattr(self, "_vis_err", False):
                 self._vis_err = True
                 print(f"[vis] {e}", flush=True)
+        if kind:
+            import gl_chars
+            gl_chars.apply(self, face, u, cur, fcx, fcy, kind, now, dt)
         self.shape_rects = self._shape_boxes(u)
         return u
 
@@ -1799,7 +1829,7 @@ class GLFace:
         return _lerp(vw, 1.05, fric), _lerp(vh, 0.50, fric), fric
 
     def _viseme(self, e, shape=None):
-        now = time.monotonic()
+        now = _clock()
         prev = getattr(self, "_vis_prev", 0.0)
         if e - prev > 0.07 or now - getattr(self, "_vis_t", 0.0) > 0.30:
             self._vis = random.randrange(len(self.VISEMES))
@@ -1826,7 +1856,7 @@ class GLFace:
         slant, open_ = cur["mouth_slant"], 0.0
         alpha = cur["mouth_a"] * self.eased.mouth_fade
         w *= 1.0 + 0.02 * math.sin(getattr(face, "breath_phase", 0.0))   # breathing
-        now = time.monotonic()
+        now = _clock()
         if face._emotion == "thinking":           # mulling it over: the mouth drifts
             mx += 10.0 * math.sin(now * 0.9)
             slant += 3.0 * math.sin(now * 0.6)

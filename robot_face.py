@@ -34,6 +34,7 @@ import random
 import time
 import numpy as np
 from shared_state import state
+import characters
 import face_spec
 import gallery
 import gl_fx
@@ -2409,6 +2410,8 @@ class RobotFace:
         if emotion != "sleeping":
             self.blink_counter += _K
             trigger = self.blink_timer if not speaking else 180
+            # a drawn character's own rhythm (characters.py): ECHO slow, PIP quick
+            b_pace, b_speed = characters.blink_pace(characters.kind_of(themes.get()))
 
             if listening and not speaking:
                 trigger = int(trigger * 1.3)      # listening: she blinks less
@@ -2419,7 +2422,7 @@ class RobotFace:
 
             d = getattr(self, "_blink_dir", 0)
             if d == -1:
-                self.blink_open -= 0.34 * _K     # fast close (~3 frames)
+                self.blink_open -= 0.34 * _K * b_speed   # fast close (~3 frames)
                 if self.blink_open <= 0.0:
                     self.blink_open = 0.0
                     self._blink_dir = 1
@@ -2428,14 +2431,14 @@ class RobotFace:
                 # as a sleepy "back to rest" blink
                 # (sad and drowsy eyes open slowly)
                 slow = self.rest_pulse > 0.35 or emotion == "sad" or self._drowsy > 0.3
-                self.blink_open += 0.16 * (0.45 if slow else 1.0) * _K
+                self.blink_open += 0.16 * (0.45 if slow else 1.0) * _K * b_speed
                 if self.blink_open >= 1.0:
                     self.blink_open  = 1.0
                     self._blink_dir  = 0
                     # the mood sets the rhythm: sad and drowsy blink slower,
                     # excited and surprised eyes hardly at all
                     self.blink_timer = int(random.randint(100, 220) * BLINK_PACE.get(
-                        emotion, 1.4 if self._drowsy > 0.3 else 1.0))
+                        emotion, 1.4 if self._drowsy > 0.3 else 1.0) * b_pace)
                     # occasionally double-blink — very lifelike
                     if random.random() < 0.18 and not speaking:
                         self.blink_counter = self.blink_timer - 8
@@ -3153,12 +3156,14 @@ class RobotFace:
                 u = (ph + j / 3.0) % 1.0
                 arcs.append((112 - 50 * u, k * math.sin(math.pi * u) ** 1.3))
             draw_side_arcs(base, self.face_cx + self.face_ox, self.face_cy + self.face_oy - 30,
-                           EYE_SPREAD + 95, arcs, theme_fx().get("listen", LISTEN_WAVE_COL))
+                           theme_fx().get("listen_r", EYE_SPREAD + 95), arcs,
+                           theme_fx().get("listen", LISTEN_WAVE_COL))
         if self._gesture in ("nod", "shake"):
             env = math.sin(math.pi * self._gesture_p)
             arcs = [(70, env)] + ([(98, env * 0.7)] if self._gesture == "shake" else [])
             draw_side_arcs(base, self.face_cx + self.face_ox, self.face_cy + self.face_oy - 30,
-                           EYE_SPREAD + 95, arcs, theme_fx().get("listen", EYE_MID))
+                           theme_fx().get("listen_r", EYE_SPREAD + 95), arcs,
+                           theme_fx().get("listen", EYE_MID))
 
         # ── eyes ──────────────────────────────────────────────────────────
         lx = fcx + self.left_eye.rel_x

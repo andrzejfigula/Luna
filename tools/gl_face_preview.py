@@ -19,6 +19,12 @@ fed through visualizer.tap on a fake clock, two frames per style.
 What gl_fx.py draws over the face — the listening waves, hands (HAL: glyphs),
 costumes — per theme, on the real RobotFace; a sheet each and every frame.
 
+    … tools/gl_face_preview.py --chars [out_dir] [kind…]
+
+The drawn characters (gl_chars.py) and Luna's three skins: a sheet each of
+every expression, visemes, gestures and accessories, a GIF of transitions and
+speech, and each one's GPU time per frame — on a fake clock, seeded.
+
     … tools/gl_face_preview.py --lamp [out.png] [scene…]
 
 The lamp's scenes (lamp_scenes.py): two frames each and the GPU time; one
@@ -471,7 +477,161 @@ def lamp_motion(out, scene, secs=8.0, fps=12, start=30.0):
     print(f"[lamp] wrote {gif} and {out} (every {5 / fps:.2f} s)")
 
 
+# the drawn characters (characters.py, gl_chars.py): every expression, the
+# voice's visemes, gestures, accessories — deterministic (a fake clock, seeded)
+CHAR_POSES = [
+    ("neutral", {}, None),
+    ("happy", dict(emotion="happy", blush=170), None),
+    ("thinking", dict(emotion="thinking"), None),
+    ("sad", dict(emotion="sad", droop=1.0, oy=10), None),
+    ("angry", dict(emotion="angry"), None),
+    ("surprised", dict(emotion="surprised", widen=1.0), None),
+    ("listening", dict(listen=True, widen=0.6), None),
+    ("speaking", dict(speak=0.6), "visemes"),
+    ("blink+speak", dict(speak=0.5, blink=0.12), "visemes"),
+    ("sleeping", dict(emotion="sleeping", blink=0.0), None),
+    ("love", dict(emotion="love"), None),
+    ("excited", dict(emotion="excited"), None),
+    ("celebrate", dict(emotion="happy"), "g:celebrate"),
+    ("confused", {}, "g:confused"),
+    ("alert", {}, "g:alert"),
+    ("nod", {}, "g:nod"),
+    ("glance", dict(ox=-40, oy=-14), None),
+    ("all accessories", dict(emotion="happy"), "acc:all"),
+    ("no accessories", {}, "acc:none"),
+    ("effects off", {}, "fx:off"),
+]
+# a few of her real sounds: (brightness, zero-crossings) of openai_tts.Envelope, and the jaw
+VISEME_TRACK = [((0.10, 0.05), 0.7), ((0.07, 0.04), 0.55), ((0.20, 0.08), 0.45),
+                ((0.90, 0.50), 0.25), ((0.12, 0.05), 0.8), ((0.06, 0.03), 0.6),
+                ((0.0, 0.0), 0.02), ((0.16, 0.06), 0.5)]
+
+
+def chars_sheet(out_dir, kinds=None):
+    egl_context()
+    fbo = framebuffer()
+    import random
+    from PIL import Image, ImageDraw
+    import robot_face as rf
+    import characters
+    import face_spec
+    import gl_chars
+    import gl_face
+    import themes
+    os.makedirs(out_dir, exist_ok=True)
+    clock = [5000.0]
+    gl_face._clock = lambda: clock[0]
+    gl_face._hour = lambda: 14
+    random.seed(7)
+    gl_chars.seed(7)
+    rf.apply_style(3)
+    g = gl_face.GLFace(W, H)
+    g.target_fbo = fbo
+    face = FakeFace(rf)
+    face.mouth.rel_y = face_spec.LAYOUT["mouth_y"]
+    for e in (face.left_eye, face.right_eye):
+        e.rel_y = face_spec.LAYOUT["eye_y"]
+    fcx, fcy = W // 2, H // 2 + rf.FACE_Y_OFFSET
+    acc_real, con_real, fx_real = (characters.accessories, characters.retro_console,
+                                   characters.fx_level)
+    timings = {}
+
+    def frame(n, track=False, setup=None, kind=None):
+        u = None
+        for i in range(n):
+            clock[0] += 1 / 30
+            if track:
+                (b, z), jaw = VISEME_TRACK[int(clock[0] * 9) % len(VISEME_TRACK)]
+                face._audio_shape = (b, z)
+                face.mouth.talk_open = jaw
+                face._audio_energy = jaw
+            if setup and setup.startswith("g:") and i == n - 18:
+                characters.trigger(setup[2:])
+            u = g.face_uniforms(face, rf, fcx, fcy)
+        return u
+
+    def shot(u, label):
+        g.render(u)
+        px = GL.glReadPixels(0, 0, W, H, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE)
+        img = Image.frombytes("RGBA", (W, H), px).transpose(Image.FLIP_TOP_BOTTOM).convert("RGB")
+        ImageDraw.Draw(img).text((10, 8), label, fill=(255, 255, 255))
+        return img
+
+    for kind in kinds or ("luna", "ice", "hal") + characters.KINDS:
+        themes.current = lambda now=None, key=kind: key
+        modes = [None]
+        if kind == "retro":
+            modes = ["console", "face"]
+        for mode in modes:
+            characters.retro_console = (lambda now=None, m=mode: m != "face")
+            tiles = []
+            for label, kw, setup in CHAR_POSES:
+                characters.accessories = acc_real
+                characters.fx_level = fx_real
+                if kind in characters.CHARS and setup == "acc:all":
+                    characters.accessories = lambda k, now=None: characters.CHARS[k]["accessories"]
+                elif kind in characters.CHARS and setup == "acc:none":
+                    characters.accessories = lambda k, now=None: ()
+                elif setup == "fx:off":
+                    characters.fx_level = lambda now=None: 0.0
+                face.pose(**kw)
+                face._audio_shape, face._audio_energy, face._gesture = None, 0.0, None
+                face.fps = 30
+                if getattr(g, "char_life", None):     # (each pose on its own: no gesture left over)
+                    g.char_life.active.clear()
+                u = frame(40, setup == "visemes", setup, kind)
+                tiles.append(shot(u, f"{kind}{'/' + mode if mode else ''}: {label}"))
+            # the cost of a frame: GPU time, the speaking pose
+            face.pose(speak=0.6)
+            u = frame(10, True)
+            GL.glFinish()
+            t0 = time.perf_counter()
+            for _ in range(60):
+                g.render(u)
+            GL.glFinish()
+            gpu = (time.perf_counter() - t0) / 60 * 1000
+            t0 = time.perf_counter()
+            for _ in range(60):
+                clock[0] += 1 / 30
+                u = g.face_uniforms(face, rf, fcx, fcy)
+            cpu = (time.perf_counter() - t0) / 60 * 1000
+            name = kind + ("_" + mode if mode else "")
+            timings[name] = (gpu, cpu)
+            print(f"[chars] {name}: GPU {gpu:.1f} ms a frame, uniforms (CPU) {cpu:.2f} ms",
+                  flush=True)
+            # a transition strip and the speaking, as a GIF (15 fps)
+            seq = []
+            for emo, n in (("neutral", 8), ("happy", 14), ("sad", 14), ("surprised", 10),
+                           ("angry", 12), ("neutral", 10)):
+                face.pose(emotion=emo)
+                for _ in range(n):
+                    u = frame(2)
+                    seq.append(shot(u, f"{name}: {emo}").resize((W // 2, H // 2)))
+            face.pose(speak=0.6)
+            for _ in range(36):
+                u = frame(2, True)
+                seq.append(shot(u, f"{name}: speaking").resize((W // 2, H // 2)))
+            seq[0].save(os.path.join(out_dir, f"{name}.gif"), save_all=True,
+                        append_images=seq[1:], duration=66, loop=0)
+            cols = 4
+            rows = (len(tiles) + cols - 1) // cols
+            sheet = Image.new("RGB", (cols * W // 2, rows * H // 2))
+            for i, t in enumerate(tiles):
+                sheet.paste(t.resize((W // 2, H // 2), Image.LANCZOS),
+                            ((i % cols) * W // 2, (i // cols) * H // 2))
+            sheet.save(os.path.join(out_dir, f"{name}_sheet.png"))
+            tiles[0].save(os.path.join(out_dir, f"{name}_neutral.png"))
+    characters.accessories, characters.retro_console, characters.fx_level = (
+        acc_real, con_real, fx_real)
+    print(f"[chars] wrote {out_dir}; programs compiled "
+          f"{g.chars.made if getattr(g, 'chars', None) else 0}")
+    return timings
+
+
 def main():
+    if "--chars" in sys.argv:                         # --chars [out_dir] [kind…]
+        args = [a for a in sys.argv[1:] if not a.startswith("--")]
+        return chars_sheet(args[0] if args else "/tmp/gl_chars", args[1:] or None)
     if "--motion" in sys.argv:                        # --motion out.png scene [secs]
         args = [a for a in sys.argv[1:] if not a.startswith("--")]
         return lamp_motion(args[0], args[1], float(args[2]) if len(args) > 2 else 8.0,
