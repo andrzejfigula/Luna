@@ -7948,10 +7948,10 @@ class CharactersTest(unittest.TestCase):
             # each big function called once: every call is a copy in the compiled
             # shader (22 Oct: eight prop() copies — 50-80 s in the Pi's compiler, the
             # watchdog restarted her into the same compile)
-            self.assertEqual(len(re.findall(r"prop\(p,", code)), 1, kind)
+            self.assertEqual(len(re.findall(r"\bprop\(p,", code)), 1, kind)
             for fn in ("nEye", "mEye", "pEyeDraw", "eEye"):
-                self.assertLessEqual(len(re.findall(r"%s\(p," % fn, code)), 1, (kind, fn))
-            self.assertEqual(len(re.findall(r"props\(p, acc\)", code)), 1, kind)
+                self.assertLessEqual(len(re.findall(r"\b%s\(p," % fn, code)), 1, (kind, fn))
+            self.assertEqual(len(re.findall(r"\bprops\(p, acc\)", code)), 1, kind)
         self.assertIn("PASS_SOFT", gl_chars._MAIN)             # a program per stage
         self.assertIn("PASS_CELLS", gl_chars._MAIN)
 
