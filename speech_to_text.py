@@ -65,6 +65,7 @@ from config import (
     CLOUD_STT_MAX_SECS,
     STT_END_SILENCE,
     STT_END_SILENCE_SHORT,
+    STT_END_SILENCE_WAIT,
     STT_SAVE_UTTERANCES,
     CLOUD_WAKE_CHECK,
     CLOUD_WAKE_MIN_INTERVAL,
@@ -529,6 +530,13 @@ def _spec_cancel():
     global _spec
     with _spec_lock:
         _spec = None
+
+
+def _spec_pending():
+    """A speculative request is still on its way: the answer waits for it
+    anyway, so the utterance can wait too (see STT_END_SILENCE_WAIT)."""
+    with _spec_lock:
+        return _spec is not None and not _spec["done"].is_set()
 
 
 def _spec_take(pcm16k):
@@ -1403,6 +1411,9 @@ def listen():
                 utt_t0 = time.time() - len(data) / (VOSK_SAMPLE_RATE * 2)
             if silent_run >= SPEC_AFTER and _spec is not None:
                 _spec_cancel()                   # they went on: it wasn't the end
+            if voiced and silent_run >= STT_END_SILENCE:
+                print(f"[STT] pause of {silent_run:.2f}s mid-sentence — kept listening",
+                      flush=True)
             voiced, silent_run, spec_tried = True, 0.0, False
 
         # Vosk only calls the utterance finished after ~1.05 s of silence
@@ -1440,6 +1451,10 @@ def listen():
                   f"(silence {silent_run:.2f}s)", flush=True)
             final = False
         early = not final and voiced and silent_run >= end_after
+        if early and silent_run < STT_END_SILENCE_WAIT and _spec_pending():
+            # the transcript isn't back yet: a pause, not the end, until it is
+            # (22 Oct: Emilka cut off mid-thought at a 0.6 s pause)
+            early = False
         if (final or early) and voiced:
             with state.lock:                 # the speech itself ended this long ago
                 state.heard_at = time.time() - silent_run

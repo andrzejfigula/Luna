@@ -46,7 +46,7 @@ import timers
 import weather
 
 from text_to_speech import speak, speak_stream, play_sound
-from shared_state import state
+from shared_state import close_after, state
 from config import (
     FACE_OVERRIDE_SECS,
     GESTURE_DURATION,
@@ -2492,6 +2492,21 @@ def _think_filler(answered):
 _process_lock = threading.RLock()     # one answer at a time, whichever thread asks
 
 
+_WEATHER_WORDS = re.compile(r"\b(?:pogod\w*|prognoz\w*|temperatur\w*|stopni\w*|pada\w*|"
+                            r"padać|padnie|popada\w*|deszcz\w*|śnie\w*|burz\w*|mr[oó]z\w*|"
+                            r"parasol\w*|wiatr\w*|wieje|słońc\w*|ciepło|zimno)\b", re.I)
+
+
+def weather_told(text, gesture):
+    """A short weather question answered ("jaka jutro pogoda?", "kiedy przestanie
+    padać?"): the window closes after it like after a timer (22 Oct: she kept
+    listening after the forecast)."""
+    if len(text.split()) > 12 or not _WEATHER_WORDS.search(text):
+        return False
+    return gesture in ("sunny", "cloudy", "rainy", "snowy") or bool(
+        re.search(r"\b(?:pogod|prognoz)", text, re.I))
+
+
 def process(text, context=None):
     """context: extra system-prompt text for this one question (news.py).
     Usually called from the voice thread; reading.py's end-after-silence
@@ -2565,6 +2580,8 @@ def _process(text, context=None):
         reply, emotion, gesture = result
         if not speaker:                              # answered without streaming
             _show(emotion, gesture)
+        if weather_told(text, gesture):
+            close_after()                            # (main keeps it open if she asked back)
     elif speaker:                                    # broke off mid-answer
         reply, emotion, gesture = "", head["emotion"], head["gesture"]
     else:

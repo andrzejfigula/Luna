@@ -1625,6 +1625,7 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
     import clock
     said = clock.answer(text)
     if said:
+        close_after()                           # (a plain fact: nothing follows)
         speak(said)
         return True
 
@@ -1775,6 +1776,7 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
             or timers.cancel_answer(text)          # "anuluj minutnik"
             or weather.sun_answer(text))           # "o której zachód słońca?"
     if said:
+        close_after()                              # (answered: nothing follows)
         speak(said)
         return True
     said = timers.left_answer(text)                # "ile zostało na minutniku?"

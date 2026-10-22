@@ -2430,6 +2430,14 @@ class KidsTest(unittest.TestCase):
                          "Powiedz „włącz efekty”, gdy zechcesz. A może coś jeszcze?"):
                 brain._history[-1]["content"] = said
                 self.assertTrue(brain.awaits_answer(), said)
+            # a weather answer closes the window (22 Oct: she listened on after it)
+            self.assertTrue(brain.weather_told("Jaka będzie jutro pogoda?", "none"))
+            self.assertTrue(brain.weather_told("A kiedy przestanie padać?", "cloudy"))
+            self.assertFalse(brain.weather_told("A kiedy przestanie padać?", "none"))
+            self.assertFalse(brain.weather_told("Co robisz?", "sunny"))
+            self.assertFalse(brain.weather_told("Opowiedz mi długą bajkę o deszczu, który "
+                                                "padał na smoka w lesie przez całe trzy dni",
+                                                "rainy"))
         finally:
             brain._history[:] = old
 
@@ -4160,9 +4168,10 @@ class KidsTest(unittest.TestCase):
                     mock.patch.object(lists, "_save", lambda *a, **k: None, create=True):
                 for text in ("Włącz lampkę", "Lampka meduzy", "Zmień lampkę", "Wyłącz lampkę",
                              "Minutnik na 10 minut", "Przypomnij mi za 20 minut o praniu",
-                             "Obudź mnie o 6:30", "Anuluj minutnik", "Przyciemnij ekran"):
+                             "Obudź mnie o 6:30", "Anuluj minutnik", "Przyciemnij ekran",
+                             "Która godzina?"):
                     self.assertTrue(closes(text), text)
-                for text in ("Ciszej", "Mów wolniej", "Jakie masz lampki?", "Która godzina?",
+                for text in ("Ciszej", "Mów wolniej", "Jakie masz lampki?",
                              "Ile to jest 17 razy 23?"):
                     self.assertFalse(closes(text), text)
         finally:

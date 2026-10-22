@@ -297,6 +297,8 @@ STT_END_SILENCE = 0.6    # (was 0.75 — 6 Oct: "more snappy"; a sentence cut mi
 STT_END_SILENCE_SHORT = 1.1   # ...but one or two words ("Nie.", "No więc…") wait
                          # longer: a pause after an opener is the middle of a
                          # thought (6 Oct: "Ale nie przerywaj mi, jak mówię")
+STT_END_SILENCE_WAIT = 1.2   # while the early transcript is still on its way, a
+                         # pause up to this long is not the end (22 Oct: Emilka cut off)
 
 # Print per-utterance rms/confidence so the thresholds above can be tuned.
 STT_DEBUG_AUDIO = True
