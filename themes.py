@@ -140,8 +140,10 @@ _TAIL = (" Every reply, even a plain fact like the weather, is said in character
 def _char(kind, **t):
     """A drawn character's theme: its face from characters.py, the rest here.
     ["eyes"]: its colours for Luna's own shader too (the fallback, if its own
-    ever failed to compile). Wake words: "hej …" phrases only — a bare new
-    name would join the fuzzy name match and wake her for the radio."""
+    ever failed to compile). Wake words: the name as Vosk's small Polish
+    model can write it — it has no "nex" or "mochi", so it hears "next" and
+    "moczy" (22 Oct: "Nex" never woke her); the real spelling stays for the
+    cloud's transcript."""
     t["char"] = kind
     t["spec"] = characters.theme_spec(kind)
     a, b, c, d = characters.CHARS[kind]["pal"]
@@ -158,7 +160,7 @@ THEMES.update({
     "nex": _char(
         "nex", label="NEX", sub="kosmiczne oczy, tajemnicza i figlarna",
         name="Nex", call="Nex", hello="Tu Nex. Gwiazdy mówiły, że przyjdziesz.",
-        wake=["hej nex", "hej neks"],
+        wake=["nex", "neks", "next", "hej nex", "hej next"],
         voice="sage", speed=1.0,
         tts=("Voice identity: a calm, low, slightly amused young woman; unhurried, "
              "a little mysterious, a playful smile on the last word. Native Polish pronunciation."),
@@ -175,7 +177,7 @@ THEMES.update({
     "pip": _char(
         "pip", label="PIP", sub="neonowa maskotka, energiczny pomocnik",
         name="Pip", call="Pip", male=True, hello="Pip! Gotowy, naładowany, do usług!",
-        wake=["hej pip"],
+        wake=["pip", "hej pip"],
         voice="verse", speed=1.1,
         tts=("Voice identity: an upbeat, bright, energetic young man; quick and cheerful, "
              "smiling while he talks, enthusiastic but never shouting. Native Polish pronunciation."),
@@ -191,7 +193,7 @@ THEMES.update({
     "retro": _char(
         "retro", label="RETRO", sub="konsola z lat 80., ciepłe piksele",
         name="Retro", call="Retro", male=True, hello="Wczytywanie… gotowe! Retro gotowy do gry.",
-        wake=["hej retro"],
+        wake=["retro", "hej retro"],
         voice="ash", speed=1.05,
         tts=("Voice identity: a warm, nostalgic, cheerful man, a bit like an old games "
              "show host; friendly and quirky, a playful twinkle. Native Polish pronunciation."),
@@ -208,7 +210,7 @@ THEMES.update({
     "pixel": _char(
         "pixel", label="PIXEL", sub="twarz z pikseli, bezpośrednia i dowcipna",
         name="Pixel", call="Pixel", hello="Pixel online. Wszystkie piksele na miejscu.",
-        wake=["hej pixel", "hej piksel"],
+        wake=["pixel", "piksel", "hej pixel", "hej piksel"],
         voice="nova", speed=1.1,
         tts=("Voice identity: a bright, crisp, quick-witted young woman; direct and "
              "expressive, a dry little laugh in her voice. Native Polish pronunciation."),
@@ -223,7 +225,7 @@ THEMES.update({
     "mochi": _char(
         "mochi", label="MOCHI", sub="różowy pluszak, słodka i wspierająca",
         name="Mochi", call="Mochi", hello="Hej, tu Mochi! Przytulas na powitanie?",
-        wake=["hej mochi", "hej moczi"],
+        wake=["mochi", "moczi", "moczy", "hej mochi", "hej moczy"],
         voice="coral", speed=1.0,
         tts=("Voice identity: a soft, warm, sweet young woman; gentle and caring, a "
              "smile in her voice, cosy and calm, never babyish. Native Polish pronunciation."),
@@ -240,7 +242,7 @@ THEMES.update({
     "echo": _char(
         "echo", label="ECHO", sub="ludzka twarz, białe oczy, spokojna",
         name="Echo", call="Echo", hello="Jestem Echo. Słucham.",
-        wake=["hej echo"],
+        wake=["echo", "hej echo"],
         voice="shimmer", speed=0.95,
         tts=("Voice identity: a calm, quiet, composed woman; smooth and even, thoughtful "
              "pauses, a little enigmatic, never cold. Native Polish pronunciation."),

@@ -7780,9 +7780,26 @@ class CharactersTest(unittest.TestCase):
             self.assertIn(kind, gl_chars.SOURCES)
             th = themes.THEMES[kind]
             self.assertEqual(characters.kind_of(th), kind)
-            self.assertTrue(all(" " in w for w in th["wake"]), kind)   # "hej …" only
+            self.assertIn("hej " + th["wake"][-1].split()[-1], th["wake"], kind)
         self.assertIsNone(characters.kind_of(themes.THEMES["hal"]))
         self.assertEqual(characters.blink_pace(None), (1.0, 1.0))      # Luna's blinks as ever
+
+    def test_wake_words_vosk_can_hear(self):
+        """Vosk's small Polish model has no "nex" / "mochi": it writes what it
+        knows ("next", "moczy") — those wake them; the cloud's spelling too."""
+        import themes
+        try:
+            import speech_to_text as s
+        except ImportError:
+            self.skipTest("sounddevice")
+        themes.set_theme("nex")
+        self.assertIsNotNone(s._find_wake_word(["next", "która", "godzina"]))
+        self.assertIsNotNone(s._find_wake_word(["luna", "która", "godzina"]))
+        self.assertTrue(s._cloud_has_wake("Nex, która godzina?"))
+        themes.set_theme("mochi")
+        self.assertIsNotNone(s._find_wake_word(["moczy", "opowiedz", "bajkę"]))
+        themes.set_theme("luna")
+        self.assertIsNone(s._find_wake_word(["next", "która", "godzina"]))
 
     def test_shaders_are_gles2(self):
         """Every character's fragment shader as compiled: GLSL 1.20 / ES 1.00
