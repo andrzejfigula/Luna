@@ -1411,7 +1411,7 @@ def listen():
                 utt_t0 = time.time() - len(data) / (VOSK_SAMPLE_RATE * 2)
             if silent_run >= SPEC_AFTER and _spec is not None:
                 _spec_cancel()                   # they went on: it wasn't the end
-            if voiced and silent_run >= STT_END_SILENCE:
+            if active and voiced and silent_run >= STT_END_SILENCE:
                 print(f"[STT] pause of {silent_run:.2f}s mid-sentence — kept listening",
                       flush=True)
             voiced, silent_run, spec_tried = True, 0.0, False
@@ -1451,9 +1451,10 @@ def listen():
                   f"(silence {silent_run:.2f}s)", flush=True)
             final = False
         early = not final and voiced and silent_run >= end_after
-        if early and silent_run < STT_END_SILENCE_WAIT and _spec_pending():
+        if early and active and silent_run < STT_END_SILENCE_WAIT and _spec_pending():
             # the transcript isn't back yet: a pause, not the end, until it is
-            # (22 Oct: Emilka cut off mid-thought at a 0.6 s pause)
+            # (22 Oct: Emilka cut off mid-thought at a 0.6 s pause). Not while
+            # waiting for "Luna": room noise glued before it hid her name (12:52)
             early = False
         if (final or early) and voiced:
             with state.lock:                 # the speech itself ended this long ago
