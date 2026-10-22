@@ -7527,8 +7527,9 @@ class DevicesTest(unittest.TestCase):
             vol[0] = 1.0
             self.assertEqual(sp.change("volume"), "Głośność 30 %")    # round again
         try:
-            self.assertEqual(sp.change("brightness"), "Jasność 80 %")
-            self.assertEqual(display.base_percent(), 80)
+            with mock.patch.dict(os.environ, {"LUNA_BRIGHTNESS": "100"}):   # (the Pi's .env: less)
+                self.assertEqual(sp.change("brightness"), "Jasność 80 %")
+                self.assertEqual(display.base_percent(), 80)
             self.assertEqual(sp.change("night_quiet"), "W nocy tak samo głośno")
             audio_out._nq[0] = 0.0
             self.assertFalse(audio_out.night_quiet())
