@@ -170,14 +170,10 @@ def rows(tab, now=None):
 
 def _rows(tab):
     if tab == 0:
-        speed = settings.get("tts_speed", OPENAI_TTS_SPEED)
         return [
             {"key": "language", "kind": "cycle", "label": "Język",
              "sub": "w jakim języku odpowiada",
              "value": _label(_LANGS, language())},
-            {"key": "tts_speed", "kind": "cycle", "label": "Tempo mowy",
-             "sub": "wspólne dla całego domu",
-             "value": f"{speed:.1f}×".replace(".", ",")},
             {"key": "reply_length", "kind": "cycle", "label": "Długość odpowiedzi",
              "sub": "jak długo mówi", "value": _label(_LENGTHS, settings.get("reply_length", "normal"))},
             {"key": "captions", "kind": "toggle", "label": "Napisy",
@@ -188,8 +184,12 @@ def _rows(tab):
     name = TABS[tab]
     if name == "Asystent":                # who she is: the theme, its character's own rows
         th = themes.get()
+        speed = settings.get("tts_speed", OPENAI_TTS_SPEED)
         return [{"key": "theme", "kind": "cycle", "label": "Motyw",
-                 "sub": th["sub"], "value": th["label"]}] + char_rows(th)
+                 "sub": th["sub"], "value": th["label"]},
+                {"key": "tts_speed", "kind": "cycle", "label": "Tempo mowy",
+                 "sub": "wspólne dla całego domu",
+                 "value": f"{speed:.1f}×".replace(".", ",")}] + char_rows(th)
     if name == "Ekran":
         return [
             {"key": "brightness", "kind": "cycle", "label": "Jasność",
