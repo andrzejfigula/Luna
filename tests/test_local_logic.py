@@ -1594,6 +1594,11 @@ class ListsTest(unittest.TestCase):
                   "wyrzuć z ulubionych", "skreśl wszystko"):
             self.assertIsNone(lists.local_remove(t), t)
         self.assertEqual(lists.get("do zrobienia"), ["umyć auto"])
+        # "Kupiłam mleko" — off the shopping list only; anything else is talk
+        lists._lists = {"zakupy": ["mleko", "chleb"], "do zrobienia": ["kupić prezent"]}
+        self.assertEqual(lists.local_remove("Kupiłam mleko"), "Skreśliłam: mleko.")
+        for t in ("Kupiłam prezent", "Kupiłem Emilce kolczyki, tylko jej nie mów"):
+            self.assertIsNone(lists.local_remove(t), t)
 
     def test_local_add(self):
         self.assertEqual(lists.local_add("Dopisz mleko i chleb do listy zakupów"),
