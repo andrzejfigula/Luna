@@ -57,8 +57,10 @@ After a brain.py / prompt change, run ONE real-model line
 
 ## Pitfalls
 
-- Patches: use the Edit tool or a script FILE. Python/bash heredocs turn `\b`
-  into a backspace byte and mangle `\n` (deploy.sh refuses control chars).
+- Patches: use the Edit tool, or a script file written with the Write tool.
+  Python/bash heredocs (even one that writes a script file) turn `\b` into a
+  backspace byte, `\U0001F300` into the character and `\\s` into `\s`
+  (deploy.sh refuses control chars). Need an emoji range? `chr(0x1F300)`.
   Write files with `newline="\n"` (no CRLF).
 - `pkill -f` / `pgrep -f` with a pattern that is in your own ssh command line
   hits the ssh shell (exit 255). Luna's pid: `pgrep -f "^./venv/bin/python -u main.py"`.
