@@ -1130,6 +1130,25 @@ _ALL_OFF = re.compile(r"\b(?:wyłącz|wylacz|zgaś|zgas|wycisz)\s+(?:mi\s+)?(?:j
                       r"(?:wszystko|to\s+wszystko|wszystko\s+co\s+gra)\b", re.I)
 
 
+# "Wyłącz tryb nocny" — the settings page's "Ciszej w nocy" (23 Oct 12:40: the
+# model said there's no such switch)
+_NIGHT_QUIET = re.compile(r"^(?:luna,?\s+)?(włącz|wlacz|wyłącz|wylacz)\s+(?:mi\s+)?"
+                          r"(?:tryb\s+nocny|nocny\s+tryb|ciszej\s+w\s+nocy|nocne\s+ściszanie|"
+                          r"ściszanie\s+w\s+nocy)\W*$", re.I)
+
+
+def night_quiet_command(text, speak):
+    m = _NIGHT_QUIET.match(text.strip())
+    if not m:
+        return False
+    on = m.group(1).lower().startswith("wł") or m.group(1).lower() == "wlacz"
+    settings.put("night_quiet", on)
+    print(f"[cmd] night quiet → {on}", flush=True)
+    speak("Dobrze — od dwudziestej drugiej do ósmej będę mówić ciszej." if on else
+          "Dobrze — w nocy będę mówić tak samo głośno jak w dzień.")
+    return True
+
+
 def everything_off():
     """"Wyłącz wszystko" — the radio, a sleep sound, the lamp, a page; not
     the timers (23 Oct sweep: the model's answer to it cancelled the laundry
@@ -1398,6 +1417,8 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         return True
 
     # good night — said to her while awake
+    if night_quiet_command(text, speak):           # "wyłącz tryb nocny"
+        return True
     off_all = bool(_ALL_OFF.search(low)) and not question
     if off_all:
         everything_off()

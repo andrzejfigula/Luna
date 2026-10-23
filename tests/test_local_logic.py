@@ -5920,6 +5920,20 @@ class Oct14NightTest(unittest.TestCase):
             commands.wake_up("test")
             timers._timers.clear()
 
+    def test_night_quiet_by_voice(self):
+        import commands
+        import settings
+        # 23 Oct 12:40: "Wyłącz tryb nocny." → "nie mam takiego przełącznika"
+        said = []
+        try:
+            self.assertTrue(commands.night_quiet_command("Luna, wyłącz tryb nocny.", said.append))
+            self.assertIs(settings.get("night_quiet"), False)
+            self.assertTrue(commands.night_quiet_command("Włącz ciszej w nocy", said.append))
+            self.assertIs(settings.get("night_quiet"), True)
+            self.assertFalse(commands.night_quiet_command("Jaki jest tryb nocny?", said.append))
+        finally:
+            settings.put("night_quiet", True)
+
     def test_one_timer_by_its_name(self):
         # the sweep files: "Odwołaj przypomnienie o pizzy", "Stop minutnik" → the model
         now = time.time()

@@ -102,7 +102,8 @@ _STATUS = ("pokaż status", "pokaz status", "status systemu", "jaki masz status"
            "pokaż statystyki", "pokaz statystyki", "pokaż swoje statystyki",
            "pokaż mi statystyki", "pokaż diagnostykę", "pokaż diagnostyke")
 _CLOCK  = ("pokaż zegar", "pokaż godzinę", "pokaz zegar", "pokaz godzine",
-           "show the clock", "show me the time")
+           "show the clock", "show me the time",
+           "włącz zegar", "wlacz zegar")           # (23 Oct 12:44: to the model)
 
 
 def _show(kind, secs, data=None):
