@@ -82,8 +82,15 @@ _TODAY = ("plan dnia", "plan na dziś", "plan na dzisiaj", "co mamy w planie",
           "co mnie dziś czeka", "co mnie dzisiaj czeka", "co nas dziś czeka",
           "co nas dzisiaj czeka", "jaki mam plan na dziś", "jaki mam plan na dzisiaj",
           "co dziś w planie", "co dzisiaj w planie", "jaki jest plan na dziś")
-_SHOW_LIST = ("pokaż listę", "pokaz liste", "pokaż mi listę", "show the list",
-              "show my list")
+# (22 Oct: "Pokaż tą listę jeszcze raz." went to the model — with the camera:
+# "…jest pusta. Andzeju, to Ty.")
+_SHOW_LIST = re.compile(r"\b(?:pokaż|pokaz|wyświetl|wyswietl)\s+(?:mi\s+|nam\s+)?(?:jeszcze\s+raz\s+)?"
+                        r"(?:tę\s+|te\s+|tą\s+|ta\s+|moją\s+|moja\s+|naszą\s+|nasza\s+)?"
+                        r"(?:listę|liste)\b|\bshow\s+(?:the|my)\s+list")
+_last_list = [None]                     # the list shown last ("pokaż tę listę")
+# "Pokaż, co mamy dzisiaj zrobić." — the to-do list
+_SHOW_TODO = re.compile(r"^(?:luna,?\s+)?(?:pokaż|pokaz)\s+(?:mi\s+)?,?\s*co\s+(?:mamy|mam)\s+"
+                        r"(?:dzisiaj\s+|dziś\s+|dzis\s+|jeszcze\s+)?(?:do\s+)?(?:zrobić|zrobic|zrobienia)\W*$")
 # "pokaż pogodę" — the days of the forecast (14 Oct probe: "pokaż prognozę"
 # looked for a photo; "pokaż pogodę" went to the model)
 _WEATHER = re.compile(r"^(?:luna,?\s+)?(?:pokaż|pokaz)\s+(?:mi\s+)?(?:pogodę|pogode|prognozę|"
@@ -594,13 +601,19 @@ def handle(text, speak, play_sound_async):
                          "Dzisiejsze zdjęcia" if day == time.strftime("%Y%m%d") else
                          "Wczorajsze zdjęcia" if day else "Zdjęcia")
         return True
-    if any(k in low for k in _SHOW_LIST):
+    todo = _SHOW_TODO.match(low.replace(",", " ").replace("  ", " "))
+    if todo or _SHOW_LIST.search(low):
         import lists
-        name = lists.find(text)
+        name = "do zrobienia" if todo else lists.find(text)
+        if (_last_list[0] and re.search(r"\b(?:tę|tą|te|ta)\s+list|jeszcze\s+raz", low)
+                and not re.search(r"zakup|zrobi|zada", low)
+                and not any(k in low for k in lists.get())):
+            name = _last_list[0]               # "pokaż tą listę jeszcze raz" — that one
         items = lists.get(name) if name else []
         if not items:
             speak(lists.empty_answer(name))
         else:
+            _last_list[0] = name
             # {"list"}: a tap on an item crosses it off (list_tap)
             _show("list", 12, (f"Lista: {name}", [("•", i) for i in items], {"list": name}))
         return True

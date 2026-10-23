@@ -646,6 +646,22 @@ class TimersTest(unittest.TestCase):
         finally:
             counting._watch["t0"] = None
 
+    def test_show_a_list_said_any_way(self):
+        import screens
+        # 22 Oct: "Pokaż tą listę jeszcze raz." went to the model (and the camera)
+        lists._lists = {"do zrobienia": ["umyć auto"], "zakupy": ["mleko"]}
+        shown = []
+        with mock.patch.object(screens, "_show", lambda k, s, d: shown.append(d[0])):
+            for t, want in (("Pokaż listę rzeczy do zrobienia", "Lista: do zrobienia"),
+                            ("Pokaż tą listę jeszcze raz.", "Lista: do zrobienia"),
+                            ("Pokaż mi jeszcze raz tę listę", "Lista: do zrobienia"),
+                            ("Pokaż listę zakupów", "Lista: zakupy"),
+                            ("Pokaż, co mamy dzisiaj zrobić.", "Lista: do zrobienia"),
+                            ("Pokaż tę listę", "Lista: do zrobienia")):
+                self.assertTrue(screens.handle(t, lambda *a: None, lambda *a: None), t)
+                self.assertEqual(shown[-1], want, t)
+        lists._lists = {}
+
     def test_photos_by_voice_and_quiet_stop(self):
         import commands
         import screens
