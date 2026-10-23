@@ -1375,6 +1375,29 @@ class TimersTest(unittest.TestCase):
 
 class MemoryTest(unittest.TestCase):
 
+    def test_small_talk_is_not_sent_to_memory(self):
+        # 21–23 Oct: 28 of 44 memory calls came back with nothing new
+        calls = []
+        client = mock.Mock()
+        client.chat.completions.create.side_effect = lambda **k: calls.append(1) or (_ for _ in ()).throw(RuntimeError)
+        memory._save({"facts": [], "episodes": [], "_wiped_at": 0, "threads": []})
+        with mock.patch.object(memory, "_client", client):
+            for convo in ([("[Andrzej] O cześć.", "Cześć!", False), ("Jaka będzie jutro pogoda?", "Deszcz.", False)],
+                          [("Tak.", "Dobrze.", False), ("włącz radio", "Włączam.", True)]):
+                memory._session[:] = convo
+                memory.consolidate()
+            self.assertEqual(calls, [])
+            memory._session[:] = [("Mam raka.", "Przykro mi.", False)]           # two words, kept
+            memory.consolidate()
+            self.assertEqual(len(calls), 1)
+            # an open question of hers answered "Dobrze." — kept too
+            memory._save({"facts": [], "episodes": [], "_wiped_at": 0,
+                          "threads": [{"question": "Jak poszedł sprawdzian?", "due": "", "asked": 1}]})
+            memory._session[:] = [("Dobrze.", "Jak poszedł sprawdzian?", False)]
+            memory.consolidate()
+            self.assertEqual(len(calls), 2)
+        memory._session.clear()
+
     def test_relative_dates(self):
         today = memory._today()
         self.assertEqual(memory._when(today.isoformat()), "dzisiaj")

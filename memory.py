@@ -392,6 +392,29 @@ def _transcript(session):
     return "\n".join(out)
 
 
+# Nothing a friend would keep: greetings, yes / no / thanks, the weather, the
+# time. (21–23 Oct: 28 of 44 memory calls came back "no episode" after "O
+# cześć.", "Tak.", "Jaka będzie jutro pogoda?") A whitelist — "Mam raka." is
+# two words too.
+_ACK = {"tak", "nie", "dobrze", "dobra", "okej", "ok", "oki", "dzięki", "dzieki", "dziękuję",
+        "dziekuje", "super", "jasne", "mhm", "aha", "no", "to", "już", "juz", "fajnie", "spoko",
+        "cześć", "czesc", "hej", "siema", "hejka", "o", "a", "luna", "luno", "dzień", "dobry",
+        "dobranoc", "wieczór", "pa", "na", "razie", "wszystko", "bardzo", "proszę", "prosze"}
+_SMALL_Q = re.compile(r"^(?:a\s+|no\s+|to\s+)?(?:jaka|jaki)\s+(?:(?:będzie|bedzie|jest)\s+)?"
+                      r"(?:jutro\s+|dziś\s+|dzis\s+|dzisiaj\s+|teraz\s+|na\s+weekend\s+)*pogoda"
+                      r"(?:\s+(?:jutro|dziś|dzisiaj|na\s+weekend))?$"
+                      r"|^(?:która|ktora)\s+(?:jest\s+)?godzina$"
+                      r"|^jak\s+(?:ty\s+)?się\s+nazywasz$|^co\s+robisz$|^jesteś$|^jestes$"
+                      r"|^(?:czy\s+)?(?:słyszysz|slyszysz)\s+mnie$|^co\s+tam$")
+
+
+def _trivial(user_text):
+    t = re.sub(r"^\[[^\]]*\]\s*", "", user_text or "").lower()
+    t = re.sub(r"[^\w\s]", " ", t).strip()
+    t = re.sub(r"\s+", " ", t)
+    return not t or all(w in _ACK for w in t.split()) or bool(_SMALL_Q.match(t))
+
+
 def consolidate():
     """Fold the finished conversation into memory.json. Runs in a thread."""
     with _lock:
@@ -401,6 +424,12 @@ def consolidate():
         return
     if all(local for _, _, local in session):
         print(f"[memory] {len(session)} command(s) only — nothing to remember", flush=True)
+        return
+    with _lock:
+        asking = bool(_load()["threads"]) and any("?" in r for _, r, _ in session)
+    # ("Jak poszedł sprawdzian?" → "Dobrze." answers an open thread: kept)
+    if not asking and all(local or _trivial(u) for u, _, local in session):
+        print(f"[memory] small talk only ({len(session)}) — nothing to remember", flush=True)
         return
     with _lock:
         mem = _load()
