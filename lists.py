@@ -316,6 +316,9 @@ _REMOVE = re.compile(r"^(?:luna,?\s+)?(?:skreśl|skresl|wykreśl|wykresl|usuń|u
                      r"(?:mi\s+)?(?:z\s+(?:listy|listę)(?:\s+(?:zakupów|zakupow|do\s+zrobienia))?:?\s+)?"
                      r"(.+?)(?:\s+z\s+(?:listy|listę|liste)(?:\s+(?:zakupów|zakupow|do\s+zrobienia|\w+))?)?"
                      r"[.!]*$", re.I)
+# "Kupiłam mleko" — off the shopping list, when it's there (else it's just talk)
+_BOUGHT = re.compile(r"^(?:luna,?\s+)?(?:już\s+|juz\s+)?(?:kupiłam|kupiłem|kupilam|kupilem|"
+                     r"mam\s+już|mam\s+juz|kupione)(?:\s+już|\s+juz)?:?\s+(.+?)[.!]*$", re.I)
 _NOT_A_LIST = re.compile(r"ulubion|plan|zdjęc|zdjec|rysun|przypomn|budzik|minutnik|alarm|pamięc|"
                          r"pamiec|twarz|wszystk|całą|cala|\blist[aęy]\b", re.I)
 
@@ -324,9 +327,10 @@ def local_remove(text):
     """"Skreśl chleb", "usuń umyć auto z listy" — each thing found on one list
     (said any way: closest()) comes off without the model; otherwise None and
     the model has it. The reply, or None."""
-    m = _REMOVE.match(text.strip())
+    m = _REMOVE.match(text.strip()) or _BOUGHT.match(text.strip())
     if not m or _NOT_A_LIST.search(m.group(1)):
         return None
+    only = "zakupy" if m.re is _BOUGHT else None
     global _undo
     parts = [p.strip(" .") for p in re.split(r",|\s+i\s+|\s+oraz\s+", m.group(1)) if p.strip(" .")]
     with _lock:
@@ -339,6 +343,8 @@ def local_remove(text):
                 return None                # "usuń to" (to ⊂ "umyć auto"): the model's
             hits = []
             for k, v in _lists.items():
+                if only and k != only:
+                    continue
                 keep = _without(p, v)
                 hits += [(k, i) for i in v if i not in keep]
             if len(hits) != 1:

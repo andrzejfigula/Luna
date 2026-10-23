@@ -2,7 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 23 października ==
-- „Skreśl chleb”, „usuń umyć auto z listy” — skreślam od razu, szybciej niż wcześniej.
+- „Skreśl chleb”, „usuń umyć auto z listy”, „kupiłam mleko” — skreślam od razu, szybciej niż wcześniej. „Odwołaj przypomnienie o pizzy”, „ile czasu do budzika?”, „o której mam budzik?” — też od razu.
 - „Pokaż jeszcze raz” (albo samo „pokaż”) pokazuje znowu to, co przed chwilą było na ekranie — zdjęcia, listę, pogodę.
 - Postać można zmienić głosem: „Luna, włącz motyw HAL”, „zmień się w Mirę”, „bądź Mochi”, a z powrotem: „wróć do Luny”. „Jakie masz motywy?” — wymienię wszystkie.
 - Kiedy proszę mnie o rodzaj muzyki („włącz muzykę elektroniczną”, „włącz rock”), o stronę ze stacjami, ulubione albo żywą lampkę (meduzy, zorza, kominek) — naprawdę to włączam, a nie tylko mówię „włączam”. „Usuń Lofi z ulubionych” usuwa tę, którą nazwiesz.
