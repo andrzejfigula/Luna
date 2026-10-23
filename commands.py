@@ -1246,6 +1246,15 @@ def switch_theme(text, speak):
     in its own voice."""
     import themes
     req = themes.voice_request(text)
+    kind = themes.get().get("char")
+    if not req and kind:
+        import characters                         # "zdejmij koronę" (Mira's)
+        acc = characters.voice_accessory(kind, text)
+        if acc:
+            characters.set_accessories(kind, acc[0])
+            print(f"[cmd] {kind} accessories → {acc[0]}", flush=True)
+            speak(acc[1])
+            return True
     if not req:
         return False
     kind, what = req

@@ -557,6 +557,14 @@ def _ideas_only(text):
                 and not re.search(r"\b(?:dodaj|dopisz|zapisz|wpisz|dorzuć|dorzuc)\b", t))
 
 
+def _about_a_list(text):
+    """A list is meant: named in the words, or the talk just before was about one."""
+    said = (text or "").lower()
+    if re.search(r"list|zakup|skreśl|skresl|wyczyść|wyczysc|wykreśl|wykresl|wszystk|całą|cala", said):
+        return True
+    return bool(re.search(r"\blist\w*|zakup", last_reply().lower()))
+
+
 def _child_near(person):
     """The one in front of her is a child — or a child is in view with them
     (Maja asking her sum while dad, recognised first, sits beside her)."""
@@ -881,7 +889,10 @@ Always answer as JSON with exactly these keys:
                 when they say yes to breathing together), "zamień się w
                 kotka / pieska / zajączka" (ears on your face), "włącz motyw
                 <Luna | Ice | HAL 9000 | MIRA | PIP | RETRO | PIXEL | MOCHI |
-                ECHO>" (your whole character: face, voice, name). A game
+                ECHO>" (your whole character: face, voice, name), "załóż /
+                zdejmij <dodatek>" (a drawn character's accessories: korona,
+                okulary, uszy, czapka…), "pokaż ustawienia" (the settings
+                page). A game
                 only once ONE game was chosen — named by them, or a "tak" to
                 the single game you proposed; while you list options, no
                 command. Never play one of THESE games inside your reply (no
@@ -1675,6 +1686,12 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             # (8 Oct probe: the model's suggestions went straight onto the list)
             print("[brain] ideas asked, not a list change — list_add held back", flush=True)
             data["actions"] = [a for a in data["actions"] if a.get("type") != "list_add"]
+        if (any(a.get("type") == "list_clear" for a in data.get("actions") or [])
+                and not _about_a_list(text)):
+            # "Usuń to." about a memory → list_clear (22 Oct 13:21 — the
+            # shopping list was empty that time)
+            print("[brain] list_clear with no list in sight — held back", flush=True)
+            data["actions"] = [a for a in data["actions"] if a.get("type") != "list_clear"]
         if _how_long_only(text) and any(a.get("type") in ("timer", "reminder", "alarm")
                                         for a in data.get("actions") or []):
             # "Jak długo gotować jajko na twardo?" — a question, not "nastaw"
@@ -1871,6 +1888,7 @@ _COMMAND_OK = re.compile(
     r"|^(?:przyciemnij|zgaś|rozjaśnij)\s+ekran$"
     r"|^głośność\s+na\s+\d{1,3}(?:\s*%|\s+procent)?$"
     r"|^(?:wyłącz\s+się|idź\s+spać)$"
+    r"|^pokaż\s+ustawienia$|^(?:załóż|zdejmij)\s+[\wąćęłńóśźż ]{3,30}$"
     # a station by its name ("włącz Polskie Radio Chopin" was refused, 11 Oct)
     r"|^(?:włącz|puść)\s+(?:[\w.]+\s+){0,4}(?:radio|fm)\b[\w .]{0,40}$"
     # her own capability text says to send these (18 Oct: refused three times)

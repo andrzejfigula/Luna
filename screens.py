@@ -623,7 +623,11 @@ def handle(text, speak, play_sound_async):
         _show("list", 25, ("Mój tydzień", rows or [("—", "jeszcze nic")]))
         speak(said)
         return True
-    if _SETTINGS.match(" ".join(re.findall(r"[\w-]+", low))):
+    words = " ".join(re.findall(r"[\w-]+", low))
+    if _SETTINGS.match(words) or (len(words.split()) <= 9 and re.search(
+            # (22 Oct: "Hej włącz ustawienia.", "Nie, włącz ustawienia, masz taką
+            # komendę." — the model: "nie mam takiej komendy", twice)
+            r"\b(?:pokaż|pokaz|otwórz|otworz|włącz|wlacz)\s+(?:mi\s+)?ustawienia\b", words)):
         import settings_page
         _show("settings", settings_page.PAGE_SECS, {"tab": 0})
         speak("Proszę, oto ustawienia.")

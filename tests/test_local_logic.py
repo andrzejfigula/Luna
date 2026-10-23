@@ -4464,6 +4464,16 @@ class KidsTest(unittest.TestCase):
         self.assertFalse(brain._ideas_only("Wymyśl coś na obiad i dopisz do listy."))
         self.assertFalse(brain._ideas_only("Dodaj mleko do zakupów."))
 
+    def test_list_clear_needs_a_list(self):
+        import brain
+        # 22 Oct: "Usuń to." (about a memory) came with list_clear
+        with mock.patch.object(brain, "last_reply", lambda: "Pamiętam, że lubisz jazz."):
+            self.assertFalse(brain._about_a_list("Usuń to."))
+            self.assertTrue(brain._about_a_list("Skreśl wszystko."))
+            self.assertTrue(brain._about_a_list("Wyczyść zakupy."))
+        with mock.patch.object(brain, "last_reply", lambda: "Na liście zakupów: mleko, chleb."):
+            self.assertTrue(brain._about_a_list("Usuń to."))
+
     def test_calendar_line(self):
         import brain
         from datetime import datetime
@@ -7732,6 +7742,31 @@ class ThemesTest(unittest.TestCase):
         self.assertEqual(said[-1], "Przecież to ja, HAL 9000.")
         self.assertTrue(commands.handle("Wróć do Luny.", said.append, lambda *a, **k: None))
         self.assertEqual(themes.current(), "luna")
+        self.assertIsNone(r("bądź sobą"))                     # the costume's (fun.py)
+
+    def test_accessories_by_voice(self):
+        import characters
+        import commands
+        import themes
+        # 22 Oct 23:45: "Mira, zdejmij koronę." → "Gotowe." and the crown stayed
+        themes.set_theme("nex")
+        characters.set_accessories("nex", ["planets", "crown"])
+        said = []
+        self.assertTrue(commands.handle("Mira, zdejmij koronę.", said.append, lambda *a, **k: None))
+        self.assertEqual(characters.accessories("nex"), ("planets",))
+        self.assertEqual(said[-1], "Gotowe.")
+        self.assertTrue(commands.switch_theme("załóż koronę", said.append))
+        self.assertEqual(characters.accessories("nex"), ("planets", "crown"))
+        self.assertTrue(commands.switch_theme("załóż okulary", said.append))
+        self.assertIn("Tego nie noszę", said[-1])
+        self.assertTrue(commands.switch_theme("zdejmij wszystko", said.append))
+        self.assertEqual(characters.accessories("nex"), ())
+        for other in ("zdejmij buty", "dodaj mleko do listy", "usuń listę zakupów"):
+            self.assertFalse(commands.switch_theme(other, said.append), other)
+        themes.set_theme("mochi")
+        self.assertFalse(commands.switch_theme("dodaj czapkę do listy zakupów", said.append))
+        themes.set_theme("luna")                              # Luna: the costumes' words
+        self.assertFalse(commands.switch_theme("zdejmij uszy", said.append))
 
     def test_cycle_on_the_settings_page(self):
         import themes

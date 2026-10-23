@@ -12,6 +12,7 @@ Everything around the engine:
 """
 
 import sys
+import re
 import threading
 import time
 import random
@@ -221,6 +222,10 @@ def speak(text, can_drop=False):
     _speaking(run, lambda: text, can_drop)
 
 
+# emoji the model slips in despite "no emoji" — the voice can't say them
+_EMOJI = re.compile("[%s-%s%s-%s%s%s]" % (chr(0x1F300), chr(0x1FAFF), chr(0x2600), chr(0x27BF), chr(0xFE0F), chr(0x200D)))
+
+
 def speak_stream(sentences):
     """Speak a reply that is still being written: `sentences` yields each
     sentence as soon as the model has produced it (brain.process). Playback
@@ -229,6 +234,9 @@ def speak_stream(sentences):
 
     def collect():
         for sentence in sentences:
+            sentence = _EMOJI.sub("", sentence).strip()
+            if not sentence:
+                continue                   # "😼" alone (22 Oct) — nothing to say
             said.append(sentence)
             print(f"[Luna] {sentence}")
             _caption(sentence)

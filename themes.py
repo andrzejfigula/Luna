@@ -320,8 +320,9 @@ def labels():
 # (22 Oct: "To włącz ten motyw." → "włączam motyw HAL 9000", nothing changed —
 # only the settings page could)
 
-_HOME = re.compile(r"^(?:wróć|wroc|wracaj)\s+do\s+(?:siebie|luny|normalnej|zwykłej|zwyklej)"
-                   r"|^(?:bądź|badz)\s+(?:znowu\s+|z\s+powrotem\s+)?(?:sobą|soba|luną|luna)$")
+# ("bądź sobą" / "wróć do siebie" stay the costume's: fun._COSTUME_OFF)
+_HOME = re.compile(r"^(?:wróć|wroc|wracaj)\s+do\s+(?:luny|normalnej|zwykłej|zwyklej)"
+                   r"|^(?:bądź|badz)\s+(?:znowu\s+|z\s+powrotem\s+)?(?:luną|luna)$")
 _SWITCH = re.compile(r"^(?:włącz|wlacz|ustaw|zmień|zmien|przełącz|przelacz|wybierz|daj)\s+"
                      r"(?:mi\s+|nam\s+)?(?:motyw|postać|postac|postaci|wygląd|wyglad)"
                      r"(?:\s+(?:na|postaci))?\s+(.{2,30})$"

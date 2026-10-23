@@ -30,6 +30,7 @@ Pure Python: no pygame, no GL — the unit tests read it.
 
 import math
 import random
+import re
 import time
 
 import settings
@@ -162,6 +163,46 @@ def set_accessories(kind, names):
     acc[kind] = [a for a in names if a in CHARS[kind]["accessories"]]
     settings.put("char_acc", acc)
     _scache.clear()
+
+
+# "zdejmij koronę", "załóż okulary" — the settings page's Dodatki row by voice
+# (22 Oct 23:45: "Mira, zdejmij koronę." → "Już zdejmuję koronę. Gotowe." — nothing)
+_ACC_ON = re.compile(r"^(?:załóż|zaloz|włóż|wloz|nałóż|naloz|ubierz|dodaj|daj)\s+(?:sobie\s+)?(.{3,40})$")
+_ACC_OFF = re.compile(r"^(?:zdejmij|zdejm|ściągnij|sciagnij|schowaj|zabierz|usuń|usun)\s+(?:sobie\s+)?(.{3,40})$")
+_ALL = re.compile(r"^(?:wszystko|wszystkie(?:\s+dodatki)?|dodatki|ozdoby)$")
+
+
+def _same_word(a, b):
+    n = max(3, min(len(a), len(b), 6) - 1)
+    return a[:n] == b[:n]
+
+
+def voice_accessory(kind, text):
+    """What "zdejmij koronę" asks of the character `kind`: (new set, what to
+    say), or None when it isn't about its accessories."""
+    low = re.sub(r"^(?:a\s+|no\s+|to\s+)?(?:\w+,\s+)?", "", (text or "").lower().strip(" .!?"))
+    on, off = _ACC_ON.match(low), _ACC_OFF.match(low)
+    if not (on or off) or kind not in CHARS or re.search(r"list|zakup|plan|ulubion", low):
+        return None                        # "dodaj czapkę do listy zakupów"
+    what = (on or off).group(1)
+    have = CHARS[kind]["accessories"]
+    cur = list(accessories(kind))
+    if _ALL.match(what):
+        return (list(have), "Proszę, wszystkie dodatki.") if on else ([], "Gotowe, bez dodatków.")
+    words = re.findall(r"[^\W\d_]{3,}", what)
+    hit = [a for a in have if words and any(_same_word(w, l) for w in words
+                                            for l in ACC_LABELS[a].split() if len(l) > 3)]
+    if not hit:
+        anyone = any(any(_same_word(w, l) for w in words for l in ACC_LABELS[a].split() if len(l) > 3)
+                     for c in CHARS.values() for a in c["accessories"])
+        if not anyone:
+            return None                    # "zdejmij buty", "usuń listę" — not hers
+        return cur, "Tego nie noszę. Mogę mieć: " + ", ".join(ACC_LABELS[a] for a in have) + "."
+    if on:
+        new = cur + [a for a in hit if a not in cur]
+        return new, ("Już mam." if new == cur else "Proszę!")
+    new = [a for a in cur if a not in hit]
+    return new, ("Gotowe." if new != cur else "Przecież tego nie mam.")
 
 
 def retro_console(now=None):
