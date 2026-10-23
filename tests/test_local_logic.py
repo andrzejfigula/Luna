@@ -5853,6 +5853,16 @@ class Oct14NightTest(unittest.TestCase):
             self.assertTrue(got.startswith("Budzik jutro o szóstej"), got)
             self.assertTrue(timers.wake_answer("Kiedy dzwoni budzik?", now))
             self.assertIsNone(timers.wake_answer("O której jutro wstajemy na pociąg do Krakowa?", now))
+            # (the sweep files: these two went to the model)
+            self.assertEqual(timers.wake_answer("O której mam budzik?", now), got)
+            self.assertEqual(timers.wake_answer("Ile czasu do budzika?", now),
+                             "Do budzika zostało 9 godzin i 40 minut — jutro o szóstej czterdzieści.")
+            # Friday night, the next one Monday: named, not "na jutro nie masz"
+            fri = datetime.datetime(2026, 10, 16, 21, 0).timestamp()
+            timers._timers[0]["due"] = datetime.datetime(2026, 10, 19, 6, 40).timestamp()
+            self.assertEqual(timers.wake_answer("O której mam budzik?", fri),
+                             "Najbliższy budzik: w poniedziałek o szóstej czterdzieści.")
+            self.assertTrue(timers.wake_answer("O której jutro wstajemy?", fri).startswith("Na jutro nie"))
         finally:
             timers._timers.clear()
 

@@ -890,23 +890,43 @@ _WD_LOC = ["w poniedziałek", "we wtorek", "w środę", "w czwartek", "w piątek
 _WAKE_Q = re.compile(r"^(?:luna,?\s+)?(?:a\s+|to\s+)?(?:o\s+(?:której|ktorej)|kiedy|na\s+(?:którą|ktora))\s+"
                      r"(?:jutro\s+)?(?:wstajemy|wstaję|wstaje|(?:mam|musz[eę])\s+(?:jutro\s+)?(?:wstać|wstac)|"
                      r"się\s+budzimy|sie\s+budzimy|mnie\s+budzisz|mnie\s+obudzisz|"
-                     r"(?:za)?dzwoni\s+(?:mi\s+)?budzik|jest\s+budzik)(?:\s+jutro)?\W*$", re.I)
+                     r"(?:za)?dzwoni\s+(?:mi\s+)?budzik|jest\s+budzik|"
+                     # (the sweep files: "O której mam budzik?" went to the model)
+                     r"(?:mam|jest)\s+(?:ustawiony\s+)?budzik)(?:\s+(?:na\s+)?jutro)?\W*$", re.I)
+_UNTIL_ALARM = re.compile(r"\b(?:ile|jak\s+długo|jak\s+dlugo)\b(?:\s+(?:jeszcze|zostało|zostalo|"
+                          r"mam|czasu|godzin))*\s+do\s+budzika\W*$", re.I)
 
 
 def wake_answer(text, now=None):
     """"O której jutro wstajemy?" → "Budzik jutro o szóstej czterdzieści." —
     from the alarms; None if it isn't that question."""
     import clock
-    if not _WAKE_Q.match((text or "").strip()):
+    said = (text or "").strip()
+    if not (_UNTIL_ALARM.search(said) or _WAKE_Q.match(said)):
         return None
     now = now or time.time()
-    lt = datetime.fromtimestamp(now)
-    # after midnight, "jutro" is still the coming morning
-    day = lt.date() if lt.hour < 5 else lt.date() + timedelta(days=1)
     with _lock:
         due = sorted(t["due"] for t in _timers if t["kind"] == "alarm" and t["due"] > now)
+    lt = datetime.fromtimestamp(now)
+
+    def when(at):
+        d = datetime.fromtimestamp(at)
+        days = (d.date() - lt.date()).days
+        return (f"{'dziś' if days == 0 else 'jutro' if days == 1 else _WD_LOC[d.weekday()]}"
+                f" o {clock.hour_locative(d.hour, d.minute)}")
+    if _UNTIL_ALARM.search((text or "").strip()):        # "Ile czasu do budzika?"
+        if not due:
+            return "Nie masz ustawionego budzika."
+        left = max(60, int(due[0] - now) // 60 * 60)
+        return f"Do budzika zostało {say_duration(left)} — {when(due[0])}."
+    if not _WAKE_Q.match((text or "").strip()):
+        return None
+    # after midnight, "jutro" is still the coming morning
+    day = lt.date() if lt.hour < 5 else lt.date() + timedelta(days=1)
     hit = next((d for d in due if datetime.fromtimestamp(d).date() == day), None)
     if hit is None:
+        if due and "jutr" not in text.lower():       # "O której mam budzik?" — the next one
+            return f"Najbliższy budzik: {when(due[0])}."
         return ("Na jutro nie masz budzika."
                 + (" Powiedz na przykład: budzik na siódmą." if not due else ""))
     d = datetime.fromtimestamp(hit)
