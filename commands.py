@@ -1126,6 +1126,32 @@ def go_to_sleep():
     print("[cmd] good night — sleeping until morning", flush=True)
 
 
+_ALL_OFF = re.compile(r"\b(?:wyłącz|wylacz|zgaś|zgas|wycisz)\s+(?:mi\s+)?(?:już\s+|juz\s+)?"
+                      r"(?:wszystko|to\s+wszystko|wszystko\s+co\s+gra)\b", re.I)
+
+
+def everything_off():
+    """"Wyłącz wszystko" — the radio, a sleep sound, the lamp, a page; not
+    the timers (23 Oct sweep: the model's answer to it cancelled the laundry
+    reminder, and switched nothing off). What went off, as a list."""
+    import ambience
+    import fun
+    import radio
+    gone = []
+    if radio.stop():
+        gone.append("radio")
+    if ambience.stop():
+        gone.append("dźwięk")
+    with state.lock:
+        ov = state.overlay
+        if ov:
+            state.overlay = None
+            gone.append("lampka" if ov[0] == "lamp" else "ekran")
+    fun.lamp_off()
+    print(f"[cmd] everything off: {gone or 'nothing was on'}", flush=True)
+    return gone
+
+
 def wake_up(why):
     with state.lock:
         if not state.sleep_mode:
@@ -1372,8 +1398,15 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         return True
 
     # good night — said to her while awake
+    off_all = bool(_ALL_OFF.search(low)) and not question
+    if off_all:
+        everything_off()
+        rest = _ALL_OFF.sub(" ", low)
+        if not any(k in rest for k in _NIGHT):
+            speak("Dobrze, wszystko wyłączone.")
+            return True
     if (any(k in low for k in _NIGHT) and not question
-            and all(w in _NIGHT_OK for w in _words(text))):
+            and all(w in _NIGHT_OK for w in _words(_ALL_OFF.sub(" ", text) if off_all else text))):
         import timers
         # the alarms are the grown-ups' — "Budzik masz na szóstą" isn't Maja's
         note = None if _child_here() else timers.goodnight_note()

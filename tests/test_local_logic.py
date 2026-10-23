@@ -5898,6 +5898,28 @@ class Oct14NightTest(unittest.TestCase):
         finally:
             timers._timers.clear()
 
+    def test_everything_off_keeps_the_timers(self):
+        import commands
+        import radio
+        import ambience
+        # 23 Oct sweep: "Wyłącz wszystko, idę spać" → the model cancelled a reminder
+        now = time.time()
+        timers._timers[:] = [{"kind": "reminder", "due": now + 3600, "repeat": "none",
+                              "label": "wyjąć pranie"}]
+        said = []
+        try:
+            with mock.patch.object(radio, "stop", lambda: True) as _, \
+                    mock.patch.object(ambience, "stop", lambda: False):
+                self.assertTrue(commands.handle("Wyłącz wszystko", said.append, lambda *a, **k: None))
+                self.assertEqual(said[-1], "Dobrze, wszystko wyłączone.")
+                self.assertTrue(commands.handle("Wyłącz wszystko, idę spać", said.append,
+                                                lambda *a, **k: None))
+                self.assertTrue(commands.sleeping())
+            self.assertEqual(len(timers._timers), 1)                 # the reminder stays
+        finally:
+            commands.wake_up("test")
+            timers._timers.clear()
+
     def test_one_timer_by_its_name(self):
         # the sweep files: "Odwołaj przypomnienie o pizzy", "Stop minutnik" → the model
         now = time.time()

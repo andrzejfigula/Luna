@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 23 października ==
+- „Wyłącz wszystko” wyłącza radio, dźwięki do snu, lampkę i to, co jest na ekranie — przypomnienia i budziki zostają. „Wyłącz wszystko, idę spać” — do tego dobranoc.
 - „Skreśl chleb”, „usuń umyć auto z listy”, „kupiłam mleko” — skreślam od razu, szybciej niż wcześniej. „Odwołaj przypomnienie o pizzy”, „ile czasu do budzika?”, „o której mam budzik?” — też od razu.
 - „Pokaż jeszcze raz” (albo samo „pokaż”) pokazuje znowu to, co przed chwilą było na ekranie — zdjęcia, listę, pogodę.
 - Postać można zmienić głosem: „Luna, włącz motyw HAL”, „zmień się w Mirę”, „bądź Mochi”, a z powrotem: „wróć do Luny”. „Jakie masz motywy?” — wymienię wszystkie.
