@@ -6298,6 +6298,12 @@ class StoryTest(unittest.TestCase):
         import shutil
         import story
         story.stop(quiet=True)
+        import threading
+        # a stopped story's thread may still be on its last line: unpatched, its
+        # _say reached the real voice (a flaky traceback, 1 run in 4)
+        for t in threading.enumerate():
+            if t.name.startswith("story") and t is not threading.current_thread():
+                t.join(3)
         for p in self.patches:
             p.stop()
         with state.lock:
