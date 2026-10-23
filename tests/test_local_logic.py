@@ -1521,6 +1521,23 @@ class ListsTest(unittest.TestCase):
         lists._lists = {}
         lists._undo = None
 
+    def test_remove_said_another_way(self):
+        # 23 Oct: "Usuń wypłacenie pieniędzy na drewno z listy." → "usunęłam",
+        # the item stayed (and the action had no list: zakupy)
+        lists.apply([{"type": "list_add", "list": "do zrobienia", "label": "wypłacić pieniądze na drewno"},
+                     {"type": "list_add", "list": "do zrobienia", "label": "zadzwonić do mamy"},
+                     {"type": "list_add", "list": "zakupy", "label": "mleko"}])
+        done = lists.apply([{"type": "list_remove", "label": "wypłacenie pieniędzy na drewno"}])
+        self.assertEqual(done, ["-wypłacenie pieniędzy na drewno ← do zrobienia"])
+        self.assertEqual(lists.get("do zrobienia"), ["zadzwonić do mamy"])
+        self.assertEqual(lists.apply([{"type": "list_remove", "list": "zakupy", "label": "mleka"}]),
+                         ["-mleka ← zakupy"])
+        done = lists.apply([{"type": "list_remove", "list": "do zrobienia", "label": "wynieść śmieci"}])
+        self.assertTrue(done[0].startswith("nothing matched"))
+        self.assertEqual(lists.get("do zrobienia"), ["zadzwonić do mamy"])
+        # two equally close — not a guess
+        self.assertIsNone(lists.closest("kupić ser", ["kupić serek", "kupić sery"]))
+
     def test_local_add(self):
         self.assertEqual(lists.local_add("Dopisz mleko i chleb do listy zakupów"),
                          "Dopisałam: mleko, chleb.")

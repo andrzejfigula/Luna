@@ -135,6 +135,41 @@ def shopping_item(item):
     return _NOMINATIVE.get(rest.lower(), rest if rest.lower() in _NOMINATIVE.values() else item)
 
 
+def _same_word(a, b):
+    """"wypłacić" ~ "wypłacenie", "pieniądze" ~ "pieniędzy", "ser" ~ "sera"."""
+    n = max(3, min(len(a), len(b), 6) - 1)
+    return a[:n] == b[:n]
+
+
+def closest(item, items):
+    """The one item meant, said another way (23 Oct: "usuń wypłacenie pieniędzy
+    na drewno" — the list had "wypłacić pieniądze na drewno", nothing came off)."""
+    words = lambda s: re.findall(r"[^\W\d_]{3,}", s.lower())
+    want = words(item)
+    if not want:
+        return None
+    scored = []
+    for i in items:
+        have = words(i)
+        hit = sum(any(_same_word(w, h) for h in have) for w in want)
+        scored.append((hit / len(want), hit / max(len(have), 1), i))
+    scored.sort(reverse=True)
+    best = scored[0] if scored else None
+    if not best or best[0] < (1.0 if len(want) <= 2 else 0.66) or best[1] < 0.5:
+        return None
+    if len(scored) > 1 and scored[1][:2] == best[:2]:
+        return None                        # two equally close: not a guess
+    return best[2]
+
+
+def _without(item, items):
+    keep = [i for i in items if item.lower() not in i.lower()]
+    if len(keep) == len(items):
+        near = closest(item, items)
+        keep = [i for i in items if i != near]
+    return keep
+
+
 def apply(actions):
     """list_add / list_remove / list_clear from the model's actions."""
     global _undo
@@ -163,9 +198,19 @@ def apply(actions):
                     items.append(item)
                     done.append(f"+{item} → {lst}")
             elif kind == "list_remove" and item:
-                keep = [i for i in items if item.lower() not in i.lower()]
+                keep = _without(item, items)
+                if len(keep) == len(items):
+                    # on another list ("list" left out → zakupy; it was a to-do)
+                    other = [k for k, v in _lists.items()
+                             if k != lst and len(_without(item, v)) != len(v)]
+                    if len(other) == 1:
+                        lst, items = other[0], _lists[other[0]]
+                        _undo = (time.time(), lst, list(items))
+                        keep = _without(item, items)
                 if len(keep) != len(items):
                     done.append(f"-{item} ← {lst}")
+                else:
+                    done.append(f"nothing matched {item!r} on {lst}")
                 _lists[lst] = keep
             elif kind == "list_clear":
                 _lists[lst] = []

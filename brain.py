@@ -1685,7 +1685,14 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
         set_now = timers.apply(data.get("actions") or [], said=text)
         empty_clear = [a for a in data.get("actions") or [] if a.get("type") == "list_clear"
                        and not lists.get(a.get("list"))]
-        lists.apply(data.get("actions") or [])
+        missed = [d for d in lists.apply(data.get("actions") or []) if d.startswith("nothing matched")]
+        if missed and not re.search(r"\bnie\s+(?:ma|widzę|znalaz)", reply, re.I):
+            # "Jasne, usunęłam to z listy." — nothing on any list was like it
+            extra = "Hmm, nie widzę tego na liście — powiedz, jak to jest zapisane."
+            print(f"[brain] {missed[0]} — said so", flush=True)
+            if on_sentence:
+                on_sentence(extra)
+            reply = f"{reply} {extra}"
         if empty_clear and not re.search(r"\bpust\w*|\bnic\s+nie\b", reply, re.I):
             # "Jasne, już czyszczę listę zakupów." — it was empty (9 Oct sweep)
             extra = "Właściwie ta lista już była pusta."
