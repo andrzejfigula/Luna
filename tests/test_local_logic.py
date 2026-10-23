@@ -1608,6 +1608,17 @@ class ListsTest(unittest.TestCase):
         # two equally close — not a guess
         self.assertIsNone(lists.closest("kupić ser", ["kupić serek", "kupić sery"]))
 
+    def test_a_task_goes_to_the_todo_list(self):
+        # 23 Oct 12:38: "Dodaj do listy przykryć drewno" → the shopping list
+        add = lambda label, said: lists.apply([{"type": "list_add", "list": "zakupy",
+                                                "label": label}], said=said)
+        self.assertIn("moved to do zrobienia", add("przykryć drewno", "Dodaj do listy przykryć drewno."))
+        add("kupić mleko", "Dodaj do listy kupić mleko")
+        add("wybielacz", "Dodaj wybielacz")
+        add("umyć auto", "Dopisz do zakupów umyć auto")           # named: as said
+        self.assertEqual(lists.get("do zrobienia"), ["przykryć drewno"])
+        self.assertEqual(lists.get("zakupy"), ["kupić mleko", "wybielacz", "umyć auto"])
+
     def test_local_remove(self):
         lists._lists = {"zakupy": ["mleko", "chleb", "ser żółty", "sera"],
                         "do zrobienia": ["umyć auto", "wypłacić pieniądze na drewno"]}

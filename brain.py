@@ -1741,7 +1741,13 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
         set_now = timers.apply(data.get("actions") or [], said=text)
         empty_clear = [a for a in data.get("actions") or [] if a.get("type") == "list_clear"
                        and not lists.get(a.get("list"))]
-        missed = [d for d in lists.apply(data.get("actions") or []) if d.startswith("nothing matched")]
+        listed = lists.apply(data.get("actions") or [], said=text)
+        missed = [d for d in listed if d.startswith("nothing matched")]
+        if "moved to do zrobienia" in listed and re.search(r"zakup", reply, re.I):
+            extra = "A właściwie na listę rzeczy do zrobienia — to nie zakupy."
+            if on_sentence:
+                on_sentence(extra)
+            reply = f"{reply} {extra}"
         if missed and not re.search(r"\bnie\s+(?:ma|widzę|znalaz)", reply, re.I):
             # "Jasne, usunęłam to z listy." — nothing on any list was like it
             extra = "Hmm, nie widzę tego na liście — powiedz, jak to jest zapisane."

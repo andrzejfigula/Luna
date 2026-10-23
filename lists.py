@@ -170,8 +170,18 @@ def _without(item, items):
     return keep
 
 
-def apply(actions):
-    """list_add / list_remove / list_clear from the model's actions."""
+def _a_task(item):
+    """"przykryć drewno", "umyć auto" — a thing to do, not to buy ("kupić mleko"
+    is shopping)."""
+    first = (item.split() or [""])[0].lower()
+    return (len(item.split()) >= 2 and len(first) > 3 and first.endswith(("ć", "c"))
+            and not first.startswith(("kupi", "kupować", "kupowac")))
+
+
+def apply(actions, said=""):
+    """list_add / list_remove / list_clear from the model's actions. said: the
+    words — a task on "zakupy" when no shopping was named goes to the to-do list
+    (23 Oct 12:38: "Dodaj do listy przykryć drewno" → zakupy, tapped off)."""
     global _undo
     done = []
     with _lock:
@@ -183,6 +193,10 @@ def apply(actions):
                 continue
             lst = _name(a.get("list"))
             item = str(a.get("label", "")).strip()
+            if (kind == "list_add" and lst == "zakupy" and said
+                    and not re.search(r"zakup|sklep", said, re.I) and _a_task(item)):
+                lst = "do zrobienia"
+                done.append("moved to do zrobienia")
             if lst == "zakupy" and kind == "list_add":
                 item = shopping_item(item)
             fresh = not _lists.get(lst)
