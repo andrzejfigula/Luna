@@ -522,7 +522,7 @@ def idle_loop():
                     play_sound_async("huh")       # "hm?" — I'm listening
 
             # ── reaction to being touched (voice; visuals are in the face)
-            if touch_t > last_touch_t and touch_kind != "stop":
+            if touch_t > last_touch_t and touch_kind not in ("stop", "dock"):
                 last_touch_t = touch_t
                 with state.lock:
                     ov = state.overlay

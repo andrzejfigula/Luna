@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 23 października ==
+- Na dole ekranu są teraz delikatne ikonki: zakupy, rzeczy do zrobienia, plan tygodnia, zdjęcia, radio i ustawienia — wystarczy dotknąć. Każda postać rysuje je po swojemu. Można je schować: „ukryj ikony” (albo w Ustawieniach → Ekran).
 - PIP wygląda teraz jak zielony ekran starego komputerka na nadgarstku: ma linie jak w kineskopie, lekkie migotanie, a co jakiś czas obraz mu się rozjeżdża i „gubi synchronizację” — częściej, kiedy jest zły.
 
 == 22 października ==

@@ -1289,3 +1289,122 @@ def draw_settings(scr, data, now, W, H):
         pr = pill.get_rect(center=(W // 2 + 90, H - 30))
         scr.blit(pill, pr)
         scr.blit(img, img.get_rect(center=pr.center))
+
+
+# ── the dock: quick icons along the bottom (dock.py) ─────────────────────────
+
+# icons on a 24-unit grid: ("l", points, closed) | ("c", centre, r) | ("r", x, y, w, h)
+_GEAR = [("c", (12, 12), 3.2), ("c", (12, 12), 7.0)] + [
+    ("l", [(12 + 7.0 * math.cos(a), 12 + 7.0 * math.sin(a)),
+           (12 + 10.0 * math.cos(a), 12 + 10.0 * math.sin(a))], False)
+    for a in (i * math.pi / 4 for i in range(8))]
+DOCK_ICONS = {
+    "shopping": [("l", [(2, 4), (5, 4), (7.5, 15), (18, 15), (20.5, 7), (6, 7)], False),
+                 ("c", (9, 19.5), 1.6), ("c", (17, 19.5), 1.6)],
+    "todo": [("r", 3, 3.5, 6, 6), ("l", [(4.5, 6.5), (6, 8), (10, 2.5)], False),
+             ("l", [(12.5, 6.5), (21, 6.5)], False),
+             ("r", 3, 14.5, 6, 6), ("l", [(12.5, 17.5), (21, 17.5)], False)],
+    "schedule": [("r", 3, 5, 18, 16), ("l", [(3, 10), (21, 10)], False),
+                 ("l", [(8, 3), (8, 7)], False), ("l", [(16, 3), (16, 7)], False),
+                 ("c", (8, 14.5), 0.9), ("c", (12, 14.5), 0.9), ("c", (16, 14.5), 0.9),
+                 ("c", (8, 18), 0.9), ("c", (12, 18), 0.9)],
+    "photos": [("r", 2.5, 5, 19, 15), ("l", [(4, 18), (9.5, 11.5), (13.5, 15.5), (16, 13), (20, 18)], False),
+               ("c", (16.5, 9.5), 1.7)],
+    "radio": [("r", 3, 9, 18, 12), ("l", [(7, 9), (17, 3)], False), ("c", (9, 15), 3.0),
+              ("l", [(15, 13), (18.5, 13)], False), ("l", [(15, 17), (18.5, 17)], False)],
+    "settings": _GEAR,
+}
+
+# per character: stroke width (grid units), glow, pixel cell (px), cell gap, scanlines
+_DOCK_STYLE = {
+    None:    {"w": 1.9, "glow": 0.0, "cell": 0, "gap": 0, "scan": False},
+    "retro": {"w": 1.4, "glow": 0.0, "cell": 2, "gap": 0, "scan": False},
+    "pixel": {"w": 2.0, "glow": 0.5, "cell": 3, "gap": 1, "scan": False},
+    "nex":   {"w": 1.6, "glow": 0.9, "cell": 0, "gap": 0, "scan": False},
+    "mochi": {"w": 2.4, "glow": 0.0, "cell": 0, "gap": 0, "scan": False},
+    "pip":   {"w": 1.7, "glow": 0.8, "cell": 0, "gap": 0, "scan": True},
+    "echo":  {"w": 1.3, "glow": 0.7, "cell": 0, "gap": 0, "scan": False},
+}
+
+
+def _prims(surf, prims, k, ox, oy, col, w, aa=True):
+    """Draw an icon's grid shapes, k pixels a unit, from (ox, oy)."""
+    P = lambda p: (ox + p[0] * k, oy + p[1] * k)
+    lw = max(1, int(round(w)))
+    for p in prims:
+        if p[0] == "l":
+            pts = [P(q) for q in p[1]]
+            if p[2]:
+                pts.append(pts[0])
+            for a, b in zip(pts, pts[1:]):
+                if aa and lw > 1:
+                    _line(surf, col, a, b, lw)
+                else:
+                    pygame.draw.line(surf, col, a, b, lw)
+        elif p[0] == "c":
+            c, r = P(p[1]), p[2] * k
+            if r <= w * 0.8:                       # a dot
+                pygame.draw.circle(surf, col, (int(c[0]), int(c[1])), max(1, int(r + w / 2)))
+            else:
+                pygame.draw.circle(surf, col, (int(c[0]), int(c[1])), int(r + w / 2), lw)
+        else:
+            x, y = P((p[1], p[2]))
+            pygame.draw.rect(surf, col, pygame.Rect(int(x), int(y), int(p[3] * k), int(p[4] * k)),
+                             lw, border_radius=int(2 * k) if aa else 0)
+
+
+def dock_icon(key, kind, col, size=40):
+    """One icon in this character's style: lines, pixels or neon (cached)."""
+    ck = ("dock", key, kind, col, size)
+    s = _cache.get(ck)
+    if s is not None:
+        return s
+    st = _DOCK_STYLE.get(kind, _DOCK_STYLE[None])
+    m = 8                                          # room for the glow
+    out = pygame.Surface((size + 2 * m, size + 2 * m), pygame.SRCALPHA)
+    big = pygame.Surface((size * SS, size * SS), pygame.SRCALPHA)
+    k = size * SS / 24.0
+    _prims(big, DOCK_ICONS[key], k * 0.92, size * SS * 0.04, size * SS * 0.04,
+           col, st["w"] * k * 0.92)
+    ico = _down(big, size, size)
+    if st["cell"]:                                 # the soft icon snapped to a grid: pixels
+        cell, gap = st["cell"], st["gap"]
+        n = size // cell
+        low = pygame.transform.smoothscale(ico, (n, n))
+        ico = pygame.Surface((size, size), pygame.SRCALPHA)
+        for y in range(n):
+            for x in range(n):
+                if low.get_at((x, y))[3] > 105:
+                    ico.fill(col, (x * cell, y * cell, cell - gap, cell - gap))
+    if st["glow"]:                                 # a soft halo of its own light
+        pad = pygame.Surface((size + 2 * m, size + 2 * m), pygame.SRCALPHA)
+        pad.blit(ico, (m, m))
+        g = pad
+        for f in (2, 4):                           # two passes: round, not boxy
+            g = pygame.transform.smoothscale(g, (pad.get_width() // f, pad.get_height() // f))
+            g = pygame.transform.smoothscale(g, pad.get_size())
+        g.set_alpha(int(255 * st["glow"]))
+        out.blit(g, (0, 0))
+    out.blit(ico, (m, m))
+    if st["scan"]:                                 # a CRT's lines
+        for y in range(0, out.get_height(), 3):
+            out.fill((255, 255, 255, 120), (0, y, out.get_width(), 1),
+                     special_flags=pygame.BLEND_RGBA_MULT)
+    _cache[ck] = out
+    return out
+
+
+def draw_dock(scr, kind, cols, now=None):
+    """The row of quick icons, faint, in the face's colours (dock.py)."""
+    import dock
+    now = now if now is not None else time.time()
+    col = tuple(int(c) for c in cols[0][:3])
+    tint = tuple(int(c) for c in cols[1][:3])
+    n = len(dock.ITEMS)
+    bw, bh = dock.STEP * n - 12, 52
+    pill = rrect(bw, bh, bh // 2, (tint[0] // 8, tint[1] // 8, tint[2] // 8, 70))
+    scr.blit(pill, pill.get_rect(center=(dock.W // 2, dock.CY)))
+    for key, cx in dock.centres():
+        ico = dock_icon(key, kind, col, dock.ICON)
+        ico.set_alpha(int(95 + 150 * dock.lit(key, now)))
+        scr.blit(ico, ico.get_rect(center=(int(cx), dock.CY)))

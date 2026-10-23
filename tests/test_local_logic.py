@@ -7268,6 +7268,81 @@ class RadioVisualizerTest(unittest.TestCase):
             settings.get = get
             settings.put = put
 
+
+class DockTest(unittest.TestCase):
+    """The quick icons along the bottom: only on the bare face, a tap on one
+    opens its page, the setting and "ukryj ikony" hide them."""
+
+    def setUp(self):
+        import dock
+        self.d = dock
+        settings._load()
+        settings._data.pop("dock", None)
+        settings._data.pop("captions", None)
+        lists._lists = {}
+        with state.lock:
+            state.overlay = state.caption = None
+            state.sleep_mode = False
+        self.addCleanup(self._clear)
+
+    def _clear(self):
+        with state.lock:
+            state.overlay = None
+
+    def _tap(self, key):
+        x = dict(self.d.centres())[key]
+        return self.d.hit(x / self.d.W, (self.d.H - 20) / self.d.H)
+
+    def test_hit_and_visible(self):
+        d = self.d
+        for k, _ in d.ITEMS:
+            self.assertEqual(self._tap(k), k)
+        self.assertIsNone(d.hit(0.5, 0.5))                       # the face, not the row
+        self.assertIsNone(d.hit(0.02, 0.97))                     # beside the row
+        with state.lock:
+            state.overlay = ("clock", time.time() + 10, None)
+        self.assertIsNone(self._tap("radio"))                    # a page is up: its taps
+        with state.lock:
+            state.overlay, state.sleep_mode = None, True
+        self.assertFalse(d.visible())
+        with state.lock:
+            state.sleep_mode = False
+            state.caption = ("luna", "Cześć", time.time() + 5)
+        self.assertTrue(d.visible())                             # subtitles off: no band
+        settings.put("captions", True)
+        self.assertFalse(d.visible())
+        settings.put("captions", False)
+        settings.put("dock", False)
+        self.assertIsNone(self._tap("radio"))
+
+    def test_open_pages(self):
+        d = self.d
+        d.open_page("shopping")                                  # empty: a card says so
+        with state.lock:
+            ov = state.overlay
+        self.assertEqual(ov[0], "card")
+        self.assertIn("pusta", ov[2]["text"])
+        lists.local_add("dodaj umyć auto do listy rzeczy do zrobienia")
+        d.open_page("todo")
+        with state.lock:
+            ov = state.overlay
+        self.assertEqual(ov[0], "list")
+        self.assertIn("do zrobienia", ov[2][2]["list"])
+        self.assertGreater(d.lit("todo"), 0.5)
+        self.assertEqual(d.lit("radio"), 0.0)
+        d.open_page("settings")
+        with state.lock:
+            self.assertEqual(state.overlay[0], "settings")
+
+    def test_voice_switch(self):
+        import commands
+        said = []
+        for text, on in (("Ukryj ikony na dole", False), ("pokaż ikony", True)):
+            self.assertTrue(commands.handle(text, lambda t, **k: said.append(t),
+                                            lambda *a, **k: None))
+            self.assertIs(settings.get("dock"), on)
+
+
 class SettingsPageTest(unittest.TestCase):
     """The settings page: values cycle, the costs add up, the factory reset
     moves (never deletes) memories and people, and asks first."""

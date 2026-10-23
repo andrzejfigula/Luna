@@ -83,7 +83,13 @@ def _page_up(now):
 
 
 def _publish(kind, nx, ny, dx=0.0):
-    if kind in ("tap", "hold"):
+    dock_key = None
+    if kind == "tap":                   # an icon along the bottom (dock.py)
+        import dock
+        dock_key = dock.hit(nx, ny)
+        if dock_key:
+            kind = "dock"
+    if kind in ("tap", "hold", "dock"):
         with state.lock:
             talking = state.speaking
         if talking:
@@ -98,6 +104,11 @@ def _publish(kind, nx, ny, dx=0.0):
         state.touch_y    = ny
         state.touch_dx   = dx
         state.touch_time = time.time()
+    if dock_key:
+        try:
+            dock.open_page(dock_key)
+        except Exception as e:
+            print(f"[touch] dock {dock_key} failed: {e}", flush=True)
     if TOUCH_DEBUG:
         print(f"[touch] {kind} at ({nx:.2f}, {ny:.2f})", flush=True)
 

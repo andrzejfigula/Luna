@@ -309,6 +309,14 @@ def show_photos(paths, names=None, title="Zdjęcia"):
                   for p, n in zip(paths, names)], title)
 
 
+def show_all_photos():
+    """Every photo, newest first (the dock's icon). False: there are none."""
+    shots = _shots()[::-1]
+    if shots:
+        gallery.show(_items(shots, _tags()), "Zdjęcia")
+    return bool(shots)
+
+
 def _and(names):
     return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " i " + names[-1]
 

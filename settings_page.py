@@ -195,6 +195,9 @@ def _rows(tab):
             {"key": "brightness", "kind": "cycle", "label": "Jasność",
              "sub": "zmienia od razu; w nocy i po ciemku przygasa sama",
              "value": f"{display_base()} %"},
+            {"key": "dock", "kind": "toggle", "label": "Ikony na dole",
+             "sub": "zakupy, plan, zdjęcia, ustawienia — jednym dotknięciem",
+             "value": settings.get("dock", True) is not False},
             {"key": "camera_preview", "kind": "toggle", "label": "Podgląd kamery",
              "sub": "mały obraz z kamery w rogu",
              "value": bool(settings.get("camera_preview", CAMERA_PREVIEW))},
@@ -337,10 +340,11 @@ def change(key):
         new = _next(_FPS, draw_fps())
         settings.put("draw_fps", new)
         return f"Płynność: {new} klatek na sekundę"
-    defaults = {"captions": False, "status_bar": True, "camera_preview": CAMERA_PREVIEW}
+    defaults = {"captions": False, "status_bar": True, "dock": True,
+                "camera_preview": CAMERA_PREVIEW}
     if key in defaults:
         cur = settings.get(key, defaults[key])
-        new = not (cur is not False if key == "status_bar" else bool(cur))
+        new = not (cur is not False if key in ("status_bar", "dock") else bool(cur))
         settings.put(key, new)
         return "Włączone" if new else "Wyłączone"
     return None

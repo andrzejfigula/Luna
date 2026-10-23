@@ -234,6 +234,9 @@ _CAPTIONS_OFF = ("wyłącz napisy", "wylacz napisy", "bez napisów", "captions o
 _STATUS_BAR = re.compile(r"^(?:luna,?\s+)?(ukryj|schowaj|wyłącz|wylacz|pokaż|pokaz|włącz|wlacz)\s+"
                          r"(?:ten\s+|górny\s+|gorny\s+)?(?:pasek|pasek\s+u\s+góry|pasek\s+u\s+gory|"
                          r"pasek\s+stanu|pasek\s+statusu|status\s+bar)$", re.I)
+# the quick icons along the bottom (dock.py)
+_DOCK = re.compile(r"^(?:luna,?\s+)?(ukryj|schowaj|wyłącz|wylacz|pokaż|pokaz|włącz|wlacz)\s+"
+                   r"(?:te\s+)?(?:ikony|ikonki|skróty|skroty)(?:\s+na\s+dole|\s+u\s+dołu|\s+u\s+dolu)?$", re.I)
 # the little camera picture, bottom-right (robot_face._draw_camera_preview)
 _CAM_PREVIEW = re.compile(
     r"^(?:luna,?\s+)?(?:(pokaż|pokaz|pokazuj|włącz|wlacz|show)|ukryj|schowaj|wyłącz|wylacz|zamknij|"
@@ -1886,6 +1889,13 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         on = m.group(1).startswith(("pokaż", "pokaz", "włącz", "wlacz"))
         settings.put("status_bar", on)
         speak("Dobrze, pokazuję pasek u góry." if on else "Dobrze, chowam pasek.")
+        return True
+
+    m = _DOCK.match(low.strip(" .!?"))
+    if m:
+        on = m.group(1).startswith(("pokaż", "pokaz", "włącz", "wlacz"))
+        settings.put("dock", on)
+        speak("Dobrze, pokazuję ikony na dole." if on else "Dobrze, chowam ikony.")
         return True
 
     # "Mów do mnie po angielsku" — her replies in English for a while; "mów po

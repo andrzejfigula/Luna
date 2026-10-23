@@ -35,6 +35,7 @@ import time
 import numpy as np
 from shared_state import state
 import characters
+import dock
 import face_spec
 import gallery
 import gl_fx
@@ -2603,6 +2604,8 @@ class RobotFace:
         # ── touch: instant visual answer, and tell the engine which zone ──
         with state.lock:
             ov_kind = state.overlay[0] if state.overlay else None
+        if touch_t > self._touch_t and touch_kind == "dock":
+            self._touch_t = touch_t                     # an icon: its page opened (dock.py)
         if touch_t > self._touch_t and self._overlay_on() and ov_kind in ("ttt", "memo"):
             self._touch_t = touch_t                     # a move in a game
             if touch_kind in ("tap", "stop"):
@@ -3366,6 +3369,10 @@ class RobotFace:
             asleep = state.sleep_mode
         if not self.status_bar.draw(self.screen, AWAKE_COL, asleep=asleep):
             self._draw_corner_icons()
+
+        # ── quick icons along the bottom (dock.py): on the bare face only ──
+        if dock.visible():
+            ui_screens.draw_dock(self.screen, characters.kind_of(themes.get()), accent_cols())
 
         # ── whole-screen moments: mirror, photo, clock, flash ─────────────
         if self._overlay_on():
