@@ -542,6 +542,8 @@ class TimersTest(unittest.TestCase):
         self.assertEqual(p("Czy możesz włączyć lampkę?"), "włącz lampkę")
         self.assertEqual(p("Możesz otworzyć ustawienia?"), "otwórz ustawienia")
         self.assertEqual(p("Zdejmiesz koronę?"), "zdejmij koronę")
+        self.assertEqual(p("Możesz być Mochi?"), "bądź Mochi")
+        self.assertEqual(p("Możesz być cicho?"), "bądź cicho")
         self.assertEqual(p("Luna, możesz mi przypomnieć za 20 minut o praniu?"),
                          "przypomnij mi za 20 minut o praniu")
         self.assertEqual(p("Mogłabyś zagrać ze mną w kółko i krzyżyk?"),
@@ -1536,6 +1538,8 @@ class PolishTest(unittest.TestCase):
                                    "przebojów albo elektroniczne. Jeśli chcesz, powiedz tylko: "
                                    "włącz przeboje albo włącz muzykę elektroniczną."))
         self.assertFalse(offer_only("Jasne — włączam przeboje. Jeśli wolisz inne, powiedz: włącz jazz."))
+        self.assertTrue(offer_only("Jasne, mogę włączyć radio dla dzieci albo spokojniejsze radio "
+                                   "bez śpiewu."))                      # "jasne" isn't "done"
         self.assertTrue(offer_only("Może chleb i masło? Chcesz, żebym dodała je do listy?"))
         self.assertFalse(offer_only("Dodałam mleko. Coś jeszcze?"))
         self.assertFalse(offer_only("Jasne, minutnik na 10 minut."))
@@ -6104,7 +6108,7 @@ class RadioCatalogTest(unittest.TestCase):
             handled, got, said = self._ask(text)
             self.assertTrue(handled, text)
             self.assertIn(got[-1], self._names(cat), text)
-        self.assertIn("spokojna muzyka do pracy", self._ask("Puść coś spokojnego do pracy")[2][-1])
+        self.assertIn("spokojna muzyka", self._ask("Puść coś spokojnego do pracy")[2][-1])
 
     def test_a_station_by_name_wins(self):
         for text, name in (("Włącz Polskie Radio Chopin", "Radio Chopin"),

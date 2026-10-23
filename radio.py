@@ -66,7 +66,7 @@ STATIONS = {
 # (key, label on the page, how she names it, [(name, url, a few words)]).
 # Every stream checked from the Pi on 15 Oct (radio-browser.info, ffmpeg).
 CATALOG = [
-    ("calm", "Do pracy", "spokojna muzyka do pracy", [
+    ("calm", "Do pracy", "spokojna muzyka", [
         ("SomaFM Groove Salad", "https://ice2.somafm.com/groovesalad-128-mp3", "chill, downtempo"),
         ("Radio Paradise Mellow", "https://stream.radioparadise.com/mellow-128", "łagodny miks"),
         ("SomaFM Lush", "https://ice2.somafm.com/lush-128-mp3", "miękkie wokale"),

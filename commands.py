@@ -913,6 +913,7 @@ _IMPERATIVE = {
     "przyciemnić": "przyciemnij", "rozjaśnić": "rozjaśnij", "ściemnić": "ściemnij",
     # (23 Oct sweep: "Możesz otworzyć ustawienia?" went to the model)
     "otworzyć": "otwórz", "zamknąć": "zamknij", "założyć": "załóż", "zdjąć": "zdejmij",
+    "być": "bądź",                          # "Możesz być Mochi?" (23 Oct sweep: the model)
 }
 # "Czy możesz się wyłączyć / być cicho przez godzinę?" — said whole, not a verb
 _POLITE_WHOLE = [
