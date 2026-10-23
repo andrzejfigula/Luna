@@ -911,6 +911,8 @@ _IMPERATIVE = {
     "uruchomić": "uruchom", "zmniejszyć": "zmniejsz", "zwiększyć": "zwiększ",
     # (7 Oct probe: "Możesz przyciemnić ekran?" went to the model)
     "przyciemnić": "przyciemnij", "rozjaśnić": "rozjaśnij", "ściemnić": "ściemnij",
+    # (23 Oct sweep: "Możesz otworzyć ustawienia?" went to the model)
+    "otworzyć": "otwórz", "zamknąć": "zamknij", "założyć": "załóż", "zdjąć": "zdejmij",
 }
 # "Czy możesz się wyłączyć / być cicho przez godzinę?" — said whole, not a verb
 _POLITE_WHOLE = [
@@ -931,7 +933,8 @@ _FUTURE = {"włączysz": "włącz", "wyłączysz": "wyłącz", "nastawisz": "nas
            "powtórzysz": "powtórz", "dopiszesz": "dopisz", "zapamiętasz": "zapamiętaj",
            "przywrócisz": "przywróć", "nagrasz": "nagraj", "odtworzysz": "odtwórz",
            "zatrzymasz": "zatrzymaj", "zmienisz": "zmień", "ściszysz": "ścisz",
-           "przepytasz": "przepytaj", "zadasz": "zadaj"}
+           "przepytasz": "przepytaj", "zadasz": "zadaj", "otworzysz": "otwórz",
+           "zamkniesz": "zamknij", "założysz": "załóż", "zdejmiesz": "zdejmij"}
 _FUTURE_ASK = re.compile(r"^(?:luna,?\s+|hej,?\s+)*(?:a\s+)?(\w+)(.*?)[?.!]*$", re.I)
 
 

@@ -540,6 +540,8 @@ class TimersTest(unittest.TestCase):
         import commands
         p = commands.polite_to_command
         self.assertEqual(p("Czy możesz włączyć lampkę?"), "włącz lampkę")
+        self.assertEqual(p("Możesz otworzyć ustawienia?"), "otwórz ustawienia")
+        self.assertEqual(p("Zdejmiesz koronę?"), "zdejmij koronę")
         self.assertEqual(p("Luna, możesz mi przypomnieć za 20 minut o praniu?"),
                          "przypomnij mi za 20 minut o praniu")
         self.assertEqual(p("Mogłabyś zagrać ze mną w kółko i krzyżyk?"),
@@ -7179,6 +7181,10 @@ class ImprovementsTest(unittest.TestCase):
             self.assertIn(part, said)
         self.assertNotIn("rain", said)
         self.assertTrue(screens.wants_today("Luna, co mnie dziś czeka?"))
+        # only the weather: the plan is empty, said first (22 Oct)
+        with mock.patch.dict(sys.modules, {"weather": mock.Mock(_summary="Today: deszcz, 7–15°C")}):
+            said = screens.today_said([("pogoda", "deszcz, 7–15°C"), ("lista", "zakupy: 2")])
+        self.assertEqual(said, "Na dziś nic nie ma w planie. Pogoda: deszcz, od 7 do 15 stopni.")
 
     def test_the_weeks_report(self):
         import weekly

@@ -406,6 +406,10 @@ def today_said(rows):
         wx = re.sub(r"(-?\d+)–(-?\d+)°C", r"od \1 do \2 stopni", wx)
         wx = re.sub(r",?\s*rain chance (\d+)%?", r", szansa deszczu \1 procent", wx)
         said.append(f"Pogoda: {wx.rstrip(', ')}.")
+        if len(said) == 1:
+            # only the weather: "Na dziś: Pogoda: deszcz…" (22 Oct: "Czemu
+            # pogoda jest w kalendarzu?") — say the plan is empty first
+            return "Na dziś nic nie ma w planie. " + said[0]
     if not said:
         n = len(rows)
         return f"Oto plan na dziś — {n} {'rzecz' if n == 1 else 'rzeczy'}."
