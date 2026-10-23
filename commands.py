@@ -1870,7 +1870,8 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         said = memory.where_is_thing(text)         # "gdzie są klucze?" — as noted
     if not said:
         import lists
-        said = lists.read_answer(text) or lists.clear_empty_answer(text)   # "co mam na liście…?"
+        said = (lists.read_answer(text) or lists.clear_empty_answer(text)  # "co mam na liście…?"
+                or lists.local_remove(text))       # "skreśl chleb" — when it's there
     if not said:
         import fun
         said = fun.random_answer(text)             # "kto zmywa: Maja czy tata?"

@@ -1581,6 +1581,20 @@ class ListsTest(unittest.TestCase):
         # two equally close — not a guess
         self.assertIsNone(lists.closest("kupić ser", ["kupić serek", "kupić sery"]))
 
+    def test_local_remove(self):
+        lists._lists = {"zakupy": ["mleko", "chleb", "ser żółty", "sera"],
+                        "do zrobienia": ["umyć auto", "wypłacić pieniądze na drewno"]}
+        self.assertEqual(lists.local_remove("Usuń chleb z listy"), "Skreśliłam: chleb.")
+        self.assertEqual(lists.local_remove("Usuń wypłacenie pieniędzy na drewno z listy."),
+                         "Skreśliłam: wypłacić pieniądze na drewno.")
+        self.assertEqual(lists.local_remove("Usuń z listy zakupów: mleko"), "Skreśliłam: mleko.")
+        self.assertIsNotNone(lists._undo)                       # "przywróć" still works
+        # not there, twice, a pronoun, not a list thing: the model's
+        for t in ("skreśl jajka", "skreśl ser", "usuń to", "usuń listę", "usuń zdjęcie",
+                  "wyrzuć z ulubionych", "skreśl wszystko"):
+            self.assertIsNone(lists.local_remove(t), t)
+        self.assertEqual(lists.get("do zrobienia"), ["umyć auto"])
+
     def test_local_add(self):
         self.assertEqual(lists.local_add("Dopisz mleko i chleb do listy zakupów"),
                          "Dopisałam: mleko, chleb.")

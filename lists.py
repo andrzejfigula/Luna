@@ -312,6 +312,54 @@ def local_add(text):
     return f"Dopisałam: {', '.join(items)}."
 
 
+_REMOVE = re.compile(r"^(?:luna,?\s+)?(?:skreśl|skresl|wykreśl|wykresl|usuń|usun|wyrzuć|wyrzuc)\s+"
+                     r"(?:mi\s+)?(?:z\s+(?:listy|listę)(?:\s+(?:zakupów|zakupow|do\s+zrobienia))?:?\s+)?"
+                     r"(.+?)(?:\s+z\s+(?:listy|listę|liste)(?:\s+(?:zakupów|zakupow|do\s+zrobienia|\w+))?)?"
+                     r"[.!]*$", re.I)
+_NOT_A_LIST = re.compile(r"ulubion|plan|zdjęc|zdjec|rysun|przypomn|budzik|minutnik|alarm|pamięc|"
+                         r"pamiec|twarz|wszystk|całą|cala|\blist[aęy]\b", re.I)
+
+
+def local_remove(text):
+    """"Skreśl chleb", "usuń umyć auto z listy" — each thing found on one list
+    (said any way: closest()) comes off without the model; otherwise None and
+    the model has it. The reply, or None."""
+    m = _REMOVE.match(text.strip())
+    if not m or _NOT_A_LIST.search(m.group(1)):
+        return None
+    global _undo
+    parts = [p.strip(" .") for p in re.split(r",|\s+i\s+|\s+oraz\s+", m.group(1)) if p.strip(" .")]
+    with _lock:
+        if _lists is None:
+            _load()
+        found = {}
+        for p in parts:
+            if p.lower() in ("to", "tamto", "ten", "tę", "tą", "je", "go", "ją", "coś", "cos",
+                             "ostatnie", "ostatnią", "tamtą") or not re.search(r"[^\W\d_]{3,}", p):
+                return None                # "usuń to" (to ⊂ "umyć auto"): the model's
+            hits = []
+            for k, v in _lists.items():
+                keep = _without(p, v)
+                hits += [(k, i) for i in v if i not in keep]
+            if len(hits) != 1:
+                return None                # not there, or twice: the model asks
+            found[p] = hits[0]
+        lsts = {k for k, _ in found.values()}
+        if len(lsts) != 1:
+            return None
+        lst = lsts.pop()
+        gone = [i for _, i in found.values()]
+        _undo = (time.time(), lst, list(_lists[lst]))
+        _lists[lst] = [i for i in _lists[lst] if i not in gone]
+        if not _lists[lst]:
+            _lists.pop(lst)
+            if lst in owners():
+                _set_owner(lst, None)
+        _save()
+    print(f"[lists] -{', '.join(gone)} ← {lst} (local)", flush=True)
+    return f"Skreśliłam: {', '.join(gone)}."
+
+
 _CLEAR = re.compile(r"^(?:luna,?\s+)?(?:wyczyść|wyczysc|wyczyszcz|opróżnij|oproznij|skasuj|"
                     r"usuń|usun)\s+(?:całą\s+|cala\s+)?(?:listę|liste)(?:\s+(?:zakupów|zakupow|"
                     r"do\s+zrobienia|(\w+)))?\W*$", re.I)
