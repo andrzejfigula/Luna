@@ -1,0 +1,15 @@
+Emilka|Dopisz do zakupów pomidory i ser żółty
+Emilka|Skreśl pomidory
+Emilka|Co jeszcze mamy kupić?
+Maja|Luna, ile to jest osiem razy siedem?
+Maja|Pomożesz mi z zadaniem? Mam policzyć 36 podzielić przez 4
+Andrzej|Przypomnij mi za godzinę, żeby wyjąć pranie
+Andrzej|Przesuń to przypomnienie o pół godziny
+Maja|Opowiedz mi bajkę o jednorożcu, ale krótką
+Maja|Nie chcę już tej bajki
+Emilka|Jutro Maja ma wycieczkę, przypomnij jej rano, żeby wzięła kanapki
+Andrzej|Ile stopni jest teraz na zewnątrz?
+Maja|Narysuj mi kota w kapeluszu
+Maja|Jaki dziś jest dzień?
+Andrzej|Wyłącz wszystko, idę spać
+Maja|Dobranoc Luna

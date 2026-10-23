@@ -1716,6 +1716,15 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             # (8 Oct probe: the model's suggestions went straight onto the list)
             print("[brain] ideas asked, not a list change — list_add held back", flush=True)
             data["actions"] = [a for a in data["actions"] if a.get("type") != "list_add"]
+        if any(a.get("type") == "cancel" and str(a.get("label", "")).strip().lower() in (
+                "", "wszystko", "wszystkie", "all", "everything") for a in data.get("actions") or []) \
+                and not (timers.TIMER_WORD.search(text or "")
+                         or (timers.TIMER_WORD.search(last_reply())        # "Anuluj to."
+                             and not re.search(r"wszystk", text or "", re.I))):
+            # "Wyłącz wszystko, idę spać" meant the radio and the lamp: the
+            # blanket cancel took the laundry reminder (23 Oct sweep)
+            print("[brain] cancel with no timer in sight — held back", flush=True)
+            data["actions"] = [a for a in data["actions"] if a.get("type") != "cancel"]
         if (any(a.get("type") == "list_clear" for a in data.get("actions") or [])
                 and not _about_a_list(text)):
             # "Usuń to." about a memory → list_clear (22 Oct 13:21 — the

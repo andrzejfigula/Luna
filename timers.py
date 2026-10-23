@@ -227,6 +227,10 @@ def _same_as_set(kind, due, label):
                for t in _timers)
 
 
+TIMER_WORD = re.compile(r"minutnik|timer|budzik|alarm|przypomn|pobudk|stoper|odlicz|remind",
+                        re.I)
+
+
 def apply(actions, said=""):
     """Carry out the model's timer actions. Returns a short log string.
     said: what the person said — "wszystkie przypomnienia" limits a cancel
