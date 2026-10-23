@@ -284,7 +284,10 @@ _ALARM_OFF = ("budź mnie dzwonkiem", "budz mnie dzwonkiem", "budzik bez radia",
               "budzik z dzwonkiem", "budzenie dzwonkiem")
 _MUSIC = {"muzykę", "muzyke", "jakąś muzykę", "jakas muzyke", "muzyczkę", "coś do słuchania"}
 _OFF = ("wyłącz radio", "wylacz radio", "stop radio", "zatrzymaj radio", "wyłącz muzykę",
-        "wylacz muzyke", "zatrzymaj muzykę", "koniec radia", "radio stop", "ścisz radio do zera")
+        "wylacz muzyke", "zatrzymaj muzykę", "koniec radia", "radio stop", "ścisz radio do zera",
+        # (the sweep files: "Wyłącz to radio" went to the model)
+        "wyłącz to radio", "wylacz to radio", "wyłącz tę muzykę", "wyłącz tą muzykę",
+        "zatrzymaj to radio", "stop muzyka")
 # "Wznów radio", "wróć do radia" — the last station again (14 Oct probe: to the model)
 _RESUME = re.compile(r"^(?:luna,?\s+)?(?:wznów|wznow|wróć\s+do|wroc\s+do|puść\s+dalej|"
                      r"pusc\s+dalej|graj\s+dalej|włącz\s+z\s+powrotem|wlacz\s+z\s+powrotem|"

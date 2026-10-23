@@ -977,7 +977,8 @@ _COMPLAINTS = [
     (r"\b(?:za\s+wolno|zbyt\s+wolno)\b", "mów szybciej"),
     (r"\b(?:za\s+szybko|zbyt\s+szybko)\b", "mów wolniej"),
     (r"\b(?:za\s+cicho|zbyt\s+cicho|nie\s+słychać\s+cię|nie\s+slychac\s+cie|słabo\s+cię\s+słychać|"
-     r"nic\s+nie\s+słyszę|nic\s+nie\s+slysze)\b", "głośniej"),
+     r"nic\s+nie\s+słyszę|nic\s+nie\s+slysze|mów\s+głośniej|mow\s+glosniej)\b", "głośniej"),
+    # ("Mów głośniej, nie słyszę" — the sweep files: to the model)
     (r"\b(?:za\s+głośno|za\s+glosno|zbyt\s+głośno)\b", "ciszej"),
     # "Dlaczego tak krzyczysz?" (log: answered "Andrzej nie krzyczy, mówi spokojnie")
     (r"\b(?:krzyczysz|krzycz|drzesz\s+się|drzesz\s+sie|ogłuszasz|ogluszasz|wrzeszczysz)\b",
@@ -996,7 +997,7 @@ def _complaint_as_command(low):
     n = len(re.findall(r"\w+", low))
     if n > 6 or re.search(r"\b(radio|muzyk|telewiz|tv)\w*", low):
         return None
-    if n > 3 and not re.search(r"\b(mówisz|mowisz|gadasz|cię|cie|ciebie|twój\s+głos|twoj\s+glos|"
+    if n > 3 and not re.search(r"\b(mów|mow|mówisz|mowisz|gadasz|cię|cie|ciebie|twój\s+głos|twoj\s+glos|"
                                r"krzyczysz|szepczesz|mamroczesz|drzesz)\b", low):
         return None                        # "minutnik dzwoni za głośno" is not about her
     return next((cmd for rx, cmd in _COMPLAINTS if re.search(rx, low)), None)
@@ -1847,6 +1848,7 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
     said = (timers.reminders_answer(text)          # "jakie mam przypomnienia / budziki?"
             or timers.wake_answer(text)            # "o której jutro wstajemy?"
             or timers.cancel_answer(text)          # "anuluj minutnik"
+            or timers.one_named_answer(text)       # "odwołaj przypomnienie o pizzy"
             or weather.sun_answer(text))           # "o której zachód słońca?"
     if said:
         close_after()                              # (answered: nothing follows)

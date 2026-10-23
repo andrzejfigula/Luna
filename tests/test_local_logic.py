@@ -5866,6 +5866,24 @@ class Oct14NightTest(unittest.TestCase):
         finally:
             timers._timers.clear()
 
+    def test_one_timer_by_its_name(self):
+        # the sweep files: "Odwołaj przypomnienie o pizzy", "Stop minutnik" → the model
+        now = time.time()
+        timers._timers.clear()
+        timers._timers += [{"kind": "reminder", "due": now + 1800, "repeat": "none", "label": "pizza"},
+                           {"kind": "timer", "due": now + 600, "repeat": "none", "label": "makaron"}]
+        try:
+            self.assertEqual(timers.one_named_answer("Ile zostało do przypomnienia o pizzy?", now),
+                             "Do przypomnienia (pizza) zostało 30 minut.")
+            self.assertIsNone(timers.one_named_answer("Odwołaj przypomnienie o dentyście", now))
+            with mock.patch.object(timers, "_save"):
+                self.assertEqual(timers.one_named_answer("Odwołaj przypomnienie o pizzy", now),
+                                 "Dobrze, odwołałam przypomnienie — pizza.")
+                self.assertEqual(len(timers._timers), 1)
+                self.assertEqual(timers.cancel_answer("Stop minutnik"), "Dobrze, wyłączyłam minutnik.")
+        finally:
+            timers._timers.clear()
+
     def test_close_by_name(self):
         said = []
         with state.lock:

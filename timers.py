@@ -291,9 +291,50 @@ def apply(actions, said=""):
 # "Anuluj minutnik", "Wyłącz wszystkie budziki" — here, not through the model
 # (14 Oct probe). A bare "wyłącz budzik" still goes there: for a weekday alarm
 # it may mean tomorrow only (#361).
-_CANCEL_KIND = re.compile(r"^(?:luna,?\s+)?(?:wyłącz|wylacz|anuluj|odwołaj|odwolaj|skasuj|kasuj|"
-                          r"usuń|usun|zatrzymaj|zresetuj)\s+(?:mi\s+)?(?:(wszystkie)\s+)?"
+_CANCEL_VERB = (r"(?:wyłącz|wylacz|anuluj|odwołaj|odwolaj|skasuj|kasuj|usuń|usun|zatrzymaj|"
+                r"zresetuj|stop)")
+_CANCEL_KIND = re.compile(r"^(?:luna,?\s+)?" + _CANCEL_VERB + r"\s+(?:mi\s+)?(?:(wszystkie)\s+)?"
                           r"(minutnik[i]?|timer[y]?|budziki|alarmy|przypomnienia)\W*$", re.I)
+# one by its name: "Odwołaj przypomnienie o pizzy" (the sweep files: to the model)
+_CANCEL_ONE = re.compile(r"^(?:luna,?\s+)?" + _CANCEL_VERB + r"\s+(?:mi\s+)?"
+                         r"(przypomnienie|minutnik|timer)\s+(?:o|na|z|od)\s+(.{2,40}?)\W*$", re.I)
+_LEFT_ONE = re.compile(r"\bile\s+(?:jeszcze\s+|czasu\s+)?(?:zostało\s+|zostalo\s+)?do\s+"
+                       r"(?:przypomnienia|minutnika)\s+(?:o|na)\s+(.{2,40}?)\W*$", re.I)
+
+
+def _named(label, words):
+    """The label said another way: "pizzy" for "pizza", "pranie" for "wyjąć pranie"."""
+    have = re.findall(r"[^\W\d_]{3,}", (label or "").lower())
+    want = re.findall(r"[^\W\d_]{3,}", words.lower())
+    return bool(want) and all(any(w[:4] == h[:4] for h in have) for w in want)
+
+
+def one_named_answer(text, now=None):
+    """"Odwołaj przypomnienie o pizzy" / "Ile zostało do przypomnienia o
+    pizzy?" — exactly one timer or reminder by its label, else None (the
+    model asks which)."""
+    now = now or time.time()
+    said = (text or "").strip()
+    m, left = _CANCEL_ONE.match(said), _LEFT_ONE.search(said)
+    if not (m or left):
+        return None
+    words = (m or left).group(m.lastindex if m else 1)
+    with _lock:
+        hits = [t for t in _timers if t["kind"] in ("timer", "reminder") and t["due"] > now
+                and _named(t["label"], words)]
+        if len(hits) != 1:
+            return None
+        t = hits[0]
+        if m:
+            _timers.remove(t)
+            _save()
+    what = "minutnik" if t["kind"] == "timer" else "przypomnienie"
+    if m:
+        print(f"[timers] cancelled {t['kind']} '{t['label']}' by voice", flush=True)
+        close_after()
+        return f"Dobrze, odwołałam {what} — {t['label']}."
+    return f"Do {'minutnika' if t['kind'] == 'timer' else 'przypomnienia'} ({t['label']}) " \
+           f"zostało {_say_left(t['due'] - now)}."
 _CANCEL_NONE = {"timer": "Nie mam teraz żadnego minutnika.",
                 "alarm": "Nie mam teraz żadnego budzika.",
                 "reminder": "Nie mam teraz żadnych przypomnień."}
