@@ -96,7 +96,12 @@ _OFFER = re.compile(r"(?:chcesz|może|moze|czy|mam)\b[^.!?]*\b(?:dopis|doda|wł�
                     # the milk was already crossed off)
                     r"\b(?:jeśli|jeżeli|jesli)\s+(?:chcesz|zechcesz|wolisz)\W+(?:to\s+)?mogę\b"
                     r"[^.!?]*\b(?:dopis|doda|włącz|wlacz|nastaw|przypomn|zapis|ustaw|puści|"
-                    r"pusci|skreśl|skresl|usun|narysow|namalow|rysow|spróbow|sprobow|zrobi|pokaza)", re.I)
+                    r"pusci|skreśl|skresl|usun|narysow|namalow|rysow|spróbow|sprobow|zrobi|pokaza)|"
+                    # a choice, or the words to say for it (23 Oct sweep: "Mogę włączyć
+                    # przeboje albo elektroniczne. Jeśli chcesz, powiedz tylko: włącz
+                    # przeboje…" — and the hits came on before anyone chose)
+                    r"\bmogę\b[^.!?]*\b(?:włącz|wlacz|puści|pusci|nastaw|pokaza)\w*[^.!?]*\b(?:albo|lub)\b|"
+                    r"\bpowiedz\s+(?:tylko|po\s+prostu|mi)?\s*:?\s*[„\"]?(?:włącz|wlacz|puść|pusc)\b", re.I)
 _DONE_VERB = (r"dodałam|dopisałam|włączam|wlaczam|nastawiam|nastawiłam|ustawiam|ustawiłam|"
               r"zapisałam|przypomnę|skreśliłam|usunęłam|puszczam|gotowe|dopisuję|dodaję|"
               r"zapisuję|usuwam|skreślam")

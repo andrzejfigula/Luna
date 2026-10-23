@@ -1488,6 +1488,11 @@ class PolishTest(unittest.TestCase):
     def test_offer_only(self):
         from polish import offer_only
         self.assertTrue(offer_only("Może dopiszmy świeże warzywa i owoce?"))
+        # 23 Oct sweep: the hits came on with this
+        self.assertTrue(offer_only("Mogę włączyć radio z energiczną muzyką, na przykład coś z "
+                                   "przebojów albo elektroniczne. Jeśli chcesz, powiedz tylko: "
+                                   "włącz przeboje albo włącz muzykę elektroniczną."))
+        self.assertFalse(offer_only("Jasne — włączam przeboje. Jeśli wolisz inne, powiedz: włącz jazz."))
         self.assertTrue(offer_only("Może chleb i masło? Chcesz, żebym dodała je do listy?"))
         self.assertFalse(offer_only("Dodałam mleko. Coś jeszcze?"))
         self.assertFalse(offer_only("Jasne, minutnik na 10 minut."))
