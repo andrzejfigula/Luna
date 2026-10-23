@@ -19,6 +19,7 @@ built by their own shaders (gl_chars.py) from characters.py's data.
 Pure Python (settings only): the unit tests read it on Windows.
 """
 
+import re
 import time
 
 import characters
@@ -313,3 +314,88 @@ def stt_name():
 
 def labels():
     return [(k, t["label"]) for k, t in THEMES.items()]
+
+
+# ── switching by voice ("włącz motyw HAL", "zmień się w Mirę", "wróć do Luny") ─
+# (22 Oct: "To włącz ten motyw." → "włączam motyw HAL 9000", nothing changed —
+# only the settings page could)
+
+_HOME = re.compile(r"^(?:wróć|wroc|wracaj)\s+do\s+(?:siebie|luny|normalnej|zwykłej|zwyklej)"
+                   r"|^(?:bądź|badz)\s+(?:znowu\s+|z\s+powrotem\s+)?(?:sobą|soba|luną|luna)$")
+_SWITCH = re.compile(r"^(?:włącz|wlacz|ustaw|zmień|zmien|przełącz|przelacz|wybierz|daj)\s+"
+                     r"(?:mi\s+|nam\s+)?(?:motyw|postać|postac|postaci|wygląd|wyglad)"
+                     r"(?:\s+(?:na|postaci))?\s+(.{2,30})$"
+                     r"|^(?:zmień|zmien|przełącz|przelacz|zamień|zamien)\s+się\s+(?:w|na)\s+(.{2,30})$"
+                     r"|^(?:bądź|badz)\s+(?:teraz\s+|znowu\s+)?(.{2,30})$"
+                     r"|^(?:włącz|wlacz)\s+(.{2,30})$"
+                     r"|^motyw\s+(.{2,30})$")
+_LIST = re.compile(r"\b(?:jakie|które|ktore|pokaż|pokaz)\s+(?:masz\s+|są\s+|mamy\s+)?"
+                   r"(?:motywy|postacie|postaci)\b")
+# a bare "włącz <name>" only for names nothing else uses ("włącz retro" may be
+# the 80s radio, "włącz echo" anything)
+_BARE_OK = ("hal", "nex", "mochi", "pixel")
+_HOME_WORDS = ("domyśln", "domysln", "zwykł", "zwykl", "normaln", "standard")
+
+
+def _stems():
+    """(stem, key) — the names as said and declined: "Mirę", "HALa", "Lunę"."""
+    out = []
+    for k, t in THEMES.items():
+        for w in [t.get("label", ""), t.get("name") or ""] + list(t.get("wake", [])):
+            w = w.lower()
+            if not w or w.startswith("hej "):
+                continue
+            out.append((w[:-1] if len(w) > 3 and w[-1] in "ao" else w, k))
+    return sorted(out, key=lambda s: -len(s[0]))
+
+
+def named(words):
+    """The theme the words name, or None ("hal 9000" → "hal", "mirę" → "nex")."""
+    w = re.sub(r"[^\w ]", " ", (words or "").lower()).split()
+    if not w or len(w) > 3:
+        return None
+    if w[0] in ("motyw", "postać", "postac"):
+        w = w[1:]
+    whole = " ".join(w)
+    if any(whole.startswith(h) for h in _HOME_WORDS):
+        return DEFAULT
+    for stem, k in _stems():
+        if " " in stem:
+            if whole == stem:
+                return k
+        elif w and w[0].startswith(stem) and len(w[0]) - len(stem) <= 3 and (
+                len(w) == 1 or " ".join(w[1:]) in ("9000", "dziewięć tysięcy")):
+            return k
+    return None
+
+
+def voice_request(text):
+    """What a sentence asks of the themes: ("set", key), ("list", None),
+    ("unknown", words) — or None when it isn't about them."""
+    low = re.sub(r"^(?:a\s+|no\s+|to\s+)?(?:luna,?\s+|luno,?\s+)?", "",
+                 (text or "").lower().strip(" .!?"))
+    if _HOME.match(low):
+        return ("set", DEFAULT)
+    if _LIST.search(low):
+        return ("list", None)
+    if re.match(r"(?:zmień|zmien|następny|nastepny|inny)\s+(?:motyw|postać|postac)$", low):
+        keys = list(THEMES)                # the next one, as a tap on the settings row
+        return ("set", keys[(keys.index(current()) + 1) % len(keys)])
+    m = _SWITCH.match(low)
+    if not m:
+        return None
+    words = next(g for g in m.groups() if g)
+    k = named(words)
+    if k and m.group(4) and k not in _BARE_OK:
+        return None
+    if k:
+        return ("set", k)
+    # "włącz radio", "bądź cicho", "zamień się w kotka" — not about the themes
+    if m.group(1) or m.group(5):
+        return ("unknown", words)
+    return None
+
+
+def say_list():
+    names = [t["label"] for t in THEMES.values()]
+    return "Mogę być: " + ", ".join(names[:-1]) + " albo " + names[-1] + "."

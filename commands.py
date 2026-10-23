@@ -1240,6 +1240,28 @@ def undoubled(text):
     return text
 
 
+def switch_theme(text, speak):
+    """"Włącz motyw HAL", "zmień się w Mirę", "wróć do Luny", "jakie masz
+    motywy?" — the settings page's Motyw row by voice; the new one says hello
+    in its own voice."""
+    import themes
+    req = themes.voice_request(text)
+    if not req:
+        return False
+    kind, what = req
+    if kind == "list":
+        speak(themes.say_list())
+    elif kind == "unknown":
+        speak(f"Nie mam takiego motywu. {themes.say_list()}")
+    elif themes.current() == what:
+        speak(f"Przecież to ja, {themes.THEMES[what]['label']}.")
+    else:
+        themes.set_theme(what)
+        print(f"[cmd] theme → {what}", flush=True)
+        speak(themes.THEMES[what]["hello"])
+    return True
+
+
 def handle(text, speak, play_sound, _polite=True, _split=True):
     """Handle a local command. Returns True when the utterance was one (and
     must not go to the model)."""
@@ -1299,6 +1321,8 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
     if _SLEEP_SELF.match(low.strip(" .!?")):
         speak("Dobrze, idę spać. Obudź mnie, kiedy będę potrzebna.")
         go_to_sleep()
+        return True
+    if switch_theme(text, speak):                  # "włącz motyw HAL", "wróć do Luny"
         return True
 
     # good night — said to her while awake

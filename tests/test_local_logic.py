@@ -3305,6 +3305,27 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(started[1], "narysuj kotka")
         self.assertEqual(started[3], "zamień się w kotka")
 
+    def test_every_command_in_her_prompt_is_allowed(self):
+        import brain
+        # 23 Oct: 18 of the labels her prompt lists were refused by
+        # run_command ("włączam elektronikę" — nothing played, three times)
+        for label in ("włącz coś spokojnego do pracy", "włącz jazz", "włącz muzykę klasyczną",
+                      "włącz rock", "włącz przeboje", "włącz muzykę elektroniczną",
+                      "włącz radio dla dzieci", "włącz jazz bez śpiewu", "włącz radio z Francji",
+                      "pokaż stacje", "dodaj tę stację do ulubionych",
+                      "usuń tę stację z ulubionych", "włącz moją ulubioną stację",
+                      "pokaż ulubione", "lampka meduzy", "włącz zorzę", "lampka zegar",
+                      "włącz świetliki", "lampa lawa", "lampka kominek", "zmień lampkę",
+                      "włącz Trójkę", "lampka na niebiesko", "pokaż plan tygodnia"):
+            self.assertTrue(brain.command_allowed(label), label)
+        for label in ("zatrzymaj", "zrób coś śmiesznego", "usuń wszystko"):
+            self.assertFalse(brain.command_allowed(label), label)
+        started = []
+        with mock.patch.object(brain, "_spoken_command", lambda l, k: started.append(l)):
+            self.assertTrue(brain.run_command("włącz motyw HAL 9000"))
+            self.assertTrue(brain.run_command("włącz HAL 9000"))
+        self.assertEqual(len(started), 2)
+
     def test_no_second_intro_after_the_models_answer(self):
         import drawing
         said = []
@@ -6045,6 +6066,16 @@ class RadioCatalogTest(unittest.TestCase):
             self.assertIn("Usunęłam", self._ask("usuń tę stację z ulubionych",
                                                  playing="FIP Jazz")[2][-1])
             self.assertEqual(radio.favs(), [])
+            # a favourite named, not the one playing; nothing playing: not "dodam"
+            radio.fav_toggle("Lofi 24/7", "http://lofi")
+            radio.fav_toggle("FIP Jazz", "http://x")
+            self.assertIn("Usunęłam Lofi 24/7", self._ask("usuń lofi 24/7 z ulubionych",
+                                                         playing="FIP Jazz")[2][-1])
+            self.assertEqual(radio.favs(), [("FIP Jazz", "http://x")])
+            said = self._ask("usuń tę stację z ulubionych")[2][-1]
+            self.assertIn("którą stację usunąć", said)
+            self.assertEqual(len(radio.favs()), 1)
+            radio.fav_toggle("FIP Jazz", "")
             # 15 Oct, Andrzej's own words, through the whole router (the first
             # two went to the model: "Nie mogę dodać stacji do ulubionych")
             import commands
@@ -7641,6 +7672,33 @@ class ThemesTest(unittest.TestCase):
     def tearDown(self):
         import themes
         themes.set_theme("luna")
+
+    def test_switched_by_voice(self):
+        import commands
+        import themes
+        # 22 Oct: "To włącz ten motyw." → "włączam motyw HAL 9000", nothing changed
+        r = themes.voice_request
+        self.assertEqual(r("Włącz motyw HAL 9000."), ("set", "hal"))
+        self.assertEqual(r("włącz HAL 9000"), ("set", "hal"))
+        self.assertEqual(r("Luna, zmień się w Mirę"), ("set", "nex"))
+        self.assertEqual(r("zmień motyw na Pixela"), ("set", "pixel"))
+        self.assertEqual(r("przełącz się na HALa"), ("set", "hal"))
+        self.assertEqual(r("bądź Mochi"), ("set", "mochi"))
+        self.assertEqual(r("wróć do Luny"), ("set", "luna"))
+        self.assertEqual(r("zmień motyw na domyślny"), ("set", "luna"))
+        self.assertEqual(r("jakie masz motywy?"), ("list", None))
+        self.assertEqual(r("włącz motyw dinozaura"), ("unknown", "dinozaura"))
+        for other in ("włącz radio", "włącz retro", "włącz echo", "bądź cicho",
+                      "zamień się w kotka", "włącz lampkę", "włącz Polskie Radio Chopin"):
+            self.assertIsNone(r(other), other)
+        said = []
+        self.assertTrue(commands.switch_theme("Włącz motyw HAL 9000", said.append))
+        self.assertEqual(themes.current(), "hal")
+        self.assertIn("HAL 9000", said[-1])                  # its hello, in its voice
+        self.assertTrue(commands.switch_theme("włącz HAL", said.append))
+        self.assertEqual(said[-1], "Przecież to ja, HAL 9000.")
+        self.assertTrue(commands.handle("Wróć do Luny.", said.append, lambda *a, **k: None))
+        self.assertEqual(themes.current(), "luna")
 
     def test_cycle_on_the_settings_page(self):
         import themes

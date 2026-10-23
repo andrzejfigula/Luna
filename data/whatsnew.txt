@@ -2,6 +2,8 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 23 października ==
+- Postać można zmienić głosem: „Luna, włącz motyw HAL”, „zmień się w Mirę”, „bądź Mochi”, a z powrotem: „wróć do Luny”. „Jakie masz motywy?” — wymienię wszystkie.
+- Kiedy proszę mnie o rodzaj muzyki („włącz muzykę elektroniczną”, „włącz rock”), o stronę ze stacjami, ulubione albo żywą lampkę (meduzy, zorza, kominek) — naprawdę to włączam, a nie tylko mówię „włączam”. „Usuń Lofi z ulubionych” usuwa tę, którą nazwiesz.
 - Na dole ekranu są teraz delikatne ikonki: zakupy, rzeczy do zrobienia, plan tygodnia, zdjęcia, radio i ustawienia — wystarczy dotknąć. Każda postać rysuje je po swojemu. Można je schować: „ukryj ikony” (albo w Ustawieniach → Ekran).
 - PIP wygląda teraz jak zielony ekran starego komputerka na nadgarstku: ma linie jak w kineskopie, lekkie migotanie, a co jakiś czas obraz mu się rozjeżdża i „gubi synchronizację” — częściej, kiedy jest zły.
 

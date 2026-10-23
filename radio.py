@@ -819,6 +819,16 @@ def handle(text, speak):
         play(name, url)
         _remember_station(name, url)
         return True
+    if _FAV_DEL.search(low):
+        # a favourite named ("usuń Lofi z ulubionych") — not the one playing
+        named = next((n for n, _ in favs() if n.lower() in low), None)
+        if named:
+            fav_toggle(named, "")
+            speak(f"Usunęłam {_acc(named)} z ulubionych.")
+            return True
+        if not playing():
+            speak("Teraz nic nie gra. Powiedz, którą stację usunąć z ulubionych.")
+            return True
     if _FAV_ADD.search(low) or _FAV_DEL.search(low):
         now = playing()
         if not now:
@@ -1148,6 +1158,19 @@ def favs():
     """[(name, url)] — the house's favourite stations."""
     import settings
     return [tuple(f) for f in settings.get("radio_favs", []) or []]
+
+
+def model_command(label):
+    """A label from the model's command list that handle() runs: a kind of
+    music, the stations page, the favourites (22 Oct: "włącz muzykę
+    elektroniczną", listed in her prompt, refused three times in a row)."""
+    low = (label or "").lower().strip(" .!?")
+    if (_FAV_ADD.search(low) or _FAV_DEL.search(low) or _FAV_SHOW.match(low)
+            or _FAV_PLAY.search(low) or _show_asked(low)):
+        return True
+    m = re.match(r"(?:włącz|wlacz|puść|pusc)\s+(.{2,60})$", low)
+    return bool(m) and len(m.group(1).split()) <= 6 and any(
+        re.search(rx, m.group(1)) for rx, _ in _GENRES)
 
 
 def known(name):

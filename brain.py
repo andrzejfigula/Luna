@@ -879,7 +879,9 @@ Always answer as JSON with exactly these keys:
                 "Stop!" — they write on paper); and
                 "zróbmy ćwiczenie oddechowe" (a calm guided breathing circle —
                 when they say yes to breathing together), "zamień się w
-                kotka / pieska / zajączka" (ears on your face). A game
+                kotka / pieska / zajączka" (ears on your face), "włącz motyw
+                <Luna | Ice | HAL 9000 | MIRA | PIP | RETRO | PIXEL | MOCHI |
+                ECHO>" (your whole character: face, voice, name). A game
                 only once ONE game was chosen — named by them, or a "tak" to
                 the single game you proposed; while you list options, no
                 command. Never play one of THESE games inside your reply (no
@@ -2033,6 +2035,22 @@ def _spoken_command(label, kind):
     threading.Thread(target=run, daemon=True, name="command").start()
 
 
+def command_allowed(label):
+    """A silent switch from her prompt's command list. (Until 23 Oct the radio
+    kinds, the stations page, the favourites and the lamp scenes were listed
+    there and refused here — "włączam elektronikę", nothing played.)"""
+    import radio
+    import lamp_scenes
+    on = re.match(r"(?:włącz|wlacz|puść|pusc)\s+(.{2,60})$", label, re.I)
+    low = label.lower()
+    return bool(_COMMAND_OK.match(label)
+                or (on and radio.known(on.group(1)))      # "włącz Classic Vinyl HD"
+                or radio.model_command(label)              # "włącz rock", "pokaż stacje"
+                or (re.match(r"(?:włącz|wlacz|zapal|lamp\w*)\b", low)
+                    and lamp_scenes.scene_in(low))         # "lampka meduzy", "włącz zorzę"
+                or re.fullmatch(r"zmień\s+lampkę", low))
+
+
 def run_command(label, reply=""):
     """The model's "command" action: one of the app's own switches, run
     through the local command handler (which the model can't reach) —
@@ -2046,10 +2064,11 @@ def run_command(label, reply=""):
     label = re.sub(r"^(?:zrób|zrob)\s+(?:mi\s+|nam\s+)?(?:rysunek|obrazek)\s+|^namaluj\s+",
                    "narysuj ", label, flags=re.I)
     game = bool(_GAME_OK.match(label))
-    on = re.match(r"(?:włącz|wlacz|puść|pusc)\s+(.{2,60})$", label, re.I)
-    import radio
-    station = bool(on) and radio.known(on.group(1))     # "włącz Classic Vinyl HD"
-    if not (game or station or _COMMAND_OK.match(label) or _VOICED_OK.match(label)):
+    theme = themes.voice_request(label)
+    if theme and theme[0] == "set":
+        _spoken_command(label, "")         # the new one says hello in its voice
+        return True
+    if not (game or command_allowed(label) or _VOICED_OK.match(label)):
         print(f"[brain] command not allowed: {label!r}", flush=True)
         return False
     if re.match(r"narysuj\b", label, re.I) and _just_praise():
