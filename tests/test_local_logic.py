@@ -648,6 +648,26 @@ class TimersTest(unittest.TestCase):
         finally:
             counting._watch["t0"] = None
 
+    def test_show_again(self):
+        import commands
+        from shared_state import state as st
+        said, now = [], time.time()
+        data = ("Lista: zakupy", [("•", "mleko")], {"list": "zakupy"})
+        with st.lock:
+            st.overlay = ("list", now - 60, data)            # closed a minute ago
+        self.assertTrue(commands.show_again("Luna, pokaż.", said.append, now))
+        self.assertEqual(st.overlay[0], "list")
+        self.assertGreater(st.overlay[1], now)
+        self.assertTrue(commands.show_again("Pokaż jeszcze raz", said.append, now))
+        self.assertEqual(said[-1], "Proszę.")                 # still on
+        with st.lock:
+            st.overlay = ("list", now - 900, data)            # long ago: the model's
+        self.assertFalse(commands.show_again("Pokaż.", said.append, now))
+        with st.lock:
+            st.overlay = None
+        self.assertFalse(commands.show_again("Pokaż.", said.append, now))
+        self.assertFalse(commands.show_again("Pokaż zdjęcia", said.append, now))
+
     def test_show_a_list_said_any_way(self):
         import screens
         # 22 Oct: "Pokaż tą listę jeszcze raz." went to the model (and the camera)

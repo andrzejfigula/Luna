@@ -1187,6 +1187,36 @@ _CLOSE_NAMED = re.compile(r"^(?:luna,?\s+)?(?:dobra,?\s+|ok,?\s+|okej,?\s+|już,
                           r"lusterko|lustro|planszę|plansze)(?:\s+(?:proszę|prosze|dzięki|dzieki))?\W*$", re.I)
 
 
+# "Pokaż.", "Pokaż jeszcze raz" — what was on the screen a moment ago (14 Oct:
+# the photos had closed, "Luna, pokaż." went to the model with the camera → "Andrzej.")
+_AGAIN = re.compile(r"^(?:luna,?\s+|a\s+|no\s+|to\s+)*(?:(?:jeszcze\s+raz|znowu|ponownie)\s+)?"
+                    r"(?:pokaż|pokaz)(?:\s+(?:mi|nam|to|je|go|ją|jeszcze\s+raz|jeszcze|znowu|"
+                    r"ponownie|z\s+powrotem))*\W*$", re.I)
+_AGAIN_KINDS = {"gallery": 0, "list": 20, "card": 20, "weather": 20, "settings": 60}
+
+
+def show_again(text, speak, now=None):
+    if not _AGAIN.match(text.strip()):
+        return False
+    now = time.time() if now is None else now
+    with state.lock:
+        ov = state.overlay
+    if not ov or ov[0] not in _AGAIN_KINDS or now - ov[1] > 600:
+        return False                       # nothing to show again: the model asks what
+    if now < ov[1]:
+        speak("Proszę.")                   # still on the screen
+        return True
+    kind, _, data = ov
+    if kind == "gallery":
+        gallery.show(data["items"], data.get("title", ""))
+    else:
+        with state.lock:
+            state.overlay = (kind, now + _AGAIN_KINDS[kind], data)
+    print(f"[cmd] {kind} shown again", flush=True)
+    speak("Proszę, jeszcze raz.")
+    return True
+
+
 def close_page(text, speak):
     """A page on the screen (clock, list, photos, a card…) closed by voice."""
     if _CLOSE_NAMED.match(text.strip()):
@@ -1278,6 +1308,8 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
     """Handle a local command. Returns True when the utterance was one (and
     must not go to the model)."""
     if close_page(text, speak):
+        return True
+    if show_again(text, speak):
         return True
     if gallery.voice(text, speak):      # "następne", "poprzednie" — with it on the screen
         return True

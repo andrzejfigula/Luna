@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 23 października ==
+- „Pokaż jeszcze raz” (albo samo „pokaż”) pokazuje znowu to, co przed chwilą było na ekranie — zdjęcia, listę, pogodę.
 - Postać można zmienić głosem: „Luna, włącz motyw HAL”, „zmień się w Mirę”, „bądź Mochi”, a z powrotem: „wróć do Luny”. „Jakie masz motywy?” — wymienię wszystkie.
 - Kiedy proszę mnie o rodzaj muzyki („włącz muzykę elektroniczną”, „włącz rock”), o stronę ze stacjami, ulubione albo żywą lampkę (meduzy, zorza, kominek) — naprawdę to włączam, a nie tylko mówię „włączam”. „Usuń Lofi z ulubionych” usuwa tę, którą nazwiesz.
 - Postacie zakładają i zdejmują dodatki na prośbę: „Mira, zdejmij koronę”, „Retro, załóż okulary”, „zdejmij wszystko”. „Włącz ustawienia” działa też w dłuższym zdaniu.
