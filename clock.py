@@ -45,7 +45,11 @@ _DATE_Q = ("jaki dziś dzień", "jaki dzisiaj dzień", "jaki jest dzisiaj dzień
            "jaka jest data", "jaka jest dzisiaj data", "jaka dziś data",
            "what day is it", "what's the date",
            # 13 Oct probe: "Który dzisiaj jest?" went to the model
-           "który dzisiaj", "który dziś", "ktory dzisiaj", "ktory dzis", "który mamy")
+           "który dzisiaj", "który dziś", "ktory dzisiaj", "ktory dzis", "który mamy",
+           # (the sweep files: "Jaki dziś dzień tygodnia?", "Którego jest dzisiaj?")
+           "którego jest", "którego mamy", "jaki dziś jest dzień", "jaki dzisiaj jest dzień",
+           "jaki mamy dziś dzień", "jaki mamy dzisiaj dzień", "jaki dziś mamy dzień",
+           "jaki dzisiaj mamy dzień", "jaki jest dzień tygodnia", "jaki dzień tygodnia")
 # the day before and after (13 Oct probe: to the model, which may miss the weekday)
 _TOMORROW_Q = ("jaki jutro dzień", "jaki jutro jest dzień", "jaki będzie jutro dzień",
                "jaki dzień będzie jutro", "jaki dzień jest jutro", "którego jest jutro",
@@ -56,7 +60,7 @@ _YESTERDAY_Q = ("jaki był wczoraj dzień", "jaki wczoraj był dzień", "jaki dz
 # what may surround the bare question
 _FILL = {"luna", "luno", "a", "powiedz", "mi", "proszę", "prosze", "teraz", "hej",
          "no", "to", "czy", "wiesz", "możesz", "mozesz", "jest", "mamy", "dziś",
-         "dzisiaj", "is", "it", "now", "please",
+         "dzisiaj", "is", "it", "now", "please", "tygodnia",
          # a greeting before the question ("Cześć, która godzina?" went to the model)
          "cześć", "czesc", "siema", "hejka", "dzień", "dobry", "dobry", "wieczór",
          "dobranoc", "hello", "hi", "hey", "dzięki", "dzieki"}

@@ -1713,6 +1713,10 @@ class ClockTest(unittest.TestCase):
         import clock
         self.assertTrue(clock.answer("Cześć, która godzina?").startswith("Jest "))
         self.assertTrue(clock.answer("Dzień dobry, jaki dziś dzień?").startswith("Dziś jest"))
+        for t in ("Jaki dziś dzień tygodnia?", "Którego jest dzisiaj?", "Jaki mamy dziś dzień?"):
+            self.assertTrue(clock.answer(t).startswith("Dziś jest"), t)
+        self.assertTrue(clock.answer("Którego jest jutro?").startswith("Jutro"))
+        self.assertIsNone(clock.answer("Którego jest koncert?"))
         self.assertIn("W Tokio", clock.answer("Która godzina w Tokio?"))   # world time
 
     def test_spoken_time_and_date(self):
