@@ -381,6 +381,35 @@ def _crisis_line(text, person):
     return ""
 
 
+_SELF_NAMED = re.compile(r"\b(?:jestem|ja|to\s+ja|mam\s+na\s+imię|nazywam\s+się|tu)\W+$")
+
+
+def not_them_line(text, person):
+    """The words say it isn't the face she recognised: that one named in the
+    third person, or past-tense forms of the other gender (22 Oct, Emilka in
+    view, Andrzej recognised at 0.40: "O to, że Andrzej jest strasznym
+    zdrajcą." → "To brzmi przykrze, Andrzeju"; "Przyszłam pocałować męża.")."""
+    if not person or not text:
+        return ""
+    name = person[0]
+    words = list(re.finditer(r"\w+", text))
+    named = any(faces.match_name(m.group(0)) == name and m.start() > 0
+                and not _SELF_NAMED.search(text[:m.start()].lower())
+                and not re.match(r"\s*[,!]", text[m.end():])          # "…, Andrzeju!"
+                for m in words)
+    low = text.lower()
+    she = bool(re.search(r"\b\w{2,}(?:łam|łabym)\b", low))
+    he = bool(re.search(r"\b\w{2,}(?:łem|łbym)\b", low))
+    female = faces._female(name)
+    other_gender = (she and not he and not female) or (he and not she and female)
+    if not (named or other_gender):
+        return ""
+    why = f"they speak of {name} in the third person" if named else (
+        "their verbs are a woman's" if she else "their verbs are a man's")
+    return (f"The face recognised is {name}, but {why} — so it is probably someone else "
+            f"speaking: don't call the speaker {name}; address no one by name.\n")
+
+
 _CLAIMED = re.compile(r"\b(?:od\s+teraz|od\s+dziś|ustawiłam|zmieniłam|przestawiłam|"
                       r"włączyłam|wyłączyłam|zapisałam\s+(?:ustawienie|miasto)|"
                       r"będę\s+(?:teraz\s+)?(?:mówić|mowic|używać|uzywac|cicho))\b", re.I)
@@ -1502,6 +1531,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   + memory.day_line(text)
                   + _secret_line()
                   + _crisis_line(text, person)
+                  + not_them_line(text, person)
                   + _age_line(text)
                   + _whatsnew_line(text)
                   + ((homework.verdict_line(text) or homework.answer_line(text, last_reply()))

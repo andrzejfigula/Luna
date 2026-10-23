@@ -4471,6 +4471,23 @@ class KidsTest(unittest.TestCase):
         self.assertFalse(brain._ideas_only("Wymyśl coś na obiad i dopisz do listy."))
         self.assertFalse(brain._ideas_only("Dodaj mleko do zakupów."))
 
+    def test_not_the_face_she_sees(self):
+        import brain
+        import faces
+        # 22 Oct: Emilka speaking, Andrzej recognised → "…, Andrzeju"
+        with mock.patch.object(faces, "match_name",
+                               lambda w, known=None: {"andrzej": "Andrzej", "andrzeja": "Andrzej",
+                                                      "andrzeju": "Andrzej", "maja": "Maja"}.get(w.lower())):
+            a = ("Andrzej", 0.4)
+            self.assertIn("third person", brain.not_them_line("O to, że Andrzej jest strasznym zdrajcą.", a))
+            self.assertTrue(brain.not_them_line("Ty możesz mi pilnować Andrzeja.", a))
+            self.assertIn("woman", brain.not_them_line("Przyszłam pocałować męża.", a))
+            for fine in ("Jestem Andrzej.", "Andrzej tu, włącz radio.", "Co zrobiłaś dzisiaj?",
+                         "Byłem dziś w pracy.", "Dobranoc, Andrzeju!", "Jaka pogoda?"):
+                self.assertEqual(brain.not_them_line(fine, a), "", fine)
+            self.assertIn("man's", brain.not_them_line("Zrobiłem obiad.", ("Maja", 0.6)))
+            self.assertEqual(brain.not_them_line("Andrzej jest w pracy.", None), "")
+
     def test_list_clear_needs_a_list(self):
         import brain
         # 22 Oct: "Usuń to." (about a memory) came with list_clear
