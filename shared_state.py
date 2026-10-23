@@ -22,6 +22,7 @@ class SharedState:
         "touch_dx",              # a swipe: how far across (−: to the left)
         "touch_time",            # time.time() of that touch
         "touch_zone",            # "eye" | "mouth" | "top" | "other"
+        "touch_on_page",         # a page was up when it landed (its ✕, a button)
         "proactive_muted_until", # no unprompted speech before this time
         "gesture_anim",          # animation Luna is performing: "nod" | "shake"
                                  # | "wave" | "thumbs_up" | "heart" | None
@@ -121,6 +122,7 @@ class SharedState:
         self.touch_dx            = 0.0
         self.touch_time          = 0.0
         self.touch_zone          = None
+        self.touch_on_page       = False
         self.proactive_muted_until = 0.0
         self.gesture_anim        = None
         self.gesture_anim_start  = 0.0

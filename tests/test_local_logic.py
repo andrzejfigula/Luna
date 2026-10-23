@@ -7586,6 +7586,17 @@ class DockTest(unittest.TestCase):
         d.open_page("settings")
         with state.lock:
             self.assertEqual(state.overlay[0], "settings")
+        import weather
+        with mock.patch.object(weather, "_days", []):
+            d.open_page("weather")                               # no forecast: a card
+        with state.lock:
+            self.assertIn("prognozy", state.overlay[2]["text"])
+        rows = [("Dziś", "pochmurno, 7–13°C, deszcz 40%")]
+        with mock.patch.object(weather, "_days", rows), \
+                mock.patch.object(weather, "screen_days", lambda d=None: {}):
+            d.open_page("weather")
+        with state.lock:
+            self.assertEqual(state.overlay[:1] + (state.overlay[2][0],), ("list", "Pogoda"))
 
     def test_voice_switch(self):
         import commands
@@ -8215,6 +8226,19 @@ class TouchPageTest(unittest.TestCase):
     def test_fast_taps(self):
         self.assertEqual(self._kinds(page=True), ["tap"] * 4)
         self.assertIn("multi", self._kinds(page=False))       # on her face: still poking
+
+    def test_close_tap_is_for_the_page(self):
+        # 23 Oct: the ✕ closed the page before idle_engine looked, so she giggled
+        import touch_module as tm
+        for page in (True, False):
+            with state.lock:
+                state.overlay = ("weather", time.time() + 30, {}) if page else None
+                state.speaking = False
+            tm._publish("tap", 0.95, 0.05)
+            with state.lock:
+                self.assertIs(state.touch_on_page, page)
+        with state.lock:
+            state.overlay = None
 
 
 def load_tests(loader, tests, pattern):

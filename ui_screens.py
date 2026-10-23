@@ -612,8 +612,9 @@ def draw_weather(scr, data, now, W, H):
     scr.blit(shadowed(fit(place, 24, 270), 24, SOFT, "Bold", 90), (lx - 4, 18))
     icon = weather_icon(cur["kind"], 150, cur["day"])
     scr.blit(icon, (lx - 6, 52 + int(18 * (1 - intro))))
-    temp = shadowed(f"{cur['temp']}°", 104, WHITE, "ExtraBold", 110)
-    scr.blit(temp, (lx + 140, 52))
+    t = f"{cur['temp']}°"                     # "-12°" must stop short of the days' panel
+    ts = shrink(t, 104, 330 - 14 - (lx + 140), "ExtraBold", 56)
+    scr.blit(shadowed(t, ts, WHITE, "ExtraBold", 110), (lx + 140, 52 + (104 - ts) // 2))
     desc = (cur.get("desc") or "").capitalize()
     ds = shrink(desc, 28, 290, "ExtraBold", 20)
     scr.blit(shadowed(fit(desc, ds, 290, "ExtraBold"), ds, WHITE, "ExtraBold", 110), (lx - 4, 212))
@@ -1298,6 +1299,22 @@ _GEAR = [("c", (12, 12), 3.2), ("c", (12, 12), 7.0)] + [
     ("l", [(12 + 7.0 * math.cos(a), 12 + 7.0 * math.sin(a)),
            (12 + 10.0 * math.cos(a), 12 + 10.0 * math.sin(a))], False)
     for a in (i * math.pi / 4 for i in range(8))]
+
+
+def _arc(c, r, a0, a1, n=10):
+    """Points along a circle from angle a0 to a1 (degrees, y down)."""
+    return [(c[0] + r * math.cos(math.radians(a0 + (a1 - a0) * i / n)),
+             c[1] + r * math.sin(math.radians(a0 + (a1 - a0) * i / n))) for i in range(n + 1)]
+
+
+# a sun peeking over a cloud: the cloud's outline, then the sun's visible arc and rays
+_WEATHER_ICON = [
+    ("l", _arc((18, 16.5), 3.5, 90, -95) + _arc((13.5, 13.5), 4.8, -15, -180)
+     + _arc((7.5, 16.8), 3.2, -110, 90) + [(18, 20)], False),
+    ("l", _arc((8, 8), 3.2, 95, 350, 12), False)] + [
+    ("l", [(8 + 5.0 * math.cos(math.radians(a)), 8 + 5.0 * math.sin(math.radians(a))),
+           (8 + 7.0 * math.cos(math.radians(a)), 8 + 7.0 * math.sin(math.radians(a)))], False)
+    for a in (135, 180, 225, 270, 315)]
 DOCK_ICONS = {
     "shopping": [("l", [(2, 4), (5, 4), (7.5, 15), (18, 15), (20.5, 7), (6, 7)], False),
                  ("c", (9, 19.5), 1.6), ("c", (17, 19.5), 1.6)],
@@ -1308,6 +1325,7 @@ DOCK_ICONS = {
                  ("l", [(8, 3), (8, 7)], False), ("l", [(16, 3), (16, 7)], False),
                  ("c", (8, 14.5), 0.9), ("c", (12, 14.5), 0.9), ("c", (16, 14.5), 0.9),
                  ("c", (8, 18), 0.9), ("c", (12, 18), 0.9)],
+    "weather": _WEATHER_ICON,
     "photos": [("r", 2.5, 5, 19, 15), ("l", [(4, 18), (9.5, 11.5), (13.5, 15.5), (16, 13), (20, 18)], False),
                ("c", (16.5, 9.5), 1.7)],
     "radio": [("r", 3, 9, 18, 12), ("l", [(7, 9), (17, 3)], False), ("c", (9, 15), 3.0),

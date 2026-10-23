@@ -317,6 +317,20 @@ def show_photos(paths, names=None, title="Zdjęcia"):
                   for p, n in zip(paths, names)], title)
 
 
+def show_weather():
+    """The weather page (pictures, else a list): its rows, [] when there's no forecast."""
+    import weather
+    rows = weather.forecast_rows()
+    pics = weather.screen_days()
+    if rows:
+        if pics and pics.get("days"):     # pictures: now, the hours, the week
+            pics["t0"] = time.time()
+            _show("weather", 25, pics)
+        else:
+            _show("list", 20, ("Pogoda", rows))
+    return rows
+
+
 def show_all_photos():
     """Every photo, newest first (the dock's icon). False: there are none."""
     shots = _shots()[::-1]
@@ -642,17 +656,10 @@ def handle(text, speak, play_sound_async):
         _show("list", 15, ("Status", health.status_rows()))
         return True
     if _WEATHER.match(low.strip()):
-        import weather
-        rows = weather.forecast_rows()
-        pics = weather.screen_days()
+        rows = show_weather()
         if not rows:
             speak("Nie mam teraz prognozy pogody.")
         else:
-            if pics and pics.get("days"):     # pictures: now, the hours, the week
-                pics["t0"] = time.time()
-                _show("weather", 25, pics)
-            else:
-                _show("list", 20, ("Pogoda", rows))
             speak(f"Dziś {rows[0][1].split(',')[0]}, "
                   f"{rows[0][1].split(',')[1].strip().replace('–', ' do ').replace('°C', ' stopni')}.")
         return True

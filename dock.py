@@ -1,6 +1,7 @@
 """
 dock.py — a row of quick icons along the bottom of her screen: shopping,
-to-do, the week's plan, photos, radio, settings. A tap opens that page.
+to-do, the week's plan, the weather, photos, radio, settings. A tap opens
+that page.
 
 Faint (a third opaque) and in the face's own colours; drawn by robot_face
 (_draw_dock) only on the bare face: no page up, not asleep, no subtitles.
@@ -18,7 +19,8 @@ from shared_state import state
 
 # (key, what it opens) — left to right
 ITEMS = (("shopping", "Zakupy"), ("todo", "Do zrobienia"), ("schedule", "Plan"),
-         ("photos", "Zdjęcia"), ("radio", "Radio"), ("settings", "Ustawienia"))
+         ("weather", "Pogoda"), ("photos", "Zdjęcia"), ("radio", "Radio"),
+         ("settings", "Ustawienia"))
 
 W, H = SCREEN_WIDTH, SCREEN_HEIGHT
 ICON = 40                 # an icon's box, px
@@ -103,6 +105,10 @@ def open_page(key):
     elif key == "schedule":
         import schedule
         schedule.show()
+    elif key == "weather":
+        import screens
+        if not screens.show_weather():
+            _card("Nie mam teraz prognozy pogody", "Sprawdź internet")
     elif key == "photos":
         import screens
         if not screens.show_all_photos():

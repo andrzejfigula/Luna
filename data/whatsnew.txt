@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 23 października ==
+- Na dole ekranu jest nowa ikonka: pogoda (słoneczko za chmurką) — dotknij i od razu widać prognozę. Dotknięcie ✕ tylko zamyka stronę, Luna już się wtedy nie śmieje.
 - „Wyłącz tryb nocny” / „włącz tryb nocny” — to samo co „Ciszej w nocy” w ustawieniach. „Włącz zegar” pokazuje duży zegar.
 - „Wyłącz wszystko” wyłącza radio, dźwięki do snu, lampkę i to, co jest na ekranie — przypomnienia i budziki zostają. „Wyłącz wszystko, idę spać” — do tego dobranoc.
 - „Skreśl chleb”, „usuń umyć auto z listy”, „kupiłam mleko” — skreślam od razu, szybciej niż wcześniej. „Odwołaj przypomnienie o pizzy”, „ile czasu do budzika?”, „o której mam budzik?” — też od razu.

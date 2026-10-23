@@ -98,7 +98,9 @@ def _publish(kind, nx, ny, dx=0.0):
                 kind = "stop"
             from text_to_speech import stop_speaking   # deferred (heavy import)
             stop_speaking()
+    on_page = _page_up(time.time())     # judged now: the ✕ closes it before idle_engine looks
     with state.lock:
+        state.touch_on_page = on_page
         state.touch_kind = kind
         state.touch_x    = nx
         state.touch_y    = ny

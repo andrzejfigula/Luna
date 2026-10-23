@@ -367,6 +367,7 @@ def idle_loop():
                 touch_kind = state.touch_kind
                 touch_t    = state.touch_time
                 touch_zone = state.touch_zone
+                on_page    = state.touch_on_page
             # debounced presence: the detector drops frames several times a
             # minute, and raw face_detected would keep resetting the timers
             present = (now - last_face) <= IDLE_PRESENCE_GRACE
@@ -526,8 +527,7 @@ def idle_loop():
                 last_touch_t = touch_t
                 with state.lock:
                     ov = state.overlay
-                page = bool(ov and now < ov[1])     # a page on the screen: the
-                                                    # touch was for it (‹ › ✕)
+                page = on_page or bool(ov and now < ov[1])   # the touch was for a page (‹ › ✕)
                 replies = None if page else TOUCH_REPLIES.get(touch_zone or "other", {}).get(touch_kind)
                 # you started this, so it isn't rationed like unprompted talk —
                 # it only needs its own short cooldown (mute + quiet hours apply)
