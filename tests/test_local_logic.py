@@ -2305,6 +2305,9 @@ class KidsTest(unittest.TestCase):
                          "trzy kropka czterdzieści trzy.")
         self.assertIn("poziomie minus 2", polish.spoken_numbers("na poziomie -2, miejsce 47"))
         self.assertIn("od 8 -14 stopni", polish.spoken_numbers("od 8 -14 stopni"))   # a range
+        # "Pixel online." came out Slovak or Russian (24 Oct): the Polish spelling
+        self.assertEqual(polish.spoken_numbers("Włączam Pixela, dwa pixele."),
+                         "Włączam Piksela, dwa piksele.")
         self.assertEqual(polish.spoken_numbers("ziemniaki — 2 kg, masło — 500 g, 1 l"),
                          "ziemniaki — 2 kilogramy, masło — 500 gramów, 1 litr")
         s = polish.spoken_numbers("to 86400. Godzina 12:30, rok 2026, 3,14159, tel 600123456.")

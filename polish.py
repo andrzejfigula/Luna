@@ -200,7 +200,8 @@ _ABBR = [(re.compile(r"\bnp\.\s*", re.I), "na przykład "),
          (re.compile(r"\bitd\.", re.I), "i tak dalej"),
          (re.compile(r"\btj\.\s*", re.I), "to jest "),
          (re.compile(r"\bgodz\.\s*", re.I), "godzina "),
-         (re.compile(r"\bMochi\b", re.I), "Moki")]            # the character, as said in Polish
+         (re.compile(r"\bMochi\b", re.I), "Moki"),            # the character, as said in Polish
+         (re.compile(r"\b(P|p)ixel(?=\w{0,3}\b)"), r"\1iksel")]   # "Pixela" too: not an English word
 _FRACTIONS = [(re.compile(r"(?<![\d/])(?:1/2|½)(?![\d/])"), "pół"),
               (re.compile(r"(?<![\d/])(?:1/4|¼)(?![\d/])"), "ćwierć"),
               (re.compile(r"(?<![\d/])(?:3/4|¾)(?![\d/])"), "trzy czwarte"),
