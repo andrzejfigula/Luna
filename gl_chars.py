@@ -595,6 +595,43 @@ float pEye(vec2 cc, vec4 e, vec4 la, vec4 lb, vec4 pu, float side, inout vec3 c)
 // a pattern's cell: lit where a shape (unit size, centred at `at`, s px) covers it
 float pat(float d) { return d < 0.0 ? 1.0 : 0.0; }
 
+// her marks (…, ?, !, Zs, a tear, hearts…) as pixel art: upright and on whole
+// cells whatever the head's tilt — only where they sit follows the face
+vec2 screenPos(vec2 f) {                          // facePos, the other way
+    vec2 c0 = uRes * 0.5;
+    vec2 p = uChA.xy + uChE.xy + rot2(f - uChA.xy, -uChE.z);
+    return c0 + rot2(p - c0, -uTilt);
+}
+
+vec2 markCell(vec2 f) { return floor((screenPos(f) - uRes * 0.5) / PITCH + 0.5); }
+
+float inGlyph(vec2 d, float w, float h) {
+    return step(0.0, d.x) * step(0.0, d.y) * step(d.x, w - 1.0) * step(d.y, h - 1.0);
+}
+
+// a row's bits, the leftmost cell the highest
+float bit(float row, float x, float w) { return mod(floor(row / exp2(w - 1.0 - x)), 2.0); }
+
+float glyph(vec2 d, float w, float h, float row) { return inGlyph(d, w, h) * bit(row, d.x, w); }
+
+float rowQ(float y) {                             // ? 5 × 7
+    return y < 0.5 ? 14.0 : (y < 1.5 ? 17.0 : (y < 2.5 ? 1.0 : (y < 3.5 ? 6.0
+         : (y < 4.5 ? 4.0 : (y < 5.5 ? 0.0 : 4.0)))));
+}
+float rowBang(float y) { return y > 4.5 && y < 5.5 ? 0.0 : 3.0; }      // ! 2 × 7
+float rowHeart(float y) {                         // 7 × 6
+    return y < 0.5 ? 54.0 : (y < 2.5 ? 127.0 : (y < 3.5 ? 62.0 : (y < 4.5 ? 28.0 : 8.0)));
+}
+float rowStar(float y) {                          // 5 × 5
+    return y < 0.5 ? 4.0 : (y < 1.5 ? 14.0 : (y < 2.5 ? 31.0 : (y < 3.5 ? 14.0 : 10.0)));
+}
+float rowZ(float y) {                             // 5 × 5
+    return y < 0.5 ? 31.0 : (y < 1.5 ? 2.0 : (y < 2.5 ? 4.0 : (y < 3.5 ? 8.0 : 31.0)));
+}
+float rowBubble(float y) {                        // 9 × 7: the box, its tail
+    return (y < 0.5 || (y > 3.5 && y < 4.5)) ? 511.0 : (y < 3.5 ? 257.0 : (y < 5.5 ? 128.0 : 256.0));
+}
+
 vec4 pCell(vec2 cc, vec2 ci, vec2 sc) {   // ci: the screen's cell, sc its centre
     vec3 c = vec3(0.0);
     float v = pEye(cc, uEye0, uLidA0, uLidB0, uPupil0, -1.0, c);
@@ -619,50 +656,52 @@ vec4 pCell(vec2 cc, vec2 ci, vec2 sc) {   // ci: the screen's cell, sc its centr
         float row = 1.0 - sc.y / uRes.y;
         if (row < level) { c = mix(uPal0, uPal2, row); v = 0.9; }
     }
-    float on = 0.0;
-    if (uChC.x > 0.3 && uChF.x < 0.5) {                // thinking: "…" filling up
-        for (int k = 0; k < 3; k++) {
-            vec2 at = vec2(uEye1.x + uEye1.z * 0.5 + 18.0 + 28.0 * float(k), uEye1.y - uEye1.w * 0.5 - 20.0);
-            float lt = step(float(k), mod(floor(uT * 3.0), 4.0) - 0.5);
-            if (length(cc - at) < 8.0) { c = uPal0; v = max(v, (0.25 + 0.75 * lt) * uChC.x); }
+    if (uChC.x > 0.3 && uChF.x < 0.5) {                // thinking: "…" filling up, three 2 × 2 dots
+        vec2 d = ci - markCell(vec2(uEye1.x + uEye1.z * 0.5 + 40.0, uEye1.y - uEye1.w * 0.5 - 28.0)) + vec2(4.0, 1.0);
+        float k = floor(d.x / 3.0);
+        if (inGlyph(d, 8.0, 2.0) > 0.5 && mod(d.x, 3.0) < 1.5) {
+            float lt = step(k, mod(floor(uT * 3.0), 4.0) - 0.5);
+            c = uPal0;
+            v = max(v, (0.45 + 0.55 * lt) * smoothstep(0.3, 0.6, uChC.x));
         }
     }
     if (uChD.x + uChD.y > 0.2) {                       // curious, confused: "?"
-        if (pat(sdQuestion((cc - (gC() + vec2(272.0, -118.0))) / 76.0)) > 0.5) {
+        vec2 d = ci - markCell(gC() + vec2(272.0, -118.0)) + vec2(2.0, 3.0);
+        if (glyph(d, 5.0, 7.0, rowQ(d.y)) > 0.5) {
             c = uPal3;
-            v = max(v, max(uChD.x, uChD.y));
+            v = max(v, smoothstep(0.1, 0.3, uChD.x + uChD.y));
         }
     }
     float bang = max(uChC.w, uChB.w);
-    if (bang > 0.2 && pat(sdBang((cc - (gC() + vec2(-272.0, -112.0))) / 76.0)) > 0.5) {
-        c = vec3(1.0, 0.28, 0.25);                     // alert, surprised: "!"
-        v = max(v, bang);
+    if (bang > 0.2) {                                  // alert, surprised: "!"
+        vec2 d = ci - markCell(gC() + vec2(-272.0, -112.0)) + vec2(1.0, 3.0);
+        if (glyph(d, 2.0, 7.0, rowBang(d.y)) > 0.5) {
+            c = vec3(1.0, 0.28, 0.25);
+            v = max(v, bang);
+        }
     }
-    if (uChC.y > 0.05) {                               // asleep: pixel Zs rising
+    if (uChC.y > 0.05) {                               // asleep: Zs rising a cell at a time
         for (int k = 0; k < 2; k++) {
             float fk = float(k);
             float t = fract(uT * 0.3 + fk * 0.5);
-            vec2 at = gC() + vec2(170.0 + 70.0 * fk, -60.0 - floor(t * 6.0) * PITCH);
-            vec2 z = floor((cc - at) / PITCH);
-            if (z.x >= 0.0 && z.y >= 0.0 && z.x <= 4.0 && z.y <= 4.0
-                    && (z.y < 0.5 || z.y > 3.5 || abs(z.x - (4.0 - z.y)) < 0.5)) {
+            vec2 d = ci - markCell(gC() + vec2(170.0 + 80.0 * fk, -60.0)) + vec2(0.0, floor(t * 6.0));
+            if (glyph(d, 5.0, 5.0, rowZ(d.y)) > 0.5) {
                 c = uPal0;
                 v = max(v, uChC.y * (1.0 - t) * 1.6);
             }
         }
     }
-    if (uChB.y > 0.05) {                               // sad: a pixel tear falling
+    if (uChB.y > 0.05) {                               // sad: a tear falling a cell at a time
         float t = fract(uT * 0.6);
-        vec2 d = floor((cc - vec2(uEye0.x - uEye0.z * 0.25,
-                                  uEye0.y + uEye0.w * 0.5 + PITCH * (1.0 + floor(t * 6.0)))) / PITCH);
+        vec2 d = ci - markCell(vec2(uEye0.x - uEye0.z * 0.25, uEye0.y + uEye0.w * 0.5 + PITCH))
+                 - vec2(0.0, floor(t * 6.0));
         if ((d.x == 0.0 && (d.y == 0.0 || d.y == 2.0)) || (abs(d.x) <= 1.0 && d.y == 1.0)) {
             c = vec3(0.45, 0.75, 1.0);
             v = max(v, uChB.y * (1.0 - t));
         }
     }
-    if (uChB.z > 0.05) {                               // cross: a pulsing pixel anger mark
-        vec2 d = floor((cc - vec2(uEye1.x + uEye1.z * 0.5 + 34.0, uEye1.y - uEye1.w * 0.5 - 24.0)) / PITCH + 0.5);
-        vec2 a = abs(d);
+    if (uChB.z > 0.05) {                               // cross: a pulsing anger mark
+        vec2 a = abs(ci - markCell(vec2(uEye1.x + uEye1.z * 0.5 + 34.0, uEye1.y - uEye1.w * 0.5 - 24.0)));
         if (max(a.x, a.y) == 2.0 && min(a.x, a.y) >= 1.0) {
             c = vec3(1.0, 0.25, 0.25);
             v = max(v, uChB.z * (0.55 + 0.45 * step(0.35, fract(uT * 2.0))));
@@ -674,34 +713,33 @@ vec4 pCell(vec2 cc, vec2 ci, vec2 sc) {   // ci: the screen's cell, sc its centr
         else if (ci.y > row) v *= 0.0;
     }
     float cel = max(uChC.z, 0.8 * uMorph.x);
-    if (uAcc.x > 0.5 && cel > 0.1) {                   // pixel hearts, rising
+    if (uAcc.x > 0.5 && cel > 0.1) {                   // hearts, rising a cell at a time
         for (int k = 0; k < 2; k++) {
             float fk = float(k);
             float t = fract(uT * 0.35 + fk * 0.5);
-            vec2 at = gC() + vec2((fk < 0.5 ? -1.0 : 1.0) * 286.0, 110.0 - 240.0 * t);
-            vec2 hq = (cc - at) / 64.0;
-            if (sdHeart(vec2(hq.x, 0.55 - hq.y)) < 0.0) { c = uPal2; v = max(v, cel * sin(3.14159 * t)); }
+            vec2 d = ci - markCell(gC() + vec2((fk < 0.5 ? -1.0 : 1.0) * 280.0, 110.0)) + vec2(3.0, 3.0)
+                     + vec2(0.0, floor(t * 15.0));
+            if (glyph(d, 7.0, 6.0, rowHeart(d.y)) > 0.5) { c = uPal2; v = max(v, cel * sin(3.14159 * t)); }
         }
     }
-    if (uAcc.y > 0.5 && uChC.z > 0.1) {                // pixel stars blinking in steps
+    if (uAcc.y > 0.5 && uChC.z > 0.1) {                // stars blinking
         for (int k = 0; k < 3; k++) {
             float fk = float(k);
-            vec2 at = gC() + vec2(-200.0 + 200.0 * fk, -150.0 + 20.0 * mod(fk, 2.0));
+            vec2 d = ci - markCell(gC() + vec2(-200.0 + 200.0 * fk, -150.0 + 20.0 * mod(fk, 2.0))) + vec2(2.0, 2.0);
             float blink = step(0.4, fract(uT * 2.0 + fk * 0.33));
-            if (sdStar5(vec2(cc.x - at.x, at.y - cc.y) / 40.0, 1.0, 0.45) < 0.0) {
+            if (glyph(d, 5.0, 5.0, rowStar(d.y)) > 0.5) {
                 c = uPal3;
                 v = max(v, uChC.z * blink);
             }
         }
     }
     if (uAcc.z > 0.5 && uChF.x > 0.5) {                // a speech bubble while she talks
-        vec2 bq = g - vec2(236.0, -150.0);
-        float box = sdRoundBox(bq, vec2(56.0, 30.0), 12.0);
-        float tail = sdSeg(bq, vec2(-30.0, 30.0), vec2(-50.0, 52.0)) - 6.0;
-        if (abs(box) < 7.0 || (tail < 0.0 && box > 0.0)) { c = vec3(0.92); v = max(v, 0.8); }
-        for (int k = 0; k < 3; k++) {
-            float lt = step(float(k), mod(floor(uT * 4.0), 4.0) - 0.5);
-            if (length(bq - vec2(-28.0 + 28.0 * float(k), 0.0)) < 7.0) { c = uPal0; v = max(v, lt); }
+        vec2 d = ci - markCell(gC() + vec2(236.0, -150.0)) + vec2(4.0, 2.0);
+        if (glyph(d, 9.0, 7.0, rowBubble(d.y)) > 0.5) { c = vec3(0.92); v = max(v, 0.8); }
+        if (d.y == 2.0 && d.x >= 2.0 && d.x <= 6.0 && mod(d.x, 2.0) == 0.0) {   // its three dots
+            float lt = step(d.x * 0.5 - 1.0, mod(floor(uT * 4.0), 4.0) - 0.5);
+            c = uPal0;
+            v = max(v, lt);
         }
     }
     if (uAcc.w > 0.5 && uChG.x > 0.5) {                // headphones while the music plays
