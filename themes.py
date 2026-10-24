@@ -254,6 +254,11 @@ _HOME = re.compile(r"^(?:wróć|wroc|wracaj)\s+do\s+(?:luny|normalnej|zwykłej|z
                    # 23–24 Oct, Hal on: "chcę rozmawiać z Luną" answered in character
                    r"|^(?:chcę|chce|wolę|wole)\s+(?:rozmawiać|rozmawiac|gadać|gadac|mówić|mowic)"
                    r"\s+z\s+luną$")
+# 21 Oct, HAL on: "Głos normalny." → "wracam do normalnego głosu", still HAL
+_HOME_VOICE = re.compile(r"^(?:(?:daj|włącz|wlacz|wróć\s+do|wroc\s+do)\s+)?"
+                         r"(?:(?:normalny|zwykły|zwykly|swój|swoj)\s+głos|głos\s+(?:normalny|luny)|"
+                         r"(?:normalnego|zwykłego|zwyklego|swojego)\s+głosu|"
+                         r"mów\s+(?:normalnym|zwykłym|zwyklym|swoim)\s+głosem)$")
 # "Nie, przełącz…", "Potrzebuję, żebyś przełączył się na Lunę" (24 Oct)
 _LEAD = re.compile(r"^(?:(?:nie|dobra|ok|okej|ale|proszę|prosze|teraz)\W+)*"
                    r"(?:(?:potrzebuję|potrzebuje|chcę|chce|proszę|prosze),?\s+(?:żebyś|zebys|abyś|abys)\s+"
@@ -319,7 +324,7 @@ def voice_request(text):
     if first and first.group(1) in name_words():         # "Hal, włącz Lunę"
         low = low[first.end():]
     low = _LEAD.sub("", low).replace("się się", "się")
-    if _HOME.match(low):
+    if _HOME.match(low) or (_HOME_VOICE.match(low) and current() != DEFAULT):
         return ("set", DEFAULT)
     if _LIST.search(low):
         return ("list", None)

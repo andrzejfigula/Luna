@@ -7976,12 +7976,15 @@ class ThemesTest(unittest.TestCase):
         # "Luna jest teraz odłączona", no switch
         r = themes.voice_request
         self.assertIsNone(r("Włącz Lunę."))                   # she is Luna already
+        self.assertIsNone(r("Głos normalny."))
         themes.set_theme("hal")
         for said in ("Przełącz charakter na Lunę.", "Włącz Lunę.", "Hal, włącz Lunę",
                      "Nie, przełącz się na Lunę.", "Przełącz na Lunę",
                      "Potrzebuję, żebyś przełączył się na Lunę.", "Chcę rozmawiać z Luną.",
                      "Zmień się z powrotem w Lunę."):
             self.assertEqual(r(said), ("set", "luna"), said)
+        for said in ("Głos normalny.", "Wróć do normalnego głosu", "Mów swoim głosem"):
+            self.assertEqual(r(said), ("set", "luna"), said)     # 21 Oct, HAL on
         self.assertEqual(r("Przełącz na pip."), ("set", "pip"))
         self.assertEqual(r("Zmień charakter na Mochi."), ("set", "mochi"))
         for other in ("Przełącz na retro.", "Zmień na RMF", "włącz się", "nie włączaj radia"):
