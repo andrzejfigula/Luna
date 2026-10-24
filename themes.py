@@ -327,7 +327,9 @@ def voice_request(text):
     low = _LEAD.sub("", low).replace("się się", "się")
     if _HOME.match(low) or (_HOME_VOICE.match(low) and current() != DEFAULT):
         return ("set", DEFAULT)
-    if _LIST.search(low):
+    if _LIST.search(low) or re.fullmatch(   # "Włącz motyw." ×3 (24 Oct): which ones there are
+            r"(?:włącz|wlacz|przełącz|przelacz)\s+(?:się\s+)?(?:na|motyw\s+na|"
+            r"motyw|postać|postac|charakter(?:\s+na)?)", low):
         return ("list", None)
     if re.match(r"(?:zmień|zmien|następny|nastepny|inny)\s+(?:motyw|postać|postac)$", low):
         keys = list(THEMES)                # the next one, as a tap on the settings row

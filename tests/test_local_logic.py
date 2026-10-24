@@ -7988,6 +7988,8 @@ class ThemesTest(unittest.TestCase):
             self.assertEqual(r(said), ("set", "luna"), said)
         for said in ("Głos normalny.", "Wróć do normalnego głosu", "Mów swoim głosem"):
             self.assertEqual(r(said), ("set", "luna"), said)     # 21 Oct, HAL on
+        for said in ("Włącz motyw.", "Przełącz na.", "Przełącz się na"):
+            self.assertEqual(r(said), ("list", None), said)      # 24 Oct: asked ×3
         self.assertEqual(r("Przełącz na pip."), ("set", "pip"))
         self.assertEqual(r("Zmień charakter na Mochi."), ("set", "mochi"))
         for other in ("Przełącz na retro.", "Zmień na RMF", "włącz się", "nie włączaj radia"):
