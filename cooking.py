@@ -37,6 +37,8 @@ _BACK = ("wróć", "wroc", "poprzedni", "cofnij", "wcześniej")
 _AGAIN = ("powtórz", "powtorz", "jeszcze raz", "co teraz", "co mam robić")
 _YES = ("tak", "nastaw", "proszę", "prosze", "poproszę", "dobrze", "jasne", "yes")
 _STOP = ("koniec", "kończymy", "konczymy", "skończyłam", "skończyłem", "stop", "wystarczy")
+_STEP_WORDS = {"ten", "tego", "ta", "tę", "krok", "kroku", "dla", "do", "jeszcze", "jeden",
+               "przepis", "przepisu"}
 
 _lock = threading.Lock()
 _c = None            # {"title", "ingredients", "steps": [{"text", "minutes"}], "i", "t", "offer"}
@@ -202,7 +204,8 @@ def answer(text, speak):
             speak(f"Minutnik na {timers.say_duration(mins * 60)} ustawiony.")
             _keep_listening()
             return True
-        if any(k in low for k in _STOP) and len(words) <= 4:
+        # whole words: "Włącz stoper" mid-recipe was "stop" → "Smacznego!" (24 Oct probe)
+        if re.search(r"\b(?:" + "|".join(_STOP) + r")\b", low) and len(words) <= 4:
             _c = None
             _clear()
             speak("Smacznego!")
@@ -233,7 +236,7 @@ def answer(text, speak):
             _keep_listening()
             return True
         import timers
-        secs, _ = timers.parse_duration(low)
+        secs, used = timers.parse_duration(low)
         if c.get("ask_minutes") and not secs and len(words) <= 3:
             import calc                    # "Na ile minut?" — "pięć" / "na 5"
             n = calc.number_in(low)
@@ -242,7 +245,13 @@ def answer(text, speak):
         if (step_timer or c.get("ask_minutes")) and secs:
             # "nastaw minutnik na ten krok" → "Na ile minut?" → "na pięć"
             c["ask_minutes"] = False
-            timers.add(secs, f"{c['title'].lower()}, krok {max(c['i'], 0) + 1}")
+            # their own name for it: "…minutnik na makaron na dziesięć minut" (24 Oct
+            # probe: labelled "pierogi, krok 1")
+            own = [w for w in words if w not in timers._TIMER_WORDS | used | _STEP_WORDS
+                   and not re.fullmatch(r"minut\w*|sekund\w*|godzin\w*|\d+", w)]
+            label = (" ".join(own) if own and len(own) <= 3
+                     else f"{c['title'].lower()}, krok {max(c['i'], 0) + 1}")
+            timers.add(secs, label)
             speak(f"Minutnik na {timers.say_duration(secs)} ustawiony.")
             _keep_listening()
             return True

@@ -61,6 +61,9 @@ _TOMORROW_Q = ("jaki jutro dzień", "jaki jutro jest dzień", "jaki będzie jutr
 _YESTERDAY_Q = ("jaki był wczoraj dzień", "jaki wczoraj był dzień", "jaki dzień był wczoraj",
                 "którego było wczoraj", "którego wczoraj", "który był wczoraj",
                 "który wczoraj", "co było wczoraj za dzień")
+# 24 Oct probe: "Jaki dzień będzie pojutrze?" went to the model
+_AFTER_Q = tuple(p.replace("jutro", "pojutrze") for p in _TOMORROW_Q)
+_BEFORE_Q = tuple(p.replace("wczoraj", "przedwczoraj") for p in _YESTERDAY_Q)
 # what may surround the bare question
 _FILL = {"luna", "luno", "a", "powiedz", "mi", "proszę", "prosze", "teraz", "hej",
          "no", "to", "czy", "wiesz", "możesz", "mozesz", "jest", "mamy", "dziś",
@@ -126,10 +129,11 @@ def spoken_other_day(delta, now=None):
     now = now or (datetime.now(_TZ) if _TZ else datetime.now())
     d = now + timedelta(days=delta)
     day = _DAYS[d.weekday()]
+    when = {1: "Jutro", 2: "Pojutrze", -1: "Wczoraj", -2: "Przedwczoraj"}[delta]
     if delta > 0:
-        lead = "Jutro będzie"
+        lead = f"{when} będzie"
     else:
-        lead = "Wczoraj była" if day in ("środa", "sobota", "niedziela") else "Wczoraj był"
+        lead = f"{when} była" if day in ("środa", "sobota", "niedziela") else f"{when} był"
     return f"{lead} {day}, {_ordinal_day(d.day)} {_MONTHS[d.month - 1]}."
 
 
@@ -275,6 +279,10 @@ def answer(text):
             now = datetime.now(_TZ) if _TZ else datetime.now()
             return now.strftime("It's %A, %B %d.")
         return spoken_date()
+    if not english and _bare(low, _AFTER_Q):
+        return spoken_other_day(2)
+    if not english and _bare(low, _BEFORE_Q):
+        return spoken_other_day(-2)
     if not english and _bare(low, _TOMORROW_Q):
         return spoken_other_day(1)
     if not english and _bare(low, _YESTERDAY_Q):

@@ -3054,6 +3054,49 @@ class KidsTest(unittest.TestCase):
         finally:
             quiz._q = None
 
+    def test_probe_24_oct_round3(self):
+        import calc
+        import clock
+        import commands
+        import cooking
+        import quiz
+        import timers
+        # cooking: "Włącz stoper" was "stop" → "Smacznego!"; a named timer kept its name
+        added = []
+        cooking._c = {"title": "Pierogi", "ingredients": ["mąka"], "i": 0, "t": time.time(),
+                      "offer": None, "steps": [{"text": "a", "minutes": 0}, {"text": "b", "minutes": 0}]}
+        try:
+            with mock.patch.object(timers, "add", lambda s, l, **k: added.append((s, l))), \
+                    mock.patch.object(cooking, "_card", lambda *a: None):
+                self.assertFalse(cooking.answer("Włącz stoper.", [].append))
+                self.assertIsNotNone(cooking._c)
+                cooking.answer("Nastaw minutnik na makaron na dziesięć minut.", [].append)
+                cooking.answer("Minutnik na 3 minuty.", [].append)
+            self.assertEqual(added, [(600, "makaron"), (180, "pierogi, krok 1")])
+        finally:
+            cooking._c = None
+        # the quiz lets go for another activity
+        for said in ("Dyktando.", "Poczytajmy.", "Chcę czytać."):
+            quiz._q = {"kind": "words", "answer": ["star"], "right": "", "reveal": "", "card": "",
+                       "tries": 0, "n": 1, "total": 5, "score": 0, "asked": time.time()}
+            with mock.patch.object(quiz, "_card", lambda *a, **k: None):
+                self.assertFalse(quiz.answer(said, [].append, lambda *a: None), said)
+            self.assertIsNone(quiz._q, said)
+        for q, want in (("Ile to jest pięć kilometrów w metrach?", "5 kilometrów to 5000 metrów."),
+                        ("Ile gramów ma kilogram?", "1 kilogram to 1000 gramów."),
+                        ("Ile to jest metr w centymetrach?", "1 metr to 100 centymetrów."),
+                        ("Ile to jest dwa kilo w gramach?", "2 kilogramy to 2000 gramów.")):
+            self.assertEqual(calc.convert(q), want, q)
+        self.assertIn("Celsjusza", calc.convert("Ile to jest sto stopni Fahrenheita?"))
+        self.assertIsNone(calc.convert("Ile kosztuje kilogram jabłek?"))
+        self.assertTrue(clock.answer("Jaki dzień będzie pojutrze?").startswith("Pojutrze będzie "))
+        self.assertTrue(clock.answer("Którego było przedwczoraj?").startswith("Przedwczoraj b"))
+        for q, w in (("Jak się pisze kura, przez u czy ó?", "kura"),
+                     ("Przez jakie h pisze się herbata?", "herbata"),
+                     ("Herbata pisze się przez ch czy h?", "herbata")):
+            self.assertEqual(commands._spell_word(q), w, q)
+        self.assertIsNone(commands._spell_word("Pojedziemy przez most czy przez rzekę?"))
+
     def test_twenty_reverse(self):
         import twenty
         for t in ("Zgadnij, o czym myślę", "Zgadnij, o jakim zwierzęciu myślę",

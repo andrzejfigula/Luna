@@ -585,6 +585,7 @@ _UNITS = [
     ("kilogram", "mass", 1000.0, ("kilogram", "kilogramy", "kilogramów", "kilograma")),
     ("dekagram", "mass", 10.0, ("dekagram", "dekagramy", "dekagramów", "dekagrama")),
     ("deko", "mass", 10.0, ("dekagram", "dekagramy", "dekagramów", "dekagrama")),
+    ("kilo", "mass", 1000.0, ("kilogram", "kilogramy", "kilogramów", "kilograma")),
     ("gram", "mass", 1.0, ("gram", "gramy", "gramów", "grama")),
     ("funt", "mass", 453.59237, ("funt", "funty", "funtów", "funta")),
     ("uncj", "mass", 28.349523, ("uncja", "uncje", "uncji", "uncji")),
@@ -620,11 +621,30 @@ def _unit(word):
 def convert(text):
     """"Ile to cali 30 centymetrów?", "zamień 5 mil na kilometry", "ile to 20
     stopni Celsjusza w Fahrenheitach?" → exact; None for anything else."""
+    # 24 Oct probe, to the model: "Ile gramów ma kilogram?", "pięć kilometrów w
+    # metrach", "metr w centymetrach", "dwa kilo w gramach", "sto stopni Fahrenheita"
+    h = re.match(r"^(?:luna,?\s+)?ile\s+(\w+)\s+(?:ma|mają|maja|jest\s+w)\s+(.+?)[?.!]*$",
+                 text.strip(), re.I)
+    if h and _unit(h.group(1)):
+        text = f"ile to jest {h.group(2)} w {h.group(1)}"
     m = _CONVERT_Q.search(text)
     if not m:
         return None
-    words = re.findall(r"[\w,.]+", m.group(1).lower())
+    words, run = [], []
+    for w in re.findall(r"[\w,.]+", m.group(1).lower()) + [""]:
+        if w in _ONES or w in _SCALES:
+            run.append(w)
+            continue
+        if run:
+            words.append(str(_words_number(run)))
+            run = []
+        if w:
+            words.append(w)
     num, src, dst = None, None, None
+    if not any(re.fullmatch(r"-?\d+(?:[.,]\d+)?", w) for w in words):
+        one = next((w for w in words if _unit(w) and w == _unit(w)[3][0] or w == "kilo"), None)
+        if one:                                            # "metr w centymetrach": one metre
+            words.insert(words.index(one), "1")
     for i, w in enumerate(words):
         n = w.replace(",", ".")
         if num is None and re.fullmatch(r"-?\d+(?:\.\d+)?", n):
@@ -643,6 +663,8 @@ def convert(text):
         if u and u[3] != src[3] and u[1] == src[1]:
             dst = u
             break
+    if dst is None and src[1] == "temp":                   # the other scale
+        dst = next(u for u in _UNITS if u[1] == "temp" and u[0] != src[0])
     if dst is None:
         return None
     if src[1] == "temp":

@@ -759,7 +759,16 @@ _LETTERS = {"a": "a", "ą": "a z ogonkiem", "b": "be", "c": "ce", "ć": "ce z kr
 
 def _spell_word(text):
     """"Jak się pisze żółw?" → "żółw" (one to three words), else None."""
-    m = _SPELL.search(text.strip())
+    t = text.strip()
+    # 24 Oct probe, to the model: "Jak się pisze kura, przez u czy ó?", "Przez
+    # jakie h pisze się herbata?", "Herbata pisze się przez ch czy h?"
+    t = re.sub(r",?\s+przez\s+\w{1,2}\s+czy\s+(?:przez\s+)?\w{1,2}\s*[?.!]*$", "?", t, flags=re.I)
+    o = (re.match(r"^(?:luna,?\s+)?przez\s+(?:jakie|które|ktore|jakie\s+\w{1,2}|które\s+\w{1,2}|"
+                  r"\w{1,2})\s+(?:się\s+)?pisze\s+(?:się\s+)?(?:słowo\s+|wyraz\s+)?(\w+)\W*$", t, re.I)
+         or re.match(r"^(?:luna,?\s+)?(\w+)\s+pisze\s+się(?:\s+przez\s+\w{1,2})?\W*$", t, re.I))
+    if o:
+        t = f"jak się pisze {o.group(1).lower()}"
+    m = _SPELL.search(t)
     if not m:
         return None
     word = m.group(1).strip(" -")

@@ -1167,6 +1167,16 @@ def _hint_for(q):
     return "Pomyśl jeszcze chwilkę — dasz radę! Policz krok po kroku."
 
 
+def _starts_other(text):
+    """Reading aloud, a story, a recipe or a drawing asked for."""
+    import cooking
+    import drawing
+    import reading
+    import story
+    return bool(reading._START.search(text) or story._START.search(text)
+                or cooking.wants(text) or drawing.wants(text))
+
+
 def answer(text, speak, play_sound_async):
     """An utterance while a game is on. True when it was part of the game."""
     global _q
@@ -1204,6 +1214,13 @@ def answer(text, speak, play_sound_async):
             # "Zagrajmy w dwadzieścia pytań" mid-riddle was judged a guess ("Hmm,
             # nie dwadzieścia pytań", 9 Oct games sweep) — another game: this ends
             print("[quiz] another game asked for — quiz over", flush=True)
+            _q = None
+            _card(None)
+            return False
+        if (trigger(text) not in (None, _q["kind"])) or _starts_other(text):
+            # mid-quiz "Dyktando." was a guess, mid-dictation "Poczytajmy." got
+            # "pokaż mi kartkę" (24 Oct probe) — another activity: this ends
+            print("[quiz] another activity asked for — quiz over", flush=True)
             _q = None
             _card(None)
             return False

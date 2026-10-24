@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 24 października ==
+- Przeliczam jednostki powiedziane słowami: „Ile gramów ma kilogram?”, „pięć kilometrów w metrach”, „sto stopni Fahrenheita”. Wiem, jaki dzień będzie pojutrze, i odpowiadam na „Jak się pisze kura, przez u czy ó?”. Przy gotowaniu „Włącz stoper” już nie kończy przepisu, a w quizie „Poczytajmy” albo „Dyktando” zmienia zabawę.
 - „Poprzednia stacja” wraca do radia, które grało wcześniej. „Za ile skończy się minutnik?” i „pięć procent ze stu” liczę sama, a w grze w 20 pytań albo w zagadkach „Policz do dziesięciu” po prostu robię — gra czeka. „Daj spokój” kończy zagadki, „Pokaż odpowiedź” ją zdradza. Liczę też „trzy czwarte z ośmiu” i odpowiadam na „Jaka jest teraz godzina?”.
 - Pixel ma teraz siatkę pikseli na całym ekranie, która stoi w miejscu — oczy i buzia przesuwają się po niej, zapalając kolejne piksele.
 - Z każdej postaci wracam do Luny, jak powiesz po swojemu: „włącz Lunę”, „przełącz charakter na Lunę”, „przełącz na Pip”, a przy innej postaci też „normalny głos”.
