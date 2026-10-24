@@ -33,7 +33,7 @@ THEMES = {
              "hello": "Wróciłam! To znowu ja, Luna."},
 
     "hal": {
-        "label": "HAL 9000",
+        "label": "Hal 9000",
         "sub": "czerwone oko komputera, spokojnie groźny",
         "name": "HAL", "call": "HAL", "male": True,
         "hello": "Dzień dobry. Jestem HAL 9000. Wszystkie moje systemy działają bez zarzutu.",
@@ -111,7 +111,7 @@ def _char(kind, **t):
 
 THEMES.update({
     "pip": _char(
-        "pip", label="PIP", sub="neonowa maskotka, energiczny pomocnik",
+        "pip", label="Pip", sub="neonowa maskotka, energiczny pomocnik",
         name="Pip", call="Pip", male=True, hello="Pip! Gotowy, naładowany, do usług!",
         wake=["pip", "hej pip"],
         voice="verse", speed=1.32,
@@ -127,7 +127,7 @@ THEMES.update({
               "hand": ((210, 255, 220), (40, 200, 110), (90, 255, 160)),
               "accent": ((210, 255, 220), (40, 210, 140))}),
     "retro": _char(
-        "retro", label="RETRO", sub="konsola z lat 80., ciepłe piksele",
+        "retro", label="Retro", sub="konsola z lat 80., ciepłe piksele",
         name="Retro", call="Retro", male=True, hello="Wczytywanie… gotowe! Retro gotowy do gry.",
         wake=["retro", "hej retro"],
         voice="ash", speed=1.26,
@@ -144,7 +144,7 @@ THEMES.update({
               "glyphs": ((255, 158, 36), (255, 226, 170)),
               "accent": ((255, 214, 150), (230, 130, 30))}),
     "pixel": _char(
-        "pixel", label="PIXEL", sub="twarz z pikseli, bezpośrednia i dowcipna",
+        "pixel", label="Pixel", sub="twarz z pikseli, bezpośrednia i dowcipna",
         name="Pixel", call="Pixel", hello="Pixel online. Wszystkie piksele na miejscu.",
         wake=["pixel", "piksel", "hej pixel", "hej piksel"],
         voice="nova", speed=1.32,
@@ -159,7 +159,7 @@ THEMES.update({
               "glyphs": ((60, 215, 255), (230, 120, 255)),
               "accent": ((150, 235, 255), (60, 110, 255))}),
     "mochi": _char(
-        "mochi", label="MOCHI", sub="różowy pluszak, słodka i wspierająca",
+        "mochi", label="Mochi", sub="różowy pluszak, słodka i wspierająca",
         name="Mochi", call="Mochi", hello="Hej, tu Mochi! Przytulas na powitanie?",
         wake=["mochi", "moczi", "moczy", "hej mochi", "hej moczy"],
         voice="coral", speed=1.2,

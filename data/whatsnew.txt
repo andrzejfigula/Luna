@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 24 października ==
+- Nazwy postaci w ustawieniach są pisane normalnie, nie wielkimi literami: Hal 9000, Pip, Retro, Pixel, Mochi.
 - Nie ma już postaci Ice, MIRA i ECHO — zostały Luna, HAL, PIP, RETRO, PIXEL i MOCHI. Jeśli była włączona któraś z usuniętych, wracam jako Luna.
 
 == 23 października ==

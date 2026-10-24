@@ -7964,7 +7964,7 @@ class ThemesTest(unittest.TestCase):
         self.assertEqual(themes.current(), "hal")
         self.assertIn("HAL 9000", said[-1])                  # its hello, in its voice
         self.assertTrue(commands.switch_theme("włącz HAL", said.append))
-        self.assertEqual(said[-1], "Przecież to ja, HAL 9000.")
+        self.assertEqual(said[-1], "Przecież to ja, Hal 9000.")
         self.assertTrue(commands.handle("Wróć do Luny.", said.append, lambda *a, **k: None))
         self.assertEqual(themes.current(), "luna")
         self.assertIsNone(r("bądź sobą"))                     # the costume's (fun.py)
@@ -7998,10 +7998,10 @@ class ThemesTest(unittest.TestCase):
         import settings_page as sp
         sp._cache.clear()
         with mock.patch.object(sp, "_introduce"):
-            self.assertEqual(sp.change("theme"), "Motyw: HAL 9000")
+            self.assertEqual(sp.change("theme"), "Motyw: Hal 9000")
             self.assertEqual(themes.current(), "hal")
-            self.assertEqual(sp.rows(1)[0]["value"], "HAL 9000")
-            for label in ("PIP", "RETRO", "PIXEL", "MOCHI", "Luna"):
+            self.assertEqual(sp.rows(1)[0]["value"], "Hal 9000")
+            for label in ("Pip", "Retro", "Pixel", "Mochi", "Luna"):
                 self.assertEqual(sp.change("theme"), "Motyw: " + label)
         for gone in ("ice", "nex", "echo", "nonsense"):       # removed 24 Oct: back to Luna
             settings.put("theme", gone)
