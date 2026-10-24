@@ -64,6 +64,8 @@ uniform vec4  uChH;     // the mic's level (listening), the wake (0 → 1; 1: aw
 uniform float uT;       // seconds
 uniform sampler2D uCells;   // RETRO / PIXEL: each cell worked out once (stage 4)
 uniform vec4  uGrid;    // …its half size and size in cells
+uniform vec4  uHand0, uHand1;   // her hands: x, y, turn (rad; the heart: its beat), pose + alpha * 0.98
+uniform sampler2D uArt;     // RETRO / PIXEL: the hands' pixel art (HAND_ART, stage 6)
 
 """ + _cut("float sdRoundBox", "// ── the light") + _cut("// ── the light", "// the outward") \
     + _cut("vec2 eyeLocal", "vec3 eyeColour") + _cut("float browSDF", "// one eye over") \
@@ -235,6 +237,65 @@ void props(vec2 p, inout vec4 acc) {
             : uShape < 8.5 ? uPt3 : uShape < 12.5 ? uPt4 : uShape < 13.5 ? uPt5
             : uShape < 14.5 ? uPt6 : uPt7;
     prop(p, pt, acc);
+}
+
+// ── hands: RETRO and PIXEL in their cells (pixel art), MOCHI and PIP drawn ──
+// the nearer hand's art at a cell (cc its centre, cs the cell's size):
+// x lit (0, dim, 1), y 1 inside its outline (the cells under it go dark),
+// z the pose, w how far down the art (0 top .. 1)
+vec4 handArt(vec2 cc, float cs) {
+    bool one = uHand1.w > 0.5 && (uHand0.w < 0.5 || length(cc - uHand1.xy) < length(cc - uHand0.xy));
+    vec4 h = one ? uHand1 : uHand0;
+    if (h.w < 0.5) return vec4(0.0);
+    float pose = floor(h.w + 0.001);
+    vec2 s = (cc - h.xy) / cs;
+    float gy = floor(s.y + 6.0);
+    float sx = s.x;
+    if (pose < 7.5)                         // turned: bent at the knuckles, whole cells
+        sx += floor((gy < 5.5 ? 4.0 : gy < 8.5 ? 2.0 : 0.0) * tan(clamp(h.z, -0.8, 0.8)) + 0.5);
+    if (h.x < uChA.x) sx = -sx;             // the left hand: mirrored
+    float gx = floor(sx + 5.0);
+    if (gx < -1.0 || gx > 10.0 || gy < -1.0 || gy > 12.0) return vec4(0.0);
+    vec4 t = texture2D(uArt, vec2(((pose - 1.0) * 12.0 + gx + 1.5) / 96.0, (gy + 1.5) / 14.0));
+    float al = clamp(fract(h.w + 0.001) / 0.98, 0.0, 1.0);
+    return vec4(t.r * al, step(0.5, t.g * al), pose, clamp(gy / 11.0, 0.0, 1.0));
+}
+
+// MOCHI / PIP: a hand's shape in unit size (y down, the wrist at +0.6, the
+// thumb towards the face); soft melts the fingers into a mitten
+float handSDF(vec2 q, float pose, float soft, out float crease) {
+    crease = 1e5;
+    if (pose > 7.5)                                     // the heart gesture
+        return sdHeart(vec2(q.x, 0.5 - q.y) * 1.1) / 1.1;
+    if (pose > 2.5 && pose < 3.5) q.y = 0.42 - q.y;     // thumb down: thumb up, upside down
+    if (pose < 1.5 || pose > 6.5) {                     // open (or ok): the palm, fingers up
+        float d = sdRoundBox(q - vec2(0.02, 0.24), vec2(0.33, 0.32), 0.22);
+        float r = 0.105;
+        if (pose < 1.5) d = smin(d, sdSeg(q, vec2(-0.24, 0.05), vec2(-0.26, -0.50)) - r, soft);
+        else d = min(d, abs(length(q - vec2(-0.30, -0.16)) - 0.17) - 0.065);   // ok: the "O"
+        d = smin(d, sdSeg(q, vec2(-0.05, 0.0), vec2(-0.06, -0.66)) - r, soft);
+        d = smin(d, sdSeg(q, vec2(0.14, 0.02), vec2(0.15, -0.62)) - r, soft);
+        d = smin(d, sdSeg(q, vec2(0.31, 0.08), vec2(0.33, -0.42)) - r * 0.9, soft);
+        if (pose < 1.5) d = smin(d, sdSeg(q, vec2(-0.26, 0.34), vec2(-0.56, 0.04)) - 0.11, soft * 0.6);
+        return d;
+    }
+    float d = sdRoundBox(q - vec2(0.0, 0.2), vec2(0.37, 0.35), 0.26);   // a fist
+    for (int k = 0; k < 3; k++)                         // the curled fingers' lines
+        crease = min(crease, sdSeg(q, vec2(-0.12, 0.02 + 0.16 * float(k)), vec2(0.30, 0.02 + 0.16 * float(k))));
+    if (pose < 3.5) d = smin(d, sdSeg(q, vec2(-0.22, 0.0), vec2(-0.24, -0.62)) - 0.13, soft);
+    else if (pose > 4.5 && pose < 5.5) d = smin(d, sdSeg(q, vec2(-0.12, 0.0), vec2(-0.13, -0.72)) - 0.1, soft);
+    else if (pose > 5.5) {                              // scissors: two fingers apart
+        d = smin(d, sdSeg(q, vec2(-0.14, 0.0), vec2(-0.32, -0.66)) - 0.1, soft);
+        d = smin(d, sdSeg(q, vec2(0.08, 0.0), vec2(0.22, -0.68)) - 0.1, soft);
+    }
+    return d;
+}
+
+// a drawn hand's own frame: unit size s px, turned, the left one mirrored
+vec2 handLocal(vec2 p, vec4 h, float s) {
+    vec2 q = rot2(p - h.xy, h.z * step(h.w, 7.5)) / s;
+    if (h.x < uChA.x) q.x = -q.x;
+    return q;
 }
 """
 
@@ -412,7 +473,11 @@ float rCell(vec2 cc, vec2 ci) {
 
 vec4 gridCell(vec2 ci) {
     vec2 cc = uChA.xy + (ci + 0.5) * CELL;
-    return vec4(0.0, 0.0, 0.0, max(rCell(cc, ci), rStates(cc)));
+    float v = max(rCell(cc, ci), rStates(cc));
+    vec4 hd = handArt(cc, CELL);
+    if (hd.y > 0.5)                    // a hand, a heart: a sprite over the rest (a dark edge)
+        v = hd.x * (hd.z > 7.5 ? 0.6 + 0.4 * step(0.5, uHand0.z) : 1.0);
+    return vec4(0.0, 0.0, 0.0, v);
 }
 
 void rScreen(vec2 p, inout vec4 acc) {
@@ -705,6 +770,11 @@ vec4 pCell(vec2 cc, vec2 ci) {
         if (band < 8.0 && g.y < -110.0) { c = uPal2; v = max(v, 0.85); }
         if (ax > 18.0 && ax < 20.9 && g.y > -110.0 && g.y < 10.0) { c = uPal2 * 0.9; v = max(v, 0.85); }
     }
+    vec4 hd = handArt(cc, PITCH);
+    if (hd.y > 0.5) {                  // a hand, a heart: on top, the cells round it dark
+        c = hd.z > 7.5 ? mix(uPal2, vec3(1.0), 0.15) : mix(uPal0, uPal1, hd.w);
+        v = hd.x * (hd.z > 7.5 ? 0.6 + 0.4 * step(0.5, uHand0.z) : 1.0);
+    }
     return vec4(c, v);
 }
 
@@ -875,6 +945,35 @@ void mMouth(vec2 p, inout vec4 acc) {
     acc.rgb += uPal3 * 0.25 * halo(d, 5.0) * uMouthK.z * (1.0 - a) * uDim;
 }
 
+// a plush paw: a soft mitten in her pink, toe beans on an open one; a heart cushion
+void mHand(vec2 p, inout vec4 acc) {
+    vec4 h = uShape < 16.5 ? uHand0 : uHand1;
+    float pose = floor(h.w + 0.001);
+    float al = clamp(fract(h.w + 0.001) / 0.98, 0.0, 1.0);
+    float s = pose > 7.5 ? 92.0 * (1.0 + 0.08 * h.z) : 124.0;
+    vec2 q = handLocal(p, h, s);
+    float crease;
+    float d = handSDF(q, pose, 0.07, crease) * s;
+    float a = cover(d) * al;
+    acc.rgb += uPal3 * 0.12 * exp(-max(d, 0.0) / 14.0) * al * (1.0 - a);   // a soft pink light
+    if (a <= 0.0) return;
+    vec3 c = mix(uPal0, uPal1, clamp(0.15 + 0.7 * q.y, 0.0, 1.0));
+    if (pose > 7.5) c = mix(uPal3, vec3(1.0, 0.86, 0.9), 0.25 * smoothstep(0.3, -0.4, q.y + q.x));
+    c *= 0.80 + 0.20 * smoothstep(0.0, -16.0, d);                         // rounded: darker edges
+    vec2 hq = (q - vec2(-0.12, -0.08)) / 0.32;
+    c += vec3(1.0, 0.94, 0.96) * 0.16 * exp(-dot(hq, hq));                // a sheen
+    if (pose < 1.5) {                                                     // toe beans
+        float bean = ellD(q - vec2(0.03, 0.32), vec2(0.19, 0.14));
+        bean = min(bean, min(length(q - vec2(-0.16, 0.06)) - 0.07,
+                             min(length(q - vec2(0.05, 0.0)) - 0.075, length(q - vec2(0.24, 0.06)) - 0.07)));
+        c = mix(c, mix(uPal3, uPal0, 0.25), cover(bean * s));
+    }
+    c = mix(c, uPal1 * 0.72, cover(crease * s - 1.4) * 0.8);              // curled fingers' seams
+    if (pose > 7.5)                                                       // the cushion's stitches
+        c = mix(c, vec3(1.0, 0.9, 0.94), cover(abs(d + 9.0) - 1.1) * step(0.5, fract((p.x + p.y) / 9.0)) * 0.7);
+    over(acc, c * mix(1.0, uDim, 0.35), a);
+}
+
 vec3 soft(vec2 p, vec2 uv) {
     vec2 vq = uv - vec2(0.5, 0.52);
     vec3 col = vec3(0.045, 0.026, 0.040) * (1.0 - 1.3 * dot(vq, vq));
@@ -887,6 +986,10 @@ vec3 soft(vec2 p, vec2 uv) {
 }
 
 void shape(vec2 p, inout vec4 acc) {
+    if (uShape > 15.5) {                             // her paws (one call: see props)
+        mHand(p, acc);
+        return;
+    }
     if ((uShape > 4.5 && uShape < 8.5) || uShape > 11.5) {   // props, the state's marks
         props(p, acc);                               // (one call: see props)
         return;
@@ -1058,6 +1161,25 @@ void pTie(vec2 p, inout vec4 acc) {                  // a bow tie below the mout
     acc.rgb += uPal2 * 0.4 * halo(ring, 6.0) * (1.0 - cover(ring)) * uChA.w;
 }
 
+// a hand in neon lines like his eyes: an outline, a faint fill, the fist's
+// fingers as lines; the heart gesture a neon heart beating
+void pHand(vec2 p, inout vec4 acc) {
+    vec4 h = uShape < 16.5 ? uHand0 : uHand1;
+    float pose = floor(h.w + 0.001);
+    float al = clamp(fract(h.w + 0.001) / 0.98, 0.0, 1.0);
+    float s = pose > 7.5 ? 84.0 * (1.0 + 0.1 * h.z) : 112.0;
+    vec2 q = handLocal(p, h, s);
+    float crease;
+    float d = handSDF(q, pose, 0.0, crease) * s;
+    float ring = abs(d + 2.6) - 2.6;
+    float lines = min(ring, max(crease * s - 2.2, d + 4.0));
+    vec3 c = pose > 7.5 ? mix(uPal3, uPal0, 0.35) : mix(uPal0, uPal1, clamp(q.y + 0.5, 0.0, 1.0));
+    c *= 1.0 + 0.35 * uChF.x * uEnergy;                // his voice: the neon flares
+    over(acc, mix(uPal0, uPal1, 0.4) * 0.16 * uDim, cover(d) * al);
+    over(acc, c * uDim, cover(lines) * al);
+    acc.rgb += uPal0 * 0.5 * halo(lines, 7.0) * (1.0 - cover(lines)) * uChA.w * uDim * al;
+}
+
 vec3 soft(vec2 p, vec2 uv) {
     vec2 vq = uv - vec2(0.5, 0.46);
     vec3 col = vec3(0.008, 0.022, 0.016) * (1.0 - 1.3 * dot(vq, vq));
@@ -1070,6 +1192,10 @@ vec3 soft(vec2 p, vec2 uv) {
 }
 
 void shape(vec2 p, inout vec4 acc) {
+    if (uShape > 15.5) {                             // his hands (one call: see props)
+        pHand(p, acc);
+        return;
+    }
     if ((uShape > 4.5 && uShape < 8.5) || uShape > 11.5) {   // props, the state's marks
         props(p, acc);                               // (one call: see props)
         return;
@@ -1089,8 +1215,52 @@ SOURCES = {"retro": _RETRO, "pixel": _PIXEL, "mochi": _MOCHI, "pip": _PIP}
 
 # shape ids in a character's boxes: 0, 1 the eyes, 2 the mouth, 3 the body,
 # 4 the brows, 5-8 props uPt0-3, 9 a screen / grid, 10 an accessory behind,
-# 11 one in front, 12-15 the state's own marks uPt4-7
-EYE0, EYE1, MOUTH, BODY, BROWS, PROP, SCREEN, ACC, FRONT, STATE = 0, 1, 2, 3, 4, 5, 9, 10, 11, 12
+# 11 one in front, 12-15 the state's own marks uPt4-7, 16-17 the hands (MOCHI, PIP)
+EYE0, EYE1, MOUTH, BODY, BROWS, PROP, SCREEN, ACC, FRONT, STATE, HAND = (
+    0, 1, 2, 3, 4, 5, 9, 10, 11, 12, 16)
+
+# robot_face's hand poses → the shaders' (3: 2 upside down; 8 the heart gesture)
+HAND_IDS = {"open": 1, "paper": 1, "hourglass": 1, "thumb": 2, "thumb_down": 3, "fist": 4,
+            "point": 5, "scissors": 6, "ok": 7, "heart": 8}
+
+# RETRO's and PIXEL's hands, cell by cell (10 × 12, a right hand, its thumb
+# towards the face): "#" lit, "+" dim (a fist's fingers), "." off
+HAND_ART = {
+    1: (".....#....", "...#.#.#..", "...#.#.#..", "...#.#.#.#", "...#.#.#.#", "...#.#.#.#",
+        "#..#######", "##.#######", ".#########", "..########", "...######.", "...######."),
+    2: ("..##......", "..##......", "..##......", "..##......", "..#######.", ".########.",
+        ".#+++++##.", ".########.", ".#+++++##.", ".########.", "..######..", "...####..."),
+    4: ("..........", "..........", "..........", "...#####..", "..#######.", ".########.",
+        ".#+++++##.", ".########.", ".#+++++##.", ".########.", "..######..", "...####..."),
+    5: ("...#......", "...#......", "...#......", "...#......", "..#####...", ".########.",
+        ".#+++++##.", ".########.", ".#+++++##.", ".########.", "..######..", "...####..."),
+    6: (".#.....#..", ".#.....#..", "..#...#...", "..#...#...", "...#.#....", ".########.",
+        ".########.", ".#+++++##.", ".########.", ".#+++++##.", "..######..", "...####..."),
+    7: (".....#.#.#", ".....#.#.#", "..##.#.#.#", ".#..##.#.#", ".#..######", "..########",
+        "..########", "...#######", "...######.", "...######.", "...######.", "...#####.."),
+    8: ("..........", "..........", ".##....##.", "####..####", "##########", "##########",
+        ".########.", "..######..", "...####...", "....##....", "..........", ".........."),
+}
+
+
+def hand_atlas():
+    """The hands' art as an RGBA texture: (width, height, bytes), a 12 × 14
+    tile per pose 1-8 (the art, a cell round it); r lit (dim: 115), g 255
+    inside its outline (the art and the cells next to it)."""
+    tiles = [HAND_ART[1], HAND_ART[2], HAND_ART[2][::-1]] + [HAND_ART[k] for k in range(4, 9)]
+    w, h = 12 * len(tiles), 14
+    px = bytearray(w * h * 4)
+    for t, rows in enumerate(tiles):
+        lit = {(x, y): ch for y, row in enumerate(rows) for x, ch in enumerate(row) if ch != "."}
+        for y in range(-1, 13):
+            for x in range(-1, 11):
+                near = any((x + dx, y + dy) in lit for dx, dy in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)))
+                i = ((y + 1) * w + t * 12 + x + 1) * 4
+                ch = lit.get((x, y))
+                px[i] = 255 if ch == "#" else 115 if ch == "+" else 0
+                px[i + 1] = 255 if near else 0
+                px[i + 3] = 255
+    return w, h, bytes(px)
 
 # the margin round an eye's / the mouth's box for its own halo (px)
 _HALO = {"mochi": 14.0, "pip": 18.0}
@@ -1115,6 +1285,17 @@ class CharPass:
         self.made = 0
         self.grids = {}                  # kind → (texture, framebuffer)
         self.broken = set()              # kinds whose shader did not compile
+        self.art_tex = None              # the hands' pixel art (hand_atlas)
+
+    def art(self):
+        """The hands' art texture, bound to the active unit."""
+        GL = self.gl.GL
+        if self.art_tex is None:
+            w, h, data = hand_atlas()
+            self.art_tex = self.gl._texture(w, h, GL.GL_NEAREST)
+            GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA, w, h, 0,
+                            GL.GL_RGBA, GL.GL_UNSIGNED_BYTE, data)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, self.art_tex)
 
     def usable(self, kind):
         """Compiled (now, if not yet) — or False, logged once: the face then
@@ -1157,6 +1338,7 @@ class CharPass:
             p.u("uRes", (gl.w, gl.h))
             p.u("uSoftRes", (gl.sw, gl.sh))
             p.unit("uCells", 4)
+            p.unit("uArt", 6)
             if kind in GRIDS:
                 cols, rows = GRIDS[kind]
                 p.u("uGrid", (cols // 2, rows // 2, cols, rows))
@@ -1187,6 +1369,9 @@ class CharPass:
             p.u("uRect", (0.0, 0.0, float(self.gl.w), float(self.gl.h)))
             tex, fbo = self.grid(kind)
             cols, rows = GRIDS[kind]
+            GL.glActiveTexture(GL.GL_TEXTURE6)            # (the hands' art)
+            self.art()
+            GL.glActiveTexture(GL.GL_TEXTURE0)
             GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, fbo)
             GL.glViewport(0, 0, cols, rows)
             GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
@@ -1284,6 +1469,49 @@ def _state_props(kind, ch, u, fcx, fcy, now):
     return out
 
 
+def _hand_at(kind, hx, hy, console):
+    """Where a character shows a hand robot_face holds at (hx, hy) from the
+    face's centre: PIXEL within its matrix (not over the side bars), RETRO
+    on its screen (smaller moves), the others beside their faces. Rising
+    from below the screen stays rising: the grid, the screen clip it. The
+    grid ones keep a hand in the row under the eyes, beside the mouth (PIXEL:
+    a hand on the head in the matrix's top corner), never over an eye."""
+    rise = max(0.0, hy - 150.0) * 1.3
+    if kind == "pixel":
+        if hy < -60.0:
+            return math.copysign(252.0, hx), -128.0 + rise
+        return max(-224.0, min(224.0, hx)), 118.0 + rise
+    if kind == "retro":
+        cy, (bx, by) = (-18.0, (214.0, 126.0)) if console else (-10.0, (300.0, 172.0))
+        return max(-(bx - 60.0), min(bx - 60.0, hx * 0.6)), cy + by - 40.0 + rise
+    if kind == "mochi":
+        return max(-335.0, min(335.0, hx * 1.15)), hy + 40.0
+    return max(-340.0, min(340.0, hx * 1.1)), hy
+
+
+# the heart gesture: where each shows its heart (PIXEL, RETRO: for a mouth)
+HEART_AT = {"pixel": (0.0, 100.0), "mochi": (0.0, 176.0), "pip": (0.0, 196.0)}
+
+
+def _hands(kind, face, fcx, fcy, console):
+    """Her hands (robot_face's, drawn by the character): up to two
+    (x, y, turn in rad — the heart: its beat —, pose + alpha * 0.98)."""
+    if getattr(face, "_gesture", None) == "heart":
+        k = getattr(face, "_heart_pulse", 0.0)
+        env = min(1.0, 2.5 * math.sin(math.pi * getattr(face, "_gesture_p", 0.0)))
+        hx, hy = HEART_AT.get(kind) or (0.0, 66.0 if console else 98.0)
+        return [(fcx + hx, fcy + hy, k, 8.0 + 0.98 * max(0.0, env))] if env > 0.02 else []
+    out = []
+    for side in ("L", "R"):
+        hand = getattr(face, "hand", {}).get(side)
+        if not hand or hand[1] > 400.0:              # tucked away below
+            continue
+        x, y = _hand_at(kind, hand[0], hand[1], console)
+        pose = HAND_IDS.get(face.hand_pose.get(side), 1)
+        out.append((fcx + x, fcy + y, math.radians(hand[2]), pose + 0.98))
+    return out
+
+
 def _remap(u, face, L, fcx, fcy, life, ch, dt, now, kind):
     """The pose's eyes, brows and mouth moved to the character's layout."""
     s = L["eye_s"]
@@ -1329,7 +1557,7 @@ def _box(gl, x0, y0, x1, y1, tilt):
     return gl._box((x0 + x1) / 2.0, (y0 + y1) / 2.0, (x1 - x0) / 2.0, (y1 - y0) / 2.0, tilt)
 
 
-def _boxes(gl, kind, u, ch, props, fcx, fcy, console, acc, marks=()):
+def _boxes(gl, kind, u, ch, props, fcx, fcy, console, acc, marks=(), hands=()):
     """Where stage 2 draws, in order: what's behind first."""
     tilt = u["uTilt"]
     pad = 6.0 + abs(ch["body_x"]) + abs(ch["body_y"]) + 420.0 * abs(ch["body_rot"])
@@ -1392,6 +1620,9 @@ def _boxes(gl, kind, u, ch, props, fcx, fcy, console, acc, marks=()):
     for i, pt in enumerate(marks):                     # the state's own marks, on top
         r = pt[2] * 1.35 + 22
         add(STATE + i, pt[0], pt[1], r, r)
+    if kind in ("mochi", "pip"):                       # the hands, in front of it all
+        for i, h in enumerate(hands):
+            add(HAND + i, h[0], h[1], 124.0, 124.0)
     return out
 
 
@@ -1425,7 +1656,10 @@ def apply(gl, face, u, cur, fcx, fcy, kind, now, dt):
     pts = [p for p, _ in props] + [(0.0, 0.0, 0.0, 0.0)] * (4 - len(props))
     marks = _state_props(kind, ch, u, fcx, fcy, now)
     sts = marks + [(0.0, 0.0, 0.0, 0.0)] * (4 - len(marks))
+    hands = _hands(kind, face, fcx, fcy, console)
+    hs = hands + [(0.0, 0.0, 0.0, 0.0)] * (2 - len(hands))
     u.update({
+        "uHand0": hs[0], "uHand1": hs[1],
         "uChA": (fcx, fcy, ch["motion"], 0.55 + 0.45 * ch["fx"]),
         "uChB": (ch["happy"], ch["sad"], ch["angry"], ch["surprise"]),
         "uChC": (ch["think"], ch["sleep"], ch["celebrate"], ch["alert"]),
@@ -1442,6 +1676,6 @@ def apply(gl, face, u, cur, fcx, fcy, kind, now, dt):
         "uShine": (1.0, 0.97, 0.92),
     })
     u["_char"] = kind
-    u["_char_boxes"] = _boxes(gl, kind, u, ch, props, fcx, fcy, console, acc, marks)
+    u["_char_boxes"] = _boxes(gl, kind, u, ch, props, fcx, fcy, console, acc, marks, hands)
     gl.char_now = ch
     return u

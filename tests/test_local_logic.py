@@ -8750,6 +8750,40 @@ class CharactersTest(unittest.TestCase):
         themes.set_theme("luna")
         self.assertFalse(rf.own_states())
 
+    def test_hands_in_each_characters_style(self):
+        """Her hands drawn by the character (not Luna's hands, not HAL's
+        glyphs): every pose has pixel art for RETRO and PIXEL, a grid
+        character's hand stays in the row under the eyes, a tucked hand
+        shows nothing, the heart gesture is a heart."""
+        import math
+        import gl_chars
+        for k, rows in gl_chars.HAND_ART.items():
+            self.assertEqual(len(rows), 12, k)
+            self.assertTrue(all(len(r) == 10 and set(r) <= set("#+.") for r in rows), k)
+        poses = set(gl_chars.HAND_IDS.values())
+        self.assertTrue(all(p in gl_chars.HAND_ART or p == 3 for p in poses))
+        w, h, data = gl_chars.hand_atlas()
+        self.assertEqual((w, h, len(data)), (96, 14, 96 * 14 * 4))
+        tile = lambda t, x, y: data[((y + 1) * w + t * 12 + x + 1) * 4:][:2]
+        self.assertEqual(tile(0, 5, 0), b"\xff\xff")                 # open: the middle finger
+        self.assertEqual(tile(0, 4, 0), b"\x00\xff")                 # …the dark edge beside it
+        self.assertEqual(tile(2, 2, 11), tile(1, 2, 0))               # thumb down: upside down
+        for hx, hy in ((285.0, 60.0), (275.0, 95.0), (-290.0, 60.0), (105.0, 188.0)):
+            x, y = gl_chars._hand_at("pixel", hx, hy, False)
+            self.assertTrue(abs(x) <= 224.0 and y >= 112.0, (hx, hy))  # under the eyes
+            x, y = gl_chars._hand_at("retro", hx, hy, True)
+            self.assertTrue(abs(x) <= 154.0 and y >= 60.0, (hx, hy))
+        self.assertGreater(gl_chars._hand_at("pixel", 285.0, 420.0, False)[1], 300.0)  # rising
+        face = self.Face()
+        face.hand = {"L": [-320.0, 420.0, 0.0], "R": [285.0, 60.0, 24.0]}
+        face.hand_pose = {"L": "open", "R": "scissors"}
+        for kind in ("pixel", "retro", "mochi", "pip"):
+            (x, y, turn, pose), = gl_chars._hands(kind, face, 400.0, 212.0, True)
+            self.assertEqual(int(pose), 6, kind)
+            self.assertAlmostEqual(turn, math.radians(24.0))
+        face._gesture, face._gesture_p, face._heart_pulse = "heart", 0.5, 1.0
+        self.assertEqual(int(gl_chars._hands("mochi", face, 400.0, 212.0, True)[0][3]), 8)
+
     def test_settings_rows(self):
         import characters
         import settings_page as sp

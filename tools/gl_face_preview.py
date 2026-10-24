@@ -212,7 +212,9 @@ FX_LOOKS = [            # (name, how to set it up: a state field → value; "sta
 # the reply scenes that draw props (reply_scenes.py), caught a little past halfway
 SCENE_LOOKS = ("big_pupils", "flutter", "heart_eyes", "sparkle_eyes", "snap", "air_heart",
                "laugh", "sigh", "think_bubble", "scared", "relief", "curious", "sunny",
-               "cloudy", "rainy", "snowy", "lightbulb", "music_notes")
+               "cloudy", "rainy", "snowy", "lightbulb", "music_notes",
+               # the hands (a drawn character draws its own: gl_chars)
+               "clap", "wave_both", "scratch_head", "salute", "thumbs_down", "ok_sign")
 
 
 def fx_sheet(out_dir, theme_keys=("luna", "hal"), only=None):

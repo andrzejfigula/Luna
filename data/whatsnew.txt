@@ -1,6 +1,9 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
+== 25 października ==
+- Postacie machają po swojemu: Pixel i Retro pokazują dłoń z pikseli na swoim ekranie, Mochi pluszową łapkę z poduszeczkami, a Pip neonową dłoń. Tak samo kciuk w górę, serce, kamień-papier-nożyce i klaskanie.
+
 == 24 października ==
 - W trakcie gry możesz zapytać, która godzina, albo coś policzyć — odpowiem, a gra poczeka. Kółko i krzyżyk, memory i kamień-papier-nożyce kończą się też na „Nie chcę już grać” i „Przestań”.
 - Przeliczam jednostki powiedziane słowami: „Ile gramów ma kilogram?”, „pięć kilometrów w metrach”, „sto stopni Fahrenheita”. Wiem, jaki dzień będzie pojutrze, i odpowiadam na „Jak się pisze kura, przez u czy ó?”. Przy gotowaniu „Włącz stoper” już nie kończy przepisu, a w quizie „Poczytajmy” albo „Dyktando” zmienia zabawę.

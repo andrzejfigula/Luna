@@ -3202,8 +3202,9 @@ class RobotFace:
         if costume:
             draw_costume_front(base, fcx, fcy, costume[0], self)
 
-        # ── hands (in front of the face) — HAL: glyphs instead ─────────────
-        if HANDS:
+        # ── hands (in front of the face) — HAL: glyphs instead; a drawn
+        #    character draws its own (gl_chars: pixel art, paws, neon) ───
+        if HANDS and not self._char_hands(base):
             glyphs = theme_fx().get("glyphs")
             ffx = self.face_cx + self.face_ox       # (unrounded: the GPU places
             ffy = self.face_cy + self.face_oy       #  them to a fraction of a pixel)
@@ -3406,6 +3407,13 @@ class RobotFace:
         st["face"] += t2 - t1
         st["compose"] += t3 - t2
         st["flip"] += t4 - t3
+
+    def _char_hands(self, surf):
+        """A drawn character on the GPU shows the hands itself (gl_chars)."""
+        kind = characters.kind_of(themes.get())
+        chars = getattr(getattr(self, "gl", None), "chars", None)
+        return (kind is not None and _fx(surf) is not None
+                and kind not in getattr(chars, "broken", ()))
 
     def _hand_glyph(self, surf, pose, x, y, angle, cols):
         """HAL has no hands: where a hand would be, a glyph like a display's
