@@ -3978,6 +3978,39 @@ class KidsTest(unittest.TestCase):
                     state.luna_mode = old
         self.assertIn("speaking/thinking", died[0])
 
+    def test_watchdog_waits_out_a_shader_compile(self):
+        # 24 Oct: a switch in the settings compiled Luna's shader for 30+ s → restarted
+        import watchdog
+        died, ticks = [], [0]
+
+        def die(why):
+            died.append(why)
+            raise SystemExit
+
+        def frames():                                    # the face never draws a frame
+            ticks[0] += 1
+            if ticks[0] > 40:
+                raise SystemExit                         # (the compile lasted long enough)
+            return 7
+        with mock.patch.object(watchdog, "_die", die), \
+                mock.patch.object(watchdog, "GRACE_SECS", 0), \
+                mock.patch.object(watchdog, "WATCH_EVERY", 0.005), \
+                mock.patch.object(watchdog, "FREEZE_SECS", 0.05), \
+                mock.patch.object(watchdog, "_frames", frames):
+            watchdog.busy(5, "compiling")
+            watchdog.busy(1)                             # a shorter one keeps the longer
+            try:
+                with self.assertRaises(SystemExit):
+                    watchdog._loop()
+                self.assertEqual(died, [])
+                watchdog.busy(0)
+                ticks[0] = 0
+                with self.assertRaises(SystemExit):
+                    watchdog._loop()
+                self.assertIn("no face frame", died[0])  # without it: a freeze, as ever
+            finally:
+                watchdog.busy(0)
+
     def test_waking_greeting_never_asks_a_name(self):
         import brain
         for s in ("Jak się nazywasz?", "A tak w ogóle, jak masz na imię?", "Kim jesteś?"):

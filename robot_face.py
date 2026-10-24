@@ -3384,6 +3384,9 @@ class RobotFace:
 
         t3 = time.perf_counter()
         if self.gl:
+            if not getattr(self, "_gl_warm", False):    # every theme's shaders, once
+                self._gl_warm = True
+                self.gl.warm_up(self, sys.modules[__name__], fcx, fcy)
             u = self.gl.face_uniforms(self, sys.modules[__name__], fcx, fcy)
             u["_fx_back"], u["_fx"] = fx_back, fx_front
             # the layer behind the face is nearly always empty: not read at

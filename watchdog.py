@@ -32,6 +32,17 @@ GRACE_SECS = 60            # start-up: models load, the face isn't up yet
 BUSY_SECS = 300            # no answer, story or read-aloud page takes this long in one go
 
 
+_quiet = [0.0, ""]          # (until, why): the face may stall on purpose until then
+
+
+def busy(secs, why=""):
+    """The face is busy on purpose for up to secs (the GPU compiling a
+    shader at its first draw): no frames then isn't a freeze. A longer
+    allowance already running is kept; busy(0) ends it."""
+    until = time.time() + secs
+    _quiet[:] = [until if secs <= 0 else max(until, _quiet[0]), why]
+
+
 def _frames():
     try:
         import robot_face
@@ -63,7 +74,7 @@ def _loop():
             state.lock.release()
             lock_ok = now
         n = _frames()
-        if n is None or n != last_frames:
+        if n is None or n != last_frames or now < _quiet[0]:
             frames_ok, last_frames = now, n
         if now - lock_ok > FREEZE_SECS:
             _die(f"state.lock held for {now - lock_ok:.0f} s")

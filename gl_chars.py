@@ -1146,6 +1146,8 @@ class CharPass:
     def prog(self, kind, stage="shape"):
         p = self.progs.get((kind, stage))
         if p is None:
+            import watchdog
+            watchdog.busy(120, f"compiling {kind}")       # its first draw compiles it
             gl = self.gl
             head = "#version 120\n" if gl.glsl == "120" else "#version 100\nprecision mediump float;\n"
             fs = head + PASSES[stage] + _HEAD + SOURCES[kind] + _MAIN

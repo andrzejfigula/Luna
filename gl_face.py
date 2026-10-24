@@ -1340,6 +1340,29 @@ class GLFace:
         GL.glUseProgram(self.prog)
         GL.glDisable(GL.GL_BLEND)
 
+    def warm_up(self, face, rf, fcx, fcy):
+        """One frame of every theme, the current one last, before the first
+        real frame. The Pi's driver compiles a shader at its first draw — with
+        no cached copy (a changed shader) that took 30+ s, and a switch in the
+        settings froze the face until the watchdog restarted her (24 Oct)."""
+        import watchdog
+        keys = [k for k in themes.THEMES if k != themes.current()] + [themes.current()]
+        real = themes.current
+        t0 = time.perf_counter()
+        watchdog.busy(300, "compiling the face shaders")
+        try:
+            for k in keys:
+                themes.current = lambda now=None, key=k: key
+                self.render(self.face_uniforms(face, rf, fcx, fcy))
+                self.GL.glFinish()
+        except Exception as e:                           # noqa: BLE001
+            print(f"[gl] warm-up stopped: {e!r}", flush=True)
+        finally:
+            themes.current = real
+            self.char_life = None
+            watchdog.busy(0)
+        print(f"[gl] {len(keys)} faces warmed up in {time.perf_counter() - t0:.1f} s", flush=True)
+
     def _chars(self):
         if getattr(self, "chars", None) is None:
             import gl_chars
