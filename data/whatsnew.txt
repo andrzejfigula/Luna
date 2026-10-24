@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 24 października ==
+- Mochi wymawiam po polsku: „Moki”. Budzi ją „Moki” albo „hej Moki”.
 - Nazwy postaci w ustawieniach są pisane normalnie, nie wielkimi literami: Hal, Pip, Retro, Pixel, Mochi. Hal to teraz po prostu Hal — komputer tego domu.
 - Nie ma już postaci Ice, MIRA i ECHO — zostały Luna, Hal, Pip, Retro, Pixel i Mochi. Jeśli była włączona któraś z usuniętych, wracam jako Luna.
 

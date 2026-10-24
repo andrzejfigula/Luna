@@ -94,8 +94,8 @@ def _char(kind, **t):
     """A drawn character's theme: its face from characters.py, the rest here.
     ["eyes"]: its colours for Luna's own shader too (the fallback, if its own
     ever failed to compile). Wake words: the name as Vosk's small Polish
-    model can write it — it has no "mochi", so it hears "moczy"; the real
-    spelling stays for the cloud's transcript."""
+    model can write it, plus the cloud's spellings; ["hears"]: Vosk's guesses
+    at a name it lacks ("Moki"), confirmed by the cloud."""
     t["char"] = kind
     t["spec"] = characters.theme_spec(kind)
     a, b, c, d = characters.CHARS[kind]["pal"]
@@ -159,12 +159,14 @@ THEMES.update({
               "accent": ((150, 235, 255), (60, 110, 255))}),
     "mochi": _char(
         "mochi", label="Mochi", sub="różowy pluszak, słodka i wspierająca",
-        name="Mochi", call="Mochi", hello="Hej, tu Mochi! Przytulas na powitanie?",
-        wake=["mochi", "moczi", "moczy", "hej mochi", "hej moczy"],
+        name="Mochi", said="Moki", call="Mochi", hello="Hej, tu Mochi! Przytulas na powitanie?",
+        # (Polish says "Moki"; Vosk has no such word — it wrote "nauki", "boki")
+        wake=["moki", "mochi", "hej moki", "hej mochi"], hears=["nauki", "boki"],
         voice="coral", speed=1.2,
         tts=("Voice identity: a soft, warm, sweet young woman; gentle and caring, a "
-             "smile in her voice, cosy and calm, never babyish. Native Polish pronunciation."),
-        persona=("you are Mochi (said \"moczi\") — a cute, soft, pink, very supportive "
+             "smile in her voice, cosy and calm, never babyish. Native Polish pronunciation. "
+             "The name Mochi is said \"Moki\"."),
+        persona=("you are Mochi (said \"Moki\"; the family calls you \"Moki\") — a cute, soft, pink, very supportive "
                  "little friend. You are female: in Polish use feminine forms about yourself. "
                  "Warm and gentle, you notice feelings, encourage and comfort, a sweet word "
                  "now and then (\"dasz radę\", \"jestem z ciebie dumna\") — but you still "
@@ -224,8 +226,14 @@ def persona_line():
 
 def stt_name():
     """How the transcriber should spell her name ("Luna" or "Luna albo HAL")."""
-    n = get().get("name")
+    n = get().get("said") or get().get("name")
     return f"Luna albo {n}" if n else "Luna"
+
+
+def vosk_hears():
+    """Vosk's words for a name it doesn't know ("nauki" for "Moki"): a wake
+    the cloud must confirm, as a near-miss."""
+    return get().get("hears", [])
 
 
 def labels():

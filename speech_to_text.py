@@ -446,6 +446,11 @@ def _find_wake_word(words):
             if words[i:i + n] == wake_parts:
                 return i, n, True
 
+    hears = themes.vosk_hears()
+    for i, w in enumerate(words[:3]):             # (said first, as a name is)
+        if w in hears:
+            return i, 1, False
+
     for wake in _wake_words():
         if " " in wake or len(wake) < 4:
             continue

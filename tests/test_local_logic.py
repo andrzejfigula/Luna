@@ -8346,19 +8346,28 @@ class CharactersTest(unittest.TestCase):
         self.assertEqual(characters.blink_pace(None), (1.0, 1.0))      # Luna's blinks as ever
 
     def test_wake_words_vosk_can_hear(self):
-        """Vosk's small Polish model has no "mochi": it writes "moczy" — that
-        wakes her; the cloud's spelling too."""
+        """Mochi is said "Moki", a word Vosk's small Polish model lacks: its
+        guesses ("nauki") are near-misses the cloud confirms; the cloud's
+        "Moki" or "Mochi" wakes her; "moczy" no longer does."""
         import themes
+        import polish
         try:
             import speech_to_text as s
         except ImportError:
             self.skipTest("sounddevice")
         themes.set_theme("mochi")
-        self.assertIsNotNone(s._find_wake_word(["moczy", "opowiedz", "bajkę"]))
-        self.assertIsNotNone(s._find_wake_word(["luna", "która", "godzina"]))
-        self.assertTrue(s._cloud_has_wake("Mochi, która godzina?"))
-        themes.set_theme("luna")
+        self.assertEqual(s._find_wake_word(["nauki", "która", "godzina"]), (0, 1, False))
+        self.assertIsNone(s._find_wake_word(["mam", "dziś", "dużo", "nauki"]))
         self.assertIsNone(s._find_wake_word(["moczy", "opowiedz", "bajkę"]))
+        self.assertIsNotNone(s._find_wake_word(["luna", "która", "godzina"]))
+        self.assertTrue(s._cloud_has_wake("Moki, która godzina?"))
+        self.assertTrue(s._cloud_has_wake("Mochi, która godzina?"))
+        self.assertEqual(s._strip_wake_from_cloud("Hej Moki, opowiedz bajkę."), "Opowiedz bajkę.")
+        self.assertEqual(themes.stt_name(), "Luna albo Moki")
+        self.assertEqual(themes.voice_request("zmień się w Moki"), ("set", "mochi"))
+        self.assertEqual(polish.spoken_numbers("Hej, tu Mochi!"), "Hej, tu Moki!")
+        themes.set_theme("luna")
+        self.assertIsNone(s._find_wake_word(["nauki", "która", "godzina"]))
 
     def test_shaders_are_gles2(self):
         """Every character's fragment shader as compiled: GLSL 1.20 / ES 1.00
