@@ -1296,6 +1296,10 @@ class TimersTest(unittest.TestCase):
             self.assertEqual(timers.left_answer("ile jeszcze do końca minutnika", now),
                              "Minutniki — 4 minuty i 22 sekundy; makaron: 25 minut.")
             self.assertIsNone(timers.left_answer("Ile kosztuje minutnik?", now))
+            # 24 Oct probe: these went to the model
+            for q in ("Za ile skończy się minutnik?", "Kiedy zadzwoni minutnik?"):
+                self.assertTrue(timers.left_answer(q, now).startswith("Minutniki — 4 minuty"), q)
+            self.assertIsNone(timers.left_answer("Kiedy kupiłeś ten minutnik?", now))
         finally:
             with timers._lock:
                 timers._timers[:] = saved
@@ -2991,6 +2995,39 @@ class KidsTest(unittest.TestCase):
         self.assertIn("Czy ma długie uszy? nie", facts)
         self.assertIn("Czy twoje zwierzę ma futro albo sierść? tak", facts)
         self.assertEqual(twenty._kb_facts("wombat"), "")
+
+    def test_probe_24_oct(self):
+        import calc
+        import radio
+        import settings
+        import twenty
+        # "Policz do dziesięciu" mid-game got "Zadaj pytanie…": now passed on, game kept
+        twenty._g = {"animal": "ryba", "forms": ["ryba"], "asked": 0, "t": time.time(),
+                     "player": None}
+        said = []
+        try:
+            self.assertFalse(twenty.answer("Policz do dziesięciu.", said.append))
+            self.assertFalse(twenty.answer("No to pokaż zegar", said.append))
+            self.assertIsNotNone(twenty._g)
+            self.assertTrue(twenty.answer("eee no", said.append))   # a slip: still the game
+            self.assertEqual(said, ["Zadaj pytanie, na które odpowiem tak albo nie — albo zgaduj: czy to…?"])
+        finally:
+            twenty._g = None
+        self.assertEqual(calc.arithmetic("Ile to jest pięć procent ze stu?"), "5 procent z 100 to 5.")
+        # "Poprzednia stacja": the one before (radio_recent), again → back
+        played, said = [], []
+        old = settings.get("radio_recent", None)
+        settings.put("radio_recent", [["RMF FM", "u1"], ["Radio 357", "u2"]])
+        try:
+            with mock.patch.object(radio, "play", lambda n, u, **k: played.append(n)), \
+                    mock.patch.object(radio, "playing", lambda: played[-1] if played else "RMF FM"):
+                for t in ("Poprzednia stacja.", "Wróć do poprzedniej stacji"):
+                    self.assertTrue(radio.handle(t, said.append), t)
+                self.assertEqual(played, ["Radio 357", "RMF FM"])
+                self.assertEqual(said[0], "Z powrotem Radio 357.")
+        finally:
+            settings.put("radio_recent", old or [])
+        self.assertFalse(radio._PREV_RX.fullmatch("poprzednia piosenka"))
 
     def test_twenty_reverse(self):
         import twenty
@@ -7992,6 +8029,12 @@ class ThemesTest(unittest.TestCase):
             self.assertEqual(r(said), ("list", None), said)      # 24 Oct: asked ×3
         self.assertEqual(r("Przełącz na pip."), ("set", "pip"))
         self.assertEqual(r("Zmień charakter na Mochi."), ("set", "mochi"))
+        # 24 Oct 14:52: "Hal, przełącz na inny charakter" — the next one, as a tap
+        for said in ("Hal, przełącz na inny charakter.", "Zmień charakter.",
+                     "Przełącz się na inną postać.", "Następny motyw."):
+            self.assertEqual(r(said), ("set", "pip"), said)
+        for other in ("Zmień temat.", "Inny kanał.", "Przełącz na inną stację."):
+            self.assertIsNone(r(other), other)
         for other in ("Przełącz na retro.", "Zmień na RMF", "włącz się", "nie włączaj radia"):
             self.assertIsNone(r(other), other)
         self.assertIn("włącz motyw <name>", themes.persona_line())

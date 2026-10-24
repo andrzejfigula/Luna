@@ -310,6 +310,22 @@ _NEXT_RX = re.compile(
     r"|(?:weź|wez|daj|puść|pusc|włącz|wlacz)\s+(?:mi\s+)?coś\s+innego")
 
 
+# "Poprzednia stacja", "wróć do poprzedniej stacji" (24 Oct probe: the model)
+_PREV_RX = re.compile(
+    r"(?:luna,?\s+)?(?:(?:włącz|wlacz|puść|pusc|daj|wróć|wroc|wracaj|przełącz|przelacz|cofnij)"
+    r"(?:\s+się)?\s+)?(?:do\s+|na\s+)?(?:z\s+powrotem\s+)?"
+    r"(?:poprzedni[aąe]j?|poprzednio\s+grając[aą]|tamt[aąe]j?|wcześniejsz[aąe]j?)\s+"
+    r"(?:stacj[aęie]|radio|radia)(?:\s+z\s+powrotem)?")
+
+
+def _previous():
+    """The station that played before the one on now (radio_recent)."""
+    import settings
+    now = playing()
+    recent = [r for r in settings.get("radio_recent", []) or [] if r and r[0] != now]
+    return tuple(recent[0][:2]) if recent else None
+
+
 def _next_asked(low):
     """Another station, said with something after it — only while one plays."""
     first = re.split(r"[,.;!?]|\s+(?:bo|to\s+jest|ta\s+jest|ten\s+jest)\s+", low, maxsplit=1)[0]
@@ -871,6 +887,15 @@ def handle(text, speak):
         # it answered "Teraz Jedynka")
         low = f"włącz {m.group(1)}"
         words = low.split()
+    elif _PREV_RX.fullmatch(low.strip(" .!?")):
+        prev = _previous()
+        if not prev:
+            speak("Nie pamiętam wcześniejszej stacji.")
+            return True
+        speak(f"Z powrotem {prev[0]}.")
+        play(*prev)
+        _remember_station(*prev)
+        return True
     elif ((any(k in low for k in _NEXT) and len(words) <= 5) or _next_asked(low)
           or (playing() and _SIMILAR.search(low))):   # "coś podobnego"
         if _world_next(speak):             # the next one of "radio z Francji"

@@ -331,7 +331,10 @@ def voice_request(text):
             r"(?:włącz|wlacz|przełącz|przelacz)\s+(?:się\s+)?(?:na|motyw\s+na|"
             r"motyw|postać|postac|charakter(?:\s+na)?)", low):
         return ("list", None)
-    if re.match(r"(?:zmień|zmien|następny|nastepny|inny)\s+(?:motyw|postać|postac)$", low):
+    # (24 Oct, Hal on: "Hal, przełącz na inny charakter" — only the model knew)
+    if re.fullmatch(r"(?:(?:zmień|zmien|przełącz|przelacz)(?:\s+się)?\s+(?:na\s+)?"
+                    r"(?:(?:inn|kolejn|następn|nastepn)\w*\s+)?|(?:inn|kolejn|następn|nastepn)\w*\s+)"
+                    r"(?:motyw|postać|postac|charakter)", low):
         keys = list(THEMES)                # the next one, as a tap on the settings row
         return ("set", keys[(keys.index(current()) + 1) % len(keys)])
     m = _SWITCH.match(low)

@@ -756,7 +756,10 @@ def _minutes_pl(n):
 
 
 _LEFT_Q = re.compile(r"\b(?:ile|jak\s+długo)\b.*\b(?:zostało|zostalo|jeszcze|do\s+końca|"
-                     r"do\s+konca)\b.*\b(?:minutnik\w*|timer\w*)\b", re.I)
+                     r"do\s+konca)\b.*\b(?:minutnik\w*|timer\w*)\b"
+                     # 24 Oct probe: "Za ile skończy się minutnik?" → the model
+                     r"|\b(?:za\s+ile|kiedy)\s+(?:się\s+)?(?:skończy|skonczy|zadzwoni|"
+                     r"zapika|minie|upłynie|uplynie)\b.*\b(?:minutnik\w*|timer\w*)\b", re.I)
 
 
 def _say_left(secs):

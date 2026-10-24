@@ -642,6 +642,12 @@ def answer(text, speak):
             return True
         if not re.search(r"\b(czy|jest|ma|mieszka|potrafi|umie|je|lata|pływa|plywa)\b", low) \
                 or len(words) > 15:
+            import commands
+            first = (commands._FILLER_LEAD.sub("", low).split() or [""])[0].strip(",")
+            if first in commands._COMMAND_VERBS:
+                # "Policz do dziesięciu" mid-game (24 Oct probe): that, and the game waits
+                print(f"[twenty] a request mid-game — passed on: {low!r}", flush=True)
+                return False
             if len(words) <= 4:                            # a short slip: still playing
                 speak("Zadaj pytanie, na które odpowiem tak albo nie — albo zgaduj: czy to…?")
                 _listen_longer()
