@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 24 października ==
+- Pixel ma teraz siatkę pikseli na całym ekranie, która stoi w miejscu — oczy i buzia przesuwają się po niej, zapalając kolejne piksele.
 - Z każdej postaci wracam do Luny, jak powiesz po swojemu: „włącz Lunę”, „przełącz charakter na Lunę”, „przełącz na Pip”, a przy innej postaci też „normalny głos”.
 - Mochi wymawiam po polsku: „Moki”. Budzi ją „Moki” albo „hej Moki”.
 - Nazwy postaci w ustawieniach są pisane normalnie, nie wielkimi literami: Hal, Pip, Retro, Pixel, Mochi. Hal to teraz po prostu Hal — komputer tego domu.

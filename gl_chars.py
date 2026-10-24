@@ -81,6 +81,8 @@ vec2 rot2(vec2 v, float a) {
     return vec2(c * v.x - s * v.y, s * v.x + c * v.y);
 }
 
+vec2 gFC;      // the screen's pixel (y down), before the head's tilt: PIXEL's fixed matrix
+
 // the screen's pixel → the face's: the head's tilt, then the gesture's sway
 vec2 facePos(vec2 fc) {
     vec2 c0 = uRes * 0.5;
@@ -256,6 +258,7 @@ void main() {
     gl_FragColor = vec4(col, 1.0);
 #else
     vec2 fc = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y);
+    gFC = fc;
     fc.x -= glitchShift(fc.y);
 #ifdef CRT
     vec2 sc = fc;
@@ -553,10 +556,12 @@ void shape(vec2 p, inout vec4 acc) {
 """
 
 # ── PIXEL: a pure matrix of luminous cells ────────────────────────────────────
+# The matrix is fixed to the screen and fills it; the face moves through it
+# (each cell lit by what of the face is under its centre).
+PIXEL_PITCH = 16
 _PIXEL = """
 #define GRID
-const float PITCH = 14.0;
-const vec2 G_HALF = vec2(322.0, 196.0);           // 46 × 28 cells
+const float PITCH = 16.0;                         // 50 × 30 cells on 800 × 480
 vec2 gC() { return uChA.xy + vec2(0.0, 4.0); }
 
 // one eye in cells: cyan to blue, its pupil a dark block with a glint;
@@ -590,7 +595,7 @@ float pEye(vec2 cc, vec4 e, vec4 la, vec4 lb, vec4 pu, float side, inout vec3 c)
 // a pattern's cell: lit where a shape (unit size, centred at `at`, s px) covers it
 float pat(float d) { return d < 0.0 ? 1.0 : 0.0; }
 
-vec4 pCell(vec2 cc, vec2 ci) {
+vec4 pCell(vec2 cc, vec2 ci, vec2 sc) {   // ci: the screen's cell, sc its centre
     vec3 c = vec3(0.0);
     float v = pEye(cc, uEye0, uLidA0, uLidB0, uPupil0, -1.0, c);
     vec3 c1 = vec3(0.0);
@@ -608,11 +613,10 @@ vec4 pCell(vec2 cc, vec2 ci) {
         }
     }
     vec2 g = cc - gC();
-    float ax = abs(ci.x + 0.5);
-    if (ax > 21.0) {                                   // the side bars: her voice, the music
+    if (abs(ci.x + 0.5) > uGrid.x - 2.0) {            // the screen's edge bars: her voice, the music
         float level = max(max(uChF.x * (0.15 + 0.95 * uEnergy), uChG.x * (0.2 + 0.8 * uEnergy)),
                           uChE.w * (0.08 + 0.92 * uChH.x));       // listening: the mic
-        float row = (G_HALF.y - g.y) / (2.0 * G_HALF.y);
+        float row = 1.0 - sc.y / uRes.y;
         if (row < level) { c = mix(uPal0, uPal2, row); v = 0.9; }
     }
     float on = 0.0;
@@ -665,7 +669,7 @@ vec4 pCell(vec2 cc, vec2 ci) {
         }
     }
     if (uChH.y < 0.999) {                              // waking: a line scans down, lighting it up
-        float row = floor(uChH.y * 30.0) - 15.0;
+        float row = floor(uChH.y * (uGrid.w + 2.0)) - uGrid.y - 1.0;
         if (ci.y == row) { c = uPal0; v = max(v, 1.0); }
         else if (ci.y > row) v *= 0.0;
     }
@@ -703,18 +707,18 @@ vec4 pCell(vec2 cc, vec2 ci) {
     if (uAcc.w > 0.5 && uChG.x > 0.5) {                // headphones while the music plays
         float band = abs(length(g - vec2(0.0, 90.0)) - 300.0);
         if (band < 8.0 && g.y < -110.0) { c = uPal2; v = max(v, 0.85); }
-        if (ax > 18.0 && ax < 20.9 && g.y > -110.0 && g.y < 10.0) { c = uPal2 * 0.9; v = max(v, 0.85); }
+        if (abs(g.x) > 252.0 && abs(g.x) < 293.0 && g.y > -110.0 && g.y < 10.0) { c = uPal2 * 0.9; v = max(v, 0.85); }
     }
     return vec4(c, v);
 }
 
 vec4 gridCell(vec2 ci) {
-    return pCell(gC() + (ci + 0.5) * PITCH, ci);
+    vec2 sc = uRes * 0.5 + (ci + 0.5) * PITCH;
+    return pCell(facePos(sc), ci, sc);
 }
 
-void pGrid(vec2 p, inout vec4 acc) {
-    vec2 rel = p - gC();
-    if (abs(rel.x) > G_HALF.x || abs(rel.y) > G_HALF.y) return;
+void pGrid(inout vec4 acc) {
+    vec2 rel = gFC - uRes * 0.5;
     vec2 ci = floor(rel / PITCH);
     if (uChD.z > 0.5) {                                // a glitch: bands of rows slip sideways
         float h = hash(vec2(floor(ci.y / 3.0), floor(uT * 15.0)));
@@ -748,7 +752,7 @@ void shape(vec2 p, inout vec4 acc) {
         props(p, acc);                               // (one call: see props)
         return;
     }
-    pGrid(p, acc);
+    pGrid(acc);
 }
 """
 
@@ -1103,7 +1107,15 @@ def seed(n):
 
 
 # the characters drawn from a grid of cells: (columns, rows) round the face's centre
-GRIDS = {"retro": (62, 38), "pixel": (46, 28)}
+GRIDS = {"retro": (62, 38), "pixel": (50, 30)}
+
+
+def grid_size(kind, w, h):
+    """(columns, rows) of a character's cells texture; PIXEL's covers the screen."""
+    if kind == "pixel":
+        cols, rows = -(-int(w) // PIXEL_PITCH), -(-int(h) // PIXEL_PITCH)
+        return cols + cols % 2, rows + rows % 2
+    return GRIDS[kind]
 
 
 class CharPass:
@@ -1134,7 +1146,7 @@ class CharPass:
         g = self.grids.get(kind)
         if g is None:
             GL = self.gl.GL
-            cols, rows = GRIDS[kind]
+            cols, rows = grid_size(kind, self.gl.w, self.gl.h)
             tex = self.gl._texture(cols, rows, GL.GL_NEAREST)
             fbo = GL.glGenFramebuffers(1)
             GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, fbo)
@@ -1158,7 +1170,7 @@ class CharPass:
             p.u("uSoftRes", (gl.sw, gl.sh))
             p.unit("uCells", 4)
             if kind in GRIDS:
-                cols, rows = GRIDS[kind]
+                cols, rows = grid_size(kind, self.gl.w, self.gl.h)
                 p.u("uGrid", (cols // 2, rows // 2, cols, rows))
             self.progs[(kind, stage)] = p
             self.made += 1
@@ -1186,7 +1198,7 @@ class CharPass:
             self._uniforms(p, u)
             p.u("uRect", (0.0, 0.0, float(self.gl.w), float(self.gl.h)))
             tex, fbo = self.grid(kind)
-            cols, rows = GRIDS[kind]
+            cols, rows = grid_size(kind, self.gl.w, self.gl.h)
             GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, fbo)
             GL.glViewport(0, 0, cols, rows)
             GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
@@ -1360,7 +1372,7 @@ def _boxes(gl, kind, u, ch, props, fcx, fcy, console, acc, marks=()):
         else:
             add(SCREEN, fcx, fcy - 10.0, 300.0, 172.0)
     if kind == "pixel":
-        add(SCREEN, fcx, fcy + 4.0, 322.0, 196.0)
+        out.append((SCREEN, (0.0, 0.0, float(gl.w), float(gl.h))))   # the whole screen, fixed
     by = fcy + 54.0                                    # MOCHI's head
     if kind == "mochi":
         if "ears" in acc:
