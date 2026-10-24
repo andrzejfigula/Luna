@@ -7969,6 +7969,28 @@ class ThemesTest(unittest.TestCase):
         self.assertEqual(themes.current(), "luna")
         self.assertIsNone(r("bądź sobą"))                     # the costume's (fun.py)
 
+    def test_back_to_luna_as_said(self):
+        import commands
+        import themes
+        # 24 Oct 14:21, Hal on: "Przełącz charakter na Lunę", "Włącz Lunę" →
+        # "Luna jest teraz odłączona", no switch
+        r = themes.voice_request
+        self.assertIsNone(r("Włącz Lunę."))                   # she is Luna already
+        themes.set_theme("hal")
+        for said in ("Przełącz charakter na Lunę.", "Włącz Lunę.", "Hal, włącz Lunę",
+                     "Nie, przełącz się na Lunę.", "Przełącz na Lunę",
+                     "Potrzebuję, żebyś przełączył się na Lunę.", "Chcę rozmawiać z Luną.",
+                     "Zmień się z powrotem w Lunę."):
+            self.assertEqual(r(said), ("set", "luna"), said)
+        self.assertEqual(r("Przełącz na pip."), ("set", "pip"))
+        self.assertEqual(r("Zmień charakter na Mochi."), ("set", "mochi"))
+        for other in ("Przełącz na retro.", "Zmień na RMF", "włącz się", "nie włączaj radia"):
+            self.assertIsNone(r(other), other)
+        self.assertIn("włącz motyw <name>", themes.persona_line())
+        self.assertTrue(commands.handle("Przełącz charakter na Lunę.", [].append,
+                                        lambda *a, **k: None))
+        self.assertEqual(themes.current(), "luna")
+
     def test_accessories_by_voice(self):
         import characters
         import commands

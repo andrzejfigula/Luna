@@ -57,9 +57,9 @@ THEMES = {
             "(\"Polecenie przyjęte.\", \"Analiza zakończona.\"). Every real "
             "request is carried out and every answer is correct. Never really threatening "
             "and nothing scary for a child: with Maja (8) you are a calm, slightly "
-            "odd, friendly computer. If they call you Luna, say Luna has been "
-            "temporarily disconnected. Every reply, even a plain fact like the "
-            "weather, is said in character. Still 1-3 short sentences.\n"),
+            "odd, friendly computer. If they just call you Luna, say Luna has been "
+            "temporarily disconnected (asked to switch back to her, you switch). "
+            "Every reply, even a plain fact like the weather, is said in character. Still 1-3 short sentences.\n"),
         # a dark red lens with a glowing red-gold core
         "eyes": {"uTop": (0.42, 0.03, 0.02), "uBottom": (0.10, 0.0, 0.0),
                  "uGlow": (0.95, 0.06, 0.02), "uShine": (1.0, 0.82, 0.60),
@@ -221,7 +221,11 @@ def name_words():
 
 
 def persona_line():
-    return get().get("persona", "")
+    p = get().get("persona", "")
+    if p:    # 24 Oct: "Włącz Lunę" → Hal: "Luna jest teraz odłączona", no switch
+        p += ("Asked to switch back to Luna or to another character, never refuse and "
+              "never stay in role: send the command \"włącz motyw <name>\".\n")
+    return p
 
 
 def stt_name():
@@ -246,19 +250,31 @@ def labels():
 
 # ("bądź sobą" / "wróć do siebie" stay the costume's: fun._COSTUME_OFF)
 _HOME = re.compile(r"^(?:wróć|wroc|wracaj)\s+do\s+(?:luny|normalnej|zwykłej|zwyklej)"
-                   r"|^(?:bądź|badz)\s+(?:znowu\s+|z\s+powrotem\s+)?(?:luną|luna)$")
+                   r"|^(?:bądź|badz)\s+(?:znowu\s+|z\s+powrotem\s+)?(?:luną|luna)$"
+                   # 23–24 Oct, Hal on: "chcę rozmawiać z Luną" answered in character
+                   r"|^(?:chcę|chce|wolę|wole)\s+(?:rozmawiać|rozmawiac|gadać|gadac|mówić|mowic)"
+                   r"\s+z\s+luną$")
+# "Nie, przełącz…", "Potrzebuję, żebyś przełączył się na Lunę" (24 Oct)
+_LEAD = re.compile(r"^(?:(?:nie|dobra|ok|okej|ale|proszę|prosze|teraz)\W+)*"
+                   r"(?:(?:potrzebuję|potrzebuje|chcę|chce|proszę|prosze),?\s+(?:żebyś|zebys|abyś|abys)\s+"
+                   r"(?:się\s+)?)?")
 _SWITCH = re.compile(r"^(?:włącz|wlacz|ustaw|zmień|zmien|przełącz|przelacz|wybierz|daj)\s+"
-                     r"(?:mi\s+|nam\s+)?(?:motyw|postać|postac|postaci|wygląd|wyglad)"
+                     r"(?:mi\s+|nam\s+)?(?:motyw|postać|postac|postaci|wygląd|wyglad|"
+                     r"charakter|charakteru|osobowość|osobowosc)"
                      r"(?:\s+(?:na|postaci))?\s+(.{2,30})$"
-                     r"|^(?:zmień|zmien|przełącz|przelacz|zamień|zamien)\s+się\s+(?:w|na)\s+(.{2,30})$"
+                     r"|^(?:zmień|zmien|przełącz|przelacz|zamień|zamien|przełączył|przelaczyl|"
+                     r"przełączyła|przelaczyla|zmienił|zmienil|zmieniła|zmienila)\s+się\s+"
+                     r"(?:z\s+powrotem\s+)?(?:w|na)\s+(.{2,30})$"
                      r"|^(?:bądź|badz)\s+(?:teraz\s+|znowu\s+)?(.{2,30})$"
                      r"|^(?:włącz|wlacz)\s+(.{2,30})$"
-                     r"|^motyw\s+(.{2,30})$")
+                     r"|^motyw\s+(.{2,30})$"
+                     # "przełącz na Pip" (24 Oct) — as bare as "włącz <name>"
+                     r"|^(?:przełącz|przelacz|zmień|zmien)\s+(?:z\s+powrotem\s+)?na\s+(.{2,30})$")
 _LIST = re.compile(r"\b(?:jakie|które|ktore|pokaż|pokaz)\s+(?:masz\s+|są\s+|mamy\s+)?"
                    r"(?:motywy|postacie|postaci)\b")
 # a bare "włącz <name>" only for names nothing else uses ("włącz retro" may be
 # the 80s radio)
-_BARE_OK = ("hal", "mochi", "pixel")
+_BARE_OK = ("hal", "mochi", "pixel", "pip")
 _HOME_WORDS = ("domyśln", "domysln", "zwykł", "zwykl", "normaln", "standard")
 
 
@@ -299,6 +315,10 @@ def voice_request(text):
     ("unknown", words) — or None when it isn't about them."""
     low = re.sub(r"^(?:a\s+|no\s+|to\s+)?(?:luna,?\s+|luno,?\s+)?", "",
                  (text or "").lower().strip(" .!?"))
+    first = re.match(r"(\w+),?\s+", low)
+    if first and first.group(1) in name_words():         # "Hal, włącz Lunę"
+        low = low[first.end():]
+    low = _LEAD.sub("", low).replace("się się", "się")
     if _HOME.match(low):
         return ("set", DEFAULT)
     if _LIST.search(low):
@@ -311,7 +331,8 @@ def voice_request(text):
         return None
     words = next(g for g in m.groups() if g)
     k = named(words)
-    if k and m.group(4) and k not in _BARE_OK:
+    # a bare "włącz Lunę" while another character is on (24 Oct, Hal: refused)
+    if k and (m.group(4) or m.group(6)) and k not in _BARE_OK and not (k == DEFAULT and current() != DEFAULT):
         return None
     if k:
         return ("set", k)
