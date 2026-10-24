@@ -39,6 +39,10 @@ _DAYS = ["poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "
 
 _TIME_Q = ("która godzina", "która jest godzina", "jaka jest godzina", "jaka godzina",
            "która teraz godzina", "ktora godzina", "ktora jest godzina",
+           # 24 Oct probe: "Jaka jest teraz godzina?" went to the model
+           "jaka jest teraz godzina", "która jest teraz godzina", "jaka teraz godzina",
+           "jaka teraz jest godzina", "która teraz jest godzina", "którą mamy godzinę",
+           "ktora mamy godzine", "jaką mamy godzinę", "która mamy godzinę",
            "what time is it")
 _DATE_Q = ("jaki dziś dzień", "jaki dzisiaj dzień", "jaki jest dzisiaj dzień",
            "jaki jest dziś dzień", "jaki mamy dzień", "którego dzisiaj", "którego dziś",

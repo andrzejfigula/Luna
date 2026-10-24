@@ -268,7 +268,12 @@ _FRACTION_OF = re.compile(r"^(?:luna,?\s+)?(?:ile\s+(?:to\s+)?(?:jest\s+)?|polic
 def fraction_of(text):
     """"Ile to jest trzy czwarte z 80?", "ćwierć z 200", "1/4 z 200" → the
     answer, or None (13 Oct probe: to the model)."""
-    m = _FRACTION_OF.match(text.strip())
+    text = text.strip()
+    # the number in words: "trzy czwarte z ośmiu" (24 Oct probe: to the model)
+    w = re.search(r"\s(?:z|ze)\s+([^\W\d_]+(?:\s+[^\W\d_]+){0,3})\W*$", text)
+    if w and all(x in _ONES or x in _SCALES for x in w.group(1).lower().split()):
+        text = text[:w.start(1)] + str(_words_number(w.group(1).lower().split()))
+    m = _FRACTION_OF.match(text)
     if not m:
         return None
     if m.group(1):

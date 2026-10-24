@@ -59,9 +59,13 @@ _GUESS = ("zgadywank", "zgadnij liczb", "zgadywać liczb", "zgadywac liczb",
           "zgadywanie liczb", "pomyśl liczbę", "pomysl liczbe", "pomyśl sobie liczbę",
           "wymyśl liczbę", "wymysl liczbe", "guess the number", "guess a number")
 _STOP = ("koniec", "stop", "wystarczy", "nie chcę", "nie chce", "przestań",
-         "przestan", "dość", "dosc", "kończymy", "konczymy")
+         "przestan", "dość", "dosc", "kończymy", "konczymy",
+         # 24 Oct probe, mid-riddle: "Daj spokój." → "Hmm, nie daj spokój."
+         "daj spokój", "daj spokoj", "dajmy spokój", "dajmy spokoj", "dajmy sobie spokój")
 _DONT_KNOW = ("nie wiem", "poddaję się", "poddaje sie", "pomiń", "pomin", "następne",
-              "nastepne", "dalej", "nie mam pojęcia", "nie mam pojecia", "i don't know")
+              "nastepne", "dalej", "nie mam pojęcia", "nie mam pojecia", "i don't know",
+              "pokaż odpowiedź", "pokaz odpowiedz", "powiedz odpowiedź", "powiedz odpowiedz",
+              "jaka jest odpowiedź", "jaka jest odpowiedz")
 _PRAISE = ["Brawo!", "Dobrze!", "Super!", "Tak jest!", "Świetnie!", "Zgadza się!",
            "Bingo!"]
 _SYM = {"mul": "×", "add": "+", "sub": "−", "div": ":"}
@@ -1202,6 +1206,15 @@ def answer(text, speak, play_sound_async):
             print("[quiz] another game asked for — quiz over", flush=True)
             _q = None
             _card(None)
+            return False
+        import commands
+        first = (commands._FILLER_LEAD.sub("", low).split() or [""])[0].strip(",.!?")
+        if first in commands._COMMAND_VERBS and first != "zadaj" and len(words) >= 2 \
+                and not _REPEAT_Q.match(low.strip(" .!?")) and not _HINT_Q.search(low) \
+                and not any(s in low for s in _DONT_KNOW):
+            # "Policz do pięciu" mid-riddle was a guess ("Hmm, nie do pięciu", 24 Oct
+            # probe): that, and the question waits
+            print(f"[quiz] a request mid-game — passed on: {low!r}", flush=True)
             return False
         q = _q
         if q["kind"] == "guess":

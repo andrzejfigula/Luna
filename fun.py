@@ -582,7 +582,10 @@ _COSTUME_SAY = {"cat": "Miau! Zobacz — jestem kotkiem!",
                 "crazy_robot": "Bip-bup-bip! Tryb szalonego robota włączony!",
                 "party": "Impreza! Czapeczka już jest, konfetti leci!",
                 "googly_eyes": "Patrz, jakie mam śmieszne oczy!"}
-_COSTUME_OFF = re.compile(r"\b(?:zdejmij\s+uszy|koniec\s+przebrania|bądź\s+sobą|badz\s+soba)\b")
+_COSTUME_OFF = re.compile(r"\b(?:zdejmij\s+uszy|koniec\s+przebrania|bądź\s+sobą|badz\s+soba|"
+                          # 24 Oct probe: "Zdejmij przebranie." → the model
+                          r"zdejmij\s+(?:to\s+)?(?:przebranie|kostium|strój|stroj)|"
+                          r"przestań\s+być\s+(?:kotkiem|pieskiem|zajączkiem))\b")
 COSTUME_SECS = 25
 _COSTUME_EN = re.compile(r"^(?:luna,?\s+)?(?:show\s+me\s+a|be\s+a|turn\s+into\s+a|"
                          r"can\s+you\s+be\s+a)\s+(cat|kitty|kitten|dog|puppy|bunny|rabbit)\W*$")

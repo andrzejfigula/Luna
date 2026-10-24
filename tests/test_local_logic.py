@@ -3028,6 +3028,31 @@ class KidsTest(unittest.TestCase):
         finally:
             settings.put("radio_recent", old or [])
         self.assertFalse(radio._PREV_RX.fullmatch("poprzednia piosenka"))
+        # round two
+        import clock
+        import fun
+        import quiz
+        from shared_state import state
+        for q in ("Jaka jest teraz godzina?", "Którą mamy godzinę?"):
+            self.assertTrue(clock.answer(q).startswith("Jest "), q)
+        self.assertEqual(calc.fraction_of("Ile to jest trzy czwarte z ośmiu?"), "Trzy czwarte z 8 to 6.")
+        self.assertEqual(calc.fraction_of("Ile to jest pół z dwunastu?"), "Pół z 12 to 6.")
+        self.assertIsNone(calc.fraction_of("Ile to jest pół z kilograma?"))
+        with state.lock:
+            state.costume = ("bunny", time.time() + 20)
+        self.assertTrue(fun.costume("zdejmij przebranie", [].append))
+        quiz._q = {"kind": "riddle", "answer": ["jabłko"], "right": "To jabłko!", "reveal": "jabłko",
+                   "card": "?", "tries": 0, "n": 1, "total": 3, "score": 0, "asked": time.time(),
+                   "hint": "", "say": "Rośnie na drzewie."}
+        said = []
+        try:
+            with mock.patch.object(quiz, "_card", lambda *a, **k: None):
+                self.assertFalse(quiz.answer("Policz do pięciu.", said.append, lambda *a: None))
+                self.assertIsNotNone(quiz._q)                    # the riddle waits
+                self.assertTrue(quiz.answer("Daj spokój.", said.append, lambda *a: None))
+                self.assertEqual(said, ["Dobrze, kończymy. To jabłko!"])
+        finally:
+            quiz._q = None
 
     def test_twenty_reverse(self):
         import twenty
