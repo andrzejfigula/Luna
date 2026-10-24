@@ -168,6 +168,13 @@ def voice_move(text, speak):
         _voice.clear()
         return False
     words = re.findall(r"\w+", (text or "").lower())
+    import commands
+    if len(words) <= 6 and commands._BOARD_STOP.search((text or "").lower()):
+        # "Koniec." mid-match went to the model (24 Oct probe)
+        me, you = _voice["me"], _voice["you"]
+        _voice.clear()
+        speak(f"Dobrze, koniec gry. Skończyło się {me} do {you}.")
+        return True
     picks = {_SAID[w] for w in words if w in _SAID}
     if len(picks) != 1 or len(words) > 4:
         return False

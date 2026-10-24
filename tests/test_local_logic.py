@@ -4293,6 +4293,10 @@ class KidsTest(unittest.TestCase):
                 self.assertTrue(games.voice_move("Papier!", said.append))   # paper beats rock
             self.assertIn("Wygrywasz 2 do 0", said[-1])
             self.assertFalse(games.voice_move("Papier", said.append))      # match over
+            games._voice_from(1, 0)                         # "Koniec." mid-match (24 Oct)
+            self.assertTrue(games.voice_move("Koniec.", said.append))
+            self.assertEqual(said[-1], "Dobrze, koniec gry. Skończyło się 1 do 0.")
+            self.assertFalse(games.voice_move("nożyce", said.append))
             games._voice_from(0, 0)
             self.assertFalse(games.voice_move("Kamień czy papier?", said.append))
             with mock.patch.object(games.random, "choice", lambda c: "rock"):
