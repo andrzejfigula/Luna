@@ -453,7 +453,7 @@ class OpenAITTS:
                       flush=True)
                 stream.close()
                 continue
-            fx = tts_fx.Chain(themes.get().get("fx"))      # HAL's robot, Ice's depth
+            fx = tts_fx.Chain(themes.get().get("fx"))      # HAL's robot
             if pcm:
                 yield fx.process(pcm)
             for chunk in stream:

@@ -1,10 +1,10 @@
 """
-characters.py — the six drawn characters (NEX, PIP, RETRO, PIXEL, MOCHI,
-ECHO) as data, and the layer of expressions and gestures they share.
+characters.py — the four drawn characters (PIP, RETRO, PIXEL, MOCHI) as
+data, and the layer of expressions and gestures they share.
 
-Luna, Ice and HAL are one face in three skins (gl_face's shader). These six
-are built differently — a CRT console, a matrix of cells, cosmic lenses, a
-plush, neon outlines, a human-like face — each by its own small shader in
+Luna and HAL are one face in two skins (gl_face's shader). These four are
+built differently — a CRT console, a matrix of cells, a plush, neon
+outlines — each by its own small shader in
 gl_chars.py. They are driven by the same pose as Luna: face_spec's moods,
 her blinks, gaze, saccades, reply scenes and her voice's visemes all arrive
 as gl_face's uniforms (lids, pupils, mouth); a character only reinterprets
@@ -35,7 +35,7 @@ import time
 
 import settings
 
-KINDS = ("retro", "pixel", "nex", "mochi", "pip", "echo")
+KINDS = ("retro", "pixel", "mochi", "pip")
 
 # the expressions the characters show (the app's moods map onto them; the
 # last five come from gestures: reply scenes, a touch, trigger())
@@ -66,17 +66,6 @@ CHARS = {
         "accessories": ("hearts", "stars", "bubble", "headphones"),
         "acc_default": ("hearts", "stars", "bubble", "headphones"),
     },
-    # ── cosmic lenses: two small gravitational vortices ──
-    "nex": {
-        "pal": ((0.62, 0.30, 1.0), (1.0, 0.30, 0.82), (0.16, 0.10, 0.48), (0.80, 0.86, 1.0)),
-        "layout": {"eye_x": 160.0, "eye_y": -30.0, "eye_s": 0.92, "mouth_y": 112.0, "mouth_s": 0.5},
-        "spec": {"round": 1.0, "heart": 0.0, "star": 0.0, "brow_a": 0.0, "blush": 0.0},
-        "circle": True,
-        "blink": (1.2, 1.0), "gaze": (0.8, 0.0, 0.0), "react": 7.0,
-        "mouth": {"w": 0.55, "h": 0.6},
-        "accessories": ("planets", "crown", "rings"),
-        "acc_default": ("planets",),
-    },
     # ── a pink plush round a dark display ──
     "mochi": {
         "pal": ((1.0, 0.80, 0.86), (0.94, 0.55, 0.68), (1.0, 0.97, 0.98), (1.0, 0.40, 0.62)),
@@ -97,18 +86,6 @@ CHARS = {
         "accessories": ("sprout", "cap", "bowtie"),
         "acc_default": ("sprout",),
     },
-    # ── a calm human-like face with luminous white eyes ──
-    "echo": {
-        "pal": ((0.86, 0.92, 1.0), (0.42, 0.56, 0.78), (0.70, 0.78, 0.92), (1.0, 1.0, 1.0)),
-        "layout": {"eye_x": 98.0, "eye_y": 4.0, "eye_s": 0.58, "eye_sy": 0.36,
-                   "mouth_y": 150.0, "mouth_s": 0.5, "brow_t": 0.30},
-        "spec": {"eye_n": 2.0, "blush": 0.0, "round": 0.0, "heart": 0.0, "star": 0.0,
-                 "brow_gap": 18.0},
-        "blink": (1.5, 0.55), "gaze": (0.45, 0.0, 0.0), "react": 4.0,
-        "mouth": {"w": 0.8, "h": 0.45, "open": 0.5},
-        "accessories": ("hair",),
-        "acc_default": ("hair",),
-    },
 }
 
 # the settings page's choices for a character's accessories (each a set
@@ -128,10 +105,9 @@ def acc_choices(kind):
 
 ACC_LABELS = {"cartridge": "kartridż", "glasses": "okulary", "rocket": "rakieta",
               "hearts": "serca", "stars": "gwiazdki", "bubble": "dymek",
-              "headphones": "słuchawki", "planets": "planety", "crown": "korona",
-              "rings": "pierścienie", "ears": "uszy", "flower": "kwiatek",
+              "headphones": "słuchawki", "ears": "uszy", "flower": "kwiatek",
               "hat": "czapka do snu", "sprout": "kiełek", "cap": "czapka",
-              "bowtie": "muszka", "hair": "świetlne włosy"}
+              "bowtie": "muszka"}
 
 FX_LEVELS = (("full", "pełne", 1.0), ("calm", "spokojne", 0.5), ("off", "wyłączone", 0.0))
 
@@ -165,8 +141,8 @@ def set_accessories(kind, names):
     _scache.clear()
 
 
-# "zdejmij koronę", "załóż okulary" — the settings page's Dodatki row by voice
-# (22 Oct 23:45: "Mira, zdejmij koronę." → "Już zdejmuję koronę. Gotowe." — nothing)
+# "zdejmij czapkę", "załóż okulary" — the settings page's Dodatki row by voice
+# (22 Oct 23:45: a "zdejmij …" got "Gotowe." and nothing changed)
 _ACC_ON = re.compile(r"^(?:załóż|zaloz|włóż|wloz|nałóż|naloz|ubierz|dodaj|daj)\s+(?:sobie\s+)?(.{3,40})$")
 _ACC_OFF = re.compile(r"^(?:zdejmij|zdejm|ściągnij|sciagnij|schowaj|zabierz|usuń|usun)\s+(?:sobie\s+)?(.{3,40})$")
 _ALL = re.compile(r"^(?:wszystko|wszystkie(?:\s+dodatki)?|dodatki|ozdoby)$")
@@ -178,7 +154,7 @@ def _same_word(a, b):
 
 
 def voice_accessory(kind, text):
-    """What "zdejmij koronę" asks of the character `kind`: (new set, what to
+    """What "zdejmij czapkę" asks of the character `kind`: (new set, what to
     say), or None when it isn't about its accessories."""
     low = re.sub(r"^(?:a\s+|no\s+|to\s+)?(?:\w+,\s+)?", "", (text or "").lower().strip(" .!?"))
     on, off = _ACC_ON.match(low), _ACC_OFF.match(low)
@@ -322,10 +298,8 @@ class CharLife:
         self.boot_t = now                    # RETRO: the CRT starts up
         self.step_t = -9.0                   # stepped characters: the last step
         self.held = dict(self.ch)
-        self.gaze = [[0.0, 0.0], [0.0, 0.0]]     # PIP's springs, ECHO's lag: per eye
+        self.gaze = [[0.0, 0.0], [0.0, 0.0]]     # PIP's springs: per eye
         self.gaze_v = [[0.0, 0.0], [0.0, 0.0]]
-        self.asym_t = now + self.rng.uniform(5.0, 10.0)   # NEX: one eye wanders
-        self.asym = (-9.0, 0, 0.0, 0.0)
         self.roll_t = now + self.rng.uniform(15.0, 30.0)  # RETRO: a rolling scanline
         self.sync_t = now + self.rng.uniform(4.0, 9.0)    # PIP: the sync slips now and then
         self.sync_at = -9.0
@@ -466,8 +440,7 @@ class CharLife:
             self.quality = 1.0
 
     def gaze_filter(self, i, dx, dy, dt, asleep):
-        """A character's own gaze: PIP's bouncy spring, ECHO's slow restraint,
-        NEX's wandering eye."""
+        """A character's own gaze: PIP's bouncy spring."""
         rng, spring, damp = self.cfg["gaze"]
         dx, dy = dx * rng, dy * rng
         gz, gv = self.gaze[i], self.gaze_v[i]
@@ -479,11 +452,6 @@ class CharLife:
                 for j, t in ((0, dx), (1, dy)):
                     gv[j] += ((t - gz[j]) * sp - gv[j] * damp) * h
                     gz[j] += gv[j] * h
-            return gz[0], gz[1]
-        if self.kind == "echo":                   # restrained: slow to follow
-            k = 1.0 - math.exp(-3.0 * max(0.0, min(dt, 0.25)))
-            gz[0] += (dx - gz[0]) * k
-            gz[1] += (dy - gz[1]) * k
             return gz[0], gz[1]
         return dx, dy
 
@@ -513,17 +481,6 @@ class CharLife:
         flick = 0.45 + 0.55 * ((step * 0.618) % 1.0)
         return min(1.0, env * flick) * (1.0 if lvl >= 1.0 else 0.5), self.sync_seed
 
-    def nex_asym(self, now, asleep):
-        """NEX: now and then one eye drifts off on its own for a moment."""
-        if now > self.asym_t:
-            self.asym_t = now + self.rng.uniform(6.0, 12.0)
-            if not asleep:
-                self.asym = (now, self.rng.choice((0, 1)), self.rng.uniform(-16.0, 16.0),
-                             self.rng.uniform(-10.0, 6.0))
-        t0, eye, ax, ay = self.asym
-        env = _bump(now - t0, 2.2)
-        return eye, ax * env, ay * env
-
     def mouth_step(self, open_):
         """RETRO and PIXEL: the mouth opens in a few steps, not smoothly."""
         n = self.cfg.get("mouth", {}).get("levels")
@@ -543,6 +500,6 @@ def blink_pace(kind):
 
 
 def current_kind():
-    """The drawn character now, or None (Luna, Ice, HAL)."""
+    """The drawn character now, or None (Luna, HAL)."""
     import themes
     return kind_of(themes.get())

@@ -1056,7 +1056,7 @@ _EAR_INNER = {"cat": (255, 150, 160), "bunny": (255, 160, 175),
 
 def accent_cols():
     """(top, bottom): a costume's own colour (ears, nose) — the eyes' gold,
-    or the theme's (HAL's red, Ice's frost)."""
+    or the theme's (HAL's red)."""
     return theme_fx().get("accent") or (EYE_GRAD_TOP, EYE_GRAD_BOTTOM)
 
 
@@ -1612,7 +1612,7 @@ HAND_GLYPHS = {"open": "signal", "paper": "paper", "thumb": "check", "ok": "chec
 
 
 def hand_cols():
-    """(top, bottom, glow): the hands' light — the theme's (Ice: frost) or the style's."""
+    """(top, bottom, glow): the hands' light — the theme's or the style's."""
     return theme_fx().get("hand") or (HAND_GRAD_TOP, HAND_GRAD_BOTTOM, GLOW_COL)
 
 
@@ -2417,7 +2417,7 @@ class RobotFace:
         if emotion != "sleeping":
             self.blink_counter += _K
             trigger = self.blink_timer if not speaking else 180
-            # a drawn character's own rhythm (characters.py): ECHO slow, PIP quick
+            # a drawn character's own rhythm (characters.py): PIP quick
             b_pace, b_speed = characters.blink_pace(characters.kind_of(themes.get()))
 
             if listening and not speaking:

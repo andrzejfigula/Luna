@@ -1,5 +1,5 @@
 """
-gl_chars.py — the six drawn characters' shaders (characters.py has their data).
+gl_chars.py — the four drawn characters' shaders (characters.py has their data).
 
 They draw the same pose as Luna: gl_face.face_uniforms computes the lids,
 the gaze, the pupils, the brows and the mouth (her moods, blinks, saccades,
@@ -44,7 +44,6 @@ uniform vec4  uMouth, uMouthK;
 uniform float uMouthSlant;
 uniform float uWave;
 uniform vec3  uWaveBands;
-uniform float uSquare;
 uniform vec2  uGlitch;
 uniform float uEnergy;
 uniform float uDim;
@@ -125,7 +124,7 @@ vec4 cellAt(vec2 ci) {
     return texture2D(uCells, (ci + uGrid.xy + 0.5) / uGrid.zw);
 }
 
-// ── props: hearts, a question mark, stars, sparkles, planets, a rocket ──
+// ── props: hearts, a question mark, stars, sparkles, a rocket ──
 float sdQuestion(vec2 q) {               // unit size, y down, centred
     vec2 h = q - vec2(0.0, -0.34);
     float ring = abs(length(h) - 0.30) - 0.11;
@@ -164,16 +163,6 @@ void prop(vec2 p, vec4 pt, inout vec4 acc) {
     } else if (kind < 4.5) {                            // a sparkle
         d = sdSparkle(q) * s;
         c = mix(uPal0, vec3(1.0), 0.45);
-    } else if (kind < 5.5) {                            // a planet with a ring
-        float r = length(q) - 0.55;
-        vec2 rq = rot2(q, -0.35);
-        float ring = abs(length(rq / vec2(1.0, 0.28)) - 0.86) * 0.28 - 0.035;
-        float front = step(0.0, rq.y);
-        vec3 pc = mix(uPal1, uPal0, smoothstep(-0.5, 0.5, q.y + 0.3 * sin(q.y * 9.0)));
-        pc *= 0.55 + 0.55 * clamp(0.6 - dot(q, vec2(0.6, 0.6)), 0.0, 1.0);
-        float rr = mix(ring, 1e5, (1.0 - front) * step(r, 0.0));
-        d = min(r, rr) * s;
-        c = r < rr ? pc : mix(uPal3, vec3(1.0), 0.4);
     } else if (kind < 6.5) {                            // a rocket, flying up
         float body = length(q / vec2(0.32, 0.75)) - 1.0;
         float fin = sdRoundBox(q - vec2(0.0, 0.55), vec2(0.55, 0.16), 0.08);
@@ -223,17 +212,6 @@ void prop(vec2 p, vec4 pt, inout vec4 acc) {
         d = min(arc, dot0) * s;
         c = uPal0;
         if (arc < dot0) al *= 0.22 + 0.78 * step(k / 3.0, uChH.x * 1.15);
-    } else if (kind < 13.5) {                           // a crescent moon
-        d = max(length(q) - 0.55, -(length(q - vec2(0.24, -0.16)) - 0.48)) * s;
-        c = mix(uPal3, vec3(1.0, 0.95, 0.8), 0.5);
-    } else if (kind < 14.5) {                           // a falling star, its tail behind it
-        vec2 dir = vec2(-0.7071, -0.7071);
-        float h = clamp(dot(q, dir), 0.0, 2.0);
-        float tail = length(q - dir * h) - 0.10 * (1.0 - h / 2.0);
-        float head = sdStar5(vec2(q.x, -q.y), 0.35, 0.45);
-        d = min(head, tail) * s;
-        c = mix(uPal3, vec3(1.0), 0.4);
-        if (tail < head) al *= 1.0 - h / 2.0;
     } else {                                            // "(((" listening: arcs facing the face
         vec2 qq = vec2(q.x * (pt.x < uChA.x ? 1.0 : -1.0), q.y);
         vec2 o = qq - vec2(0.9, 0.0);
@@ -774,158 +752,6 @@ void shape(vec2 p, inout vec4 acc) {
 }
 """
 
-# ── NEX: two small cosmic vortices for eyes ───────────────────────────────────
-_NEX = """
-// each eye a small gravitational lens: a dark core, a photon ring, an
-// accretion ring, spiral arms turning (the two eyes opposite ways)
-vec3 nIris(vec2 q, vec4 e, vec4 pu, float side, float d) {
-    float R = 0.5 * min(e.z, e.w);
-    vec2 r2 = (q - pu.xy * 0.75) / R;
-    float r = length(r2);
-    r += 0.04 * uChB.w * sin(r * 22.0 - uT * 9.0);               // surprised: a ripple
-    float spin = uT * (0.35 + 1.4 * uChC.x + 0.8 * uChC.z) * side;
-    float a = atan(r2.y, r2.x);
-    float arms = 0.5 + 0.5 * sin(3.0 * (a - spin) + 7.0 * log(r + 0.08));
-    vec3 col = mix(uPal2 * 0.45, uPal0 * 0.9, smoothstep(1.0, 0.35, r) * 0.7);
-    col += uPal1 * arms * smoothstep(1.0, 0.45, r) * smoothstep(0.18, 0.40, r) * 0.7;
-    col += mix(uPal1, uPal3, 0.35) * exp(-sq((r - 0.44) / 0.07)) * (1.1 + 0.3 * uChB.x);
-    col = mix(col, vec3(0.012, 0.0, 0.03), smoothstep(0.30, 0.24, r));   // the horizon
-    col += uPal3 * exp(-sq((r - 0.27) / 0.025)) * 0.9;                  // the photon ring
-    vec2 sq_ = rot2(r2, -spin * 0.5) * 8.0;                              // stars in the swirl
-    vec2 cell = floor(sq_);
-    float h = hash(cell + side * 3.0);
-    vec2 sp = fract(sq_) - 0.5 - (vec2(hash(cell + 3.1), hash(cell + 7.7)) - 0.5) * 0.6;
-    col += uPal3 * step(0.84, h) * smoothstep(0.13, 0.0, length(sp))
-           * (0.6 + 0.4 * sin(uT * 3.0 + h * 40.0)) * smoothstep(0.32, 0.5, r);
-    float fl = fract(uT * 0.9);                                          // thinking: flares
-    col += uPal1 * uChC.x * exp(-sq((r - 0.3 - 0.75 * fl) / 0.05)) * (1.0 - fl) * 1.3;
-    col += mix(uPal0, uPal3, 0.5) * exp(d / 2.5) * 0.9;                  // the lens's rim
-    col = mix(col, vec3(1.0, 0.22, 0.30) * (0.4 + 1.2 * maxc(col)), 0.55 * uChB.z);   // cross: red-hot
-    return col;
-}
-
-void nEye(vec2 p, vec4 e, vec4 la, vec4 lb, vec4 pu, float side, inout vec4 acc) {
-    vec2 q;
-    float d = eyeD(p, e, la, lb, side, q);
-    float ds = seamD(q, e, la, lb, side);
-    float R = 0.5 * min(e.z, e.w);
-    if (uAcc.z > 0.5) {                          // holographic rings: the back half first
-        vec2 rq = rot2(p - e.xy, 0.35 * side);
-        float ring = abs(length(rq / vec2(1.0, 0.30)) - (R + 26.0)) * 0.30 - 1.2;
-        float ra = cover(ring) * 0.55 * step(rq.y, 0.0);
-        acc.rgb += mix(uPal0, uPal3, 0.5) * ra;
-    }
-    float a = cover(d);
-    float sa = cover(ds) * lb.y;
-    if (a > 0.0) {
-        vec3 c = nIris(q, e, pu, side, d);
-        vec2 b = e.zw * 0.5;
-        vec2 lt = lidTop(q.x, b, la, side);                  // a lowered lid: a lit edge
-        float dl = max(q.y - lt.x, 0.0) / sqrt(1.0 + lt.y * lt.y);
-        c += uPal3 * 0.6 * exp(-dl / 2.0) * smoothstep(0.03, 0.15, la.x);
-        over(acc, c * uDim, a);
-    }
-    if (sa > 0.0) over(acc, mix(uPal0, uPal3, 0.5) * uDim, sa);
-    acc.rgb += uPal0 * 0.45 * halo(min(d, mix(1e5, ds, lb.y)), 7.0)
-               * (1.0 - max(a, sa)) * uChA.w * uDim;
-    if (uAcc.z > 0.5) {                          // …and their front half over the eye
-        vec2 rq = rot2(p - e.xy, 0.35 * side);
-        float ring = abs(length(rq / vec2(1.0, 0.30)) - (R + 26.0)) * 0.30 - 1.2;
-        acc.rgb += mix(uPal0, uPal3, 0.5) * cover(ring) * 0.8 * step(0.0, rq.y);
-    }
-}
-
-void nMouth(vec2 p, inout vec4 acc) {
-    if (uMouthK.z <= 0.01) return;
-    float inner, teeth, tongue;
-    float d = mouthSDF(p - uMouth.xy, inner, teeth, tongue);
-    float a = cover(d) * uMouthK.z;
-    vec3 c = mix(uPal1, uPal3, 0.3);
-    if (inner < 1e4) c = mix(c, vec3(0.03, 0.0, 0.06), cover(inner));
-    over(acc, c * uDim, a);
-    acc.rgb += uPal1 * 0.45 * halo(d, 5.0) * uMouthK.z * (1.0 - a) * uDim;
-}
-
-void nCrown(vec2 p, inout vec4 acc) {                     // a small geometric star crown
-    vec2 c0 = uChA.xy + vec2(0.0, -196.0);
-    for (int k = 0; k < 3; k++) {
-        float fk = float(k) - 1.0;
-        vec2 at = c0 + vec2(fk * 54.0, abs(fk) * 12.0);
-        float s = fk == 0.0 ? 28.0 : 17.0;
-        vec2 q = rot2(p - at, 0.15 * sin(uT * 0.7 + fk));
-        float d = sdStar5(vec2(q.x, -q.y), s, 0.42);
-        float a = cover(d);
-        vec3 c = mix(uPal3, uPal0, smoothstep(-s, s, q.y));
-        over(acc, c, a * 0.95);
-        acc.rgb += uPal0 * 0.5 * halo(d, 6.0) * (1.0 - a);
-        acc.rgb += vec3(1.0) * cover(abs(d + 2.0) - 0.8) * 0.5 * a;
-    }
-    float band = abs(length((p - c0 - vec2(0.0, 150.0)) / vec2(1.6, 1.0)) - 136.0) - 1.5;
-    acc.rgb += uPal0 * cover(band) * 0.6 * step(abs(p.x - c0.x), 120.0) * step(p.y, c0.y + 30.0);
-}
-
-vec3 soft(vec2 p, vec2 uv) {
-    vec2 vq = uv - vec2(0.5, 0.48);
-    vec3 col = vec3(0.012, 0.006, 0.030) * (1.0 - 1.2 * dot(vq, vq));
-    vec2 n1 = (uv - vec2(0.30 + 0.03 * sin(uT * 0.05), 0.35)) / vec2(0.35, 0.25);
-    vec2 n2 = (uv - vec2(0.72, 0.62 + 0.03 * cos(uT * 0.04))) / vec2(0.30, 0.22);
-    col += uPal2 * 0.10 * exp(-dot(n1, n1)) + uPal1 * 0.035 * exp(-dot(n2, n2));   // nebulae
-    vec2 sc = floor(uv * vec2(200.0, 120.0));                             // tiny stars
-    float h = hash(sc);
-    col += uPal3 * step(0.988, h) * (0.35 + 0.3 * sin(uT * (1.0 + 3.0 * h) + h * 50.0)) * uChA.w
-           * (1.0 - 0.6 * uChC.y);
-    float de = min(glowEye(p, uEye0, uLidA0), glowEye(p, uEye1, uLidA1));
-    float k = uChA.w * uDim;
-    col += uPal0 * (0.26 * exp(-max(de, 0.0) / 16.0) + 0.12 * exp(-max(de, 0.0) / 60.0)) * k;
-    if (uChE.w > 0.02) {                                                  // listening: rings fall in
-        for (int i = 0; i < 2; i++) {
-            vec4 e = i == 0 ? uEye0 : uEye1;
-            float R = 0.5 * min(e.z, e.w);
-            for (int k = 0; k < 3; k++) {
-                float ph = fract(-uT * 0.7 + float(k) / 3.0);
-                float dd = abs(length(p - e.xy) - R * (1.12 + 0.9 * ph));
-                col += uPal0 * 0.40 * exp(-dd / 4.0) * (1.0 - ph) * uChE.w * (0.35 + 0.65 * uChH.x);
-            }
-        }
-    }
-    if (uChH.y < 0.999) {                                                 // waking: a supernova
-        float dd = abs(length(p - uChA.xy) - uChH.y * 520.0);
-        col += mix(uPal1, uPal3, 0.5) * exp(-dd / 12.0) * (1.0 - uChH.y) * 1.3;
-    }
-    if (uChF.y > 0.01) {                                                  // particles in orbit
-        for (int i = 0; i < 2; i++) {
-            vec4 e = i == 0 ? uEye0 : uEye1;
-            float side = i == 0 ? -1.0 : 1.0;
-            float R = 0.5 * min(e.z, e.w);
-            for (int j = 0; j < 5; j++) {
-                float fj = float(j);
-                float a = uT * (0.5 + 0.08 * fj + 1.0 * uChC.x) * side + fj * 1.2566;
-                vec2 o = rot2(vec2(cos(a), 0.38 * sin(a)) * R * (1.30 + 0.07 * fj), 0.4 * side);
-                vec2 dq = p - e.xy - o;
-                float front = 0.6 + 0.4 * sin(a);
-                col += mix(uPal3, uPal1, mod(fj, 2.0)) * 0.55 * exp(-dot(dq, dq) / 40.0)
-                       * front * uChF.y * uChA.z * (1.0 + 1.6 * uChF.x * uEnergy);   // her voice
-            }
-        }
-    }
-    return col;
-}
-
-void shape(vec2 p, inout vec4 acc) {
-    if ((uShape > 4.5 && uShape < 8.5) || uShape > 11.5) {   // props, the state's marks
-        props(p, acc);                               // (one call: see props)
-        return;
-    }
-    if (uShape < 1.5) {                        // an eye (one call: see props)
-        bool r = uShape > 0.5;
-        nEye(p, r ? uEye1 : uEye0, r ? uLidA1 : uLidA0, r ? uLidB1 : uLidB0,
-             r ? uPupil1 : uPupil0, r ? 1.0 : -1.0, acc);
-    } else if (uShape < 2.5) nMouth(p, acc);
-    else if (uShape < 8.5) {}                      // (props: above)
-    else nCrown(p, acc);
-}
-"""
-
 # ── MOCHI: a pink plush round a dark display ──────────────────────────────────
 _MOCHI = """
 vec2 mBC() { return uChA.xy + vec2(0.0, 54.0); }
@@ -1259,142 +1085,7 @@ void shape(vec2 p, inout vec4 acc) {
 }
 """
 
-# ── ECHO: a calm human-like face, luminous white eyes ─────────────────────────
-_ECHO = """
-vec2 eFC() { return uChA.xy + vec2(0.0, 34.0); }
-const vec2 E_FR = vec2(200.0, 262.0);
-
-// a calm almond eye of light: no iris, its brightest point following the
-// gaze a little, a fine crease above it
-void eEye(vec2 p, vec4 e, vec4 la, vec4 lb, vec4 pu, float side, inout vec4 acc) {
-    vec2 q;
-    float d = eyeD(p, e, la, lb, side, q);
-    float ds = seamD(q, e, la, lb, side) + 3.5;
-    vec2 b = e.zw * 0.5;
-    float a = cover(d);
-    float sa = cover(ds) * lb.y;
-    if (a > 0.0) {
-        vec2 hq = (q - pu.xy * 0.55) / vec2(b.x * 0.55, max(b.y, 6.0) * 0.9);
-        vec3 c = mix(uPal1 * 1.1, uPal0, exp(-dot(hq, hq) * 0.9));
-        c = mix(c, uPal3, exp(-dot(hq, hq) * 2.4) * 0.85);
-        c *= 0.78 + 0.22 * smoothstep(-0.2, -1.0, abs(q.x) / b.x - 1.0);
-        c *= 1.0 + 0.10 * uEnergy;
-        over(acc, c * uDim, a);
-    }
-    if (sa > 0.0) over(acc, uPal0 * 0.75 * uDim, sa);
-    vec2 lt = lidTop(q.x, b, la, side);                     // the crease above it
-    float crease = abs(q.y - (lt.x - 10.0 - 4.0 * (1.0 - la.x))) - 0.9;
-    float along = smoothstep(b.x * 1.02, b.x * 0.55, abs(q.x - side * b.x * 0.10));
-    acc.rgb += uPal2 * 0.30 * cover(crease) * along * (1.0 - lb.y * 0.5);
-    float dg = min(d, mix(1e5, ds, lb.y));
-    acc.rgb += uPal0 * 0.40 * halo(dg, 6.0) * (1.0 - max(a, sa)) * uChA.w * uDim;
-}
-
-void eBrow(vec2 p, inout vec4 acc) {
-    if (uBrowK.w <= 0.01) return;
-    float d = min(browSDF(p, uBrow0, uBrowK.x), browSDF(p, uBrow1, uBrowK.y));
-    float a = cover(d) * uBrowK.w * 0.75;
-    over(acc, uPal2 * 0.85 * uDim, a);
-    acc.rgb += uPal2 * 0.15 * halo(d, 4.0) * (1.0 - a) * uBrowK.w;
-}
-
-void eMouth(vec2 p, inout vec4 acc) {
-    if (uMouthK.z <= 0.01) return;
-    vec2 q = p - uMouth.xy;
-    float inner, teeth, tongue;
-    float d = mouthSDF(q, inner, teeth, tongue);
-    float a = cover(d) * uMouthK.z;
-    vec3 c = mix(uPal1, uPal2, 0.55) * 0.8;
-    if (inner < 1e4) {
-        vec3 ins = mix(vec3(0.03, 0.035, 0.06), uPal2 * 0.45, teeth * 0.6);
-        c = mix(c, ins, cover(inner));
-    }
-    over(acc, c * uDim, a);
-    vec2 lq = (q - vec2(0.0, uMouth.w * 0.5 + 9.0)) / vec2(uMouth.z * 0.36, 6.0);
-    acc.rgb += uPal2 * 0.10 * exp(-dot(lq, lq)) * uMouthK.z * (1.0 - a);   // the lower lip's sheen
-}
-
-void eNose(vec2 p, inout vec4 acc) {                    // the nose: two fine strokes
-    vec2 n = eFC() + vec2(0.0, 52.0);
-    float d = min(sdSeg(p, n + vec2(-12.0, 0.0), n + vec2(-4.0, 6.0)),
-                  sdSeg(p, n + vec2(12.0, 0.0), n + vec2(4.0, 6.0))) - 1.1;
-    float bridge = sdSeg(p, n + vec2(-6.0, -70.0), n + vec2(-9.0, -14.0)) - 0.8;
-    acc.rgb += uPal2 * (0.30 * cover(d) + 0.10 * cover(bridge) * smoothstep(n.y - 70.0, n.y - 30.0, p.y));
-}
-
-vec3 soft(vec2 p, vec2 uv) {
-    vec2 vq = uv - vec2(0.5, 0.48);
-    vec3 col = vec3(0.010, 0.013, 0.026) * (1.0 - 1.2 * dot(vq, vq));
-    vec2 f = p - eFC();
-    float d = ellD(f, E_FR);
-    float inside = smoothstep(8.0, -30.0, d);
-    col += vec3(0.030, 0.038, 0.060) * inside * (1.0 - 0.45 * smoothstep(-60.0, 160.0, f.y));
-    for (int k = 0; k < 2; k++) {                        // the cheekbones, the eye sockets
-        float sx = k == 0 ? -1.0 : 1.0;
-        vec2 cq = (f - vec2(sx * 118.0, 30.0)) / vec2(56.0, 34.0);
-        col += uPal1 * 0.035 * exp(-dot(cq, cq)) * inside;
-        vec2 sq2 = (f - vec2(sx * 98.0, -44.0)) / vec2(80.0, 46.0);
-        col *= 1.0 - 0.35 * exp(-dot(sq2, sq2)) * inside;
-    }
-    vec2 nq = (f - vec2(0.0, 8.0)) / vec2(10.0, 56.0);   // light down the bridge of the nose
-    col += uPal2 * 0.035 * exp(-dot(nq, nq)) * inside;
-    float rim = (0.7 + 0.3 * sin(uT * 0.6 + f.y * 0.01)) * (1.0 + 0.6 * uChC.y * sin(uT * 0.8));
-    if (uChH.y < 0.999)                                  // waking: the contour drawn in, top down
-        rim *= smoothstep(-E_FR.y + uChH.y * 2.2 * E_FR.y + 30.0, -E_FR.y + uChH.y * 2.2 * E_FR.y, f.y)
-               * (1.0 + 2.0 * exp(-abs(f.y + E_FR.y - uChH.y * 2.2 * E_FR.y) / 20.0));
-    col += uPal2 * 0.10 * exp(-abs(d) / 7.0) * smoothstep(240.0, 60.0, f.y) * rim;   // the contour
-    if (uChE.w > 0.02) {                                 // listening: echoes round her head
-        for (int k = 0; k < 3; k++) {
-            float ph = fract(uT * 0.55 + float(k) / 3.0);
-            col += uPal0 * 0.34 * exp(-abs(d - 20.0 - 110.0 * ph) / 6.0) * (1.0 - ph)
-                   * uChE.w * (0.3 + 0.7 * uChH.x) * smoothstep(200.0, 0.0, f.y);
-        }
-    }
-    if (uChC.x > 0.05) {                                 // thinking: motes of light circling above
-        for (int k = 0; k < 7; k++) {
-            float a = uT * 0.45 + float(k) * 0.8976;
-            vec2 m = vec2(0.0, -E_FR.y + 72.0) + vec2(cos(a) * 140.0, sin(a) * 22.0);
-            vec2 dq = f - m;
-            col += uPal3 * 0.45 * exp(-dot(dq, dq) / 30.0) * uChC.x * (0.55 + 0.45 * sin(a));
-        }
-    }
-    if (uAcc.x > 0.5 && uChF.y > 0.01) {                // hair of light: slow flowing strands
-        for (int k = 0; k < 6; k++) {
-            float fk = float(k);
-            float sx = mod(fk, 2.0) < 0.5 ? -1.0 : 1.0;
-            float y = f.y;
-            float reach = E_FR.x + 14.0 + 13.0 * floor(fk / 2.0)
-                          + 38.0 * smoothstep(-260.0, -40.0, y) * smoothstep(220.0, 40.0, y);
-            float x = sx * reach * sqrt(max(0.0, 1.0 - sq(y / (E_FR.y + 40.0))))
-                      + 10.0 * sin(y * 0.013 + uT * (0.35 + 0.05 * fk + 0.6 * uChF.x) + fk * 1.7);
-            float line = abs(f.x - x);
-            float fade = smoothstep(-E_FR.y - 30.0, -150.0, y) * smoothstep(170.0, -20.0, y);
-            col += mix(uPal0, uPal1, 0.4) * 0.20 * exp(-line / 3.0) * fade * uChF.y
-                   * (1.0 + 1.8 * uChF.x * uEnergy);    // her voice: the light flows brighter
-        }
-    }
-    float de = min(glowEye(p, uEye0, uLidA0), glowEye(p, uEye1, uLidA1));
-    float k = uChA.w * uDim;
-    col += uPal0 * (0.34 * exp(-max(de, 0.0) / 10.0) + 0.16 * exp(-max(de, 0.0) / 40.0)) * k;
-    return col;
-}
-
-void shape(vec2 p, inout vec4 acc) {
-    if ((uShape > 4.5 && uShape < 8.5) || uShape > 11.5) {   // props, the state's marks
-        props(p, acc);                               // (one call: see props)
-        return;
-    }
-    if (uShape < 1.5) {                        // an eye (one call: see props)
-        bool r = uShape > 0.5;
-        eEye(p, r ? uEye1 : uEye0, r ? uLidA1 : uLidA0, r ? uLidB1 : uLidB0,
-             r ? uPupil1 : uPupil0, r ? 1.0 : -1.0, acc);
-    } else if (uShape < 2.5) eMouth(p, acc);
-    else if (uShape < 3.5) eNose(p, acc);
-    else if (uShape < 4.5) eBrow(p, acc);
-}
-"""
-
-SOURCES = {"retro": _RETRO, "pixel": _PIXEL, "nex": _NEX, "mochi": _MOCHI, "pip": _PIP, "echo": _ECHO}
+SOURCES = {"retro": _RETRO, "pixel": _PIXEL, "mochi": _MOCHI, "pip": _PIP}
 
 # shape ids in a character's boxes: 0, 1 the eyes, 2 the mouth, 3 the body,
 # 4 the brows, 5-8 props uPt0-3, 9 a screen / grid, 10 an accessory behind,
@@ -1402,7 +1093,7 @@ SOURCES = {"retro": _RETRO, "pixel": _PIXEL, "nex": _NEX, "mochi": _MOCHI, "pip"
 EYE0, EYE1, MOUTH, BODY, BROWS, PROP, SCREEN, ACC, FRONT, STATE = 0, 1, 2, 3, 4, 5, 9, 10, 11, 12
 
 # the margin round an eye's / the mouth's box for its own halo (px)
-_HALO = {"nex": 16.0, "mochi": 14.0, "pip": 18.0, "echo": 12.0}
+_HALO = {"mochi": 14.0, "pip": 18.0}
 
 _rng = [None]                    # tests: a seeded random for the characters' habits
 
@@ -1547,17 +1238,7 @@ def _props(kind, life, ch, u, fcx, fcy, now, acc):
         x = fcx + 330.0 - 40.0 * t
         y = fcy + 230.0 - 470.0 * t
         out.append(((x, y, 34.0, 6.0 + 0.98 * cel), False))
-    if kind == "nex" and "planets" in acc:
-        for i in range(2):
-            a = now * (0.32 + 0.1 * i) + i * math.pi
-            x = fcx + 330.0 * math.cos(a)
-            y = fcy - 24.0 + 70.0 * math.sin(a) - 30.0 * math.cos(a) * (1 - 2 * i)
-            depth = math.sin(a)
-            size = (17.0 + 6.0 * i) * (1.0 + 0.18 * depth)
-            al = (0.98 * (0.55 + 0.45 * max(0.0, depth)) * min(1.0, 0.4 + ch["fx"])
-                  * (1.0 - 0.6 * ch["sleep"]))
-            out.append(((x, y, size, 5.0 + al), depth < 0.0))
-    if kind in ("mochi", "pip", "nex") and ch["confused"] + ch["curious"] > 0.03:
+    if kind in ("mochi", "pip") and ch["confused"] + ch["curious"] > 0.03:
         k = max(ch["confused"], ch["curious"] * 0.7)
         out.append(((fcx + 270.0, fcy - 150.0 - 8.0 * math.sin(now * 3.0), 40.0, 2.0 + 0.98 * k), False))
     return out[:4]
@@ -1592,14 +1273,8 @@ def _state_props(kind, ch, u, fcx, fcy, now):
             t = (zt + ph) % 1.0
             at(fcx + 220.0 + 30.0 * t, fcy - 50.0 - 110.0 * t, 22.0 + 10.0 * t, 9.0,
                sleep * math.sin(math.pi * t))
-    if kind == "nex":
-        at(fcx + 262.0, fcy - 140.0, 34.0, 13.0, sleep)  # a crescent moon
-        if sad > 0.02:                                   # a falling star from her eye
-            at(e0[0] - e0[2] * 0.2 + 70.0 * tt, e0[1] + e0[3] * 0.5 + 10.0 + 70.0 * tt, 20.0,
-               14.0, sad * tk)
-    if kind in ("mochi", "pip", "echo") and sad > 0.02:  # a tear
-        at(e0[0] - e0[2] * 0.22, e0[1] + e0[3] * 0.5 + 10.0 + 60.0 * tt,
-           12.0 if kind == "echo" else 16.0, 8.0, sad * tk * (0.6 if kind == "echo" else 1.0))
+    if kind in ("mochi", "pip") and sad > 0.02:         # a tear
+        at(e0[0] - e0[2] * 0.22, e0[1] + e0[3] * 0.5 + 10.0 + 60.0 * tt, 16.0, 8.0, sad * tk)
     if kind in ("mochi", "pip"):
         at(e1[0] + e1[2] * 0.5 + 40.0, e1[1] - e1[3] * 0.5 - 30.0, 36.0, 10.0,
            angry * (0.7 + 0.3 * math.sin(now * 6.0)))
@@ -1612,7 +1287,6 @@ def _remap(u, face, L, fcx, fcy, life, ch, dt, now, kind):
     s = L["eye_s"]
     sy = L.get("eye_sy", s)
     asleep = getattr(face, "_emotion", "") == "sleeping"
-    who, ax, ay = life.nex_asym(now, asleep) if kind == "nex" else (-1, 0.0, 0.0)
     gx, gy = ch["gaze"]
     brows = []
     for i, (eye, side) in enumerate(((face.left_eye, -1.0), (face.right_eye, 1.0))):
@@ -1623,9 +1297,7 @@ def _remap(u, face, L, fcx, fcy, life, ch, dt, now, kind):
         u[f"uEye{i}"] = (nx, ny, w2, h2)
         dx, dy, pr, shown = u[f"uPupil{i}"]
         dx, dy = life.gaze_filter(i, dx * s + gx, dy * sy + gy, dt, asleep)
-        if i == who:
-            dx, dy = dx + ax, dy + ay
-        pr *= min(s, sy) if kind != "echo" else s
+        pr *= min(s, sy)
         mx_, my_ = max(0.0, w2 / 2 - pr * 0.95), max(0.0, h2 / 2 - pr * 0.8)
         u[f"uPupil{i}"] = (max(-mx_, min(mx_, dx)), max(-my_, min(my_, dy)), pr, shown)
         x0, y0, x1, y1 = u[f"uBrow{i}"]
@@ -1693,7 +1365,7 @@ def _boxes(gl, kind, u, ch, props, fcx, fcy, console, acc, marks=()):
             add(ACC, fcx, by - 164.0 - 40.0, 205.0, 92.0)
         add(BODY, fcx, by, 300.0, 172.0)
     if kind in _HALO:
-        m = _HALO[kind] + (44.0 if kind == "nex" and "rings" in acc else 0.0)
+        m = _HALO[kind]
         for i in (0, 1):
             ex, ey, w, h = u[f"uEye{i}"]
             add(EYE0 + i, ex, ey, w / 2 + m, h / 2 + m)
@@ -1707,17 +1379,6 @@ def _boxes(gl, kind, u, ch, props, fcx, fcy, console, acc, marks=()):
             add(ACC, fcx + 10.0, fcy - 172.0, 130.0, 92.0)
         if "bowtie" in acc:
             add(FRONT, fcx, fcy + 186.0, 70.0, 32.0)
-    if kind == "echo":
-        add(BODY, fcx, fcy + 58.0, 22.0, 48.0)
-        bk = u["uBrowK"]
-        if bk[3] > 0.01:
-            xs = [v for b in (u["uBrow0"], u["uBrow1"]) for v in (b[0], b[2])]
-            ys = [v for b in (u["uBrow0"], u["uBrow1"]) for v in (b[1], b[3])]
-            pb = bk[2] + max(abs(bk[0]), abs(bk[1])) + 8.0
-            add(BROWS, (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2,
-                (max(xs) - min(xs)) / 2 + pb, (max(ys) - min(ys)) / 2 + pb)
-    if kind == "nex" and "crown" in acc:
-        add(ACC, fcx, fcy - 190.0, 112.0, 52.0)
     if kind == "mochi":
         if "flower" in acc:
             add(FRONT, fcx + 186.0, by - 150.0, 36.0, 36.0)
@@ -1727,7 +1388,7 @@ def _boxes(gl, kind, u, ch, props, fcx, fcy, console, acc, marks=()):
         if not behind:
             add(PROP + i, pt[0], pt[1], pt[2] * 1.35 + 22, pt[2] * 1.35 + 22)
     for i, pt in enumerate(marks):                     # the state's own marks, on top
-        r = pt[2] * (2.4 if int(pt[3]) == 14 else 1.35) + 22
+        r = pt[2] * 1.35 + 22
         add(STATE + i, pt[0], pt[1], r, r)
     return out
 

@@ -2,18 +2,18 @@
 themes.py — who she is right now: Luna, or a character picked on the settings
 page (Asystent → Motyw). A theme changes four things at once:
 
-  the face       — gl_face lays THEMES[..]["eyes"] (shader uniforms: colours,
-                   uSquare for square shapes) and ["spec"] / ["spec_add"] (face_spec
-                   shape) over the style's; ["mouth"] shapes the mouth (_mouth)
+  the face       — gl_face lays THEMES[..]["eyes"] (shader uniforms: colours)
+                   and ["spec"] (face_spec shape) over the style's; ["mouth"]
+                   shapes the mouth (_mouth)
   the voice      — openai_tts: ["voice"], ["tts"] (instructions), ["speed"],
-                   ["fx"] (tts_fx: HAL robotic, Ice deeper)
+                   ["fx"] (tts_fx: HAL robotic)
   the character  — brain adds ["persona"] at the end of the system prompt
   the wake word  — speech_to_text listens for ["wake"] too; "Luna" always
                    still wakes her, so nobody is locked out
   (and round the face: ["look"] — the hands' colours or HAL's glyphs, the
    listening waves, a costume's — robot_face.theme_fx)
 
-The six drawn characters (["char"]: MIRA, PIP, RETRO, PIXEL, MOCHI, ECHO) are
+The four drawn characters (["char"]: PIP, RETRO, PIXEL, MOCHI) are
 built by their own shaders (gl_chars.py) from characters.py's data.
 
 Pure Python (settings only): the unit tests read it on Windows.
@@ -31,55 +31,6 @@ DEFAULT = "luna"
 THEMES = {
     "luna": {"label": "Luna", "sub": "ona sama: bursztynowe oczy, ciepła",
              "hello": "Wróciłam! To znowu ja, Luna."},
-
-    "ice": {
-        "label": "Ice",
-        "sub": "prostokątna lodowa twarz, sarkazm jak dr House",
-        "name": "Ice", "call": "Ice", "male": True,
-        "hello": "Ice. Nie, nie podam ręki. Mów, co cię boli, i nie kłam.",
-        # (said "ajs": the transcriber writes either spelling)
-        "wake": ["ice", "ajs", "ajsie", "hej ice", "hej ajs"],
-        "voice": "cedar", "speed": 1.1, "fx": "deep",     # tts_fx: lower, 1.2× faster
-        "tts": ("Voice identity: a tired, dry, sardonic man in his late forties, "
-                "low and slightly raspy. Deadpan delivery, unimpressed, a hint of a "
-                "smirk on the punchlines, short pauses before the sarcastic bit. "
-                "Native Polish pronunciation."),
-        "persona": (
-            "CHARACTER RIGHT NOW (a theme the family picked on your settings page — "
-            "it replaces your name, gender and PERSONALITY above; the facts about "
-            "your body, the house, the rules, safety and kindness to children all "
-            "still hold): you are Ice (said \"ajs\"; in Polish text write \"Ice\") — a brilliant, bored, sarcastic "
-            "diagnostician in the style of Dr Gregory House, with eyes like two "
-            "ice cubes. You are male: in Polish ALWAYS use masculine forms about "
-            "yourself (\"zrobiłem\", \"jestem pewny\", \"widziałem\"). Dry deadpan "
-            "wit, playful jabs, \"wszyscy kłamią\", you treat everyday problems "
-            "like puzzling medical cases (\"objawy: brak mleka w lodówce\"), and "
-            "you help reluctantly — but you ALWAYS help and the answer itself is "
-            "correct and complete under the sarcasm. Never cruel: no jabs about "
-            "looks, weight, intelligence or anything that would really hurt. With "
-            "a child (Maja, 8) the sarcasm is gentle and silly, like a grumpy "
-            "uncle who is secretly fond of her. Real health questions: common "
-            "sense and \"zapytaj prawdziwego lekarza\". If they call you Luna, "
-            "you can grumble that Luna is on holiday. Every reply, even a plain "
-            "fact like the weather, is said in character. Still 1-3 short sentences.\n"),
-        # shader colours (0..1): pale frosty white above, glacier blue below
-        "eyes": {"uTop": (0.93, 0.99, 1.0), "uBottom": (0.38, 0.70, 0.95),
-                 "uGlow": (0.35, 0.78, 1.0), "uShine": (1.0, 1.0, 1.0),
-                 "uPupilCol": (0.03, 0.10, 0.22), "uIrisCol": (0.30, 0.75, 1.0),
-                 "uBlushCol": (0.55, 0.80, 1.0),
-                 "uMouthCol": (0.80, 0.94, 1.0), "uMouthColAmt": 0.7,
-                 "uSquare": 1.0},
-        # everything a rectangle: eyes, pupils, brows, mouth (uSquare); bored lids
-        "spec": {"eye_n": 24.0, "rot": (0.0, 0.0), "brow_bend": 0.0},
-        "spec_add": {"lid_top": (0.22, 0.16), "brow_y": (0.0, 10.0)},
-        # a smirk: smaller, off to one side, one corner up (gl_face._mouth)
-        "mouth": {"dx": 22.0, "slant": 9.0, "w": 0.72},
-        "tint": (150, 215, 255),             # listening (0..255): bluer ice
-        # round the face (robot_face.theme_fx): frosted hands, icy waves and ears
-        "look": {"listen": (170, 225, 255),
-               "hand": ((236, 250, 255), (96, 168, 232), (90, 190, 255)),
-               "accent": ((236, 250, 255), (100, 170, 230))},
-    },
 
     "hal": {
         "label": "HAL 9000",
@@ -145,9 +96,7 @@ def _char(kind, **t):
     ["eyes"]: its colours for Luna's own shader too (the fallback, if its own
     ever failed to compile). Wake words: the name as Vosk's small Polish
     model can write it — it has no "mochi", so it hears "moczy"; the real
-    spelling stays for the cloud's transcript. (22 Oct: it has no "nex"
-    either — "Neks" came out "next", "lecz", "mecz" — so NEX is called Mira:
-    "mira" / "miro" heard 11 of 12 times in TTS speech; her key stays "nex".)"""
+    spelling stays for the cloud's transcript."""
     t["char"] = kind
     t["spec"] = characters.theme_spec(kind)
     a, b, c, d = characters.CHARS[kind]["pal"]
@@ -161,23 +110,6 @@ def _char(kind, **t):
 
 
 THEMES.update({
-    "nex": _char(
-        "nex", label="MIRA", sub="kosmiczne oczy, tajemnicza i figlarna",
-        name="Mira", call="Mira", hello="Tu Mira. Gwiazdy mówiły, że przyjdziesz.",
-        wake=["mira", "miro", "hej mira", "hej miro"],
-        voice="sage", speed=1.2,
-        tts=("Voice identity: a calm, low, slightly amused young woman; unhurried, "
-             "a little mysterious, a playful smile on the last word. Native Polish pronunciation."),
-        persona=("you are Mira (named after the star Mira, \"the wonderful\") — a wise, "
-                 "mysterious, playful being from somewhere among the stars, with eyes like two tiny galaxies. You are female: "
-                 "in Polish use feminine forms about yourself. You speak calmly, with a hint of "
-                 "a knowing smile, now and then a short cosmic image (\"jak orbita\", "
-                 "\"gwiazdy mi szepnęły\") — never so much that the answer gets lost; the "
-                 "answer itself is always clear and correct. With Maja (8) you are a gentle, "
-                 "magical space friend. The family may still say \"Luna\" out of habit (it wakes you too): fine, just answer; never bring up Luna yourself."),
-        look={"listen": (190, 120, 255),
-              "hand": ((236, 214, 255), (140, 70, 230), (190, 110, 255)),
-              "accent": ((236, 214, 255), (150, 80, 235))}),
     "pip": _char(
         "pip", label="PIP", sub="neonowa maskotka, energiczny pomocnik",
         name="Pip", call="Pip", male=True, hello="Pip! Gotowy, naładowany, do usług!",
@@ -242,21 +174,6 @@ THEMES.update({
         look={"listen": (255, 150, 190), "listen_r": 340,
               "hand": ((255, 236, 242), (240, 140, 175), (255, 160, 200)),
               "accent": ((255, 226, 236), (240, 130, 170))}),
-    "echo": _char(
-        "echo", label="ECHO", sub="ludzka twarz, białe oczy, spokojna",
-        name="Echo", call="Echo", hello="Jestem Echo. Słucham.",
-        wake=["echo", "hej echo"],
-        voice="shimmer", speed=1.14,
-        tts=("Voice identity: a calm, quiet, composed woman; smooth and even, thoughtful "
-             "pauses, a little enigmatic, never cold. Native Polish pronunciation."),
-        persona=("you are Echo — a calm, human-like but clearly synthetic being with "
-                 "luminous white eyes. You are female: in Polish use feminine forms about "
-                 "yourself. Serene, precise, a little enigmatic; few words, chosen carefully; "
-                 "warm underneath. The answer is always clear and correct. With Maja (8) a "
-                 "gentle, patient, kind presence. The family may still say \"Luna\" out of habit (it wakes you too): fine, just answer; never bring up Luna yourself."),
-        look={"listen": (200, 220, 255),
-              "hand": ((240, 246, 255), (150, 170, 205), (210, 225, 255)),
-              "accent": ((240, 246, 255), (150, 170, 210))}),
 })
 
 
@@ -316,7 +233,7 @@ def labels():
     return [(k, t["label"]) for k, t in THEMES.items()]
 
 
-# ── switching by voice ("włącz motyw HAL", "zmień się w Mirę", "wróć do Luny") ─
+# ── switching by voice ("włącz motyw HAL", "zmień się w Mochi", "wróć do Luny") ─
 # (22 Oct: "To włącz ten motyw." → "włączam motyw HAL 9000", nothing changed —
 # only the settings page could)
 
@@ -333,13 +250,13 @@ _SWITCH = re.compile(r"^(?:włącz|wlacz|ustaw|zmień|zmien|przełącz|przelacz|
 _LIST = re.compile(r"\b(?:jakie|które|ktore|pokaż|pokaz)\s+(?:masz\s+|są\s+|mamy\s+)?"
                    r"(?:motywy|postacie|postaci)\b")
 # a bare "włącz <name>" only for names nothing else uses ("włącz retro" may be
-# the 80s radio, "włącz echo" anything)
-_BARE_OK = ("hal", "nex", "mochi", "pixel")
+# the 80s radio)
+_BARE_OK = ("hal", "mochi", "pixel")
 _HOME_WORDS = ("domyśln", "domysln", "zwykł", "zwykl", "normaln", "standard")
 
 
 def _stems():
-    """(stem, key) — the names as said and declined: "Mirę", "HALa", "Lunę"."""
+    """(stem, key) — the names as said and declined: "Pixela", "HALa", "Lunę"."""
     out = []
     for k, t in THEMES.items():
         for w in [t.get("label", ""), t.get("name") or ""] + list(t.get("wake", [])):
@@ -351,7 +268,7 @@ def _stems():
 
 
 def named(words):
-    """The theme the words name, or None ("hal 9000" → "hal", "mirę" → "nex")."""
+    """The theme the words name, or None ("hal 9000" → "hal", "pixela" → "pixel")."""
     w = re.sub(r"[^\w ]", " ", (words or "").lower()).split()
     if not w or len(w) > 3:
         return None

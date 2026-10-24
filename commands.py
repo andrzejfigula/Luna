@@ -1321,14 +1321,14 @@ def undoubled(text):
 
 
 def switch_theme(text, speak):
-    """"Włącz motyw HAL", "zmień się w Mirę", "wróć do Luny", "jakie masz
+    """"Włącz motyw HAL", "zmień się w Mochi", "wróć do Luny", "jakie masz
     motywy?" — the settings page's Motyw row by voice; the new one says hello
     in its own voice."""
     import themes
     req = themes.voice_request(text)
     kind = themes.get().get("char")
     if not req and kind:
-        import characters                         # "zdejmij koronę" (Mira's)
+        import characters                         # "zdejmij czapkę"
         acc = characters.voice_accessory(kind, text)
         if acc:
             characters.set_accessories(kind, acc[0])

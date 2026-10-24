@@ -6678,8 +6678,8 @@ class GlFxTest(unittest.TestCase):
         import themes
         self.assertIn("glyphs", themes.THEMES["hal"]["look"])      # no hands for HAL
         self.assertEqual(themes.THEMES["hal"]["fx"], "robot")       # (the voice's, apart)
-        top, bot, glow = themes.THEMES["ice"]["look"]["hand"]
-        self.assertGreater(top[2], top[0] - 30)                     # frosty, not amber
+        top, bot, glow = themes.THEMES["pip"]["look"]["hand"]
+        self.assertGreater(top[1], top[0])                          # neon green, not amber
 
 
 class FramePaceTest(unittest.TestCase):
@@ -7914,7 +7914,7 @@ class ThemesTest(unittest.TestCase):
         r = themes.voice_request
         self.assertEqual(r("Włącz motyw HAL 9000."), ("set", "hal"))
         self.assertEqual(r("włącz HAL 9000"), ("set", "hal"))
-        self.assertEqual(r("Luna, zmień się w Mirę"), ("set", "nex"))
+        self.assertEqual(r("Luna, zmień się w Mochi"), ("set", "mochi"))
         self.assertEqual(r("zmień motyw na Pixela"), ("set", "pixel"))
         self.assertEqual(r("przełącz się na HALa"), ("set", "hal"))
         self.assertEqual(r("bądź Mochi"), ("set", "mochi"))
@@ -7922,7 +7922,8 @@ class ThemesTest(unittest.TestCase):
         self.assertEqual(r("zmień motyw na domyślny"), ("set", "luna"))
         self.assertEqual(r("jakie masz motywy?"), ("list", None))
         self.assertEqual(r("włącz motyw dinozaura"), ("unknown", "dinozaura"))
-        for other in ("włącz radio", "włącz retro", "włącz echo", "bądź cicho",
+        for other in ("włącz radio", "włącz retro", "włącz echo", "włącz Mirę", "bądź Ice",
+                      "bądź cicho",
                       "zamień się w kotka", "włącz lampkę", "włącz Polskie Radio Chopin"):
             self.assertIsNone(r(other), other)
         said = []
@@ -7939,19 +7940,19 @@ class ThemesTest(unittest.TestCase):
         import characters
         import commands
         import themes
-        # 22 Oct 23:45: "Mira, zdejmij koronę." → "Gotowe." and the crown stayed
-        themes.set_theme("nex")
-        characters.set_accessories("nex", ["planets", "crown"])
+        # 22 Oct 23:45: "…, zdejmij koronę." → "Gotowe." and the crown stayed
+        themes.set_theme("mochi")
+        characters.set_accessories("mochi", ["ears", "flower"])
         said = []
-        self.assertTrue(commands.handle("Mira, zdejmij koronę.", said.append, lambda *a, **k: None))
-        self.assertEqual(characters.accessories("nex"), ("planets",))
+        self.assertTrue(commands.handle("Mochi, zdejmij kwiatek.", said.append, lambda *a, **k: None))
+        self.assertEqual(characters.accessories("mochi"), ("ears",))
         self.assertEqual(said[-1], "Gotowe.")
-        self.assertTrue(commands.switch_theme("załóż koronę", said.append))
-        self.assertEqual(characters.accessories("nex"), ("planets", "crown"))
+        self.assertTrue(commands.switch_theme("załóż kwiatek", said.append))
+        self.assertEqual(characters.accessories("mochi"), ("ears", "flower"))
         self.assertTrue(commands.switch_theme("załóż okulary", said.append))
         self.assertIn("Tego nie noszę", said[-1])
         self.assertTrue(commands.switch_theme("zdejmij wszystko", said.append))
-        self.assertEqual(characters.accessories("nex"), ())
+        self.assertEqual(characters.accessories("mochi"), ())
         for other in ("zdejmij buty", "dodaj mleko do listy", "usuń listę zakupów"):
             self.assertFalse(commands.switch_theme(other, said.append), other)
         themes.set_theme("mochi")
@@ -7964,12 +7965,15 @@ class ThemesTest(unittest.TestCase):
         import settings_page as sp
         sp._cache.clear()
         with mock.patch.object(sp, "_introduce"):
-            self.assertEqual(sp.change("theme"), "Motyw: Ice")
-            self.assertEqual(themes.current(), "ice")
-            self.assertEqual(sp.rows(1)[0]["value"], "Ice")
             self.assertEqual(sp.change("theme"), "Motyw: HAL 9000")
-            for label in ("MIRA", "PIP", "RETRO", "PIXEL", "MOCHI", "ECHO", "Luna"):
+            self.assertEqual(themes.current(), "hal")
+            self.assertEqual(sp.rows(1)[0]["value"], "HAL 9000")
+            for label in ("PIP", "RETRO", "PIXEL", "MOCHI", "Luna"):
                 self.assertEqual(sp.change("theme"), "Motyw: " + label)
+        for gone in ("ice", "nex", "echo", "nonsense"):       # removed 24 Oct: back to Luna
+            settings.put("theme", gone)
+            themes._cache[0] = 0.0
+            self.assertEqual(themes.current(), "luna")
         settings.put("theme", "nonsense")
         themes.set_theme(settings.get("theme"))
         self.assertEqual(themes.current(), "luna")
@@ -8020,7 +8024,7 @@ class ThemesTest(unittest.TestCase):
         import themes
         import tts_fx
         self.assertEqual(themes.THEMES["hal"]["fx"], "robot")
-        self.assertEqual(themes.THEMES["ice"]["fx"], "deep")
+        self.assertEqual(set(tts_fx.PRESETS), {"robot"})
         t = np.arange(24000) / 24000
         tone = (8000 * np.sin(2 * np.pi * 200 * t)).astype(np.int16).tobytes()
 
@@ -8051,11 +8055,6 @@ class ThemesTest(unittest.TestCase):
             self.assertLessEqual(min(abs(lag - period), abs(lag - period / 2)), 2)
         self.assertGreater(np.abs(robot).max(), 3000)  # still loud, never clipped hard
         self.assertLess(np.abs(robot).max(), 30001)
-        deep = run("deep")
-        k = tts_fx.PRESETS["deep"]["pitch"]
-        self.assertAlmostEqual(deep.size / 24000, 1 / 1.2, delta=0.06)  # Ice 1.2× faster
-        zc = np.sum(np.diff(deep[1000:-1000] > 0) != 0) / 2 / ((deep.size - 2000) / 24000)
-        self.assertAlmostEqual(zc, 200 / k, delta=3)  # the pitch is lower
         self.assertEqual(b"".join(tts_fx.wrap([tone[:5000], tone[5000:]], None)), tone)
 
 
@@ -8279,7 +8278,7 @@ class CharactersTest(unittest.TestCase):
             self.left_eye, self.right_eye = self.Part(-158, -30), self.Part(158, -30)
             self.mouth = self.Part(0, 120)
 
-    def life(self, kind="nex", seed=3):
+    def life(self, kind="mochi", seed=3):
         import random
         import characters
         return characters.CharLife(kind, 100.0, rng=random.Random(seed))
@@ -8315,21 +8314,18 @@ class CharactersTest(unittest.TestCase):
 
     def test_wake_words_vosk_can_hear(self):
         """Vosk's small Polish model has no "mochi": it writes "moczy" — that
-        wakes her; the cloud's spelling too. NEX is called Mira (Vosk has no "nex")."""
+        wakes her; the cloud's spelling too."""
         import themes
         try:
             import speech_to_text as s
         except ImportError:
             self.skipTest("sounddevice")
-        themes.set_theme("nex")
-        self.assertIsNotNone(s._find_wake_word(["mira", "która", "godzina"]))
-        self.assertIsNotNone(s._find_wake_word(["miro", "pokaż", "ustawienia"]))
-        self.assertIsNotNone(s._find_wake_word(["luna", "która", "godzina"]))
-        self.assertTrue(s._cloud_has_wake("Mira, która godzina?"))
         themes.set_theme("mochi")
         self.assertIsNotNone(s._find_wake_word(["moczy", "opowiedz", "bajkę"]))
+        self.assertIsNotNone(s._find_wake_word(["luna", "która", "godzina"]))
+        self.assertTrue(s._cloud_has_wake("Mochi, która godzina?"))
         themes.set_theme("luna")
-        self.assertIsNone(s._find_wake_word(["mira", "która", "godzina"]))
+        self.assertIsNone(s._find_wake_word(["moczy", "opowiedz", "bajkę"]))
 
     def test_shaders_are_gles2(self):
         """Every character's fragment shader as compiled: GLSL 1.20 / ES 1.00
@@ -8438,7 +8434,7 @@ class CharactersTest(unittest.TestCase):
         changes = sum(1 for a, b in zip(seen, seen[1:]) if a != b)
         self.assertLessEqual(changes, 25)                   # 12 Hz steps, not 30
         self.assertEqual(life.mouth_step(0.4), 0.5)
-        self.assertEqual(characters.CharLife("nex", 0.0).mouth_step(0.4), 0.4)
+        self.assertEqual(characters.CharLife("mochi", 0.0).mouth_step(0.4), 0.4)
 
     def test_slow_frames_drop_the_effects(self):
         life = self.life()
@@ -8514,8 +8510,7 @@ class CharactersTest(unittest.TestCase):
         base = dict.fromkeys(("listen", "think", "sleep", "sad", "angry", "surprise", "alert",
                               "speak"), 0.0)
         want = {"mochi": {"listen": 15, "think": 11, "sleep": 9, "sad": 8, "angry": 10, "surprise": 7},
-                "pip": {"listen": 12, "sleep": 9, "sad": 8, "angry": 10, "surprise": 7},
-                "nex": {"sleep": 13, "sad": 14}, "echo": {"sad": 8}}
+                "pip": {"listen": 12, "sleep": 9, "sad": 8, "angry": 10, "surprise": 7}}
         for kind, states in want.items():
             for state, mark in states.items():
                 ch = dict(base, **{state: 1.0})

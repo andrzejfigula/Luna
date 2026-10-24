@@ -917,10 +917,9 @@ Always answer as JSON with exactly these keys:
                 "zróbmy ćwiczenie oddechowe" (a calm guided breathing circle —
                 when they say yes to breathing together), "zamień się w
                 kotka / pieska / zajączka" (ears on your face), "włącz motyw
-                <Luna | Ice | HAL 9000 | MIRA | PIP | RETRO | PIXEL | MOCHI |
-                ECHO>" (your whole character: face, voice, name), "załóż /
-                zdejmij <dodatek>" (a drawn character's accessories: korona,
-                okulary, uszy, czapka…), "pokaż ustawienia" (the settings
+                <Luna | HAL 9000 | PIP | RETRO | PIXEL | MOCHI>" (your whole
+                character: face, voice, name), "załóż / zdejmij <dodatek>" (a
+                drawn character's accessories: okulary, uszy, czapka…), "pokaż ustawienia" (the settings
                 page). A game
                 only once ONE game was chosen — named by them, or a "tak" to
                 the single game you proposed; while you list options, no

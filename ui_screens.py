@@ -1338,10 +1338,8 @@ _DOCK_STYLE = {
     None:    {"w": 1.9, "glow": 0.0, "cell": 0, "gap": 0, "scan": False},
     "retro": {"w": 1.4, "glow": 0.0, "cell": 2, "gap": 0, "scan": False},
     "pixel": {"w": 2.0, "glow": 0.5, "cell": 3, "gap": 1, "scan": False},
-    "nex":   {"w": 1.6, "glow": 0.9, "cell": 0, "gap": 0, "scan": False},
     "mochi": {"w": 2.4, "glow": 0.0, "cell": 0, "gap": 0, "scan": False},
     "pip":   {"w": 1.7, "glow": 0.8, "cell": 0, "gap": 0, "scan": True},
-    "echo":  {"w": 1.3, "glow": 0.7, "cell": 0, "gap": 0, "scan": False},
 }
 
 

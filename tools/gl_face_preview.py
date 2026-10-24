@@ -215,7 +215,7 @@ SCENE_LOOKS = ("big_pupils", "flutter", "heart_eyes", "sparkle_eyes", "snap", "a
                "cloudy", "rainy", "snowy", "lightbulb", "music_notes")
 
 
-def fx_sheet(out_dir, theme_keys=("luna", "ice", "hal"), only=None):
+def fx_sheet(out_dir, theme_keys=("luna", "hal"), only=None):
     """The real RobotFace with the GPU face, offscreen, per theme: listening,
     the gestures, a costume — what gl_fx.py draws. A sheet per theme and each
     frame at full size; the listening waves' radii frame by frame (smooth:
@@ -559,7 +559,7 @@ def chars_sheet(out_dir, kinds=None):
         ImageDraw.Draw(img).text((10, 8), label, fill=(255, 255, 255))
         return img
 
-    for kind in kinds or ("luna", "ice", "hal") + characters.KINDS:
+    for kind in kinds or ("luna", "hal") + characters.KINDS:
         themes.current = lambda now=None, key=kind: key
         modes = [None]
         if kind == "retro":
@@ -651,7 +651,7 @@ def main():
     if "--fx" in sys.argv:                            # --fx [out_dir] [theme…] [look…]
         args = [a for a in sys.argv[1:] if not a.startswith("--")]
         import themes
-        keys = [a for a in args[1:] if a in themes.THEMES] or ("luna", "ice", "hal")
+        keys = [a for a in args[1:] if a in themes.THEMES] or ("luna", "hal")
         looks = [a for a in args[1:] if a not in themes.THEMES]
         return fx_sheet(args[0] if args else "/tmp/gl_fx", keys, looks or None)
     if "--live" in sys.argv or "--pygame" in sys.argv:

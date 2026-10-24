@@ -1,13 +1,16 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
+== 24 października ==
+- Nie ma już postaci Ice, MIRA i ECHO — zostały Luna, HAL, PIP, RETRO, PIXEL i MOCHI. Jeśli była włączona któraś z usuniętych, wracam jako Luna.
+
 == 23 października ==
 - Na dole ekranu jest nowa ikonka: pogoda (słoneczko za chmurką) — dotknij i od razu widać prognozę. Dotknięcie ✕ tylko zamyka stronę, Luna już się wtedy nie śmieje.
 - „Wyłącz tryb nocny” / „włącz tryb nocny” — to samo co „Ciszej w nocy” w ustawieniach. „Włącz zegar” pokazuje duży zegar.
 - „Wyłącz wszystko” wyłącza radio, dźwięki do snu, lampkę i to, co jest na ekranie — przypomnienia i budziki zostają. „Wyłącz wszystko, idę spać” — do tego dobranoc.
 - „Skreśl chleb”, „usuń umyć auto z listy”, „kupiłam mleko” — skreślam od razu, szybciej niż wcześniej. „Odwołaj przypomnienie o pizzy”, „ile czasu do budzika?”, „o której mam budzik?” — też od razu.
 - „Pokaż jeszcze raz” (albo samo „pokaż”) pokazuje znowu to, co przed chwilą było na ekranie — zdjęcia, listę, pogodę.
-- Postać można zmienić głosem: „Luna, włącz motyw HAL”, „zmień się w Mirę”, „bądź Mochi”, a z powrotem: „wróć do Luny”. „Jakie masz motywy?” — wymienię wszystkie.
+- Postać można zmienić głosem: „Luna, włącz motyw HAL”, „zmień się w Pixela”, „bądź Mochi”, a z powrotem: „wróć do Luny”. „Jakie masz motywy?” — wymienię wszystkie.
 - Kiedy proszę mnie o rodzaj muzyki („włącz muzykę elektroniczną”, „włącz rock”), o stronę ze stacjami, ulubione albo żywą lampkę (meduzy, zorza, kominek) — naprawdę to włączam, a nie tylko mówię „włączam”. „Usuń Lofi z ulubionych” usuwa tę, którą nazwiesz.
 - Postacie zakładają i zdejmują dodatki na prośbę: „Mira, zdejmij koronę”, „Retro, załóż okulary”, „zdejmij wszystko”. „Włącz ustawienia” działa też w dłuższym zdaniu.
 - Listy: „pokaż tę listę jeszcze raz” pokazuje tę samą listę co przed chwilą, „pokaż, co mamy dzisiaj zrobić” — rzeczy do zrobienia. „Usuń wypłacenie pieniędzy z listy” skreśla też „wypłacić pieniądze”, a jak czegoś nie ma, to mówię, że nie widzę tego na liście.
@@ -15,23 +18,23 @@
 - PIP wygląda teraz jak zielony ekran starego komputerka na nadgarstku: ma linie jak w kineskopie, lekkie migotanie, a co jakiś czas obraz mu się rozjeżdża i „gubi synchronizację” — częściej, kiedy jest zły.
 
 == 22 października ==
-- Każda nowa postać pokazuje po swojemu, co się dzieje: że słucha, myśli, mówi, śpi, budzi się, jest smutna, zła albo zaskoczona — RETRO ma np. „● REC” i wskaźnik mikrofonu, MIRA wciąga fale do oczu, MOCHI nastawia uszy, PIP łapie zasięg, a ECHO rozchodzi się echem.
+- Każda nowa postać pokazuje po swojemu, co się dzieje: że słucha, myśli, mówi, śpi, budzi się, jest smutna, zła albo zaskoczona — RETRO ma np. „● REC” i wskaźnik mikrofonu, MOCHI nastawia uszy, a PIP łapie zasięg.
 - W ustawieniach jest nowa zakładka Asystent (motyw, tempo mowy i postacie; tempo zmienia się dla osoby, która stoi przede mną, jeśli ma swoje), a także Głośność, Jasność i „Ciszej w nocy”. Głośność zapamiętuję — gdy głośnik się odłączy i wróci, wracam do niej, zamiast mówić bardzo cicho.
-- Mam sześć nowych postaci do wyboru (Ustawienia → Asystent → Motyw): kosmiczną MIRĘ, neonowego PIP-a, konsolę RETRO, PIXEL z pikseli, różową MOCHI i spokojną ECHO — każda ma swoją twarz, głos i charakter, a do tego dodatki, np. uszka albo czapkę do snu.
+- Mam cztery nowe postacie do wyboru (Ustawienia → Asystent → Motyw): neonowego PIP-a, konsolę RETRO, PIXEL z pikseli i różową MOCHI — każda ma swoją twarz, głos i charakter, a do tego dodatki, np. uszka albo czapkę do snu.
 - Po pogodzie, godzinie i wschodzie słońca nie słucham już dalej — jak chcesz coś jeszcze, powiedz „Luna”. A gdy ktoś robi krótką przerwę w środku zdania, czekam chwilę dłużej, zanim odpowiem.
 - Pokrętło głośnika Pebble zmienia teraz głośność tego wyjścia, przez które mówię. Jeśli głośnik albo gniazdo były skręcone prawie do zera, podgłaśniam je do połowy, kiedy się na nie przełączam. „Najciszej” jest teraz ciche, ale nadal słychać.
 - Rekwizyty przy odpowiedziach (słońce, chmurki, deszcz, śnieg, żarówka, nutki, znak zapytania, serce rysowane palcem) są teraz gładkie i płynne. HAL pokazuje je jako świecące czerwone ikonki jak na ekranie komputera.
 
 == 21 października ==
-- Płynniejsze fale przy słuchaniu i gładkie dłonie, uszy, gogle, czapki, łzy, „zzz” i iskierki (rysuje je teraz karta graficzna). HAL nie ma rąk: zamiast nich pokazuje komputerowe znaczki — klepsydrę, gdy myśli, kursor, ptaszek, nożyczki. Ice ma lodowe dłonie.
+- Płynniejsze fale przy słuchaniu i gładkie dłonie, uszy, gogle, czapki, łzy, „zzz” i iskierki (rysuje je teraz karta graficzna). HAL nie ma rąk: zamiast nich pokazuje komputerowe znaczki — klepsydrę, gdy myśli, kursor, ptaszek, nożyczki.
 - Ustawienia → Urządzenia: można wybrać głośnik, mikrofon i kamerę. Gdy głośnik USB zostanie odłączony, Luna sama przełącza się na gniazdo słuchawkowe, a po podłączeniu wraca.
 - HAL: fala na jego ustach zmienia kształt z dźwiękiem — niskie głoski toczą się długą falą, samogłoski falują drobniej, a „s”, „sz”, „cz” drgają gęstym szumem.
 
 == 20 października ==
-- Głosy motywów: HAL brzmi jak prawdziwy robot (niski, szybki, jednym równym tonem, metaliczny, lekko przesterowany, z pogłosem jak w statku kosmicznym), a Ice ma dużo niższy, głęboki głos i mówi szybciej.
+- Głosy motywów: HAL brzmi jak prawdziwy robot (niski, szybki, jednym równym tonem, metaliczny, lekko przesterowany, z pogłosem jak w statku kosmicznym).
 
 == 19 października ==
-- Motywy w ustawieniach (Ekran → Motyw): Ice (czyt. "ajs") — prostokątne lodowe oczy, brwi i usta, krzywy uśmieszek i sarkazm jak dr House, woła się go "Ice"; HAL 9000 — czerwone oko, spokojny, groźny głos i fala głosu zamiast ust, woła się go "HAL". "Luna" zawsze działa.
+- Motyw w ustawieniach (Ekran → Motyw): HAL 9000 — czerwone oko, spokojny, groźny głos i fala głosu zamiast ust, woła się go "HAL". "Luna" zawsze działa.
 - Plan tygodnia dla każdego: „pokaż plan tygodnia” (albo „pokaż plan Mai”) otwiera ekran z dniami i osobami. Dotknij „+ Dodaj” i powiedz np. „Maja, angielski, od poniedziałku do piątku o siedemnastej” — albo od razu „dodaj do planu: …”. Dotknięcie wpisu pozwala zmienić dni, godzinę, przypomnienie (ile minut wcześniej, komu, czy mówić też, gdy nikogo nie ma) albo go usunąć. Luna sama przypomni, gdy zobaczy tę osobę.
 - Ekran ustawień: „Luna, pokaż ustawienia”. Cztery zakładki: Ogólne (język — polski albo angielski, tempo mowy, długość odpowiedzi, napisy, pasek u góry), Ekran (podgląd kamery, płynność buzi), Koszty (ile mniej więcej kosztowała dziś, wczoraj, w tym tygodniu i miesiącu) i Reset (reset fabryczny: Luna zapomina wspomnienia i znane osoby — tylko dorosły, po potwierdzeniu, a kopia zostaje). Stuknij zakładkę albo przesuń palcem; ✕ zamyka.
 - Łatwiej zobaczyć, kogo Luna zna: działa też „pokaż profile”, „pokaż, kogo znasz”, „pokaż zdjęcia osób, które znasz”, „pokaż portrety”. A jeśli powiesz to inaczej, Luna i tak otworzy ekran z twarzami, zamiast tylko wymieniać imiona.
