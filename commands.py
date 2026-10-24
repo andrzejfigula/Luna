@@ -891,6 +891,12 @@ def _words(text):
     return re.findall(r"\w+", text.lower())
 
 
+# a board game ended by voice (24 Oct probe: "Nie chcę już grać", "Przestań" → the model)
+_BOARD_STOP = re.compile(r"\b(?:koniec|wystarczy|kończymy|konczymy|stop|przestań|przestan|dość|"
+                         r"dosc|nie\s+chcę\s+(?:już\s+)?grać|nie\s+chce\s+(?:juz\s+)?grac|"
+                         r"nie\s+gramy|daj\s+spokój|daj\s+spokoj)\b")
+
+
 def _short(text, n):
     return len(_words(text)) <= n
 
@@ -2298,8 +2304,7 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
             r"\b(jeszcze raz|nowa gra|od nowa|potasuj|zagrajmy jeszcze)\b", low):
         memo.again(speak)
         return True
-    if memo.active() and _short(text, 4) and re.search(
-            r"\b(koniec|wystarczy|kończymy|konczymy|stop)\b", low):
+    if memo.active() and _short(text, 6) and _BOARD_STOP.search(low):
         memo.stop()
         speak("Dobrze, koniec gry.")
         return True
@@ -2312,8 +2317,7 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
             r"\b(jeszcze raz|rewanż|rewanz|nowa gra|od nowa|zagrajmy jeszcze)\b", low):
         tictac.again(speak)
         return True
-    if tictac.active() and _short(text, 4) and re.search(
-            r"\b(koniec|wystarczy|kończymy|konczymy|stop)\b", low):
+    if tictac.active() and _short(text, 6) and _BOARD_STOP.search(low):
         tictac.stop()
         speak("Dobrze, koniec gry. Dzięki za partyjkę!")
         return True

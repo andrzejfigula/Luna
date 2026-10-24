@@ -1167,6 +1167,20 @@ def _hint_for(q):
     return "Pomyśl jeszcze chwilkę — dasz radę! Policz krok po kroku."
 
 
+_SUMS = ("div", "mul", "add", "sub", "mix", "guess", "story", "clock")
+
+
+def aside(text, kind):
+    """A quick question that isn't an answer — the time, a sum (not in a game of
+    numbers or the clock): answered, and the game waits. (24 Oct probe: "Która
+    godzina?" got "Szukamy liczby od 1 do 49", and ended the maths quiz.)"""
+    import calc
+    import clock
+    if kind != "clock" and clock.answer(text):
+        return True
+    return kind not in _SUMS and bool(calc.arithmetic(text))
+
+
 def _starts_other(text):
     """Reading aloud, a story, a recipe or a drawing asked for."""
     import cooking
@@ -1226,9 +1240,9 @@ def answer(text, speak, play_sound_async):
             return False
         import commands
         first = (commands._FILLER_LEAD.sub("", low).split() or [""])[0].strip(",.!?")
-        if first in commands._COMMAND_VERBS and first != "zadaj" and len(words) >= 2 \
-                and not _REPEAT_Q.match(low.strip(" .!?")) and not _HINT_Q.search(low) \
-                and not any(s in low for s in _DONT_KNOW):
+        if (first in commands._COMMAND_VERBS and first != "zadaj" and len(words) >= 2
+                and not _REPEAT_Q.match(low.strip(" .!?")) and not _HINT_Q.search(low)
+                and not any(s in low for s in _DONT_KNOW)) or aside(text, _q["kind"]):
             # "Policz do pięciu" mid-riddle was a guess ("Hmm, nie do pięciu", 24 Oct
             # probe): that, and the question waits
             print(f"[quiz] a request mid-game — passed on: {low!r}", flush=True)

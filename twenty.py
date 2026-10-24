@@ -565,6 +565,10 @@ def answer(text, speak):
             if animal:
                 speak(f"Dobrze — moje zwierzę to {animal}.")
             return False
+        if (_g or _r) and __import__("quiz").aside(text, "twenty"):
+            # "Która godzina?" got "Odpowiedz mi: tak, nie albo nie wiem" (24 Oct probe)
+            print("[twenty] a quick question mid-game — passed on", flush=True)
+            return False
         with state.lock:
             speaker = state.person[0] if state.person else None
         game = _g or _r

@@ -203,8 +203,12 @@ def _finish(w, line):
 
 
 def _luna_moves():
+    global _g
     with _lock:
         if not _g or _g["end"] or _g["turn"] != "O":
+            return
+        if not active():                   # another game took the screen meanwhile
+            _g = None                      # (24 Oct probe: this move put the board back)
             return
         b = _g["b"]
         free = [i for i in range(9) if not b[i]]

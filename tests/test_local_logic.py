@@ -2023,7 +2023,8 @@ class KidsTest(unittest.TestCase):
         self.assertTrue(quiz._ready(["patrz", "jest"]))
         with mock.patch.object(quiz, "_read_paper", lambda: self.fail("read the paper")):
             self.assertFalse(quiz.answer("Ile to jest 36 podzielić przez 4?", say, lambda n: None))
-        self.assertIsNone(quiz._q)                                # the dictation gave way
+        self.assertIsNotNone(quiz._q)          # answered, the dictation waits (24 Oct: it ended)
+        quiz._q = None
         quiz.start("riddle", "zagadka", say, lambda n: None)      # another game asked for
         self.assertFalse(quiz.answer("Zagrajmy w dwadzieścia pytań", say, lambda n: None))
         self.assertIsNone(quiz._q)
@@ -3096,6 +3097,38 @@ class KidsTest(unittest.TestCase):
                      ("Herbata pisze się przez ch czy h?", "herbata")):
             self.assertEqual(commands._spell_word(q), w, q)
         self.assertIsNone(commands._spell_word("Pojedziemy przez most czy przez rzekę?"))
+
+    def test_probe_24_oct_modes(self):
+        import commands
+        import quiz
+        import tictac
+        import twenty
+        from shared_state import state
+        # boards end by voice ("Nie chcę już grać" → the model)
+        for said in ("Nie chcę już grać.", "Przestań.", "Daj spokój."):
+            self.assertTrue(commands._BOARD_STOP.search(said.lower()), said)
+        self.assertFalse(commands._BOARD_STOP.search("stopień"))
+        # Luna's delayed move no longer puts the board back over another game
+        tictac._g = {"b": [""] * 9, "turn": "O", "end": False, "loose": 0.0, "msg": "", "duo": None}
+        with state.lock:
+            state.overlay = ("card", time.time() + 30, {"text": "?"})
+        tictac._luna_moves()
+        self.assertIsNone(tictac._g)
+        self.assertEqual(state.overlay[0], "card")
+        with state.lock:
+            state.overlay = None
+        # a quick question mid-game: answered, the game waits
+        self.assertTrue(quiz.aside("Która godzina?", "guess"))
+        self.assertTrue(quiz.aside("Ile to pięć razy pięć?", "flags"))
+        self.assertFalse(quiz.aside("Ile to dwa plus dwa?", "add"))      # a maths quiz: its answer
+        self.assertFalse(quiz.aside("Która godzina?", "clock"))          # the clock game's question
+        self.assertFalse(quiz.aside("Włochy", "flags"))
+        twenty._r = {"qa": [], "asked": set(), "t": time.time(), "player": None}
+        try:
+            self.assertFalse(twenty.answer("Która godzina?", [].append))
+            self.assertIsNotNone(twenty._r)
+        finally:
+            twenty._r = None
 
     def test_twenty_reverse(self):
         import twenty
