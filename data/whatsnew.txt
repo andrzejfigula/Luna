@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 24 października ==
+- Pixel macha, pokazuje kciuk, serduszko, pogodę i przebrania z pikseli, jak jej twarz — nic gładkiego już na niej nie ma. Retro pokazuje swoje znaczki na ekranie z pikseli, a Pip zamiast rąk ma neonowe znaczki jak jego twarz.
 - U Pixel znaczki obok twarzy — kropki „…” przy myśleniu, „?”, „!”, serduszka, gwiazdki, Z-ki, łza, dymek — są teraz rysowane prosto z pikseli i się nie przekrzywiają, więc dobrze je widać.
 - W trakcie gry możesz zapytać, która godzina, albo coś policzyć — odpowiem, a gra poczeka. Kółko i krzyżyk, memory i kamień-papier-nożyce kończą się też na „Nie chcę już grać” i „Przestań”.
 - Przeliczam jednostki powiedziane słowami: „Ile gramów ma kilogram?”, „pięć kilometrów w metrach”, „sto stopni Fahrenheita”. Wiem, jaki dzień będzie pojutrze, i odpowiadam na „Jak się pisze kura, przez u czy ó?”. Przy gotowaniu „Włącz stoper” już nie kończy przepisu, a w quizie „Poczytajmy” albo „Dyktando” zmienia zabawę.

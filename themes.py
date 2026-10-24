@@ -124,6 +124,8 @@ THEMES.update({
                  "cheerful buddy. The family may still say \"Luna\" out of habit (it wakes you too): fine, just answer; never bring up Luna yourself."),
         look={"listen": (90, 255, 150),
               "hand": ((210, 255, 220), (40, 200, 110), (90, 255, 160)),
+              # neon line art like his face, not a glossy hand or a cartoon prop
+              "glyphs": ((60, 235, 120), (215, 255, 225)),
               "accent": ((210, 255, 220), (40, 210, 140))}),
     "retro": _char(
         "retro", label="Retro", sub="konsola z lat 80., ciepłe piksele",
@@ -157,6 +159,8 @@ THEMES.update({
                  "cheeky, fun friend. The family may still say \"Luna\" out of habit (it wakes you too): fine, just answer; never bring up Luna yourself."),
         look={"listen": (60, 210, 255),
               "glyphs": ((60, 215, 255), (230, 120, 255)),
+              "glyph_scale": 1.8,              # her matrix's 16 px cells: big enough to read,
+              "glyph_upright": True,           #  and upright (turned, its lines break up)
               "accent": ((150, 235, 255), (60, 110, 255))}),
     "mochi": _char(
         "mochi", label="Mochi", sub="różowy pluszak, słodka i wspierająca",

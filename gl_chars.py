@@ -1156,6 +1156,31 @@ def grid_size(kind, w, h):
     return GRIDS[kind]
 
 
+def fx_grid(kind, u, w, h):
+    """A character's pixel screen for the effects over it (gl_fx.FxPass.draw):
+    PIXEL's fixed matrix takes all of them; RETRO's CRT, its glyphs where they
+    are on its screen (a costume is in front of the console, not on it).
+    "m", "b": the shader's facePos as one turn and shift (once, not per pixel)."""
+    if kind == "pixel":
+        return {"cell": float(PIXEL_PITCH), "m": (1.0, 0.0, 0.0, 1.0), "b": (0.0, 0.0),
+                "o": (w / 2.0, h / 2.0), "look": (0.38, 2.5)}
+    if kind != "retro":
+        return None
+    ax, ay = u["uChA"][:2]
+    ex, ey, er = u["uChE"][:3]
+    t = u.get("uTilt", 0.0)
+    c0x, c0y = w / 2.0, h / 2.0
+    c, s_ = math.cos(er + t), math.sin(er + t)            # facePos: A + Rw(c0 + Rt(fc - c0) - A - E)
+    cw, sw = math.cos(er), math.sin(er)
+    vx, vy = c0x - ax - ex, c0y - ay - ey
+    bx = ax + cw * vx - sw * vy - (c * c0x - s_ * c0y)
+    by = ay + sw * vx + cw * vy - (s_ * c0x + c * c0y)
+    con = u["uChF"][2] > 0.5                              # (rSC / rSB in the shader)
+    return {"cell": 10.0, "m": (c, -s_, s_, c), "b": (bx, by), "o": (ax, ay),
+            "clip": (ax, ay + (-18.0 if con else -10.0)) + ((214.0, 126.0) if con else (300.0, 172.0)),
+            "look": (0.40, 1.6), "only": ("glyph",)}
+
+
 class CharPass:
     """The characters' programs (compiled when first shown) and their draws."""
 

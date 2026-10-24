@@ -1308,8 +1308,12 @@ class GLFace:
             pl.u("uLayerSel", 2.0)
             self._rows(pl, self.back_l.runs(pad))
         tilt = float(uniforms.get("uTilt", 0.0))
+        grid = None
+        if ch:                               # PIXEL, RETRO: the effects on their pixels too
+            import gl_chars
+            grid = gl_chars.fx_grid(ch, uniforms, self.w, self.h)
         if uniforms.get("_fx_back"):         # the GPU's own pieces behind it (gl_fx.py)
-            self._fx().draw(uniforms["_fx_back"], tilt)
+            self._fx().draw(uniforms["_fx_back"], tilt, grid)
             GL.glUseProgram(pl.id)
         # 2: the sharp shapes, each in its own box
         if uniforms.get("uFace", 0.0) > 0.5 and ch:
@@ -1332,7 +1336,7 @@ class GLFace:
             pl.u("uLayerSel", 1.0)
             self._rows(pl, self.face_l.runs(pad))
         if uniforms.get("_fx"):              # the waves, hands, a costume (gl_fx.py)
-            self._fx().draw(uniforms["_fx"], tilt)
+            self._fx().draw(uniforms["_fx"], tilt, grid)
             GL.glUseProgram(pl.id)
         if has_layer:
             pl.u("uLayerSel", 0.0)

@@ -443,6 +443,53 @@ void main() {
 """
 
 
+# A character's pixel screen (PIXEL's matrix, RETRO's CRT): the effects drawn
+# into a texture, then shown on its grid — each cell lit by the brightest of
+# nine points in it (a thin line doesn't fall between the cells). The grid is
+# the character's own: in the face's frame (it turns with the head) or fixed;
+# outside its screen (uClip) the items stay as drawn. A pass of its own:
+# sampling every item per cell in _FRAG made the Pi's compiler take 37 s.
+_MATRIX = """
+uniform vec2  uRes;
+uniform float uGrid;          // the cell (px)
+uniform vec4  uM;             // screen → the face's frame: a turn (rows xy, zw)…
+uniform vec2  uB;             //   …and a shift (gl_chars.fx_grid)
+uniform vec2  uO;             // the grid's origin (the face's centre)
+uniform vec4  uClip;          // its screen in the face's frame: centre, half size (z 0: everywhere)
+uniform vec2  uCellK;         // a cell's lit square: half size × the cell, corner (px)
+uniform sampler2D uTex;
+
+vec2 back(vec2 v) { return vec2(uM.x * v.x + uM.z * v.y, uM.y * v.x + uM.w * v.y); }
+
+vec4 at(vec2 sp) { return texture2D(uTex, vec2(sp.x, uRes.y - sp.y) / uRes); }
+
+void main() {
+    vec2 fc = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y);
+    vec2 p = vec2(dot(uM.xy, fc), dot(uM.zw, fc)) + uB;
+    vec2 cq = abs(p - uClip.xy) - uClip.zw;
+    if (uClip.z > 0.0 && max(cq.x, cq.y) > 0.0) {   // off its screen: as drawn
+        gl_FragColor = at(fc);
+        return;
+    }
+    vec2 rel = p - uO;
+    vec2 sc = back(uO + (floor(rel / uGrid) + 0.5) * uGrid - uB);   // the cell's centre on the screen
+    vec2 ax = back(vec2(uGrid * 0.3, 0.0)), ay = back(vec2(0.0, uGrid * 0.3));
+    vec4 o = vec4(0.0);
+    for (int i = 0; i < 9; i++) {
+        vec4 k = at(sc + (mod(float(i), 3.0) - 1.0) * ax + (floor(float(i) / 3.0) - 1.0) * ay);
+        if (k.a > o.a) o = k;
+    }
+    vec2 f = rel - (floor(rel / uGrid) + 0.5) * uGrid;
+    vec2 qb = abs(f) - vec2(uGrid * uCellK.x - uCellK.y);
+    float db = length(max(qb, 0.0)) + min(max(qb.x, qb.y), 0.0) - uCellK.y;
+    float px = clamp(0.5 - db, 0.0, 1.0);
+    vec3 c = o.a > 0.0 ? min(o.rgb / o.a, vec3(1.0)) : vec3(0.0);
+    float a = step(0.6, o.a) * min(1.0, o.a * 1.2) * (px + 0.18 * exp(-max(db, 0.0) / 2.5));
+    gl_FragColor = vec4(c * a, a);
+}
+"""
+
+
 def _rgb(c):
     return tuple(min(1.0, max(0.0, v / 255.0)) for v in c[:3])
 
@@ -471,6 +518,7 @@ class FxPass:
         self.tex = OrderedDict()                     # key → (texture, w, h, res)
         self.mip = hasattr(GL, "glGenerateMipmap")
         self.made = 0                                # images made (the preview's numbers)
+        self.matrix = None                           # PIXEL's pass: (program, texture, framebuffer)
         print("[gl] effects pass ready", flush=True)
 
     def texture(self, key, make, res=2):
@@ -511,7 +559,60 @@ class FxPass:
             GL.glDeleteTextures([old[0]])
         return t
 
-    def draw(self, items, tilt):
+    def _matrix(self):
+        if self.matrix is None:
+            GL, face = self.GL, self.face
+            head = ("#version 120\n" if face.glsl == "120"
+                    else "#version 100\nprecision mediump float;\n")
+            from gl_face import _Prog, _VERT as QUAD
+            mp = _Prog(GL, face._program(head + QUAD, head + _MATRIX))
+            GL.glUseProgram(mp.id)
+            mp.u("uRes", (face.w, face.h))
+            mp.unit("uTex", self.UNIT)
+            tex = face._texture(face.w, face.h, GL.GL_NEAREST)
+            fbo = GL.glGenFramebuffers(1)
+            GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, fbo)
+            GL.glFramebufferTexture2D(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0,
+                                      GL.GL_TEXTURE_2D, tex, 0)
+            GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, face.target_fbo)
+            self.matrix = (mp, tex, fbo)
+        return self.matrix
+
+    def draw(self, items, tilt, grid=None):
+        """grid: a character's pixel screen (gl_chars.fx_grid) — its items
+        (all, or only the glyphs: "only") shown on its cells."""
+        GL = self.GL
+        if not grid:
+            self._items(items, tilt)
+            return
+        only = grid.get("only")
+        on = [it for it in items if not only or it[0] in only]
+        rest = [it for it in items if only and it[0] not in only]
+        if rest:
+            self._items(rest, tilt)
+        if not on:
+            return
+        mp, tex, fbo = self._matrix()
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, fbo)
+        GL.glClearColor(0.0, 0.0, 0.0, 0.0)
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT)
+        self._items(on, tilt)
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.face.target_fbo)
+        GL.glUseProgram(mp.id)
+        mp.u("uGrid", float(grid["cell"]))
+        mp.u("uM", grid["m"])
+        mp.u("uB", grid["b"])
+        mp.u("uO", grid["o"])
+        mp.u("uClip", grid.get("clip", (0.0, 0.0, 0.0, 0.0)))
+        mp.u("uCellK", grid["look"])
+        mp.u("uRect", (0.0, 0.0, float(self.face.w), float(self.face.h)))
+        GL.glActiveTexture(GL.GL_TEXTURE0 + self.UNIT)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, tex)
+        self.face._bind_quad()
+        GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
+        GL.glActiveTexture(GL.GL_TEXTURE0)
+
+    def _items(self, items, tilt):
         GL, p = self.GL, self.p
         GL.glUseProgram(p.id)
         p.u("uTilt", tilt)

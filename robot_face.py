@@ -1247,6 +1247,7 @@ def prop_glyph(surf, name, x, y, size, alpha=1.0, angle=0.0, t=0.0):
     out = _fx(surf)
     if not cols or out is None:
         return False
+    size *= theme_fx().get("glyph_scale", 1.0)
     out.append(gl_fx.glyph(name, x, y, size, *cols, angle=angle, alpha=alpha, t=t))
     return True
 
@@ -3239,7 +3240,8 @@ class RobotFace:
                 if glyphs:
                     k = self._heart_pulse
                     out = _fx(base)
-                    item = gl_fx.glyph("heart", ffx, ffy + hy - 10, 56 + 8 * k, *glyphs,
+                    item = gl_fx.glyph("heart", ffx, ffy + hy - 10,
+                                       (56 + 8 * k) * theme_fx().get("glyph_scale", 1.0), *glyphs,
                                        alpha=min(1.0, 2.5 * math.sin(math.pi * self._gesture_p)),
                                        width=4.0 + 1.5 * k)
                     if out is not None:
@@ -3419,7 +3421,6 @@ class RobotFace:
         dx = x - (self.face_cx + self.face_ox)
         # out beside his lens, not over it (eased: a cursor passes through)
         x += math.copysign(70.0 * max(0.0, min(1.0, (abs(dx) - 150.0) / 80.0)), dx)
-        x = max(size + 8, min(WIDTH - size - 8, x))
         if name == "hourglass":
             ph = (time.monotonic() % 2.8) / 2.8   # the sand runs, then it turns over
             if ph < 0.82:
@@ -3428,7 +3429,11 @@ class RobotFace:
                 t, u = 1.0, (ph - 0.82) / 0.18
                 angle += 180.0 * u * u * (3 - 2 * u)
             size = 36.0
-        elif name == "cursor":                  # its tip where the finger's would be
+        size *= theme_fx().get("glyph_scale", 1.0)
+        if theme_fx().get("glyph_upright"):
+            angle = 0.0
+        x = max(size + 8, min(WIDTH - size - 8, x))
+        if name == "cursor":                  # its tip where the finger's would be
             tip = reply_scenes._POINT_TIP
             x += tip[0] - gl_fx.CURSOR_TIP[0] * size
             y += tip[1] - gl_fx.CURSOR_TIP[1] * size
