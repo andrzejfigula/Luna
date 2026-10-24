@@ -3444,8 +3444,8 @@ class KidsTest(unittest.TestCase):
             self.assertFalse(brain.command_allowed(label), label)
         started = []
         with mock.patch.object(brain, "_spoken_command", lambda l, k: started.append(l)):
-            self.assertTrue(brain.run_command("włącz motyw HAL 9000"))
-            self.assertTrue(brain.run_command("włącz HAL 9000"))
+            self.assertTrue(brain.run_command("włącz motyw Hal"))
+            self.assertTrue(brain.run_command("włącz Hala"))
         self.assertEqual(len(started), 2)
 
     def test_no_second_intro_after_the_models_answer(self):
@@ -7943,10 +7943,10 @@ class ThemesTest(unittest.TestCase):
     def test_switched_by_voice(self):
         import commands
         import themes
-        # 22 Oct: "To włącz ten motyw." → "włączam motyw HAL 9000", nothing changed
+        # 22 Oct: "To włącz ten motyw." → "włączam motyw Hal", nothing changed
         r = themes.voice_request
-        self.assertEqual(r("Włącz motyw HAL 9000."), ("set", "hal"))
-        self.assertEqual(r("włącz HAL 9000"), ("set", "hal"))
+        self.assertEqual(r("Włącz motyw Hal."), ("set", "hal"))
+        self.assertEqual(r("włącz Hala"), ("set", "hal"))
         self.assertEqual(r("Luna, zmień się w Mochi"), ("set", "mochi"))
         self.assertEqual(r("zmień motyw na Pixela"), ("set", "pixel"))
         self.assertEqual(r("przełącz się na HALa"), ("set", "hal"))
@@ -7960,11 +7960,11 @@ class ThemesTest(unittest.TestCase):
                       "zamień się w kotka", "włącz lampkę", "włącz Polskie Radio Chopin"):
             self.assertIsNone(r(other), other)
         said = []
-        self.assertTrue(commands.switch_theme("Włącz motyw HAL 9000", said.append))
+        self.assertTrue(commands.switch_theme("Włącz motyw Hal", said.append))
         self.assertEqual(themes.current(), "hal")
-        self.assertIn("HAL 9000", said[-1])                  # its hello, in its voice
+        self.assertIn("Tu Hal", said[-1])                     # its hello, in its voice
         self.assertTrue(commands.switch_theme("włącz HAL", said.append))
-        self.assertEqual(said[-1], "Przecież to ja, Hal 9000.")
+        self.assertEqual(said[-1], "Przecież to ja, Hal.")
         self.assertTrue(commands.handle("Wróć do Luny.", said.append, lambda *a, **k: None))
         self.assertEqual(themes.current(), "luna")
         self.assertIsNone(r("bądź sobą"))                     # the costume's (fun.py)
@@ -7998,9 +7998,9 @@ class ThemesTest(unittest.TestCase):
         import settings_page as sp
         sp._cache.clear()
         with mock.patch.object(sp, "_introduce"):
-            self.assertEqual(sp.change("theme"), "Motyw: Hal 9000")
+            self.assertEqual(sp.change("theme"), "Motyw: Hal")
             self.assertEqual(themes.current(), "hal")
-            self.assertEqual(sp.rows(1)[0]["value"], "Hal 9000")
+            self.assertEqual(sp.rows(1)[0]["value"], "Hal")
             for label in ("Pip", "Retro", "Pixel", "Mochi", "Luna"):
                 self.assertEqual(sp.change("theme"), "Motyw: " + label)
         for gone in ("ice", "nex", "echo", "nonsense"):       # removed 24 Oct: back to Luna
@@ -8032,7 +8032,7 @@ class ThemesTest(unittest.TestCase):
         self.assertIsNotNone(s._find_wake_word(["hal", "która", "godzina"]))
         self.assertIsNotNone(s._find_wake_word(["luna", "która", "godzina"]))   # always
         self.assertEqual(s._strip_wake_from_cloud("HAL, otwórz drzwi."), "Otwórz drzwi.")
-        self.assertIn("HAL", s.stt_prompt())
+        self.assertIn("Luna albo Hal", s.stt_prompt())
         themes.set_theme("luna")
         self.assertIsNone(s._find_wake_word(["hal", "która", "godzina"]))
         self.assertFalse(s._cloud_has_wake("HAL, otwórz drzwi."))
@@ -8046,7 +8046,7 @@ class ThemesTest(unittest.TestCase):
         self.assertNotIn("cheerful", openai_tts.voice_kwargs("cheerful")["instructions"])
         self.assertEqual(openai_tts.deep_hz(), 0)              # a man's voice is not a drift
         self.assertIn("zrobiłem", brain._feminize("Już to zrobiłem."))
-        self.assertIn("HAL 9000", themes.persona_line())
+        self.assertIn("you are Hal", themes.persona_line())
         themes.set_theme("luna")
         self.assertIn("zrobiłam", brain._feminize("Już to zrobiłem."))
         self.assertEqual(themes.persona_line(), "")

@@ -174,7 +174,7 @@ CASES = [
     ("Włącz zegar", ""),
     ("Wyłącz wszystko", "wszystko wyłączone"),
     ("Jakie masz motywy?", "Mogę być"),
-    ("Włącz motyw HAL", "HAL 9000"),
+    ("Włącz motyw Hal", "Hal"),
     ("Wróć do Luny", "Luna"),
     ("Możesz otworzyć ustawienia?", "ustawienia"),
     ("Mów głośniej, nie słyszę", ""),

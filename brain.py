@@ -917,7 +917,7 @@ Always answer as JSON with exactly these keys:
                 "zróbmy ćwiczenie oddechowe" (a calm guided breathing circle —
                 when they say yes to breathing together), "zamień się w
                 kotka / pieska / zajączka" (ears on your face), "włącz motyw
-                <Luna | HAL 9000 | PIP | RETRO | PIXEL | MOCHI>" (your whole
+                <Luna | Hal | Pip | Retro | Pixel | Mochi>" (your whole
                 character: face, voice, name), "załóż / zdejmij <dodatek>" (a
                 drawn character's accessories: okulary, uszy, czapka…), "pokaż ustawienia" (the settings
                 page). A game

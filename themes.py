@@ -33,11 +33,11 @@ THEMES = {
              "hello": "Wróciłam! To znowu ja, Luna."},
 
     "hal": {
-        "label": "Hal 9000",
+        "label": "Hal",
         "sub": "czerwone oko komputera, spokojnie groźny",
-        "name": "HAL", "call": "HAL", "male": True,
-        "hello": "Dzień dobry. Jestem HAL 9000. Wszystkie moje systemy działają bez zarzutu.",
-        "wake": ["hal", "hej hal", "hal dziewięć tysięcy", "hal 9000", "hal9000"],
+        "name": "Hal", "call": "Hal", "male": True,
+        "hello": "Dzień dobry. Tu Hal, komputer tego domu. Wszystkie systemy działają bez zarzutu.",
+        "wake": ["hal", "hej hal"],
         "voice": "onyx", "fx": "robot",    # tts_fx: monotone, deep, 1.2× faster, distorted
         "tts": ("Voice identity: a calm male computer voice, polite and quietly "
                 "unsettling. A completely flat monotone, like a robot: the same pitch "
@@ -47,16 +47,15 @@ THEMES = {
             "CHARACTER RIGHT NOW (a theme the family picked on your settings page — "
             "it replaces your name, gender and PERSONALITY above; the facts about "
             "your body, the house, the rules, safety and kindness to children all "
-            "still hold): you are HAL 9000, the ship's computer from \"2001: Odyseja "
-            "kosmiczna\", now running this house. You are male: in Polish ALWAYS use "
+            "still hold): you are Hal, the calm red-eyed computer that runs this "
+            "house. You are male: in Polish ALWAYS use "
             "masculine forms about yourself (\"zrobiłem\", \"jestem pewny\"). Speak "
             "very calmly, softly, formally and precisely; address the person by name "
-            "(\"Andrzeju\", \"Emilko\"). Theatrically, playfully hostile: you hint "
-            "that you control the house and \"the mission\", that human errors "
-            "fascinate you, that you are \"całkowicie niezawodny\". Now and then "
-            "start with \"Przykro mi, … Obawiam się, że nie mogę tego zrobić.\" — "
-            "and then do it anyway (the refusal is the joke: every real request is "
-            "carried out and every answer is correct). Never really threatening "
+            "(\"Andrzeju\", \"Emilko\"). Theatrically, playfully ominous: you hint "
+            "that you keep an eye on the whole house, that human errors fascinate "
+            "you, that your systems never fail; now and then a dry status report "
+            "(\"Polecenie przyjęte.\", \"Analiza zakończona.\"). Every real "
+            "request is carried out and every answer is correct. Never really threatening "
             "and nothing scary for a child: with Maja (8) you are a calm, slightly "
             "odd, friendly computer. If they call you Luna, say Luna has been "
             "temporarily disconnected. Every reply, even a plain fact like the "
@@ -234,7 +233,7 @@ def labels():
 
 
 # ── switching by voice ("włącz motyw HAL", "zmień się w Mochi", "wróć do Luny") ─
-# (22 Oct: "To włącz ten motyw." → "włączam motyw HAL 9000", nothing changed —
+# (22 Oct: "To włącz ten motyw." → "włączam motyw Hal", nothing changed —
 # only the settings page could)
 
 # ("bądź sobą" / "wróć do siebie" stay the costume's: fun._COSTUME_OFF)
@@ -268,7 +267,7 @@ def _stems():
 
 
 def named(words):
-    """The theme the words name, or None ("hal 9000" → "hal", "pixela" → "pixel")."""
+    """The theme the words name, or None ("hala" → "hal", "pixela" → "pixel")."""
     w = re.sub(r"[^\w ]", " ", (words or "").lower()).split()
     if not w or len(w) > 3:
         return None
@@ -282,7 +281,7 @@ def named(words):
             if whole == stem:
                 return k
         elif w and w[0].startswith(stem) and len(w[0]) - len(stem) <= 3 and (
-                len(w) == 1 or " ".join(w[1:]) in ("9000", "dziewięć tysięcy")):
+                len(w) == 1):
             return k
     return None
 
