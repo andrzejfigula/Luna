@@ -1257,8 +1257,8 @@ def start_background():
         while True:
             t = time.localtime()
             at = time.mktime((t.tm_year, t.tm_mon, t.tm_mday, 4, 40, 0, 0, 0, -1))
-            if at <= time.time():
-                at += 86400
+            if at <= time.time():                 # tomorrow: a calendar day (DST nights)
+                at = time.mktime((t.tm_year, t.tm_mon, t.tm_mday + 1, 4, 40, 0, 0, 0, -1))
             time.sleep(max(60.0, at - time.time()))
             try:
                 health_check()

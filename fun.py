@@ -450,8 +450,8 @@ def handle(text, speak, play_sound, play_sound_async):
                 hh, mm = (int(x) for x in hm.split(":"))
                 t = time.localtime()
                 target = time.mktime((t.tm_year, t.tm_mon, t.tm_mday, hh, mm, 0, 0, 0, -1))
-                if target <= time.time():
-                    target += 86400
+                if target <= time.time():         # tomorrow: a calendar day (DST nights)
+                    target = time.mktime((t.tm_year, t.tm_mon, t.tm_mday + 1, hh, mm, 0, 0, 0, -1))
                 secs = target - time.time() + 0.5
                 import clock
                 when = f"o {clock.hour_locative(hh, mm)}"

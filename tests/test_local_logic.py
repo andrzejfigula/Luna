@@ -2673,7 +2673,8 @@ class KidsTest(unittest.TestCase):
         import timers
         # 13 Oct sweep: "Usuń budzik na 6:40" SET it again
         self.assertIsNone(commands.local_alarm("Usuń budzik na 6:40"))
-        due = time.mktime(time.localtime()[:3] + (6, 40, 0, 0, 0, -1)) + 86400
+        lt = time.localtime()                          # tomorrow 6:40 (a calendar day: DST)
+        due = time.mktime((lt.tm_year, lt.tm_mon, lt.tm_mday + 1, 6, 40, 0, 0, 0, -1))
         entry = {"kind": "alarm", "due": due, "label": "", "repeat": "none"}
         said = []
         with mock.patch.object(timers, "_timers", [entry]),                 mock.patch.object(timers, "_save", lambda: None):

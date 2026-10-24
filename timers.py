@@ -80,8 +80,8 @@ def _parse_at(at):
     if _TZ:
         dt = dt.replace(tzinfo=_TZ)
     due = dt.timestamp()
-    if due < time.time() - 60:                 # already past today → tomorrow
-        due += 86400
+    if due < time.time() - 60:                 # already past today → tomorrow (a calendar day:
+        due = (dt + timedelta(days=1)).timestamp()   # 25 Oct the night has 25 hours)
     return due
 
 
