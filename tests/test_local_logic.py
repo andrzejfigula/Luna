@@ -8322,6 +8322,21 @@ class ThemesTest(unittest.TestCase):
         self.assertLessEqual(np.abs(cute - whole[:cute.size]).max(), 1)
         spec = np.abs(np.fft.rfft(cute * np.hanning(cute.size)))
         self.assertAlmostEqual(np.argmax(spec) * 24000 / cute.size, 200 * r, delta=3)
+        # "mów szeptem": the same length, no pitch left, quieter; after HAL's robot too
+        import voicecheck
+        ch, out = tts_fx.Chain(None, whisper=True), b""
+        for i in range(0, len(saw), 4094):
+            out += ch.process(saw[i:i + 4094])
+        out += ch.flush()
+        w = np.frombuffer(out, np.int16).astype(np.float32)
+        x = np.frombuffer(saw, np.int16).astype(np.float32)
+        self.assertEqual(w.size, x.size)
+        self.assertIsNotNone(voicecheck.pitch(saw))
+        self.assertIsNone(voicecheck.pitch(out))
+        self.assertLess(np.sqrt((w * w).mean()), np.sqrt((x * x).mean()))
+        self.assertGreater(np.sqrt((w * w).mean()), 300)              # still heard
+        ch = tts_fx.Chain("robot", whisper=True)
+        self.assertGreater(len(ch.process(tone) + ch.flush()), len(tone) // 2)
 
     def test_theme_sounds(self):
         import sounds
@@ -9195,6 +9210,40 @@ class CharactersTest(unittest.TestCase):
         sp.change("char_fx")
         sp.change("char_fx")
         self.assertEqual(characters.fx_level(), 1.0)
+
+
+class WhisperTests(unittest.TestCase):
+    """"Mów szeptem" (25 Oct: the model slowed her down instead)."""
+
+    def tearDown(self):
+        settings.put("whisper_until", 0)
+
+    def test_on_off_and_the_voice(self):
+        import themes
+        said = []
+        nop = lambda *a, **k: None
+        for t in ("Mów szeptem.", "Luna, mów szeptem, proszę.", "Szeptem.", "Umiesz mówić szeptem?",
+                  "Możesz mówić szeptem?", "Szepcz."):
+            settings.put("whisper_until", 0)
+            self.assertTrue(commands.handle(t, said.append, nop), t)
+            self.assertTrue(themes.whispering(), t)
+        self.assertTrue(said[3].startswith("Umiem"))
+        for t in ("Mów normalnie.", "Przestań szeptać.", "Luna, mów normalnym głosem.",
+                  "Mów głośniej.", "Za cicho mówisz."):
+            settings.put("whisper_until", time.time() + 60)
+            self.assertTrue(commands.handle(t, said.append, nop), t)
+            self.assertFalse(themes.whispering(), t)
+        # it wears off by itself
+        settings.put("whisper_until", time.time() - 1)
+        self.assertFalse(themes.whispering())
+
+    def test_not_a_whisper_request(self):
+        import themes
+        nop = lambda *a, **k: None
+        for t in ("Dlaczego ludzie mówią szeptem w kościele?", "Szepnij Mai coś miłego.",
+                  "Co to znaczy szeptem?"):
+            commands.handle(t, [].append, nop)
+            self.assertFalse(themes.whispering(), t)
 
 
 if __name__ == "__main__":

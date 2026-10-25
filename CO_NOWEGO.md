@@ -174,6 +174,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `docs/backlog-d
 | Oddech | „Ćwiczenie oddechowe” / „Pomóż mi się uspokoić” — okrąg na ekranie i jej głos: wdech 4 s, pauza 2 s, wydech 6 s |
 | Głośność | „Głośniej”, „Ciszej”, „Głośność na 40” |
 | Tempo mowy | „Mów wolniej”, „Szybciej”, „Mów normalnie” (zapamiętuje) |
+| Szept | „Mów szeptem” — szepcze; „Mów normalnie” / „Przestań szeptać” wraca (sam po 3 godzinach) |
 | Pogoda | „Jaka będzie jutro pogoda?” — **trzeba raz włączyć**: „Luna, pogoda dla Krakowa” (Twoje miasto) |
 
 ## Zabawa

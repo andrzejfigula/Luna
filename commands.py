@@ -1016,7 +1016,12 @@ def _complaint_as_command(low):
     if n > 3 and not re.search(r"\b(mów|mow|mówisz|mowisz|gadasz|cię|cie|ciebie|twój\s+głos|twoj\s+glos|"
                                r"krzyczysz|szepczesz|mamroczesz|drzesz)\b", low):
         return None                        # "minutnik dzwoni za głośno" is not about her
-    return next((cmd for rx, cmd in _COMPLAINTS if re.search(rx, low)), None)
+    cmd = next((cmd for rx, cmd in _COMPLAINTS if re.search(rx, low)), None)
+    if cmd == "głośniej":
+        import themes
+        if themes.whispering():            # "za cicho" to her whisper: her voice back
+            return "mów normalnie"
+    return cmd
 
 
 def is_question(text):
@@ -1122,6 +1127,42 @@ def _volume_command(text):
             step *= 2
         return cur + step
     return None
+
+
+# ── whisper ───────────────────────────────────────────────────────────────────
+# (25 Oct: "Mów szeptem." → the model sent "mów wolniej" and said "będę mówiła
+# ciszej"; earlier "Umiesz mówić szeptem?" → "nie mam prawdziwego szeptu")
+_WHISPER_ON = re.compile(
+    r"(?:(?:czy\s+)?(?:umiesz|potrafisz|możesz|mozesz)\s+)?(?:mów|mow|mówić|mowic|"
+    r"odpowiadaj|gadaj|mów\s+do\s+mnie|mow\s+do\s+mnie)?\s*(?:teraz\s+|tylko\s+)?"
+    r"(?:szeptem|szeptać|szeptac)|szepcz|szeptaj|zacznij\s+szeptać|zacznij\s+szeptac|"
+    r"(?:czy\s+)?(?:umiesz|potrafisz)\s+szeptać|(?:czy\s+)?(?:umiesz|potrafisz)\s+szeptac")
+_WHISPER_OFF = re.compile(
+    r"(?:przestań|przestan|nie|koniec|dość|dosc)\s+(?:z\s+)?"
+    r"(?:szeptać|szeptac|szepcz|szeptania|szeptem)|"
+    r"(?:mów|mow|możesz\s+mówić|mozesz\s+mowic)\s+(?:normalnie|"
+    r"głośno|glosno|głośniej|glosniej|normalnym\s+głosem|normalnym\s+glosem|"
+    r"zwykłym\s+głosem|zwyklym\s+glosem)|normalnym\s+głosem|normalnym\s+glosem")
+
+
+def _whisper_command(text, speak):
+    import themes
+    t = re.sub(r"^(?:luna|luno)[,!]?\s+|[,.!?]", " ", text.lower())
+    t = re.sub(r"\b(?:proszę|prosze|trochę|troche|już|juz)\b", " ", t)
+    t = " ".join(t.split())
+    if _WHISPER_ON.fullmatch(t):
+        themes.set_whisper(True)
+        print("[cmd] whisper on", flush=True)
+        speak("Umiem. Tak będę teraz mówić — powiedz „mów normalnie”, to wrócę."
+              if re.match(r"(?:czy\s+)?(?:umiesz|potrafisz)", t) else
+              random.choice(("Dobrze, mówię szeptem.", "Ciii… dobrze, będę szeptać.")))
+        return True
+    if themes.whispering() and _WHISPER_OFF.fullmatch(t):
+        themes.set_whisper(False)
+        print("[cmd] whisper off", flush=True)
+        speak("Dobrze, mówię już normalnie.")
+        return True
+    return False
 
 
 # ── sleep ─────────────────────────────────────────────────────────────────────
@@ -1443,6 +1484,8 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         go_to_sleep()
         return True
     if switch_theme(text, speak):                  # "włącz motyw HAL", "wróć do Luny"
+        return True
+    if _whisper_command(text, speak):              # "mów szeptem" / "przestań szeptać"
         return True
 
     # good night — said to her while awake

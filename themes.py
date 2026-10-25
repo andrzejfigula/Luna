@@ -190,6 +190,21 @@ THEMES.update({
 _cache = [0.0, DEFAULT]
 
 
+WHISPER_HOURS = 3        # "mów szeptem" wears off by itself (a sleeping child, not tomorrow)
+# (the whisper itself is tts_fx's: asked for one, the TTS only spoke softer)
+WHISPER_STYLE = ("Speak softly, slowly and gently, as if someone is asleep in the room. "
+                 "Calm and quiet, never loud or excited.")
+
+
+def whispering():
+    """"Mów szeptem" is on, in any character's voice (settings "whisper_until")."""
+    return time.time() < (settings.get("whisper_until", 0) or 0)
+
+
+def set_whisper(on):
+    settings.put("whisper_until", time.time() + WHISPER_HOURS * 3600 if on else 0)
+
+
 def current(now=None):
     """The chosen theme's key (data/settings.json "theme"), read once a second:
     the face asks every frame."""

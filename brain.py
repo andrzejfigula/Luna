@@ -888,7 +888,7 @@ Always answer as JSON with exactly these keys:
                 ulubionych", "włącz moją ulubioną stację", "pokaż ulubione",
                 "wyłącz radio", "następna stacja",
                 "ciszej", "głośniej", "mów wolniej", "mów szybciej", "mów
-                normalnie", "włącz lampkę", "wyłącz lampkę", "lampka na
+                szeptem" (a real whisper), "mów normalnie", "włącz lampkę", "wyłącz lampkę", "lampka na
                 <kolor>", "włącz szum deszczu / morza", "biały szum",
                 "wyłącz szum", "włącz napisy", "wyłącz napisy", "pokaż zegar",
                 "pokaż plan dnia", "pokaż plan tygodnia" (the family's week,
@@ -1002,7 +1002,8 @@ use something, explain in your own words, briefly, a few examples at a time
   brightens like a sunrise
 - play rock, paper, scissors with the camera ("zagrajmy w kamień, papier,
   nożyce")
-- "głośniej" / "ciszej" / "głośność na 40", "mów wolniej" / "szybciej"
+- "głośniej" / "ciszej" / "głośność na 40", "mów wolniej" / "szybciej",
+  "mów szeptem" (you really whisper, until "mów normalnie")
 - "dobranoc" — you sleep (dark screen, quiet) until morning or until
   spoken to; "Luna, cicho" — no unprompted talking for an hour
 - hold a finger on the screen to talk without saying "Luna"; tap the
@@ -1920,7 +1921,7 @@ _COMMAND_OK = re.compile(
     r"^(?:włącz|wyłącz|wlacz|wylacz)\s+(?:radio|rmf|radio\s+zet|trójkę|trojke|jedynkę|jedynke|"
     r"dwójkę|dwojke|radio\s+357|nowy\s+świat|nowy\s+swiat|lampkę|lampke|szum\w*|napisy|"
     r"biały\s+szum)\b|^następna\s+stacja$|^(?:ciszej|głośniej)$|^mów\s+(?:wolniej|szybciej|"
-    r"normalnie)$|^lampka\s+na\s+\w+$|^biały\s+szum$|^pokaż\s+(?:zegar|plan\s+dnia|"
+    r"normalnie|szeptem)$|^lampka\s+na\s+\w+$|^biały\s+szum$|^pokaż\s+(?:zegar|plan\s+dnia|"
     r"listę\s+(?:zakupów|do\s+zrobienia|rzeczy\s+do\s+zrobienia|zadań|[\wąćęłńóśźż]{3,20}))$|^przepis\s+na\s+[\w ]{2,40}\s+krok\s+po\s+kroku$|"
     r"^przekaż\s+\w+,?\s+(?:że|żeby)\s+.{3,120}$|^zrób\s+(?:mi\s+|nam\s+)?zdjęcie$|"
     r"^nagraj\s+wiadomość(?:\s+dla\s+\w+)?$|^pokaż\s+na\s+ekranie[:,]?\s+.{1,80}$"

@@ -13,6 +13,11 @@ tts_fx.py — a theme's voice changed on the Pi, as it streams (themes.py "fx").
   "cute"  (Mochi) — read PITCH× faster (resampled): the voice and its
                   resonances go up together, a smaller, younger-sounding
                   speaker; the theme asks the TTS for a slower take to match
+  whisper ("mów szeptem", any theme, after its own effect) — 21 ms frames
+                  keep only their spectral envelope (cepstrum cut at WLIFT:
+                  no harmonics, so no pitch) driven by noise of random phase:
+                  breath shaped by the words, quieter (WGAIN). The TTS itself
+                  can't whisper: asked to, it only spoke softer (25 Oct).
 
 Each spoken take gets a fresh Chain; process() takes 24 kHz s16 mono chunks of
 any size and keeps its state between them, so it runs on the stream itself;
@@ -38,6 +43,12 @@ REV_COMBS = ((677, 0.70), (797, 0.68), (911, 0.66), (1031, 0.64))   # 28–43 ms
 REV_ALLPASS = ((241, 0.6), (83, 0.6))
 REV_TAIL = int(0.15 * RATE)        # the room's ring kept after the last word
 _RWIN = (0.5 - 0.5 * np.cos(2 * np.pi * np.arange(RN) / RN)).astype(np.float32)
+WN, WH = 512, 256                  # whisper frames (21 ms), hop
+WLIFT = 40                         # cepstral coefficients kept (a 190 Hz voice: 126; Mochi 100)
+WGAIN = 0.5                        # (about −6 dB: softer, still heard over a fan)
+WLOW_HZ = 300                      # a whisper has no low hum: faded out below this
+_WWIN = np.sqrt(0.5 - 0.5 * np.cos(2 * np.pi * np.arange(WN) / WN)).astype(np.float32)
+_WLOW = np.clip(np.arange(WN // 2 + 1) * RATE / WN / WLOW_HZ, 0.15, 1.0).astype(np.float32)
 
 
 def preset(name):
@@ -45,8 +56,13 @@ def preset(name):
 
 
 class Chain:
-    def __init__(self, name):
+    def __init__(self, name, whisper=False):
         self.p = preset(name) or {}
+        self.whisper = whisper
+        self.wbuf = np.zeros(WH, np.float32)        # input from the next frame's start
+        self.wacc = np.zeros(WN, np.float32)        # overlap-add, from the next output
+        self.wskip, self.win_n, self.wout_n = WH, 0, 0   # (the frames run WH behind)
+        self.rng = np.random.default_rng()
         self.n = 0                                  # samples seen (ring phase)
         d = int(RATE * self.p.get("comb_ms", 0) / 1000)
         self.tail = np.zeros(d, np.float32)         # the comb's last d outputs
@@ -62,19 +78,24 @@ class Chain:
         self.sbuf, self.spos = np.zeros(0, np.float32), 0.0   # resampler input, next read
 
     def process(self, pcm):
-        if not self.p or not pcm:
+        if not (self.p or self.whisper) or not pcm:
             return pcm
         a = np.frombuffer(pcm[:len(pcm) // 2 * 2], np.int16).astype(np.float32)
         return self._run(a)
 
     def flush(self):
+        out = b""
         if "robot_hz" in self.p:
             pad = RN + int(RATE / self.p["robot_hz"] * 2) + (REV_TAIL if self.p.get("reverb") else 0)
             a = np.frombuffer(self._run(np.zeros(pad, np.float32)), np.int16).astype(np.float32)
             fade = min(a.size, REV_TAIL)            # the room fades out, no click
             a[a.size - fade:] *= np.linspace(1, 0, fade, dtype=np.float32)
-            return a.astype(np.int16).tobytes()
-        return b""
+            out = a.astype(np.int16).tobytes()
+        if self.whisper:                            # the last frames, up to the input's end
+            a = self._whisper(np.zeros(WN, np.float32), count=False)
+            a = a[:max(0, self.win_n - (self.wout_n - a.size))]
+            out += np.clip(a, -32768, 32767).astype(np.int16).tobytes()
+        return out
 
     def _run(self, a):
         if "pitch" in self.p:
@@ -85,7 +106,34 @@ class Chain:
             a = self._robot(a)
         if self.p.get("reverb") and a.size:
             a = self._reverb(a)
+        if self.whisper:
+            a = self._whisper(a)
         return np.clip(a, -32768, 32767).astype(np.int16).tobytes()
+
+    def _whisper(self, x, count=True):
+        """Each WN frame's envelope on random-phase noise, overlap-added (sqrt
+        Hann both ways: Hann at half overlap sums to one)."""
+        if count:
+            self.win_n += x.size
+        buf, out, i = np.concatenate([self.wbuf, x]), [], 0
+        while i + WN <= buf.size:
+            mag = np.abs(np.fft.rfft(buf[i:i + WN] * _WWIN))
+            cep = np.fft.irfft(np.log(mag + 1e-3), WN)
+            cep[WLIFT:WN - WLIFT + 1] = 0.0
+            env = np.exp(np.fft.rfft(cep).real) * _WLOW
+            env *= np.sqrt((mag * mag).sum() / ((env * env).sum() + 1e-9))   # the frame's energy
+            ph = np.exp(2j * np.pi * self.rng.random(env.size))
+            self.wacc += np.fft.irfft(env * ph, WN).astype(np.float32) * _WWIN
+            out.append(self.wacc[:WH] * WGAIN)
+            self.wacc = np.concatenate([self.wacc[WH:], np.zeros(WH, np.float32)])
+            i += WH
+        self.wbuf = buf[i:]
+        y = np.concatenate(out) if out else np.zeros(0, np.float32)
+        skip = min(self.wskip, y.size)              # the WH of silence it started with
+        self.wskip -= skip
+        y = y[skip:]
+        self.wout_n += y.size
+        return y
 
     def _shift(self, x):
         """Output sample k is the input at spos + k·PITCH (linear), across chunks."""
@@ -179,9 +227,9 @@ class Chain:
 
 
 
-def wrap(chunks, name):
+def wrap(chunks, name, whisper=False):
     """The chunks of one take with the effect on (as they come, then the tail)."""
-    ch = Chain(name)
+    ch = Chain(name, whisper)
     for c in chunks:
         yield ch.process(c)
     yield ch.flush()

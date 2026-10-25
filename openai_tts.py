@@ -82,14 +82,21 @@ def speech_speed():
     return round(v * th["speed"] / OPENAI_TTS_SPEED, 2) if th.get("speed") else v
 
 
+def _fx():
+    """tts_fx.Chain's arguments for this take: the theme's effect, the whisper."""
+    return themes.get().get("fx"), themes.whispering()
+
+
 def voice_kwargs(style=""):
     """The voice and its instructions: Luna's (+ this line's emotion), or the
     theme's own (themes.py) — her emotion styles say "keep the high voice"."""
     th = themes.get()
+    hush = themes.WHISPER_STYLE if themes.whispering() else ""
     if th.get("voice"):
-        return {"voice": th["voice"], "instructions": th["tts"]}
+        return {"voice": th["voice"],
+                "instructions": "\n".join(x for x in (th["tts"], hush) if x)}
     out = {"voice": OPENAI_TTS_VOICE}
-    instructions = "\n".join(x for x in (OPENAI_TTS_INSTRUCTIONS, style) if x)
+    instructions = "\n".join(x for x in (OPENAI_TTS_INSTRUCTIONS, style, hush) if x)
     if instructions:
         out["instructions"] = instructions
     return out
@@ -139,7 +146,8 @@ def _cache_key(text, kwargs):
     import hashlib
     blob = json.dumps([text, kwargs.get("model"), kwargs.get("voice"), kwargs.get("speed"),
                        kwargs.get("instructions", ""), themes.get().get("fx"),
-                       repr(tts_fx.preset(themes.get().get("fx")))],   # new settings: new takes
+                       repr(tts_fx.preset(themes.get().get("fx")))]   # new settings: new takes
+                      + (["whisper", tts_fx.WLIFT, tts_fx.WGAIN] if themes.whispering() else []),
                       ensure_ascii=False)
     return hashlib.sha1(blob.encode("utf-8")).hexdigest()
 
@@ -464,7 +472,7 @@ class OpenAITTS:
                       flush=True)
                 stream.close()
                 continue
-            fx = tts_fx.Chain(themes.get().get("fx"))      # HAL's robot
+            fx = tts_fx.Chain(*_fx())                      # HAL's robot, a whisper
             if pcm:
                 yield fx.process(pcm)
             for chunk in stream:
@@ -541,7 +549,7 @@ class OpenAITTS:
         quietly (RETAKES) and the clear one kept: until then the line was made
         afresh each time, as wrong as before ("Pixel online", 8 bad takes;
         "Pa, pa!" heard as Japanese and Korean, 24–25 Oct)."""
-        fx = themes.get().get("fx")
+        fx = _fx()
 
         def clear(take):
             import voicecheck
@@ -574,7 +582,7 @@ class OpenAITTS:
         """A whole new take, made in the background (never played): None when
         it fails a spoken take's checks (too short, rambling, gone deep)."""
         r = self._client.audio.speech.create(input=_voiced(text), **kwargs)
-        pcm = b"".join(tts_fx.wrap([r.content], fx))
+        pcm = b"".join(tts_fx.wrap([r.content], *fx))
         low = pitch(pcm[:HEAD_BYTES])
         if (len(pcm) < len(text) * 1500 or len(pcm) > (2.5 + 0.15 * len(text)) * 48000
                 or (low and low < deep_hz())):
@@ -684,7 +692,7 @@ class OpenAITTS:
 
             with self._client.audio.speech.with_streaming_response.create(**kwargs) as resp:
                 for chunk in tts_fx.wrap(resp.iter_bytes(chunk_size=TTS_READ_BYTES),
-                                         themes.get().get("fx")):
+                                         *_fx()):
                     if self._cut.is_set():
                         break                      # tapped: stop downloading
                     if not chunk:
