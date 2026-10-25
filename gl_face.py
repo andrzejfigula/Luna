@@ -897,6 +897,44 @@ COSTUME_EYES = {
 }
 
 
+class Shutter:
+    """HAL's shutter, run by a stepper: it clicks through STEPS detents at an
+    even pace, never a lid's ease. A blink: shut, a hold, open again."""
+    STEPS = 8
+    CLOSE, HOLD, OPEN, ADJUST = 0.06, 0.18, 0.075, 0.16     # s a detent; the hold
+
+    def __init__(self):
+        self.pos, self.next_t, self.hold = 0, 0.0, 0.0
+        self.armed, self.blinking, self.reopen = True, False, False
+
+    def step(self, now, blink, want):
+        """blink: the face's blink, 0 open … 1 shut; want: the stop the
+        moods ask for (0..1). Its position, 0..1."""
+        if blink < 0.3:
+            self.armed = True
+        elif blink > 0.6 and self.armed:
+            self.armed, self.blinking = False, True
+        tgt = int(round(max(0.0, min(1.0, want)) * self.STEPS))
+        pace = self.OPEN if self.reopen else self.ADJUST
+        if self.blinking:
+            if self.pos < self.STEPS:
+                tgt, pace = self.STEPS, self.CLOSE
+            else:
+                if not self.hold:
+                    self.hold = now + self.HOLD
+                if now < self.hold or blink > 0.6:    # (a slow blink: held shut)
+                    return 1.0
+                self.blinking, self.hold, self.reopen = False, 0.0, True
+                pace = self.OPEN
+        if self.pos == tgt:
+            self.reopen = False
+            self.next_t = now                     # (the next move starts at once)
+        elif now >= self.next_t:                  # an even pace, a frame's slack at most
+            self.pos += 1 if tgt > self.pos else -1
+            self.next_t = max(self.next_t + pace, now + pace - 0.034)
+        return self.pos / self.STEPS
+
+
 class _Life:
     """The small things that keep the eyes alive between expressions:
     micro-saccades (tiny quick jumps of the gaze), a brow flicking up now and
@@ -933,7 +971,7 @@ class _Life:
         self.smirk = (-9.0, 1.0)
         self.near = 0.0                   # how close the person is (eased, 0..1)
         self.listen = 0.0                 # listening (eased) — one brow cocked
-        self.aperture = [0.0, 0.0]        # HAL: each shutter's stop (squints, a sigh…)
+        self.shutters = (Shutter(), Shutter())   # HAL's, one per eye
         self.cock = 0                     # …which one
         self.flash_t = -9.0               # someone appears: an eyebrow flash
         self.contact = 0.0                # since when someone's been in view
@@ -1780,16 +1818,13 @@ class GLFace:
                 life.shut_prev = shut
             if lens:                              # HAL blinks with a shutter; lids that
                 # every lid move on top of the mood's (a squint, a sigh, drowsy…)
-                # stops the shutter down instead — in quick, even steps
+                # stops the shutter down instead
                 extra = max(0.0, top + bot - top0 - bot0)
                 widen = 1.0 - 0.7 * eye.widen
                 top, bot = min(top, top0 * widen), min(bot, bot0 * widen)
-                want = round(min(1.0, 1.4 * extra) * 4.0) / 4.0
-                ap = life.aperture[i]
-                ap += max(-6.0 * dt, min(6.0 * dt, want - ap))
-                life.aperture[i] = ap
                 lk = max(0.0, min(1.0, (top + bot - 0.5) / 0.3))     # (nearly) shut close it
-                shutters.append(max(shut, lk, ap))    # and draw back
+                want = max(lk, min(1.0, 1.4 * extra), shut if shut < 0.6 else 0.0)
+                shutters.append(life.shutters[i].step(now, shut, want))   # and draw back
                 top, bot, bend, bbend, tilt = (v * (1.0 - lk) for v in (top, bot, bend, bbend, tilt))
                 shut = 0.0
             ey += 4.0 * shut                      # a blink squashes the eye down a little

@@ -7159,31 +7159,44 @@ class FaceSpecTest(unittest.TestCase):
             themes.set_theme("luna")
 
     def test_hal_blinks_with_a_shutter(self):
+        import gl_face
         import themes
         u = self._settle(self._gl(), self._face("neutral", blink=0.0), 12)
         self.assertEqual(u["uLens"], 0.0)
         self.assertGreater(u["uLidA0"][0], 0.4)               # Luna: her lids come down
         themes.set_theme("hal")
         try:
-            for mood in ("neutral", "sleeping"):
-                u = self._settle(self._gl(), self._face(mood, blink=0.0), 30)
-                self.assertEqual(u["uLens"], 1.0)
-                self.assertGreater(min(u["uShut"]), 0.9, mood)     # HAL: the shutter shuts
-                self.assertLess(u["uLidA0"][0] + u["uLidA0"][3], 0.1, mood)   # no lids
-                self.assertEqual(u["uLidB0"][1], 0.0)          # nor their seam
-            gl = self._gl()
-            u = self._settle(gl, self._face("neutral"), 30)
-            self.assertLess(max(u["uShut"]), 0.05)              # open
-            lids = u["uLidA0"]
-            face = self._face("neutral")
-            face.left_eye.squint = face.right_eye.squint = 0.5   # an idle squint…
-            u = self._settle(gl, face, 2)
-            self.assertLess(max(u["uShut"]), 0.5)               # (stepping, not a jump)
-            u = self._settle(gl, face, 10)
-            self.assertIn(round(u["uShut"][0], 3), (0.25, 0.5))   # …stops the shutter down
-            self.assertAlmostEqual(u["uLidA0"][0], lids[0], places=3)   # the lids stay put
+            with self._fake_clock():
+                for mood in ("neutral", "sleeping"):
+                    u = self._settle(self._gl(), self._face(mood, blink=0.0), 30)
+                    self.assertEqual(u["uLens"], 1.0)
+                    self.assertGreater(min(u["uShut"]), 0.9, mood)     # HAL: the shutter shuts
+                    self.assertLess(u["uLidA0"][0] + u["uLidA0"][3], 0.1, mood)   # no lids
+                    self.assertEqual(u["uLidB0"][1], 0.0)          # nor their seam
+                gl = self._gl()
+                u = self._settle(gl, self._face("neutral"), 30)
+                self.assertLess(max(u["uShut"]), 0.05)              # open
+                lids = u["uLidA0"]
+                face = self._face("neutral")
+                face.left_eye.squint = face.right_eye.squint = 0.5   # an idle squint…
+                u = self._settle(gl, face, 2)
+                self.assertLessEqual(u["uShut"][0], 0.125)          # (a click at a time)
+                u = self._settle(gl, face, 20)
+                self.assertTrue(0.2 < u["uShut"][0] < 0.5)           # …stops the shutter down
+                self.assertEqual(u["uShut"][0] * 8, int(u["uShut"][0] * 8))   # on a detent
+                self.assertAlmostEqual(u["uLidA0"][0], lids[0], places=3)   # the lids stay put
         finally:
             themes.set_theme("luna")
+        # a blink: shut click by click, held, open click by click
+        s, t, path = gl_face.Shutter(), 0.0, []
+        for b in [0.0, 1.0, 1.0, 0.5] + [0.0] * 50:
+            path.append(s.step(t, b, 0.0))
+            t += 1 / 30
+        self.assertEqual(max(path), 1.0)
+        self.assertEqual(path[-1], 0.0)
+        self.assertGreater(path.count(1.0), 5)                   # a hold
+        self.assertGreater(len(set(path)), 8)                    # every detent on the way
+        self.assertTrue(all(abs(b - a) <= 0.125 for a, b in zip(path, path[1:])))
 
     def test_hals_head_is_a_servo(self):
         try:
