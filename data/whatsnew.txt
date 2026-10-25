@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 25 października ==
+- Łapki Mochi opierają się o szybkę jak u kotka przy oknie: gdy rusza głową, łapki stoją w miejscu, a potem — raz jedna, raz druga — szybko się unoszą, przestawiają i znowu przyciskają do szybki (już się nie ślizgają).
 - „Mów szeptem” — naprawdę szepcze (każda postać), aż powiesz „mów normalnie” albo „za cicho”; sam szept mija po trzech godzinach.
 - „Pokaż łapki” albo „pokaż rączki” — pokazuje swoje własne łapki czy rączki na ekranie (zamiast zdjęcia z Wikipedii). Działa też z imieniem postaci na początku: „Moki, pokaż łapki”, „Hal, pomachaj”.
 - Krótkie zdania („Pa, pa!”, „Słucham!”, „Tu Piksel!”) rzadziej brzmią obco: gdy któreś wyjdzie z dziwnym akcentem, po cichu nagrywa je jeszcze raz i zapamiętuje to dobre.

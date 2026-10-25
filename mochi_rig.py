@@ -45,6 +45,11 @@ PAWS = {
     "startle": (188.0, 132.0, 0.08, 108.0),
 }
 PAW_BOTTOM = 0.47       # a paw's lowest point below its centre (× its size)
+# a cat's paws on a window: these places press on the glass and stay put as
+# her head moves; drifted STEP_AT px off, a paw hops (STEP_DUR s) and presses
+# again, a touch ahead; past STEP_MAX it's dragged. "up", "cheeks": with her head
+GLASS = ("rest", "low", "startle")
+STEP_AT, STEP_DUR, STEP_MAX = 16.0, 0.15, 70.0
 
 # robot_face's hand poses → the paw's: 1 open (pads to you), 4 curled (the
 # back of the paw, toes tucked), 6 two round toes up (scissors). A thumb,
@@ -198,6 +203,23 @@ class _Fade:
         self.amt += ((want if kind else 0.0) - self.amt) * k
 
 
+def _at(f, x, y):
+    """A point in her head's frame f (x, y, turn: where it sits on the screen) → the screen's."""
+    c, s = math.cos(f[2]), math.sin(f[2])
+    return f[0] + c * x - s * y, f[1] + s * x + c * y
+
+
+def _rel(f, X, Y):
+    """The screen's point → her head's frame f."""
+    c, s = math.cos(f[2]), math.sin(f[2])
+    dx, dy = X - f[0], Y - f[1]
+    return c * dx + s * dy, -s * dx + c * dy
+
+
+def _mix(a, b, k):
+    return tuple(p + (q - p) * k for p, q in zip(a, b))
+
+
 def _ease_back(x):
     """0 → 1 with a little overshoot (a pop)."""
     x = max(0.0, min(1.0, x))
@@ -218,7 +240,9 @@ class MochiRig:
         for s in (-1.0, 1.0):
             x, y, turn, size = PAWS["rest"]
             self.paw[s] = {"x": _Spring(s * x), "y": _Spring(y), "turn": _Spring(s * turn),
-                           "place": "rest", "dip": -9.0, "from_y": y}
+                           "place": "rest", "dip": -9.0, "from_y": y,
+                           "fp": None, "sf": None, "st": None, "land": -9.0}
+        self.frame, self.fv = None, [0.0, 0.0]   # her head's frame on the screen, its velocity
         self.eye = [_Fade(), _Fade()]
         self.mouth = _Fade()
         self.pops = []                       # (kind, t0, dur, x, y, size)
@@ -294,6 +318,40 @@ class MochiRig:
         zeta = 1.0 - 0.58 * lvl                       # loose, a little overshoot
         return [sp.step(t, 110.0, zeta, dt) for sp, t in zip(self.ears, tgt)]
 
+    def _press(self, s, ox, oy, now, dt, lvl, glass):
+        """A paw on the glass (see GLASS): kept where it was pressed while
+        her head moves; drifted off, it hops — one paw at a time, quick,
+        eased out — to where it belongs, a touch ahead of the head, and
+        stays. → (x, y, turn's change, lift 0..1, press 0..1)."""
+        p, f = self.paw[s], self.frame
+        if p["fp"] is None or lvl <= 0.0:
+            p["fp"], p["st"] = f, None
+            return ox, oy, 0.0, 0.0, 0.0
+        lift = press = 0.0
+        if not glass:                             # paws up, on her cheeks: with her head
+            p["fp"], p["st"] = _mix(p["fp"], f, 1.0 - math.exp(-12.0 * dt)), None
+        else:
+            lx, ly = (max(-0.8 * STEP_AT, min(0.8 * STEP_AT, v * 0.12)) for v in self.fv)
+            ahead = (f[0] + lx, f[1] + ly, f[2])
+            if p["st"] is not None:
+                u = min(1.0, (now - p["st"]) / STEP_DUR)
+                p["fp"] = _mix(p["sf"], ahead, 1.0 - (1.0 - u) ** 3)
+                lift = math.sin(math.pi * u)
+                if u >= 1.0:
+                    p["st"], p["land"] = None, now
+            else:
+                drift = math.dist(_at(p["fp"], ox, oy), _at(f, ox, oy))
+                o = self.paw[-s]
+                if drift > STEP_AT and o["st"] is None and now - p["land"] > 0.05:
+                    p["st"], p["sf"] = now, p["fp"]
+                elif drift > STEP_MAX:            # left too far behind: dragged
+                    p["fp"] = _mix(p["fp"], f, 1.0 - STEP_MAX / drift)
+                el = now - p["land"]
+                if el < 0.12:
+                    press = math.sin(math.pi * el / 0.12)
+        x, y = _rel(f, *_at(p["fp"], ox, oy))
+        return x, y, p["fp"][2] - f[2], lift * lvl, press * lvl
+
     def _paws(self, L, face, now, dt, lvl, floor):
         """Two paws: the look's place on a spring, robot_face's hand over it
         as it rises; never below `floor` (the dock's icons). → [(x, y,
@@ -317,6 +375,10 @@ class MochiRig:
             ox = p["x"].step(s * x, 95.0, zeta, dt)
             oy = p["y"].step(ty, 95.0, zeta, dt)
             ot = p["turn"].step(s * turn, 95.0, zeta, dt)
+            ox, oy, dturn, lift, press = self._press(s, ox, oy, now, dt, lvl, place in GLASS)
+            oy -= 10.0 * lift                         # lifted off the glass, pressed back on
+            ot += dturn
+            size *= 1.0 - 0.07 * lift + 0.035 * press
             pose = 1
             h = hands.get(side)
             if h and h[1] < 330.0 and not own:        # robot_face's hand rising: it takes over
@@ -333,12 +395,20 @@ class MochiRig:
         return out
 
     def step(self, face, ch, now, dt, lvl=1.0, closed=(0.0, 0.0), head=(0.0, 0.0), gestures=(),
-             floor=1e9):
+             floor=1e9, frame=None):
         """This frame's parts. ch: CharLife's channels; closed: how shut each
         eye's lids are (a wink); head: where the head is (px); gestures:
         CharLife's running; floor: no paw lower than this (from the face's
-        centre: the dock's icons wherever her head is)."""
+        centre: the dock's icons wherever her head is); frame: her head's
+        frame on the screen (x, y, turn: the paws' origin there; else head's)."""
         dt = max(0.0, min(dt, 0.25))
+        frame = tuple(frame) if frame else (head[0], head[1], 0.0)
+        if self.frame is not None and dt > 0.0:
+            kk = 1.0 - math.exp(-14.0 * dt)
+            for i in (0, 1):
+                v = max(-900.0, min(900.0, (frame[i] - self.frame[i]) / dt))
+                self.fv[i] += (v - self.fv[i]) * kk
+        self.frame = frame
         look = pick(face, ch, gestures)
         if look != self.look:
             self._start(look, now)

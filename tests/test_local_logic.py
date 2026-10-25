@@ -8988,6 +8988,57 @@ class CharactersTest(unittest.TestCase):
         self.assertAlmostEqual(r["paws"][1][1], cy, delta=3.0)
         self.assertEqual(r["look"], "affection")
 
+    def test_mochi_paws_on_the_glass(self):
+        """Her paws press on the glass like a cat's on a window: the head
+        moving (or turning), they stay put on the screen; drifted off, one
+        paw at a time hops quickly and stays — no sliding; the head stopped,
+        they end where they belong. Effects off: they go with her head."""
+        import math
+        import mochi_rig as mr
+        face = self.Face()
+        rig = mr.MochiRig(100.0)
+        f = [400.0, 212.0, 0.0]
+        r, t = self.rig_run(rig, face, {}, 100.0, 1.5, frame=f)
+
+        def screen(r):
+            return [mr._at(f, p[0], p[1]) for p in r["paws"]]
+        home = screen(r)
+        for _ in range(3):                                    # a small move: they stay
+            f[0] += 4.0
+            r, t = self.rig_run(rig, face, {}, t, 1 / 30, frame=f)
+            for a, b in zip(home, screen(r)):
+                self.assertLess(math.dist(a, b), 0.5)
+        f[2] = 0.05                                           # a head tilt: still
+        r, t = self.rig_run(rig, face, {}, t, 1 / 30, frame=f)
+        for a, b in zip(home, screen(r)):
+            self.assertLess(math.dist(a, b), 0.5)
+        moves, both, prev = [], 0, screen(r)
+        for _ in range(45):                                   # walking right: hops
+            f[0] += 4.0
+            r, t = self.rig_run(rig, face, {}, t, 1 / 30, frame=f)
+            cur = screen(r)
+            m = [math.dist(a, b) for a, b in zip(prev, cur)]
+            moves.append(m)
+            both += m[0] > 0.5 and m[1] > 0.5
+            prev = cur
+        for side in (0, 1):
+            still = sum(m[side] < 0.5 for m in moves)
+            hops = sum(1 for a, b in zip(moves, moves[1:]) if a[side] < 0.5 <= b[side])
+            self.assertGreater(still, len(moves) // 2, side)      # mostly pressed, still
+            self.assertGreaterEqual(hops, 3, side)                 # …and stepping
+        self.assertLess(both, 4)                                   # (one paw at a time)
+        r, t = self.rig_run(rig, face, {}, t, 0.8, frame=f)   # stopped: back where they belong
+        x, y = mr.PAWS["rest"][:2]
+        self.assertAlmostEqual(r["paws"][1][1], y, delta=mr.STEP_AT)
+        self.assertLess(abs(r["paws"][1][0] - x), mr.STEP_AT + 1.0)
+        rig = mr.MochiRig(100.0)                              # effects off: with her head
+        f = [400.0, 212.0, 0.0]
+        r, t = self.rig_run(rig, face, {}, 100.0, 1.0, frame=f, lvl=0.0)
+        for _ in range(5):
+            f[0] += 4.0
+            r, t = self.rig_run(rig, face, {}, t, 1 / 30, frame=f, lvl=0.0)
+            self.assertAlmostEqual(r["paws"][1][0], x, delta=0.01)
+
     def test_mochi_paws_clear_the_dock(self):
         """No paw goes below the dock's icons, wherever her head is (it
         tracks faces, wanders, looks down) and whatever the look (sad: low);

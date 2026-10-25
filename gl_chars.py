@@ -1914,7 +1914,7 @@ def _remap(u, face, L, fcx, fcy, life, ch, dt, now, kind):
     u["uWave"] = 0.0
 
 
-def _mochi(face, u, life, ch, fcx, fcy, now, dt):
+def _mochi(gl, face, u, life, ch, fcx, fcy, now, dt, sway_y):
     """MOCHI's rig (mochi_rig.py) this frame: her eyes follow her gaze (the
     iris inside the eye, the whole eye a little), sized and moved by the look; her paws,
     ears, glyphs and mouth as uniforms. → {"hands": uHand0/1, "u": the rest}."""
@@ -1922,9 +1922,13 @@ def _mochi(face, u, life, ch, fcx, fcy, now, dt):
     if rig is None:
         rig = life.rig = mochi_rig.MochiRig(now)
     closed = (u.get("uLidB0", (0.0, 0.0))[1], u.get("uLidB1", (0.0, 0.0))[1])
+    # her head's frame on the screen (facePos turned round): the paws press on the glass
+    c0x, c0y, tilt = gl.w / 2.0, gl.h / 2.0, float(u.get("uTilt", 0.0))
+    dx, dy, c, s = fcx + ch["body_x"] - c0x, fcy + sway_y - c0y, math.cos(tilt), math.sin(tilt)
+    frame = (c0x + c * dx + s * dy, c0y - s * dx + c * dy, -tilt - ch["body_rot"] - rig.tilt.x)
     r = rig.step(face, ch, now, dt, characters.fx_level(now), closed,
                  (fcx + ch["body_x"], fcy + ch["body_y"]), set(life.active),
-                 dock.CY - 30.0 - fcy - ch["body_y"] - 2.0)     # (the dock's pill, its float)
+                 dock.CY - 30.0 - fcy - ch["body_y"] - 2.0, frame)     # (the dock's pill, its float)
     life.mochi = r
     gx, gy = r["gaze"]
     for i in (0, 1):
@@ -2058,10 +2062,10 @@ def apply(gl, face, u, cur, fcx, fcy, kind, now, dt):
     acc = characters.accessories(kind, now)
     names = cfg["accessories"]
     flags = [1.0 if n in acc else 0.0 for n in names[:4]] + [0.0] * (4 - min(4, len(names)))
-    mo = _mochi(face, u, life, ch, fcx, fcy, now, dt) if kind == "mochi" else None
     sway_y = ch["body_y"]
     if kind == "mochi":                           # a soft float, nothing more
         sway_y += ch["motion"] * 2.0 * math.sin(now * 1.3)
+    mo = _mochi(gl, face, u, life, ch, fcx, fcy, now, dt, sway_y) if kind == "mochi" else None
     if kind == "pip" and ch["happy"] > 0.3:       # bouncy
         sway_y -= 4.0 * ch["motion"] * ch["happy"] * abs(math.sin(now * 5.0))
     ch["body_y"] = sway_y
