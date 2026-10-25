@@ -1016,7 +1016,7 @@ void mEar(vec2 p, float side, inout vec4 acc) {
     }
 }
 
-// in front of the head: the flower, a sleeping cap
+// in front of the head: the flower
 void mFront(vec2 p, inout vec4 acc) {
     if (uAcc.y > 0.5) {
         vec2 fq = rot2(p - (mBC() + vec2(152.0, -134.0)), 0.25);
@@ -1032,21 +1032,6 @@ void mFront(vec2 p, inout vec4 acc) {
         over(acc, c, cover(pet));
         vec3 yc = vec3(1.0, 0.80, 0.28) * (1.08 - 0.35 * clamp((fq.y + fq.x) / 10.0, -1.0, 1.0));
         over(acc, yc, cover(r - 6.5));
-    }
-    if (uAcc.z > 0.5 && uChC.y > 0.02) {
-        vec2 b = mBC() + vec2(-40.0, -M_BB.y - 2.0);
-        vec2 tip = mBC() + vec2(-252.0, -M_BB.y + 46.0);
-        vec2 ba = tip - b;
-        float h = clamp(dot(p - b, ba) / dot(ba, ba), 0.0, 1.0);
-        float cone = length(p - b - ba * h) - mix(88.0, 12.0, pow(h, 0.8));
-        float band = sdRoundBox(rot2(p - b - vec2(0.0, 2.0), 0.1), vec2(98.0, 16.0), 12.0);
-        float pom = length(p - tip) - 22.0;
-        float al = uChC.y;
-        vec3 hc = mix(vec3(0.85, 0.25, 0.42), uPal3, 0.4) * (1.0 - 0.25 * h)
-                  * (0.78 + 0.22 * smoothstep(0.0, -24.0, cone));
-        over(acc, hc, cover(cone + fuzz(p) * 0.6) * al);
-        over(acc, vec3(1.0, 0.97, 0.98) * 0.95, cover(band + fuzz(p)) * al);
-        over(acc, vec3(1.0, 0.98, 0.99), cover(pom + fuzz(p)) * al);
     }
 }
 
@@ -1151,7 +1136,9 @@ void mEye(vec2 p, vec4 e, vec4 la, vec4 lb, vec4 pu, float side, inout vec4 acc)
                        sdSeg(q, a2, a2 + vec2(side * 0.22, -0.12) * r)) - 1.7;
         over(acc, mix(uPal2, uPal3, 0.3) * uDim, cover(ld) * open);
     }
-    acc.rgb += vec3(1.0, 0.84, 0.92) * 0.30 * halo(min(d, mix(1e5, ds, lb.y)), 7.0)
+    // the seam's halo only while the seam shows (asleep, the glyph replaces it:
+    // its filled shape glowed as a grey oval under the "—")
+    acc.rgb += vec3(1.0, 0.84, 0.92) * 0.30 * max(halo(d, 7.0), halo(ds, 7.0) * lb.y * (1.0 - ga))
                * (1.0 - max(a, sa)) * uChA.w * uDim;
 }
 
@@ -2029,8 +2016,6 @@ def _boxes(gl, kind, u, ch, props, fcx, fcy, console, acc, marks=(), hands=()):
     if kind == "mochi":
         if "flower" in acc:
             add(FRONT, fcx + 152.0, by - 134.0, 32.0, 32.0)
-        if "hat" in acc and ch["sleep"] > 0.02:
-            add(FRONT, fcx - 100.0, by - 150.0, 186.0, 102.0)
     for i, (pt, behind) in enumerate(props):
         if not behind:
             add(PROP + i, pt[0], pt[1], pt[2] * 1.35 + 22, pt[2] * 1.35 + 22)

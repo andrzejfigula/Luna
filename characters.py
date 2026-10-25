@@ -74,8 +74,8 @@ CHARS = {
         "spec": {"eye_n": 2.2, "brow_a": 0.0, "pupil": (0.0, 0.0)},
         "blink": (1.0, 0.9), "gaze": (0.7, 0.0, 0.0), "react": 7.0,
         "mouth": {"w": 0.6, "h": 0.7},
-        "accessories": ("ears", "flower", "hat", "hearts"),
-        "acc_default": ("ears", "flower", "hat", "hearts"),
+        "accessories": ("ears", "flower", "hearts"),
+        "acc_default": ("ears", "flower", "hearts"),
     },
     # ── an energetic neon mascot: outlined eyes, dot pupils ──
     "pip": {   # (a wrist computer's phosphor green, nearly one hue; its sync slips)
@@ -107,7 +107,7 @@ def acc_choices(kind):
 ACC_LABELS = {"cartridge": "kartridż", "glasses": "okulary", "rocket": "rakieta",
               "hearts": "serca", "stars": "gwiazdki", "bubble": "dymek",
               "headphones": "słuchawki", "ears": "uszy", "flower": "kwiatek",
-              "hat": "czapka do snu", "sprout": "kiełek", "cap": "czapka",
+              "sprout": "kiełek", "cap": "czapka",
               "bowtie": "muszka"}
 
 FX_LEVELS = (("full", "pełne", 1.0), ("calm", "spokojne", 0.5), ("off", "wyłączone", 0.0))

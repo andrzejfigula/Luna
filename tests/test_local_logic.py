@@ -9064,7 +9064,7 @@ class CharactersTest(unittest.TestCase):
         keys = [r.get("key") for r in sp.rows(1)]
         self.assertIn("char_acc", keys)
         self.assertNotIn("retro_mode", keys)
-        self.assertEqual(characters.accessories("mochi"), ("ears", "flower", "hat", "hearts"))
+        self.assertEqual(characters.accessories("mochi"), ("ears", "flower", "hearts"))
         seen = set()
         for _ in range(len(characters.acc_choices("mochi"))):
             sp.change("char_acc")
