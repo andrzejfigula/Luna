@@ -9036,7 +9036,7 @@ class CharactersTest(unittest.TestCase):
         u, a = run()
         _, b = run()
         self.assertEqual(a, b)
-        for k in ("uMoEar", "uMoEye", "uMoFace", "uMoMouth", "uMoPaw", "uMoBody"):
+        for k in ("uMoEar", "uMoEye", "uMoFace", "uMoMouth", "uMoPaw", "uMoBody", "uMoIris"):
             self.assertEqual(len(u[k]), 4, k)
         sids = [sid for sid, _ in u["_char_boxes"]]
         self.assertEqual(sids[-2:], [16, 17])                     # the paws, last: in front

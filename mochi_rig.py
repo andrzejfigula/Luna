@@ -8,7 +8,8 @@ a CharLife gesture (curious, confused), her mood, listening — and a look for
 each in LOOKS: how far each ear leans out and how far its tip flops over,
 where the paws go, a glyph for the eyes (◠ happy, > < laughing, — asleep, a
 flat top when pouting), a mouth, a head tilt, and the symbols that pop once
-when it starts (a heart, a "?", sparkles) — not a stream of them.
+when it starts (a heart, a "?", sparkles) — not a stream of them — and
+how big her iris and pupil are and where they look.
 
 Each part moves on its own clock: the ears on a loose spring that lags the
 head (follow-through: a nod flops them), the paws on a firmer one with a
@@ -46,14 +47,17 @@ PAW_BOTTOM = 0.47       # a paw's lowest point below its centre (× its size)
 POSES = {"open": 1, "paper": 1, "hourglass": 1, "thumb": 1, "ok": 1,
          "thumb_down": 4, "fist": 4, "point": 4, "scissors": 6}
 
-# ears: (lean L, lean R, flop L, flop R) — lean out in rad, flop 0..1
+# ears: (lean L, lean R, flop L, flop R) — lean out in rad, flop 0..1; iris:
+# (the iris's size, the pupil's) × 1; look: where the iris looks in the eye
+# (× its radius, + down)
 LOOKS = {
     "neutral": {"ears": (0.16, 0.16, 0.0, 0.0), "mouth": ("smile", 18.0)},
-    "listening": {"ears": (-0.03, -0.03, 0.0, 0.0), "mouth": ("smile", 16.0), "pods": 1.0},
+    "listening": {"ears": (-0.03, -0.03, 0.0, 0.0), "mouth": ("smile", 16.0), "pods": 1.0,
+                  "iris": (1.0, 1.06)},
     "happy": {"ears": (0.07, 0.07, 0.0, 0.0), "eyes": "arc", "hold": 2.4,
               "mouth": ("open", 24.0), "blush": 0.35},
     "excited": {"ears": (-0.04, -0.04, 0.0, 0.0), "paws": "up", "mouth": ("open", 30.0),
-                "sparkle": 1.0, "blush": 0.4,
+                "sparkle": 1.0, "blush": 0.4, "iris": (1.08, 1.06),
                 "pops": ((4, -250.0, -104.0, 24.0, 0.0), (4, 262.0, -52.0, 17.0, 0.14),
                          (4, 214.0, -164.0, 13.0, 0.28))},
     "laugh": {"ears": (0.02, 0.02, 0.0, 0.0), "paws": "up", "eyes": "squeeze",
@@ -65,28 +69,32 @@ LOOKS = {
     "greeting": {"ears": (-0.05, -0.05, 0.0, 0.0), "eyes": "arc", "hold": 1.6,
                  "mouth": ("open", 24.0)},
     "curious": {"ears": (-0.02, 0.36, 0.0, 0.18), "scale": (1.12, 0.9), "tilt": 0.05,
+                "iris": (1.04, 1.12), "look": (0.10, -0.08),
                 "mouth": ("o", 9.0), "pops": ((2, 266.0, -112.0, 34.0, 0.18),)},
     "confused": {"ears": (0.14, 0.5, 0.0, 0.62), "scale": (1.0, 0.82), "tilt": -0.06,
                  "mouth": ("flat", 14.0), "pops": ((2, 266.0, -112.0, 36.0, 0.12),)},
-    "thinking": {"ears": (0.3, 0.3, 0.12, 0.12), "mouth": ("flat", 13.0)},
+    "thinking": {"ears": (0.3, 0.3, 0.12, 0.12), "mouth": ("flat", 13.0), "look": (0.10, -0.14)},
     "sleepy": {"ears": (0.45, 0.45, 0.6, 0.6), "eyes": "line", "mouth": ("tiny", 11.0),
-               "pods": 0.0, "paws": "rest"},
+               "pods": 0.0, "paws": "rest", "iris": (1.0, 0.92)},
     "shy": {"ears": (0.38, 0.38, 0.12, 0.12), "paws": "cheeks", "gaze": (-18.0, 14.0),
+            "look": (-0.12, 0.10),
             "tilt": 0.05, "mouth": ("smile", 14.0), "blush": 1.0},
     "affection": {"ears": (0.1, 0.1, 0.0, 0.0), "paws": "cheeks", "mouth": ("smile", 20.0),
-                  "blush": 1.0,
+                  "blush": 1.0, "iris": (1.0, 1.1),
                   "pops": ((1, -262.0, -40.0, 28.0, 0.2), (1, 270.0, 6.0, 19.0, 0.55))},
     "hearts": {"ears": (0.06, 0.06, 0.0, 0.0), "paws": "cheeks", "eyes": "heart",
                "mouth": ("open", 22.0), "blush": 1.0,
                "pops": ((1, -262.0, -40.0, 26.0, 0.1), (1, 270.0, 6.0, 18.0, 0.4),
                         (1, 236.0, -150.0, 14.0, 0.75))},
     "surprised": {"ears": (-0.08, -0.08, 0.0, 0.0), "paws": "startle", "mouth": ("o", 15.0),
+                  "scale": (1.06, 1.06), "iris": (1.04, 1.12),
                   "pops": ((7, -262.0, -96.0, 34.0, 0.0),)},
-    "sad": {"ears": (0.72, 0.72, 0.45, 0.45), "paws": "low", "mouth": ("frown", 16.0)},
+    "sad": {"ears": (0.72, 0.72, 0.45, 0.45), "paws": "low", "mouth": ("frown", 16.0),
+            "iris": (1.02, 1.08)},
     "playful": {"ears": (0.02, 0.34, 0.0, 0.0), "tilt": -0.04, "mouth": ("tongue", 20.0),
                 "pops": ((4, 214.0, -86.0, 15.0, 0.25),)},
     "pout": {"ears": (0.55, 0.55, 0.22, 0.22), "eyes": "half", "mouth": ("pout", 13.0),
-             "puff": 1.0, "blush": 0.7},
+             "puff": 1.0, "blush": 0.7, "look": (0.0, 0.10)},
     "disagree": {"ears": (0.42, 0.42, 0.1, 0.1), "eyes": "half", "mouth": ("pout", 13.0),
                  "puff": 0.6},
 }
@@ -212,7 +220,8 @@ class MochiRig:
         self.head = None                     # where the head was, its velocity
         self.hv = [0.0, 0.0]
         self.vals = {"pods": 0.15, "blush": 0.0, "puff": 0.0, "sparkle": 0.0,
-                     "s0": 1.0, "s1": 1.0, "gx": 0.0, "gy": 0.0, "msize": 18.0}
+                     "s0": 1.0, "s1": 1.0, "gx": 0.0, "gy": 0.0, "msize": 18.0,
+                     "is": 1.0, "ps": 1.0, "lx": 0.0, "ly": 0.0}
 
     # ── the parts ──
     def _start(self, look, now):
@@ -322,7 +331,9 @@ class MochiRig:
                "sparkle": L.get("sparkle", 0.0),
                "s0": L.get("scale", (1.0, 1.0))[0], "s1": L.get("scale", (1.0, 1.0))[1],
                "gx": L.get("gaze", (0.0, 0.0))[0], "gy": L.get("gaze", (0.0, 0.0))[1],
-               "msize": msize if mk else v["msize"]}
+               "msize": msize if mk else v["msize"],
+               "is": L.get("iris", (1.0, 1.0))[0], "ps": L.get("iris", (1.0, 1.0))[1],
+               "lx": L.get("look", (0.0, 0.0))[0], "ly": L.get("look", (0.0, 0.0))[1]}
         for key, t in tgt.items():
             v[key] += (t - v[key]) * k
         pops = []
@@ -342,4 +353,5 @@ class MochiRig:
             "mouth": (MOUTHS[self.mouth.kind], self.mouth.amt, v["msize"]),
             "pods": v["pods"], "blush": v["blush"], "puff": v["puff"], "sparkle": v["sparkle"],
             "scale": (v["s0"], v["s1"]), "gaze": (v["gx"], v["gy"]), "pops": pops[:4],
+            "iris": (v["is"], v["ps"], v["lx"], v["ly"]),
         }

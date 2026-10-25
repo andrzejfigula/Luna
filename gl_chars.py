@@ -74,6 +74,7 @@ uniform vec4  uMoFace;  // …the eyes' scale L, R (in apply), starry, her cheek
 uniform vec4  uMoMouth; // …her own mouth: kind, amount, half width
 uniform vec4  uMoPaw;   // …the paws' sizes L, R
 uniform vec4  uMoBody;  // …squash, the pods' light, puffed cheeks
+uniform vec4  uMoIris;  // …the iris's size, the pupil's, where it looks (× the eye's radius)
 
 """ + _cut("float sdRoundBox", "// ── the light") + _cut("// ── the light", "// the outward") \
     + _cut("vec2 eyeLocal", "vec3 eyeColour") + _cut("float browSDF", "// one eye over") \
@@ -832,7 +833,7 @@ void shape(vec2 p, inout vec4 acc) {
 # Velvet, not plastic: soft wrapped light, the fibres bright where the surface
 # turns away, a fuzzy outline, the nap's faint grain — all fixed to the face
 # (no shimmer). mochi_rig.py moves her ears, paws, eye glyphs and mouths
-# (uMoEar, uMoEye, uMoFace, uMoMouth, uMoPaw, uMoBody).
+# (uMoEar, uMoEye, uMoFace, uMoMouth, uMoPaw, uMoBody, uMoIris).
 _MOCHI = """
 vec2 mBC() { return uChA.xy + vec2(0.0, 70.0); }
 const vec2 M_BB = vec2(232.0, 148.0);      // the head's half size (the pods beside it)
@@ -1076,6 +1077,19 @@ float mGlyph(vec2 q, vec2 b, float kind, float side) {
     return max((length(q / (b * 0.9)) - 1.0) * r * 0.9, -0.06 * r - q.y);
 }
 
+// her iris and pupil (× the eye's radius; uMoIris scales them per look)
+const float M_IRIS_R = 0.60;                  // the iris's radius
+const float M_IRIS_TALL = 1.06;               // …a little taller than wide
+const float M_PUPIL_R = 0.29;                 // the pupil's radius
+const float M_IRIS_FOLLOW = 0.35;             // how far the iris follows the gaze in the eye
+const vec2  M_GLINT = vec2(-0.36, -0.40);     // the big glint, × the iris (up by the light)
+const float M_GLINT_R = 0.27;
+const vec2  M_GLINT2 = vec2(0.40, 0.34);      // the small one, down the other side
+const float M_GLINT2_R = 0.11;
+const vec3  M_IRIS_IN = vec3(1.0, 0.60, 0.77);     // pink, lighter in the middle…
+const vec3  M_IRIS_OUT = vec3(0.84, 0.30, 0.52);   // …deeper rose at its rim
+const vec3  M_PUPIL = vec3(0.23, 0.06, 0.15);      // dark plum, not black
+
 void mEye(vec2 p, vec4 e, vec4 la, vec4 lb, vec4 pu, float side, inout vec4 acc) {
     vec2 q;
     float d = eyeD(p, e, la, lb, side, q);
@@ -1088,15 +1102,47 @@ void mEye(vec2 p, vec4 e, vec4 la, vec4 lb, vec4 pu, float side, inout vec4 acc)
     float a = cover(d);
     float sa = cover(ds) * lb.y * (1.0 - ga);
     if (a > 0.0) {
-        // a glowing white, its edge pink, a soft glint up by the light
+        // a glowing white, its edge pink
         vec3 c = mix(uPal2, mix(uPal3, uPal2, 0.5), smoothstep(-0.32 * r, 0.0, d) * 0.8);
         c = mix(c, mix(uPal3, uPal2, 0.35), smoothstep(-0.1, 1.0, q.y / b.y) * 0.3);
-        vec2 hp = (q - pu.xy * 0.4 - vec2(-0.34 * b.x, -0.38 * b.y)) / (0.17 * r);
-        c = mix(c, vec3(1.0), exp(-dot(hp, hp)) * 0.85 * (1.0 - ga));
-        if (uMoFace.z > 0.01) {                         // starry: a pink sparkle in each
+        // the iris: open eyes only (a glyph, a heart or a slit: just the glow;
+        // the pout's flat top keeps it, peeking from below)
+        float gone = (gk > 3.5 && gk < 4.5) ? 0.0 : ga;
+        float open = (1.0 - lb.y) * (1.0 - gone) * (1.0 - uMorph.x)
+                     * smoothstep(5.0, 16.0, (1.0 - la.x - la.w) * e.w);
+        float im = 0.0;
+        vec2 iq = q;
+        float iR = M_IRIS_R * uMoIris.x * r;
+        vec2 ic = pu.xy * M_IRIS_FOLLOW + uMoIris.zw * r;
+        ic *= min(1.0, max(r - iR, 0.0) * 0.75 / max(length(ic), 1e-3));       // a white ring stays
+        iq = q - ic;
+        float rn = length(iq / vec2(1.0, M_IRIS_TALL)) / iR;
+        if (open > 0.01 && rn < 1.0 + 1.5 / iR) {       // (the white round it: none of this)
+            im = clamp((1.0 - rn) * iR + 0.5, 0.0, 1.0) * open;
+            vec3 ir = mix(M_IRIS_IN, M_IRIS_OUT, smoothstep(0.2, 1.0, rn));
+            ir *= 1.0 - 0.16 * smoothstep(0.0, -1.0, iq.y / iR);                // the lid's shade on top
+            ir = mix(ir, mix(M_IRIS_IN, uPal2, 0.4), smoothstep(0.25, 0.95, iq.y / iR)
+                         * smoothstep(1.0, 0.55, rn) * 0.55);                   // light below the pupil
+            ir = mix(ir, M_IRIS_OUT * 0.80, smoothstep(0.86, 1.0, rn) * 0.55);  // a soft rim
+            c = mix(c, ir, im);
+            float pr = min(M_PUPIL_R * uMoIris.y * r, 0.72 * iR);
+            vec2 pq = iq - vec2(0.0, 0.03 * iR);
+            float pd = length(pq) - pr;
+            vec3 pc = mix(M_PUPIL, mix(M_PUPIL, M_IRIS_OUT, 0.45), smoothstep(-0.2, 1.0, pq.y / pr));
+            c = mix(c, pc, clamp(0.5 - pd / 1.3, 0.0, 1.0) * open);
+            // the glints: a big one up by the light, a small one below (excited: brighter)
+            float sh = 1.0 + 0.18 * uMoFace.z;
+            float g1 = ellD(rot2(iq - M_GLINT * iR, 0.5), vec2(1.0, 0.82) * M_GLINT_R * iR * sh);
+            float g2 = length(iq - M_GLINT2 * iR) - M_GLINT2_R * iR * sh;
+            vec3 wc = vec3(1.0, 0.98, 0.99);
+            c = mix(c, wc, exp(-max(g1, 0.0) / (0.10 * iR)) * 0.25 * open);    // its bloom
+            c = mix(c, wc, clamp(0.5 - g1 / 1.2, 0.0, 1.0) * open);
+            c = mix(c, wc, clamp(0.5 - g2 / 1.2, 0.0, 1.0) * open * (0.80 + 0.2 * uMoFace.z));
+        }
+        if (uMoFace.z > 0.01) {                         // starry: a sparkle in each (white on the iris)
             vec2 sq1 = (q - vec2(0.24 * b.x, 0.20 * b.y)) / (0.36 * r);
             float sp = min(sdSparkle(sq1), sdSparkle((q + vec2(0.28 * b.x, 0.30 * b.y)) / (0.2 * r)));
-            c = mix(c, uPal3, cover(sp * 0.3 * r) * uMoFace.z * (1.0 - ga));
+            c = mix(c, mix(uPal3, vec3(1.0, 0.97, 0.99), im), cover(sp * 0.3 * r) * uMoFace.z * (1.0 - ga));
         }
         over(acc, c * uDim, a);
     }
@@ -1887,7 +1933,7 @@ def _remap(u, face, L, fcx, fcy, life, ch, dt, now, kind):
 
 def _mochi(face, u, life, ch, fcx, fcy, now, dt):
     """MOCHI's rig (mochi_rig.py) this frame: her eyes follow her gaze (the
-    whole eye: she has no pupils), sized and moved by the look; her paws,
+    whole eye, her iris a little further), sized and moved by the look; her paws,
     ears, glyphs and mouth as uniforms. → {"hands": uHand0/1, "u": the rest}."""
     rig = getattr(life, "rig", None)
     if rig is None:
@@ -1912,7 +1958,8 @@ def _mochi(face, u, life, ch, fcx, fcy, now, dt):
         "uMoEar": tuple(r["ears"]), "uMoEye": r["eyes"],
         "uMoFace": (r["scale"][0], r["scale"][1], r["sparkle"], r["blush"]),
         "uMoMouth": (float(r["mouth"][0]), r["mouth"][1], r["mouth"][2], 0.0),
-        "uMoPaw": (s0, s1, 0.0, 0.0), "uMoBody": (r["squash"], r["pods"], r["puff"], 0.0)}}
+        "uMoPaw": (s0, s1, 0.0, 0.0), "uMoBody": (r["squash"], r["pods"], r["puff"], 0.0),
+        "uMoIris": r["iris"]}}
 
 
 def _box(gl, x0, y0, x1, y1, tilt):
