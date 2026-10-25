@@ -40,6 +40,8 @@ PATTERNS = [
     ("memory: old facts kept back", r"kept \d+ old fact"),
     ("memory tidies", r"\[memory\] saved .*tidied"),
     ("TTS errors", r"\[TTS\] streaming error"),
+    ("TTS take heard wrong (not cached)", r"\[TTS\] not cached — heard"),
+    ("TTS retake heard right → cached", r"\[TTS\] retake \d heard right"),
     ("audio underruns (speech)", r"underrun during speech"),
     ("errors / tracebacks", r"Traceback|Error:|\bERROR\b"),
     ("restarts", r"^\[Luna\] Running on"),

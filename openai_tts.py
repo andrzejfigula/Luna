@@ -109,6 +109,27 @@ CACHE_MAX_FILES = 400          # ~3 s each at 48 kB/s: about 60 MB at most
 SPEAKER_CHECK_SECS = 10        # how often the speaker is re-checked (pw-dump: ~70 ms)
 
 
+RETAKES = 2                    # quiet fresh takes of a line the check heard wrong
+_RETAKEN = {}                  # cache key → retakes made since start
+_RETAKE_LOCK = threading.Lock()
+
+
+def _voiced(text):
+    """The text as the voice gets it: numbers as words, names in one breath."""
+    try:                                   # "7006652" → words the voice reads well
+        from polish import spoken_numbers
+        text = spoken_numbers(text)
+    except Exception:
+        pass
+    try:                                   # "Jasne, Andrzeju." said in one breath
+        import faces
+        from polish import flowing_names
+        text = flowing_names(text, faces.vocatives())
+    except Exception:
+        pass
+    return text
+
+
 def _cache_dir():
     from config import DATA_DIR
     return os.path.join(DATA_DIR, "tts_cache")
@@ -359,17 +380,7 @@ class OpenAITTS:
         error when no request produced any audio."""
         q, lock, first = queue.Queue(), threading.Lock(), threading.Event()
         owner, gone = [None], threading.Event()    # gone: the caller dropped this take
-        try:                                   # "7006652" → words the voice reads well
-            from polish import spoken_numbers
-            text = spoken_numbers(text)
-        except Exception:
-            pass
-        try:                                   # "Jasne, Andrzeju." said in one breath
-            import faces
-            from polish import flowing_names
-            text = flowing_names(text, faces.vocatives())
-        except Exception:
-            pass
+        text = _voiced(text)
 
         def attempt(n):
             try:
@@ -519,26 +530,56 @@ class OpenAITTS:
                 and len(out.last_utterance) >= len(text) * 1500):
             low = pitch(out.last_utterance[:HEAD_BYTES])
             if not (low and low < deep_hz()):
-                self._cache_if_clear(key, text, out.last_utterance)
+                self._cache_if_clear(key, text, out.last_utterance, kwargs)
 
-    def _cache_if_clear(self, key, text, pcm):
+    def _cache_if_clear(self, key, text, pcm, kwargs=None):
         """Keep the take only if it can be heard as the text: short lines now
         and then come out half Slovak ("Súham", "Dobre, začíname deň", "Juž
         presuja chvílka") — 13 of 147 cached clips (11 Oct), each then said
         that way every time. Checked by a transcription in the background
-        (after she has spoken: no delay)."""
+        (after she has spoken: no delay). A take heard wrong is made again
+        quietly (RETAKES) and the clear one kept: until then the line was made
+        afresh each time, as wrong as before ("Pixel online", 8 bad takes;
+        "Pa, pa!" heard as Japanese and Korean, 24–25 Oct)."""
+        fx = themes.get().get("fx")
+
+        def clear(take):
+            import voicecheck
+            heard = voicecheck.transcribe(self._client, take)
+            if voicecheck.sounds_like(text, heard):
+                cache_put(key, take)
+                return True
+            print(f"[TTS] not cached — heard {heard[:50]!r} for {text[:50]!r}", flush=True)
+            return False
+
         def run():
             try:
-                import voicecheck
-                heard = voicecheck.transcribe(self._client, pcm)
-                if voicecheck.sounds_like(text, heard):
-                    cache_put(key, pcm)
-                else:
-                    print(f"[TTS] not cached — heard {heard[:50]!r} for {text[:50]!r}",
-                          flush=True)
+                if clear(pcm) or kwargs is None:
+                    return
+                while True:
+                    with _RETAKE_LOCK:
+                        n = _RETAKEN.get(key, 0) + 1
+                        if n > RETAKES:
+                            return
+                        _RETAKEN[key] = n
+                    take = self._fresh_take(text, kwargs, fx)
+                    if take and clear(take):
+                        print(f"[TTS] retake {n} heard right — cached: {text[:50]!r}", flush=True)
+                        return
             except Exception as e:
                 print(f"[TTS] cache check failed ({e!r}) — not cached", flush=True)
         threading.Thread(target=run, daemon=True, name="tts-check").start()
+
+    def _fresh_take(self, text, kwargs, fx):
+        """A whole new take, made in the background (never played): None when
+        it fails a spoken take's checks (too short, rambling, gone deep)."""
+        r = self._client.audio.speech.create(input=_voiced(text), **kwargs)
+        pcm = b"".join(tts_fx.wrap([r.content], fx))
+        low = pitch(pcm[:HEAD_BYTES])
+        if (len(pcm) < len(text) * 1500 or len(pcm) > (2.5 + 0.15 * len(text)) * 48000
+                or (low and low < deep_hz())):
+            return None
+        return pcm
 
     _offline_said = 0.0
 

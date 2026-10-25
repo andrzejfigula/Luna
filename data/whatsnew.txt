@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 25 października ==
+- Krótkie zdania („Pa, pa!”, „Słucham!”, „Tu Piksel!”) rzadziej brzmią obco: gdy któreś wyjdzie z dziwnym akcentem, po cichu nagrywa je jeszcze raz i zapamiętuje to dobre.
 - Oczka Mochi są żywsze: źrenice same rozglądają się po pokoju, czasem zerkają w bok i wracają, a gdy ktoś jest przed nią, patrzy mu raz w jedno, raz w drugie oko. Źrenice lekko „oddychają” i rozszerzają się, gdy zmienia minę.
 - Postacie (Mochi, Pip, Retro, Pixel) nie mają już nad głową bąbelków Luny, gdy myślą, a nutki, promyki i „pstryk!” są w ich własnych kolorach.
 - Mochi ma wyższy, bardziej zabawny głos, mruczy „mhm”, „hmm”, chichocze i woła „ooo!” — teraz swoim własnym głosem.

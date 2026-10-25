@@ -5742,6 +5742,34 @@ class Oct14EveningTest(unittest.TestCase):
         self.assertFalse(voicecheck.sounds_like("Hej, hej!", "嘿嘿。"))
         self.assertFalse(voicecheck.sounds_like("Łaskocze!", "Wasgota?"))
 
+    def test_take_heard_wrong_is_made_again_quietly(self):
+        import openai_tts
+        heard = iter(["パパ。", "Pa, pa!"])            # first take Japanese, the retake right
+        tts = object.__new__(openai_tts.OpenAITTS)
+        tts._client = mock.MagicMock()
+        tts._client.audio.speech.create.return_value.content = b"\x00\x10" * 12000
+        put = []
+
+        class Now:                                     # the check's thread, run in place
+            def __init__(self, target, **kw):
+                self.target = target
+
+            def start(self):
+                self.target()
+        with mock.patch("voicecheck.transcribe", lambda c, p: next(heard)), \
+                mock.patch.object(openai_tts, "cache_put", lambda k, p: put.append(k)), \
+                mock.patch.object(openai_tts.threading, "Thread", Now), \
+                mock.patch.dict(openai_tts._RETAKEN, clear=True):
+            tts._cache_if_clear("k1", "Pa, pa!", b"\x00\x10" * 12000, {"voice": "x"})
+            self.assertEqual(put, ["k1"])
+            self.assertEqual(openai_tts._RETAKEN["k1"], 1)
+            # never right: two retakes, then left alone
+            heard = iter(["타, 타."] * 9)
+            tts._cache_if_clear("k2", "Pa, pa!", b"\x00\x10" * 12000, {"voice": "x"})
+            tts._cache_if_clear("k2", "Pa, pa!", b"\x00\x10" * 12000, {"voice": "x"})
+            self.assertEqual(put, ["k1"])
+            self.assertEqual(openai_tts._RETAKEN["k2"], openai_tts.RETAKES)
+
 
 import commands  # noqa: E402  (after the data paths above are set)
 import screens  # noqa: E402
