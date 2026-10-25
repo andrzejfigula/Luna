@@ -554,6 +554,9 @@ class OpenAITTS:
         def clear(take):
             import voicecheck
             heard = voicecheck.transcribe(self._client, take)
+            if voicecheck.foreign_script(heard):   # 11 of 30 rejects, 23–25 Oct: asked once more
+                heard = voicecheck.transcribe(self._client, take,
+                                              prompt="Krótka wypowiedź po polsku.")
             if voicecheck.sounds_like(text, heard):
                 cache_put(key, take)
                 return True

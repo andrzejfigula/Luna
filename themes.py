@@ -290,7 +290,7 @@ _LEAD = re.compile(r"^(?:(?:nie|dobra|ok|okej|ale|proszę|prosze|teraz)\W+)*"
                    r"(?:się\s+)?)?")
 _SWITCH = re.compile(r"^(?:włącz|wlacz|ustaw|zmień|zmien|przełącz|przelacz|wybierz|daj)\s+"
                      r"(?:mi\s+|nam\s+)?(?:motyw|postać|postac|postaci|wygląd|wyglad|"
-                     r"charakter|charakteru|osobowość|osobowosc)"
+                     r"charakter|charakteru|osobowość|osobowosc|profil|profilu)"
                      r"(?:\s+(?:na|postaci))?\s+(.{2,30})$"
                      r"|^(?:zmień|zmien|przełącz|przelacz|zamień|zamien|przełączył|przelaczyl|"
                      r"przełączyła|przelaczyla|zmienił|zmienil|zmieniła|zmienila)\s+się\s+"
@@ -301,7 +301,7 @@ _SWITCH = re.compile(r"^(?:włącz|wlacz|ustaw|zmień|zmien|przełącz|przelacz|
                      # "przełącz na Pip" (24 Oct) — as bare as "włącz <name>"
                      r"|^(?:przełącz|przelacz|zmień|zmien)\s+(?:z\s+powrotem\s+)?na\s+(.{2,30})$")
 _LIST = re.compile(r"\b(?:jakie|które|ktore|pokaż|pokaz)\s+(?:masz\s+|są\s+|mamy\s+)?"
-                   r"(?:motywy|postacie|postaci)\b")
+                   r"(?:motywy|postacie|postaci|profile)\b")
 # a bare "włącz <name>" only for names nothing else uses ("włącz retro" may be
 # the 80s radio)
 _BARE_OK = ("hal", "mochi", "pixel", "pip")
@@ -325,7 +325,8 @@ def named(words):
     w = re.sub(r"[^\w ]", " ", (words or "").lower()).split()
     if not w or len(w) > 3:
         return None
-    if w[0] in ("motyw", "postać", "postac"):
+    w = [x for x in w if not x.isdigit()]       # "HAL 9000" (its old label)
+    if w and w[0] in ("motyw", "postać", "postac", "profil"):
         w = w[1:]
     whole = " ".join(w)
     if any(whole.startswith(h) for h in _HOME_WORDS):
@@ -353,12 +354,12 @@ def voice_request(text):
         return ("set", DEFAULT)
     if _LIST.search(low) or re.fullmatch(   # "Włącz motyw." ×3 (24 Oct): which ones there are
             r"(?:włącz|wlacz|przełącz|przelacz)\s+(?:się\s+)?(?:na|motyw\s+na|"
-            r"motyw|postać|postac|charakter(?:\s+na)?)", low):
+            r"motyw|postać|postac|profil|charakter(?:\s+na)?)", low):
         return ("list", None)
     # (24 Oct, Hal on: "Hal, przełącz na inny charakter" — only the model knew)
     if re.fullmatch(r"(?:(?:zmień|zmien|przełącz|przelacz)(?:\s+się)?\s+(?:na\s+)?"
                     r"(?:(?:inn|kolejn|następn|nastepn)\w*\s+)?|(?:inn|kolejn|następn|nastepn)\w*\s+)"
-                    r"(?:motyw|postać|postac|charakter)", low):
+                    r"(?:motyw|postać|postac|profil|charakter)", low):
         keys = list(THEMES)                # the next one, as a tap on the settings row
         return ("set", keys[(keys.index(current()) + 1) % len(keys)])
     m = _SWITCH.match(low)

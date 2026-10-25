@@ -3572,6 +3572,11 @@ class KidsTest(unittest.TestCase):
         self.assertFalse(voicecheck.sounds_like("Już rysuję… chwilka!", "Juš resa"))
         self.assertTrue(voicecheck.sounds_like("Ja nożyce, ty papier — 1 do 0.",
                                                "Ja nożyce, ty papier, 1:0."))
+        # 24–25 Oct: "Pa, pa!" heard as "파 파" / "パパ" — asked again, not a bad take
+        for heard in ("파 파", "パパ。", "سهم", "Σου κάνω τάκλινγκ στάση."):
+            self.assertTrue(voicecheck.foreign_script(heard), heard)
+        for heard in ("Súham", "Słucham!", "Hey, hey.", "", "1:0"):
+            self.assertFalse(voicecheck.foreign_script(heard), heard)
 
     def test_model_drawing_commands_are_allowed(self):
         import brain
@@ -6202,6 +6207,45 @@ class Oct14NightTest(unittest.TestCase):
                 state.overlay = ("ttt", time.time() + 30, {})
             self.assertTrue(commands.close_page("Wyłącz ekran gry", said.append))
         self.assertEqual(said[-2:], ["<stop>", "Dobrze, kończymy grę."])
+        with state.lock:                                # 25 Oct: the people page
+            state.overlay = ("gallery", time.time() + 30, {"items": [], "i": 0})
+        self.assertTrue(commands.close_page("Wyłącz kogo znam.", said.append))
+        with state.lock:
+            self.assertIsNone(state.overlay)
+
+    def test_bare_stop_closes_the_page(self):
+        import ambience
+        import radio
+        import timers
+        said, now = [], time.time()
+        # 25 Oct: radio on, "Następną.", "Dobra, wyłącz." → the radio stopped
+        g = {"items": [{"path": "a"}, {"path": "b"}], "i": 1, "t_open": now - 50,
+             "t_nav": now - 3}
+        with mock.patch.object(radio, "playing", lambda: True), \
+                mock.patch.object(ambience, "playing", lambda: False), \
+                mock.patch.dict(timers._last_rang, {"t": 0.0}):
+            with state.lock:
+                state.overlay = ("gallery", now + 30, g)
+            self.assertTrue(commands.close_page("Wyłącz.", said.append))
+            with state.lock:
+                self.assertIsNone(state.overlay)
+            g["t_nav"] = now - 60                       # left alone a while: the radio's
+            with state.lock:
+                state.overlay = ("gallery", now + 30, g)
+            self.assertFalse(commands.close_page("Wyłącz.", said.append))
+            with state.lock:
+                state.overlay = ("clock", now + 30, None)
+            self.assertFalse(commands.close_page("Stop", said.append))
+        with mock.patch.object(radio, "playing", lambda: False), \
+                mock.patch.object(ambience, "playing", lambda: False), \
+                mock.patch.dict(timers._last_rang, {"t": 0.0}):
+            self.assertFalse(commands.close_page("Cisza", said.append))   # her voice
+            self.assertTrue(commands.close_page("Stop", said.append))     # nothing plays
+            with state.lock:
+                state.overlay = ("card", now + 30, None)                # a game's card
+            self.assertFalse(commands.close_page("Stop", said.append))
+        with state.lock:
+            state.overlay = None
 
     def test_doubled_transcript(self):
         self.assertEqual(commands.undoubled("Pokaż jeszcze raz rysunki, Luna, pokaż jeszcze raz rysunki."),
@@ -8173,6 +8217,11 @@ class ThemesTest(unittest.TestCase):
         self.assertEqual(r("zmień motyw na domyślny"), ("set", "luna"))
         self.assertEqual(r("jakie masz motywy?"), ("list", None))
         self.assertEqual(r("włącz motyw dinozaura"), ("unknown", "dinozaura"))
+        # 19 Oct "włączam motyw HAL 9000" (its old label); "profil" is his word too
+        self.assertEqual(r("Włącz motyw HAL 9000."), ("set", "hal"))
+        self.assertEqual(r("Zmień profil na PIP."), ("set", "pip"))
+        self.assertEqual(r("Włącz profil."), ("list", None))
+        self.assertEqual(r("Jakie masz profile?"), ("list", None))
         for other in ("włącz radio", "włącz retro", "włącz echo", "włącz Mirę", "bądź Ice",
                       "bądź cicho",
                       "zamień się w kotka", "włącz lampkę", "włącz Polskie Radio Chopin"):

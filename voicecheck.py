@@ -43,7 +43,14 @@ def pitch(pcm, sr=PCM_RATE):
 CHECK_MODEL = "gpt-4o-transcribe"   # (the mini one heard Slovak in good Polish too)
 
 
-def transcribe(client, pcm, sr=PCM_RATE):
+def foreign_script(heard):
+    """Heard in another alphabet ("파 파", "パパ" for "Pa, pa!", "سهم" for
+    "Słucham!"): the transcriber lost the language, not the take its words."""
+    letters = [c for c in heard or "" if c.isalpha()]
+    return bool(letters) and not any(c.isascii() or "À" <= c <= "ɏ" for c in letters)
+
+
+def transcribe(client, pcm, sr=PCM_RATE, prompt=None):
     """What a listener hears in this 24 kHz s16 take (Polish)."""
     b = io.BytesIO()
     with wave.open(b, "wb") as w:
@@ -53,7 +60,9 @@ def transcribe(client, pcm, sr=PCM_RATE):
         w.writeframes(pcm)
     b.seek(0)
     b.name = "take.wav"
-    return client.audio.transcriptions.create(model=CHECK_MODEL, file=b, language="pl").text
+    extra = {"prompt": prompt} if prompt else {}
+    return client.audio.transcriptions.create(model=CHECK_MODEL, file=b, language="pl",
+                                              **extra).text
 
 
 def _words(text):

@@ -73,7 +73,7 @@ def show(items, title="", start=0, auto=True, secs=None):
     auto = auto and len(items) > 1
     data = {"items": list(items), "i": start, "title": title, "auto": auto,
             "next": now + STEP, "t_nav": 0.0, "dir": 0, "from": None, "shown": 1,
-            "confirm": 0.0, "toast": None}
+            "confirm": 0.0, "toast": None, "t_open": now}
     until = now + (min(len(items) - start, AUTO_MAX) * STEP + PAUSE if auto else (secs or PAUSE))
     with state.lock:
         state.overlay = ("gallery", until, data)
@@ -87,6 +87,17 @@ def page_open(now=None):
         ov = state.overlay
     return bool(ov and ov[0] in ("gallery", "weather")
                 and (now if now is not None else time.time()) < ov[1])
+
+
+def in_use(secs, now=None):
+    """The gallery is up and was opened or turned in the last `secs`."""
+    now = time.time() if now is None else now
+    with state.lock:
+        ov = state.overlay
+    if not ov or ov[0] != "gallery" or now >= ov[1]:
+        return False
+    g = ov[2]
+    return now - max(g.get("t_open", 0.0), g.get("t_nav", 0.0)) < secs
 
 
 def current():

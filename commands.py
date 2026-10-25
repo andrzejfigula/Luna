@@ -1287,7 +1287,16 @@ _CLOSE_NAMED = re.compile(r"^(?:luna,?\s+)?(?:dobra,?\s+|ok,?\s+|okej,?\s+|już,
                           r"(?:wyłącz|wylacz|zamknij|schowaj|ukryj|zakończ|zakoncz)\s+(?:ten\s+|tę\s+|te\s+)?"
                           r"(?:ekran\s+gry|grę|gre|galerię|galerie|pogodę|pogode|prognozę|prognoze|"
                           r"zegar|zdjęcia|zdjecia|zdjęcie|zdjecie|rysunki|rysunek|listę|liste|"
-                          r"lusterko|lustro|planszę|plansze)(?:\s+(?:proszę|prosze|dzięki|dzieki))?\W*$", re.I)
+                          r"lusterko|lustro|planszę|plansze|"
+                          # 25 Oct: "Wyłącz kogo znam." → the model, "wyłączam", still up
+                          r"kogo\s+znam|kogo\s+znasz|osoby|osób|osob|ludzi|znajomych|twarze)"
+                          r"(?:\s+(?:proszę|prosze|dzięki|dzieki))?\W*$", re.I)
+# a bare "wyłącz" / "stop" closes these pages (not a game's card or board;
+# "cisza", "wystarczy" are about her voice)
+_STOP_PAGE = re.compile(r"^(?:luna,?\s+|luno,?\s+)?(?:stop|zatrzymaj(?:\s+to)?|wyłącz(?:\s+to)?|"
+                        r"wylacz(?:\s+to)?)$", re.I)
+_STOP_CLOSES = ("clock", "clockface", "list", "gallery", "photo", "stars", "mirror",
+                "dice", "coin", "lamp", "weather")
 
 
 # "Pokaż.", "Pokaż jeszcze raz" — what was on the screen a moment ago (14 Oct:
@@ -1320,6 +1329,23 @@ def show_again(text, speak, now=None):
     return True
 
 
+def _stop_means_page(now=None):
+    """A bare "wyłącz" is for the page on the screen: nothing else plays, or the
+    radio does but a gallery was just opened or turned (25 Oct: "Następną.",
+    "Dobra, wyłącz." stopped the radio; the people page stayed)."""
+    import ambience
+    import radio
+    import timers
+    now = time.time() if now is None else now
+    with state.lock:
+        ov = state.overlay
+    if not ov or ov[0] not in _STOP_CLOSES or now >= ov[1]:
+        return False
+    if now - timers._last_rang["t"] < 120:
+        return False                          # "stop" after a timer rang: that one
+    return gallery.in_use(30, now) or not (radio.playing() or ambience.playing())
+
+
 def close_page(text, speak):
     """A page on the screen (clock, list, photos, a card…) closed by voice."""
     if _CLOSE_NAMED.match(text.strip()):
@@ -1338,6 +1364,13 @@ def close_page(text, speak):
             close_after()
             speak("Dobrze.")
             return True
+    if _STOP_PAGE.match(text.lower().strip(" .!?")) and _stop_means_page():
+        with state.lock:
+            ov, state.overlay = state.overlay, None
+        print(f"[cmd] bare stop closed the {ov[0]} page", flush=True)
+        close_after()
+        speak("Dobrze.")
+        return True
     with state.lock:
         ov = state.overlay
         if not ov or ov[0] not in _CLOSABLE or not _CLOSE.match(text.strip()):
