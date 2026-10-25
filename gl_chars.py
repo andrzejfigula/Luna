@@ -911,6 +911,15 @@ vec3 mGlassCol(vec2 p, vec2 q, float dd) {
 // points it owns, so where their boxes overlap nothing is drawn twice
 const vec2 M_GB = vec2(156.0, 82.0);
 
+// the glass's middle in its own box, opaque: with the radio's picture on
+// (drawn after the soft pass) it would show through her face otherwise
+void mGlass(vec2 p, inout vec4 acc) {
+    vec2 q = mLocal(p);
+    vec2 rq = q - M_DC;
+    if (abs(rq.x) >= M_GB.x || abs(rq.y) >= M_GB.y) return;       // (the strips' own)
+    over(acc, mGlassCol(p, q, mDisp(q)) * mix(1.0, uDim, 0.35), 1.0);
+}
+
 void mBodyDraw(vec2 p, inout vec4 acc) {
     vec2 q = mLocal(p);
     vec2 rq = q - M_DC;
@@ -1272,6 +1281,7 @@ void shape(vec2 p, inout vec4 acc) {
              r ? uPupil1 : uPupil0, r ? 1.0 : -1.0, acc);
     } else if (uShape < 2.5) mMouth(p, acc);
     else if (uShape < 3.5) mBodyDraw(p, acc);
+    else if (uShape < 4.5) mGlass(p, acc);
     else if (uShape < 8.5) {}                      // (props: above)
     else if (uShape < 10.5) mEar(p, uShape < 9.5 ? -1.0 : 1.0, acc);   // an ear each
     else mFront(p, acc);
@@ -1959,6 +1969,8 @@ def _boxes(gl, kind, u, ch, props, fcx, fcy, console, acc, marks=(), hands=()):
         add(BODY + 0.1, fcx, (cy + gy + by + 156.0) / 2.0, 282.0, (by + 156.0 - cy - gy) / 2.0)
         add(BODY + 0.2, fcx - (282.0 + gx) / 2.0, cy, (282.0 - gx) / 2.0, gy)
         add(BODY + 0.3, fcx + (282.0 + gx) / 2.0, cy, (282.0 - gx) / 2.0, gy)
+        if u.get("_vis"):                              # the radio's picture: the glass covers it
+            add(BROWS, fcx, cy, gx, gy)
     if kind in _HALO:
         m = _HALO[kind]
         for i in (0, 1):

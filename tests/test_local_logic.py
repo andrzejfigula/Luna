@@ -9046,6 +9046,11 @@ class CharactersTest(unittest.TestCase):
         for sid, (x0, y0, x1, y1) in u["_char_boxes"]:
             self.assertTrue(0 <= x0 < x1 <= 800 and 0 <= y0 < y1 <= 480, sid)
         self.assertEqual(int(u["uMoEye"][0]), 1)                  # happy: ◠
+        self.assertNotIn(4, sids)                                 # the glass's middle: soft pass
+        gl = GL()                                                 # …but the radio's picture is
+        u = dict(u, _vis={"uVisK": (0.0, 1.0)})                   # drawn after it: then its own box
+        gl_chars.apply(gl, self.Face(), u, {"tint": 0.0}, 400.0, 212.0, "mochi", 100.0, 1 / 30)
+        self.assertIn(4, [sid for sid, _ in u["_char_boxes"]])
 
     def test_settings_rows(self):
         import characters
