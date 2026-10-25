@@ -7158,6 +7158,41 @@ class FaceSpecTest(unittest.TestCase):
         finally:
             themes.set_theme("luna")
 
+    def test_hal_blinks_with_a_shutter(self):
+        import themes
+        u = self._settle(self._gl(), self._face("neutral", blink=0.0), 12)
+        self.assertEqual(u["uLens"], 0.0)
+        self.assertGreater(u["uLidA0"][0], 0.4)               # Luna: her lids come down
+        themes.set_theme("hal")
+        try:
+            for mood in ("neutral", "sleeping"):
+                u = self._settle(self._gl(), self._face(mood, blink=0.0), 30)
+                self.assertEqual(u["uLens"], 1.0)
+                self.assertGreater(min(u["uShut"]), 0.9, mood)     # HAL: the shutter shuts
+                self.assertLess(u["uLidA0"][0] + u["uLidA0"][3], 0.1, mood)   # no lids
+                self.assertEqual(u["uLidB0"][1], 0.0)          # nor their seam
+            u = self._settle(self._gl(), self._face("neutral"), 30)
+            self.assertLess(max(u["uShut"]), 0.05)              # open
+        finally:
+            themes.set_theme("luna")
+
+    def test_hals_head_is_a_servo(self):
+        try:
+            import robot_face as rf
+        except ImportError:
+            self.skipTest("pygame")
+        s = rf.Servo(260.0, 2600.0, 5.0)
+        self.assertEqual(s.step(0.0, 3.0, 1 / 30), 0.0)          # a small step: no move
+        x, path = 0.0, []
+        for _ in range(60):
+            x = s.step(x, 80.0, 1 / 30)
+            path.append(x)
+        self.assertEqual(path[-1], 80.0)                          # a dead stop on it…
+        self.assertLessEqual(max(path), 80.0)                     # …no overshoot
+        steps = [b - a for a, b in zip(path, path[1:]) if b != a]
+        self.assertAlmostEqual(max(steps), 260.0 / 30, places=3)  # at its set speed
+        self.assertLess(len(steps) + 1, 15)                       # quick: under half a second
+
     def test_people_coming_and_going(self):
         gl = self._gl()
         face = self._face("neutral")

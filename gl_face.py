@@ -106,6 +106,7 @@ uniform float uMouthColAmt;
 uniform float uWave;          // > 0: the wavy mouth is a voice wave this tall (HAL)
 uniform vec3  uWaveBands;     // …made of her voice's low / mid / high share (long, short, fine waves)
 uniform float uLens;          // 1: the eyes are HAL's camera lenses, not her glossy ones
+uniform vec2  uShut;          // …and their shutters, closed 0..1 (his blink)
 
 float gA;                     // the coverage of the shape just drawn (stage 2)
 
@@ -316,7 +317,7 @@ vec3 drawIris(vec2 q, vec3 c, vec4 pu) {
 
 // HAL's eye: black glass in a thin steel rim, a fisheye lens inside it and,
 // deep in the lens, a red light with a hot core that follows the gaze
-vec3 lensColour(vec2 q, vec2 b, vec4 pu) {
+vec3 lensColour(vec2 q, vec2 b, vec4 pu, float sh) {
     vec2 n = q / b;                                     // the eye's unit disc
     float r = length(n);
     vec3 red = mix(uGlow, uTint, uTintAmt);
@@ -341,6 +342,29 @@ vec3 lensColour(vec2 q, vec2 b, vec4 pu) {
     // a lens coating's tint, low on the right
     float ca = exp(-sq((length(lq - vec2(-0.10, -0.10)) - 0.93) / 0.05)) * smoothstep(0.0, 0.6, lq.x + lq.y);
     inner += vec3(0.22, 0.10, 0.40) * 0.35 * ca;
+    if (sh > 0.002) {                    // the shutter: seven blades, turning as they close
+        float px = 1.0 / min(b.x, b.y);
+        float ap = L * 1.02 * (1.0 - sh);           // the opening's apothem
+        float hs = ap * 0.4816;                     // half its side (tan(pi / 7))
+        float rot = 0.3 + 1.1 * sh;
+        float hm = -1e5, lit_ = 0.0, ln = 0.0;
+        for (int k = 0; k < 7; k++) {
+            float th = rot + float(k) * 0.8976;
+            vec2 nk = vec2(cos(th), sin(th));
+            float h = dot(n, nk) - ap;
+            if (h > hm) { hm = h; lit_ = dot(nk, vec2(-0.35, -0.94)); }
+            // a blade's edge: its side of the opening, running on past the corner
+            ln = max(ln, smoothstep(1.4 * px, 0.3 * px, abs(h))
+                         * step(hs, dot(n, vec2(-nk.y, nk.x))));
+        }
+        vec3 blade = vec3(0.055, 0.055, 0.062) * (1.0 + 0.55 * lit_)
+                   * (0.8 + 0.2 * smoothstep(L, 0.0, length(n)))
+                   + red * 0.16 * exp(-max(hm, 0.0) / 0.10) * (1.0 - 0.8 * sh);
+        blade = mix(blade, vec3(0.012), ln * 0.85);
+        blade += vec3(0.10) * smoothstep(2.2 * px, 1.2 * px, abs(hm - 1.6 * px)) * (1.0 - ln);
+        blade += red * 0.5 * smoothstep(1.5 * px, 0.0, hm) * (1.0 - sh);   // its lit rim
+        inner = mix(inner, blade, smoothstep(-0.7 * px, 0.7 * px, hm));
+    }
     float li = smoothstep(1.0, 0.97, sqrt(s2));
     col = mix(col, inner, li);
     // the barrel's edge round the lens, lit from the core below it
@@ -395,7 +419,7 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
     if (a <= 0.0 && as_ <= 0.0) return col;
     vec3 c;
     if (uLens > 0.5) {
-        c = lensColour(q, b, pu);
+        c = lensColour(q, b, pu, side < 0.0 ? uShut.x : uShut.y);
     } else {
         c = eyeColour(q, b, d, pu.xy, la, side);
         // its volume: a bevel round the edge (lids too), a dome over the middle
@@ -1671,18 +1695,21 @@ class GLFace:
         if look:                                  # a costume's own eyes (googly, robot…)
             u.update(look)
         conv = getattr(face, "_pupil_converge", 0.0)
+        lens = u.get("uLens", 0.0) > 0.5          # HAL's camera lenses
+        shutters = []
         brows = []
         asleep = emo == "sleeping"
         for i, (eye, side) in enumerate(((face.left_eye, -1), (face.right_eye, 1))):
             cx, cy = fcx + eye.rel_x, fcy + eye.rel_y + cur["eye_dy"]
-            if asleep:                            # the shut eyes rise and fall with her breath
+            if asleep and not lens:               # the shut eyes rise and fall with her breath
                 cy += 3.0 * breath
             w = min(float(eye.w), rf.EYE_SPREAD * 2 - 44)
             h = eye.h * (1.0 + 0.15 * eye.widen)
-            w, h = w * (1.0 + 0.008 * breath), h * (1.0 + 0.008 * breath)   # breathing
+            if not lens:                          # (glass doesn't breathe)
+                w, h = w * (1.0 + 0.008 * breath), h * (1.0 + 0.008 * breath)
             w, h = w * (1.0 + pop), h * (1.0 + pop)                        # a new mood: pop
             w, h = w * (1.0 + 0.05 * aha), h * (1.0 + 0.07 * aha)          # aha: wide
-            if life.boing[1] == i and 0.0 <= now - life.boing[0] < 0.7:    # tapped: boing
+            if life.boing[1] == i and 0.0 <= now - life.boing[0] < 0.7 and not lens:   # boing
                 el = now - life.boing[0]
                 sb = math.exp(-el * 7.0) * math.sin(el * 30.0)
                 w, h = w * (1.0 + 0.10 * sb), h * (1.0 - 0.16 * sb)
@@ -1691,8 +1718,9 @@ class GLFace:
                 w, h = w * (1.0 + beat), h * (1.0 + beat)
             stretch = 0.06 * abs(math.sin(getattr(face, "bounce_phase", 0.0))) * min(
                 1.0, getattr(face, "bounce_amp", 0.0) / 22.0)
-            w, h = w * (1.0 - 0.5 * stretch), h * (1.0 + stretch)          # squash & stretch
-            if getattr(face, "wake_anim", 0):     # waking: a big stretch
+            if not lens:
+                w, h = w * (1.0 - 0.5 * stretch), h * (1.0 + stretch)      # squash & stretch
+            if getattr(face, "wake_anim", 0) and not lens:   # waking: a big stretch
                 wk = 0.10 * math.sin(math.pi * max(0.0, min(1.0, getattr(face, "wake_ripple", 1.0))))
                 w, h = w * (1.0 - 0.4 * wk), h * (1.0 + wk)
             if googly or theme.get("circle"):
@@ -1747,6 +1775,11 @@ class GLFace:
                 shut, life.shut_prev = 0.5 * (shut + life.shut_prev), life.shut_prev
             else:
                 life.shut_prev = shut
+            if lens:                              # HAL blinks with a shutter; lids that
+                lk = max(0.0, min(1.0, (top + bot - 0.5) / 0.3))     # (nearly) shut close it
+                shutters.append(max(shut, lk))    # and draw back
+                top, bot, bend, bbend, tilt = (v * (1.0 - lk) for v in (top, bot, bend, bbend, tilt))
+                shut = 0.0
             ey += 4.0 * shut                      # a blink squashes the eye down a little
             h *= 1.0 - 0.04 * shut
             open_ = max(0.0, 1.0 - top - bot)
@@ -1756,7 +1789,7 @@ class GLFace:
             tilt *= 1.0 - shut
             # shut (or nearly): the glowing seam where the lids meet
             gap = max(1.0 - top - bot, 1.0 - top - bot + bend - bbend) * h
-            seam = max(0.0, min(1.0, 1.0 - gap / 14.0))
+            seam = max(0.0, min(1.0, 1.0 - gap / 14.0)) if not lens else 0.0
             u[f"uEye{i}"] = (ex, ey, w, h)
             u[f"uLidA{i}"] = (top, tilt, bend, bot)
             u[f"uLidB{i}"] = (bbend, seam, math.radians(cur["rot"][i]), cur["eye_n"])
@@ -1839,6 +1872,7 @@ class GLFace:
             else:
                 brows.append((ex - bw / 2, by + t, ex + bw / 2, by - t))
         u["uBrow0"], u["uBrow1"] = brows
+        u["uShut"] = tuple(shutters) if lens else (0.0, 0.0)
         u["uBrowK"] = (cur["brow_bend"], cur["brow_bend"],
                        21.0 + 6.0 * cur["tint"] - 7.0 * max(0.0, 1.0 - cur["brow_a"]),
                        cur["brow_a"])

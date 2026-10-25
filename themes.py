@@ -71,6 +71,7 @@ THEMES = {
         "spec": {"round": 1.0, "heart": 0.0, "star": 0.0, "pupil": (1.6, 1.6),
                  "brow_a": 0.0, "blush": 0.0},
         "circle": True,
+        "motion": "servo",               # his head moves like a machine's (robot_face.Servo)
         # no lips: a thin red line that turns into his voice's wave as he speaks
         "mouth": {"wave": 210.0},
         # a computer has no hands: glyphs like a display's instead (an hourglass

@@ -199,6 +199,30 @@ def ease(a, b, t):
     """lerp(a, b, t) once per tuned frame: the same speed at any frame rate."""
     return a + (b - a) * (t if _K == 1.0 else 1.0 - (1.0 - t) ** _K)
 
+class Servo:
+    """A theme's "servo" head (HAL): still until the target is a step away,
+    then a quick move at a set speed, braking to a dead stop on it."""
+
+    def __init__(self, speed, accel, dead):
+        self.speed, self.accel, self.dead = speed, accel, dead
+        self.v, self.moving = 0.0, False
+
+    def step(self, cur, tgt, dt, fast=False):
+        err = tgt - cur
+        if not self.moving:
+            if abs(err) < self.dead:
+                return cur
+            self.moving = True
+        speed = self.speed * (2.0 if fast else 1.0)
+        want = math.copysign(min(speed, math.sqrt(2.0 * self.accel * abs(err))), err)
+        dv = self.accel * dt
+        self.v = max(self.v - dv, min(self.v + dv, want))
+        nxt = cur + self.v * dt
+        if (tgt - nxt) * err <= 0.0 or abs(tgt - nxt) < 0.25:
+            nxt, self.v, self.moving = tgt, 0.0, False
+        return nxt
+
+
 def clamp(v, lo, hi):
     return max(lo, min(hi, v))
 
@@ -2826,12 +2850,24 @@ class RobotFace:
             self.target_oy   += 8.0 * k
             self.target_tilt += 5.0 * k * self._touch_pull
 
-        self.face_ox = ease(self.face_ox, self.target_ox, 0.30 if head_fast else 0.12)
-        self.face_oy = ease(self.face_oy,
-                            self.target_oy + breath_y + bounce_y,
-                            0.30 if head_fast else 0.16)
-        self.head_angle = ease(self.head_angle, self.target_tilt,
-                               0.35 if head_fast or self._gesture == "wave" else 0.07)
+        if themes.get().get("motion") == "servo":    # HAL: moved by motors, no breath
+            if not getattr(self, "_servos", None):
+                self._servos = (Servo(260.0, 2600.0, 5.0), Servo(220.0, 2600.0, 4.0),
+                                Servo(45.0, 500.0, 1.2))
+            sx, sy, st = self._servos
+            sdt = _K / self.anim_fps
+            fast = head_fast or self._gesture == "wave"
+            self.face_ox = sx.step(self.face_ox, self.target_ox, sdt, fast)
+            self.face_oy = sy.step(self.face_oy, self.target_oy + bounce_y, sdt, fast)
+            self.head_angle = st.step(self.head_angle, self.target_tilt, sdt, fast)
+        else:
+            self._servos = None
+            self.face_ox = ease(self.face_ox, self.target_ox, 0.30 if head_fast else 0.12)
+            self.face_oy = ease(self.face_oy,
+                                self.target_oy + breath_y + bounce_y,
+                                0.30 if head_fast else 0.16)
+            self.head_angle = ease(self.head_angle, self.target_tilt,
+                                   0.35 if head_fast or self._gesture == "wave" else 0.07)
 
         # ── update eye/mouth ──────────────────────────────────────────────
         angry     = emotion == "angry"
