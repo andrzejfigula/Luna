@@ -21,6 +21,7 @@ import random
 import time
 
 import characters
+import dock
 import gl_face
 import mochi_rig
 
@@ -71,7 +72,7 @@ uniform vec4  uMoEar;   // MOCHI (mochi_rig.py): the ears' lean L, R (rad), thei
 uniform vec4  uMoEye;   // …the eyes' glyphs: kind, amount (left), kind, amount (right)
 uniform vec4  uMoFace;  // …the eyes' scale L, R (in apply), starry, her cheeks' blush
 uniform vec4  uMoMouth; // …her own mouth: kind, amount, half width
-uniform vec4  uMoPaw;   // …the paws' sizes L, R, their arms L, R
+uniform vec4  uMoPaw;   // …the paws' sizes L, R
 uniform vec4  uMoBody;  // …squash, the pods' light, puffed cheeks
 
 """ + _cut("float sdRoundBox", "// ── the light") + _cut("// ── the light", "// the outward") \
@@ -1165,10 +1166,9 @@ void mMouth(vec2 p, inout vec4 acc) {
 }
 
 // a plush paw, unit size (y down): a round mitt with four toes round its top
-// (curled: their knuckles; scissors: two round toes up); arm: a raised paw's
-// plump arm going down behind it. Its outline only (the normals need it
-// three times); the pads and seams in pawMarks, once
-float pawSDF(vec2 q, float pose, float arm) {
+// (curled: their knuckles; scissors: two round toes up) — a paw, no arm.
+// Its outline only; the pads and seams in pawMarks
+float pawSDF(vec2 q, float pose) {
     float d;
     if (pose < 1.5) {
         d = ellD(q - vec2(0.0, 0.05), vec2(0.46, 0.41));
@@ -1185,7 +1185,6 @@ float pawSDF(vec2 q, float pose, float arm) {
         d = smin(d, min(sdSeg(q, vec2(-0.14, -0.24), vec2(-0.14, -0.46)),
                         sdSeg(q, vec2(0.14, -0.24), vec2(0.14, -0.46))) - 0.12, 0.06);
     }
-    if (arm > 0.01) d = smin(d, sdSeg(q, vec2(0.0, 0.3), vec2(0.0, 1.0)) - 0.26, 0.10);
     return d;
 }
 
@@ -1216,22 +1215,19 @@ void mHand(vec2 p, inout vec4 acc) {
     float pose = floor(h.w + 0.001);
     float al = clamp(fract(h.w + 0.001) / 0.98, 0.0, 1.0);
     float s = right ? uMoPaw.y : uMoPaw.x;
-    float arm = right ? uMoPaw.w : uMoPaw.z;
     if (al <= 0.0 || s <= 1.0) return;
     vec2 q = rot2(p - h.xy - vec2(0.0, 0.40 * s), -h.z) / s + vec2(0.0, 0.40);   // turned at the wrist
     if (!right) q.x = -q.x;
-    if (length(q) > 0.56 + 16.0 / s && (arm < 0.01 || abs(q.x) > 0.3 + 4.0 / s || q.y < 0.0)) return;
-    float d = pawSDF(q, pose, arm) * s;
-    al *= arm > 0.01 ? mix(1.0, smoothstep(1.0, 0.5, q.y), arm) : 1.0;     // the arm fades out
+    if (length(q) > 0.56 + 16.0 / s) return;
+    float d = pawSDF(q, pose) * s;
     // its soft shade on what's behind (a paw resting: on the floor too)
     float sd = ellD(q - vec2(0.03, 0.08), vec2(0.48, 0.44)) * s;
-    over(acc, vec3(0.0), 0.32 * exp(-max(sd, 0.0) / 6.0) * al * step(q.y, 0.75));
+    over(acc, vec3(0.0), 0.32 * exp(-max(sd, 0.0) / 6.0) * al);
     float a = cover(d + (d > -4.0 ? fuzz(q * s) : 0.0)) * al;
     if (a <= 0.0) return;
-    // its outward direction: the mitt's ellipse, the arm's cylinder (the exact
-    // one — the outline twice more, every pose's branch — cost the Pi 2 ms)
-    vec2 g = normalize(q.y > 0.42 && arm > 0.01 ? vec2(q.x, 0.0) + 1e-4
-                                                 : (q - vec2(0.0, 0.04)) / vec2(0.21, 0.17));
+    // its outward direction: the mitt's ellipse (the exact one — the outline
+    // twice more, every pose's branch — cost the Pi 2 ms)
+    vec2 g = normalize((q - vec2(0.0, 0.04)) / vec2(0.21, 0.17));
     if (!right) g.x = -g.x;
     g = rot2(g, h.z);
     vec3 c = plush(mix(uPal0, uPal1, clamp(0.12 + 0.4 * q.y, 0.0, 0.6)), g, d, 0.22 * s,
@@ -1888,7 +1884,8 @@ def _mochi(face, u, life, ch, fcx, fcy, now, dt):
         rig = life.rig = mochi_rig.MochiRig(now)
     closed = (u.get("uLidB0", (0.0, 0.0))[1], u.get("uLidB1", (0.0, 0.0))[1])
     r = rig.step(face, ch, now, dt, characters.fx_level(now), closed,
-                 (fcx + ch["body_x"], fcy + ch["body_y"]), set(life.active))
+                 (fcx + ch["body_x"], fcy + ch["body_y"]), set(life.active),
+                 dock.CY - 30.0 - fcy - ch["body_y"] - 2.0)     # (the dock's pill, its float)
     life.mochi = r
     gx, gy = r["gaze"]
     for i in (0, 1):
@@ -1898,14 +1895,14 @@ def _mochi(face, u, life, ch, fcx, fcy, now, dt):
         u[f"uEye{i}"] = (ex + dx * 0.45 + gx, ey + dy * 0.35 + gy, w * s, h * s)
     ch["body_rot"] += r["tilt"]
     hands = []
-    for i, (x, y, turn, pose, size, arm) in enumerate(r["paws"]):
+    for x, y, turn, pose, size in r["paws"]:
         hands.append((fcx + x, fcy + y, turn, pose + 0.98))
-    (_, _, _, _, s0, a0), (_, _, _, _, s1, a1) = r["paws"]
+    (_, _, _, _, s0), (_, _, _, _, s1) = r["paws"]
     return {"hands": hands, "u": {
         "uMoEar": tuple(r["ears"]), "uMoEye": r["eyes"],
         "uMoFace": (r["scale"][0], r["scale"][1], r["sparkle"], r["blush"]),
         "uMoMouth": (float(r["mouth"][0]), r["mouth"][1], r["mouth"][2], 0.0),
-        "uMoPaw": (s0, s1, a0, a1), "uMoBody": (r["squash"], r["pods"], r["puff"], 0.0)}}
+        "uMoPaw": (s0, s1, 0.0, 0.0), "uMoBody": (r["squash"], r["pods"], r["puff"], 0.0)}}
 
 
 def _box(gl, x0, y0, x1, y1, tilt):
@@ -1992,11 +1989,11 @@ def _boxes(gl, kind, u, ch, props, fcx, fcy, console, acc, marks=(), hands=()):
     if kind == "pip":                                  # the hands, in front of it all
         for i, h in enumerate(hands):
             add(HAND + i, h[0], h[1], 124.0, 124.0)
-    if kind == "mochi":                                # her paws (an arm: reaching down)
+    if kind == "mochi":                                # her paws
         sz = u["uMoPaw"]
         for i, h in enumerate(hands):                  # its own frame's box, turned at the wrist
-            s, arm, t = sz[i], sz[2 + i], h[2]
-            hx_, y0, y1 = 0.54 * s + 14.0, -0.52 * s - 6.0, max(0.6 * s + 14.0, arm * s)
+            s, t = sz[i], h[2]
+            hx_, y0, y1 = 0.54 * s + 14.0, -0.52 * s - 6.0, 0.6 * s + 14.0
             c, sn = math.cos(t), math.sin(t)
             xs, ys = [], []
             for lx, ly in ((-hx_, y0), (hx_, y0), (-hx_, y1), (hx_, y1)):

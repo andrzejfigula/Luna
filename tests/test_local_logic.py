@@ -4249,7 +4249,7 @@ class KidsTest(unittest.TestCase):
         self.assertGreater(lit, 95)
         self.assertEqual(moon.next_full(datetime(2026, 10, 8)).date(), datetime(2026, 10, 26).date())
         self.assertIsNone(moon.answer("Lubię księżyc"))
-        self.assertIn("pełnia", moon.answer("Kiedy pełnia?"))
+        self.assertIn("pełnia", moon.answer("Kiedy pełnia?").lower())     # ("Pełnia jest właśnie teraz" on the day)
 
     def test_on_this_day(self):
         import commands
@@ -8860,24 +8860,60 @@ class CharactersTest(unittest.TestCase):
         self.assertAlmostEqual(r["paws"][1][0], hx, delta=1.0)
         self.assertAlmostEqual(r["paws"][1][1], hy, delta=1.0)
         self.assertEqual(r["paws"][1][3], 1)                      # thumb up: an open paw
-        self.assertEqual(r["paws"][1][5], 1.0)                    # …on its arm
+        self.assertEqual(len(r["paws"][1]), 5)                    # (a paw, no arm)
         face.hand_pose["R"] = "fist"
         r, t = self.rig_run(rig, face, {}, t, 0.1)
         self.assertEqual(r["paws"][1][3], 4)
         face.hand["R"] = [320.0, 420.0, 0.0]                     # tucked away again
         r, t = self.rig_run(rig, face, {}, t, 1.5)
         self.assertAlmostEqual(r["paws"][1][1], y, delta=1.0)
-        face._gesture = "heart"                                  # paws to her cheeks
-        face.hand = {"L": [-96.0, 178.0, 30.0], "R": [96.0, 178.0, -30.0]}
+        face._emotion = "excited"                                # both paws up
         ys = []
         for _ in range(45):
             r, t = self.rig_run(rig, face, {}, t, 1 / 30)
             ys.append(r["paws"][1][1])
         self.assertGreater(max(ys[:5]), y + 4.0)                 # a dip first…
+        self.assertAlmostEqual(ys[-1], mr.PAWS["up"][1], delta=3.0)   # …then up
+        face._emotion = "neutral"
+        face._gesture = "heart"                                  # paws to her cheeks
+        face.hand = {"L": [-96.0, 178.0, 30.0], "R": [96.0, 178.0, -30.0]}
+        r, t = self.rig_run(rig, face, {}, t, 1.5)
         cx, cy = mr.PAWS["cheeks"][:2]
-        self.assertAlmostEqual(r["paws"][1][0], cx, delta=3.0)   # …then up, not Luna's heart
+        self.assertAlmostEqual(r["paws"][1][0], cx, delta=3.0)   # not Luna's heart
         self.assertAlmostEqual(r["paws"][1][1], cy, delta=3.0)
         self.assertEqual(r["look"], "affection")
+
+    def test_mochi_paws_clear_the_dock(self):
+        """No paw goes below the dock's icons, wherever her head is (it
+        tracks faces, wanders, looks down) and whatever the look (sad: low);
+        resting with her head where it is most of the time, they sit clear
+        of it anyway."""
+        import dock
+        import gl_chars
+        import gl_face
+        import mochi_rig as mr
+
+        class GL:
+            w, h = 800, 480
+            _box = gl_face.GLFace._box
+            char_life = None
+        x, y, _, s = mr.PAWS["rest"]
+        self.assertLessEqual(212.0 + y + mr.PAW_BOTTOM * s, dock.CY - 30.0)
+        for emo in ("neutral", "sad", "surprised"):
+            for fcy in (152.0, 212.0, 272.0):                    # her head up, at rest, down
+                gl, face = GL(), self.Face(emo)
+                for i in range(45):
+                    u = {"uEye0": (242.0, 182.0, 232.0, 172.0), "uEye1": (558.0, 182.0, 232.0, 172.0),
+                         "uPupil0": (0.0, 0.0, 0.0, 1.0), "uPupil1": (0.0, 0.0, 0.0, 1.0),
+                         "uBrow0": (165.0, 70.0, 318.0, 70.0), "uBrow1": (481.0, 70.0, 634.0, 70.0),
+                         "uBrowK": (6.0, 6.0, 21.0, 1.0), "uMouth": (400.0, 332.0, 160.0, 17.0),
+                         "uMouthK": (14.0, 0.0, 1.0, 0.0), "uMouthSlant": 0.0, "uWave": 0.0,
+                         "uMorph": (0.0, 0.0, 0.0, 0.0), "uTilt": 0.0,
+                         "uBlush": (400.0, fcy, 0.0, 30.0)}
+                    gl_chars.apply(gl, face, u, {"tint": 0.0}, 400.0, fcy, "mochi", 100.0 + i / 30, 1 / 30)
+                    for hand, size in ((u["uHand0"], u["uMoPaw"][0]), (u["uHand1"], u["uMoPaw"][1])):
+                        self.assertLessEqual(hand[1] + mr.PAW_BOTTOM * size, dock.CY - 30.0 + 0.01,
+                                             (emo, fcy, i))
 
     def test_mochi_glyphs_cross_fade(self):
         """A smile's ◠ eyes glide in and, after a while, out (she doesn't talk

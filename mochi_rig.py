@@ -29,15 +29,16 @@ MOUTHS = {None: 0, "smile": 1, "open": 2, "o": 3, "pout": 4, "tongue": 5,
           "flat": 6, "frown": 7, "tiny": 8}
 
 # where the right paw goes (x, y from the face's centre, turn in rad: +
-# its top leans out; size px); the left one mirrored. "arm": how much of
-# the arm shows (a raised paw has one, a paw sitting in front doesn't)
+# its top leans out; size px); the left one mirrored. Paws only, no arms
+# (an arm sliding up from the screen's edge looked wrong)
 PAWS = {
-    "rest": (156.0, 192.0, 0.16, 106.0, 0.0),     # (above the dock's icons)
-    "low": (70.0, 200.0, -0.10, 104.0, 0.0),
-    "cheeks": (126.0, 150.0, -0.36, 112.0, 1.0),
-    "up": (236.0, 118.0, 0.30, 114.0, 0.8),
-    "startle": (186.0, 176.0, 0.08, 112.0, 0.6),
+    "rest": (164.0, 156.0, 0.16, 102.0),
+    "low": (80.0, 160.0, -0.10, 100.0),
+    "cheeks": (126.0, 150.0, -0.36, 110.0),
+    "up": (236.0, 112.0, 0.30, 112.0),
+    "startle": (188.0, 132.0, 0.08, 108.0),
 }
+PAW_BOTTOM = 0.47       # a paw's lowest point below its centre (× its size)
 
 # robot_face's hand poses → the paw's: 1 open (pads to you), 4 curled (the
 # back of the paw, toes tucked), 6 two round toes up (scissors). A thumb,
@@ -202,7 +203,7 @@ class MochiRig:
         self.squash = _Spring(0.0)
         self.paw = {}
         for s in (-1.0, 1.0):
-            x, y, turn, size, arm = PAWS["rest"]
+            x, y, turn, size = PAWS["rest"]
             self.paw[s] = {"x": _Spring(s * x), "y": _Spring(y), "turn": _Spring(s * turn),
                            "place": "rest", "dip": -9.0, "from_y": y}
         self.eye = [_Fade(), _Fade()]
@@ -242,9 +243,10 @@ class MochiRig:
         zeta = 1.0 - 0.58 * lvl                       # loose, a little overshoot
         return [sp.step(t, 110.0, zeta, dt) for sp, t in zip(self.ears, tgt)]
 
-    def _paws(self, L, face, now, dt, lvl):
+    def _paws(self, L, face, now, dt, lvl, floor):
         """Two paws: the look's place on a spring, robot_face's hand over it
-        as it rises. → [(x, y, turn, pose, size, arm)] left, right."""
+        as it rises; never below `floor` (the dock's icons). → [(x, y,
+        turn, pose, size)] left, right."""
         hands = getattr(face, "hand", None) or {}
         poses = getattr(face, "hand_pose", None) or {}
         place = L.get("paws", "rest")
@@ -252,7 +254,7 @@ class MochiRig:
         out = []
         for s, side in ((-1.0, "L"), (1.0, "R")):
             p = self.paw[s]
-            x, y, turn, size, arm = PAWS[place]
+            x, y, turn, size = PAWS[place]
             if place != p["place"]:
                 if y < p["y"].x - 30.0:               # rising: a little dip first
                     p["dip"], p["from_y"] = now, p["y"].x
@@ -272,17 +274,19 @@ class MochiRig:
                 hx, hy = hand_at(h[0], h[1])
                 ox, oy = ox + (hx - ox) * k, oy + (hy - oy) * k
                 ot += (-math.radians(h[2]) - ot) * k  # (its angle: the other way round)
-                size += (118.0 - size) * k
-                arm = max(arm, k)
+                size += (114.0 - size) * k
                 if k > 0.5:
                     pose = POSES.get(poses.get(side), 1)
-            out.append((ox, oy, ot, pose, size, arm))
+            oy = min(oy, floor - PAW_BOTTOM * size)
+            out.append((ox, oy, ot, pose, size))
         return out
 
-    def step(self, face, ch, now, dt, lvl=1.0, closed=(0.0, 0.0), head=(0.0, 0.0), gestures=()):
+    def step(self, face, ch, now, dt, lvl=1.0, closed=(0.0, 0.0), head=(0.0, 0.0), gestures=(),
+             floor=1e9):
         """This frame's parts. ch: CharLife's channels; closed: how shut each
         eye's lids are (a wink); head: where the head is (px); gestures:
-        CharLife's running."""
+        CharLife's running; floor: no paw lower than this (from the face's
+        centre: the dock's icons wherever her head is)."""
         dt = max(0.0, min(dt, 0.25))
         look = pick(face, ch, gestures)
         if look != self.look:
@@ -291,7 +295,7 @@ class MochiRig:
         el = now - self.look_t
         talking = bool(getattr(face, "_speaking", False))
         ears = self._ears(L, ch, dt, lvl, head)
-        paws = self._paws(L, face, now, dt, lvl)
+        paws = self._paws(L, face, now, dt, lvl, floor)
         tilt = self.tilt.step(L.get("tilt", 0.0) * max(0.3, lvl), 60.0, 0.9, dt)
         # plush: pressed down as the head drops, stretched as it rises, a jiggle after
         squash = self.squash.step(max(-0.025, min(0.035, self.hv[1] * 0.0003 * lvl)), 160.0,
