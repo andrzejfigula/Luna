@@ -1366,9 +1366,23 @@ def switch_theme(text, speak):
     return True
 
 
+def _without_name(text):
+    """The character's name in front, gone: in a conversation it stays in the
+    text (brain answers when her name was said), and the commands here only
+    know "Luna," (25 Oct: "Moki, pokaż łapki", "Hal, pomachaj" — to the model)."""
+    import themes
+    names = sorted(themes.name_words() - {"luna", "luno"}, key=len, reverse=True)
+    if not names:
+        return text
+    m = re.match(r"^\s*(?:hej\s+)?(?:" + "|".join(map(re.escape, names)) + r")\s*[,!:]\s*(\S.*)$",
+                 text, re.I)
+    return m.group(1)[:1].upper() + m.group(1)[1:] if m else text
+
+
 def handle(text, speak, play_sound, _polite=True, _split=True):
     """Handle a local command. Returns True when the utterance was one (and
     must not go to the model)."""
+    text = _without_name(text)
     if close_page(text, speak):
         return True
     if show_again(text, speak):

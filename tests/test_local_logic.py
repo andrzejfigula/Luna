@@ -763,6 +763,24 @@ class TimersTest(unittest.TestCase):
             with state.lock:
                 self.assertEqual(state.gesture_anim, name, text)
         self.assertFalse(fun.gesture("Pomachaj babci, jak przyjdzie jutro", said.append))
+        # her own drawn hands, not a Wikipedia photo of a paw (25 Oct)
+        self.assertTrue(fun.gesture("Pokaż łapki.", said.append))
+        self.assertEqual(said[-1], "Oto moje łapki!")
+        with state.lock:
+            self.assertEqual(state.reply_scene, "wave_both")
+        self.assertTrue(fun.gesture("Pokaż swoją rękę", said.append))
+        self.assertEqual(said[-1], "Oto moja ręka!")
+        self.assertFalse(fun.gesture("Pokaż łapy niedźwiedzia", said.append))
+        import themes
+        themes.set_theme("mochi")
+        try:
+            self.assertEqual(commands._without_name("Moki, pokaż łapki."), "Pokaż łapki.")
+            self.assertEqual(commands._without_name("Hej Moki! Pomachaj"), "Pomachaj")
+            self.assertEqual(commands._without_name("Mokie, pokaż"), "Mokie, pokaż")
+            self.assertEqual(commands._without_name("Moki."), "Moki.")
+        finally:
+            themes.set_theme("luna")
+        self.assertEqual(commands._without_name("Moki, pokaż łapki."), "Moki, pokaż łapki.")
         for t in ("Pokaż prognozę", "Pokaż kciuk", "Pokaż kalendarz", "Pokaż buzię"):
             self.assertFalse(drawing.bare_show(t, lambda *a, **k: None), t)
         self.assertTrue(drawing._BARE_SHOW.match("Pokaż planety"))

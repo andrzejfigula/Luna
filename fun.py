@@ -78,6 +78,13 @@ _GESTURES = [
      ("Dla ciebie!", "Kocham was!")),
 ]
 
+# "Pokaż łapki", "pokaż swoje ręce" — her own drawn ones (25 Oct: Mochi and Pip
+# showed a Wikipedia photo of a paw and of a hand instead)
+_SHOW_HANDS = re.compile(r"^(?:pokaż|pokaz)\s+(?:mi\s+|nam\s+)?(?:swoj[eą]\s+|twoj[eą]\s+)?"
+                         r"(łapki|łapy|łapkę|łapę|rączki|rączkę|ręce|rękę|dłonie|dłoń)"
+                         r"(?:\s+(?:proszę|jeszcze\s+raz))?$")
+_ONE_HAND = {"łapkę": "łapka", "łapę": "łapa", "rączkę": "rączka", "rękę": "ręka", "dłoń": "dłoń"}
+
 
 # "Jak robi krowa?", "zamiaucz", "ryknij jak lew" — said at once (14 Oct probe:
 # all to the model). stem → (the sound, the costume she puts on with it)
@@ -206,6 +213,17 @@ def gesture(text, speak):
             print(f"[fun] gesture: {name}", flush=True)
             speak(random.choice(lines))
             return True
+    m = _SHOW_HANDS.match(low)
+    if m:
+        noun, one = m.group(1), _ONE_HAND.get(m.group(1))
+        with state.lock:
+            if one:
+                state.gesture_anim, state.gesture_anim_start = "wave", time.time()
+            else:                                  # both hands up (reply_scenes)
+                state.reply_scene, state.reply_scene_start = "wave_both", time.time()
+        print(f"[fun] gesture: show {noun}", flush=True)
+        speak(f"Oto moja {one}!" if one else f"Oto moje {noun}!")
+        return True
     return False
 
 

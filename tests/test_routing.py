@@ -58,6 +58,8 @@ LOCAL = {
     "Open settings": "screen",
     "Włącz lampkę": "fun",
     "Przybij piątkę!": "fun",
+    "Pokaż łapki": "handled-but-unknown",            # a gesture (25 Oct: a Wikipedia paw)
+    "Pokaż swoje ręce": "handled-but-unknown",
     "Rzuć kostką": "fun",
     "Rzuć dwiema kostkami": "fun",
     "Czy możesz rzucić kostką?": "fun",
