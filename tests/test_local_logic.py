@@ -8771,11 +8771,28 @@ class CharactersTest(unittest.TestCase):
             import robot_face as rf
         except ImportError:
             self.skipTest("pygame")
+        import reply_scenes
         import themes
         themes.set_theme("mochi")
         self.assertTrue(rf.own_states())
+        # Luna's amber props: Mochi's pink instead; no thought bubbles, no lashes
+        self.assertEqual(reply_scenes._ink(rf.EYE_MID), themes.THEMES["mochi"]["look"]["accent"][1])
+        self.assertEqual(reply_scenes._ink(rf.TEAR_COL), rf.TEAR_COL)
+        drawn = []
+        rf._ring, real = (lambda *a, **k: drawn.append(a)), rf._ring
+        try:
+            for kind in ("mochi", "pip", "retro", "pixel"):
+                themes.set_theme(kind)
+                reply_scenes.SCENES["think_bubble"].draw(None, None, 400, 240, 0.5)
+            self.assertEqual(drawn, [])
+            themes.set_theme("luna")
+            reply_scenes.SCENES["think_bubble"].draw(None, None, 400, 240, 0.5)
+            self.assertEqual(len(drawn), 3)
+        finally:
+            rf._ring = real
         themes.set_theme("luna")
         self.assertFalse(rf.own_states())
+        self.assertEqual(reply_scenes._ink(rf.EYE_MID), rf.EYE_MID)
 
     def test_hands_in_each_characters_style(self):
         """Her hands drawn by the character (not Luna's hands, not HAL's

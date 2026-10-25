@@ -267,9 +267,15 @@ def _hal():
 
 
 def _ink(col):
-    """A prop's colour: HAL's display colour on HAL, else col."""
+    """A prop's colour: HAL's (Retro's, Pixel's) display colour; on Mochi or Pip
+    their own accent instead of Luna's amber (25 Oct: it leaked); else col."""
     h = _hal()
-    return h[1] if h else col
+    if h:
+        return h[1]
+    acc = rf.own_states() and rf.theme_fx().get("accent")
+    if acc and col in (rf.EYE_MID, rf.EYE_INNER, rf.STAR_COL):
+        return acc[1]
+    return col
 
 
 def _fade(surf, col, k):
@@ -380,8 +386,8 @@ class Flutter(Scene):
 
     def draw(self, face, surf, fcx, fcy, p):
         hold = rf._prop_hold(p, 0.1, 0.15)
-        if hold < 0.05 or _hal():                 # (a computer's lens has no lashes)
-            return
+        if hold < 0.05 or _hal() or rf.own_states():   # (no lashes on a lens; a drawn
+            return                                     # character flutters its own way)
         for i, (eye, rect) in enumerate(_eye_rects(face, fcx, fcy)):
             out = -1 if i == 0 else 1             # lashes sweep outward
             for k in range(3):
@@ -935,7 +941,7 @@ class ThinkBubble(Scene):
 
     def draw(self, face, surf, fcx, fcy, p):
         hold = rf._prop_hold(p)
-        if hold < 0.03:
+        if hold < 0.03 or rf.own_states():       # (a drawn character thinks its own way)
             return
         for i, (dx, dy, r) in enumerate(((-96, -148, 9), (-66, -182, 14),
                                          (-16, -226, 22))):
@@ -1456,12 +1462,12 @@ class MusicNotes(Scene):
             if rf.prop_glyph(surf, "note", x, y, size * 1.1, a / 255, ang):
                 continue
             if _gpu(surf) is not None:
-                col = (*rf.EYE_INNER, 255)
+                col = (*_ink(rf.EYE_INNER), 255)
                 _gpu(surf).append(gl_fx.sprite(("note", size, col),
                                                lambda res, size=size, col=col: _note(size * res, col),
                                                x, y, ang, 1.0, a / 255))
                 continue
-            n = _note(size, (*rf.EYE_INNER, 255))
+            n = _note(size, (*_ink(rf.EYE_INNER), 255))
             n = pygame.transform.rotate(n, ang)
             n.set_alpha(a)
             surf.blit(n, n.get_rect(center=(int(x), int(y))))
