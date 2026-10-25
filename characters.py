@@ -69,9 +69,11 @@ CHARS = {
     # ── a plush bunny round a dark display (her ears, paws, glyphs: mochi_rig.py) ──
     "mochi": {
         "pal": ((0.99, 0.78, 0.85), (0.90, 0.54, 0.66), (1.0, 0.96, 0.98), (1.0, 0.42, 0.64)),
-        "layout": {"eye_x": 100.0, "eye_y": 38.0, "eye_s": 0.44, "eye_sy": 0.62,
-                   "mouth_y": 98.0, "mouth_s": 0.36},
-        "spec": {"eye_n": 2.2, "brow_a": 0.0, "pupil": (0.0, 0.0)},
+        # her eyes: soft ovals ~1.2× taller than wide; a mood's taller eyes
+        # only partly taller (eye_h_give), never past eye_h_max (the glass's edge)
+        "layout": {"eye_x": 100.0, "eye_y": 40.0, "eye_s": 0.485, "eye_sy": 0.79,
+                   "eye_h_give": 0.6, "eye_h_max": 1.08, "mouth_y": 98.0, "mouth_s": 0.36},
+        "spec": {"eye_n": 2.1, "brow_a": 0.0, "pupil": (0.0, 0.0)},
         "blink": (1.0, 0.9), "gaze": (0.7, 0.0, 0.0), "react": 7.0,
         "mouth": {"w": 0.6, "h": 0.7},
         "accessories": ("ears", "flower", "hat", "hearts"),
