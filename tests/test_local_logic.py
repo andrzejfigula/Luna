@@ -5767,7 +5767,7 @@ class Oct14EveningTest(unittest.TestCase):
 
     def test_take_heard_wrong_is_made_again_quietly(self):
         import openai_tts
-        heard = iter(["パパ。", "Pa, pa!"])            # first take Japanese, the retake right
+        heard = iter(["Papá.", "Pa, pa!"])             # first take Slovak-ish, the retake right
         tts = object.__new__(openai_tts.OpenAITTS)
         tts._client = mock.MagicMock()
         tts._client.audio.speech.create.return_value.content = b"\x00\x10" * 12000
@@ -5779,18 +5779,23 @@ class Oct14EveningTest(unittest.TestCase):
 
             def start(self):
                 self.target()
-        with mock.patch("voicecheck.transcribe", lambda c, p: next(heard)), \
+        with mock.patch("voicecheck.transcribe", lambda c, p, **k: next(heard)), \
                 mock.patch.object(openai_tts, "cache_put", lambda k, p: put.append(k)), \
                 mock.patch.object(openai_tts.threading, "Thread", Now), \
                 mock.patch.dict(openai_tts._RETAKEN, clear=True):
             tts._cache_if_clear("k1", "Pa, pa!", b"\x00\x10" * 12000, {"voice": "x"})
             self.assertEqual(put, ["k1"])
             self.assertEqual(openai_tts._RETAKEN["k1"], 1)
+            # heard as Japanese, then (asked again in Polish) right: kept, no retake
+            heard = iter(["パパ。", "Pa, pa!"])
+            tts._cache_if_clear("k3", "Pa, pa!", b"\x00\x10" * 12000, {"voice": "x"})
+            self.assertEqual(put, ["k1", "k3"])
+            self.assertNotIn("k3", openai_tts._RETAKEN)
             # never right: two retakes, then left alone
-            heard = iter(["타, 타."] * 9)
+            heard = iter(["타, 타."] * 12)
             tts._cache_if_clear("k2", "Pa, pa!", b"\x00\x10" * 12000, {"voice": "x"})
             tts._cache_if_clear("k2", "Pa, pa!", b"\x00\x10" * 12000, {"voice": "x"})
-            self.assertEqual(put, ["k1"])
+            self.assertEqual(put, ["k1", "k3"])
             self.assertEqual(openai_tts._RETAKEN["k2"], openai_tts.RETAKES)
 
 
