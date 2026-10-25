@@ -75,7 +75,7 @@ THEMES = {
         "mouth": {"wave": 210.0},
         # a computer has no hands: glyphs like a display's instead (an hourglass
         # while he thinks, a cursor, a tick…), red waves, red costume pieces
-        "look": {"listen": (255, 34, 12),
+        "look": {"listen": (255, 34, 12), "zzz": (255, 52, 30),
                "glyphs": ((242, 16, 6), (255, 214, 160)),
                "accent": ((255, 96, 64), (110, 8, 4))},
     },

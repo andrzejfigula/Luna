@@ -432,7 +432,7 @@ class ZzzParticle:
         out = _fx(surf)
         if out is not None:                  # the GPU: one "Z" scaled, to the sub-pixel
             big = self.size > 38
-            out.append(gl_fx.sprite(("zzz", big, ZZZ_COL), lambda res: zzz_img(48 * res, big),
+            out.append(gl_fx.sprite(("zzz", big, _zzz_col()), lambda res: zzz_img(48 * res, big),
                                     self.x, self.y, 0.0, self.size * grow / 48.0,
                                     self.alpha / 255.0))
             return
@@ -444,12 +444,18 @@ class ZzzParticle:
             pass
 
 
+def _zzz_col():
+    """The sleeping "Z" in the theme's colour (25 Oct: HAL slept under amber Zs)."""
+    return theme_fx().get("zzz", ZZZ_COL)
+
+
 def zzz_img(size, big):
     """A soft glowing "Z" (cached by size)."""
-    key = ("zzz", size, big, ZZZ_COL)
+    col = _zzz_col()
+    key = ("zzz", size, big, col)
     img = _SMOOTH_CACHE.get(key)
     if img is None:
-        txt = _get_font(size).render("Z" if big else "z", True, ZZZ_COL)
+        txt = _get_font(size).render("Z" if big else "z", True, col)
         w, h = txt.get_width() + 24, txt.get_height() + 24
         img = pygame.Surface((w, h), pygame.SRCALPHA)
         halo = pygame.transform.smoothscale(

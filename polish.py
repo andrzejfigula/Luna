@@ -64,6 +64,79 @@ def feminize(text):
     return text
 
 
+# The other way, for a male character (Hal, Pip, Retro): her own fixed lines are
+# written feminine (25 Oct: Hal, "idź spać" → "Obudź mnie, kiedy będę potrzebna").
+_MASC_SPECIAL = {
+    "mogłam": "mogłem", "mogłabym": "mógłbym", "poszłam": "poszedłem",
+    "poszłabym": "poszedłbym", "szłam": "szedłem", "przyszłam": "przyszedłem",
+    "wyszłam": "wyszedłem", "weszłam": "wszedłem", "zeszłam": "zszedłem",
+    "doszłam": "doszedłem", "powinnam": "powinienem", "niosłam": "niosłem",
+}
+_MASC_SPECIAL_RE = re.compile(r"\b(" + "|".join(sorted(_MASC_SPECIAL, key=len, reverse=True))
+                              + r")\b", re.IGNORECASE)
+# "-łam" that isn't a past form: "wołam", the imperative of łamać
+_NOT_PAST = re.compile(r"(?:woł|^łam|^połam|^złam|^przełam|^odłam|^rozłam|^chłam)", re.I)
+_MASC_PAST = {"mogła": "mógł", "poszła": "poszedł", "szła": "szedł", "przyszła": "przyszedł",
+              "wyszła": "wyszedł", "niosła": "niósł", "przyniosła": "przyniósł"}
+# adjectives in -ła (not past forms): "będę miła" → "miły", not "mił"
+_LA_ADJ = {"miła", "wesoła", "zła", "mała", "cała", "biała", "śmiała", "ciepła", "dojrzała"}
+_COPULA = (r"\b((?i:jestem|będę|bede|byłem|bylem|byłbym|zostanę|czuję\s+się|czuje\s+sie))"
+           r"((?:\s+(?:już|juz|taka|bardzo|trochę|troche|troszkę|naprawdę|całkiem|tak|"
+           r"zawsze|teraz|jeszcze|nadal|dziś|dzisiaj|ciągle|chyba))*\s+)")
+_MASC_ADJ_RE = re.compile(_COPULA + r"([a-ząćęłńóśźż]+(?:na|wa|ta|ra|ka|ga|cha|ąca|ma|ła|da|ża))\b")
+_MASC_FUT_RE = re.compile(r"\b((?i:będę|bede|żebym|zebym|abym|bym))(\s+(?:się\s+|sie\s+|ci\s+|go\s+|"
+                          r"to\s+|jej\s+|mu\s+|tu\s+|już\s+)?)([a-ząćęłńóśźż]+ła)\b")
+_QUOTED = re.compile(r"(„[^”\"]*[”\"]|\"[^\"]*\"|«[^»]*»)")
+
+
+def _masc_past(word):
+    """A feminine past form → masculine: zaczęła → zaczął, zrobiła → zrobił."""
+    low = word.lower()
+    if low in _MASC_PAST:
+        return _MASC_PAST[low]
+    return word[:-3] + "ął" if low.endswith("ęła") else word[:-1]
+
+
+def _masc_adj(word):
+    low = word.lower()
+    if low == "sama":
+        return word[:-1]
+    return word[:-1] + ("i" if low.endswith(("ka", "ga")) else "y")
+
+
+def _masculine(text):
+    def special(m):
+        src = m.group(1)
+        rep = _MASC_SPECIAL[src.lower()]
+        return rep.capitalize() if src[0].isupper() else rep
+
+    def past(m):
+        w = m.group(0)
+        if _NOT_PAST.search(w):
+            return w
+        if w.lower().endswith("ęłam"):
+            return w[:-4] + "ąłem"
+        return w[:-3] + "łem"
+
+    text = _MASC_SPECIAL_RE.sub(special, text)
+    text = re.sub(r"\b\w+ęłabym\b", lambda m: m.group(0)[:-6] + "ąłbym", text)
+    text = re.sub(r"\b\w+łabym\b", lambda m: m.group(0)[:-5] + "łbym", text)
+    text = re.sub(r"\b\w+łam\b", past, text)
+    text = _MASC_ADJ_RE.sub(lambda m: m.group(1) + m.group(2) + (
+        _masc_adj(m.group(3)) if not m.group(3).endswith("ła") or m.group(3) in _LA_ADJ
+        else m.group(3)), text)
+    text = _MASC_FUT_RE.sub(lambda m: m.group(1) + m.group(2) + (
+        _masc_adj(m.group(3)) if m.group(3).lower() in _LA_ADJ else _masc_past(m.group(3))),
+        text)
+    return text
+
+
+def masculinize(text):
+    """Her feminine 1st-person forms → masculine ("zrobiłam" → "zrobiłem",
+    "będę potrzebna" → "będę potrzebny", "żebym zaczęła" → "żebym zaczął");
+    what is in quotes (someone else's words) stays."""
+    parts = _QUOTED.split(text or "")
+    return "".join(p if i % 2 else _masculine(p) for i, p in enumerate(parts))
 
 
 # "Co chciałbyś przeczytać?" to someone she doesn't recognise (6 Oct: most

@@ -326,7 +326,7 @@ def _draw_async(s, n, scene):
 
 def _say(text):
     from text_to_speech import speak
-    speak(text)
+    speak(text, as_is=True)                 # the tale's own words, not Hal's
 
 
 def start(text, speak):

@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 25 października ==
+- Hal, Pip i Retro mówią o sobie jak chłopaki także w krótkich odpowiedziach: „Obudź mnie, kiedy będę potrzebny”, „usunąłem”, „dopisałem”. Hal śpi pod czerwonymi literkami „Z”, nie żółtymi.
 - Kiedy przeglądasz zdjęcia albo „kogo znam” i powiesz „wyłącz” albo „stop”, zamykam tę stronę, a radio gra dalej. „Wyłącz kogo znam” też działa. Postać zmienisz też słowem „profil” („zmień profil na Pip”), a „włącz motyw HAL 9000” włącza Hala.
 - Hal ma nowe oczy jak obiektywy kamery: czarne szkło w stalowej obręczy, a w środku, jak przez soczewkę „rybie oko”, czerwone światło z jasnym punktem, które patrzy tam, gdzie on. Mruga migawką jak aparat (listki przesłony zamykają się i otwierają), śpi z zamkniętą przesłoną, a światło w środku jest jego źrenicą: gdy słucha albo kogoś widzi, rośnie, a gdy mruży oczy albo się zamyśli — maleje.
 - Łapki Mochi opierają się o szybkę jak u kotka przy oknie: gdy rusza głową, łapki stoją w miejscu, a potem — raz jedna, raz druga — szybko się unoszą, przestawiają i znowu przyciskają do szybki (już się nie ślizgają).

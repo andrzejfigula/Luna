@@ -19,7 +19,9 @@ import random
 import math
 import subprocess
 from openai_tts import tts, envelope
+import polish
 import sounds
+import themes
 
 from shared_state import state
 from config import (
@@ -200,7 +202,7 @@ def _caption(text, secs=60.0):
         state.caption = ("luna", text, time.time() + secs)
 
 
-def speak(text, can_drop=False):
+def speak(text, can_drop=False, as_is=False):
     """
     Speak text.
 
@@ -209,9 +211,13 @@ def speak(text, can_drop=False):
 
     can_drop=True:
         Optional reactions can be skipped.
+
+    as_is=True: not her own words (a story) — no masculine forms for Hal & co.
     """
     if not text:
         return
+    if not as_is and themes.male():
+        text = polish.masculinize(text)       # her lines are written feminine
 
     def run(style):
         print(f"[Luna] {text}")

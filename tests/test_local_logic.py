@@ -8357,6 +8357,27 @@ class ThemesTest(unittest.TestCase):
         self.assertEqual(themes.persona_line(), "")
         self.assertGreater(openai_tts.deep_hz(), 0)
 
+    def test_her_fixed_lines_for_a_male_character(self):
+        import themes
+        # 25 Oct: Hal, "idź spać" → "kiedy będę potrzebna"; his Zs were amber
+        self.assertEqual(themes.THEMES["hal"]["look"]["zzz"][0], 255)
+        self.assertLess(themes.THEMES["hal"]["look"]["zzz"][1], 80)
+        from polish import masculinize as m
+        for fem, masc in (
+                ("Dobrze, idę spać. Obudź mnie, kiedy będę potrzebna.",
+                 "Dobrze, idę spać. Obudź mnie, kiedy będę potrzebny."),
+                ("Usunęłam bajkę „Zgubiłam kotka”.", "Usunąłem bajkę „Zgubiłam kotka”."),
+                ("Nie znalazłam takiej bajki.", "Nie znalazłem takiej bajki."),
+                ("Mogłabym, jestem gotowa.", "Mógłbym, jestem gotowy."),
+                ("Będę czekała.", "Będę czekał."),
+                ("Byłam ciekawa.", "Byłem ciekawy."),
+                ("Chcesz, żebym ci przypomniała?", "Chcesz, żebym ci przypomniał?"),
+                ("Poszłam spać, a ty zrobiłaś lekcje?", "Poszedłem spać, a ty zrobiłaś lekcje?"),
+                ("Wzięłam to i jestem sama.", "Wziąłem to i jestem sam.")):
+            self.assertEqual(m(fem), masc)
+        for same in ("Wołam Maję.", "Jestem Luna.", "Z masłem.", "Będę cicho."):
+            self.assertEqual(m(same), same)
+
     def test_voice_fx(self):
         import numpy as np
         import themes
