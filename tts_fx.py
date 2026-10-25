@@ -10,6 +10,9 @@ tts_fx.py — a theme's voice changed on the Pi, as it streams (themes.py "fx").
                   back: a ringing tube), a light ring modulator, an overdrive
                   (DRIVE), a bit crusher (CRUSH bits) and a reverb (REVERB
                   wet: a big metal room — 4 combs and 2 allpasses, Schroeder)
+  "cute"  (Mochi) — read PITCH× faster (resampled): the voice and its
+                  resonances go up together, a smaller, younger-sounding
+                  speaker; the theme asks the TTS for a slower take to match
 
 Each spoken take gets a fresh Chain; process() takes 24 kHz s16 mono chunks of
 any size and keeps its state between them, so it runs on the stream itself;
@@ -26,6 +29,8 @@ PRESETS = {
     "robot": {"robot_hz": 75.0, "formant": 1.15, "tempo": 1.2,
               "comb_ms": 4.5, "feedback": 0.4, "ring_hz": 52.0, "ring": 0.15,
               "drive": 2.5, "crush": 8, "reverb": 0.3},
+    # (25 Oct: Andrzej — Mochi's voice "higher pitch, more playful"; ~2.4 semitones)
+    "cute": {"pitch": 1.15},
 }
 RN = 768                           # robotization frame (32 ms)
 REV_COMBS = ((677, 0.70), (797, 0.68), (911, 0.66), (1031, 0.64))   # 28–43 ms
@@ -53,6 +58,7 @@ class Chain:
         self.shape = (-10 ** 9, None)               # (input position, pulse) last made
         self.rcomb = [np.zeros(d, np.float32) for d, _ in REV_COMBS]
         self.rap = [(np.zeros(d, np.float32), np.zeros(d, np.float32)) for d, _ in REV_ALLPASS]
+        self.sbuf, self.spos = np.zeros(0, np.float32), 0.0   # resampler input, next read
 
     def process(self, pcm):
         if not self.p or not pcm:
@@ -70,6 +76,8 @@ class Chain:
         return b""
 
     def _run(self, a):
+        if "pitch" in self.p:
+            a = self._shift(a)
         if "robot_hz" in self.p:
             a = self._robotize(a)
         if "comb_ms" in self.p:
@@ -77,6 +85,15 @@ class Chain:
         if self.p.get("reverb") and a.size:
             a = self._reverb(a)
         return np.clip(a, -32768, 32767).astype(np.int16).tobytes()
+
+    def _shift(self, x):
+        """Output sample k is the input at spos + k·PITCH (linear), across chunks."""
+        r, buf = self.p["pitch"], np.concatenate([self.sbuf, x])
+        n = max(0, int(np.ceil((buf.size - 1 - self.spos) / r)))
+        out = np.interp(self.spos + r * np.arange(n), np.arange(buf.size), buf)
+        nxt = self.spos + r * n
+        self.sbuf, self.spos = buf[int(nxt):], nxt - int(nxt)
+        return out.astype(np.float32)
 
     def _robotize(self, x):
         """Each layer lays a pulse every 1/(hz·ratio) s of output; a pulse is the

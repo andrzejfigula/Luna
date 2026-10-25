@@ -8235,7 +8235,7 @@ class ThemesTest(unittest.TestCase):
         import themes
         import tts_fx
         self.assertEqual(themes.THEMES["hal"]["fx"], "robot")
-        self.assertEqual(set(tts_fx.PRESETS), {"robot"})
+        self.assertEqual(set(tts_fx.PRESETS), {"robot", "cute"})
         t = np.arange(24000) / 24000
         tone = (8000 * np.sin(2 * np.pi * 200 * t)).astype(np.int16).tobytes()
 
@@ -8267,6 +8267,32 @@ class ThemesTest(unittest.TestCase):
         self.assertGreater(np.abs(robot).max(), 3000)  # still loud, never clipped hard
         self.assertLess(np.abs(robot).max(), 30001)
         self.assertEqual(b"".join(tts_fx.wrap([tone[:5000], tone[5000:]], None)), tone)
+        # Mochi: 1.15× higher and shorter, the same in uneven chunks as in one
+        self.assertEqual(themes.THEMES["mochi"]["fx"], "cute")
+        cute = run("cute")
+        whole = np.frombuffer(b"".join(tts_fx.wrap([tone], "cute")), np.int16)
+        self.assertAlmostEqual(cute.size / 24000, 1 / 1.15, delta=0.002)
+        self.assertLessEqual(np.abs(cute - whole[:cute.size]).max(), 1)
+        spec = np.abs(np.fft.rfft(cute * np.hanning(cute.size)))
+        self.assertAlmostEqual(np.argmax(spec) * 24000 / cute.size, 230, delta=3)
+
+    def test_theme_sounds(self):
+        import sounds
+        import themes
+        sounds._cache.update({"mhm": b"luna", ("mochi", "mhm"): b"mochi"})
+        try:
+            self.assertNotEqual(sounds._path("mhm"), sounds._path("mhm", "mochi"))
+            themes.set_theme("mochi")
+            self.assertEqual(sounds.get("mhm"), b"mochi")          # her own voice
+            self.assertIsNone(sounds.get("offline"))               # (a sentence: Luna's only)
+            themes.set_theme("hal")
+            self.assertIsNone(sounds.get("mhm"))                   # no "mhm" in HAL's voice
+            themes.set_theme("luna")
+            self.assertEqual(sounds.get("mhm"), b"luna")
+        finally:
+            themes.set_theme("luna")
+            sounds._cache.pop("mhm", None)
+            sounds._cache.pop(("mochi", "mhm"), None)
 
 
 # Off the Pi (Windows) the hardware / SDK modules are missing: those tests

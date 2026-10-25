@@ -10,6 +10,9 @@ recognisably her), trimmed, and cached as raw 24 kHz PCM in data/sounds/.
 From then on it plays locally — no network, no cost, no delay. The file name
 carries a hash of the voice and the text/instructions, so changing the voice
 (LUNA_TTS_VOICE) or a definition below regenerates just what changed.
+
+A character theme with ["sounds"] (Mochi) gets the VOCAL ones in its own
+voice and effect; the others (HAL…) make none — her "mhm" in his voice.
 """
 
 import hashlib
@@ -18,6 +21,9 @@ import threading
 
 import numpy as np
 from openai_client import LazyOpenAI as OpenAI
+
+import themes
+import tts_fx
 
 from config import (
     OPENAI_API_KEY,
@@ -76,17 +82,32 @@ SOUNDS = {
                      "Normal speech, friendly, a little apologetic.", 5.0),
 }
 
-_cache = {}                    # name → PCM bytes, ready to play
+VOCAL = ("mhm", "hmm", "huh", "giggle", "aww", "oh", "hey")   # a theme's own
+
+_cache = {}                    # name, or (theme, name) → PCM bytes, ready to play
 _client = (OpenAI(api_key=OPENAI_API_KEY, timeout=OPENAI_TTS_TIMEOUT, max_retries=1)
            if (OPENAI_API_KEY and SOUNDS_ENABLED) else None)
 
 
-def _path(name):
+def _voice(theme):
+    """(voice, instructions, effect) the sounds are made with."""
+    if theme is None:
+        return OPENAI_TTS_VOICE, OPENAI_TTS_INSTRUCTIONS or "", None
+    th = themes.THEMES[theme]
+    return th["voice"], th["tts"], th.get("fx")
+
+
+def _themed():
+    return [k for k, th in themes.THEMES.items() if th.get("sounds")]
+
+
+def _path(name, theme=None):
     text, how = SOUNDS[name][:2]
-    key = "|".join((OPENAI_TTS_MODEL, OPENAI_TTS_VOICE, text, how,
-                    OPENAI_TTS_INSTRUCTIONS or "", repr(SOUNDS[name][2:])))
+    voice, instr, fx = _voice(theme)
+    key = "|".join((OPENAI_TTS_MODEL, voice, text, how, instr, repr(SOUNDS[name][2:]))
+                   + ((fx or "", repr(tts_fx.preset(fx))) if theme else ()))
     digest = hashlib.sha1(key.encode("utf-8")).hexdigest()[:10]
-    return os.path.join(SOUNDS_DIR, f"{name}-{digest}.pcm")
+    return os.path.join(SOUNDS_DIR, f"{theme + '-' if theme else ''}{name}-{digest}.pcm")
 
 
 def _trim(pcm, max_secs=MAX_SECS):
@@ -105,26 +126,26 @@ def _trim(pcm, max_secs=MAX_SECS):
     return a.astype(np.int16).tobytes()
 
 
-def _generate(name):
+def _generate(name, theme=None):
     text, how = SOUNDS[name][:2]
     max_secs = SOUNDS[name][2] if len(SOUNDS[name]) > 2 else MAX_SECS
-    instructions = ((OPENAI_TTS_INSTRUCTIONS or "") +
-                    "\nThis is a non-verbal sound, not speech: " + how).strip()
+    voice, instr, fx = _voice(theme)
+    instructions = (instr + "\nThis is a non-verbal sound, not speech: " + how).strip()
     # the voice is not deterministic: a tiny input like "Hm?" sometimes comes
     # back as pure silence, so try a few times
     for _ in range(3):
-        r = _client.audio.speech.create(model=OPENAI_TTS_MODEL, voice=OPENAI_TTS_VOICE,
+        r = _client.audio.speech.create(model=OPENAI_TTS_MODEL, voice=voice,
                                         input=text, response_format="pcm",
                                         instructions=instructions)
-        pcm = _trim(r.content, max_secs)
+        pcm = _trim(b"".join(tts_fx.wrap([r.content], fx)), max_secs)
         if pcm:
             break
     else:
         raise RuntimeError("the voice returned only silence, 3 times")
-    tmp = _path(name) + ".tmp"
+    tmp = _path(name, theme) + ".tmp"
     with open(tmp, "wb") as f:
         f.write(pcm)
-    os.replace(tmp, _path(name))
+    os.replace(tmp, _path(name, theme))
     return pcm
 
 
@@ -200,36 +221,36 @@ def get(name):
     The synthesised ones (chime, tick) are always available."""
     if name in _SYNTH and name not in _cache:
         _cache[name] = _SYNTH[name]()
-    if name not in _SYNTH:
-        import themes
-        if not themes.is_default():          # her "mhm" in HAL's voice: none at all
-            return None
+    if name not in _SYNTH and not themes.is_default():
+        th = themes.current()                # her "mhm" in HAL's voice: none at all
+        return _cache.get((th, name)) if themes.get().get("sounds") else None
     return _cache.get(name)
 
 
 def _warm():
     os.makedirs(SOUNDS_DIR, exist_ok=True)
     made = []
-    for name in SOUNDS:
-        p = _path(name)
+    todo = [(None, n) for n in SOUNDS] + [(t, n) for t in _themed() for n in VOCAL]
+    for theme, name in todo:
+        p, key = _path(name, theme), ((theme, name) if theme else name)
         try:
             if os.path.exists(p):
                 with open(p, "rb") as f:
-                    _cache[name] = f.read()
+                    _cache[key] = f.read()
             elif _client is not None:
-                _cache[name] = _generate(name)
-                made.append(name)
+                _cache[key] = _generate(name, theme)
+                made.append(f"{theme}-{name}" if theme else name)
         except Exception as e:
             print(f"[sounds] {name}: {e}")
     # drop files from older voices / definitions
-    keep = {os.path.basename(_path(n)) for n in SOUNDS}
+    keep = {os.path.basename(_path(n, t)) for t, n in todo}
     for fn in os.listdir(SOUNDS_DIR):
         if fn.endswith(".pcm") and fn not in keep and not fn.startswith("clip-"):
             try:
                 os.remove(os.path.join(SOUNDS_DIR, fn))
             except OSError:
                 pass
-    print(f"[sounds] {len(_cache)}/{len(SOUNDS)} ready"
+    print(f"[sounds] {len(_cache) - len(set(_cache) & set(_SYNTH))}/{len(todo)} ready"
           + (f" (generated: {', '.join(made)})" if made else ""), flush=True)
 
 

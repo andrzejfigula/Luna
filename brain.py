@@ -2621,7 +2621,7 @@ def _process(text, context=None):
 
     # the answer takes 2-4 s; now and then fill the silence with a "hmm"
     answered = threading.Event()
-    if random.random() < THINK_SOUND_CHANCE:
+    if random.random() < themes.get().get("think_chance", THINK_SOUND_CHANCE):   # (Mochi's more)
         threading.Thread(target=_think_filler, args=(answered,), daemon=True).start()
 
     # Streamed: the face is set when the model gets to the reply, the first
