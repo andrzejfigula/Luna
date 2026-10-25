@@ -7180,14 +7180,14 @@ class FaceSpecTest(unittest.TestCase):
                 face = self._face("neutral")
                 face.left_eye.squint = face.right_eye.squint = 0.5   # an idle squint…
                 u = self._settle(gl, face, 2)
-                self.assertLessEqual(u["uShut"][0], 0.125)          # (a click at a time)
+                self.assertLess(u["uShut"][0], 0.125)               # (a motor: no jump)
                 u = self._settle(gl, face, 20)
                 self.assertTrue(0.2 < u["uShut"][0] < 0.5)           # …stops the shutter down
-                self.assertEqual(u["uShut"][0] * 8, int(u["uShut"][0] * 8))   # on a detent
+                self.assertEqual(u["uShut"][0] * 8, int(u["uShut"][0] * 8))   # a stroke's end
                 self.assertAlmostEqual(u["uLidA0"][0], lids[0], places=3)   # the lids stay put
         finally:
             themes.set_theme("luna")
-        # a blink: shut click by click, held, open click by click
+        # a blink: shut at an even speed, held, open at an even speed
         s, t, path = gl_face.Shutter(), 0.0, []
         for b in [0.0, 1.0, 1.0, 0.5] + [0.0] * 50:
             path.append(s.step(t, b, 0.0))
@@ -7195,8 +7195,9 @@ class FaceSpecTest(unittest.TestCase):
         self.assertEqual(max(path), 1.0)
         self.assertEqual(path[-1], 0.0)
         self.assertGreater(path.count(1.0), 5)                   # a hold
-        self.assertGreater(len(set(path)), 8)                    # every detent on the way
-        self.assertTrue(all(abs(b - a) <= 0.125 for a, b in zip(path, path[1:])))
+        moves = [round(abs(b - a), 4) for a, b in zip(path, path[1:]) if b != a]
+        self.assertLessEqual(max(moves), round(2.2 / 30, 4))     # smooth: a frame's worth
+        self.assertGreater(moves.count(round(1.65 / 30, 4)), 10)   # constant speed, no ease
 
     def test_hals_head_is_a_servo(self):
         try:

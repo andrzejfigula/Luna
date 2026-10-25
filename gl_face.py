@@ -898,41 +898,42 @@ COSTUME_EYES = {
 
 
 class Shutter:
-    """HAL's shutter, run by a stepper: it clicks through STEPS detents at an
-    even pace, never a lid's ease. A blink: shut, a hold, open again."""
-    STEPS = 8
-    CLOSE, HOLD, OPEN, ADJUST = 0.06, 0.18, 0.075, 0.16     # s a detent; the hold
+    """HAL's shutter, driven by a motor: it moves at a constant speed and
+    stops dead, never a lid's ease. A blink: shut, a hold, open again; a
+    mood's stop is taken in strokes of an eighth (no creeping after it)."""
+    CLOSE, OPEN, ADJUST = 2.2, 1.65, 0.8          # /s: shut in 0.45 s, open in 0.6 s
+    HOLD = 0.18                                   # s shut, in a blink
 
     def __init__(self):
-        self.pos, self.next_t, self.hold = 0, 0.0, 0.0
+        self.pos, self.t, self.hold = 0.0, None, 0.0
         self.armed, self.blinking, self.reopen = True, False, False
 
     def step(self, now, blink, want):
         """blink: the face's blink, 0 open … 1 shut; want: the stop the
         moods ask for (0..1). Its position, 0..1."""
+        dt = min(0.1, now - self.t) if self.t is not None else 0.0
+        self.t = now
         if blink < 0.3:
             self.armed = True
         elif blink > 0.6 and self.armed:
             self.armed, self.blinking = False, True
-        tgt = int(round(max(0.0, min(1.0, want)) * self.STEPS))
-        pace = self.OPEN if self.reopen else self.ADJUST
+        tgt = round(max(0.0, min(1.0, want)) * 8.0) / 8.0
+        speed = self.OPEN if self.reopen else self.ADJUST
         if self.blinking:
-            if self.pos < self.STEPS:
-                tgt, pace = self.STEPS, self.CLOSE
+            if self.pos < 1.0:
+                tgt, speed = 1.0, self.CLOSE
             else:
                 if not self.hold:
                     self.hold = now + self.HOLD
                 if now < self.hold or blink > 0.6:    # (a slow blink: held shut)
                     return 1.0
                 self.blinking, self.hold, self.reopen = False, 0.0, True
-                pace = self.OPEN
+                speed = self.OPEN
+        d = tgt - self.pos
+        self.pos = tgt if abs(d) <= speed * dt else self.pos + math.copysign(speed * dt, d)
         if self.pos == tgt:
             self.reopen = False
-            self.next_t = now                     # (the next move starts at once)
-        elif now >= self.next_t:                  # an even pace, a frame's slack at most
-            self.pos += 1 if tgt > self.pos else -1
-            self.next_t = max(self.next_t + pace, now + pace - 0.034)
-        return self.pos / self.STEPS
+        return self.pos
 
 
 class _Life:
