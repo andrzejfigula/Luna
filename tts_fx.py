@@ -29,8 +29,9 @@ PRESETS = {
     "robot": {"robot_hz": 75.0, "formant": 1.15, "tempo": 1.2,
               "comb_ms": 4.5, "feedback": 0.4, "ring_hz": 52.0, "ring": 0.15,
               "drive": 2.5, "crush": 8, "reverb": 0.3},
-    # (25 Oct: Andrzej — Mochi's voice "higher pitch, more playful"; ~2.4 semitones)
-    "cute": {"pitch": 1.15},
+    # (25 Oct: Andrzej — Mochi's voice "higher pitch, more playful": 1.15, then
+    # "higher still, more girly": 1.25, ~3.9 semitones)
+    "cute": {"pitch": 1.25},
 }
 RN = 768                           # robotization frame (32 ms)
 REV_COMBS = ((677, 0.70), (797, 0.68), (911, 0.66), (1031, 0.64))   # 28–43 ms

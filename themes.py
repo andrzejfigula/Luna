@@ -163,9 +163,10 @@ THEMES.update({
         name="Mochi", said="Moki", call="Mochi", hello="Hej, tu Mochi! Przytulas na powitanie?",
         # (Polish says "Moki"; Vosk has no such word — it wrote "nauki", "boki")
         wake=["moki", "mochi", "hej moki", "hej mochi"], hears=["nauki", "boki"],
-        # (tts_fx "cute" lifts her 1.15×, and speeds her up as much: 1.1 → ~1.27 heard)
-        voice="coral", speed=1.1, fx="cute", sounds=True, think_chance=0.8,
-        tts=("Voice identity: a light, bright, playful young woman; bubbly and cheerful, "
+        # (tts_fx "cute" lifts her 1.25×, and speeds her up as much: 1.0 → 1.25 heard)
+        voice="coral", speed=1.0, fx="cute", sounds=True, think_chance=0.8,
+        tts=("Voice identity: a very girly, high, light, sweet voice of a young girl-like "
+             "woman, kept high and airy on every word, never dropping low; bubbly and cheerful, "
              "a smile and a little giggle in her voice, a lively, bouncy melody, warm and "
              "caring; cute but never babyish or squeaky. Little sounds in the text — "
              "\"Mhm\", \"Hmm\", \"Ooo\", \"Ojej\", \"Aha\", \"Hihi\" — are performed as real "

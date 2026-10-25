@@ -8267,14 +8267,15 @@ class ThemesTest(unittest.TestCase):
         self.assertGreater(np.abs(robot).max(), 3000)  # still loud, never clipped hard
         self.assertLess(np.abs(robot).max(), 30001)
         self.assertEqual(b"".join(tts_fx.wrap([tone[:5000], tone[5000:]], None)), tone)
-        # Mochi: 1.15× higher and shorter, the same in uneven chunks as in one
+        # Mochi: PITCH× higher and shorter, the same in uneven chunks as in one
         self.assertEqual(themes.THEMES["mochi"]["fx"], "cute")
         cute = run("cute")
         whole = np.frombuffer(b"".join(tts_fx.wrap([tone], "cute")), np.int16)
-        self.assertAlmostEqual(cute.size / 24000, 1 / 1.15, delta=0.002)
+        r = tts_fx.PRESETS["cute"]["pitch"]
+        self.assertAlmostEqual(cute.size / 24000, 1 / r, delta=0.002)
         self.assertLessEqual(np.abs(cute - whole[:cute.size]).max(), 1)
         spec = np.abs(np.fft.rfft(cute * np.hanning(cute.size)))
-        self.assertAlmostEqual(np.argmax(spec) * 24000 / cute.size, 230, delta=3)
+        self.assertAlmostEqual(np.argmax(spec) * 24000 / cute.size, 200 * r, delta=3)
 
     def test_theme_sounds(self):
         import sounds
