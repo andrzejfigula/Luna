@@ -328,9 +328,9 @@ vec3 lensColour(vec2 q, vec2 b, vec4 pu, float sh) {
     float s2 = dot(lq, lq);
     float z = sqrt(max(1.0 - s2, 0.0));
     vec2 m = lq / (0.30 + 0.70 * z);
-    // the light seen through the aperture: smaller and dimmer as it closes
+    // the light: as big as his pupil, smaller and dimmer as the shutter closes
     float op = 1.0 - sh;
-    float ps = 0.30 + 0.80 * op;
+    float ps = clamp(pu.z / (0.83 * min(b.x, b.y)), 0.3, 1.6) * (0.35 + 0.65 * op);
     vec2 g = clamp(pu.xy / b, -0.6, 0.6) * 1.3;               // the light follows the gaze
     float dc = length(m - g) / ps;
     float on = mix(0.3, 1.0, pu.w) * (1.0 + 0.45 * uEnergy) * (1.0 + 0.05 * sin(uTime * 2.0))
@@ -936,7 +936,7 @@ class _Life:
         self.smirk = (-9.0, 1.0)
         self.near = 0.0                   # how close the person is (eased, 0..1)
         self.listen = 0.0                 # listening (eased) — one brow cocked
-        self.aperture = [0.0, 0.0]        # HAL: each shutter's stop (squints, a sigh…)
+        self.aperture = [0.0, 0.0]        # HAL: a squint, a sigh… (his light narrows)
         self.cock = 0                     # …which one
         self.flash_t = -9.0               # someone appears: an eyebrow flash
         self.contact = 0.0                # since when someone's been in view
@@ -1783,14 +1783,14 @@ class GLFace:
                 life.shut_prev = shut
             if lens:                              # HAL blinks with a shutter; lids that
                 # every lid move on top of the mood's (a squint, a sigh, drowsy…)
-                # stops the shutter down instead
+                # narrows the light in the lens instead (the pupil, below)
                 extra = max(0.0, top + bot - top0 - bot0)
                 widen = 1.0 - 0.7 * eye.widen
                 top, bot = min(top, top0 * widen), min(bot, bot0 * widen)
                 lk = max(0.0, min(1.0, (top + bot - 0.5) / 0.3))     # (nearly) shut close it
                 want = max(lk, min(1.0, 1.4 * extra))
                 life.aperture[i] += (want - life.aperture[i]) * (1.0 - math.exp(-4.0 * dt))
-                shutters.append(max(shut, life.aperture[i]))     # and draw back
+                shutters.append(max(shut, lk))    # and draw back
                 top, bot, bend, bbend, tilt = (v * (1.0 - lk) for v in (top, bot, bend, bbend, tilt))
                 shut = 0.0
             ey += 4.0 * shut                      # a blink squashes the eye down a little
@@ -1859,11 +1859,9 @@ class GLFace:
             dx, dy = max(-mx_, min(mx_, dx)), max(-my_, min(my_, dy))
             shown = (1.0 - cur["heart"]) if rf.BLOCK_PUPIL else 0.0
             shown *= max(0.0, min(1.0, (gap - 8.0) / 22.0))     # a slit: just the glow
+            if lens:                              # HAL: a squint narrows his light
+                pr *= 1.0 - 0.55 * life.aperture[i]
             u[f"uPupil{i}"] = (dx, dy, pr, shown)
-            if lens:                              # a camera's pupil is its aperture
-                base = min(w, h) * 0.26 * 1.6     # (HAL's resting pupil)
-                opening = max(0.2, min(1.0, 0.72 * pr / base))
-                shutters[i] = max(shutters[i], 1.0 - opening)
             # the brow over it: 66 % of the eye's width, its inner end tilted
             bw = w * 0.66
             by = ey - h / 2 - cur["brow_gap"] - cur["brow_y"][i]

@@ -7174,22 +7174,14 @@ class FaceSpecTest(unittest.TestCase):
                     self.assertEqual(u["uLidB0"][1], 0.0)          # nor their seam
                 gl = self._gl()
                 u = self._settle(gl, self._face("neutral"), 30)
-                rest = u["uShut"][0]
-                self.assertTrue(0.1 < rest < 0.5)                   # open: the aperture's rest
-                lids = u["uLidA0"]
+                self.assertLess(max(u["uShut"]), 0.01)              # open: no blades
+                rest, lids = u["uPupil0"][2], u["uLidA0"]
                 face = self._face("neutral")
                 face.left_eye.squint = face.right_eye.squint = 0.5   # an idle squint…
                 u = self._settle(gl, face, 20)
-                self.assertGreater(u["uShut"][0], rest + 0.03)      # …stops the shutter down
+                self.assertLess(max(u["uShut"]), 0.01)              # …no blades
+                self.assertLess(u["uPupil0"][2], rest * 0.9)        # …his light narrows
                 self.assertAlmostEqual(u["uLidA0"][0], lids[0], places=3)   # the lids stay put
-                # the pupil is the aperture: wide opens it, small closes it
-                face = self._face("neutral")
-                face.left_eye.pupil_scale = face.right_eye.pupil_scale = 1.3
-                wide = self._settle(gl, face, 30)["uShut"][0]
-                face.left_eye.pupil_scale = face.right_eye.pupil_scale = 0.6
-                small = self._settle(gl, face, 30)["uShut"][0]
-                self.assertLess(wide, rest - 0.1)
-                self.assertGreater(small, rest + 0.1)
         finally:
             themes.set_theme("luna")
 
