@@ -398,6 +398,14 @@ float rStates(vec2 cc) {
         float bang = (d.x == 0.0 && ((d.y >= -2.0 && d.y <= 1.0) || d.y == 3.0)) ? 1.0 : 0.0;
         v = max(v, bang * uChB.w);
     }
+    float puzzled = max(uChD.x, uChD.y);
+    if (puzzled > 0.05) {                                           // curious, confused: "?"
+        vec2 at = vec2(uEye1.x + uEye1.z * 0.5 + 2.0 * CELL, uEye1.y - 2.0 * CELL);
+        vec2 d = floor((cc - at) / CELL + 0.5);
+        float q = (d.y == -2.0 && abs(d.x) <= 1.0) || (d.y == -1.0 && d.x == 1.0)
+                  || (d.y == 0.0 && d.x >= 0.0 && d.x <= 1.0) || (d.y == 2.0 && d.x == 0.0) ? 1.0 : 0.0;
+        v = max(v, q * puzzled);
+    }
     return v;
 }
 
@@ -667,7 +675,7 @@ vec4 pCell(vec2 cc, vec2 ci) {
         }
     }
     if (uChD.x + uChD.y > 0.2) {                       // curious, confused: "?"
-        if (pat(sdQuestion((cc - (gC() + vec2(272.0, -118.0))) / 76.0)) > 0.5) {
+        if (pat(sdQuestion((cc - (gC() + vec2(262.0, -96.0))) / 76.0)) > 0.5) {
             c = uPal3;
             v = max(v, max(uChD.x, uChD.y));
         }
@@ -1510,7 +1518,7 @@ def _props(kind, life, ch, u, fcx, fcy, now, acc):
         out.append(((x, y, 34.0, 6.0 + 0.98 * cel), False))
     if kind in ("mochi", "pip") and ch["confused"] + ch["curious"] > 0.03:
         k = max(ch["confused"], ch["curious"] * 0.7)
-        out.append(((fcx + 270.0, fcy - 150.0 - 8.0 * math.sin(now * 3.0), 40.0, 2.0 + 0.98 * k), False))
+        out.append(((fcx + 300.0, fcy - 96.0 - 8.0 * math.sin(now * 3.0), 40.0, 2.0 + 0.98 * k), False))
     return out[:4]
 
 

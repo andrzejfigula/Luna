@@ -1103,7 +1103,7 @@ class Curious(Scene):
 
     def draw(self, face, surf, fcx, fcy, p):
         hold = rf._prop_hold(p, 0.18, 0.18)
-        if hold < 0.04:
+        if hold < 0.04 or rf.own_states():        # (a drawn character shows its own "?")
             return
         if _gpu(surf) is not None:                # a glowing "?", turned by the GPU
             rf.glow_text(surf, "?", 96, _ink(rf.EYE_MID), fcx + 208, fcy - 92,
