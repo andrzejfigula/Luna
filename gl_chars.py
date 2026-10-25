@@ -22,7 +22,6 @@ import time
 
 import characters
 import dock
-import face_spec
 import gl_face
 import mochi_rig
 
@@ -75,7 +74,7 @@ uniform vec4  uMoFace;  // …the eyes' scale L, R (in apply), starry, her cheek
 uniform vec4  uMoMouth; // …her own mouth: kind, amount, half width
 uniform vec4  uMoPaw;   // …the paws' sizes L, R
 uniform vec4  uMoBody;  // …squash, the pods' light, puffed cheeks
-uniform vec4  uMoIris;  // …the iris's size, the pupil's, where it looks (× the eye's half size)
+uniform vec4  uMoIris;  // …the iris's size, the pupil's, where it looks (× the eye's radius)
 
 """ + _cut("float sdRoundBox", "// ── the light") + _cut("// ── the light", "// the outward") \
     + _cut("vec2 eyeLocal", "vec3 eyeColour") + _cut("float browSDF", "// one eye over") \
@@ -900,7 +899,7 @@ vec3 mGlassCol(vec2 p, vec2 q, float dd) {
     float blush = 0.55 * uBlush.z + 0.35 * uChF.x * uEnergy + 0.65 * uMoFace.w;
     if (blush > 0.01) {                                                  // rosy cheeks (puffed: rounder)
         for (int k = 0; k < 2; k++) {
-            vec2 bq = (p - vec2(uChA.x + (k == 0 ? -152.0 : 152.0), uEye0.y + 0.5 * uEye0.w + 12.0))
+            vec2 bq = (p - vec2(uChA.x + (k == 0 ? -152.0 : 152.0), uEye0.y + 66.0))
                       / (vec2(30.0, 15.0) * (1.0 + 0.35 * vec2(uMoBody.z, 1.6 * uMoBody.z)));
             disp += uPal3 * blush * 0.6 * exp(-dot(bq, bq) * 1.4);
         }
@@ -1078,51 +1077,36 @@ float mGlyph(vec2 q, vec2 b, float kind, float side) {
     return max((length(q / (b * 0.9)) - 1.0) * r * 0.9, -0.06 * r - q.y);
 }
 
-// her eye's inside, all × the eye's half size (it follows the eye's shape);
+// her eye's inside, all × the eye's radius (round, like the eye);
 // uMoIris scales the iris and the pupil per look, .zw where it looks
-const vec2  M_IRIS = vec2(0.71, 0.76);        // the iris's half size
-const float M_IRIS_UP = 0.07;                 // …set a little high: more white below
-const vec2  M_PUPIL = vec2(0.50, 0.46);       // the pupil, × the iris (a little rounder)
-const float M_PUPIL_UP = 0.07;                // …a little above its middle
+const float M_IRIS_R = 0.60;                  // the iris: 60% of the eye's width
+const float M_PUPIL_R = 0.50;                 // the pupil: half the iris's
 const float M_IRIS_FOLLOW = 0.35;             // how far the iris follows the gaze in the eye
-const vec2  M_GLINT = vec2(-0.40, -0.46);     // the glint, × the pupil (up by the light)
-const float M_GLINT_R = 0.36;                 // …its radius, × the pupil's half width
-const vec2  M_GLINT2 = vec2(0.52, 0.50);      // a much smaller one down the other side
-const float M_GLINT2_R = 0.13;
-const vec3  M_IRIS_TOP = vec3(0.86, 0.27, 0.52);   // rose up under the lid…
-const vec3  M_IRIS_LOW = vec3(1.0, 0.63, 0.80);    // …light pink down below
-const vec3  M_PUPIL_COL = vec3(0.19, 0.05, 0.13);  // deep plum
+const vec2  M_GLINT = vec2(-0.42, -0.42);     // the glint, × the pupil (up by the light)
+const float M_GLINT_R = 0.17;                 // …its radius, × the pupil's
+const vec2  M_GLINT2 = vec2(0.42, 0.40);      // a much smaller one down the other side
+const float M_GLINT2_R = 0.07;
+const vec3  M_IRIS_TOP = vec3(0.90, 0.38, 0.60);   // soft rose, a touch deeper on top…
+const vec3  M_IRIS_LOW = vec3(0.98, 0.52, 0.71);   // …lighter below
+const vec3  M_PUPIL_COL = vec3(0.21, 0.06, 0.14);  // dark plum
 
 // the iris, its pupil and glints over the eye's colour c; q the eye's own
-// point, b its half size, at where the iris looks; im: how much is iris
-vec3 mIris(vec3 c, vec2 q, vec2 b, vec2 at, float open, out float im) {
+// point, r its radius, at where the iris looks; im: how much is iris
+vec3 mIris(vec3 c, vec2 q, float r, vec2 at, float open, out float im) {
     im = 0.0;
-    vec2 ih = M_IRIS * b * uMoIris.x;
-    vec2 room = max(b - ih, 0.0) * 0.75;                   // a white rim always stays
-    vec2 iq = q - clamp(at - vec2(0.0, M_IRIS_UP * b.y), -room, room);
-    float rn = length(iq / ih);
-    if (open < 0.01 || rn > 1.25) return c;
-    float soft = 2.0 / ih.x;                               // a soft edge, no outline
-    c = mix(c, mix(c, M_IRIS_LOW, 0.5), smoothstep(1.25, 1.0, rn) * 0.25 * open);
-    im = smoothstep(1.0 + 0.5 * soft, 1.0 - soft, rn) * open;
-    // rose under the lid, lighter pink below, a touch deeper toward its edge
-    vec3 ir = mix(M_IRIS_TOP, M_IRIS_LOW, smoothstep(-0.85, 0.80, iq.y / ih.y));
-    ir *= 1.0 - 0.10 * smoothstep(0.6, 1.0, rn);
-    // the pupil sinks into it: the iris darkens round it, its edge soft
-    vec2 ph = min(M_IRIS * b * M_PUPIL * uMoIris.y, ih * 0.80);
-    vec2 pq = iq + vec2(0.0, M_PUPIL_UP * ih.y);
-    float pn = length(pq / ph);
-    ir = mix(ir, M_IRIS_TOP * 0.80, smoothstep(1.9, 1.0, pn) * 0.22);
-    vec3 pc = mix(M_PUPIL_COL, M_PUPIL_COL * 1.9, smoothstep(0.1, 1.0, pq.y / ph.y) * 0.6);
-    ir = mix(ir, pc, clamp(0.5 - (pn - 1.0) * min(ph.x, ph.y) / 1.8, 0.0, 1.0));
-    // the glints, up by the light (excited: a little bigger)
-    float sh = 1.0 + 0.15 * uMoFace.z;
-    float g1 = length(pq - M_GLINT * ph) - M_GLINT_R * ph.x * sh;
-    float g2 = length(pq - M_GLINT2 * ph) - M_GLINT2_R * ph.x * sh;
+    float ir_ = M_IRIS_R * uMoIris.x * r;
+    vec2 iq = q - at * min(1.0, max(r - ir_, 0.0) * 0.6 / max(length(at), 1e-3));
+    float id = length(iq) - ir_;
+    if (open < 0.01 || id > 2.0) return c;
+    im = smoothstep(1.5, -1.5, id) * open;                 // a soft edge, no outline
+    vec3 col = mix(M_IRIS_TOP, M_IRIS_LOW, smoothstep(-ir_, ir_, iq.y));
+    float pr = min(M_PUPIL_R * uMoIris.y * M_IRIS_R * r, 0.8 * ir_);
+    col = mix(col, M_PUPIL_COL, smoothstep(1.2, -1.2, length(iq) - pr));
+    float sh = 1.0 + 0.2 * uMoFace.z;                      // excited: a little bigger
     vec3 wc = vec3(1.0, 0.97, 0.99);
-    ir = mix(ir, wc, clamp(0.5 - g1 / 1.3, 0.0, 1.0) * 0.92);
-    ir = mix(ir, wc, clamp(0.5 - g2 / 1.1, 0.0, 1.0) * (0.55 + 0.3 * uMoFace.z));
-    return mix(c, ir, im);
+    col = mix(col, wc, smoothstep(0.8, -0.8, length(iq - M_GLINT * pr) - M_GLINT_R * pr * sh));
+    col = mix(col, wc, smoothstep(0.7, -0.7, length(iq - M_GLINT2 * pr) - M_GLINT2_R * pr * sh) * 0.6);
+    return mix(c, col, im);
 }
 
 void mEye(vec2 p, vec4 e, vec4 la, vec4 lb, vec4 pu, float side, inout vec4 acc) {
@@ -1146,7 +1130,7 @@ void mEye(vec2 p, vec4 e, vec4 la, vec4 lb, vec4 pu, float side, inout vec4 acc)
         float open = (1.0 - lb.y) * (1.0 - gone) * (1.0 - uMorph.x)
                      * smoothstep(5.0, 16.0, (1.0 - la.x - la.w) * e.w);
         float im;
-        c = mIris(c, q, b, pu.xy * M_IRIS_FOLLOW + uMoIris.zw * b, open, im);
+        c = mIris(c, q, r, pu.xy * M_IRIS_FOLLOW + uMoIris.zw * r, open, im);
         if (uMoFace.z > 0.01) {                         // starry: a sparkle in each (white on the iris)
             vec2 sq1 = (q - vec2(0.24 * b.x, 0.20 * b.y)) / (0.36 * r);
             float sp = min(sdSparkle(sq1), sdSparkle((q + vec2(0.28 * b.x, 0.30 * b.y)) / (0.2 * r)));
@@ -1952,13 +1936,10 @@ def _mochi(face, u, life, ch, fcx, fcy, now, dt):
                  dock.CY - 30.0 - fcy - ch["body_y"] - 2.0)     # (the dock's pill, its float)
     life.mochi = r
     gx, gy = r["gaze"]
-    lay = characters.CHARS["mochi"]["layout"]
-    h0 = face_spec.BASE["eye_h"] * lay["eye_sy"]
     for i in (0, 1):
         ex, ey, w, h = u[f"uEye{i}"]
         dx, dy = u[f"uPupil{i}"][:2]
         s = r["scale"][i]
-        h = h0 * min((max(h, 1.0) / h0) ** lay["eye_h_give"], lay["eye_h_max"])
         u[f"uEye{i}"] = (ex + dx * 0.45 + gx, ey + dy * 0.35 + gy, w * s, h * s)
     ch["body_rot"] += r["tilt"]
     hands = []

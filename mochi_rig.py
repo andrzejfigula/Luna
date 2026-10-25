@@ -49,7 +49,7 @@ POSES = {"open": 1, "paper": 1, "hourglass": 1, "thumb": 1, "ok": 1,
 
 # ears: (lean L, lean R, flop L, flop R) — lean out in rad, flop 0..1; iris:
 # (the iris's size, the pupil's) × 1; look: where the iris looks in the eye
-# (× its half size, + down)
+# (× its radius, + down)
 LOOKS = {
     "neutral": {"ears": (0.16, 0.16, 0.0, 0.0), "mouth": ("smile", 18.0)},
     "listening": {"ears": (-0.03, -0.03, 0.0, 0.0), "mouth": ("smile", 16.0), "pods": 1.0,
@@ -87,7 +87,7 @@ LOOKS = {
                "pops": ((1, -262.0, -40.0, 26.0, 0.1), (1, 270.0, 6.0, 18.0, 0.4),
                         (1, 236.0, -150.0, 14.0, 0.75))},
     "surprised": {"ears": (-0.08, -0.08, 0.0, 0.0), "paws": "startle", "mouth": ("o", 15.0),
-                  "scale": (1.04, 1.04), "iris": (1.04, 1.12),
+                  "scale": (1.06, 1.06), "iris": (1.04, 1.12),
                   "pops": ((7, -262.0, -96.0, 34.0, 0.0),)},
     "sad": {"ears": (0.72, 0.72, 0.45, 0.45), "paws": "low", "mouth": ("frown", 16.0),
             "iris": (1.02, 1.08)},
@@ -150,7 +150,7 @@ def pick(face, ch, gestures=()):
 
 def hand_at(hx, hy):
     """robot_face's hand (Luna's face: eyes at ±158, -30, the mouth at 120,
-    the chin 196) → where Mochi's paw goes (her eyes at ±100, 40, the mouth
+    the chin 196) → where Mochi's paw goes (her eyes at ±100, 38, the mouth
     at 96, the top of her head -80): inside the face it shrinks to hers,
     beside it it stays beside it."""
     ax = abs(hx)

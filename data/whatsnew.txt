@@ -2,7 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 25 października ==
-- Mochi ma teraz większe, owalne oczka z różowymi tęczówkami, ciemnymi źrenicami i błyszczącymi iskierkami: patrzy tam, gdzie mówisz, a gdy się dziwi albo cieszy, źrenice robią się większe.
+- Mochi ma teraz w oczkach różowe tęczówki, ciemne źrenice i błyszczące iskierki: patrzy tam, gdzie mówisz, a gdy się dziwi albo cieszy, źrenice robią się większe.
 - Mochi jest teraz pluszowym króliczkiem: puchate uszka opadają, gdy jest smutna, i stają, gdy słucha; łapki z poduszeczkami machają na powitanie, chowają się przy policzkach, gdy się wstydzi, i unoszą z radości. Słuchawki świecą, kiedy słucha, a oczka robią się ◠ ze szczęścia, > < ze śmiechu i kreseczkami we śnie.
 - Postacie machają po swojemu: Pixel i Retro pokazują dłoń z pikseli na swoim ekranie, Mochi pluszową łapkę z poduszeczkami, a Pip neonową dłoń. Tak samo kciuk w górę, serce, kamień-papier-nożyce i klaskanie.
 
