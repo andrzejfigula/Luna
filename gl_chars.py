@@ -261,34 +261,11 @@ vec4 handArt(vec2 cc, float cs) {
     return vec4(t.r * al, step(0.5, t.g * al), pose, clamp(gy / 11.0, 0.0, 1.0));
 }
 
-// MOCHI / PIP: a hand's shape in unit size (y down, the wrist at +0.6, the
-// thumb towards the face); soft melts the fingers into a mitten
-float handSDF(vec2 q, float pose, float soft, out float crease) {
-    crease = 1e5;
-    if (pose > 7.5)                                     // the heart gesture
-        return sdHeart(vec2(q.x, 0.5 - q.y) * 1.1) / 1.1;
-    if (pose > 2.5 && pose < 3.5) q.y = 0.42 - q.y;     // thumb down: thumb up, upside down
-    if (pose < 1.5 || pose > 6.5) {                     // open (or ok): the palm, fingers up
-        float d = sdRoundBox(q - vec2(0.02, 0.24), vec2(0.33, 0.32), 0.22);
-        float r = 0.105;
-        if (pose < 1.5) d = smin(d, sdSeg(q, vec2(-0.24, 0.05), vec2(-0.26, -0.50)) - r, soft);
-        else d = min(d, abs(length(q - vec2(-0.30, -0.16)) - 0.17) - 0.065);   // ok: the "O"
-        d = smin(d, sdSeg(q, vec2(-0.05, 0.0), vec2(-0.06, -0.66)) - r, soft);
-        d = smin(d, sdSeg(q, vec2(0.14, 0.02), vec2(0.15, -0.62)) - r, soft);
-        d = smin(d, sdSeg(q, vec2(0.31, 0.08), vec2(0.33, -0.42)) - r * 0.9, soft);
-        if (pose < 1.5) d = smin(d, sdSeg(q, vec2(-0.26, 0.34), vec2(-0.56, 0.04)) - 0.11, soft * 0.6);
-        return d;
-    }
-    float d = sdRoundBox(q - vec2(0.0, 0.2), vec2(0.37, 0.35), 0.26);   // a fist
-    for (int k = 0; k < 3; k++)                         // the curled fingers' lines
-        crease = min(crease, sdSeg(q, vec2(-0.12, 0.02 + 0.16 * float(k)), vec2(0.30, 0.02 + 0.16 * float(k))));
-    if (pose < 3.5) d = smin(d, sdSeg(q, vec2(-0.22, 0.0), vec2(-0.24, -0.62)) - 0.13, soft);
-    else if (pose > 4.5 && pose < 5.5) d = smin(d, sdSeg(q, vec2(-0.12, 0.0), vec2(-0.13, -0.72)) - 0.1, soft);
-    else if (pose > 5.5) {                              // scissors: two fingers apart
-        d = smin(d, sdSeg(q, vec2(-0.14, 0.0), vec2(-0.32, -0.66)) - 0.1, soft);
-        d = smin(d, sdSeg(q, vec2(0.08, 0.0), vec2(0.22, -0.68)) - 0.1, soft);
-    }
-    return d;
+// a capsule that narrows from ra at a to rb at b (a finger, a thumb)
+float sdTaper(vec2 p, vec2 a, vec2 b, float ra, float rb) {
+    vec2 pa = p - a, ba = b - a;
+    float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+    return length(pa - ba * h) - mix(ra, rb, h);
 }
 
 // a drawn hand's own frame: unit size s px, turned, the left one mirrored
@@ -945,30 +922,72 @@ void mMouth(vec2 p, inout vec4 acc) {
     acc.rgb += uPal3 * 0.25 * halo(d, 5.0) * uMouthK.z * (1.0 - a) * uDim;
 }
 
-// a plush paw: a soft mitten in her pink, toe beans on an open one; a heart cushion
+// a plush paw, unit size (y down, the arm coming up from below): round and
+// stubby — open, four little toes round its top and pink beans; closed, the
+// toes tucked (seams between them), a thumb or a finger only a short nub
+float pawSDF(vec2 q, float pose, out float seam, out float beans) {
+    seam = 1e5;
+    beans = 1e5;
+    if (pose > 7.5)                                     // the heart gesture: a cushion
+        return sdHeart(vec2(q.x, 0.5 - q.y) * 1.1) / 1.1;
+    if (pose > 2.5 && pose < 3.5) q.y = 0.26 - q.y;     // thumb down: upside down
+    float d = ellD(q - vec2(0.0, 0.13), vec2(0.37, 0.35));
+    d = smin(d, sdSeg(q, vec2(0.0, 0.40), vec2(0.0, 0.75)) - 0.25, 0.12);  // a short plump arm
+    if (pose < 1.5) {                                   // open: four toes round the top, beans
+        vec2 t0 = vec2(-0.27, -0.10), t1 = vec2(-0.10, -0.23), t2 = vec2(0.10, -0.23), t3 = vec2(0.27, -0.10);
+        d = smin(d, length(q - t0) - 0.13, 0.04);
+        d = smin(d, length(q - t1) - 0.14, 0.04);
+        d = smin(d, length(q - t2) - 0.14, 0.04);
+        d = smin(d, length(q - t3) - 0.13, 0.04);
+        beans = smin(ellD(q - vec2(0.0, 0.14), vec2(0.15, 0.10)),     // the big pad: three lobes
+                     min(length(q - vec2(-0.09, 0.21)) - 0.085, length(q - vec2(0.09, 0.21)) - 0.085), 0.05);
+        beans = min(beans, min(min(ellD(q - t0 - vec2(0.01, 0.02), vec2(0.055, 0.065)),
+                                   ellD(q - t1 - vec2(0.0, 0.02), vec2(0.06, 0.07))),
+                               min(ellD(q - t2 - vec2(0.0, 0.02), vec2(0.06, 0.07)),
+                                   ellD(q - t3 - vec2(-0.01, 0.02), vec2(0.055, 0.065)))));
+        return d;
+    }
+    for (int k = 0; k < 3; k++) {                       // closed: the tucked toes' seams
+        float x = -0.15 + 0.15 * float(k);
+        seam = min(seam, sdSeg(q, vec2(x, -0.21 + 0.03 * abs(x) / 0.15), vec2(x * 0.85, -0.09)));
+    }
+    vec2 n0 = vec2(-0.19, -0.27), n1 = vec2(1e3);        // stubby round nubs, a bean on each
+    float r = 0.12;
+    if (pose > 4.5 && pose < 5.5) n0 = vec2(-0.07, -0.30);                 // pointing: one toe
+    else if (pose > 5.5 && pose < 6.5) { n0 = vec2(-0.15, -0.29); n1 = vec2(0.13, -0.29); r = 0.105; }
+    if (pose > 6.5) {                                   // ok: a little loop
+        d = smin(d, abs(length(q - vec2(-0.20, -0.28)) - 0.10) - 0.05, 0.04);
+        return d;
+    }
+    if (pose > 3.5 && pose < 4.5) return d;             // a fist: just the round paw
+    d = smin(d, sdSeg(q, n0 + vec2(0.0, 0.10), n0) - r, 0.06);
+    d = smin(d, sdSeg(q, n1 + vec2(0.0, 0.10), n1) - r, 0.06);
+    beans = min(ellD(q - n0, vec2(0.05, 0.06)), ellD(q - n1, vec2(0.05, 0.06)));
+    return d;
+}
+
 void mHand(vec2 p, inout vec4 acc) {
     vec4 h = uShape < 16.5 ? uHand0 : uHand1;
     float pose = floor(h.w + 0.001);
     float al = clamp(fract(h.w + 0.001) / 0.98, 0.0, 1.0);
-    float s = pose > 7.5 ? 92.0 * (1.0 + 0.08 * h.z) : 124.0;
+    float s = pose > 7.5 ? 92.0 * (1.0 + 0.08 * h.z) : 118.0;
     vec2 q = handLocal(p, h, s);
-    float crease;
-    float d = handSDF(q, pose, 0.07, crease) * s;
+    float seam, beans;
+    float d = pawSDF(q, pose, seam, beans) * s;
+    float ay = pose > 2.5 && pose < 3.5 ? 0.26 - q.y : q.y;               // (thumb down: upside down)
+    al *= pose > 7.5 ? 1.0 : smoothstep(0.92, 0.38, ay);                  // the arm fades out
     float a = cover(d) * al;
     acc.rgb += uPal3 * 0.12 * exp(-max(d, 0.0) / 14.0) * al * (1.0 - a);   // a soft pink light
     if (a <= 0.0) return;
-    vec3 c = mix(uPal0, uPal1, clamp(0.15 + 0.7 * q.y, 0.0, 1.0));
+    vec3 c = mix(uPal0, uPal1, clamp(0.1 + 0.55 * q.y, 0.0, 1.0));
     if (pose > 7.5) c = mix(uPal3, vec3(1.0, 0.86, 0.9), 0.25 * smoothstep(0.3, -0.4, q.y + q.x));
-    c *= 0.80 + 0.20 * smoothstep(0.0, -16.0, d);                         // rounded: darker edges
-    vec2 hq = (q - vec2(-0.12, -0.08)) / 0.32;
-    c += vec3(1.0, 0.94, 0.96) * 0.16 * exp(-dot(hq, hq));                // a sheen
-    if (pose < 1.5) {                                                     // toe beans
-        float bean = ellD(q - vec2(0.03, 0.32), vec2(0.19, 0.14));
-        bean = min(bean, min(length(q - vec2(-0.16, 0.06)) - 0.07,
-                             min(length(q - vec2(0.05, 0.0)) - 0.075, length(q - vec2(0.24, 0.06)) - 0.07)));
-        c = mix(c, mix(uPal3, uPal0, 0.25), cover(bean * s));
-    }
-    c = mix(c, uPal1 * 0.72, cover(crease * s - 1.4) * 0.8);              // curled fingers' seams
+    c *= 0.78 + 0.22 * smoothstep(0.0, -18.0, d);                         // plump: darker edges
+    vec2 hq = (q - vec2(-0.12, -0.04)) / 0.30;
+    c += vec3(1.0, 0.94, 0.96) * 0.18 * exp(-dot(hq, hq));                // a sheen
+    float bd = beans * s;
+    vec3 bean = mix(uPal3, vec3(1.0, 0.75, 0.85), 0.3 * smoothstep(0.0, -6.0, bd));
+    c = mix(c, bean, cover(bd));
+    c = mix(c, uPal1 * 0.70, cover(seam * s - 1.3) * 0.75);               // the seams
     if (pose > 7.5)                                                       // the cushion's stitches
         c = mix(c, vec3(1.0, 0.9, 0.94), cover(abs(d + 9.0) - 1.1) * step(0.5, fract((p.x + p.y) / 9.0)) * 0.7);
     over(acc, c * mix(1.0, uDim, 0.35), a);
@@ -1161,18 +1180,76 @@ void pTie(vec2 p, inout vec4 acc) {                  // a bow tie below the mout
     acc.rgb += uPal2 * 0.4 * halo(ring, 6.0) * (1.0 - cover(ring)) * uChA.w;
 }
 
-// a hand in neon lines like his eyes: an outline, a faint fill, the fist's
-// fingers as lines; the heart gesture a neon heart beating
+// a hand, unit size (y down, the wrist at +0.55, the thumb towards the
+// face), proportioned like one: the palm narrowing to the wrist, tapered
+// fingers (the middle longest), a two-part thumb from low on the palm; a fist
+// from the front, its curled fingers stacked, knuckles out. lines: the joints,
+// the palm's creases, a thumbnail, a thumb folded across
+float pipHandSDF(vec2 q, float pose, out float lines) {
+    lines = 1e5;
+    if (pose > 7.5)                                     // the heart gesture
+        return sdHeart(vec2(q.x, 0.5 - q.y) * 1.1) / 1.1;
+    if (pose > 2.5 && pose < 3.5) q.y = 0.42 - q.y;     // thumb down: upside down
+    if (pose < 1.5 || pose > 6.5) {                     // open (or ok): the palm out
+        vec2 pq = q - vec2(0.02, 0.22);
+        pq.x *= 1.0 + 0.22 * clamp(pq.y / 0.3, 0.0, 1.0);          // narrower at the wrist
+        float d = sdRoundBox(pq, vec2(0.28, 0.29), 0.13);
+        d = min(d, sdTaper(q, vec2(-0.05, -0.02), vec2(-0.07, -0.50), 0.070, 0.058));   // middle
+        d = min(d, sdTaper(q, vec2(0.11, 0.0), vec2(0.15, -0.45), 0.066, 0.055));       // ring
+        d = min(d, sdTaper(q, vec2(0.23, 0.05), vec2(0.30, -0.30), 0.058, 0.048));      // little
+        lines = min(sdSeg(q, vec2(-0.12, -0.25), vec2(0.0, -0.25)), sdSeg(q, vec2(0.08, -0.21), vec2(0.20, -0.21)));
+        lines = min(lines, sdSeg(q, vec2(0.23, -0.11), vec2(0.33, -0.12)));
+        lines = min(lines, sdSeg(q, vec2(-0.18, 0.09), vec2(0.24, 0.05)));               // the palm's creases
+        lines = min(lines, max(abs(length(q - vec2(-0.34, 0.40)) - 0.24), q.x + 0.14));
+        if (pose < 1.5) {
+            d = min(d, sdTaper(q, vec2(-0.19, 0.0), vec2(-0.26, -0.43), 0.068, 0.056));  // index
+            lines = min(lines, sdSeg(q, vec2(-0.29, -0.21), vec2(-0.17, -0.22)));
+            d = min(d, sdTaper(q, vec2(-0.22, 0.36), vec2(-0.40, 0.18), 0.095, 0.080));  // the thumb
+            d = min(d, sdTaper(q, vec2(-0.40, 0.18), vec2(-0.49, 0.03), 0.080, 0.066));
+            lines = min(lines, sdSeg(q, vec2(-0.45, 0.13), vec2(-0.36, 0.21)));
+        } else {                                        // ok: index and thumb close a ring
+            d = min(d, abs(length(q - vec2(-0.27, -0.05)) - 0.12) - 0.055);
+            d = min(d, sdTaper(q, vec2(-0.22, 0.36), vec2(-0.36, 0.08), 0.095, 0.07));
+        }
+        return d;
+    }
+    float d = sdRoundBox(q - vec2(0.05, 0.24), vec2(0.25, 0.29), 0.16);   // a fist
+    float first = pose > 5.5 && pose < 6.5 ? 2.0 : pose > 4.5 && pose < 5.5 ? 1.0 : 0.0;
+    for (int k = 0; k < 4; k++) {                       // the curled fingers, knuckles out
+        float fk = float(k);
+        if (fk < first) continue;
+        float y = 0.03 + 0.14 * fk;
+        d = min(d, sdSeg(q, vec2(-0.08, y), vec2(0.27, y)) - 0.066);
+        if (k < 3) lines = min(lines, sdSeg(q, vec2(-0.06, y + 0.07), vec2(0.31, y + 0.07)));
+    }
+    if (pose < 3.5) {                                   // the thumb up: short, a nail
+        d = smin(d, sdTaper(q, vec2(-0.16, 0.10), vec2(-0.19, -0.25), 0.092, 0.078), 0.03);
+        lines = min(lines, abs(sdRoundBox(q - vec2(-0.19, -0.25), vec2(0.035, 0.045), 0.03)));
+        lines = min(lines, sdSeg(q, vec2(-0.25, -0.08), vec2(-0.12, -0.09)));
+        lines = min(lines, sdSeg(q, vec2(-0.09, 0.0), vec2(-0.09, 0.48)));     // where the fingers curl in
+    } else {                                            // folded across the fingers
+        lines = min(lines, abs(sdTaper(q, vec2(-0.19, 0.44), vec2(0.10, 0.31), 0.068, 0.056)));
+        if (pose > 4.5 && pose < 5.5) {                 // pointing: the index finger
+            d = min(d, sdTaper(q, vec2(-0.10, 0.0), vec2(-0.11, -0.46), 0.066, 0.055));
+            lines = min(lines, sdSeg(q, vec2(-0.16, -0.20), vec2(-0.05, -0.20)));
+        } else if (pose > 5.5) {                        // scissors: index and middle apart
+            d = min(d, sdTaper(q, vec2(-0.11, 0.0), vec2(-0.25, -0.43), 0.066, 0.055));
+            d = min(d, sdTaper(q, vec2(0.05, 0.0), vec2(0.11, -0.47), 0.066, 0.055));
+        }
+    }
+    return d;
+}
+
 void pHand(vec2 p, inout vec4 acc) {
     vec4 h = uShape < 16.5 ? uHand0 : uHand1;
     float pose = floor(h.w + 0.001);
     float al = clamp(fract(h.w + 0.001) / 0.98, 0.0, 1.0);
-    float s = pose > 7.5 ? 84.0 * (1.0 + 0.1 * h.z) : 112.0;
+    float s = pose > 7.5 ? 84.0 * (1.0 + 0.1 * h.z) : 132.0;
     vec2 q = handLocal(p, h, s);
     float crease;
-    float d = handSDF(q, pose, 0.0, crease) * s;
-    float ring = abs(d + 2.6) - 2.6;
-    float lines = min(ring, max(crease * s - 2.2, d + 4.0));
+    float d = pipHandSDF(q, pose, crease) * s;
+    float ring = abs(d + 2.4) - 2.4;
+    float lines = min(ring, max(crease * s - 1.6, d + 3.5));
     vec3 c = pose > 7.5 ? mix(uPal3, uPal0, 0.35) : mix(uPal0, uPal1, clamp(q.y + 0.5, 0.0, 1.0));
     c *= 1.0 + 0.35 * uChF.x * uEnergy;                // his voice: the neon flares
     over(acc, mix(uPal0, uPal1, 0.4) * 0.16 * uDim, cover(d) * al);
@@ -1226,18 +1303,18 @@ HAND_IDS = {"open": 1, "paper": 1, "hourglass": 1, "thumb": 2, "thumb_down": 3, 
 # RETRO's and PIXEL's hands, cell by cell (10 × 12, a right hand, its thumb
 # towards the face): "#" lit, "+" dim (a fist's fingers), "." off
 HAND_ART = {
-    1: (".....#....", "...#.#.#..", "...#.#.#..", "...#.#.#.#", "...#.#.#.#", "...#.#.#.#",
-        "#..#######", "##.#######", ".#########", "..########", "...######.", "...######."),
-    2: ("..##......", "..##......", "..##......", "..##......", "..#######.", ".########.",
-        ".#+++++##.", ".########.", ".#+++++##.", ".########.", "..######..", "...####..."),
-    4: ("..........", "..........", "..........", "...#####..", "..#######.", ".########.",
-        ".#+++++##.", ".########.", ".#+++++##.", ".########.", "..######..", "...####..."),
-    5: ("...#......", "...#......", "...#......", "...#......", "..#####...", ".########.",
-        ".#+++++##.", ".########.", ".#+++++##.", ".########.", "..######..", "...####..."),
-    6: (".#.....#..", ".#.....#..", "..#...#...", "..#...#...", "...#.#....", ".########.",
-        ".########.", ".#+++++##.", ".########.", ".#+++++##.", "..######..", "...####..."),
-    7: (".....#.#.#", ".....#.#.#", "..##.#.#.#", ".#..##.#.#", ".#..######", "..########",
-        "..########", "...#######", "...######.", "...######.", "...######.", "...#####.."),
+    1: (".....#....", "...#.#.#..", "...#.#.#..", "...#.#.#.#", "...#.#.#.#", "#..#.#.#.#",
+        "#..#######", ".#.#######", ".#########", "..#++++###", "...######.", "...######."),
+    2: ("..........", "...##.....", "...##.....", "...##.....", "..######..", "..########",
+        "..#++++++#", "..########", "..#++++++#", "..########", "...######.", "...#####.."),
+    4: ("..........", "..........", "..........", "...####...", "..#######.", "..########",
+        "..#++++++#", "..########", "..####+++#", "..########", "...######.", "...#####.."),
+    5: ("...#......", "...#......", "...#......", "...#......", "..####....", "..########",
+        "..#++++++#", "..########", "..####+++#", "..########", "...######.", "...#####.."),
+    6: ("..#....#..", "..#....#..", "...#..#...", "...#..#...", "..######..", "..########",
+        "..#++++++#", "..########", "..####+++#", "..########", "...######.", "...#####.."),
+    7: (".....#.#..", ".....#.#.#", ".....#.#.#", "..##.#.#.#", ".#..######", ".#..######",
+        "..########", "..########", "...#######", "...######.", "...######.", "...#####.."),
     8: ("..........", "..........", ".##....##.", "####..####", "##########", "##########",
         ".########.", "..######..", "...####...", "....##....", "..........", ".........."),
 }
