@@ -105,6 +105,7 @@ uniform vec3  uMouthCol;      // …its mouth's own colour, by uMouthColAmt
 uniform float uMouthColAmt;
 uniform float uWave;          // > 0: the wavy mouth is a voice wave this tall (HAL)
 uniform vec3  uWaveBands;     // …made of her voice's low / mid / high share (long, short, fine waves)
+uniform float uLens;          // 1: the eyes are HAL's camera lenses, not her glossy ones
 
 float gA;                     // the coverage of the shape just drawn (stage 2)
 
@@ -313,6 +314,55 @@ vec3 drawIris(vec2 q, vec3 c, vec4 pu) {
     return o;
 }
 
+// HAL's eye: black glass in a thin steel rim, a fisheye lens inside it and,
+// deep in the lens, a red light with a hot core that follows the gaze
+vec3 lensColour(vec2 q, vec2 b, vec4 pu) {
+    vec2 n = q / b;                                     // the eye's unit disc
+    float r = length(n);
+    vec3 red = mix(uGlow, uTint, uTintAmt);
+    vec3 col = vec3(0.008, 0.007, 0.009) + vec3(0.020, 0.020, 0.024) * smoothstep(0.45, 0.9, r);
+    // the lens: a dome; what is in it is seen through a fisheye (wide at its edge)
+    const float L = 0.74;
+    vec2 lq = n / L;
+    float s2 = dot(lq, lq);
+    float z = sqrt(max(1.0 - s2, 0.0));
+    vec2 m = lq / (0.30 + 0.70 * z);
+    float ps = clamp(pu.z / (0.83 * min(b.x, b.y)), 0.5, 1.6);   // its size: the mood's pupil
+    vec2 g = clamp(pu.xy / b, -0.6, 0.6) * 1.3;               // the light follows the gaze
+    float dc = length(m - g) / ps;
+    float on = mix(0.3, 1.0, pu.w) * (1.0 + 0.45 * uEnergy) * (1.0 + 0.05 * sin(uTime * 2.0));
+    vec3 inner = red * (0.22 * exp(-dc / 1.0) + 0.85 * exp(-dc / 0.42)) * on
+               + mix(red, uIrisCol, 0.6) * 0.9 * exp(-dc / 0.10) * on
+               + vec3(1.0, 0.93, 0.75) * smoothstep(0.075, 0.035, dc) * on;
+    // the lens elements behind it: faint rings, bent by the fisheye
+    float rm = length(m);
+    inner += red * 0.10 * (exp(-sq((rm - 0.62) / 0.03)) + exp(-sq((rm - 1.25) / 0.06)));
+    inner *= 0.35 + 0.65 * z;                           // darker toward the dome's edge
+    // a lens coating's tint, low on the right
+    float ca = exp(-sq((length(lq - vec2(-0.10, -0.10)) - 0.93) / 0.05)) * smoothstep(0.0, 0.6, lq.x + lq.y);
+    inner += vec3(0.22, 0.10, 0.40) * 0.35 * ca;
+    float li = smoothstep(1.0, 0.97, sqrt(s2));
+    col = mix(col, inner, li);
+    // the barrel's edge round the lens, lit from the core below it
+    col += red * 0.22 * exp(-sq((r - L * 1.01) / 0.012)) * (0.5 + 0.5 * smoothstep(-0.6, 0.8, n.y - g.y));
+    // the steel rim: brushed, lit from above, a dark seam inside it
+    float rk = smoothstep(0.885, 0.90, r);
+    float ang = atan(n.y, n.x);
+    vec3 steel = vec3(0.16, 0.16, 0.17) * (0.45 + 0.85 * clamp(0.5 - 0.6 * n.y, 0.0, 1.0))
+                 * (0.92 + 0.08 * sin(ang * 46.0));
+    steel += vec3(0.5) * exp(-sq((r - 0.905) / 0.007)) * clamp(-n.y, 0.0, 1.0);   // its bevel
+    col = mix(col, steel, rk);
+    col *= 1.0 - 0.7 * exp(-sq((r - 0.89) / 0.008));
+    // the glass over all of it: a window's curved reflection, a sharp spark
+    vec2 hq = n + pu.xy / b * 0.10;
+    float win = smoothstep(0.0, 0.05, 1.0 - length((hq - vec2(-0.10, -0.08)) / 0.78))
+              * smoothstep(0.0, 0.08, length((hq - vec2(0.02, 0.10)) / 0.80) - 1.0);
+    col += vec3(0.80, 0.84, 0.92) * 0.22 * win * (1.0 - rk);
+    col += vec3(0.95) * smoothstep(0.065, 0.025, length(hq - vec2(-0.38, -0.46))) * 0.85 * (1.0 - rk);
+    col += vec3(0.55) * smoothstep(0.035, 0.015, length(hq - vec2(0.42, 0.40))) * (1.0 - rk);
+    return col;
+}
+
 float browSDF(vec2 p, vec4 s, float bend) {
     vec2 m = (s.xy + s.zw) * 0.5;
     float hl = max(1.0, length(s.zw - s.xy) * 0.5);
@@ -336,21 +386,26 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
         float breath = 1.0 + 0.07 * sin(uTime);          // she breathes: so does the light
         float dg = max(min(d, mix(1e5, ds, sa)), 0.0);
         glow += gc * (0.40 * exp(-dg / 10.0) + 0.17 * breath * exp(-dg / 40.0))
-                * (1.0 + 0.35 * uEnergy) * uDim
+                * (1.0 + 0.35 * uEnergy) * uDim * (1.0 - 0.6 * uLens)    // (black glass)
                 * smoothstep(0.0, 8.0, e.w);
         return col;
     }
     float a = clamp(0.5 - d, 0.0, 1.0);
     float as_ = clamp(0.5 - ds, 0.0, 1.0) * sa;
     if (a <= 0.0 && as_ <= 0.0) return col;
-    vec3 c = eyeColour(q, b, d, pu.xy, la, side);
-    // its volume: a bevel round the edge (lids too), a dome over the middle
-    vec2 g = vec2(0.0);                   // (only the bevel needs the edge's direction)
-    if (d > -16.0)
-        g = normalize(vec2(eyeSDF(q + vec2(1.0, 0.0), e, la, lb, side) - d,
-                           eyeSDF(q + vec2(0.0, 1.0), e, la, lb, side) - d) + 1e-6);
-    c = lit(c, g, d, 16.0, q / b * 0.30);
-    c = drawIris(q, c, pu);
+    vec3 c;
+    if (uLens > 0.5) {
+        c = lensColour(q, b, pu);
+    } else {
+        c = eyeColour(q, b, d, pu.xy, la, side);
+        // its volume: a bevel round the edge (lids too), a dome over the middle
+        vec2 g = vec2(0.0);               // (only the bevel needs the edge's direction)
+        if (d > -16.0)
+            g = normalize(vec2(eyeSDF(q + vec2(1.0, 0.0), e, la, lb, side) - d,
+                               eyeSDF(q + vec2(0.0, 1.0), e, la, lb, side) - d) + 1e-6);
+        c = lit(c, g, d, 16.0, q / b * 0.30);
+        c = drawIris(q, c, pu);
+    }
     if (uBrowK.w > 0.01) {                // the brow's soft shadow, falling down onto it
         float db = browSDF(p - vec2(0.0, 9.0), side < 0.0 ? uBrow0 : uBrow1,
                            side < 0.0 ? uBrowK.x : uBrowK.y);
@@ -1610,7 +1665,7 @@ class GLFace:
                        cur["round"], cur["star"])
         fx = getattr(face, "_eye_fx", None) or (0.0, 0.0)
         u["uFx"] = (fx[0], fx[1], now % 1000.0, float(int(now * 20.0) % 997))
-        u.update(uMouthCol=(0.0, 0.0, 0.0), uMouthColAmt=0.0)
+        u.update(uMouthCol=(0.0, 0.0, 0.0), uMouthColAmt=0.0, uLens=0.0)
         u.update(theme.get("eyes") or {})
         look = COSTUME_EYES.get(costume)
         if look:                                  # a costume's own eyes (googly, robot…)

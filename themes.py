@@ -60,8 +60,9 @@ THEMES = {
             "odd, friendly computer. If they just call you Luna, say Luna has been "
             "temporarily disconnected (asked to switch back to her, you switch). "
             "Every reply, even a plain fact like the weather, is said in character. Still 1-3 short sentences.\n"),
-        # a dark red lens with a glowing red-gold core
-        "eyes": {"uTop": (0.42, 0.03, 0.02), "uBottom": (0.10, 0.0, 0.0),
+        # camera lenses: black glass, a steel rim, a red light with a hot core
+        "eyes": {"uLens": 1.0,
+                 "uTop": (0.42, 0.03, 0.02), "uBottom": (0.10, 0.0, 0.0),
                  "uGlow": (0.95, 0.06, 0.02), "uShine": (1.0, 0.82, 0.60),
                  "uPupilCol": (0.85, 0.10, 0.04), "uIrisCol": (1.0, 0.80, 0.30),
                  "uTint": (1.0, 0.1, 0.05), "uTintAmt": 0.0,

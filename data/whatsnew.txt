@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 25 października ==
+- Hal ma nowe oczy jak obiektywy kamery: czarne szkło w stalowej obręczy, a w środku, jak przez soczewkę „rybie oko”, czerwone światło z jasnym punktem, które patrzy tam, gdzie on.
 - Łapki Mochi opierają się o szybkę jak u kotka przy oknie: gdy rusza głową, łapki stoją w miejscu, a potem — raz jedna, raz druga — szybko się unoszą, przestawiają i znowu przyciskają do szybki (już się nie ślizgają).
 - „Mów szeptem” — naprawdę szepcze (każda postać), aż powiesz „mów normalnie” albo „za cicho”; sam szept mija po trzech godzinach.
 - „Pokaż łapki” albo „pokaż rączki” — pokazuje swoje własne łapki czy rączki na ekranie (zamiast zdjęcia z Wikipedii). Działa też z imieniem postaci na początku: „Moki, pokaż łapki”, „Hal, pomachaj”.
