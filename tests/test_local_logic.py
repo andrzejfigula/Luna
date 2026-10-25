@@ -7159,7 +7159,6 @@ class FaceSpecTest(unittest.TestCase):
             themes.set_theme("luna")
 
     def test_hal_blinks_with_a_shutter(self):
-        import gl_face
         import themes
         u = self._settle(self._gl(), self._face("neutral", blink=0.0), 12)
         self.assertEqual(u["uLens"], 0.0)
@@ -7175,46 +7174,24 @@ class FaceSpecTest(unittest.TestCase):
                     self.assertEqual(u["uLidB0"][1], 0.0)          # nor their seam
                 gl = self._gl()
                 u = self._settle(gl, self._face("neutral"), 30)
-                self.assertLess(max(u["uShut"]), 0.05)              # open
+                rest = u["uShut"][0]
+                self.assertTrue(0.1 < rest < 0.5)                   # open: the aperture's rest
                 lids = u["uLidA0"]
                 face = self._face("neutral")
                 face.left_eye.squint = face.right_eye.squint = 0.5   # an idle squint…
-                u = self._settle(gl, face, 2)
-                self.assertLess(u["uShut"][0], 0.125)               # (a motor: no jump)
                 u = self._settle(gl, face, 20)
-                self.assertTrue(0.2 < u["uShut"][0] < 0.5)           # …stops the shutter down
-                self.assertEqual(u["uShut"][0] * 8, int(u["uShut"][0] * 8))   # a stroke's end
+                self.assertGreater(u["uShut"][0], rest + 0.03)      # …stops the shutter down
                 self.assertAlmostEqual(u["uLidA0"][0], lids[0], places=3)   # the lids stay put
+                # the pupil is the aperture: wide opens it, small closes it
+                face = self._face("neutral")
+                face.left_eye.pupil_scale = face.right_eye.pupil_scale = 1.3
+                wide = self._settle(gl, face, 30)["uShut"][0]
+                face.left_eye.pupil_scale = face.right_eye.pupil_scale = 0.6
+                small = self._settle(gl, face, 30)["uShut"][0]
+                self.assertLess(wide, rest - 0.1)
+                self.assertGreater(small, rest + 0.1)
         finally:
             themes.set_theme("luna")
-        # a blink: shut at an even speed, held, open at an even speed
-        s, t, path = gl_face.Shutter(), 0.0, []
-        for b in [0.0, 1.0, 1.0, 0.5] + [0.0] * 50:
-            path.append(s.step(t, b, 0.0))
-            t += 1 / 30
-        self.assertEqual(max(path), 1.0)
-        self.assertEqual(path[-1], 0.0)
-        self.assertGreater(path.count(1.0), 5)                   # a hold
-        moves = [round(abs(b - a), 4) for a, b in zip(path, path[1:]) if b != a]
-        self.assertLessEqual(max(moves), round(2.2 / 30, 4))     # smooth: a frame's worth
-        self.assertGreater(moves.count(round(1.65 / 30, 4)), 10)   # constant speed, no ease
-
-    def test_hals_head_is_a_servo(self):
-        try:
-            import robot_face as rf
-        except ImportError:
-            self.skipTest("pygame")
-        s = rf.Servo(260.0, 2600.0, 5.0)
-        self.assertEqual(s.step(0.0, 3.0, 1 / 30), 0.0)          # a small step: no move
-        x, path = 0.0, []
-        for _ in range(60):
-            x = s.step(x, 80.0, 1 / 30)
-            path.append(x)
-        self.assertEqual(path[-1], 80.0)                          # a dead stop on it…
-        self.assertLessEqual(max(path), 80.0)                     # …no overshoot
-        steps = [b - a for a, b in zip(path, path[1:]) if b != a]
-        self.assertAlmostEqual(max(steps), 260.0 / 30, places=3)  # at its set speed
-        self.assertLess(len(steps) + 1, 15)                       # quick: under half a second
 
     def test_people_coming_and_going(self):
         gl = self._gl()

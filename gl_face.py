@@ -328,16 +328,19 @@ vec3 lensColour(vec2 q, vec2 b, vec4 pu, float sh) {
     float s2 = dot(lq, lq);
     float z = sqrt(max(1.0 - s2, 0.0));
     vec2 m = lq / (0.30 + 0.70 * z);
-    float ps = clamp(pu.z / (0.83 * min(b.x, b.y)), 0.5, 1.6);   // its size: the mood's pupil
+    // the light seen through the aperture: smaller and dimmer as it closes
+    float op = 1.0 - sh;
+    float ps = 0.30 + 0.80 * op;
     vec2 g = clamp(pu.xy / b, -0.6, 0.6) * 1.3;               // the light follows the gaze
     float dc = length(m - g) / ps;
-    float on = mix(0.3, 1.0, pu.w) * (1.0 + 0.45 * uEnergy) * (1.0 + 0.05 * sin(uTime * 2.0));
+    float on = mix(0.3, 1.0, pu.w) * (1.0 + 0.45 * uEnergy) * (1.0 + 0.05 * sin(uTime * 2.0))
+             * (0.55 + 0.45 * op);
     vec3 inner = red * (0.22 * exp(-dc / 1.0) + 0.85 * exp(-dc / 0.42)) * on
                + mix(red, uIrisCol, 0.6) * 0.9 * exp(-dc / 0.10) * on
                + vec3(1.0, 0.93, 0.75) * smoothstep(0.075, 0.035, dc) * on;
     // the lens elements behind it: faint rings, bent by the fisheye
     float rm = length(m);
-    inner += red * 0.10 * (exp(-sq((rm - 0.62) / 0.03)) + exp(-sq((rm - 1.25) / 0.06)));
+    inner += red * 0.10 * (exp(-sq((rm - 0.62 * ps) / 0.03)) + exp(-sq((rm - 1.25 * ps) / 0.06)));
     inner *= 0.35 + 0.65 * z;                           // darker toward the dome's edge
     // a lens coating's tint, low on the right
     float ca = exp(-sq((length(lq - vec2(-0.10, -0.10)) - 0.93) / 0.05)) * smoothstep(0.0, 0.6, lq.x + lq.y);
@@ -897,45 +900,6 @@ COSTUME_EYES = {
 }
 
 
-class Shutter:
-    """HAL's shutter, driven by a motor: it moves at a constant speed and
-    stops dead, never a lid's ease. A blink: shut, a hold, open again; a
-    mood's stop is taken in strokes of an eighth (no creeping after it)."""
-    CLOSE, OPEN, ADJUST = 2.2, 1.65, 0.8          # /s: shut in 0.45 s, open in 0.6 s
-    HOLD = 0.18                                   # s shut, in a blink
-
-    def __init__(self):
-        self.pos, self.t, self.hold = 0.0, None, 0.0
-        self.armed, self.blinking, self.reopen = True, False, False
-
-    def step(self, now, blink, want):
-        """blink: the face's blink, 0 open … 1 shut; want: the stop the
-        moods ask for (0..1). Its position, 0..1."""
-        dt = min(0.1, now - self.t) if self.t is not None else 0.0
-        self.t = now
-        if blink < 0.3:
-            self.armed = True
-        elif blink > 0.6 and self.armed:
-            self.armed, self.blinking = False, True
-        tgt = round(max(0.0, min(1.0, want)) * 8.0) / 8.0
-        speed = self.OPEN if self.reopen else self.ADJUST
-        if self.blinking:
-            if self.pos < 1.0:
-                tgt, speed = 1.0, self.CLOSE
-            else:
-                if not self.hold:
-                    self.hold = now + self.HOLD
-                if now < self.hold or blink > 0.6:    # (a slow blink: held shut)
-                    return 1.0
-                self.blinking, self.hold, self.reopen = False, 0.0, True
-                speed = self.OPEN
-        d = tgt - self.pos
-        self.pos = tgt if abs(d) <= speed * dt else self.pos + math.copysign(speed * dt, d)
-        if self.pos == tgt:
-            self.reopen = False
-        return self.pos
-
-
 class _Life:
     """The small things that keep the eyes alive between expressions:
     micro-saccades (tiny quick jumps of the gaze), a brow flicking up now and
@@ -972,7 +936,7 @@ class _Life:
         self.smirk = (-9.0, 1.0)
         self.near = 0.0                   # how close the person is (eased, 0..1)
         self.listen = 0.0                 # listening (eased) — one brow cocked
-        self.shutters = (Shutter(), Shutter())   # HAL's, one per eye
+        self.aperture = [0.0, 0.0]        # HAL: each shutter's stop (squints, a sigh…)
         self.cock = 0                     # …which one
         self.flash_t = -9.0               # someone appears: an eyebrow flash
         self.contact = 0.0                # since when someone's been in view
@@ -1824,8 +1788,9 @@ class GLFace:
                 widen = 1.0 - 0.7 * eye.widen
                 top, bot = min(top, top0 * widen), min(bot, bot0 * widen)
                 lk = max(0.0, min(1.0, (top + bot - 0.5) / 0.3))     # (nearly) shut close it
-                want = max(lk, min(1.0, 1.4 * extra), shut if shut < 0.6 else 0.0)
-                shutters.append(life.shutters[i].step(now, shut, want))   # and draw back
+                want = max(lk, min(1.0, 1.4 * extra))
+                life.aperture[i] += (want - life.aperture[i]) * (1.0 - math.exp(-4.0 * dt))
+                shutters.append(max(shut, life.aperture[i]))     # and draw back
                 top, bot, bend, bbend, tilt = (v * (1.0 - lk) for v in (top, bot, bend, bbend, tilt))
                 shut = 0.0
             ey += 4.0 * shut                      # a blink squashes the eye down a little
@@ -1895,6 +1860,10 @@ class GLFace:
             shown = (1.0 - cur["heart"]) if rf.BLOCK_PUPIL else 0.0
             shown *= max(0.0, min(1.0, (gap - 8.0) / 22.0))     # a slit: just the glow
             u[f"uPupil{i}"] = (dx, dy, pr, shown)
+            if lens:                              # a camera's pupil is its aperture
+                base = min(w, h) * 0.26 * 1.6     # (HAL's resting pupil)
+                opening = max(0.2, min(1.0, 0.72 * pr / base))
+                shutters[i] = max(shutters[i], 1.0 - opening)
             # the brow over it: 66 % of the eye's width, its inner end tilted
             bw = w * 0.66
             by = ey - h / 2 - cur["brow_gap"] - cur["brow_y"][i]
