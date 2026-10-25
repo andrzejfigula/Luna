@@ -72,7 +72,7 @@ CHARS = {
         "layout": {"eye_x": 100.0, "eye_y": 38.0, "eye_s": 0.44, "eye_sy": 0.62,
                    "mouth_y": 98.0, "mouth_s": 0.36},
         "spec": {"eye_n": 2.2, "brow_a": 0.0, "pupil": (0.0, 0.0)},
-        "blink": (1.0, 0.9), "gaze": (0.7, 0.0, 0.0), "react": 7.0,
+        "blink": (1.0, 0.9), "gaze": (1.0, 0.0, 0.0), "react": 7.0,
         "mouth": {"w": 0.6, "h": 0.7},
         "accessories": ("ears", "flower", "hearts"),
         "acc_default": ("ears", "flower", "hearts"),

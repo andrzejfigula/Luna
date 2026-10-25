@@ -19,10 +19,15 @@ wave, a clap, rock-paper-scissors, a paw on the chin) take the paws over as
 they rise and give them back as they sink. "Spokojne" effects: half the
 sway, springs that don't overshoot; "wyłączone": none at all.
 
+Her eyes hop on their own: a new spot every 0.6–2.4 s, now and then a
+glance aside and back; with someone there, between their eyes and mouth;
+darting when excited, still asleep. Her pupils breathe and open at a new look.
+
 Pure Python, no pygame or GL; deterministic on a fake clock (the tests).
 """
 
 import math
+import random
 
 # the shader's numbers for the eye glyphs and the mouths
 EYE_GLYPHS = {None: 0, "arc": 1, "squeeze": 2, "line": 3, "half": 4, "heart": 5}
@@ -222,9 +227,16 @@ class MochiRig:
         self.vals = {"pods": 0.15, "blush": 0.0, "puff": 0.0, "sparkle": 0.0,
                      "s0": 1.0, "s1": 1.0, "gx": 0.0, "gy": 0.0, "msize": 18.0,
                      "is": 1.0, "ps": 1.0, "lx": 0.0, "ly": 0.0}
+        self.rng = random.Random(7)          # (the same hops every run: the tests)
+        self.fix, self.fix_home, self.fix_back = (0.0, 0.0), (0.0, 0.0), False
+        self.fix_t = now + 0.8
+        self.fix_sp = (_Spring(0.0), _Spring(0.0))
+        self.dil_t = -1e9                    # a new look: her pupils open
 
     # ── the parts ──
     def _start(self, look, now):
+        if self.look is not None:
+            self.dil_t = now
         self.look, self.look_t = look, now
         # the last look's symbols fade out now, not over the new one's
         self.pops = [(k, t0, min(dur, max(now - t0, 0.0) + 0.3) if t0 <= now else 0.0, x, y, s)
@@ -232,6 +244,36 @@ class MochiRig:
         for kind, x, y, size, delay in LOOKS[look].get("pops", ()):
             self.pops.append((kind, now + delay, 2.0 if kind in (1, 2) else 1.4, x, y, size))
         self.pops = self.pops[-6:]
+
+    def _hops(self, look, seen, now, dt, lvl):
+        """Where her eyes rest now (× the eye's radius, + down), on a stiff
+        spring with a hair of overshoot: a saccade, not a slide."""
+        if look == "sleepy":
+            tgt = (0.0, 0.0)
+        else:
+            if now >= self.fix_t:
+                r = self.rng
+                if self.fix_back:                     # back from a glance
+                    self.fix, self.fix_back = self.fix_home, False
+                    gap = r.uniform(0.5, 1.6)
+                elif seen:                            # someone there: their eyes, their mouth
+                    self.fix = r.choice(((-0.08, -0.02), (0.08, -0.02), (0.0, 0.09), (0.0, 0.0)))
+                    gap = r.uniform(0.4, 1.4)
+                elif r.random() < 0.2:                # a glance aside, and back
+                    self.fix_home, self.fix_back = self.fix, True
+                    self.fix = (r.choice((-1.0, 1.0)) * r.uniform(0.3, 0.42), r.uniform(-0.2, 0.12))
+                    gap = r.uniform(0.5, 1.0)
+                else:
+                    self.fix = (r.uniform(-0.2, 0.2), r.uniform(-0.13, 0.11))
+                    gap = r.uniform(0.6, 2.4)
+                if look == "excited":                 # darting
+                    gap *= 0.35
+                elif look in ("sad", "thinking"):     # slow, lost in it
+                    gap *= 1.7
+                self.fix_t = now + gap
+            amp = 0.5 + 0.5 * lvl
+            tgt = (self.fix[0] * amp, self.fix[1] * amp)
+        return tuple(sp.step(t, 900.0, 0.7, dt) for sp, t in zip(self.fix_sp, tgt))
 
     def _ears(self, L, ch, dt, lvl, head):
         if self.head is None:
@@ -336,6 +378,8 @@ class MochiRig:
                "lx": L.get("look", (0.0, 0.0))[0], "ly": L.get("look", (0.0, 0.0))[1]}
         for key, t in tgt.items():
             v[key] += (t - v[key]) * k
+        hx, hy = self._hops(look, bool(getattr(face, "_face_seen", False)) or talking, now, dt, lvl)
+        dil = (1.0 + 0.035 * math.sin(now * 0.9)) * (1.0 + 0.14 * math.exp(-(now - self.dil_t) / 0.5))
         pops = []
         for kind, t0, dur, x, y, size in self.pops:
             el = now - t0
@@ -353,5 +397,5 @@ class MochiRig:
             "mouth": (MOUTHS[self.mouth.kind], self.mouth.amt, v["msize"]),
             "pods": v["pods"], "blush": v["blush"], "puff": v["puff"], "sparkle": v["sparkle"],
             "scale": (v["s0"], v["s1"]), "gaze": (v["gx"], v["gy"]), "pops": pops[:4],
-            "iris": (v["is"], v["ps"], v["lx"], v["ly"]),
+            "iris": (v["is"], v["ps"] * dil, v["lx"] + hx, v["ly"] + hy),
         }

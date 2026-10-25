@@ -1066,7 +1066,7 @@ float mGlyph(vec2 q, vec2 b, float kind, float side) {
 // uMoIris scales the iris and the pupil per look, .zw where it looks
 const float M_IRIS_R = 0.60;                  // the iris: 60% of the eye's width
 const float M_PUPIL_R = 0.50;                 // the pupil: half the iris's
-const float M_IRIS_FOLLOW = 0.35;             // how far the iris follows the gaze in the eye
+const float M_IRIS_FOLLOW = 1.0;              // how far the iris follows the gaze in the eye
 const vec2  M_GLINT = vec2(-0.42, -0.42);     // the glint, × the pupil (up by the light)
 const float M_GLINT_R = 0.17;                 // …its radius, × the pupil's
 const vec2  M_GLINT2 = vec2(0.42, 0.40);      // a much smaller one down the other side
@@ -1080,7 +1080,11 @@ const vec3  M_PUPIL_COL = vec3(0.21, 0.06, 0.14);  // dark plum
 vec3 mIris(vec3 c, vec2 q, float r, vec2 at, float open, out float im) {
     im = 0.0;
     float ir_ = M_IRIS_R * uMoIris.x * r;
-    vec2 iq = q - at * min(1.0, max(r - ir_, 0.0) * 0.6 / max(length(at), 1e-3));
+    // out to the rim (a fifth tucked under it), eased in over the last 40%
+    float lim = max(r - 0.8 * ir_, 1.0), al = length(at);
+    vec2 off = al > 0.6 * lim ? at * (lim - 0.16 * lim * lim / (al - 0.2 * lim)) / al : at;
+    vec2 iq = q - off;
+    vec2 gq = iq + 0.3 * off;                              // the glints lag: they're the light's
     float id = length(iq) - ir_;
     if (open < 0.01 || id > 2.0) return c;
     im = smoothstep(1.5, -1.5, id) * open;                 // a soft edge, no outline
@@ -1089,8 +1093,8 @@ vec3 mIris(vec3 c, vec2 q, float r, vec2 at, float open, out float im) {
     col = mix(col, M_PUPIL_COL, smoothstep(1.2, -1.2, length(iq) - pr));
     float sh = 1.0 + 0.2 * uMoFace.z;                      // excited: a little bigger
     vec3 wc = vec3(1.0, 0.97, 0.99);
-    col = mix(col, wc, smoothstep(0.8, -0.8, length(iq - M_GLINT * pr) - M_GLINT_R * pr * sh));
-    col = mix(col, wc, smoothstep(0.7, -0.7, length(iq - M_GLINT2 * pr) - M_GLINT2_R * pr * sh) * 0.6);
+    col = mix(col, wc, smoothstep(0.8, -0.8, length(gq - M_GLINT * pr) - M_GLINT_R * pr * sh));
+    col = mix(col, wc, smoothstep(0.7, -0.7, length(gq - M_GLINT2 * pr) - M_GLINT2_R * pr * sh) * 0.6);
     return mix(c, col, im);
 }
 
@@ -1912,7 +1916,7 @@ def _remap(u, face, L, fcx, fcy, life, ch, dt, now, kind):
 
 def _mochi(face, u, life, ch, fcx, fcy, now, dt):
     """MOCHI's rig (mochi_rig.py) this frame: her eyes follow her gaze (the
-    whole eye, her iris a little further), sized and moved by the look; her paws,
+    iris inside the eye, the whole eye a little), sized and moved by the look; her paws,
     ears, glyphs and mouth as uniforms. → {"hands": uHand0/1, "u": the rest}."""
     rig = getattr(life, "rig", None)
     if rig is None:
@@ -1927,7 +1931,7 @@ def _mochi(face, u, life, ch, fcx, fcy, now, dt):
         ex, ey, w, h = u[f"uEye{i}"]
         dx, dy = u[f"uPupil{i}"][:2]
         s = r["scale"][i]
-        u[f"uEye{i}"] = (ex + dx * 0.45 + gx, ey + dy * 0.35 + gy, w * s, h * s)
+        u[f"uEye{i}"] = (ex + dx * 0.2 + gx, ey + dy * 0.15 + gy, w * s, h * s)
     ch["body_rot"] += r["tilt"]
     hands = []
     for x, y, turn, pose, size in r["paws"]:

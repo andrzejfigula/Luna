@@ -9050,6 +9050,29 @@ class CharactersTest(unittest.TestCase):
             else:
                 self.assertEqual(max(abs(s) for s in sq), 0.0)
 
+    def test_mochi_eyes_hop(self):
+        """Her irises hop on their own (quick jumps, held between, within the
+        eye), the same at 10 or 30 fps; asleep they rest; her pupils breathe."""
+        import math
+        import mochi_rig as mr
+        for dt in (1 / 30, 1 / 10):
+            rig = mr.MochiRig(100.0)
+            face, t, xs, ps = self.Face(), 100.0, [], []
+            for _ in range(int(12.0 / dt)):
+                r, t = self.rig_run(rig, face, {}, t, dt, dt=dt)
+                xs.append(r["iris"][2:])
+                ps.append(r["iris"][1])
+            spots = {(round(x, 2), round(y, 2)) for x, y in xs}
+            self.assertGreater(len(spots), 6)                     # it moves…
+            self.assertLess(max(math.hypot(x, y) for x, y in xs), 0.5)   # …inside the eye
+            self.assertGreater(max(abs(x) for x, _ in xs), 0.12)  # far enough to see
+            moves = [math.hypot(b[0] - a[0], b[1] - a[1]) / dt for a, b in zip(xs, xs[1:])]
+            self.assertGreater(sum(m < 0.02 for m in moves), len(moves) // 2)   # mostly still
+            self.assertGreater(max(ps) - min(ps), 0.04)
+            face._emotion = "sleeping"
+            r, t = self.rig_run(rig, face, {}, t, 2.0, dt=dt)
+            self.assertLess(math.hypot(*r["iris"][2:]), 0.01)
+
     def test_mochi_apply(self):
         """gl_chars.apply for MOCHI: her rig's uniforms, two paws always (in
         front), her casing in four strips round the glass, an ear per box,
