@@ -268,9 +268,10 @@ float sdTaper(vec2 p, vec2 a, vec2 b, float ra, float rb) {
     return length(pa - ba * h) - mix(ra, rb, h);
 }
 
-// a drawn hand's own frame: unit size s px, turned, the left one mirrored
-vec2 handLocal(vec2 p, vec4 h, float s) {
-    vec2 q = rot2(p - h.xy, h.z * step(h.w, 7.5)) / s;
+// a drawn hand's own frame: unit size s px, the left one mirrored, turned
+// about its wrist at wy (a wave moves the fingers, not the forearm)
+vec2 handLocal(vec2 p, vec4 h, float s, float wy) {
+    vec2 q = rot2(p - h.xy - vec2(0.0, wy * s), h.z * step(h.w, 7.5)) / s + vec2(0.0, wy);
     if (h.x < uChA.x) q.x = -q.x;
     return q;
 }
@@ -925,14 +926,17 @@ void mMouth(vec2 p, inout vec4 acc) {
 // a plush paw, unit size (y down, the arm coming up from below): round and
 // stubby — open, four little toes round its top and pink beans; closed, the
 // toes tucked (seams between them), a thumb or a finger only a short nub
-float pawSDF(vec2 q, float pose, out float seam, out float beans) {
+float pawSDF(vec2 q, vec2 qa, float pose, out float seam, out float beans) {
     seam = 1e5;
     beans = 1e5;
     if (pose > 7.5)                                     // the heart gesture: a cushion
         return sdHeart(vec2(q.x, 0.5 - q.y) * 1.1) / 1.1;
-    if (pose > 2.5 && pose < 3.5) q.y = 0.26 - q.y;     // thumb down: upside down
+    if (pose > 2.5 && pose < 3.5) {                     // thumb down: upside down
+        q.y = 0.26 - q.y;
+        qa.y = 0.26 - qa.y;
+    }
     float d = ellD(q - vec2(0.0, 0.13), vec2(0.37, 0.35));
-    d = smin(d, sdSeg(q, vec2(0.0, 0.40), vec2(0.0, 0.75)) - 0.25, 0.12);  // a short plump arm
+    d = smin(d, sdSeg(qa, vec2(0.0, 0.40), vec2(0.0, 0.75)) - 0.25, 0.12); // a short plump arm (it stays)
     if (pose < 1.5) {                                   // open: four toes round the top, beans
         vec2 t0 = vec2(-0.27, -0.10), t1 = vec2(-0.10, -0.23), t2 = vec2(0.10, -0.23), t3 = vec2(0.27, -0.10);
         d = smin(d, length(q - t0) - 0.13, 0.04);
@@ -971,10 +975,12 @@ void mHand(vec2 p, inout vec4 acc) {
     float pose = floor(h.w + 0.001);
     float al = clamp(fract(h.w + 0.001) / 0.98, 0.0, 1.0);
     float s = pose > 7.5 ? 92.0 * (1.0 + 0.08 * h.z) : 118.0;
-    vec2 q = handLocal(p, h, s);
+    float wy = pose > 2.5 && pose < 3.5 ? -0.16 : 0.42;                   // the wrist
+    vec2 q = handLocal(p, h, s, wy);
+    vec2 qa = handLocal(p, vec4(h.xy, 0.0, h.w), s, 0.0);                 // the arm: not turned
     float seam, beans;
-    float d = pawSDF(q, pose, seam, beans) * s;
-    float ay = pose > 2.5 && pose < 3.5 ? 0.26 - q.y : q.y;               // (thumb down: upside down)
+    float d = pawSDF(q, qa, pose, seam, beans) * s;
+    float ay = pose > 2.5 && pose < 3.5 ? 0.26 - qa.y : qa.y;             // (thumb down: upside down)
     al *= pose > 7.5 ? 1.0 : smoothstep(0.92, 0.38, ay);                  // the arm fades out
     float a = cover(d) * al;
     acc.rgb += uPal3 * 0.12 * exp(-max(d, 0.0) / 14.0) * al * (1.0 - a);   // a soft pink light
@@ -1245,7 +1251,7 @@ void pHand(vec2 p, inout vec4 acc) {
     float pose = floor(h.w + 0.001);
     float al = clamp(fract(h.w + 0.001) / 0.98, 0.0, 1.0);
     float s = pose > 7.5 ? 84.0 * (1.0 + 0.1 * h.z) : 132.0;
-    vec2 q = handLocal(p, h, s);
+    vec2 q = handLocal(p, h, s, pose > 2.5 && pose < 3.5 ? -0.13 : 0.55);   // turned at the wrist
     float crease;
     float d = pipHandSDF(q, pose, crease) * s;
     float ring = abs(d + 2.4) - 2.4;
