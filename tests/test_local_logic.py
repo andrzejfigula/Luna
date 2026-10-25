@@ -7171,8 +7171,17 @@ class FaceSpecTest(unittest.TestCase):
                 self.assertGreater(min(u["uShut"]), 0.9, mood)     # HAL: the shutter shuts
                 self.assertLess(u["uLidA0"][0] + u["uLidA0"][3], 0.1, mood)   # no lids
                 self.assertEqual(u["uLidB0"][1], 0.0)          # nor their seam
-            u = self._settle(self._gl(), self._face("neutral"), 30)
+            gl = self._gl()
+            u = self._settle(gl, self._face("neutral"), 30)
             self.assertLess(max(u["uShut"]), 0.05)              # open
+            lids = u["uLidA0"]
+            face = self._face("neutral")
+            face.left_eye.squint = face.right_eye.squint = 0.5   # an idle squint…
+            u = self._settle(gl, face, 2)
+            self.assertLess(max(u["uShut"]), 0.5)               # (stepping, not a jump)
+            u = self._settle(gl, face, 10)
+            self.assertIn(round(u["uShut"][0], 3), (0.25, 0.5))   # …stops the shutter down
+            self.assertAlmostEqual(u["uLidA0"][0], lids[0], places=3)   # the lids stay put
         finally:
             themes.set_theme("luna")
 

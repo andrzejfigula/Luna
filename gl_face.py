@@ -933,6 +933,7 @@ class _Life:
         self.smirk = (-9.0, 1.0)
         self.near = 0.0                   # how close the person is (eased, 0..1)
         self.listen = 0.0                 # listening (eased) — one brow cocked
+        self.aperture = [0.0, 0.0]        # HAL: each shutter's stop (squints, a sigh…)
         self.cock = 0                     # …which one
         self.flash_t = -9.0               # someone appears: an eyebrow flash
         self.contact = 0.0                # since when someone's been in view
@@ -1736,9 +1737,11 @@ class GLFace:
             ey -= 7.0 * abs(math.sin(now * 14.0)) * giggle   # giggling: they bounce
             top, tilt, bend = cur["lid_top"][i], cur["lid_tilt"][i], cur["lid_bend"][i]
             bot, bbend = cur["lid_bot"][i], cur["lid_bot_bend"][i]
+            top0, bot0 = top, bot                 # (the mood's own lids, before the moves)
             # the lids follow the gaze: looking down, the upper lid comes down
-            # with it; looking up, the lower lid rises a touch
+            # with it; looking up, the lower lid rises a touch (a lens: neither)
             look = max(-1.0, min(1.0, (eye.pupil_oy * 0.85 + cur["gaze_y"]) / (0.5 * h)))
+            look *= 0.0 if lens else 1.0
             top += 0.20 * max(0.0, look) * max(0.0, 1.0 - top - bot)
             bot += 0.08 * max(0.0, -look) * max(0.0, 1.0 - top - bot)
             # drowsy, or just waking: heavy lids
@@ -1776,8 +1779,17 @@ class GLFace:
             else:
                 life.shut_prev = shut
             if lens:                              # HAL blinks with a shutter; lids that
+                # every lid move on top of the mood's (a squint, a sigh, drowsy…)
+                # stops the shutter down instead — in quick, even steps
+                extra = max(0.0, top + bot - top0 - bot0)
+                widen = 1.0 - 0.7 * eye.widen
+                top, bot = min(top, top0 * widen), min(bot, bot0 * widen)
+                want = round(min(1.0, 1.4 * extra) * 4.0) / 4.0
+                ap = life.aperture[i]
+                ap += max(-6.0 * dt, min(6.0 * dt, want - ap))
+                life.aperture[i] = ap
                 lk = max(0.0, min(1.0, (top + bot - 0.5) / 0.3))     # (nearly) shut close it
-                shutters.append(max(shut, lk))    # and draw back
+                shutters.append(max(shut, lk, ap))    # and draw back
                 top, bot, bend, bbend, tilt = (v * (1.0 - lk) for v in (top, bot, bend, bbend, tilt))
                 shut = 0.0
             ey += 4.0 * shut                      # a blink squashes the eye down a little
