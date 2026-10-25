@@ -86,7 +86,9 @@ Camera: `camera_thread.py`, `vision_module.py` (faces, addressed speech),
 `faces.py` (who), `mouth.py` (talking, seen), `gesture_module.py`.
 Face/screen: `robot_face.py`, `face_renderer.py`, `face_spec.py`,
 `reply_scenes.py`, `ui_screens.py`, `screens.py`, `statusbar.py`,
-`touch_module.py`, `display.py`.
+`touch_module.py`, `display.py`. Drawn characters: `characters.py` (data,
+CharLife), `gl_chars.py` (shaders); Mochi's ears/paws/glyphs: `mochi_rig.py`
+(preview: `tools/gl_face_preview.py --chars|--fx … mochi`, offscreen on the Pi).
 
 Features: `radio.py`, `timers.py`, `lists.py`, `weather.py`, `clock.py`,
 `calc.py`, `moon.py`, `news.py`, `websearch.py`, `webphoto.py`, `drawing.py`,

@@ -408,8 +408,8 @@ class HeartEyes(Scene):
 
     def draw(self, face, surf, fcx, fcy, p):
         hold = rf._prop_hold(p, 0.15, 0.15)
-        if hold < 0.05:
-            return
+        if hold < 0.05 or rf.characters.kind_of(rf.themes.get()) == "mochi":
+            return                                # (Mochi's eyes turn to hearts themselves)
         t = p * self.duration
         beat = 1.0 + 0.14 * max(0.0, math.sin(t * 9.0)) ** 3
         for eye, rect in _eye_rects(face, fcx, fcy):

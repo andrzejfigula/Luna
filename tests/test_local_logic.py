@@ -8729,7 +8729,7 @@ class CharactersTest(unittest.TestCase):
         u = {"uEye0": (296.0, 180.0, 150.0, 110.0), "uEye1": (504.0, 180.0, 150.0, 110.0)}
         base = dict.fromkeys(("listen", "think", "sleep", "sad", "angry", "surprise", "alert",
                               "speak"), 0.0)
-        want = {"mochi": {"listen": 15, "think": 11, "sleep": 9, "sad": 8, "angry": 10, "surprise": 7},
+        want = {"mochi": {"listen": 15, "think": 11, "sleep": 9, "sad": 8},     # (pouts; "!" pops once)
                 "pip": {"listen": 12, "sleep": 9, "sad": 8, "angry": 10, "surprise": 7}}
         for kind, states in want.items():
             for state, mark in states.items():
@@ -8777,12 +8777,239 @@ class CharactersTest(unittest.TestCase):
         face = self.Face()
         face.hand = {"L": [-320.0, 420.0, 0.0], "R": [285.0, 60.0, 24.0]}
         face.hand_pose = {"L": "open", "R": "scissors"}
-        for kind in ("pixel", "retro", "mochi", "pip"):
+        for kind in ("pixel", "retro", "pip"):                       # (MOCHI's paws: mochi_rig)
             (x, y, turn, pose), = gl_chars._hands(kind, face, 400.0, 212.0, True)
             self.assertEqual(int(pose), 6, kind)
             self.assertAlmostEqual(turn, math.radians(24.0))
         face._gesture, face._gesture_p, face._heart_pulse = "heart", 0.5, 1.0
-        self.assertEqual(int(gl_chars._hands("mochi", face, 400.0, 212.0, True)[0][3]), 8)
+        self.assertEqual(int(gl_chars._hands("pip", face, 400.0, 212.0, True)[0][3]), 8)
+
+    # ── MOCHI's body language (mochi_rig.py) ──
+    def rig_run(self, rig, face, ch, t, secs, dt=1 / 30, **kw):
+        out = None
+        for _ in range(int(round(secs / dt))):
+            t += dt
+            out = rig.step(face, ch, t, dt, **kw)
+        return out, t
+
+    def test_mochi_looks_are_distinct(self):
+        """Every expression asked for has a look; no two looks are the same,
+        and each differs from neutral in at least two parts (ears, paws,
+        eyes, mouth, tilt, symbols): coordinated, not just another mouth."""
+        import mochi_rig as mr
+        for name in ("neutral", "happy", "excited", "curious", "listening", "thinking", "sleepy",
+                     "shy", "affection", "surprised", "confused", "sad", "playful", "pout",
+                     "success", "greeting", "disagree"):
+            self.assertIn(name, mr.LOOKS)
+
+        def parts(L):
+            return (L["ears"], L.get("paws", "rest"), L.get("eyes"), L.get("mouth"),
+                    L.get("tilt", 0.0), L.get("scale"), tuple(p[0] for p in L.get("pops", ())))
+        sigs = {k: parts(L) for k, L in mr.LOOKS.items()}
+        self.assertEqual(len(set(sigs.values())), len(sigs))
+        for k, s in sigs.items():
+            if k != "neutral":
+                self.assertGreaterEqual(sum(a != b for a, b in zip(s, sigs["neutral"])), 2, k)
+            L = mr.LOOKS[k]
+            self.assertIn(L.get("paws", "rest"), mr.PAWS, k)
+            self.assertIn(L.get("eyes"), mr.EYE_GLYPHS, k)
+            self.assertIn(L["mouth"][0], mr.MOUTHS, k)
+        self.assertTrue(set(mr.SCENE_LOOK.values()) | set(mr.GESTURE_LOOK.values())
+                        | set(mr.MOOD_LOOK.values()) <= set(mr.LOOKS))
+        import reply_scenes
+        self.assertLessEqual(set(mr.SCENE_LOOK), set(reply_scenes.SCENES))
+
+    def test_mochi_picks_one_look(self):
+        """Asleep wins; then the reply scene, robot_face's gesture, CharLife's
+        gesture, her mood, listening."""
+        import mochi_rig as mr
+        face = self.Face("happy")
+        self.assertEqual(mr.pick(face, {}), "happy")
+        face._listen = True
+        self.assertEqual(mr.pick(face, {}), "happy")
+        face._emotion = "neutral"
+        self.assertEqual(mr.pick(face, {}), "listening")
+        self.assertEqual(mr.pick(face, {}, {"confused"}), "confused")
+        face._gesture = "thumbs_up"
+        self.assertEqual(mr.pick(face, {}, {"confused"}), "success")
+        face._scene_name = "shy"
+        self.assertEqual(mr.pick(face, {}), "shy")
+        face._emotion = "sleeping"
+        self.assertEqual(mr.pick(face, {}), "sleepy")
+
+    def test_mochi_paws(self):
+        """Her paws sit in front of her; robot_face's hands take them over as
+        they rise (a thumbs up: an open paw, a fist: curled — no fingers) and
+        give them back; the heart: paws to her cheeks, not Luna's heart; a
+        paw rising dips first (anticipation)."""
+        import mochi_rig as mr
+        face = self.Face()
+        face.hand = {"L": [-320.0, 420.0, 0.0], "R": [320.0, 420.0, 0.0]}
+        face.hand_pose = {"L": "open", "R": "open"}
+        rig = mr.MochiRig(100.0)
+        r, t = self.rig_run(rig, face, {}, 100.0, 1.5)
+        (lx, ly, *_), (rx, ry, *_) = r["paws"]
+        x, y = mr.PAWS["rest"][:2]
+        self.assertAlmostEqual(rx, x, delta=1.0)
+        self.assertAlmostEqual(lx, -x, delta=1.0)
+        self.assertAlmostEqual(ry, y, delta=1.0)
+        face.hand["R"] = [275.0, 95.0, -8.0]
+        face.hand_pose["R"] = "thumb"
+        r, t = self.rig_run(rig, face, {}, t, 0.5)
+        hx, hy = mr.hand_at(275.0, 95.0)
+        self.assertAlmostEqual(r["paws"][1][0], hx, delta=1.0)
+        self.assertAlmostEqual(r["paws"][1][1], hy, delta=1.0)
+        self.assertEqual(r["paws"][1][3], 1)                      # thumb up: an open paw
+        self.assertEqual(r["paws"][1][5], 1.0)                    # …on its arm
+        face.hand_pose["R"] = "fist"
+        r, t = self.rig_run(rig, face, {}, t, 0.1)
+        self.assertEqual(r["paws"][1][3], 4)
+        face.hand["R"] = [320.0, 420.0, 0.0]                     # tucked away again
+        r, t = self.rig_run(rig, face, {}, t, 1.5)
+        self.assertAlmostEqual(r["paws"][1][1], y, delta=1.0)
+        face._gesture = "heart"                                  # paws to her cheeks
+        face.hand = {"L": [-96.0, 178.0, 30.0], "R": [96.0, 178.0, -30.0]}
+        ys = []
+        for _ in range(45):
+            r, t = self.rig_run(rig, face, {}, t, 1 / 30)
+            ys.append(r["paws"][1][1])
+        self.assertGreater(max(ys[:5]), y + 4.0)                 # a dip first…
+        cx, cy = mr.PAWS["cheeks"][:2]
+        self.assertAlmostEqual(r["paws"][1][0], cx, delta=3.0)   # …then up, not Luna's heart
+        self.assertAlmostEqual(r["paws"][1][1], cy, delta=3.0)
+        self.assertEqual(r["look"], "affection")
+
+    def test_mochi_glyphs_cross_fade(self):
+        """A smile's ◠ eyes glide in and, after a while, out (she doesn't talk
+        with her eyes shut); a wink is a > on that eye; one glyph never
+        swaps for another while it shows."""
+        import mochi_rig as mr
+        face = self.Face("happy")
+        rig = mr.MochiRig(100.0)
+        r, t = self.rig_run(rig, face, {}, 100.0, 1 / 30)
+        self.assertEqual(r["eyes"][0], mr.EYE_GLYPHS["arc"])
+        self.assertLess(r["eyes"][1], 0.5)                       # a glide, not a cut
+        r, t = self.rig_run(rig, face, {}, t, 1.0)
+        self.assertGreater(r["eyes"][1], 0.95)
+        r, t = self.rig_run(rig, face, {}, t, 2.5)
+        self.assertLess(r["eyes"][1], 0.05)                       # (held 2.4 s)
+        face._emotion = "neutral"
+        r, t = self.rig_run(rig, face, {}, t, 0.5)
+        r, t = self.rig_run(rig, face, {}, t, 0.3, closed=(0.95, 0.0))
+        self.assertEqual(r["eyes"][:2], (mr.EYE_GLYPHS["squeeze"], r["eyes"][1]))
+        self.assertGreater(r["eyes"][1], 0.9)
+        self.assertLess(r["eyes"][3], 0.05)                       # the other eye open
+        face._scene_name = "laugh"                                # > < both
+        seen, prev = [], r["eyes"]
+        for _ in range(30):
+            r, t = self.rig_run(rig, face, {}, t, 1 / 30)
+            if r["eyes"][2] != prev[2]:
+                self.assertLess(prev[3], 0.03)                    # swapped only when faded out
+            prev = r["eyes"]
+        self.assertEqual(r["eyes"][2], mr.EYE_GLYPHS["squeeze"])
+
+    def test_mochi_symbols_pop_once(self):
+        """Love: two hearts pop when it starts, then none however long it
+        lasts; the last look's symbols fade out at once when another comes;
+        her hearts go with the "serca" accessory."""
+        import mochi_rig as mr
+        face = self.Face("love")
+        rig = mr.MochiRig(100.0)
+        r, t = self.rig_run(rig, face, {}, 100.0, 0.8)
+        self.assertEqual(sorted(int(p[3]) for p in r["pops"]), [1, 1])
+        r, t = self.rig_run(rig, face, {}, t, 3.0)
+        self.assertEqual(r["pops"], [])
+        face._emotion = "excited"
+        r, t = self.rig_run(rig, face, {}, t, 0.5)
+        self.assertTrue(r["pops"] and all(int(p[3]) == 4 for p in r["pops"]))
+        face._emotion = "surprised"
+        r, t = self.rig_run(rig, face, {}, t, 0.35)
+        self.assertEqual([int(p[3]) for p in r["pops"]], [7])
+        import gl_chars
+        life = self.life()
+        life.mochi = {"pops": [(10.0, 0.0, 20.0, 1.5), (0.0, 0.0, 20.0, 4.5)]}
+        ch = dict.fromkeys(("celebrate", "confused", "curious"), 0.0)
+        kinds = [int(p[3]) for p, _ in gl_chars._props("mochi", life, ch, {}, 400.0, 212.0, 0.0, ())]
+        self.assertEqual(kinds, [4])
+
+    def test_mochi_ears_follow_through(self):
+        """The ears lag the head (a shake swings them) and overshoot a little;
+        with the effects off neither: they settle without passing the mark."""
+        import mochi_rig as mr
+        face = self.Face()
+        for lvl in (1.0, 0.0):
+            rig = mr.MochiRig(100.0)
+            r, t = self.rig_run(rig, face, {}, 100.0, 1.0, lvl=lvl)
+            rest = r["ears"][0]
+            swing = []
+            for i in range(20):                                  # the head moves right, fast
+                r, t = self.rig_run(rig, face, {}, t, 1 / 30, lvl=lvl, head=(400.0 + 12.0 * i, 212.0))
+                swing.append(r["ears"][0] - rest)
+            if lvl:
+                self.assertGreater(max(swing), 0.05)              # the left ear trails out
+            else:
+                self.assertLess(max(abs(s) for s in swing), 1e-6)
+            face._emotion = "surprised"                          # ears up: -0.08
+            seq = []
+            for _ in range(60):
+                r, t = self.rig_run(rig, face, {}, t, 1 / 30, lvl=lvl, head=(628.0, 212.0))
+                seq.append(r["ears"][0])
+            low = mr.LOOKS["surprised"]["ears"][0]
+            if lvl:
+                self.assertLess(min(seq), low - 0.005)            # overshoots…
+            else:
+                self.assertGreaterEqual(min(seq), low - 1e-3)     # …or not at all
+            self.assertAlmostEqual(seq[-1], low, delta=0.01)
+            face._emotion = "neutral"
+            sq = []                                              # a nod: pressed down, plush
+            for i in range(8):
+                r, t = self.rig_run(rig, face, {}, t, 1 / 30, lvl=lvl, head=(628.0, 212.0 + 6.0 * i))
+                sq.append(r["squash"])
+            if lvl:
+                self.assertTrue(0.01 < max(sq) < 0.05, max(sq))       # (a jiggle past it)
+            else:
+                self.assertEqual(max(abs(s) for s in sq), 0.0)
+
+    def test_mochi_apply(self):
+        """gl_chars.apply for MOCHI: her rig's uniforms, two paws always (in
+        front), her casing in four strips round the glass, an ear per box,
+        all on the screen; deterministic."""
+        import gl_chars
+        import gl_face
+
+        class GL:
+            w, h = 800, 480
+            _box = gl_face.GLFace._box
+            char_life = None
+
+        def run():
+            gl = GL()
+            face = self.Face("happy")
+            out = []
+            for i in range(20):
+                u = {"uEye0": (242.0, 182.0, 232.0, 172.0), "uEye1": (558.0, 182.0, 232.0, 172.0),
+                     "uPupil0": (0.0, 0.0, 0.0, 1.0), "uPupil1": (0.0, 0.0, 0.0, 1.0),
+                     "uBrow0": (165.0, 70.0, 318.0, 70.0), "uBrow1": (481.0, 70.0, 634.0, 70.0),
+                     "uBrowK": (6.0, 6.0, 21.0, 1.0), "uMouth": (400.0, 332.0, 160.0, 17.0),
+                     "uMouthK": (14.0, 0.0, 1.0, 0.0), "uMouthSlant": 0.0, "uWave": 0.0,
+                     "uMorph": (0.0, 0.0, 0.0, 0.0), "uTilt": 0.0,
+                     "uBlush": (400.0, 212.0, 0.0, 30.0)}
+                gl_chars.apply(gl, face, u, {"tint": 0.0}, 400.0, 212.0, "mochi", 100.0 + i / 30, 1 / 30)
+                out.append((u["uMoEar"], u["uMoEye"], u["uMoMouth"], u["uHand0"], u["uHand1"]))
+            return u, out
+        u, a = run()
+        _, b = run()
+        self.assertEqual(a, b)
+        for k in ("uMoEar", "uMoEye", "uMoFace", "uMoMouth", "uMoPaw", "uMoBody"):
+            self.assertEqual(len(u[k]), 4, k)
+        sids = [sid for sid, _ in u["_char_boxes"]]
+        self.assertEqual(sids[-2:], [16, 17])                     # the paws, last: in front
+        self.assertEqual(sorted(s for s in sids if 3 <= s < 4), [3.0, 3.1, 3.2, 3.3])
+        self.assertIn(9, sids)
+        self.assertIn(10, sids)
+        for sid, (x0, y0, x1, y1) in u["_char_boxes"]:
+            self.assertTrue(0 <= x0 < x1 <= 800 and 0 <= y0 < y1 <= 480, sid)
+        self.assertEqual(int(u["uMoEye"][0]), 1)                  # happy: ◠
 
     def test_settings_rows(self):
         import characters
@@ -8796,7 +9023,7 @@ class CharactersTest(unittest.TestCase):
         keys = [r.get("key") for r in sp.rows(1)]
         self.assertIn("char_acc", keys)
         self.assertNotIn("retro_mode", keys)
-        self.assertEqual(characters.accessories("mochi"), ("ears", "hat", "hearts"))
+        self.assertEqual(characters.accessories("mochi"), ("ears", "flower", "hat", "hearts"))
         seen = set()
         for _ in range(len(characters.acc_choices("mochi"))):
             sp.change("char_acc")

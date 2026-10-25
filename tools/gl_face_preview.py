@@ -195,6 +195,7 @@ FX_LOOKS = [            # (name, how to set it up: a state field → value; "sta
     ("thinking", {"emotion": "thinking"}),
     ("scissors", {"game_hand": "scissors"}),
     ("paper", {"game_hand": "paper"}),
+    ("rock", {"game_hand": "rock"}),
     ("air_heart", {"reply_scene": "air_heart", "reply_scene_start": 2.6}),
     ("cat", {"costume": "cat"}),
     ("steampunk", {"costume": "steampunk"}),
@@ -214,7 +215,9 @@ SCENE_LOOKS = ("big_pupils", "flutter", "heart_eyes", "sparkle_eyes", "snap", "a
                "laugh", "sigh", "think_bubble", "scared", "relief", "curious", "sunny",
                "cloudy", "rainy", "snowy", "lightbulb", "music_notes",
                # the hands (a drawn character draws its own: gl_chars)
-               "clap", "wave_both", "scratch_head", "salute", "thumbs_down", "ok_sign")
+               "clap", "wave_both", "scratch_head", "salute", "thumbs_down", "ok_sign",
+               # MOCHI's looks (mochi_rig): her paws, ears and glyphs
+               "shy", "please", "smirk", "wink", "chin_rest", "dance")
 
 
 def fx_sheet(out_dir, theme_keys=("luna", "hal"), only=None):

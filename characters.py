@@ -66,15 +66,16 @@ CHARS = {
         "accessories": ("hearts", "stars", "bubble", "headphones"),
         "acc_default": ("hearts", "stars", "bubble", "headphones"),
     },
-    # ── a pink plush round a dark display ──
+    # ── a plush bunny round a dark display (her ears, paws, glyphs: mochi_rig.py) ──
     "mochi": {
-        "pal": ((1.0, 0.80, 0.86), (0.94, 0.55, 0.68), (1.0, 0.97, 0.98), (1.0, 0.40, 0.62)),
-        "layout": {"eye_x": 104.0, "eye_y": 22.0, "eye_s": 0.6, "mouth_y": 100.0, "mouth_s": 0.42},
-        "spec": {"eye_n": 2.3, "brow_a": 0.0, "pupil": (0.0, 0.0)},
+        "pal": ((0.99, 0.78, 0.85), (0.90, 0.54, 0.66), (1.0, 0.96, 0.98), (1.0, 0.42, 0.64)),
+        "layout": {"eye_x": 100.0, "eye_y": 38.0, "eye_s": 0.44, "eye_sy": 0.62,
+                   "mouth_y": 98.0, "mouth_s": 0.36},
+        "spec": {"eye_n": 2.2, "brow_a": 0.0, "pupil": (0.0, 0.0)},
         "blink": (1.0, 0.9), "gaze": (0.7, 0.0, 0.0), "react": 7.0,
         "mouth": {"w": 0.6, "h": 0.7},
         "accessories": ("ears", "flower", "hat", "hearts"),
-        "acc_default": ("ears", "hat", "hearts"),
+        "acc_default": ("ears", "flower", "hat", "hearts"),
     },
     # ── an energetic neon mascot: outlined eyes, dot pupils ──
     "pip": {   # (a wrist computer's phosphor green, nearly one hue; its sync slips)

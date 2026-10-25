@@ -22,6 +22,7 @@ import time
 
 import characters
 import gl_face
+import mochi_rig
 
 _F = gl_face._FRAG
 
@@ -66,6 +67,12 @@ uniform sampler2D uCells;   // RETRO / PIXEL: each cell worked out once (stage 4
 uniform vec4  uGrid;    // …its half size and size in cells
 uniform vec4  uHand0, uHand1;   // her hands: x, y, turn (rad; the heart: its beat), pose + alpha * 0.98
 uniform sampler2D uArt;     // RETRO / PIXEL: the hands' pixel art (HAND_ART, stage 6)
+uniform vec4  uMoEar;   // MOCHI (mochi_rig.py): the ears' lean L, R (rad), their tips' flop L, R
+uniform vec4  uMoEye;   // …the eyes' glyphs: kind, amount (left), kind, amount (right)
+uniform vec4  uMoFace;  // …the eyes' scale L, R (in apply), starry, her cheeks' blush
+uniform vec4  uMoMouth; // …her own mouth: kind, amount, half width
+uniform vec4  uMoPaw;   // …the paws' sizes L, R, their arms L, R
+uniform vec4  uMoBody;  // …squash, the pods' light, puffed cheeks
 
 """ + _cut("float sdRoundBox", "// ── the light") + _cut("// ── the light", "// the outward") \
     + _cut("vec2 eyeLocal", "vec3 eyeColour") + _cut("float browSDF", "// one eye over") \
@@ -225,8 +232,19 @@ void prop(vec2 p, vec4 pt, inout vec4 acc) {
         float wave = step(abs(k - mod(floor(-uT * 4.0), 3.0)), 0.5);       // sound coming in
         al *= 0.25 + 0.5 * step(2.0 - k, uChH.x * 3.3) + 0.25 * wave;
     }
+    float glow = 0.35;
+#ifdef PLUSH
+    // MOCHI's: soft and puffy — pink and white, lighter inside, a darker rim,
+    // a highlight up by the light, a quieter glow
+    if (kind > 1.5 && kind < 7.5 || kind > 8.5 && kind < 9.5) c = mix(c, mix(uPal3, vec3(1.0), 0.6), 0.6);
+    if (kind > 2.5 && kind < 3.5) d -= 0.07 * s;          // a star with round points
+    c *= 0.80 + 0.20 * smoothstep(0.0, -0.22 * s, d);
+    c = mix(c, vec3(1.0), 0.55 * exp(-dot(q + vec2(0.22, 0.20), q + vec2(0.22, 0.20)) / 0.025)
+                      * step(kind, 4.5));
+    glow = 0.16;
+#endif
     over(acc, c, cover(d) * al);
-    acc.rgb += c * 0.35 * exp(-max(d, 0.0) / 6.0) * clamp(1.0 - d / 18.0, 0.0, 1.0)
+    acc.rgb += c * glow * exp(-max(d, 0.0) / 6.0) * clamp(1.0 - d / 18.0, 0.0, 1.0)
                * al * (1.0 - cover(d));
 }
 
@@ -311,6 +329,7 @@ void main() {
 """
 
 PASSES = {"soft": "#define PASS_SOFT\n", "cells": "#define PASS_CELLS\n", "shape": ""}
+DEFINES = {"mochi": "#define PLUSH\n"}       # a character's own style of the shared props
 
 # ── RETRO: a beige console, its dark CRT, amber pixel eyes ──────────────────
 _RETRO = """
@@ -808,212 +827,436 @@ void shape(vec2 p, inout vec4 acc) {
 }
 """
 
-# ── MOCHI: a pink plush round a dark display ──────────────────────────────────
+# ── MOCHI: a plush bunny round a dark display ─────────────────────────────────
+# Velvet, not plastic: soft wrapped light, the fibres bright where the surface
+# turns away, a fuzzy outline, the nap's faint grain — all fixed to the face
+# (no shimmer). mochi_rig.py moves her ears, paws, eye glyphs and mouths
+# (uMoEar, uMoEye, uMoFace, uMoMouth, uMoPaw, uMoBody).
 _MOCHI = """
-vec2 mBC() { return uChA.xy + vec2(0.0, 54.0); }
-const vec2 M_BB = vec2(246.0, 164.0);
-const vec2 M_DB = vec2(204.0, 124.0);
+vec2 mBC() { return uChA.xy + vec2(0.0, 70.0); }
+const vec2 M_BB = vec2(232.0, 148.0);      // the head's half size (the pods beside it)
+const vec2 M_DC = vec2(0.0, -6.0);         // the display, from the head's centre
+const vec2 M_DB = vec2(182.0, 107.0);
 
-// the plush: a soft rounded head and two side pods
-float mBody(vec2 p) {
-    vec2 q = p - mBC();
-    float head = sdRoundBox(q, M_BB, 118.0);
-    vec2 pq = vec2(abs(q.x) - 246.0, q.y - 30.0);
-    return smin(head, ellD(pq, vec2(38.0, 74.0)), 16.0);
+float mhash(vec2 p) {                      // (no sin: cheaper on the Pi's GPU)
+    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
 }
 
-void mBodyDraw(vec2 p, inout vec4 acc) {
-    float d = mBody(p);
-    float a = cover(d);
-    if (a <= 0.0) return;
-    vec2 g = normalize(vec2(mBody(p + vec2(1.0, 0.0)) - d, mBody(p + vec2(0.0, 1.0)) - d) + 1e-6);
+float vnoise(vec2 p) {
+    vec2 i = floor(p), f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(mhash(i), mhash(i + vec2(1.0, 0.0)), f.x),
+               mix(mhash(i + vec2(0.0, 1.0)), mhash(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+
+// fur: an outline that breaks up by a pixel or two
+float fuzz(vec2 p) {
+    return (vnoise(p * 0.9) - 0.5) * 2.0;
+}
+
+// velvet over a padded shape: d < 0 inside, g its outward direction, bw how
+// wide its edge rolls over, dome the whole surface's tip; fp: the nap's place
+vec3 plush(vec3 base, vec2 g, float d, float bw, vec2 dome, vec2 fp) {
+    float roll = 1.0 - clamp(-d / bw, 0.0, 1.0);
+    vec3 n = normalize(vec3(g * (1.6 * roll * roll) + dome, 1.0));
+    float lc = cos(uTilt), ls = sin(uTilt);
+    vec3 L = normalize(vec3(-0.30, -0.78, 0.62));
+    L.xy = vec2(lc * L.x - ls * L.y, ls * L.x + lc * L.y);
+    float wrap = clamp((dot(n, L) + 0.5) / 1.5, 0.0, 1.0);
+    vec3 c = mix(base * base * vec3(0.80, 0.62, 0.72), base * 1.04, clamp(0.08 + 0.96 * wrap, 0.0, 1.0));
+    c = mix(c, base * base * vec3(0.60, 0.44, 0.54), smoothstep(0.05, 0.85, n.y) * 0.5);   // the underside: rosy, not grey
+    c += vec3(1.0, 0.88, 0.93) * pow(1.0 - n.z, 1.5) * (0.10 + 0.22 * wrap);   // the fibres' rim
+    c += vec3(1.0, 0.95, 0.97) * 0.09 * pow(max(dot(n, normalize(L + vec3(0.0, 0.0, 1.0))), 0.0), 6.0);
+    return c * (0.955 + 0.09 * vnoise(fp * 0.55));
+}
+
+// the head's own frame, squashed onto its base (a landing)
+vec2 mLocal(vec2 p) {
     vec2 q = p - mBC();
-    float pod = smoothstep(196.0, 236.0, abs(q.x));
-    vec3 c = mix(uPal0, uPal1, clamp(0.35 + 0.45 * q.y / M_BB.y, 0.0, 1.0));
-    c = mix(c, uPal1 * 0.92, pod * 0.8);
-    c = lit(c, g, d, 46.0, q / M_BB * 0.25);
-    c += vec3(1.0, 0.92, 0.95) * 0.20 * exp(d / 10.0) * smoothstep(0.0, -60.0, q.y);   // a soft rim
-    // the dark display, inset, with a soft pink edge light
-    vec2 dq = q - vec2(0.0, -4.0);
-    float dd = sdRoundBox(dq, M_DB, 74.0);
-    vec3 disp = vec3(0.040, 0.026, 0.040) * (1.0 - 0.35 * dot(dq / M_DB, dq / M_DB));
+    float sq_ = uMoBody.x;
+    q.y = (q.y - M_BB.y) / (1.0 - sq_) + M_BB.y;
+    q.x /= 1.0 + 0.6 * sq_;
+    return q;
+}
+
+float mHead(vec2 q) { return sdRoundBox(q, M_BB, 124.0); }
+float mPods(vec2 q) { return ellD(vec2(abs(q.x) - 228.0, q.y - 10.0), vec2(46.0, 72.0)); }
+float mBody(vec2 q) { return min(mHead(q), mPods(q)); }
+float mDisp(vec2 q) { return sdRoundBox(q - M_DC, M_DB, 74.0); }
+
+// the display: dark glass, a faint sheen, its edge lit pink, rosy cheeks
+vec3 mGlassCol(vec2 p, vec2 q, float dd) {
+    vec2 dq = q - M_DC;
+    vec3 disp = vec3(0.036, 0.022, 0.034) * (1.0 - 0.35 * dot(dq / M_DB, dq / M_DB));
     vec2 hq = (dq / M_DB - vec2(-0.45, -0.62)) * vec2(2.0, 4.5);
-    disp += vec3(0.05, 0.04, 0.05) * exp(-dot(hq, hq));            // a sheen
-    disp += uPal3 * 0.16 * exp(dd / 9.0);                           // its edge glows pink
-    if (uBlush.z + uChF.x * uEnergy > 0.01) {                      // rosy cheeks (and her voice)
+    disp += vec3(0.045, 0.035, 0.045) * exp(-dot(hq, hq));
+    disp += uPal3 * 0.11 * exp(dd / 8.0);
+    disp *= 1.0 - 0.6 * exp(dd / 10.0) * smoothstep(20.0, -90.0, dq.y);  // the rim's shadow inside
+    float blush = 0.55 * uBlush.z + 0.35 * uChF.x * uEnergy + 0.65 * uMoFace.w;
+    if (blush > 0.01) {                                                  // rosy cheeks (puffed: rounder)
         for (int k = 0; k < 2; k++) {
-            vec2 bq = (p - vec2(uChA.x + (k == 0 ? -150.0 : 150.0), uEye0.y + uEye0.w * 0.55 + 14.0))
-                      / vec2(34.0, 16.0);
-            disp += uPal3 * (0.55 * uBlush.z + 0.35 * uChF.x * uEnergy) * exp(-dot(bq, bq) * 1.5);
+            vec2 bq = (p - vec2(uChA.x + (k == 0 ? -152.0 : 152.0), uEye0.y + 66.0))
+                      / (vec2(30.0, 15.0) * (1.0 + 0.35 * vec2(uMoBody.z, 1.6 * uMoBody.z)));
+            disp += uPal3 * blush * 0.6 * exp(-dot(bq, bq) * 1.4);
         }
     }
-    c = mix(c, disp, cover(dd));
-    c = mix(c, uPal1 * 0.62, cover(abs(dd) - 2.0) * 0.6);           // the display's lip
+    return disp;
+}
+
+// the casing comes in four strips round the glass's middle (the soft pass
+// paints that: none of this per pixel there); each strip draws only the
+// points it owns, so where their boxes overlap nothing is drawn twice
+const vec2 M_GB = vec2(156.0, 82.0);
+
+void mBodyDraw(vec2 p, inout vec4 acc) {
+    vec2 q = mLocal(p);
+    vec2 rq = q - M_DC;
+    float part = floor(fract(uShape) * 10.0 + 0.5);   // 0 top, 1 bottom, 2 left, 3 right
+    bool own = part < 0.5 ? rq.y < -M_GB.y : part < 1.5 ? rq.y >= M_GB.y
+             : abs(rq.y) < M_GB.y && (part < 2.5 ? rq.x < -M_GB.x : rq.x >= M_GB.x);
+    if (!own) return;
+    float dd = mDisp(q);
+    if (dd < -4.0 && abs(q.x) < 170.0) {             // inside the glass: none of the plush's maths
+        over(acc, mGlassCol(p, q, dd) * mix(1.0, uDim, 0.35), 1.0);
+        return;
+    }
+    float dh = mHead(q);
+    float dp = mPods(q);
+    if (min(dh, dp) > 2.5) return;
+    float fz = min(dh, dp) > -4.0 || abs(dp) < 4.0 ? fuzz(q) : 0.0;   // (fur: only at an edge)
+    float a = cover(min(dh, dp) + fz);
+    if (a <= 0.0) return;
+    // the casing: padded, rolling down at its edge and into the display, where
+    // a soft rim rises round it first
+    vec3 c = vec3(0.0);
+    if (dd > -1.5) {
+        vec2 gh = dh > -58.0 ? normalize(vec2(mHead(q + vec2(1.0, 0.0)) - dh,      // (deeper in:
+                                              mHead(q + vec2(0.0, 1.0)) - dh) + 1e-6) // no roll)
+                             : vec2(0.0);
+        vec2 gd = dd < 40.0 ? normalize(vec2(mDisp(q + vec2(1.0, 0.0)) - dd,
+                                             mDisp(q + vec2(0.0, 1.0)) - dd) + 1e-6) : vec2(0.0);
+        float rimS = 1.4 * exp(-max(dd, 0.0) / 6.0) - 0.45 * exp(-sq((dd - 20.0) / 10.0));
+        vec2 dome = q / M_BB * vec2(0.20, 0.26) - gd * rimS;
+        vec3 base = mix(uPal0, uPal1, clamp(0.22 + 0.42 * q.y / M_BB.y, 0.0, 1.0));
+        c = plush(base, gh, dh, 58.0, dome, q);
+        c *= 1.0 - 0.30 * exp(-max(dd, 0.0) / 3.5);                      // the crease round the glass
+        c *= 1.0 - 0.22 * exp(-max(dp, 0.0) / 9.0) * step(0.0, dp);      // the pods' shade on it
+    }
+    if (dd < 0.5) c = mix(c, mGlassCol(p, q, dd), cover(dd));
+    // the pods: round cushions on her sides, a ring of light round each (the
+    // side light: it wakes with the mic and her voice)
+    float pa = cover(dp + fz);
+    if (pa > 0.0) {
+        float side = sign(q.x);
+        vec2 pq = vec2(abs(q.x) - 228.0, q.y - 10.0);
+        vec2 gp = normalize(pq / vec2(46.0 * 46.0, 72.0 * 72.0) + 1e-6);
+        gp.x *= side;
+        vec3 pc = plush(mix(uPal0, uPal1, 0.30 + 0.30 * pq.y / 72.0), gp, dp, 30.0,
+                        vec2(side * pq.x / 46.0 * 0.25, 0.0), q);
+        float cd = ellD(pq - vec2(20.0, 0.0), vec2(17.0, 54.0));
+        pc = mix(pc, pc * 1.05 + vec3(0.03), cover(cd) * 0.8);
+        float ring = uMoBody.y + 0.45 * uChF.x * uEnergy;
+        vec3 lc = mix(uPal3, vec3(1.0), 0.55);
+        pc = mix(pc, lc, cover(abs(cd) - 1.8) * (0.25 + 0.75 * clamp(ring, 0.0, 1.0)));
+        pc += lc * 0.35 * ring * exp(-abs(cd) / 5.0);
+        c = mix(c, pc, pa);
+    }
     over(acc, c * mix(1.0, uDim, 0.35), a);
 }
 
-// bunny ears behind the head: droop when sad, prick up when surprised, wiggle when happy
-void mEars(vec2 p, inout vec4 acc) {
-    float tilt = 0.30 + 0.55 * uChB.y - 0.16 * uChB.w + 0.06 * uChB.x * sin(uT * 7.0)
-                 + 0.25 * uChC.y - 0.14 * uChE.w + 0.10 * uChB.z;      // (listening: pricked up)
-    for (int k = 0; k < 2; k++) {
-        float side = k == 0 ? -1.0 : 1.0;
-        vec2 base = mBC() + vec2(side * 112.0, -M_BB.y + 10.0);
-        vec2 q = rot2(p - base, -side * tilt);
-        q.y += 62.0;
-        float d = ellD(q, vec2(40.0, 66.0));
-        float a = cover(d);
-        if (a <= 0.0) continue;
-        vec3 c = mix(uPal0, uPal1, 0.25 + 0.3 * q.y / 66.0);
-        c = mix(c, mix(uPal3, uPal0, 0.45), cover(ellD(q - vec2(0.0, 6.0), vec2(20.0, 46.0))));
-        c *= 0.9 + 0.2 * exp(d / 12.0) * step(q.x * side, 0.0);
+// a bunny ear from its base b, leaning out by `lean` (rad), the top half
+// flopped over by `flop`; q its own frame (y up the ear negative)
+float earD(vec2 p, vec2 b, float side, float lean, float flop, out vec2 q) {
+    q = rot2(p - b, -side * lean);
+    float k = smoothstep(-60.0, -120.0, q.y);
+    vec2 r = q - vec2(0.0, -64.0);
+    q = vec2(0.0, -64.0) + rot2(r, -side * flop * 1.3 * k);
+    float yn = clamp(-q.y / 150.0, 0.0, 1.0);
+    vec2 eq = vec2(q.x / (0.74 + 0.30 * smoothstep(0.0, 0.65, yn)), q.y + 76.0);
+    return ellD(eq, vec2(40.0, 78.0));
+}
+
+void mEar(vec2 p, float side, inout vec4 acc) {
+    {
+        vec2 b = mBC() + vec2(side * 118.0, -M_BB.y + 24.0);
+        float lean = side < 0.0 ? uMoEar.x : uMoEar.y;
+        float flop = side < 0.0 ? uMoEar.z : uMoEar.w;
+        vec2 q, q2;
+        float d = earD(p, b, side, lean, flop, q);
+        if (d > 2.5) return;
+        float a = cover(d + (d > -4.0 ? fuzz(q) : 0.0));
+        if (a <= 0.0) return;
+        vec2 g = vec2(0.0);
+        if (d > -20.0)
+            g = normalize(vec2(earD(p + vec2(1.0, 0.0), b, side, lean, flop, q2) - d,
+                               earD(p + vec2(0.0, 1.0), b, side, lean, flop, q2) - d) + 1e-6);
+        vec3 c = plush(mix(uPal0, uPal1, 0.12 + 0.20 * clamp(q.y / -150.0, 0.0, 1.0)), g, d, 20.0,
+                       vec2(0.0), q);
+        // the inner ear: a pink hollow, deeper toward the base, its rim in shade
+        float di = ellD(vec2(q.x / (0.74 + 0.30 * smoothstep(0.0, 0.65, -q.y / 150.0)), q.y + 84.0),
+                        vec2(19.0, 56.0));
+        vec3 inner = mix(uPal3, uPal0, 0.40) * (0.74 + 0.26 * smoothstep(-20.0, -125.0, q.y));
+        inner *= 0.82 + 0.18 * smoothstep(0.0, -9.0, di);
+        c = mix(c, inner, cover(di + 0.5 * fuzz(q + 9.0)) * 0.94);
+        c *= 0.70 + 0.30 * smoothstep(0.0, -50.0, q.y);                // the head's shade at its base
         over(acc, c * mix(1.0, uDim, 0.35), a);
     }
 }
 
-// in front of the head: a flower, a sleeping cap
+// in front of the head: the flower, a sleeping cap
 void mFront(vec2 p, inout vec4 acc) {
     if (uAcc.y > 0.5) {
-        vec2 fq = rot2(p - (mBC() + vec2(186.0, -150.0)), 0.3 * sin(uT * 0.8));
-        float a = atan(fq.y, fq.x);
+        vec2 fq = rot2(p - (mBC() + vec2(152.0, -134.0)), 0.25);
+        float pet = 1e5;
+        for (int k = 0; k < 5; k++) {
+            float an = float(k) * 1.2566;
+            pet = min(pet, length(fq - 11.0 * vec2(cos(an), sin(an))) - 9.5);
+        }
+        over(acc, vec3(0.0), 0.3 * exp(-max(pet, 0.0) / 4.0) * (1.0 - cover(pet)));   // its shade
         float r = length(fq);
-        float petal = r - (19.0 + 8.0 * cos(5.0 * a));
-        vec3 c = mix(vec3(1.0, 0.97, 0.98), uPal3, smoothstep(6.0, 26.0, r) * 0.55);
-        over(acc, c, cover(petal));
-        over(acc, vec3(1.0, 0.82, 0.30) * (1.1 - 0.4 * clamp(fq.y / 8.0, -1.0, 1.0)), cover(r - 8.0));
+        vec3 c = mix(vec3(1.0, 0.97, 0.98), vec3(1.0, 0.84, 0.90), smoothstep(8.0, 20.0, r) * 0.7);
+        c *= 0.86 + 0.14 * smoothstep(0.0, -4.0, pet) - 0.08 * clamp(fq.y / 20.0, -1.0, 1.0);
+        over(acc, c, cover(pet));
+        vec3 yc = vec3(1.0, 0.80, 0.28) * (1.08 - 0.35 * clamp((fq.y + fq.x) / 10.0, -1.0, 1.0));
+        over(acc, yc, cover(r - 6.5));
     }
     if (uAcc.z > 0.5 && uChC.y > 0.02) {
-        vec2 b = mBC() + vec2(-40.0, -M_BB.y - 6.0);
-        vec2 tip = mBC() + vec2(-250.0, -M_BB.y + 40.0);
+        vec2 b = mBC() + vec2(-40.0, -M_BB.y - 2.0);
+        vec2 tip = mBC() + vec2(-252.0, -M_BB.y + 46.0);
         vec2 ba = tip - b;
         float h = clamp(dot(p - b, ba) / dot(ba, ba), 0.0, 1.0);
-        float cone = length(p - b - ba * h) - mix(92.0, 12.0, pow(h, 0.8));
-        float band = sdRoundBox(rot2(p - b - vec2(0.0, 2.0), 0.1), vec2(100.0, 16.0), 12.0);
+        float cone = length(p - b - ba * h) - mix(88.0, 12.0, pow(h, 0.8));
+        float band = sdRoundBox(rot2(p - b - vec2(0.0, 2.0), 0.1), vec2(98.0, 16.0), 12.0);
         float pom = length(p - tip) - 22.0;
         float al = uChC.y;
-        vec3 hc = mix(vec3(0.85, 0.25, 0.42), uPal3, 0.4) * (1.0 - 0.25 * h);
-        over(acc, hc, cover(cone) * al);
-        over(acc, vec3(1.0, 0.97, 0.98), cover(band) * al);
-        over(acc, vec3(1.0, 0.98, 0.99), cover(pom) * al);
+        vec3 hc = mix(vec3(0.85, 0.25, 0.42), uPal3, 0.4) * (1.0 - 0.25 * h)
+                  * (0.78 + 0.22 * smoothstep(0.0, -24.0, cone));
+        over(acc, hc, cover(cone + fuzz(p) * 0.6) * al);
+        over(acc, vec3(1.0, 0.97, 0.98) * 0.95, cover(band + fuzz(p)) * al);
+        over(acc, vec3(1.0, 0.98, 0.99), cover(pom + fuzz(p)) * al);
     }
+}
+
+// the eyes' glyphs (mochi_rig): 1 ◠ happy, 2 > < squeezed, 3 — asleep, 4 a
+// flat top, 5 a heart (beating)
+float mGlyph(vec2 q, vec2 b, float kind, float side) {
+    float r = min(b.x, b.y);
+    float th = 0.15 * r;
+    if (kind > 4.5) {
+        float s = r * 1.55 * (1.0 + 0.08 * pow(max(0.0, sin(uT * 7.0)), 3.0));
+        return sdHeart(vec2(q.x, 0.52 * s - q.y) / s) * s;
+    }
+    if (kind < 1.5) {
+        vec2 o = q - vec2(0.0, 0.26 * r);
+        float rr = 0.64 * r;
+        if (o.y > 0.0) return length(vec2(abs(o.x) - rr, o.y)) - th;
+        return abs(length(o) - rr) - th;
+    }
+    if (kind < 2.5) {
+        float ax = -side * 0.42 * r;                   // its point toward the middle
+        vec2 a2 = vec2(ax, 0.0);
+        return min(sdSeg(q, vec2(-ax, -0.5 * r), a2), sdSeg(q, a2, vec2(-ax, 0.5 * r))) - th;
+    }
+    if (kind < 3.5) {
+        float x = clamp(q.x, -0.62 * r, 0.62 * r);
+        return length(vec2(q.x - x, q.y - 0.1 * r * sq(x / (0.62 * r)))) - th * 0.85;
+    }
+    return max((length(q / (b * 0.9)) - 1.0) * r * 0.9, -0.06 * r - q.y);
 }
 
 void mEye(vec2 p, vec4 e, vec4 la, vec4 lb, vec4 pu, float side, inout vec4 acc) {
     vec2 q;
     float d = eyeD(p, e, la, lb, side, q);
+    vec2 b = e.zw * 0.5;
+    float r = min(b.x, b.y);
+    float gk = side < 0.0 ? uMoEye.x : uMoEye.z;
+    float ga = side < 0.0 ? uMoEye.y : uMoEye.w;
+    if (ga > 0.003) d = mix(d, mGlyph(p - e.xy, b, gk, side), ga);
     float ds = seamD(q, e, la, lb, side) - 1.5;
     float a = cover(d);
-    float sa = cover(ds) * lb.y;
+    float sa = cover(ds) * lb.y * (1.0 - ga);
     if (a > 0.0) {
-        vec2 b = e.zw * 0.5;
-        vec3 c = mix(uPal2, vec3(0.88, 0.90, 1.0), smoothstep(-0.2, 1.0, q.y / b.y) * 0.4);
-        vec2 hp = (q - pu.xy * 0.4 - vec2(-0.32 * b.x, -0.40 * b.y)) / (0.20 * min(b.x, b.y));
-        c = mix(c, vec3(1.0), exp(-dot(hp, hp)) * 0.7);
-        c = mix(c, uPal3, exp(d / 5.0) * smoothstep(0.1, 1.0, q.y / b.y) * 0.55);
+        // a glowing white, its edge pink, a soft glint up by the light
+        vec3 c = mix(uPal2, mix(uPal3, uPal2, 0.5), smoothstep(-0.32 * r, 0.0, d) * 0.8);
+        c = mix(c, mix(uPal3, uPal2, 0.35), smoothstep(-0.1, 1.0, q.y / b.y) * 0.3);
+        vec2 hp = (q - pu.xy * 0.4 - vec2(-0.34 * b.x, -0.38 * b.y)) / (0.17 * r);
+        c = mix(c, vec3(1.0), exp(-dot(hp, hp)) * 0.85 * (1.0 - ga));
+        if (uMoFace.z > 0.01) {                         // starry: a pink sparkle in each
+            vec2 sq1 = (q - vec2(0.24 * b.x, 0.20 * b.y)) / (0.36 * r);
+            float sp = min(sdSparkle(sq1), sdSparkle((q + vec2(0.28 * b.x, 0.30 * b.y)) / (0.2 * r)));
+            c = mix(c, uPal3, cover(sp * 0.3 * r) * uMoFace.z * (1.0 - ga));
+        }
         over(acc, c * uDim, a);
     }
     if (sa > 0.0) over(acc, uPal2 * uDim, sa);
-    acc.rgb += vec3(1.0, 0.88, 0.94) * 0.30 * halo(min(d, mix(1e5, ds, lb.y)), 7.0)
+    // two little lashes at the outer corner, riding the upper lid
+    float open = (1.0 - lb.y) * (1.0 - ga) * (1.0 - uMorph.x) * smoothstep(0.75, 0.4, la.x);
+    if (open > 0.01 && q.x * side > 0.5 * b.x && q.y < 0.0) {
+        float n = mix(lb.w, 2.0, uMorph.z);
+        vec2 a1 = vec2(side * 0.70 * b.x, -b.y * pow(1.0 - pow(0.70, n), 1.0 / n));
+        vec2 a2 = vec2(side * 0.90 * b.x, -b.y * pow(1.0 - pow(0.90, n), 1.0 / n));
+        a1.y = max(a1.y, lidTop(a1.x, b, la, side).x) - 1.0;
+        a2.y = max(a2.y, lidTop(a2.x, b, la, side).x) - 1.0;
+        float ld = min(sdSeg(q, a1, a1 + vec2(side * 0.10, -0.22) * r),
+                       sdSeg(q, a2, a2 + vec2(side * 0.22, -0.12) * r)) - 1.7;
+        over(acc, mix(uPal2, uPal3, 0.3) * uDim, cover(ld) * open);
+    }
+    acc.rgb += vec3(1.0, 0.84, 0.92) * 0.30 * halo(min(d, mix(1e5, ds, lb.y)), 7.0)
                * (1.0 - max(a, sa)) * uChA.w * uDim;
 }
 
-void mMouth(vec2 p, inout vec4 acc) {
-    if (uMouthK.z <= 0.01) return;
-    float inner, teeth, tongue;
-    float d = mouthSDF(p - uMouth.xy, inner, teeth, tongue);
-    float a = cover(d) * uMouthK.z;
-    vec3 c = uPal2;
-    if (inner < 1e4) {
-        vec3 ins = mix(vec3(0.22, 0.04, 0.08), uPal3, tongue * 0.8);
-        c = mix(c, ins, cover(inner));
+// her own mouths (mochi_rig): 1 a small smile, 2 open, 3 "o", 4 a pout, 5 a
+// tongue out, 6 flat, 7 a frown, 8 a tiny line; s its half width
+float mMouthShape(vec2 q, float kind, float s, out float inner, out float tongue) {
+    inner = 1e5;
+    tongue = 0.0;
+    float x = clamp(q.x, -s, s);
+    float xn = x / s;
+    float th = max(2.2, 0.13 * s);
+    if (kind < 2.5) {                                    // a "D" on its back
+        float h = kind < 1.5 ? 0.66 * s : 0.9 * s;
+        float yt = -0.10 * h - 0.16 * h * sq(q.x / s);
+        float d = max(ellD(q - vec2(0.0, -0.1 * h), vec2(s, h)), yt - q.y);
+        inner = d + (kind < 1.5 ? 1.2 : 2.2);
+        tongue = smoothstep(1.0, 0.8, length((q - vec2(0.0, 0.62 * h)) / vec2(0.58 * s, 0.42 * h)));
+        return d;
     }
-    over(acc, c * uDim, a);
-    acc.rgb += uPal3 * 0.25 * halo(d, 5.0) * uMouthK.z * (1.0 - a) * uDim;
+    if (kind < 3.5) {
+        float d = ellD(q, vec2(0.85 * s, s));
+        inner = d + 2.6;
+        return d;
+    }
+    if (kind < 4.5) return length(vec2(q.x - x, q.y + 0.36 * s * (1.0 - xn * xn) - 0.1 * s)) - th;
+    if (kind < 5.5) {
+        float line = length(vec2(q.x - x, q.y - (0.26 * s * (1.0 - xn * xn) - 0.16 * s * xn))) - th;
+        float tg = ellD(q - vec2(0.22 * s, 0.30 * s), vec2(0.24 * s, 0.32 * s));
+        tongue = cover(tg);
+        inner = tg;
+        return min(line, tg);
+    }
+    if (kind < 6.5) return sdSeg(q, vec2(-s, 0.0), vec2(s, 0.0)) - th;
+    if (kind < 7.5) return length(vec2(q.x - x, q.y + 0.30 * s * (1.0 - xn * xn) - 0.15 * s)) - th;
+    return length(vec2(q.x - x, q.y - 0.24 * s * (1.0 - xn * xn))) - th;
 }
 
-// a plush paw, unit size (y down, the arm coming up from below): round and
-// stubby — open, four little toes round its top and pink beans; closed, the
-// toes tucked (seams between them), a thumb or a finger only a short nub
-float pawSDF(vec2 q, vec2 qa, float pose, out float seam, out float beans) {
-    seam = 1e5;
-    beans = 1e5;
-    if (pose > 7.5)                                     // the heart gesture: a cushion
-        return sdHeart(vec2(q.x, 0.5 - q.y) * 1.1) / 1.1;
-    if (pose > 2.5 && pose < 3.5) {                     // thumb down: upside down
-        q.y = 0.26 - q.y;
-        qa.y = 0.26 - qa.y;
+void mMouth(vec2 p, inout vec4 acc) {
+    float al = max(uMouthK.z, uMoMouth.y);
+    if (al <= 0.01) return;
+    vec2 q = p - uMouth.xy;
+    float inner, teeth, tongue;
+    float d = mouthSDF(q, inner, teeth, tongue);          // the pose's: her voice's shapes
+    if (uMoMouth.y > 0.003) {
+        float i2, t2;
+        float d2 = mMouthShape(q, uMoMouth.x, uMoMouth.z, i2, t2);
+        float k = uMouthK.z < 0.01 ? 1.0 : uMoMouth.y;
+        d = mix(d, d2, k);
+        inner = mix(inner, i2, k);
+        tongue = mix(tongue, t2, k);
     }
-    float d = ellD(q - vec2(0.0, 0.13), vec2(0.37, 0.35));
-    d = smin(d, sdSeg(qa, vec2(0.0, 0.40), vec2(0.0, 0.75)) - 0.25, 0.12); // a short plump arm (it stays)
-    if (pose < 1.5) {                                   // open: four toes round the top, beans
-        vec2 t0 = vec2(-0.27, -0.10), t1 = vec2(-0.10, -0.23), t2 = vec2(0.10, -0.23), t3 = vec2(0.27, -0.10);
-        d = smin(d, length(q - t0) - 0.13, 0.04);
-        d = smin(d, length(q - t1) - 0.14, 0.04);
-        d = smin(d, length(q - t2) - 0.14, 0.04);
-        d = smin(d, length(q - t3) - 0.13, 0.04);
-        beans = smin(ellD(q - vec2(0.0, 0.14), vec2(0.15, 0.10)),     // the big pad: three lobes
-                     min(length(q - vec2(-0.09, 0.21)) - 0.085, length(q - vec2(0.09, 0.21)) - 0.085), 0.05);
-        beans = min(beans, min(min(ellD(q - t0 - vec2(0.01, 0.02), vec2(0.055, 0.065)),
-                                   ellD(q - t1 - vec2(0.0, 0.02), vec2(0.06, 0.07))),
-                               min(ellD(q - t2 - vec2(0.0, 0.02), vec2(0.06, 0.07)),
-                                   ellD(q - t3 - vec2(-0.01, 0.02), vec2(0.055, 0.065)))));
-        return d;
+    float a = cover(d) * al;
+    vec3 c = mix(uPal3, vec3(1.0, 0.9, 0.95), 0.45);       // a soft pink, no teeth
+    if (inner < 1e4)
+        c = mix(c, mix(vec3(0.58, 0.10, 0.27), mix(uPal3, vec3(1.0), 0.25), 0.2 + 0.8 * tongue),
+                cover(inner));
+    over(acc, c * uDim, a);
+    acc.rgb += uPal3 * 0.22 * halo(d, 5.0) * al * (1.0 - a) * uDim;
+}
+
+// a plush paw, unit size (y down): a round mitt with four toes round its top
+// (curled: their knuckles; scissors: two round toes up); arm: a raised paw's
+// plump arm going down behind it. Its outline only (the normals need it
+// three times); the pads and seams in pawMarks, once
+float pawSDF(vec2 q, float pose, float arm) {
+    float d;
+    if (pose < 1.5) {
+        d = ellD(q - vec2(0.0, 0.05), vec2(0.46, 0.41));
+        d = smin(d, min(length(q - vec2(-0.30, -0.19)), length(q - vec2(0.30, -0.19))) - 0.15, 0.07);
+        d = smin(d, min(length(q - vec2(-0.11, -0.31)), length(q - vec2(0.11, -0.31))) - 0.16, 0.07);
+    } else if (pose < 5.5) {
+        d = ellD(q - vec2(0.0, 0.03), vec2(0.44, 0.41));
+        for (int k = 0; k < 4; k++) {                    // the knuckles of the tucked toes
+            float x = -0.27 + 0.18 * float(k);
+            d = smin(d, length(q - vec2(x, -0.27 + 0.05 * abs(x) / 0.27)) - 0.13, 0.06);
+        }
+    } else {
+        d = ellD(q - vec2(0.0, 0.05), vec2(0.43, 0.40));
+        d = smin(d, min(sdSeg(q, vec2(-0.14, -0.24), vec2(-0.14, -0.46)),
+                        sdSeg(q, vec2(0.14, -0.24), vec2(0.14, -0.46))) - 0.12, 0.06);
     }
-    for (int k = 0; k < 3; k++) {                       // closed: the tucked toes' seams
-        float x = -0.15 + 0.15 * float(k);
-        seam = min(seam, sdSeg(q, vec2(x, -0.21 + 0.03 * abs(x) / 0.15), vec2(x * 0.85, -0.09)));
-    }
-    vec2 n0 = vec2(-0.19, -0.27), n1 = vec2(1e3);        // stubby round nubs, a bean on each
-    float r = 0.12;
-    if (pose > 4.5 && pose < 5.5) n0 = vec2(-0.07, -0.30);                 // pointing: one toe
-    else if (pose > 5.5 && pose < 6.5) { n0 = vec2(-0.15, -0.29); n1 = vec2(0.13, -0.29); r = 0.105; }
-    if (pose > 6.5) {                                   // ok: a little loop
-        d = smin(d, abs(length(q - vec2(-0.20, -0.28)) - 0.10) - 0.05, 0.04);
-        return d;
-    }
-    if (pose > 3.5 && pose < 4.5) return d;             // a fist: just the round paw
-    d = smin(d, sdSeg(q, n0 + vec2(0.0, 0.10), n0) - r, 0.06);
-    d = smin(d, sdSeg(q, n1 + vec2(0.0, 0.10), n1) - r, 0.06);
-    beans = min(ellD(q - n0, vec2(0.05, 0.06)), ellD(q - n1, vec2(0.05, 0.06)));
+    if (arm > 0.01) d = smin(d, sdSeg(q, vec2(0.0, 0.3), vec2(0.0, 1.0)) - 0.26, 0.10);
     return d;
 }
 
+// open: four beans in an arc and a big three-lobed pad; curled: the tucked
+// toes' seams; scissors: a bean on each toe. → the pads' distance
+float pawMarks(vec2 q, float pose, out float seam) {
+    seam = 1e5;
+    if (pose < 1.5) {
+        vec2 t0 = vec2(-0.28, -0.16), t1 = vec2(-0.11, -0.28), t2 = vec2(0.11, -0.28), t3 = vec2(0.28, -0.16);
+        float b = smin(ellD(q - vec2(0.0, 0.13), vec2(0.19, 0.13)),
+                       min(length(q - vec2(-0.11, 0.21)), length(q - vec2(0.11, 0.21))) - 0.10, 0.06);
+        return min(b, min(min(ellD(q - t0, vec2(0.07, 0.085)), ellD(q - t1, vec2(0.075, 0.09))),
+                          min(ellD(q - t2, vec2(0.075, 0.09)), ellD(q - t3, vec2(0.07, 0.085)))));
+    }
+    if (pose < 5.5) {
+        for (int k = 0; k < 3; k++) {
+            float x = -0.18 + 0.18 * float(k);
+            seam = min(seam, sdSeg(q, vec2(x, -0.40 + 0.03 * abs(x) / 0.18), vec2(x * 0.92, -0.22)));
+        }
+        return 1e5;
+    }
+    return min(ellD(q - vec2(-0.14, -0.46), vec2(0.055, 0.065)), ellD(q - vec2(0.14, -0.46), vec2(0.055, 0.065)));
+}
+
 void mHand(vec2 p, inout vec4 acc) {
-    vec4 h = uShape < 16.5 ? uHand0 : uHand1;
+    bool right = uShape > 16.5;
+    vec4 h = right ? uHand1 : uHand0;
     float pose = floor(h.w + 0.001);
     float al = clamp(fract(h.w + 0.001) / 0.98, 0.0, 1.0);
-    float s = pose > 7.5 ? 92.0 * (1.0 + 0.08 * h.z) : 118.0;
-    float wy = pose > 2.5 && pose < 3.5 ? -0.16 : 0.42;                   // the wrist
-    vec2 q = handLocal(p, h, s, wy);
-    vec2 qa = handLocal(p, vec4(h.xy, 0.0, h.w), s, 0.0);                 // the arm: not turned
-    float seam, beans;
-    float d = pawSDF(q, qa, pose, seam, beans) * s;
-    float ay = pose > 2.5 && pose < 3.5 ? 0.26 - qa.y : qa.y;             // (thumb down: upside down)
-    al *= pose > 7.5 ? 1.0 : smoothstep(0.92, 0.38, ay);                  // the arm fades out
-    float a = cover(d) * al;
-    acc.rgb += uPal3 * 0.12 * exp(-max(d, 0.0) / 14.0) * al * (1.0 - a);   // a soft pink light
+    float s = right ? uMoPaw.y : uMoPaw.x;
+    float arm = right ? uMoPaw.w : uMoPaw.z;
+    if (al <= 0.0 || s <= 1.0) return;
+    vec2 q = rot2(p - h.xy - vec2(0.0, 0.40 * s), -h.z) / s + vec2(0.0, 0.40);   // turned at the wrist
+    if (!right) q.x = -q.x;
+    if (length(q) > 0.56 + 16.0 / s && (arm < 0.01 || abs(q.x) > 0.3 + 4.0 / s || q.y < 0.0)) return;
+    float d = pawSDF(q, pose, arm) * s;
+    al *= arm > 0.01 ? mix(1.0, smoothstep(1.0, 0.5, q.y), arm) : 1.0;     // the arm fades out
+    // its soft shade on what's behind (a paw resting: on the floor too)
+    float sd = ellD(q - vec2(0.03, 0.08), vec2(0.48, 0.44)) * s;
+    over(acc, vec3(0.0), 0.32 * exp(-max(sd, 0.0) / 6.0) * al * step(q.y, 0.75));
+    float a = cover(d + (d > -4.0 ? fuzz(q * s) : 0.0)) * al;
     if (a <= 0.0) return;
-    vec3 c = mix(uPal0, uPal1, clamp(0.1 + 0.55 * q.y, 0.0, 1.0));
-    if (pose > 7.5) c = mix(uPal3, vec3(1.0, 0.86, 0.9), 0.25 * smoothstep(0.3, -0.4, q.y + q.x));
-    c *= 0.78 + 0.22 * smoothstep(0.0, -18.0, d);                         // plump: darker edges
-    vec2 hq = (q - vec2(-0.12, -0.04)) / 0.30;
-    c += vec3(1.0, 0.94, 0.96) * 0.18 * exp(-dot(hq, hq));                // a sheen
-    float bd = beans * s;
-    vec3 bean = mix(uPal3, vec3(1.0, 0.75, 0.85), 0.3 * smoothstep(0.0, -6.0, bd));
-    c = mix(c, bean, cover(bd));
-    c = mix(c, uPal1 * 0.70, cover(seam * s - 1.3) * 0.75);               // the seams
-    if (pose > 7.5)                                                       // the cushion's stitches
-        c = mix(c, vec3(1.0, 0.9, 0.94), cover(abs(d + 9.0) - 1.1) * step(0.5, fract((p.x + p.y) / 9.0)) * 0.7);
+    // its outward direction: the mitt's ellipse, the arm's cylinder (the exact
+    // one — the outline twice more, every pose's branch — cost the Pi 2 ms)
+    vec2 g = normalize(q.y > 0.42 && arm > 0.01 ? vec2(q.x, 0.0) + 1e-4
+                                                 : (q - vec2(0.0, 0.04)) / vec2(0.21, 0.17));
+    if (!right) g.x = -g.x;
+    g = rot2(g, h.z);
+    vec3 c = plush(mix(uPal0, uPal1, clamp(0.12 + 0.4 * q.y, 0.0, 0.6)), g, d, 0.22 * s,
+                   rot2(q * vec2(right ? 0.22 : -0.22, 0.22), h.z), q * s);
+    if (q.y < 0.4) {                                   // the pads: soft raised pink, lit from above
+        float seam;
+        float bd = pawMarks(q, pose, seam) * s;
+        vec3 bean = mix(uPal3 * 0.92, vec3(1.0, 0.70, 0.82), 0.4 * smoothstep(0.0, -6.0, bd));
+        bean *= 1.0 - 0.18 * smoothstep(-3.0, 0.0, bd) * step(0.0, q.y - 0.05);
+        c = mix(c, bean, cover(bd));
+        c = mix(c, c * 0.72, cover(seam * s - 1.4) * 0.8);
+    }
     over(acc, c * mix(1.0, uDim, 0.35), a);
 }
 
 vec3 soft(vec2 p, vec2 uv) {
-    vec2 vq = uv - vec2(0.5, 0.52);
-    vec3 col = vec3(0.045, 0.026, 0.040) * (1.0 - 1.3 * dot(vq, vq));
-    float d = mBody(p - vec2(0.0, 14.0));
-    col *= 1.0 - 0.6 * exp(-max(d, 0.0) / 22.0);                 // its shadow
-    col += uPal3 * 0.10 * exp(-max(mBody(p), 0.0) / 30.0) * uChA.w;   // a soft pink light round it
-    if (uChH.y < 0.999)                                              // waking: a pink pop
+    vec2 vq = uv - vec2(0.5, 0.55);
+    vec3 col = vec3(0.050, 0.028, 0.044) * (1.0 - 1.4 * dot(vq, vq));
+    vec2 q = p - mBC();
+    col += uPal3 * 0.10 * exp(-max(mBody(q), 0.0) / 34.0) * uChA.w;     // a soft pink light round her
+    float fl = length((q - vec2(0.0, M_BB.y + 4.0)) / vec2(290.0, 30.0));
+    col *= 1.0 - 0.7 * exp(-fl * fl * 2.2);                              // her shade on the floor
+    float dd = mDisp(q);                         // the glass's middle (the strips do its edge)
+    if (dd < 0.0) col = mGlassCol(p, q, dd) * mix(1.0, uDim, 0.35);
+    if (uChH.y < 0.999)                                                  // waking: a pink pop
         col += uPal3 * 0.6 * exp(-abs(length(p - mBC()) - 120.0 - uChH.y * 380.0) / 14.0) * (1.0 - uChH.y);
     return col;
 }
@@ -1034,7 +1277,7 @@ void shape(vec2 p, inout vec4 acc) {
     } else if (uShape < 2.5) mMouth(p, acc);
     else if (uShape < 3.5) mBodyDraw(p, acc);
     else if (uShape < 8.5) {}                      // (props: above)
-    else if (uShape < 10.5) mEars(p, acc);
+    else if (uShape < 10.5) mEar(p, uShape < 9.5 ? -1.0 : 1.0, acc);   // an ear each
     else mFront(p, acc);
 }
 """
@@ -1422,7 +1665,7 @@ class CharPass:
             watchdog.busy(120, f"compiling {kind}")       # its first draw compiles it
             gl = self.gl
             head = "#version 120\n" if gl.glsl == "120" else "#version 100\nprecision mediump float;\n"
-            fs = head + PASSES[stage] + _HEAD + SOURCES[kind] + _MAIN
+            fs = head + PASSES[stage] + DEFINES.get(kind, "") + _HEAD + SOURCES[kind] + _MAIN
             t0 = time.perf_counter()
             p = gl_face._Prog(gl.GL, gl._program(head + gl_face._VERT, fs))
             gl.GL.glUseProgram(p.id)
@@ -1493,16 +1736,10 @@ def _props(kind, life, ch, u, fcx, fcy, now, acc):
     """Up to four props: (x, y, size, kind + alpha), behind the face or not."""
     out = []
     cel = ch["celebrate"]
-    love = u["uMorph"][0]
-    if kind == "mochi":
-        k = max(cel, love * 0.8) * ("hearts" in acc)
-        for i in range(3 if k > 0.02 else 0):
-            t = (now * 0.45 + i / 3.0) % 1.0
-            side = -1.0 if i % 2 else 1.0
-            x = fcx + side * (215.0 + 25.0 * i) + 14.0 * math.sin(now * 2.0 + i)
-            y = fcy + 30.0 - 190.0 * t
-            out.append(((x, y, 34.0 - 8.0 * t, 1.0 + 0.98 * min(1.0, 1.4 * k * math.sin(math.pi * t))),
-                        False))
+    if kind == "mochi":                      # her symbols pop once (mochi_rig), not a stream
+        for x, y, size, k in getattr(life, "mochi", {}).get("pops", ()):
+            if int(k) != 1 or "hearts" in acc:
+                out.append(((fcx + x, fcy + y, size, k), False))
     if kind == "pip":
         k = max(cel, 0.5 * ch["happy"] * (u["uMorph"][3] > 0.5))
         for i in range(4 if k > 0.02 else 0):
@@ -1516,7 +1753,7 @@ def _props(kind, life, ch, u, fcx, fcy, now, acc):
         x = fcx + 330.0 - 40.0 * t
         y = fcy + 230.0 - 470.0 * t
         out.append(((x, y, 34.0, 6.0 + 0.98 * cel), False))
-    if kind in ("mochi", "pip") and ch["confused"] + ch["curious"] > 0.03:
+    if kind == "pip" and ch["confused"] + ch["curious"] > 0.03:
         k = max(ch["confused"], ch["curious"] * 0.7)
         out.append(((fcx + 300.0, fcy - 96.0 - 8.0 * math.sin(now * 3.0), 40.0, 2.0 + 0.98 * k), False))
     return out[:4]
@@ -1539,11 +1776,11 @@ def _state_props(kind, ch, u, fcx, fcy, now):
     tk = math.sin(math.pi * tt) ** 0.5
     if kind == "mochi":
         for side in (-1.0, 1.0):                         # "(((" by her pods
-            at(fcx + side * 336.0, fcy + 60.0, 46.0, 15.0, listen)
-        at(fcx + 240.0, fcy - 150.0, 62.0, 11.0, think)  # a thought cloud
-        for ph in (0.0, 0.5):
-            t = (zt + ph) % 1.0
-            at(fcx + 318.0 + 26.0 * t, fcy - 40.0 - 120.0 * t, 22.0 + 10.0 * t, 9.0,   # (past her ear)
+            at(fcx + side * 312.0, fcy + 80.0, 34.0, 15.0, listen)
+        at(fcx + 250.0, fcy - 146.0, 50.0, 11.0, think)  # a small thought cloud
+        for ph in (0.0, 0.5):                            # z Z, slow (past her ear)
+            t = (zt * 0.8 + ph) % 1.0
+            at(fcx + 300.0 + 26.0 * t, fcy - 30.0 - 110.0 * t, 16.0 + 12.0 * t, 9.0,
                sleep * math.sin(math.pi * t))
     if kind == "pip":
         at(e1[0] + e1[2] * 0.5 + 56.0, e1[1] - e1[3] * 0.5 - 10.0, 40.0, 12.0, listen)  # signal bars
@@ -1553,7 +1790,7 @@ def _state_props(kind, ch, u, fcx, fcy, now):
                sleep * math.sin(math.pi * t))
     if kind in ("mochi", "pip") and sad > 0.02:         # a tear
         at(e0[0] - e0[2] * 0.22, e0[1] + e0[3] * 0.5 + 10.0 + 60.0 * tt, 16.0, 8.0, sad * tk)
-    if kind in ("mochi", "pip"):
+    if kind == "pip":                                   # (MOCHI pouts; her "!" pops once)
         at(e1[0] + e1[2] * 0.5 + 40.0, e1[1] - e1[3] * 0.5 - 30.0, 36.0, 10.0,
            angry * (0.7 + 0.3 * math.sin(now * 6.0)))
         at(fcx - 270.0, fcy - 150.0, 44.0, 7.0, bang)
@@ -1575,13 +1812,11 @@ def _hand_at(kind, hx, hy, console):
     if kind == "retro":
         cy, (bx, by) = (-18.0, (214.0, 126.0)) if console else (-10.0, (300.0, 172.0))
         return max(-(bx - 60.0), min(bx - 60.0, hx * 0.6)), cy + by - 40.0 + rise
-    if kind == "mochi":
-        return max(-335.0, min(335.0, hx * 1.15)), hy + 40.0
     return max(-340.0, min(340.0, hx * 1.1)), hy
 
 
 # the heart gesture: where each shows its heart (PIXEL, RETRO: for a mouth)
-HEART_AT = {"pixel": (0.0, 100.0), "mochi": (0.0, 176.0), "pip": (0.0, 196.0)}
+HEART_AT = {"pixel": (0.0, 100.0), "pip": (0.0, 196.0)}      # (MOCHI: mochi_rig, paws to her cheeks)
 
 
 def _hands(kind, face, fcx, fcy, console):
@@ -1644,6 +1879,35 @@ def _remap(u, face, L, fcx, fcy, life, ch, dt, now, kind):
     u["uWave"] = 0.0
 
 
+def _mochi(face, u, life, ch, fcx, fcy, now, dt):
+    """MOCHI's rig (mochi_rig.py) this frame: her eyes follow her gaze (the
+    whole eye: she has no pupils), sized and moved by the look; her paws,
+    ears, glyphs and mouth as uniforms. → {"hands": uHand0/1, "u": the rest}."""
+    rig = getattr(life, "rig", None)
+    if rig is None:
+        rig = life.rig = mochi_rig.MochiRig(now)
+    closed = (u.get("uLidB0", (0.0, 0.0))[1], u.get("uLidB1", (0.0, 0.0))[1])
+    r = rig.step(face, ch, now, dt, characters.fx_level(now), closed,
+                 (fcx + ch["body_x"], fcy + ch["body_y"]), set(life.active))
+    life.mochi = r
+    gx, gy = r["gaze"]
+    for i in (0, 1):
+        ex, ey, w, h = u[f"uEye{i}"]
+        dx, dy = u[f"uPupil{i}"][:2]
+        s = r["scale"][i]
+        u[f"uEye{i}"] = (ex + dx * 0.45 + gx, ey + dy * 0.35 + gy, w * s, h * s)
+    ch["body_rot"] += r["tilt"]
+    hands = []
+    for i, (x, y, turn, pose, size, arm) in enumerate(r["paws"]):
+        hands.append((fcx + x, fcy + y, turn, pose + 0.98))
+    (_, _, _, _, s0, a0), (_, _, _, _, s1, a1) = r["paws"]
+    return {"hands": hands, "u": {
+        "uMoEar": tuple(r["ears"]), "uMoEye": r["eyes"],
+        "uMoFace": (r["scale"][0], r["scale"][1], r["sparkle"], r["blush"]),
+        "uMoMouth": (float(r["mouth"][0]), r["mouth"][1], r["mouth"][2], 0.0),
+        "uMoPaw": (s0, s1, a0, a1), "uMoBody": (r["squash"], r["pods"], r["puff"], 0.0)}}
+
+
 def _box(gl, x0, y0, x1, y1, tilt):
     return gl._box((x0 + x1) / 2.0, (y0 + y1) / 2.0, (x1 - x0) / 2.0, (y1 - y0) / 2.0, tilt)
 
@@ -1680,11 +1944,24 @@ def _boxes(gl, kind, u, ch, props, fcx, fcy, console, acc, marks=(), hands=()):
             add(SCREEN, fcx, fcy - 10.0, 300.0, 172.0)
     if kind == "pixel":
         add(SCREEN, fcx, fcy + 4.0, 322.0, 196.0)
-    by = fcy + 54.0                                    # MOCHI's head
+    by = fcy + 70.0                                    # MOCHI's head
     if kind == "mochi":
-        if "ears" in acc:
-            add(ACC, fcx, by - 164.0 - 40.0, 205.0, 92.0)
-        add(BODY, fcx, by, 300.0, 172.0)
+        if "ears" in acc:                              # an ear each: base, middle, tip
+            ears = u["uMoEar"]
+            for i, side in enumerate((-1.0, 1.0)):
+                lean, flop = ears[i], ears[2 + i]
+                bx, byy = fcx + side * 118.0, by - 124.0
+                mx_, my_ = bx + side * 64.0 * math.sin(lean), byy - 64.0 * math.cos(lean)
+                a2 = lean + 1.3 * flop
+                tx, ty = mx_ + side * 92.0 * math.sin(a2), my_ - 92.0 * math.cos(a2)
+                xs, ys = (bx, mx_, tx), (byy, my_, ty)
+                add(SCREEN + i, (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2,
+                    (max(xs) - min(xs)) / 2 + 48.0, (max(ys) - min(ys)) / 2 + 48.0)
+        gx, gy, cy = 156.0, 82.0, by - 6.0               # her casing: four strips round the
+        add(BODY, fcx, (by - 156.0 + cy - gy) / 2.0, 282.0, (cy - gy - by + 156.0) / 2.0)   # glass
+        add(BODY + 0.1, fcx, (cy + gy + by + 156.0) / 2.0, 282.0, (by + 156.0 - cy - gy) / 2.0)
+        add(BODY + 0.2, fcx - (282.0 + gx) / 2.0, cy, (282.0 - gx) / 2.0, gy)
+        add(BODY + 0.3, fcx + (282.0 + gx) / 2.0, cy, (282.0 - gx) / 2.0, gy)
     if kind in _HALO:
         m = _HALO[kind]
         for i in (0, 1):
@@ -1692,9 +1969,10 @@ def _boxes(gl, kind, u, ch, props, fcx, fcy, console, acc, marks=(), hands=()):
             add(EYE0 + i, ex, ey, w / 2 + m, h / 2 + m)
         mx, my, w, h = u["uMouth"]
         bend, _, alpha, mk = u["uMouthK"]
-        if alpha > 0.01:
-            add(MOUTH, mx, my, w / 2 + h / 2 + m, max(h, w * (mk == 2.0)) / 2 + h + abs(bend)
-                + abs(u["uMouthSlant"]) + m)
+        _, own, ms, _ = u.get("uMoMouth", (0.0, 0.0, 0.0, 0.0))   # (MOCHI's own mouths)
+        if max(alpha, own) > 0.01:
+            add(MOUTH, mx, my, max(w / 2 + h / 2, ms + 4.0) + m,
+                max(max(h, w * (mk == 2.0)) / 2 + h + abs(bend) + abs(u["uMouthSlant"]), ms * 1.1) + m)
     if kind == "pip":
         if "sprout" in acc or "cap" in acc:
             add(ACC, fcx + 10.0, fcy - 172.0, 130.0, 92.0)
@@ -1702,18 +1980,31 @@ def _boxes(gl, kind, u, ch, props, fcx, fcy, console, acc, marks=(), hands=()):
             add(FRONT, fcx, fcy + 186.0, 70.0, 32.0)
     if kind == "mochi":
         if "flower" in acc:
-            add(FRONT, fcx + 186.0, by - 150.0, 36.0, 36.0)
+            add(FRONT, fcx + 152.0, by - 134.0, 32.0, 32.0)
         if "hat" in acc and ch["sleep"] > 0.02:
-            add(FRONT, fcx - 145.0, by - 147.0, 200.0, 118.0)
+            add(FRONT, fcx - 100.0, by - 150.0, 186.0, 102.0)
     for i, (pt, behind) in enumerate(props):
         if not behind:
             add(PROP + i, pt[0], pt[1], pt[2] * 1.35 + 22, pt[2] * 1.35 + 22)
     for i, pt in enumerate(marks):                     # the state's own marks, on top
         r = pt[2] * 1.35 + 22
         add(STATE + i, pt[0], pt[1], r, r)
-    if kind in ("mochi", "pip"):                       # the hands, in front of it all
+    if kind == "pip":                                  # the hands, in front of it all
         for i, h in enumerate(hands):
             add(HAND + i, h[0], h[1], 124.0, 124.0)
+    if kind == "mochi":                                # her paws (an arm: reaching down)
+        sz = u["uMoPaw"]
+        for i, h in enumerate(hands):                  # its own frame's box, turned at the wrist
+            s, arm, t = sz[i], sz[2 + i], h[2]
+            hx_, y0, y1 = 0.54 * s + 14.0, -0.52 * s - 6.0, max(0.6 * s + 14.0, arm * s)
+            c, sn = math.cos(t), math.sin(t)
+            xs, ys = [], []
+            for lx, ly in ((-hx_, y0), (hx_, y0), (-hx_, y1), (hx_, y1)):
+                ly -= 0.4 * s
+                xs.append(h[0] + c * lx - sn * ly)
+                ys.append(h[1] + 0.4 * s + sn * lx + c * ly)
+            add(HAND + i, (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2,
+                (max(xs) - min(xs)) / 2, (max(ys) - min(ys)) / 2)
     return out
 
 
@@ -1730,14 +2021,10 @@ def apply(gl, face, u, cur, fcx, fcy, kind, now, dt):
     acc = characters.accessories(kind, now)
     names = cfg["accessories"]
     flags = [1.0 if n in acc else 0.0 for n in names[:4]] + [0.0] * (4 - min(4, len(names)))
-    if kind == "mochi" and ch["confused"] > 0.02:     # puzzled: one eye smaller
-        ex, ey, w, h = u["uEye1"]
-        u["uEye1"] = (ex, ey + 6.0 * ch["confused"], w * (1.0 - 0.12 * ch["confused"]),
-                      h * (1.0 - 0.28 * ch["confused"]))
+    mo = _mochi(face, u, life, ch, fcx, fcy, now, dt) if kind == "mochi" else None
     sway_y = ch["body_y"]
-    if kind == "mochi":                           # a soft float; a bounce when happy
-        sway_y += ch["motion"] * (3.0 * math.sin(now * 1.3)
-                                  - 6.0 * ch["happy"] * abs(math.sin(now * 4.0)))
+    if kind == "mochi":                           # a soft float, nothing more
+        sway_y += ch["motion"] * 2.0 * math.sin(now * 1.3)
     if kind == "pip" and ch["happy"] > 0.3:       # bouncy
         sway_y -= 4.0 * ch["motion"] * ch["happy"] * abs(math.sin(now * 5.0))
     ch["body_y"] = sway_y
@@ -1747,8 +2034,10 @@ def apply(gl, face, u, cur, fcx, fcy, kind, now, dt):
     pts = [p for p, _ in props] + [(0.0, 0.0, 0.0, 0.0)] * (4 - len(props))
     marks = _state_props(kind, ch, u, fcx, fcy, now)
     sts = marks + [(0.0, 0.0, 0.0, 0.0)] * (4 - len(marks))
-    hands = _hands(kind, face, fcx, fcy, console)
+    hands = mo["hands"] if mo else _hands(kind, face, fcx, fcy, console)
     hs = hands + [(0.0, 0.0, 0.0, 0.0)] * (2 - len(hands))
+    if mo:
+        u.update(mo["u"])
     u.update({
         "uHand0": hs[0], "uHand1": hs[1],
         "uChA": (fcx, fcy, ch["motion"], 0.55 + 0.45 * ch["fx"]),
