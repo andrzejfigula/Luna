@@ -1365,6 +1365,9 @@ DOCK_ICONS = {
     "radio": [("r", 3, 9, 18, 12), ("l", [(7, 9), (17, 3)], False), ("c", (9, 15), 3.0),
               ("l", [(15, 13), (18.5, 13)], False), ("l", [(15, 17), (18.5, 17)], False)],
     "settings": _GEAR,
+    "paint": [("l", _arc((12, 12), 9.5, 35, 325, 20) + [(15, 12)], True),   # a palette
+              ("c", (15.5, 16.8), 1.7), ("c", (7.5, 8.5), 1.2), ("c", (12.5, 6.5), 1.2),
+              ("c", (7, 14), 1.2)],
 }
 
 # per character: stroke width (grid units), glow, pixel cell (px), cell gap, scanlines

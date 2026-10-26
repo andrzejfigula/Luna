@@ -3386,7 +3386,7 @@ class RobotFace:
             self._draw_overlay()
             with state.lock:                            # every page: ✕ to close it
                 ov_now = state.overlay
-            if ov_now and ov_now[0] not in ("flash", "gallery"):   # (the gallery: its own)
+            if ov_now and ov_now[0] not in ("flash", "gallery", "paint"):   # (those: their own)
                 ui_screens.draw_close(self.screen, WIDTH)
 
         t3 = time.perf_counter()
@@ -3799,6 +3799,9 @@ class RobotFace:
         elif kind == "schedule":                        # "plan tygodnia" (schedule.py)
             import ui_schedule
             ui_schedule.draw(scr, data, time.time(), WIDTH, HEIGHT)
+        elif kind == "paint":                           # Malowanie (paint.py, ui_paint.py)
+            import ui_paint
+            ui_paint.draw(scr, time.time(), WIDTH, HEIGHT)
         elif kind == "radio":                           # the stations to pick from
             ui_screens.draw_radio(scr, data, time.time(), WIDTH, HEIGHT)
         elif kind == "settings":                        # "pokaż ustawienia" (settings_page.py)

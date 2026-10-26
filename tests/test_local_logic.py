@@ -7920,6 +7920,7 @@ class DockTest(unittest.TestCase):
         settings._load()
         settings._data.pop("dock", None)
         settings._data.pop("dock_items", None)
+        settings._data.pop("dock_offered", None)
         settings._data.pop("captions", None)
         lists._lists = {}
         with state.lock:
@@ -10271,6 +10272,207 @@ class PrinterTest(unittest.TestCase):
         pages = self.p.text_pages("Lista zakupów", ["mleko"] * 200, boxes=True)
         self.assertEqual(len(pages), self.p.MAX_PAGES)
         self.assertEqual(pages[0].size, (self.p.W, self.p.H))
+
+
+class PaintTest(unittest.TestCase):
+    """Malowanie (paint.py): the finger paints, "Pokaż" marks, voice → a new
+    picture or a change, the mask only where it was marked. No model calls."""
+
+    def setUp(self):
+        try:
+            import PIL  # noqa: F401
+        except ImportError:
+            self.skipTest("no PIL")
+        import paint
+        self.p = paint
+        d = tempfile.mkdtemp(prefix="luna-paint-")
+        for k, v in (("DIR", d), ("CURRENT", os.path.join(d, "current.png")),
+                     ("SAVED", os.path.join(d, "saved"))):
+            p = mock.patch.object(paint, k, v)
+            p.start()
+            self.addCleanup(p.stop)
+        paint._s.update(img=None, ver=0, view=None, undo=[], tool="brush", colour=0, size=1,
+                        marks=[], stroke=None, busy=None, hint="", picker=None, page=0,
+                        title="", down=None, saved_ver=-1, asked_t=0.0, touch_t=0.0)
+        self.started = []
+        p = mock.patch.object(paint, "_start",
+                              lambda kind, words, speak: self.started.append((kind, words)) or True)
+        p.start()
+        self.addCleanup(p.stop)
+        p = mock.patch.object(paint, "_flush", lambda: None)     # no files written behind it
+        p.start()
+        self.addCleanup(p.stop)
+        self.addCleanup(lambda: setattr(state, "overlay", None))
+        paint.open_page()
+
+    def _tap(self, x, y):
+        self.p.raw("down", x / self.p.W, y / self.p.H)
+        self.p.raw("up", x / self.p.W, y / self.p.H)
+
+    def _centre(self, key):
+        r = dict(self.p.buttons())[key]
+        return r[0] + r[2] / 2, r[1] + r[3] / 2
+
+    def test_layout(self):
+        p = self.p
+        rects = [r for _, r in p.buttons()]
+        for i, a in enumerate(rects):
+            self.assertTrue(a[0] >= 0 and a[1] >= 0 and a[0] + a[2] <= p.W and a[1] + a[3] <= p.H)
+            for b in rects[i + 1:]:                              # no two overlap
+                self.assertFalse(a[0] < b[0] + b[2] and b[0] < a[0] + a[2] and
+                                 a[1] < b[1] + b[3] and b[1] < a[1] + a[3]), (a, b)
+            self.assertLess(a[1] + a[3], p.HINT[1] + 1)
+        for size in p.SIZES.values():                            # the sheet clear of the tools
+            x, y, w, h, k = p.canvas_rect(size)
+            self.assertLessEqual(x + w, p.TB)
+            self.assertLessEqual(y + h, p.H)
+
+    def test_finger_paints_and_undo(self):
+        p = self.p
+        self.assertTrue(p.active())
+        x, y, w, h, k = p.canvas_rect(p._s["img"].size)
+        a, b = (x + 40, y + 60), (x + 120, y + 60)
+        p.raw("down", a[0] / p.W, a[1] / p.H)
+        p.raw("move", b[0] / p.W, b[1] / p.H)
+        p.raw("up", b[0] / p.W, b[1] / p.H)
+        mid = (int((80) / k), int(60 / k))
+        self.assertEqual(p._s["img"].getpixel(mid), p.COLOURS[0])
+        self.assertTrue(p.undo())
+        self.assertEqual(p._s["img"].getpixel(mid), (255, 255, 255))
+        self._tap(*self._centre("c1"))                           # red, then the eraser
+        self.assertEqual(p._s["colour"], 1)
+        self._tap(*self._centre("eraser"))
+        self._tap(*self._centre("eraser"))                       # again: a bigger one
+        self.assertEqual((p._s["tool"], p._s["size"]), ("eraser", 2))
+
+    def test_marks_are_not_paint(self):
+        p = self.p
+        self._tap(*self._centre("mark"))
+        x, y, w, h, k = p.canvas_rect(p._s["img"].size)
+        self._tap(x + 100, y + 100)
+        self.assertEqual(len(p._s["marks"]), 1)
+        self.assertEqual(p._s["img"].getpixel((int(100 / k), int(100 / k))), (255, 255, 255))
+        pic, mask, frame = p.model_inputs(p._s["img"], p._s["marks"])
+        from PIL import Image
+        import io
+        m = Image.open(io.BytesIO(mask))
+        (tw, th), (ox, oy, mw, mh) = frame
+        sc = mw / p._s["img"].width
+        self.assertEqual(m.getpixel((int(ox + 100 / k * sc), int(oy + 100 / k * sc)))[3], 0)
+        self.assertEqual(m.getpixel((5, 5))[3], 255)             # unmarked: kept
+        # the model's answer: what grew out of the mark stays (bigger than the
+        # circle), a change elsewhere goes back
+        from PIL import ImageDraw
+        old = p._s["img"]
+        new = old.copy()
+        cx, cy, r = 100 / k, 100 / k, p._s["marks"][0]["r"]
+        ImageDraw.Draw(new).ellipse((cx - 2.5 * r, cy - 2.5 * r, cx + 2.5 * r, cy + 2.5 * r),
+                                    fill=(0, 0, 255))
+        ImageDraw.Draw(new).rectangle((old.width - 200, old.height - 200, old.width - 20,
+                                       old.height - 20), fill=(255, 0, 0))
+        out = p.keep_outside(new, old, p._s["marks"])
+        self.assertEqual(out.getpixel((int(cx), int(cy))), (0, 0, 255))
+        self.assertEqual(out.getpixel((int(cx + 2.2 * r), int(cy))), (0, 0, 255))
+        self.assertEqual(out.getpixel((old.width - 100, old.height - 100)), (255, 255, 255))
+
+    def test_model_frame_round_trip(self):
+        p = self.p
+        from PIL import Image
+        import io
+        img = Image.new("RGB", (1280, 720), (10, 200, 10))
+        pic, mask, frame = p.model_inputs(img, [])
+        self.assertIsNone(mask)
+        self.assertEqual(frame[0], (1536, 1024))
+        back = p.from_model(pic, frame, img.size)
+        self.assertEqual(back.size, img.size)
+        self.assertEqual(back.getpixel((640, 360)), (10, 200, 10))
+        self.assertEqual(Image.open(io.BytesIO(pic)).size, (1536, 1024))
+
+    def test_voice(self):
+        p = self.p
+        said = []
+        p.voice("Luna, narysuj arkusz A4 z uroczymi zwierzątkami i ubrankami do przebierania",
+                said.append)
+        self.assertEqual(self.started[-1][0], "new")
+        prompt, kind = p.gen_prompt(self.started[-1][1])
+        self.assertEqual(kind, "portrait")
+        self.assertIn("przebierania", prompt)
+        self.assertIn("zakładkami", prompt)
+        p._s["img"].putpixel((5, 5), (0, 0, 0))                # not blank any more
+        for text, kind in (("dodaj kotu kapelusz", "edit"), ("zmień tło na niebieskie", "edit"),
+                           ("zrób go większym", "edit"), ("narysuj tu tęczę", "edit"),
+                           ("stwórz nowy arkusz z dinozaurami, żeby je wyciąć", "new"),
+                           ("narysuj kolorowankę z kotem poziomo", "new")):
+            self.assertTrue(p.voice(text, said.append), text)
+            self.assertEqual(self.started[-1][0], kind, text)
+        self.assertEqual(p.gen_prompt("kolorowankę z kotem poziomo")[1], "landscape")
+        n = len(self.started)
+        for other in ("dodaj mleko do listy zakupów", "jaka jest pogoda?", "włącz radio"):
+            self.assertFalse(p.voice(other, said.append), other)
+        self.assertEqual(len(self.started), n)
+        # "tego nie chcę" with nothing marked: she asks to be shown
+        self.assertTrue(p.voice("tego nie chcę", said.append))
+        self.assertIn("Pokaż mi palcem", said[-1])
+        self.assertEqual(p._s["tool"], "mark")
+        self.assertEqual(len(self.started), n)
+        p._s["marks"] = [{"pts": [(100, 100)], "r": 50}]
+        self.assertTrue(p.voice("tego nie chcę", said.append))
+        self.assertIn("usuń", self.started[-1][1])
+        self.assertTrue(p.voice("cofnij", said.append))          # the marks go first
+        self.assertEqual(p._s["marks"], [])
+        self.assertTrue(p.voice("nowa kartka", said.append))
+        self.assertTrue(p._is_blank(p._s["img"]))
+
+    def test_fallback_only_while_painting(self):
+        p = self.p
+        p._s["img"].putpixel((5, 5), (0, 0, 0))
+        p._s["asked_t"] = p._s["touch_t"] = 0.0
+        self.assertFalse(p.fallback("kot ma być rudy", print))  # the page idle: talk in the room
+        p._s["touch_t"] = time.time()
+        for no in ("dziękuję", "super", "jak się masz?", "co to jest"):
+            self.assertFalse(p.fallback(no, print), no)
+        self.assertTrue(p.fallback("kot ma być rudy", print))
+        self.assertEqual(self.started[-1], ("edit", "kot ma być rudy"))
+
+    def test_print_and_save(self):
+        p = self.p
+        import printer
+        sent = []
+        with mock.patch.object(printer, "submit",
+                               lambda pages, title, copies=1, mono=False:
+                               sent.append((pages, copies, mono)) or ("1", None)):
+            said = []
+            self.assertTrue(p.voice("wydrukuj to dwa razy czarno-biało", said.append))
+            self.assertFalse(p.voice("wydrukuj listę zakupów", said.append))
+        self.assertEqual(sent[0][1:], (2, True))
+        self.assertEqual(sent[0][0][0].size, (printer.W, printer.H))
+        self.assertTrue(p.voice("zapisz", said.append))
+        self.assertEqual(len(p.saved_works()), 1)
+        self.assertIn(p.saved_works()[0], p._openable())
+
+    def test_routed_from_commands(self):
+        import commands
+        said = []
+        self.assertTrue(commands.handle("Luna, dodaj kotu kapelusz", said.append,
+                                        lambda *a, **k: True))
+        self.assertIn("pusta", said[-1])                         # nothing to change yet
+        self.p._s["img"].putpixel((5, 5), (0, 0, 0))
+        self.assertTrue(commands.handle("Luna, dodaj kotu kapelusz", said.append,
+                                        lambda *a, **k: True))
+        self.assertEqual(self.started[-1][0], "edit")
+        self.assertTrue(commands.handle("zamknij", said.append, lambda *a, **k: True))
+        self.assertFalse(self.p.active())
+
+    def test_dock_icon_added_once(self):
+        import dock
+        settings._load()
+        for k in ("dock_items", "dock_offered"):
+            settings._data.pop(k, None)
+        self.addCleanup(lambda: [settings._data.pop(k, None) for k in ("dock_items", "dock_offered")])
+        settings.put("dock_items", ["todo", "radio", "settings"])    # picked before it existed
+        self.assertEqual(dock.chosen(), ["todo", "radio", "paint", "settings"])
+        dock.choose("paint", False)
+        self.assertNotIn("paint", dock.chosen())                   # unticked: stays off
 
 
 if __name__ == "__main__":

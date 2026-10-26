@@ -1278,7 +1278,7 @@ _CLOSE = re.compile(r"^(?:luna,?\s+)?(?:dobra,?\s+|ok,?\s+|okej,?\s+|już,?\s+|j
                     r"pokaż\s+(?:swoją\s+|swoja\s+)?(?:buzię|buzie|twarz|minę)|"
                     r"pokaz\s+buzie)(?:\s+(?:proszę|prosze|dzięki|dzieki))?\W*$", re.I)
 _CLOSABLE = ("clock", "clockface", "list", "gallery", "photo", "card", "memo", "stars",
-             "mirror", "dice", "coin", "lamp", "weather")
+             "mirror", "dice", "coin", "lamp", "weather", "paint")
 
 
 # "Wyłącz ekran gry", "zamknij galerię", "schowaj pogodę" (14 Oct: "Wyłącz
@@ -1495,6 +1495,9 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
     if gallery.voice(text, speak):      # "następne", "poprzednie" — with it on the screen
         return True
     if gallery.restore_voice(text, speak):   # "przywróć rysunek / osobę"
+        return True
+    import paint                        # Malowanie: "dodaj kotu kapelusz" — before the lists' "dodaj"
+    if paint.voice(text, speak):
         return True
     if _WAKE_UP.match(text.strip()):
         with state.lock:
@@ -2605,6 +2608,8 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         return True
 
     if drawing.bare_show(text, speak):             # "pokaż mi słonia" — a photo
+        return True
+    if paint.fallback(text, speak):                # Malowanie up: "kot ma być rudy"
         return True
     return False
 

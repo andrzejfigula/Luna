@@ -39,7 +39,7 @@ SWIPE_MAX_SECS = 0.8                # …this quickly
 # ── evdev constants ───────────────────────────────────────────────────────────
 _FMT = "llHHi"                      # struct input_event on 64-bit
 _SZ  = struct.calcsize(_FMT)
-EV_KEY, EV_ABS = 0x01, 0x03
+EV_SYN, EV_KEY, EV_ABS = 0x00, 0x01, 0x03
 BTN_TOUCH      = 0x14a
 ABS_X, ABS_Y   = 0x00, 0x01
 ABS_MT_X, ABS_MT_Y = 0x35, 0x36
@@ -142,6 +142,9 @@ def _reader_loop(path):
     taps = []                      # timestamps of recent taps
     poking_until = 0.0             # while poking, further taps stay "multi"
     held = False                   # "hold" already fired for this touch
+    painting = False               # this touch went to the Malowanie page (paint.py)
+    paint_new = False              # …and its first point isn't sent yet
+    import paint
 
     while True:
         try:
@@ -163,7 +166,9 @@ def _reader_loop(path):
                     x = norm(value, rx, TOUCH_FLIP_X)
                 elif code in (ABS_Y, ABS_MT_Y):
                     y = norm(value, ry, TOUCH_FLIP_Y)
-                if down_t and x is not None and y is not None:
+                if painting:
+                    pass                           # (read at the frame's end, below)
+                elif down_t and x is not None and y is not None:
                     moved = max(moved, abs(x - down_pos[0]) + abs(y - down_pos[1]))
                     since = abs(x - pub_pos[0]) + abs(y - pub_pos[1])
                     now_t = time.time()
@@ -177,7 +182,17 @@ def _reader_loop(path):
                         _publish("stroke", x, y)   # still being petted
 
             elif etype == EV_KEY and code == BTN_TOUCH:
-                if value == 1 and x is not None and y is not None:
+                if value == 1 and paint.active():
+                    # a stroke paints: no petting, no hold. The new x, y may come
+                    # after BTN_TOUCH in this frame: "down" waits for its SYN
+                    painting, paint_new = True, True
+                elif value == 0 and painting:
+                    painting = False
+                    if x is not None and y is not None:
+                        if paint_new:
+                            paint.raw("down", x, y)
+                        paint.raw("up", x, y)
+                elif value == 1 and x is not None and y is not None:
                     down_t   = time.time()
                     down_pos = (x, y)
                     moved    = 0.0
@@ -213,6 +228,10 @@ def _reader_loop(path):
                             else:
                                 _publish("tap", x, y)
                     down_t = 0.0
+
+            elif etype == EV_SYN and painting and x is not None and y is not None:
+                paint.raw("down" if paint_new else "move", x, y)
+                paint_new = False
         except Exception as e:
             print(f"[touch] read error (recovering): {e}")
             time.sleep(1.0)

@@ -32,7 +32,8 @@ _api = {}                    # API calls this hour, by kind (cost at a glance)
 _day = {}                    # calls today, by kind — flushed to USAGE_PATH hourly
 _API_KINDS = (("/chat/completions", "chat"), ("/audio/speech", "tts"),
               ("/audio/transcriptions", "stt"), ("/models", "ping"),
-              ("/images/generations", "image"), ("/responses", "search"))
+              ("/images/generations", "image"), ("/images/edits", "image"),
+              ("/responses", "search"))
 
 
 def _count_api_calls():

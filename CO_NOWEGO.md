@@ -3,6 +3,8 @@
 Ściąga: co Luna teraz potrafi i jak to wywołać. Wszystko po polsku, zwykłymi
 zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `docs/backlog-done.md`.
 
+> **Nowe (26.10) — Malowanie:** ikonka **palety** na dole ekranu (albo „Luna, **otwórz malowanie**”, „chcę malować”) · maluj **palcem**: kolory, Pędzel (dotknij jeszcze raz — grubszy), Gumka, Cofnij, Nowa kartka · „**Narysuj arkusz A4 z uroczymi zwierzątkami i ubrankami do przebierania**” — Luna rysuje (ok. 25 s) · potem „**dodaj kotu kapelusz**”, „zmień tło na niebieskie”, „zrób z mojego rysunku ładny obrazek” · przycisk **Pokaż**: dotknij (albo obrysuj) tego, co ci się nie podoba, i powiedz „**tego nie chcę**” / „zamień to na pandę” — zmienia się **tylko to miejsce** · „Cofnij”, „**Zapisz**”, „**Wydrukuj to**” (też „dwa razy”, „czarno-biało”) · **Otwórz** — zapisane obrazki, jej rysunki i zdjęcia; „**popraw ten rysunek: dodaj tęczę**”, kiedy rysunek jest na ekranie · przycisk **Powiedz** — Luna słucha bez „Luna”.
+>
 > **Nowe (13.10, przed południem):** „Jak zrobić naleśniki **krok po kroku**?” · „**Usuń budzik** na 6:40” · „**Daj** jakąś muzykę”, „puść coś do biegania” · „Ile dni do **wakacji**?” · „Jestem Kasia, **zapamiętaj mnie**” · „Czy mam jakieś wiadomości?” — także to, co ktoś prosił przekazać · „**Nie patrz na mnie**”, „wycisz się”, „przestań gadać” · „bądź cicho do 15” i wyłączona kamera **zostają po restarcie** · zdjęcia i rysunki: broń, wojna, alkohol, papierosy itp. — „to nie jest dla dzieci” · „zagrajmy w zwierzaki”, „jak wyglądają pingwiny?” · „Umyłam zęby” w wieczornej liście = krok zrobiony.
 >
 > **Nowe (12–13.10) — warto wypróbować:**

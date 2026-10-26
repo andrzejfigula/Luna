@@ -1,6 +1,6 @@
 """
 dock.py — a row of quick icons along the bottom of her screen: shopping,
-to-do, the week's plan, the weather, photos, radio, settings. A tap opens
+to-do, the week's plan, the weather, photos, radio, painting, settings. A tap opens
 that page. Which ones: Ustawienia → Ikony (settings "dock_items").
 
 Faint (a third opaque) and in the face's own colours; drawn by robot_face
@@ -20,8 +20,9 @@ from shared_state import state
 # (key, what it opens) — every icon there can be, left to right
 ITEMS = (("shopping", "Zakupy"), ("todo", "Do zrobienia"), ("schedule", "Plan tygodnia"),
          ("lessons", "Plan lekcji"), ("weather", "Pogoda"), ("photos", "Zdjęcia"),
-         ("radio", "Radio"), ("settings", "Ustawienia"))
-DEFAULT = ("shopping", "todo", "schedule", "weather", "photos", "radio", "settings")
+         ("radio", "Radio"), ("paint", "Malowanie"), ("settings", "Ustawienia"))
+DEFAULT = ("shopping", "todo", "schedule", "weather", "photos", "radio", "paint", "settings")
+ADDED = ("paint",)        # icons newer than someone's own pick: put on their row once
 
 W, H = SCREEN_WIDTH, SCREEN_HEIGHT
 ICON = 40                 # an icon's box, px
@@ -44,6 +45,13 @@ def chosen():
     picked = settings.get("dock_items")
     if not isinstance(picked, list):
         picked = DEFAULT
+    else:
+        offered = settings.get("dock_offered") or []
+        new = [k for k in ADDED if k not in offered]
+        if new:
+            picked = [k for k, _ in ITEMS if k in picked or k in new]
+            settings.put("dock_items", picked)
+            settings.put("dock_offered", list(offered) + new)
     return [k for k, _ in ITEMS if k in picked]
 
 
@@ -53,6 +61,7 @@ def choose(key, on):
     cur = chosen()
     new = [k for k, _ in ITEMS if (k == key and on) or (k != key and k in cur)]
     settings.put("dock_items", new)
+    settings.put("dock_offered", list(ADDED))      # (picked now: none comes back by itself)
     return new
 
 
@@ -139,6 +148,9 @@ def open_page(key):
     elif key == "radio":
         import radio
         radio.show_page()
+    elif key == "paint":
+        import paint
+        paint.open_page()
     elif key == "settings":
         import settings_page
         settings_page.show(0)

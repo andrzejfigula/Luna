@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 26 października ==
+- Malowanie: nowa ikonka palety na dole ekranu (albo „otwórz malowanie”, „chcę malować”). Maluje się palcem — kolory, pędzel, gumka, „Cofnij”. Luna rysuje razem z nami: „narysuj arkusz A4 ze zwierzątkami i ubrankami do przebierania”, potem „dodaj kotu kapelusz”, „zmień tło na niebieskie”. Przycisk „Pokaż” — dotykasz palcem tego, co ci się nie podoba, i mówisz „tego nie chcę” albo „zamień to na pandę” — Luna zmienia tylko to miejsce. „Zapisz” i „Drukuj” (też głosem: „wydrukuj to dwa razy”). „Otwórz” — jej rysunki i zdjęcia do poprawiania; „popraw ten rysunek: dodaj tęczę”, kiedy rysunek jest na ekranie.
 - Luna drukuje na domowej drukarce (sama ją znajduje w sieci): „wydrukuj listę zakupów”, „wydrukuj plan lekcji Mai” (kolorowa tabelka), „wydrukuj plan tygodnia”, „wydrukuj to” (obrazek z ekranu albo to, co przed chwilą mówiła), „wydrukuj kolorowankę z kotem”, „wydrukuj przepis na naleśniki”, „wydrukuj kartę pracy z dodawania”. Można dodać „dwa razy” albo „czarno-biało”. „Czy drukarka działa?” — powie, czy jest papier i ile tonera.
 - Trójka znowu nie jest szara na liście stacji i zaczyna grać od razu (jej stary adres nie działa, Luna sama używa zapasowego).
 - „Jutro piątek?”, „Dziś jest środa, prawda?” — Luna sprawdza w kalendarzu i mówi, czy to prawda (wcześniej potrafiła przytaknąć złemu dniu).
