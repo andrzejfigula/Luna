@@ -1869,7 +1869,8 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
         if not translator() and _promised_paper_plan(reply, text, data.get("actions")):
             # "Jasne, przepiszę go, kiedy pokażesz mi kartkę" and no command (26 Oct
             # sweep) — the import itself asks them to hold the paper up
-            who, known = schedule._paper_who(" ".join([text or ""] + _recent_user_texts(2)))
+            who, known = schedule._paper_who(" ".join(
+                [text or "", reply] + _recent_user_texts(4, ("user", "assistant"))))
             label = "przepisz plan z kartki" + (f": {who}" if known and who else "")
             print(f"[brain] promised to copy the plan without the command — {label!r}",
                   flush=True)
@@ -2098,11 +2099,12 @@ def _just_praise():
     return False
 
 
-def _recent_user_texts(n):
-    """The last n things said to her (text only, the speaker tag cut)."""
+def _recent_user_texts(n, roles=("user",)):
+    """The last n things said to her (text only, the speaker tag cut); with
+    roles=("user", "assistant") her own lines too."""
     out = []
     for m in reversed(_history[-8:]):
-        if m.get("role") != "user":
+        if m.get("role") not in roles:
             continue
         c = m.get("content", "")
         if isinstance(c, list):
@@ -2128,7 +2130,9 @@ def _promised_paper_plan(reply, text, actions):
         if a.get("type") == "command" and re.match(r"(?:przepisz\s+plan|dodaj\s+do\s+planu)",
                                                    str(a.get("label", "")).strip(), re.I):
             return False
-    said = " ".join([text or ""] + _recent_user_texts(2)).lower()
+    # her own words count: 26 Oct 11:58 only she said "grafik" ("Widzisz to, co
+    # jest na kartce?" → "Odczytam to i dopiszę do grafiku Mai") — nothing ran
+    said = " ".join([text or "", reply] + _recent_user_texts(4, ("user", "assistant"))).lower()
     return bool(schedule._PAPER_REF.search(said) and schedule._PLAN_WORD.search(said))
 
 

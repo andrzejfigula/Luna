@@ -8695,6 +8695,16 @@ class ScheduleTest(unittest.TestCase):
             self.assertFalse(P("Jasne, przepiszę go.", "Wpiszesz mi go?",
                                [{"type": "command", "label": "przepisz plan z kartki: Maja"}]))
             self.assertFalse(P("Widzę plan lekcji klasy drugiej.", "Wpiszesz mi go?", []))
+            # 26 Oct 11:58: only SHE said "grafik"
+            brain._history[:] = [
+                {"role": "user", "content": "[Andrzej] Widzisz wyraźnie to, co jest na kartce?"},
+                {"role": "assistant", "content": "Tak. Mogę przepisać cały plan z tej kartki "
+                                                 "do grafiku Mai."},
+                {"role": "user", "content": "A teraz widzisz wyraźnie?"}]
+            r = "Tak, Andrzeju, odczytam to i dopiszę do grafiku Mai."
+            self.assertTrue(P(r, "A teraz widzisz wyraźnie?", []))
+            import schedule
+            self.assertEqual(schedule._paper_who(r), ("Maja", True))
             brain._history[:] = [{"role": "user", "content": "Dodaj mleko"}]
             self.assertFalse(P("Dodam mleko do listy zakupów.", "Dodaj mleko", []))
         finally:

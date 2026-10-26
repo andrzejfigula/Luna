@@ -661,6 +661,13 @@ def import_paper(who, speak):
 def _paper_who(text):
     """(who, known): the person named, "mój" → the speaker; known False when
     nobody can be told."""
+    import faces
+    # "do grafiku Mai" first — her own "Andrzeju, …" may come before it
+    for m in re.finditer(r"\b(?:plan\w*|grafik\w*|harmonogram\w*|kalendarz\w*)\s+"
+                         r"(?:lekcji\s+|zajęć\s+|dla\s+)?(\w+)", text.lower()):
+        n = faces.match_name(m.group(1)) or faces.match_role(m.group(1))
+        if n:
+            return n, True
     who, _ = _who_of(text.lower())
     if who is not None:
         return who, True
