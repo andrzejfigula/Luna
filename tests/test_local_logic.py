@@ -10293,7 +10293,8 @@ class PaintTest(unittest.TestCase):
             self.addCleanup(p.stop)
         paint._s.update(img=None, ver=0, view=None, undo=[], tool="brush", colour=0, size=1,
                         marks=[], stroke=None, busy=None, hint="", picker=None, page=0,
-                        title="", down=None, saved_ver=-1, asked_t=0.0, touch_t=0.0)
+                        title="", down=None, saved_ver=-1, asked_t=0.0, touch_t=0.0,
+                        paper="landscape", photo=False)
         self.started = []
         p = mock.patch.object(paint, "_start",
                               lambda kind, words, speak: self.started.append((kind, words)) or True)
@@ -10395,7 +10396,7 @@ class PaintTest(unittest.TestCase):
                 said.append)
         self.assertEqual(self.started[-1][0], "new")
         prompt, kind = p.gen_prompt(self.started[-1][1])
-        self.assertEqual(kind, "portrait")
+        self.assertEqual(kind, "landscape")                      # new pictures lie flat
         self.assertIn("przebierania", prompt)
         self.assertIn("zakładkami", prompt)
         p._s["img"].putpixel((5, 5), (0, 0, 0))                # not blank any more
@@ -10426,24 +10427,52 @@ class PaintTest(unittest.TestCase):
     def test_rotate(self):
         p = self.p
         said = []
-        p._s["img"].putpixel((0, 0), (255, 0, 0))               # top-left of the portrait
+        self.assertEqual(p._s["img"].size, (1536, 1024))         # a new sheet starts flat
+        p._s["img"].putpixel((0, 0), (255, 0, 0))               # top-left
         self._tap(*self._centre("rotate"))
-        self.assertEqual(p._s["img"].size, (1536, 1024))
-        self.assertEqual(p._s["img"].getpixel((0, 1023)), (255, 0, 0))   # turned with it
-        self.assertTrue(p.view()["wide"])
-        self.assertEqual(p.gen_prompt("zamek", "landscape")[1], "landscape")
-        self.assertEqual(p.gen_prompt("zamek pionowo", "landscape")[1], "portrait")
-        self.assertTrue(p.voice("nowa kartka", said.append))    # keeps the way it lies
-        self.assertEqual(p._s["img"].size, (1536, 1024))
-        self.assertTrue(p.voice("kartka poziomo", said.append))
-        self.assertIn("już leży poziomo", said[-1])
-        self.assertTrue(p.voice("obróć kartkę na pionowo", said.append))
         self.assertEqual(p._s["img"].size, (1024, 1536))
-        self.assertTrue(p.voice("Luna, obróć kartkę", said.append))
+        self.assertEqual(p._s["img"].getpixel((0, 1535)), (255, 0, 0))   # turned with it
+        self.assertFalse(p.view()["wide"])
+        self.assertEqual(p.gen_prompt("zamek")[1], "landscape")
+        self.assertEqual(p.gen_prompt("zamek pionowo", "landscape")[1], "portrait")
+        self.assertTrue(p.voice("nowa kartka", said.append))    # turned: new sheets follow
+        self.assertEqual(p._s["img"].size, (1024, 1536))
+        self.assertTrue(p.voice("kartka pionowo", said.append))
+        self.assertIn("już leży pionowo", said[-1])
+        self.assertTrue(p.voice("obróć kartkę na poziomo", said.append))
         self.assertEqual(p._s["img"].size, (1536, 1024))
         self.assertTrue(p.undo())
         self.assertEqual(p._s["img"].size, (1024, 1536))
+        p.open_picture(self._png((200, 300)))                   # an opened picture: as it is,
+        self.assertEqual(p._s["img"].size, (200, 300))
+        p._s["paper"] = "landscape"
+        p.new_sheet()                                           # and "Nowa" flat again
+        self.assertEqual(p._s["img"].size, (1536, 1024))
         self.assertEqual(self.started, [])
+
+    def _png(self, size, name="pic.png"):
+        from PIL import Image
+        path = os.path.join(self.p.DIR, name)
+        Image.new("RGB", size, (200, 120, 40)).save(path)
+        return path
+
+    def test_beautify(self):
+        p = self.p
+        said = []
+        for text in ("upiększ", "Luna, upiększ to", "zrób to ładniej", "zrób mój rysunek ładniej",
+                     "niech to wygląda ładniej", "upiększ ten rysunek"):
+            self.started.clear()
+            self.assertTrue(p.voice(text, said.append), text)
+            self.assertEqual(self.started, [("beautify", "upiększ")], text)
+        self.assertFalse(p._BEAUTIFY.match("zrób kotu kapelusz"))
+        self.assertIn("ilustracja", p.beautify_prompt(False, False))
+        self.assertIn("prawdziwe zdjęcie", p.beautify_prompt(True, False))
+        self.assertIn("zaznaczonym", p.beautify_prompt(False, True))
+        p.open_picture(self._png((640, 480), "shot.jpg"))       # a camera shot stays a photo
+        self.assertTrue(p._s["photo"])
+        p.new_sheet()
+        self.assertFalse(p._s["photo"])
+        self.assertIn("beautify", dict(p.buttons()))
 
     def test_talk_button(self):
         p = self.p

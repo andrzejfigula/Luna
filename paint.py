@@ -62,6 +62,7 @@ _s = {"img": None, "ver": 0, "view": None, "undo": [], "tool": "brush", "colour"
       "picker": None, "page": 0, "title": "", "down": None, "saved_ver": -1,
       "asked_t": 0.0, "touch_t": 0.0}
 TALK_SECS = 120          # a wish with no command word counts this long after a touch / her question
+_s.update(paper="landscape", photo=False)   # how new sheets lie ("Obróć" changes it); a photo on it
 _save_timer = [None]
 
 
@@ -72,8 +73,8 @@ def buttons():
     out = [("talk", (TB, 8, 76, 48)), ("close", (TB + 84, 8, 76, 48))]
     for i in range(len(COLOURS)):
         out.append((f"c{i}", (TB + (i % 4) * 41, 66 + (i // 4) * 41, 36, 36)))
-    rows = (("brush", "eraser"), ("mark", "undo"), ("new", "rotate"), ("open", "save"),
-            ("print", None))
+    rows = (("brush", "eraser"), ("mark", "undo"), ("beautify", "new"), ("rotate", "open"),
+            ("save", "print"))
     for r, (a, b) in enumerate(rows):
         y = 150 + r * 48
         out.append((a, (TB, y, 76 if b else 160, 42)))
@@ -151,7 +152,7 @@ def open_page(hint=None):
     print("[paint] page open", flush=True)
 
 
-def _blank(kind="portrait"):
+def _blank(kind="landscape"):
     from PIL import Image
     return Image.new("RGB", SIZES[kind], (255, 255, 255))
 
@@ -292,7 +293,10 @@ def raw(phase, nx, ny):
     if down:
         key = down if isinstance(down, str) else None
         if key and button_at(x, y) == key:
-            press(key)
+            if key in ("save", "print", "beautify"):   # (she talks: not on the touch thread)
+                threading.Thread(target=press, args=(key,), daemon=True, name="paint-btn").start()
+            else:
+                press(key)
         elif not key:
             _pick_at(x, y)
 
@@ -324,6 +328,8 @@ def press(key):
         listen()
     elif key == "rotate":
         rotate()
+    elif key == "beautify":
+        _start("beautify", "upiększ", _say)
     elif key.startswith("c") and key[1:].isdigit():
         with _lock:
             _s["colour"] = int(key[1:])
@@ -410,8 +416,8 @@ def rotate():
         if _s["img"] is None:
             _load()
         _set(_s["img"].transpose(Image.ROTATE_90))
-        _s["hint"] = "Kartka poziomo" if orientation(_s["img"]) == "landscape" \
-            else "Kartka pionowo"
+        _s["paper"] = orientation(_s["img"])         # new sheets lie this way from now on
+        _s["hint"] = "Kartka poziomo" if _s["paper"] == "landscape" else "Kartka pionowo"
     print(f"[paint] rotated → {_s['img'].size}", flush=True)
     return True
 
@@ -433,11 +439,10 @@ def undo():
 
 
 def new_sheet(kind=None):
-    """A clean sheet, the way the paper lies now unless told."""
+    """A clean sheet: landscape, unless turned with "Obróć" or told."""
     with _lock:
-        if kind is None:
-            kind = orientation(_s["img"]) if _s["img"] is not None else "portrait"
-        _set(_blank(kind), title="")
+        _set(_blank(kind or _s["paper"]), title="")
+        _s["photo"] = False
         _s["picker"] = None
         _s["asked_t"] = time.time()
         _s["hint"] = "Nowa kartka"
@@ -503,6 +508,7 @@ def open_picture(path, title=""):
         img = img.resize((int(img.width * k), int(img.height * k)), Image.LANCZOS)
     with _lock:
         _set(img, title=title)
+        _s["photo"] = path.lower().endswith((".jpg", ".jpeg"))   # (camera shots; drawings are .png)
         _s["picker"] = None
         _s["hint"] = "Maluj albo powiedz, co zmienić"
     print(f"[paint] opened {path}", flush=True)
@@ -670,13 +676,13 @@ _TALL = re.compile(r"\bpion(?:ow\w*|ie)?\b", re.I)
 _SQUARE = re.compile(r"\bkwadrat\w*", re.I)
 
 
-def size_kind(what, current="portrait"):
+def size_kind(what, current="landscape"):
     """"poziomo" / "pionowo" / "kwadrat", else the way the paper lies now."""
     return ("landscape" if _WIDE.search(what) else "portrait" if _TALL.search(what)
             else "square" if _SQUARE.search(what) else current)
 
 
-def gen_prompt(what, current="portrait"):
+def gen_prompt(what, current="landscape"):
     """(prompt, size kind) for a new picture."""
     import printer
     kind = size_kind(what, current)
@@ -696,6 +702,23 @@ def edit_prompt(instr, marked):
                 "Bez napisów, nic strasznego.")
     return (f"Zmień ten obrazek: {instr}. Zachowaj resztę: kompozycję, postacie, kolory i "
             "styl. Bez napisów, nic strasznego.")
+
+
+def beautify_prompt(photo, marked):
+    """"Upiększ": the same picture, made nicely — a drawing redrawn with care,
+    a photo touched up (still a photo: the same people, nothing invented)."""
+    where = "TYLKO w zaznaczonym miejscu; resztę zostaw dokładnie taką samą. " if marked else ""
+    if photo:
+        return ("Popraw to zdjęcie " + where + "tak, żeby wyglądało ładniej: lepsze światło, "
+                "żywsze naturalne kolory, ostrość, mniej szumu. To ma zostać prawdziwe zdjęcie: "
+                "te same osoby z tymi samymi twarzami, ten sam pokój i te same rzeczy, nic nie "
+                "dodawaj ani nie usuwaj.")
+    return ("Upiększ ten obrazek " + where + "— narysuj go jeszcze raz starannie i ładnie: "
+            "dokładnie to samo, co przedstawia, w tym samym układzie, tych samych miejscach i "
+            "kolorach, ale z czystymi, pewnymi konturami, równo wypełnionymi kolorami, "
+            "łagodnym cieniowaniem i przyjemnym tłem, jak ilustracja w dobrej książeczce dla "
+            "dzieci. Jeśli to dziecięcy rysunek, zachowaj jego pomysł i urok. Niczego nowego "
+            "nie dodawaj, bez napisów, nic strasznego.")
 
 
 def _count(bump=False):
@@ -737,21 +760,27 @@ def _start(kind, words, speak):
             return True
         if _s["img"] is None:
             _load()
-        _s["busy"] = "Rysuję…" if kind == "new" else "Poprawiam…"
+        if kind == "beautify" and _is_blank(_s["img"]):
+            speak("Kartka jest pusta — najpierw coś namaluj albo powiedz, co narysować.")
+            return True
+        _s["busy"] = {"new": "Rysuję…", "beautify": "Upiększam…"}.get(kind, "Poprawiam…")
         _s["busy_t"] = time.time()
         _s["hint"] = ""
         old, marks = _s["img"].copy(), [dict(m) for m in _s["marks"]]
+        paper, photo = _s["paper"], _s["photo"]
     _count(bump=True)
     if not active():
         open_page("")
     if kind == "new":
         speak("Dobrze, już rysuję. Chwileczkę!")
+    elif kind == "beautify":
+        speak("Dobrze, upiększam" + (" zaznaczone miejsce." if marks else ". Chwileczkę!"))
     elif marks:
         speak("Dobrze, zmieniam zaznaczone miejsce.")
     else:
         speak("Dobrze, już poprawiam.")
     print(f"[paint] {kind}: {words!r}{f' ({len(marks)} marks)' if marks else ''}", flush=True)
-    threading.Thread(target=_run, args=(kind, words, old, marks), daemon=True,
+    threading.Thread(target=_run, args=(kind, words, old, marks, paper, photo), daemon=True,
                      name="paint").start()
     return True
 
@@ -762,11 +791,11 @@ def _client():
     return OpenAI(api_key=OPENAI_API_KEY, timeout=150, max_retries=1)
 
 
-def _run(kind, words, old, marks):
+def _run(kind, words, old, marks, paper="landscape", photo=False):
     try:
         c = _client()
         if kind == "new":
-            prompt, kind_ = gen_prompt(words, orientation(old))
+            prompt, kind_ = gen_prompt(words, paper)
             tw, th = SIZES[kind_]
             r = c.images.generate(model=MODEL, size=f"{tw}x{th}", quality=QUALITY, n=1,
                                   prompt=prompt)
@@ -778,7 +807,8 @@ def _run(kind, words, old, marks):
             (tw, th), _ = frame
             args = dict(model=MODEL, size=f"{tw}x{th}", quality=QUALITY, n=1,
                         image=("obrazek.png", pic, "image/png"),
-                        prompt=edit_prompt(words, bool(marks)))
+                        prompt=beautify_prompt(photo, bool(marks)) if kind == "beautify"
+                        else edit_prompt(words, bool(marks)))
             try:
                 r = c.images.edit(mask=("maska.png", mask, "image/png"), **args) if mask \
                     else c.images.edit(**args)
@@ -793,13 +823,16 @@ def _run(kind, words, old, marks):
             title = None
         with _lock:
             _set(img, title=title)
+            if kind == "new":
+                _s["photo"] = False
             _s["hint"] = "Co zmienić? Powiedz albo pokaż palcem („Pokaż”)"
             _s["asked_t"] = time.time()
         if not active():
             _show()
         print(f"[paint] done: {kind}", flush=True)
-        _say("Gotowe! Co zmienić?" if kind == "edit" else
-             "Gotowe! Jeśli coś zmienić, powiedz albo pokaż mi palcem.")
+        _say({"edit": "Gotowe! Co zmienić?",
+              "beautify": "Gotowe! Podoba się? Jeśli nie, powiedz: cofnij."}.get(
+                  kind, "Gotowe! Jeśli coś zmienić, powiedz albo pokaż mi palcem."))
         with state.lock:
             state.conversation_active = True       # an answer needs no "Luna"
             state.last_activity_time = max(state.last_activity_time, time.time())
@@ -807,6 +840,7 @@ def _run(kind, words, old, marks):
             import brain
             brain.add_to_last_reply("(Na ekranie Malowanie: " +
                                     (f"nowy obrazek — {words}" if kind == "new"
+                                     else "obrazek upiększony" if kind == "beautify"
                                      else f"obrazek zmieniony — {words}") + ".)")
         except Exception:
             pass
@@ -847,6 +881,14 @@ _BLANK = re.compile(r"^" + _POLITE + r"(?:(?:daj|weź|wez|poproszę)\s+(?:mi\s+|
                     r"stronę|strona)(?:\s+(?:na\s+)?(?:poziom\w*|pionow\w*))?|wyczyść\s+(?:wszystko|kartkę|kartke|"
                     r"obrazek)|wyczyść|wyczysc|zmaż\s+wszystko|zacznijmy\s+od\s+nowa|"
                     r"od\s+nowa)\W*$", re.I)
+_BEAUTIFY = re.compile(
+    r"^" + _POLITE + r"(?:upiększ\w*|upieksz\w*|wypiększ\w*|"
+    r"(?:zrób|zrob|zrobić|zrobic|narysuj|namaluj|popraw)\s+(?:to\s+|go\s+|ją\s+|je\s+|"
+    r"ten\s+\w+\s+|tę\s+\w+\s+|mój\s+\w+\s+|moj\w*\s+\w+\s+)?(?:ładniej\w*|ladniej\w*|"
+    r"piękniej\w*|pieknie\w*|ładnie|ladnie|lepiej)|(?:niech|żeby|zeby)\s+(?:to\s+)?"
+    r"(?:wygląda\w*|wyglada\w*)\s+(?:ładniej|ladniej|lepiej|pięknie|piekniej))"
+    r"(?:\s+(?:to|go|ją|je|ten\s+\w+|tę\s+\w+|obrazek|rysunek|zdjęcie|zdjecie|"
+    r"kartkę|mój\s+\w+|moje\s+\w+|proszę|prosze))*\W*$", re.I)
 _ROTATE = re.compile(
     r"^" + _POLITE + r"(?:(?:obróć|obroc|przekręć|przekrec|odwróć|odwroc|ustaw|połóż|poloz|"
     r"zrób|zrob|daj)\s+(?:mi\s+|nam\s+)?(?:kartkę|kartke|papier|stronę|strone|arkusz)"
@@ -942,7 +984,7 @@ def voice(text, speak):
             return print_sheet(speak, copies, mono)
         return False                               # "wydrukuj listę zakupów"
     if _BLANK.match(t):
-        new_sheet(size_kind(t, orientation(_s["img"])) if _s["img"] is not None else None)
+        new_sheet(size_kind(t, _s["paper"]))
         speak("Proszę, czysta kartka.")
         return True
     r = _ROTATE.match(t)
@@ -956,6 +998,8 @@ def voice(text, speak):
         rotate()
         speak("Obracam kartkę.")
         return True
+    if _BEAUTIFY.match(t):
+        return _start("beautify", "upiększ", speak)
     if _UNMARK.match(t):
         with _lock:
             _s["marks"] = []
