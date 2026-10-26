@@ -29,7 +29,7 @@ def layout(W, H, d):
     "times": [rect], "week", "paper", "clear" (with lessons)}."""
     L = {}
     L["who"], L["chip_fs"] = chip_row(W, schedule.lesson_people())
-    rows, cells = schedule.lesson_grid(d.get("who"))
+    rows, cells, spare = schedule.lesson_slots(d.get("who"))
     x0, gap = 16 + TIME_W, 6
     w = (W - 16 - x0 - 4 * gap) // 5
     L["heads"] = [pygame.Rect(x0 + k * (w + gap), TOP, w, 30) for k in range(5)]
@@ -40,7 +40,7 @@ def layout(W, H, d):
     L["times"] = [pygame.Rect(16, top + r * rh, TIME_W - 6, rh - 4) for r in range(len(rows))]
     L["cells"] = {(r, k): pygame.Rect(x0 + k * (w + gap), top + r * rh, w, rh - 4)
                   for r in range(len(rows)) for k in range(5)}
-    L["rows"], L["grid"] = rows, cells
+    L["rows"], L["grid"], L["spare"] = rows, cells, spare
     L["week"] = pygame.Rect(16, H - 52, 170, 44)
     L["paper"] = pygame.Rect(W - 16 - 220, H - 52, 220, 44)
     L["clear"] = pygame.Rect(L["paper"].x - 10 - 170, H - 52, 170, 44) if rows else None
@@ -97,10 +97,12 @@ def draw(scr, d, now, W, H):
             scr.blit(hint, hint.get_rect(center=(W // 2, 272 + i * 26)))
     rh = L["row_h"]
     fs = 18 if rh >= 38 else 16 if rh >= 32 else 14
+    first_spare = len(L["rows"]) - L["spare"]
     for i, ((at, end), r) in enumerate(zip(L["rows"], L["times"])):
-        no = text(str(i + 1), fs - 2, _GOLD, "ExtraBold")
+        spare = i >= first_spare                  # an empty row to add to: its hours a guess
+        no = text(str(i + 1), fs - 2, (150, 130, 95) if spare else _GOLD, "ExtraBold")
         scr.blit(no, (r.x, r.centery - no.get_height() // 2))
-        tm = text(_hm(at), fs, (215, 220, 235), "Bold")
+        tm = text(_hm(at), fs, (130, 136, 156) if spare else (215, 220, 235), "Bold")
         if end and rh >= 34:
             en = text("–" + _hm(end), 12, DIM, "SemiBold")
             scr.blit(tm, (r.x + 20, r.y + 1))

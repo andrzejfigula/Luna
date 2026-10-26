@@ -8958,6 +8958,24 @@ class ScheduleTest(unittest.TestCase):
         with state.lock:
             state.overlay = None
 
+    def test_lesson_page_has_room_for_8(self):
+        L = self._lesson
+        self.assertEqual(self.s.lesson_slots("Maja"), ([], {}, 0))      # empty: no grid
+        self.s.save_paper("Maja", [L("polski", [0], "08:00", "08:45"),
+                                   L("WF", [1], "08:55", "09:40"),
+                                   L("muzyka", [2], "09:50", "10:35"),
+                                   L("świetlica", [3], "13:35", "14:20")])
+        rows, cells, spare = self.s.lesson_slots("Maja")
+        self.assertEqual((len(rows), spare), (8, 4))
+        self.assertEqual(rows[3:], [("13:35", "14:20"), ("14:30", "15:15"), ("15:25", "16:10"),
+                                    ("16:20", "17:05"), ("17:15", "18:00")])
+        self.s.save_paper("Emilka", [L(f"lekcja {i}", [0], self.s.BELLS[i], "")
+                                     for i in range(8)] + [L("koło", [0], "15:30", "")])
+        self.assertEqual(self.s.lesson_slots("Emilka")[2], 0)            # 9: all its own
+        self.assertEqual(len(self.s.lesson_slots("Emilka")[0]), 9)
+        rows, _, _ = self.s.lesson_slots("Andrzej")
+        self.assertEqual(rows, [])
+
     def test_camera_stills_and_back(self):
         import numpy as np
         import camera_thread as ct

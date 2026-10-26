@@ -1066,6 +1066,26 @@ def clear_lessons(who):
     return n
 
 
+MIN_ROWS = 8                   # the plan lekcji page: room for 8 lessons a day
+
+
+def lesson_slots(who, at_least=MIN_ROWS):
+    """(rows, cells, spare): lesson_grid's rows topped up to `at_least` with
+    empty ones after the last (the usual bells, or 10 min after the one
+    before), so a lesson can be added there by a tap; spare = how many."""
+    rows, cells = lesson_grid(who)
+    rows = list(rows)
+    spare = 0
+    while rows and len(rows) < at_least:
+        prev = _mins(rows[-1][1] or _plus(rows[-1][0], LESSON_MINS))
+        k = len(rows)
+        at = BELLS[k] if k < len(BELLS) and _mins(BELLS[k]) >= prev + 5 else _plus(
+            f"{prev // 60:02d}:{prev % 60:02d}", 10)
+        rows.append((at, _plus(at, LESSON_MINS)))
+        spare += 1
+    return rows, cells, spare
+
+
 def lesson_grid(who):
     """(rows, cells): rows = [(at, end)] the lesson hours Mon–Fri in order;
     cells[(row, weekday)] = that lesson's entries (two if the paper clashes)."""
@@ -1232,7 +1252,7 @@ def _tap_lessons(d, x, y, W, H, speak):
             d["confirm"] = now
     elif kind == "cell":
         row, wd = hit[1], hit[2]
-        rows, cells = lesson_grid(d.get("who"))
+        rows, cells, _ = lesson_slots(d.get("who"))
         es = cells.get((row, wd))
         if es:
             d.update(view=None, sel=es[0]["id"], confirm=0.0, back="lessons")
