@@ -8598,6 +8598,116 @@ class ScheduleTest(unittest.TestCase):
         self.assertIn("Maja: angielski od poniedziałku do piątku 17:00–18:00",
                       self.s.prompt_line())
 
+    def test_paper_request(self):
+        R = self.s.paper_request
+        for t in ("Chciałbym, żebyś wzięła ten plan i dodała do grafika Mai.",
+                  "Tak, odczytaj z kartki i dodaj do grafiku.",
+                  "przepisz plan z kartki: Maja", "wpisz plan lekcji Mai do planu",
+                  "Luna, mam tu na kartce tygodniowy plan zajęć Mai, ogarniesz go do jej "
+                  "grafiku?"):
+            self.assertTrue(R(t), t)
+        for t in ("Widzisz tę kartkę?", "dopisz mleko z kartki do listy", "pokaż plan tygodnia",
+                  "Dodaj do planu: Maja, basen w czwartki o 16:30", "przepis na pierogi z kartki",
+                  "nie dodawaj tego planu"):
+            self.assertFalse(R(t), t)
+
+    def test_from_paper(self):
+        rows = [
+            {"title": "Matematyka", "days": [0, 2], "at": "8:00", "end": "8:45",
+             "lesson_no": 1, "kind": "lesson"},
+            {"title": "matematyka", "days": [4], "at": "08:00", "end": "08:45",
+             "lesson_no": 1, "kind": "lesson"},
+            {"title": "angielski", "days": [1], "at": "", "end": "", "lesson_no": 1,
+             "kind": "lesson"},                               # the row's hours
+            {"title": "pianino", "days": [4], "at": "", "end": "", "lesson_no": 0,
+             "kind": "activity"},                             # unreadable: asked
+            {"title": "", "days": [0], "at": "9:00", "end": "", "lesson_no": 2, "kind": "lesson"},
+            {"title": "basen", "days": [9], "at": "16:00", "end": "", "lesson_no": 0,
+             "kind": "activity"},                             # no real day
+        ]
+        out, unclear, bells = self.s.from_paper(rows)
+        self.assertFalse(bells)
+        self.assertEqual([(e["title"], e["days"], e["at"], e["end"]) for e in out],
+                         [("Matematyka", [0, 2, 4], "08:00", "08:45"),
+                          ("angielski", [1], "08:00", "08:45")])
+        self.assertEqual([u["title"] for u in unclear], ["pianino"])
+        out, unclear, bells = self.s.from_paper(
+            [{"title": "religia", "days": [0], "at": "", "end": "", "lesson_no": 2,
+              "kind": "lesson"}])
+        self.assertTrue(bells)
+        self.assertEqual((out[0]["at"], out[0]["end"]), ("08:55", "09:40"))
+
+    def test_save_paper_and_what_she_says(self):
+        self.s.add("Maja", "angielski", [1], "16:00")
+        entries = [{"title": "matematyka", "days": [0, 1, 2, 3, 4], "at": "08:00",
+                    "end": "08:45", "kind": "lesson"},
+                   {"title": "Angielski", "days": [3], "at": "16:00", "end": "",
+                    "kind": "activity"},
+                   {"title": "pianino", "days": [4], "at": "17:00", "end": "",
+                    "kind": "activity"}]
+        added, kept = self.s.save_paper("Maja", entries)
+        self.assertEqual(len(self.s.events()), 3)            # no twin of angielski
+        eng = next(e for e in self.s.events() if e["title"] == "angielski")
+        self.assertEqual(eng["days"], [1, 3])
+        math = next(e for e in self.s.events() if e["title"] == "matematyka")
+        self.assertIsNone(math["remind"]["before"])          # lessons: no reminder
+        self.assertEqual(math["kind"], "lesson")
+        self.assertEqual(self.s.remind_short(math), "bez przypomnienia")
+        text, ask = self.s.paper_said("Maja", added, kept,
+                                      [{"title": "basen", "days": [2]}], False)
+        self.assertIn("Maja ma teraz w planie 5 lekcji od poniedziałku do piątku, "
+                      "a zajęcia: pianino w piątek o 17:00.", text)
+        self.assertIn("1 pozycję już było", text)
+        self.assertIn("Nie odczytałam godziny: basen w środę.", text)
+        self.assertEqual(ask, "O której jest basen?")
+        self.assertIn("Maja's school lessons: Pn 08:00 matematyka", self.s.prompt_line())
+        # nothing new the second time
+        added, kept = self.s.save_paper("Maja", entries)
+        self.assertEqual((len(added), len(kept)), (0, 3))
+        self.assertEqual(self.s.paper_said("Maja", added, kept, [], False)[0],
+                         "To wszystko już jest w planie tygodnia.")
+
+    def test_paper_by_voice(self):
+        said, calls = [], []
+        with mock.patch.object(self.s, "import_paper",
+                               lambda who, speak: calls.append(who) or True):
+            self.assertTrue(self.s.handle("Weź ten plan i dodaj do grafika Mai", said.append))
+            self.assertEqual(calls, ["Maja"])
+            self.assertTrue(self.s.handle("Przepisz plan z kartki", said.append))
+            self.assertEqual(said[-1], "Czyj to plan? Powiedz na przykład: Mai.")
+            self.assertTrue(self.s.handle("Emilki", said.append))
+            self.assertEqual(calls, ["Maja", "Emilka"])
+            self.assertTrue(self.s.handle("Przepisz plan z kartki", said.append))
+            self.assertFalse(self.s.handle("włącz radio Trójkę proszę bardzo", said.append))
+            self.assertFalse(self.s.expecting())
+
+    def test_promise_to_copy_the_paper(self):
+        import brain
+        old = list(brain._history)
+        try:
+            brain._history[:] = [
+                {"role": "user", "content": "[Andrzej] Luna, mam tu na kartce plan zajęć Mai."},
+                {"role": "assistant", "content": "Super, pokaż."},
+                {"role": "user", "content": "Wpiszesz mi go?"}]
+            P = brain._promised_paper_plan
+            self.assertTrue(P("Jasne, przepiszę go, kiedy pokażesz mi kartkę do kamery.",
+                              "Wpiszesz mi go?", []))
+            self.assertFalse(P("Jasne, przepiszę go.", "Wpiszesz mi go?",
+                               [{"type": "command", "label": "przepisz plan z kartki: Maja"}]))
+            self.assertFalse(P("Widzę plan lekcji klasy drugiej.", "Wpiszesz mi go?", []))
+            brain._history[:] = [{"role": "user", "content": "Dodaj mleko"}]
+            self.assertFalse(P("Dodam mleko do listy zakupów.", "Dodaj mleko", []))
+        finally:
+            brain._history[:] = old
+
+    def test_paper_answer_fills_the_missing_time(self):
+        said = []
+        self.s.expect("Maja")
+        self.s._expect["draft"] = {"who": "Maja", "title": "pianino", "days": [4], "at": None,
+                                   "end": "", "remind": None, "kind": None}
+        self.assertTrue(self.s.handle("o szesnastej", said.append))
+        self.assertIn("Maja ma pianino w piątek o 16:00", said[-1])
+
 
 class TouchPageTest(unittest.TestCase):
     """Fast taps on a page are taps — 19 Oct: the plan's days went dead (poking)."""

@@ -155,7 +155,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `docs/backlog-d
 | Co | Jak |
 |---|---|
 | Gotowanie | „Gotujemy naleśniki”, „Przepis na sernik krok po kroku” — składniki, potem krok po kroku na ekranie; „dalej”, „powtórz”, „wróć”, „koniec”; przy krokach z czasem zaproponuje minutnik |
-| Plan tygodnia | „Pokaż plan tygodnia”, „pokaż plan Mai” — zajęcia każdej osoby na każdy dzień; „+ Dodaj” i powiedz „Maja, angielski, od poniedziałku do piątku o 17” (albo „dodaj do planu: …”); „usuń z planu angielski Mai”. Dotknij wpisu: dni, godzina, przypomnienie (ile wcześniej, komu, czy mówić na głos nawet gdy nikogo nie ma), Usuń. Luna przypomina sama, gdy zobaczy tę osobę |
+| Plan tygodnia | „Pokaż plan tygodnia”, „pokaż plan Mai” — zajęcia każdej osoby na każdy dzień; „+ Dodaj” i powiedz „Maja, angielski, od poniedziałku do piątku o 17” (albo „dodaj do planu: …”); „usuń z planu angielski Mai”. Dotknij wpisu: dni, godzina, przypomnienie (ile wcześniej, komu, czy mówić na głos nawet gdy nikogo nie ma), Usuń. Luna przypomina sama, gdy zobaczy tę osobę. Plan na kartce: pokaż go kamerze i powiedz „przepisz plan z kartki Mai” — wpisze cały tydzień (lekcje bez przypominania) |
 | Plan dnia | „Pokaż plan dnia”, „Jaki jest plan na dziś?” — przypomnienia, sprawy do przekazania, urodziny, pogoda i listy na jednym ekranie |
 | Minutnik | „Minutnik na 10 minut”, „na pół godziny”, „na kwadrans” — od razu, bez chmury (działa też bez internetu); „Minutnik na 10 minut na makaron” — z nazwą; „Ile zostało na minutniku?” — dokładnie |
 | Lampka | „Włącz lampkę”, „Lampka na niebiesko” (czerwony, zielony, fioletowy, różowy, żółty, pomarańczowy, biały), „Lampka na 20 minut” — sama zgaśnie; „Wyłącz lampkę” albo stuknięcie |

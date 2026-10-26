@@ -1,6 +1,9 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
+== 26 października ==
+- Plan z kartki: pokaż Lunie plan lekcji albo zajęć i powiedz „przepisz plan z kartki Mai” (albo „dodaj ten plan do grafiku Mai”). Luna przepisze cały tydzień do planu tygodnia: lekcje bez przypominania, zajęcia dodatkowe z przypomnieniem. Godzinę, której nie odczyta, zapyta.
+
 == 25 października ==
 - Hal, Pip i Retro mówią o sobie jak chłopaki także w krótkich odpowiedziach: „Obudź mnie, kiedy będę potrzebny”, „usunąłem”, „dopisałem”. Hal śpi pod czerwonymi literkami „Z”, nie żółtymi.
 - Kiedy przeglądasz zdjęcia albo „kogo znam” i powiesz „wyłącz” albo „stop”, zamykam tę stronę, a radio gra dalej. „Wyłącz kogo znam” też działa. Postać zmienisz też słowem „profil” („zmień profil na Pip”), a „włącz motyw HAL 9000” włącza Hala.

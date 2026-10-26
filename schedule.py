@@ -4,6 +4,8 @@ schedule.py — the family's week: "plan tygodnia".
   "Pokaż plan tygodnia" / "pokaż plan Mai" / "pokaż harmonogram"  → the page
   "Dodaj do planu: Maja angielski od poniedziałku do piątku o 17"
   "Usuń z planu angielski Mai"
+  "Przepisz plan z kartki Mai" / "dodaj ten plan do grafiku Mai" → the
+      timetable held to the camera, read (brain.read_timetable) and saved
 
 Each entry: whose it is (or the whole house), what, on which weekdays, at
 what time (and till when), and its reminder: how long before, to whom (its
@@ -39,7 +41,7 @@ _DAYS_IN = ("w poniedziałek", "we wtorek", "w środę", "w czwartek", "w piąte
             "w niedzielę")
 
 _lock = threading.Lock()
-_expect = {"until": 0.0, "who": None, "day": None, "draft": None}
+_expect = {"until": 0.0, "who": None, "day": None, "draft": None, "paper": False}
 
 _DAY_RX = (r"poniedział\w*", r"wtor\w*|wtork\w*", r"środ\w*|srod\w*", r"czwart\w*",
            r"piątek|piątk\w*|piatek|piatk\w*", r"sobot\w*", r"niedziel\w*")
@@ -125,12 +127,14 @@ def on_day(wd, who=None):
     return sorted(out, key=lambda e: _mins(e["at"]))
 
 
-def add(who, title, days, at, end="", by=None, remind=None):
+def add(who, title, days, at, end="", by=None, remind=None, kind=None):
     e = {"id": uuid.uuid4().hex[:8], "who": who or "", "title": title.strip(),
          "days": sorted(set(days)), "at": at, "end": end or "",
          "remind": remind if remind is not None else
          {"before": DEFAULT_BEFORE, "to": "owner", "always": False},
          "added": time.time(), "by": by}
+    if kind:
+        e["kind"] = kind                     # "lesson": read from a school timetable
     with _lock:
         d = _load()
         d["events"].append(e)
@@ -364,7 +368,7 @@ def _speaker():
 
 def expect(who=None, day=None):
     """"+" on the page: the next sentence is the new entry."""
-    _expect.update(until=time.time() + EXPECT_SECS, who=who, day=day, draft=None)
+    _expect.update(until=time.time() + EXPECT_SECS, who=who, day=day, draft=None, paper=False)
     with state.lock:
         state.conversation_active = True          # no "Luna" needed for the answer
         state.last_activity_time = time.time()
@@ -393,7 +397,8 @@ def _take(p, speak):
         speak(ask)
         return True
     _expect.update(until=0.0, draft=None)
-    e = add(p["who"] or "", p["title"], p["days"], p["at"], p.get("end"), by=_speaker())
+    e = add(p["who"] or "", p["title"], p["days"], p["at"], p.get("end"), by=_speaker(),
+            remind=p.get("remind"), kind=p.get("kind"))
     _toast(f"Dodane: {e['title']}")
     _refresh(e["days"][0] if e["days"] else None)
     speak(_confirm(e))
@@ -430,9 +435,256 @@ def _match(text):
     return hits
 
 
+# ── a plan on paper, read by the camera ───────────────────────────────────────
+# 26 Oct: Andrzej showed Maja's school timetable; she read it aloud, but her
+# answer ran out of tokens before one entry and nothing was saved.
+
+_PAPER_VERB = re.compile(r"\b(?<!nie\s)(?:przepisz\w*|przepisa\w*|dodaj|dodaj\w+|dodał\w*|dodać|"
+                         r"wpisz\w*|wpisa\w*|zapisz\w*|zapisa\w*|dopisz\w*|dopisa\w*|wczytaj\w*|"
+                         r"wczyta\w*|przenieś\w*|przenies\w*|wrzuć|wrzuc|zeskanuj\w*)\b")
+_PAPER_REF = re.compile(r"\b(?:kartk\w*|kartce|papier\w*|rozpisk\w*|plan\w*\s+lekcji|"
+                        r"(?:ten|tego|tym|tę|te|to)\s+(?:plan\w*|grafik\w*|rozkład\w*|"
+                        r"harmonogram\w*))\b")
+_PLAN_WORD = re.compile(r"\b(?:plan\w*|grafik\w*|harmonogram\w*|rozkład\w*|kalendarz\w*|"
+                        r"lekcj\w*|zajęci\w*|zajęć|zajec)\b")
+_MINE = re.compile(r"\b(?:mój|moj|moja|moje|mojego|moich|mi|mnie)\b")
+# lesson numbers 1–8 and no hours on the paper: the usual bells (said aloud)
+BELLS = ("08:00", "08:55", "09:50", "10:55", "11:50", "12:45", "13:40", "14:35")
+LESSON_MINS = 45
+_HM = re.compile(r"^\s*(\d{1,2})[:.](\d{2})\s*$")
+_reading = [0.0]                # a paper being read until then: no second one
+
+
+_INTO = re.compile(r"\bdo\s+(?:\w+\s+)?(?:planu|grafik\w*|harmonogram\w*|kalendarz\w*)\b")
+
+
+def paper_request(text):
+    """"Weź ten plan i dodaj do grafiku Mai", "przepisz plan z kartki",
+    "mam na kartce plan Mai, ogarniesz go do jej grafiku?" — True."""
+    low = text.lower()
+    return bool(len(low.split()) <= 25 and (_PAPER_VERB.search(low) or _INTO.search(low))
+                and _PAPER_REF.search(low) and _PLAN_WORD.search(low)
+                and not re.search(r"\bnie\s+(?:dodawaj|wpisuj|przepisuj|zapisuj)", low))
+
+
+def _hm(s):
+    m = _HM.match(s or "")
+    if not m or int(m.group(1)) > 23 or int(m.group(2)) > 59:
+        return ""
+    return f"{int(m.group(1)):02d}:{m.group(2)}"
+
+
+def _plus(at, mins):
+    t = _mins(at) + mins
+    return f"{t // 60 % 24:02d}:{t % 60:02d}"
+
+
+def from_paper(rows):
+    """brain.read_timetable's entries → (entries, unclear, bells): each entry
+    {title, days, at, end, kind} with the same title and hours on several days
+    merged; unclear = those with no readable time; bells = the usual hours were
+    used for numbered lessons (none on the paper)."""
+    clean = []
+    for r in rows or []:
+        title = " ".join(str(r.get("title") or "").split()).strip(" .,;:-–")
+        days = sorted({int(d) for d in r.get("days") or [] if isinstance(d, int) and 0 <= d <= 6})
+        if not title or not days:
+            continue
+        kind = "lesson" if r.get("kind") == "lesson" else "activity"
+        no = r.get("lesson_no") if isinstance(r.get("lesson_no"), int) else 0
+        clean.append({"title": title, "days": days, "at": _hm(r.get("at")),
+                      "end": _hm(r.get("end")), "kind": kind, "no": no})
+    # a numbered lesson with no hours: the hours of that number elsewhere
+    by_no = {}
+    for c in clean:
+        if c["kind"] == "lesson" and c["no"] and c["at"]:
+            by_no.setdefault(c["no"], (c["at"], c["end"]))
+    bells = False
+    lessons = [c for c in clean if c["kind"] == "lesson"]
+    if lessons and not any(c["at"] for c in lessons):
+        bells = any(1 <= c["no"] <= len(BELLS) for c in lessons)
+        by_no = {i + 1: (b, _plus(b, LESSON_MINS)) for i, b in enumerate(BELLS)}
+    for c in clean:
+        if not c["at"] and c["kind"] == "lesson" and c["no"] in by_no:
+            c["at"], c["end"] = by_no[c["no"]]
+    merged, unclear = {}, []
+    for c in clean:
+        if c["end"] and c["at"] and _mins(c["end"]) <= _mins(c["at"]):
+            c["end"] = ""
+        if not c["at"]:
+            unclear.append(c)
+            continue
+        key = (c["title"].lower(), c["at"], c["end"])
+        if key in merged:
+            merged[key]["days"] = sorted(set(merged[key]["days"]) | set(c["days"]))
+        else:
+            merged[key] = {k: c[k] for k in ("title", "days", "at", "end", "kind")}
+    out = sorted(merged.values(), key=lambda e: (min(e["days"]), _mins(e["at"])))
+    return out, unclear, bells
+
+
+_NO_REMIND = {"before": None, "to": "owner", "always": False}
+
+
+def save_paper(who, entries, by=None):
+    """The read entries into the plan: (added, already there). An entry with
+    the same owner, title and time gets the new days instead of a twin."""
+    added, kept = [], []
+    for e in entries:
+        same = next((x for x in events() if x.get("who", "") == who
+                     and x["title"].lower() == e["title"].lower() and x["at"] == e["at"]), None)
+        if same:
+            if not set(e["days"]) <= set(same["days"]):
+                update(same["id"], days=sorted(set(same["days"]) | set(e["days"])))
+            kept.append(same)
+            continue
+        added.append(add(who, e["title"], e["days"], e["at"], e["end"], by=by,
+                         remind=dict(_NO_REMIND) if e["kind"] == "lesson" else None,
+                         kind="lesson" if e["kind"] == "lesson" else None))
+    return added, kept
+
+
+def _pl(n, one, few, many):
+    if n == 1:
+        return one
+    return few if n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14) else many
+
+
+def paper_said(who, added, kept, unclear, bells):
+    """What she says after reading the paper (and the question for the first
+    entry with no time, if any)."""
+    lessons = [e for e in added if e.get("kind") == "lesson"]
+    other = [e for e in added if e.get("kind") != "lesson"]
+    n = sum(len(e["days"]) for e in lessons)
+    parts = []
+    if lessons:
+        days = sorted({d for e in lessons for d in e["days"]})
+        parts.append(f"{n} {_pl(n, 'lekcję', 'lekcje', 'lekcji')} {days_said(days)}")
+    if other:
+        parts.append("zajęcia: " + "; ".join(f"{e['title']} {when_said(e)}" for e in other[:4])
+                     + (f" i {len(other) - 4} innych" if len(other) > 4 else ""))
+    if parts:
+        whose = f"{who} ma teraz w planie" if who else "W planie domu jest teraz"
+        out = f"Przepisałam z kartki. {whose} " + ", a ".join(parts) + "."
+    elif kept:
+        out = "To wszystko już jest w planie tygodnia."
+    else:
+        out = ""
+    if kept and parts:
+        out += f" {len(kept)} {_pl(len(kept), 'pozycję', 'pozycje', 'pozycji')} już było."
+    if bells:
+        out += (" Godzin lekcji nie ma na kartce, więc wpisałam zwykłe dzwonki od ósmej — "
+                "popraw je na ekranie, jeśli są inne.")
+    if other:
+        out += f" O zajęciach przypomnę {DEFAULT_BEFORE} minut wcześniej, o lekcjach nie."
+    ask = None
+    if unclear:
+        u = unclear[0]
+        rest = unclear[1:]
+        out += f" Nie odczytałam godziny: {u['title']} {days_said(u['days'])}."
+        if rest:
+            out += " Ani: " + ", ".join(r["title"] for r in rest[:3]) + " — dopisz je potem."
+        ask = f"O której jest {u['title']}?"
+    return out.strip(), ask
+
+
+def _frames(n=3, gap=0.6):
+    import brain
+    imgs = []
+    for i in range(n):
+        if i:
+            time.sleep(gap)
+        img = brain._camera_jpeg_b64()
+        if img:
+            imgs.append(img)
+    return imgs
+
+
+def import_paper(who, speak):
+    """Read the plan held to the camera and save it as `who`'s entries; the
+    reading (15–30 s) runs on its own thread with "Czytam plan…" on screen."""
+    import brain
+    if time.time() < _reading[0]:
+        print("[schedule] already reading a plan on paper", flush=True)
+        return True
+    if brain._camera_jpeg_b64() is None:
+        speak("Nie widzę teraz nic przez kamerę, więc kartki nie przeczytam.")
+        return True
+    _reading[0] = time.time() + 90
+    # (from the model's answer — brain._spoken_command's thread — this waits for
+    # her reply to end); the frames after it, while they hold the paper up
+    speak("Potrzymaj kartkę chwilę prosto przed kamerą." if
+          threading.current_thread().name == "command" else
+          "Dobrze, czytam kartkę — potrzymaj ją chwilę prosto przed kamerą.")
+    imgs = _frames()
+    by = _speaker()
+    with state.lock:
+        state.overlay = ("card", time.time() + 60, {"text": "Czytam plan…", "sub": "",
+                                                     "tone": None})
+    print(f"[schedule] reading a plan on paper for {who or 'dom'} ({len(imgs)} frames)",
+          flush=True)
+
+    def run():
+        from text_to_speech import speak as say
+        got = brain.read_timetable(imgs)
+        _reading[0] = 0.0
+        with state.lock:
+            if state.overlay and state.overlay[0] == "card":
+                state.overlay = None
+        if not got or not got.get("readable") or not got.get("entries"):
+            say("Nie umiem odczytać tej kartki. Przysuń ją bliżej, prosto do kamery, "
+                "i powiedz jeszcze raz: przepisz plan z kartki.")
+            return
+        entries, unclear, bells = from_paper(got["entries"])
+        added, kept = save_paper(who, entries, by=by)
+        text, ask = paper_said(who, added, kept, unclear, bells)
+        print(f"[schedule] from paper: {len(added)} added, {len(kept)} already there, "
+              f"{len(unclear)} with no time{', usual bells' if bells else ''}", flush=True)
+        show(who, day=min(added[0]["days"]) if added else None)
+        say(text + (" " + ask if ask else ""))
+        try:
+            brain.add_to_last_reply(f"(Zapisane w planie tygodnia z kartki: {len(added)} "
+                                    "pozycji — widać je na ekranie.)")
+        except Exception:
+            pass
+        if ask:
+            u = unclear[0]
+            expect(who)                       # (clears the draft: set it after)
+            _expect["draft"] = {"who": who, "title": u["title"], "days": u["days"],
+                                "at": None, "end": "",
+                                "remind": dict(_NO_REMIND) if u["kind"] == "lesson" else None,
+                                "kind": "lesson" if u["kind"] == "lesson" else None}
+    threading.Thread(target=run, daemon=True, name="schedule-paper").start()
+    return True
+
+
+def _paper_who(text):
+    """(who, known): the person named, "mój" → the speaker; known False when
+    nobody can be told."""
+    who, _ = _who_of(text.lower())
+    if who is not None:
+        return who, True
+    if _MINE.search(text.lower()) and _speaker():
+        return _speaker(), True
+    return None, False
+
+
 def handle(text, speak):
     """Local commands for the week's plan. True when handled."""
     low = text.lower().strip()
+    if expecting() and _expect.get("paper"):
+        _expect.update(until=0.0, paper=False)
+        who, known = _paper_who(text)
+        if known:
+            return import_paper(who, speak)
+        if _STOP.match(low):
+            speak("Dobrze, nie przepisuję.")
+            return True
+        if re.match(r"^(?:co|słucham|że co|powtórz|powtorz|jak)\W*$", low):
+            _expect.update(until=time.time() + EXPECT_SECS, paper=True)
+            speak("Czyj to plan? Powiedz na przykład: Mai.")
+            return True
+        # something else: not the answer
     if expecting():
         draft = _expect.get("draft")
         if _STOP.match(low):
@@ -454,6 +706,16 @@ def handle(text, speak):
             if p:
                 return _take(p, speak)
         _expect.update(until=0.0, draft=None)        # something else: not an entry
+    if paper_request(text):
+        who, known = _paper_who(text)
+        if known:
+            return import_paper(who, speak)
+        _expect.update(until=time.time() + EXPECT_SECS, draft=None, paper=True)
+        with state.lock:
+            state.conversation_active = True
+            state.last_activity_time = time.time()
+        speak("Czyj to plan? Powiedz na przykład: Mai.")
+        return True
     m, m2 = _SHOW.match(low), _SHOW_WHO.match(low)
     if m or m2:
         import faces
@@ -753,13 +1015,26 @@ def prompt_line():
     evs = events()
     if not evs:
         return ""
-    by = sorted(evs, key=lambda e: (e.get("who") or "~", min(e["days"]), _mins(e["at"])))
+    lessons = [e for e in evs if e.get("kind") == "lesson"]
+    by = sorted((e for e in evs if e.get("kind") != "lesson"),
+                key=lambda e: (e.get("who") or "~", min(e["days"]), _mins(e["at"])))
+    school = []
+    for who in sorted({e.get("who") or "" for e in lessons}):
+        days = []
+        for wd in range(7):
+            day = sorted((e for e in lessons if (e.get("who") or "") == who and wd in e["days"]),
+                         key=lambda e: _mins(e["at"]))
+            if day:
+                days.append(f"{DAYS_SHORT[wd]} " + ", ".join(f"{e['at']} {e['title']}"
+                                                              for e in day))
+        school.append(f"{who or 'the whole house'}'s school lessons: " + "; ".join(days))
     return ("The family's weekly plan (plan tygodnia; the app reminds by itself, "
             "\"pokaż plan tygodnia\" shows it; to add or remove an entry use the command "
             "\"dodaj do planu: <kto>, <co>, <dni>, o <godzina>\" / \"usuń z planu <co> <kto>\"): "
-            + "; ".join(f"{e.get('who') or 'the whole house'}: {e['title']} "
-                        f"{days_said(e['days'])} {e['at']}" + (f"–{e['end']}" if e.get("end") else "")
-                        for e in by) + ".\n")
+            + "; ".join([f"{e.get('who') or 'the whole house'}: {e['title']} "
+                         f"{days_said(e['days'])} {e['at']}"
+                         + (f"–{e['end']}" if e.get("end") else "") for e in by] + school)
+            + ".\n")
 
 
 def today_rows(now=None):

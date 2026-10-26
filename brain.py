@@ -895,7 +895,12 @@ Always answer as JSON with exactly these keys:
                 by person), "dodaj do planu: <kto>, <co>, <dni>, o <godzina>"
                 (a weekly entry, e.g. "dodaj do planu: Maja, angielski, od
                 poniedziałku do piątku o 17" — she reminds by herself), "usuń
-                z planu <co> <kto>", "pokaż listę zakupów", "przepis na <danie>
+                z planu <co> <kto>", "przepisz plan z kartki: <kto>" (a
+                timetable or plan on paper, ALL of it into the week's plan in
+                one go — send it as soon as they ask, even when you don't see
+                the paper: the app asks them to hold it up and looks itself;
+                never entry by entry, never read it out first), "pokaż listę
+                zakupów", "przepis na <danie>
                 krok po kroku" (cooking along on the screen), "przekaż <Imię>,
                 że …" (a note you say to that person when you next see them),
                 "zrób zdjęcie", "nagraj wiadomość dla <Imię>", "pokaż osoby, które
@@ -1860,7 +1865,19 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                 _spoken_command(label, "")
                 drew = True
 
-        if not (tuned or drew or translator()) and claims_undone(reply, data.get("actions"), refused):
+        copied = False
+        if not translator() and _promised_paper_plan(reply, text, data.get("actions")):
+            # "Jasne, przepiszę go, kiedy pokażesz mi kartkę" and no command (26 Oct
+            # sweep) — the import itself asks them to hold the paper up
+            who, known = schedule._paper_who(" ".join([text or ""] + _recent_user_texts(2)))
+            label = "przepisz plan z kartki" + (f": {who}" if known and who else "")
+            print(f"[brain] promised to copy the plan without the command — {label!r}",
+                  flush=True)
+            _spoken_command(label, "")
+            copied = True
+
+        if not (tuned or drew or copied or translator()) and claims_undone(
+                reply, data.get("actions"), refused):
             # "Jasne, usunęłam to z listy." / "wyłączam ekran gry" and nothing
             # happened (18 Oct log, 3 a day): she says so instead of leaving it
             extra = "Ojej, poprawka — tego jednak nie zrobiłam."
@@ -1957,6 +1974,8 @@ _VOICED_OK = re.compile(r"^zróbmy\s+ćwiczenie\s+oddechowe$|"
                         # (11 Oct: "narysuj mnie: <details>" ran past 60
                         # characters — refused, she said "rysuję", nothing came)
                         r"^narysuj\s+(?:mi\s+)?.{2,200}$|"
+                        # (26 Oct: a timetable on paper, "dopisuję" and nothing saved)
+                        r"^przepisz\s+plan\s+z\s+kartki(?:[:,]?\s+[\wąćęłńóśźż ]{2,30})?$|"
                         r"^pokaż\s+(?:mi\s+)?(?:swoje\s+)?rysunki$|"
                         r"^pokaż\s+(?:mi\s+)?zdjęcie\s+.{2,60}$|"
                         r"^pokaż\s+(?:mi\s+)?(?:inne|jeszcze\s+jedno|następne)\s+zdjęcie$|"
@@ -2077,6 +2096,40 @@ def _just_praise():
             said = re.sub(r"^\[[^\]]*\]\s*", "", str(m.get("content", "")))
             return bool(_PRAISE.match(said.strip()))
     return False
+
+
+def _recent_user_texts(n):
+    """The last n things said to her (text only, the speaker tag cut)."""
+    out = []
+    for m in reversed(_history[-8:]):
+        if m.get("role") != "user":
+            continue
+        c = m.get("content", "")
+        if isinstance(c, list):
+            c = " ".join(p.get("text", "") for p in c if isinstance(p, dict))
+        out.append(re.sub(r"^\[[^\]]*\]\s*", "", str(c)))
+        if len(out) >= n:
+            break
+    return out
+
+
+_PAPER_PROMISE = re.compile(r"\b(?:przepisz[ęe]|przepisuj[ęe]|przepisałam|dopisuj[ęe]|dopisz[ęe]|"
+                            r"dopisałam|wpisz[ęe]|wpisuj[ęe]|wpisałam|dodam|dodaj[ęe]|dodałam)\b",
+                            re.I)
+
+
+def _promised_paper_plan(reply, text, actions):
+    """Her reply promises to copy a plan on paper into the week's plan, with
+    no command for it (or for a single entry)."""
+    if not _PAPER_PROMISE.search(reply or "") or not re.search(
+            r"\b(?:plan\w*|grafik\w*|harmonogram\w*|kartk\w*|kartce)\b", reply or "", re.I):
+        return False
+    for a in actions or []:
+        if a.get("type") == "command" and re.match(r"(?:przepisz\s+plan|dodaj\s+do\s+planu)",
+                                                   str(a.get("label", "")).strip(), re.I):
+            return False
+    said = " ".join([text or ""] + _recent_user_texts(2)).lower()
+    return bool(schedule._PAPER_REF.search(said) and schedule._PLAN_WORD.search(said))
 
 
 def _answering_a_search():
@@ -2552,6 +2605,73 @@ def read_written_word(imgs, english=False):
         return word.strip(" .!?,") or None
     except Exception as e:
         print(f"[brain] reading the paper failed: {e}")
+        return None
+
+
+_TIMETABLE_SCHEMA = {
+    "type": "json_schema",
+    "json_schema": {"name": "timetable", "strict": True, "schema": {
+        "type": "object",
+        "properties": {
+            "readable": {"type": "boolean"},
+            "entries": {"type": "array", "items": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string"},
+                    "days": {"type": "array", "items": {"type": "integer"}},
+                    "at": {"type": "string"},
+                    "end": {"type": "string"},
+                    "lesson_no": {"type": "integer"},
+                    "kind": {"type": "string", "enum": ["lesson", "activity"]},
+                },
+                "required": ["title", "days", "at", "end", "lesson_no", "kind"],
+                "additionalProperties": False}},
+        },
+        "required": ["readable", "entries"],
+        "additionalProperties": False}},
+}
+
+
+def read_timetable(imgs):
+    """A weekly plan on paper held to the camera (a school timetable, a list of
+    classes) → {"readable", "entries": [{title, days, at, end, lesson_no,
+    kind}]}, or None on failure. schedule.import_paper — 26 Oct: Luna read
+    Maja's plan aloud but her reply ran out of tokens before any entry."""
+    imgs = [b for b in (imgs or []) if b]
+    if _client is None or not imgs:
+        return None
+    content = [{"type": "text", "text":
+                f"These {len(imgs)} webcam frame(s), taken a moment apart, show a weekly "
+                "schedule on paper (a Polish school timetable or a plan of classes). Read it "
+                "from the clearest frame and transcribe EVERY entry that is written: "
+                "title = the subject or activity in Polish, lowercase unless a name, obvious "
+                "abbreviations expanded (\"ed. wczesn.\" → \"edukacja wczesnoszkolna\", "
+                "\"j. ang.\" → \"angielski\", \"w-f\" → \"wf\"); days = weekdays, "
+                "0 = Monday … 6 = Sunday; at / end = start and end time as HH:MM (24 h) — "
+                "when a column gives the hours of each lesson number, every lesson in that "
+                "row has those hours; lesson_no = the lesson's number in its row (0 if none); "
+                "kind = lesson for a school lesson in the school day, activity for anything "
+                "extra (after-school classes, music, sport, a club). The same title at the "
+                "same time on several days is ONE entry with all those days. A time you "
+                "cannot read: at = \"\" — never guess one. Skip breaks and empty cells. "
+                "readable = false when this is not a schedule or nothing can be read."}]
+    content += [{"type": "image_url",
+                 "image_url": {"url": f"data:image/jpeg;base64,{b}", "detail": "high"}}
+                for b in imgs]
+    try:
+        r = _client.with_options(timeout=45.0).chat.completions.create(
+            model=CRAFT_MODEL,
+            response_format=_TIMETABLE_SCHEMA,
+            messages=[{"role": "user", "content": content}],
+            max_tokens=3000,
+            temperature=0.0,
+        )
+        out = json.loads(r.choices[0].message.content)
+        print(f"[brain] timetable read: {len(out.get('entries') or [])} entries, "
+              f"readable={out.get('readable')}", flush=True)
+        return out
+    except Exception as e:
+        print(f"[brain] reading the timetable failed: {e!r}", flush=True)
         return None
 
 
