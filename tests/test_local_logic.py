@@ -8757,6 +8757,10 @@ class ScheduleTest(unittest.TestCase):
             self.assertTrue(P(r, "A teraz widzisz wyraźnie?", []))
             import schedule
             self.assertEqual(schedule._paper_who(r), ("Maja", True))
+            # 26 Oct 13:51: the plan on show, "Właśnie tam to wpisałam" — not the paper again
+            self.assertFalse(P("Już pokazuję: na planie Mai jest kółko. Właśnie tam to wpisałam.",
+                               "Nie widzę tego.",
+                               [{"type": "command", "label": "pokaż plan lekcji Maja"}]))
             brain._history[:] = [{"role": "user", "content": "Dodaj mleko"}]
             self.assertFalse(P("Dodam mleko do listy zakupów.", "Dodaj mleko", []))
         finally:
@@ -8939,6 +8943,68 @@ class ScheduleTest(unittest.TestCase):
         self.assertEqual([(e["title"], e["days"]) for e in out],
                          [("polski", [0]), ("WF", [0, 1, 2, 3]), ("szkoła muzyczna", [2]),
                           ("zajęcia z wychowawcą", [4])])
+
+    def test_paper_club_in_the_grid_is_a_lesson(self):
+        # 26 Oct: "Kółko przyrodnicze" in row 6, no hours on the paper — the model
+        # said activity, it got no bell, was asked and went in as a reminder
+        out, unclear, bells = self.s.from_paper(
+            [{"title": "informatyka", "days": [0], "at": "", "end": "", "lesson_no": 1,
+              "kind": "lesson"},
+             {"title": "Kółko przyrodnicze", "days": [0], "at": "", "end": "",
+              "lesson_no": 6, "kind": "activity"},
+             {"title": "szkoła muzyczna", "days": [2], "at": "17:00", "end": "",
+              "lesson_no": 0, "kind": "activity"}])
+        self.assertTrue(bells)
+        self.assertEqual(unclear, [])
+        self.assertEqual([(e["title"], e["at"], e["kind"]) for e in out],
+                         [("informatyka", "08:00", "lesson"),
+                          ("Kółko przyrodnicze", "12:45", "lesson"),
+                          ("szkoła muzyczna", "17:00", "activity")])
+
+    def test_move_into_lessons(self):
+        said = []
+        L = self._lesson
+        self.s.save_paper("Maja", [L("informatyka", [0], "08:00", "08:45")])
+        # the hour she asked for went in as a reminder; "ale to ma być w planie lekcji"
+        self.s._expect.update(until=time.time() + 30, who="Maja",
+                              draft={"who": "Maja", "title": "kółko przyrodnicze",
+                                     "days": [0], "at": None, "end": "", "remind": None,
+                                     "kind": None})
+        self.assertTrue(self.s.handle("O dwunastej czterdzieści pięć.", said.append))
+        self.assertEqual(len(self.s.lessons("Maja")), 1)
+        self.assertTrue(self.s.handle("Ale to ma być w planie lekcji.", said.append))
+        self.assertIn("Przeniosłam do planu lekcji Mai: kółko przyrodnicze", said[-1])
+        e = next(e for e in self.s.lessons("Maja") if e["title"] == "kółko przyrodnicze")
+        self.assertEqual((e["at"], e["end"], e["remind"]["before"]), ("12:45", "13:30", None))
+        self.assertTrue(self.s.handle("przenieś kółko przyrodnicze do planu lekcji Mai",
+                                      said.append))
+        self.assertIn("już jest w planie lekcji Mai", said[-1])
+        # asked its hour: "to ma być w planie lekcji" keeps the question, as a lesson
+        self.s._expect.update(until=time.time() + 30, who="Maja",
+                              draft={"who": "Maja", "title": "detektyw natury", "days": [2],
+                                     "at": None, "end": "", "remind": None, "kind": None})
+        self.assertTrue(self.s.handle("to ma być w planie lekcji", said.append))
+        self.assertEqual(said[-1], "O której godzinie?")
+        self.assertTrue(self.s.handle("o 12:45", said.append))
+        self.assertIn("detektyw natury", [e["title"] for e in self.s.lessons("Maja")])
+        # by name, a reminder entry of the week
+        self.s.add("Maja", "basen", [3], "16:00")
+        self.assertTrue(self.s.handle("przenieś basen do planu lekcji", said.append))
+        self.assertEqual(len(self.s.lessons("Maja")), 4)
+        # a complaint, not a paper to read again (it has "wpisałaś … planie lekcji")
+        self.s.add("Maja", "kółko plastyczne", [1], "13:40")
+        self.assertTrue(self.s.handle("Kółko plastyczne Mai wpisałaś jako przypomnienie, a "
+                                      "powinno być w jej planie lekcji. Popraw to.", said.append))
+        self.assertIn("Przeniosłam do planu lekcji Mai: kółko plastyczne", said[-1])
+        # a new lesson by voice — not a paper to read
+        self.assertTrue(self.s.handle("dodaj do planu lekcji Mai plastykę w piątek o 10:55",
+                                      said.append))
+        self.assertIn("plastyka", [e["title"] for e in self.s.lessons("Maja")])
+        self.assertFalse(self.s._to_lessons("przepisz plan z kartki do planu lekcji Mai",
+                                            said.append))
+        self.assertFalse(self.s._to_lessons("czy kółko ma być w planie lekcji?", said.append))
+        with state.lock:
+            state.overlay = None
 
     def test_week_shows_school_as_one_row(self):
         L = self._lesson

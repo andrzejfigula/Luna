@@ -37,6 +37,8 @@ LOCAL = {
     "Pokaż mój plan lekcji": "schedule",
     "Jaki mam plan lekcji?": "schedule",
     "Dodaj do planu: angielski od poniedziałku do piątku o 17": "schedule",
+    "Przenieś kółko przyrodnicze do planu lekcji Mai": "schedule",
+    "Ale to ma być w planie lekcji.": "schedule",
     "Ekran ciemniej": "handled-but-unknown",
     "Odliczaj do startu rakiety": "count",
     "Obudź mnie za 20 minut": "timer",
@@ -526,6 +528,9 @@ class RoutingTest(unittest.TestCase):
             self._mark("vis")
         if any(t.startswith("Stoper") for t in said):
             self._mark("count")
+        if any(t.startswith(("Co przenieść do planu lekcji", "W jakie dni")) for t in said):
+            self._mark("schedule")
+            schedule._expect.update(until=0.0, draft=None)
         if any(t.startswith("Dobrze, nie słucham") for t in said):
             self._mark("mic")
             with state.lock:

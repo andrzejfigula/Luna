@@ -900,7 +900,10 @@ Always answer as JSON with exactly these keys:
                 "Dobrze, tylko potwierdź", never that it is cleared), "dodaj do planu: <kto>, <co>, <dni>, o <godzina>"
                 (a weekly entry, e.g. "dodaj do planu: Maja, angielski, od
                 poniedziałku do piątku o 17" — she reminds by herself), "usuń
-                z planu <co> <kto>", "przepisz plan z kartki: <kto>" (a
+                z planu <co> <kto>", "przenieś <co> do planu lekcji <kto>" (an
+                entry of the week that belongs in the school timetable, e.g.
+                "ale to ma być w planie lekcji" — never say it is moved
+                without this command), "przepisz plan z kartki: <kto>" (a
                 timetable or plan on paper, ALL of it into the week's plan in
                 one go; a new school timetable replaces the old lessons — send
                 it as soon as they ask, even when you don't see
@@ -1772,7 +1775,11 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             if on_sentence:
                 on_sentence(extra)
             reply = f"{reply} {extra}"
-        if any("nothing matched" in d for d in set_now or []) and not re.search(
+        # (26 Oct: "to nie przypomnienie" — the week's plan entry moved, a cancel beside it)
+        plan_cmd = any(a.get("type") == "command" and re.match(
+            r"(?:przenieś\s|usuń\s+z\s+planu|dodaj\s+do\s+planu|pokaż\s+plan)",
+            str(a.get("label", "")).strip(), re.I) for a in data.get("actions") or [])
+        if any("nothing matched" in d for d in set_now or []) and not plan_cmd and not re.search(
                 r"\bnie\s+(?:mam|widzę|ma)\b", reply, re.I) and re.search(
                 r"przypom|minutnik|budzik|alarm|timer|remind", text, re.I):
             # (only when they spoke of one — "Koniec" ending a quiz came with a
@@ -1952,7 +1959,7 @@ _COMMAND_OK = re.compile(
     r"|^pokaż\s+osoby,?\s+które\s+znasz$"
     # the week's plan (schedule.py; the sweep of 19 Oct: "dodaj do planu" refused)
     r"|^pokaż\s+plan\s+tygodnia$|^pokaż\s+plan\s+lekcji(?:\s+\w+)?$|^wyczyść\s+plan\s+(?:lekcji|tygodnia)(?:\s+\w+)?$|^dodaj\s+do\s+planu[:,]?\s+.{3,160}$"
-    r"|^usuń\s+z\s+planu[:,]?\s+.{2,80}$"
+    r"|^usuń\s+z\s+planu[:,]?\s+.{2,80}$|^przenieś\s+.{2,80}\s+do\s+planu\s+lekcji(?:\s+\w+)?$"
     r"|^wyszukaj\s+w\s+internecie[:,]?\s+.{3,200}$"
     r"|^(?:przyciemnij|zgaś|rozjaśnij)\s+ekran$"
     r"|^głośność\s+na\s+\d{1,3}(?:\s*%|\s+procent)?$"
@@ -2133,8 +2140,10 @@ def _promised_paper_plan(reply, text, actions):
             r"\b(?:plan\w*|grafik\w*|harmonogram\w*|kartk\w*|kartce)\b", reply or "", re.I):
         return False
     for a in actions or []:
-        if a.get("type") == "command" and re.match(r"(?:przepisz\s+plan|dodaj\s+do\s+planu)",
-                                                   str(a.get("label", "")).strip(), re.I):
+        # (a move or the plan on show: "Właśnie tam to wpisałam" read the paper again)
+        if a.get("type") == "command" and re.match(
+                r"(?:przepisz\s+plan|dodaj\s+do\s+planu|przenieś\s|pokaż\s+plan\s+lekcji)",
+                str(a.get("label", "")).strip(), re.I):
             return False
     # her own words count: 26 Oct 11:58 only she said "grafik" ("Widzisz to, co
     # jest na kartce?" → "Odczytam to i dopiszę do grafiku Mai") — nothing ran
@@ -2665,11 +2674,11 @@ _TIMETABLE_PROMPT = (
     "wczesnoszkolna, świetlica. days = weekdays, 0 = Monday … 6 = Sunday; at / end = "
     "start and end as HH:MM (24 h) — when a column gives the hours of each lesson "
     "number, every lesson in that row has those hours; lesson_no = the lesson's number "
-    "in its row (0 if none); kind = lesson for anything in the school timetable "
-    "(świetlica too), activity for extra classes after school (music school, sport, a "
-    "club) on a plan of classes. The same title at the same time on several days is ONE "
-    "entry with all those days. A time you cannot read: at = \"\" — never guess one. "
-    "Skip breaks (przerwa) and empty cells. readable = false when this is not a "
+    "in its row (0 if none); kind = lesson for EVERY cell of the school timetable's "
+    "grid (świetlica, kółko, a club or extra class in a lesson row too), activity only "
+    "for classes outside that grid (music school, sport) on a separate plan of classes. "
+    "The same title at the same time on several days is ONE entry with all those days. "
+    "A time you cannot read: at = \"\" — never guess one. Skip breaks (przerwa) and empty cells. readable = false when this is not a "
     "schedule or nothing can be read.")
 
 

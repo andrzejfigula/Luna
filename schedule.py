@@ -43,6 +43,9 @@ _DAYS_IN = ("w poniedziałek", "we wtorek", "w środę", "w czwartek", "w piąte
 _lock = threading.Lock()
 _expect = {"until": 0.0, "who": None, "day": None, "draft": None, "paper": False,
            "fresh": False}
+# the entry just added by voice: "to ma być w planie lekcji" means it
+_last = {"id": None, "t": 0.0}
+LAST_SECS = 10 * 60
 # "wyczyść plan lekcji / tygodnia" asked back: "tak" wipes it. what: "lessons" | "week";
 # who None for the week: everyone's
 _clearing = {"what": None, "who": None, "until": 0.0}
@@ -408,6 +411,7 @@ def _take(p, speak):
     _expect.update(until=0.0, draft=None)
     e = add(p["who"] or "", p["title"], p["days"], p["at"], p.get("end"), by=_speaker(),
             remind=p.get("remind"), kind=p.get("kind"))
+    _last.update(id=e["id"], t=time.time())
     _toast(f"Dodane: {e['title']}")
     _refresh(e["days"][0] if e["days"] else None)
     speak(_confirm(e))
@@ -515,15 +519,18 @@ def from_paper(rows):
     merged; unclear = those with no readable time; bells = the usual hours were
     used for numbered lessons (none on the paper)."""
     clean = []
+    school = any(r.get("kind") == "lesson" for r in rows or [])
     for r in rows or []:
         title = " ".join(str(r.get("title") or "").split()).strip(" .,;:-–")
         days = sorted({int(d) for d in r.get("days") or [] if isinstance(d, int) and 0 <= d <= 6})
         if not title or not days:
             continue
+        no = r.get("lesson_no") if isinstance(r.get("lesson_no"), int) else 0
         kind = "lesson" if r.get("kind") == "lesson" else "activity"
+        if kind == "activity" and school and no > 0:
+            kind = "lesson"         # in a numbered row of the grid (26 Oct: kółko przyrodnicze)
         if kind == "lesson":
             title = canonical_subject(title)
-        no = r.get("lesson_no") if isinstance(r.get("lesson_no"), int) else 0
         clean.append({"title": title, "days": days, "at": _hm(r.get("at")),
                       "end": _hm(r.get("end")), "kind": kind, "no": no})
     # a numbered lesson with no hours: the hours of that number elsewhere
@@ -836,6 +843,109 @@ def _ask_clear_week(name, text, speak):
     return True
 
 
+# "przenieś kółko przyrodnicze do planu lekcji Mai", "ale to ma być w planie lekcji",
+# "dodaj do planu lekcji Mai kółko w poniedziałek o 12:45" (26 Oct: the hour she asked
+# after a paper went in as a reminder; she said "już poprawiam" and nothing moved)
+_INTO_LESSONS = (r"(?:do|w|na)\s+(?:(?:jej|jego|moim|mój|moj|mojego|swoim|swój|swoj|swojego)\s+)?"
+                 r"plan(?:u|ie)?\s+lekcji")
+_TO_LESSONS = re.compile(
+    r"^(?:luna\W+)?(?:ale\s+|nie\W+|no\s+)?(?:"
+    r"(?:przenieś|przenies|przesuń|przesun|wpisz|dopisz|dodaj|daj|wrzuć|wrzuc|zapisz)\s+"
+    rf"(?P<a>.*?)\s*{_INTO_LESSONS}\b(?P<a2>.*)|"
+    r"(?P<b>.*?)\s*(?:ma|mają|maja|miało|mialo|miała|miał|powinn\w*|musi|muszą)\s+"
+    rf"(?:być|byc)\s+(?:{_INTO_LESSONS}|lekcj\w*)\b(?P<b2>.*))$")
+_NOT_TITLE = {"to", "ten", "tę", "te", "ta", "tą", "je", "go", "ją", "tego", "tej", "jej",
+              "jego", "mi", "nam", "też", "tez", "również", "przecież", "tylko", "jako", "nie",
+              "lekcja", "lekcję", "lekcji", "osobne", "osobno", "zamiast", "planie", "tygodnia"}
+# "…wpisałaś jako przypomnienie, popraw to": the complaint's own words
+_NOT_TITLE_RX = re.compile(r"^(?:wpisa|zapisa|dopisa|dodał|dodal|przeni|przenio|popraw|"
+                           r"przypomn|zrobi|daj)\w*$")
+
+
+def _to_lessons(text, speak):
+    """An entry of the week's plan moved into the plan lekcji (a lesson, no
+    reminder); a new lesson when there's none to move. True when handled."""
+    low = " ".join(text.lower().split())
+    m = _TO_LESSONS.match(low)
+    if not m or "?" in low:
+        return False
+    body = " ".join(g for g in m.group("a", "a2", "b", "b2") if g)
+    if re.search(r"\b(?:kartk\w*|kartce|papier\w*|rozpisk\w*)\b|"
+                 r"\b(?:ten|tego|tym|cały|caly)\s+plan", body):
+        return False                         # the whole plan on paper: import_paper
+    who, rest = _who_of(body)
+    days, rest = _days_of(rest)
+    at, end, rest = _time_of(rest)
+    words = [w for w in re.findall(r"[\w'-]+", rest)
+             if w not in _FILLER and w not in _NOT_TITLE and not _NOT_TITLE_RX.match(w)]
+    title = " ".join(words)
+    draft = _expect.get("draft") if expecting() else None
+
+    def same(t):
+        tw = {w[:5] for w in re.findall(r"\w{3,}", (t or "").lower())}
+        ww = {w[:5] for w in re.findall(r"\w{3,}", title)}
+        return bool(ww and tw and len(ww & tw) >= (len(tw) + 1) // 2)
+    hits = []
+    if title:
+        # (with a day or an hour, a lesson already there is not it: a new one)
+        hits = [e for e in events() if (who is None or e.get("who") == who) and same(e["title"])
+                and not (e.get("kind") == "lesson" and (days or at))]
+    elif not draft and time.time() - _last["t"] < LAST_SECS and get(_last["id"]):
+        hits = [get(_last["id"])]
+    if not hits and draft and (not title or same(draft.get("title"))):
+        p = dict(draft, kind="lesson", remind=dict(_NO_REMIND))     # she was asking its hour
+    elif not hits:
+        if not title or len(words) > 4:
+            speak("Co przenieść do planu lekcji? Powiedz na przykład: przenieś kółko "
+                  "przyrodnicze do planu lekcji Mai.")
+            return True
+        d = _page()
+        page_who = d.get("who") if d and d.get("view") == "lessons" else None
+        p = {"who": who if who is not None else _lesson_who(page_who),
+             "title": canonical_subject(title),
+             "days": None, "at": None, "end": "", "remind": dict(_NO_REMIND), "kind": "lesson"}
+    else:
+        if who is None and len({e.get("who") or "" for e in hits}) > 1:
+            speak("Pasuje kilka: " + "; ".join(f"{e['title']} {e['who']}".strip()
+                                               for e in hits[:4]) + ". Powiedz też, czyje.")
+            return True
+        moved, there = [], []
+        for e in hits:
+            if e.get("kind") == "lesson" and not (days or at):
+                there.append(e)
+                continue
+            ch = {"kind": "lesson", "remind": dict(_NO_REMIND)}
+            if len(hits) == 1 and days:
+                ch["days"] = days
+            if len(hits) == 1 and at:
+                ch.update(at=at, end=end or _plus(at, LESSON_MINS))
+            elif not e.get("end"):
+                ch["end"] = _plus(e["at"], LESSON_MINS)
+            moved.append(update(e["id"], **ch))
+        owner = hits[0].get("who") or ""
+        show_lessons(owner or None)
+        whose = f" {genitive(owner)}" if owner else ""
+        if moved:
+            print(f"[schedule] into the lessons of {owner or 'dom'}: "
+                  + ", ".join(e["title"] for e in moved), flush=True)
+            speak(f"Przeniosłam do planu lekcji{whose}: "
+                  + "; ".join(f"{e['title']} {when_said(e)}" for e in moved)
+                  + ". Bez przypomnienia, jak inne lekcje.")
+        else:
+            speak(f"{there[0]['title'][0].upper()}{there[0]['title'][1:]} już jest w planie "
+                  f"lekcji{whose}: {when_said(there[0])}.")
+        return True
+    for k, v in (("days", days), ("at", at), ("end", end)):
+        if v:
+            p[k] = v
+    if p.get("at") and not p.get("end"):
+        p["end"] = _plus(p["at"], LESSON_MINS)
+    _take(p, speak)
+    if not expecting():
+        show_lessons(p.get("who") or None)
+    return True
+
+
 def handle(text, speak):
     """Local commands for the week's plan. True when handled."""
     low = text.lower().strip()
@@ -870,6 +980,8 @@ def handle(text, speak):
             speak("Czyj to plan? Powiedz na przykład: Mai.")
             return True
         # something else: not the answer
+    if _to_lessons(text, speak):
+        return True
     if expecting():
         draft = _expect.get("draft")
         if _STOP.match(low):
@@ -1133,6 +1245,9 @@ def subject_key(title):
 def canonical_subject(title):
     """A lesson's name one way: "w-f" / "W.F." → "WF", "j. polski" → "polski" (the
     same subject read differently on two days stays one entry)."""
+    if re.search(r"\b(?:kół\w*|kol\w*|koło|koła|kole|klub\w*|warsztat\w*|wyrówn\w*)\b",
+                 (title or "").lower()):
+        return title                         # "kółko przyrodnicze" is not przyroda
     key = subject_key(title)
     if key == "w-f":
         return "WF"
