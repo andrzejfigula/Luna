@@ -3364,6 +3364,54 @@ class KidsTest(unittest.TestCase):
         s._call_until = 0.0
         s._en_heard.clear()
 
+    def test_window_closed_from_outside_ends_the_listen(self):
+        # 26 Oct: "Słucham" tapped on Malowanie — the running listen() kept
+        # writing listening = True, so stopping her took a second tap
+        import threading
+        import speech_to_text as s
+        rec = mock.Mock()
+        rec.AcceptWaveform.return_value = True                  # Vosk ends a silent segment…
+        rec.Result.return_value = '{"text": ""}'                # …with no words
+        rec.PartialResult.return_value = '{"partial": ""}'
+        fed = threading.Event()
+
+        def feed():                                             # the live mic: always chunks
+            while not fed.is_set():
+                try:
+                    s._q.put(bytes(3200), timeout=0.1)
+                except Exception:
+                    pass
+                time.sleep(0.02)
+        with mock.patch.object(s, "_mic_ok", True), \
+                mock.patch.object(s, "_muted", lambda: False), \
+                mock.patch.object(s, "_resample_to_16k", lambda d: d), \
+                mock.patch.object(s, "_get_recognizer", lambda: rec):
+            with state.lock:
+                state.speaking, state.mic_unblock_time = False, 0.0
+                state.conversation_active, state.last_activity_time = True, time.time()
+            got = []
+            threading.Thread(target=feed, daemon=True).start()
+            t = threading.Thread(target=lambda: got.append(s.listen()), daemon=True)
+            t.start()
+            try:
+                time.sleep(0.3)
+                with state.lock:
+                    self.assertTrue(state.listening)
+                    state.conversation_active = False           # what stop_listening() does
+                    state.listening = False
+                time.sleep(0.5)
+                with state.lock:
+                    self.assertFalse(state.listening)           # not written back
+                t.join(3)
+                self.assertEqual(got, [""])
+            finally:
+                fed.set()
+                with state.lock:
+                    state.conversation_active = False           # (the old loop: let it end)
+                    state.luna_mode = "idle"
+                t.join(3)
+                s._flush_queue()
+
     def test_a_meeting_pauses_wake_checks(self):
         import speech_to_text as s
         s._en_heard.clear()

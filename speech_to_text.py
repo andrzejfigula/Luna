@@ -1367,6 +1367,11 @@ def listen():
                 active = False
                 with state.lock:
                     state.luna_mode = "idle"
+            with state.lock:
+                if active and not state.conversation_active:    # closed from outside
+                    state.listening = False
+                    state.luna_mode = "idle"
+                    return ""
             continue
 
         # if Luna started speaking, abort this listen (mic gets flushed after);
@@ -1378,6 +1383,13 @@ def listen():
                 state.luna_mode = "idle"
                 return ""
             if state.conversation_active and not active:
+                return ""
+            if active and not state.conversation_active:
+                # …and closed from outside ("Słucham" tapped on Malowanie, "pa"):
+                # back to the wake word now (26 Oct: this listen kept writing
+                # listening = True, so stopping her took a second tap)
+                state.listening = False
+                state.luna_mode = "idle"
                 return ""
 
         if _muted():                       # muted in the middle of a listen
