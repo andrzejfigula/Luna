@@ -1,7 +1,7 @@
 """
 dock.py — a row of quick icons along the bottom of her screen: shopping,
 to-do, the week's plan, the weather, photos, radio, settings. A tap opens
-that page.
+that page. Which ones: Ustawienia → Ikony (settings "dock_items").
 
 Faint (a third opaque) and in the face's own colours; drawn by robot_face
 (_draw_dock) only on the bare face: no page up, not asleep, no subtitles.
@@ -17,10 +17,11 @@ import time
 from config import SCREEN_WIDTH, SCREEN_HEIGHT
 from shared_state import state
 
-# (key, what it opens) — left to right
-ITEMS = (("shopping", "Zakupy"), ("todo", "Do zrobienia"), ("schedule", "Plan"),
-         ("weather", "Pogoda"), ("photos", "Zdjęcia"), ("radio", "Radio"),
-         ("settings", "Ustawienia"))
+# (key, what it opens) — every icon there can be, left to right
+ITEMS = (("shopping", "Zakupy"), ("todo", "Do zrobienia"), ("schedule", "Plan tygodnia"),
+         ("lessons", "Plan lekcji"), ("weather", "Pogoda"), ("photos", "Zdjęcia"),
+         ("radio", "Radio"), ("settings", "Ustawienia"))
+DEFAULT = ("shopping", "todo", "schedule", "weather", "photos", "radio", "settings")
 
 W, H = SCREEN_WIDTH, SCREEN_HEIGHT
 ICON = 40                 # an icon's box, px
@@ -37,15 +38,34 @@ def enabled():
     return settings.get("dock", True) is not False
 
 
+def chosen():
+    """The keys shown, in ITEMS' order (settings "dock_items", else DEFAULT)."""
+    import settings
+    picked = settings.get("dock_items")
+    if not isinstance(picked, list):
+        picked = DEFAULT
+    return [k for k, _ in ITEMS if k in picked]
+
+
+def choose(key, on):
+    """Show / hide one icon; returns the keys now shown."""
+    import settings
+    cur = chosen()
+    new = [k for k, _ in ITEMS if (k == key and on) or (k != key and k in cur)]
+    settings.put("dock_items", new)
+    return new
+
+
 def centres():
     """[(key, x)] — the icons' centres, the row centred on the screen."""
-    x0 = W / 2 - STEP * (len(ITEMS) - 1) / 2
-    return [(k, x0 + i * STEP) for i, (k, _) in enumerate(ITEMS)]
+    keys = chosen()
+    x0 = W / 2 - STEP * (len(keys) - 1) / 2
+    return [(k, x0 + i * STEP) for i, k in enumerate(keys)]
 
 
 def visible(now=None):
     """On the bare face only."""
-    if not enabled():
+    if not enabled() or not chosen():
         return False
     now = now if now is not None else time.time()
     with state.lock:
@@ -105,6 +125,9 @@ def open_page(key):
     elif key == "schedule":
         import schedule
         schedule.show()
+    elif key == "lessons":
+        import schedule
+        schedule.show_lessons()
     elif key == "weather":
         import screens
         if not screens.show_weather():

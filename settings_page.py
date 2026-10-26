@@ -3,6 +3,7 @@ settings_page.py — "pokaż ustawienia": one page on her screen, four tabs.
 
   Ogólne  — the default language, speech speed, reply length, captions, the bar
   Ekran   — her theme (themes.py), the camera preview, how smoothly the face is drawn
+  Ikony   — the quick icons along the bottom (dock.py): on/off, a tile to tick for each
   Urządzenia — the speaker, microphone and camera she uses (devices.py)
   Koszty  — API calls by day and their estimated cost (health.py's counts)
   Reset   — what she remembers; the factory reset: memories and the people she
@@ -28,7 +29,7 @@ from config import (DATA_DIR, PHOTOS_DIR, OPENAI_TTS_SPEED, CAMERA_PREVIEW, DRAW
 
 PAGE_SECS = 60                # untouched this long, the page closes
 CONFIRM_SECS = 20             # the reset's "Na pewno?" waits this long
-TABS = ("Ogólne", "Asystent", "Ekran", "Urządzenia", "Koszty", "Reset")
+TABS = ("Ogólne", "Asystent", "Ekran", "Ikony", "Urządzenia", "Koszty", "Reset")
 
 _LANGS = (("pl", "Polski"), ("en", "English"))
 _SPEEDS = (1.0, 1.1, 1.2, 1.3, 1.4)
@@ -152,13 +153,24 @@ def _say_speaker():
     speak("Teraz mówię przez ten głośnik.")
 
 
+def dock_rows():
+    """Ikony: the row on/off, then a tile for every icon there can be."""
+    import dock
+    shown = dock.chosen()
+    return [{"key": "dock", "kind": "toggle", "label": "Ikony na dole",
+             "sub": "dotknij kafelka, żeby go dodać albo schować",
+             "value": dock.enabled()}] + [
+        {"key": "dock:" + k, "kind": "tile", "label": label, "icon": k, "value": k in shown}
+        for k, label in dock.ITEMS]
+
+
 # ── the rows of each tab ──────────────────────────────────────────────────────
 
 _cache = {}                   # tab → (when, rows): drawn every frame, read once a second
 
 
 def rows(tab, now=None):
-    """[{"key", "label", "sub", "value", "kind": toggle|cycle|info|danger}]"""
+    """[{"key", "label", "sub", "value", "kind": toggle|cycle|info|danger|tile}]"""
     now = now or time.time()
     hit = _cache.get(tab)
     if hit and now - hit[0] < 1.0:
@@ -195,9 +207,6 @@ def _rows(tab):
             {"key": "brightness", "kind": "cycle", "label": "Jasność",
              "sub": "zmienia od razu; w nocy i po ciemku przygasa sama",
              "value": f"{display_base()} %"},
-            {"key": "dock", "kind": "toggle", "label": "Ikony na dole",
-             "sub": "zakupy, plan, zdjęcia, ustawienia — jednym dotknięciem",
-             "value": settings.get("dock", True) is not False},
             {"key": "camera_preview", "kind": "toggle", "label": "Podgląd kamery",
              "sub": "mały obraz z kamery w rogu",
              "value": bool(settings.get("camera_preview", CAMERA_PREVIEW))},
@@ -205,6 +214,8 @@ def _rows(tab):
              "sub": "klatki na sekundę; mniej = chłodniejszy procesor",
              "value": f"{draw_fps()} kl./s"},
         ]
+    if name == "Ikony":
+        return dock_rows()
     if name == "Urządzenia":
         return device_rows()
     if name == "Koszty":
@@ -336,6 +347,15 @@ def change(key):
         if key == "speaker":
             threading.Thread(target=_say_speaker, daemon=True, name="speaker-hello").start()
         return f"{dict(_DEVICES)[key]}: {label}"
+    if key.startswith("dock:"):
+        import dock
+        k = key[5:]
+        on = k not in dock.chosen()
+        dock.choose(k, on)
+        label = dict(dock.ITEMS)[k]
+        if on and not dock.enabled():          # (the row was off: a tile ticked wants it)
+            settings.put("dock", True)
+        return f"{label}: na dole" if on else f"{label}: schowane"
     if key == "draw_fps":
         new = _next(_FPS, draw_fps())
         settings.put("draw_fps", new)

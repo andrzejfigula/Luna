@@ -1190,14 +1190,23 @@ def draw_list(scr, heading, rows, now, W, H, meta=None):
 
 # ── the settings page (settings_page.py): tabs on the left, rows to tap ──────
 
-def _settings_layout(W, H, n_rows):
-    """{"tabs": [...], "rows": [...], "ctrls": [...], "dialog", "yes", "no"}."""
+def _settings_layout(W, H, n_rows, n_tiles=0):
+    """{"tabs": [...], "rows": [...], "ctrls": [...], "dialog", "yes", "no"};
+    the last n_tiles rows are tiles, 4 a row (Ikony)."""
     import settings_page
     top = 78
-    tabs = [pygame.Rect(16, top + k * 58, 168, 50) for k in range(len(settings_page.TABS))]
+    ts = min(58, (H - top - 10) // len(settings_page.TABS))
+    tabs = [pygame.Rect(16, top + k * ts, 168, ts - 8) for k in range(len(settings_page.TABS))]
     x0 = 198
-    rh = min(72, (H - top - 10) // max(1, n_rows))
-    rws = [pygame.Rect(x0, top + k * rh, W - x0 - 16, rh - 8) for k in range(n_rows)]
+    n_plain = n_rows - n_tiles
+    rh = 72 if n_tiles else min(72, (H - top - 10) // max(1, n_rows))
+    rws = [pygame.Rect(x0, top + k * rh, W - x0 - 16, rh - 8) for k in range(n_plain)]
+    if n_tiles:
+        y0, cols = top + n_plain * rh, 4
+        th = min(150, (H - 10 - y0) // ((n_tiles + cols - 1) // cols))
+        tw = (W - x0 - 8) // cols
+        rws += [pygame.Rect(x0 + (k % cols) * tw, y0 + (k // cols) * th, tw - 8, th - 8)
+                for k in range(n_tiles)]
     ctrls = [pygame.Rect(r.right - 160, r.centery - 21, 148, 42) for r in rws]
     dlg = pygame.Rect(W // 2 - 270, H // 2 - 125, 540, 250)
     no = pygame.Rect(dlg.x + 30, dlg.bottom - 78, 225, 54)
@@ -1208,7 +1217,8 @@ def _settings_layout(W, H, n_rows):
 def settings_hit(x, y, W, H, data):
     """("tab", i) | ("row", i) | ("yes",) | ("no",) | None for a tap at (x, y) px."""
     import settings_page
-    L = _settings_layout(W, H, len(settings_page.rows(data.get("tab", 0))))
+    rows = settings_page.rows(data.get("tab", 0))
+    L = _settings_layout(W, H, len(rows), sum(r["kind"] == "tile" for r in rows))
     if data.get("confirm"):
         for key in ("yes", "no"):
             if L[key].inflate(10, 10).collidepoint(x, y):
@@ -1223,6 +1233,25 @@ def settings_hit(x, y, W, H, data):
     return None
 
 
+def _settings_tile(scr, r, row, gold, soft):
+    """A tile to tick (Ikony): the dock's own icon, its name, a tick when on."""
+    on = row["value"]
+    scr.blit(rrect(r.w, r.h, 18, (255, 205, 120, 46) if on else (255, 255, 255, 14)), r)
+    if on:
+        pygame.draw.rect(scr, gold, r, 2, border_radius=18)
+    ico = dock_icon(row["icon"], None, WHITE if on else (150, 150, 175), 44)
+    scr.blit(ico, ico.get_rect(center=(r.centerx, r.y + r.h * 0.42)))
+    lab = text(fit(row["label"], 17, r.w - 12, "Bold"), 17, WHITE if on else soft, "Bold")
+    scr.blit(lab, lab.get_rect(center=(r.centerx, r.bottom - 18)))
+    c = (r.right - 18, r.y + 18)                  # the box: ticked when on
+    if on:
+        pygame.draw.circle(scr, gold, c, 11)
+        pygame.draw.lines(scr, (40, 32, 66), False,
+                          [(c[0] - 5, c[1]), (c[0] - 1, c[1] + 4), (c[0] + 5, c[1] - 4)], 3)
+    else:
+        pygame.draw.circle(scr, (255, 255, 255, 110), c, 11, 2)
+
+
 def draw_settings(scr, data, now, W, H):
     """Ustawienia: the tabs; each row a label, a line under it and its control
     (a switch, a value to tap through, a number); the reset asks first."""
@@ -1233,15 +1262,18 @@ def draw_settings(scr, data, now, W, H):
     scr.blit(title, (24, 38 - title.get_height() // 2))
     tab = data.get("tab", 0)
     rows = settings_page.rows(tab, now)
-    L = _settings_layout(W, H, len(rows))
+    L = _settings_layout(W, H, len(rows), sum(r["kind"] == "tile" for r in rows))
     for k, (r, name) in enumerate(zip(L["tabs"], settings_page.TABS)):
         sel = k == tab
         scr.blit(rrect(r.w, r.h, 14, (255, 205, 120, 70) if sel else (255, 255, 255, 16)), r)
         lab = text(name, 21, WHITE if sel else (225, 225, 240), "ExtraBold" if sel else "Bold")
         scr.blit(lab, (r.x + 16, r.centery - lab.get_height() // 2))
     for r, c, row in zip(L["rows"], L["ctrls"], rows):
-        scr.blit(rrect(r.w, r.h, 16, (255, 255, 255, 22)), r)
         kind, val = row["kind"], row["value"]
+        if kind == "tile":
+            _settings_tile(scr, r, row, gold, soft)
+            continue
+        scr.blit(rrect(r.w, r.h, 16, (255, 255, 255, 22)), r)
         room = (c.x if kind != "info" else r.right - 250) - r.x - 28
         nm = text(fit(row["label"], 22, room, "ExtraBold"), 22, WHITE, "ExtraBold")
         sub = text(fit(row["sub"], 16, room, "SemiBold"), 16, soft, "SemiBold")
@@ -1325,6 +1357,8 @@ DOCK_ICONS = {
                  ("l", [(8, 3), (8, 7)], False), ("l", [(16, 3), (16, 7)], False),
                  ("c", (8, 14.5), 0.9), ("c", (12, 14.5), 0.9), ("c", (16, 14.5), 0.9),
                  ("c", (8, 18), 0.9), ("c", (12, 18), 0.9)],
+    "lessons": [("r", 4, 7.5, 16, 14), ("l", _arc((12, 7.5), 3.5, 180, 360), False),   # a school bag
+                ("l", [(8, 21.5), (8, 14), (16, 14), (16, 21.5)], False)],
     "weather": _WEATHER_ICON,
     "photos": [("r", 2.5, 5, 19, 15), ("l", [(4, 18), (9.5, 11.5), (13.5, 15.5), (16, 13), (20, 18)], False),
                ("c", (16.5, 9.5), 1.7)],
@@ -1416,11 +1450,11 @@ def draw_dock(scr, kind, cols, now=None):
     now = now if now is not None else time.time()
     col = tuple(int(c) for c in cols[0][:3])
     tint = tuple(int(c) for c in cols[1][:3])
-    n = len(dock.ITEMS)
-    bw, bh = dock.STEP * n - 12, 52
+    where = dock.centres()
+    bw, bh = dock.STEP * len(where) - 12, 52
     pill = rrect(bw, bh, bh // 2, (tint[0] // 8, tint[1] // 8, tint[2] // 8, 70))
     scr.blit(pill, pill.get_rect(center=(dock.W // 2, dock.CY)))
-    for key, cx in dock.centres():
+    for key, cx in where:
         ico = dock_icon(key, kind, col, dock.ICON)
         ico.set_alpha(int(95 + 150 * dock.lit(key, now)))
         scr.blit(ico, ico.get_rect(center=(int(cx), dock.CY)))

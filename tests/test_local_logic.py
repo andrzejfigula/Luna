@@ -7832,6 +7832,7 @@ class DockTest(unittest.TestCase):
         self.d = dock
         settings._load()
         settings._data.pop("dock", None)
+        settings._data.pop("dock_items", None)
         settings._data.pop("captions", None)
         lists._lists = {}
         with state.lock:
@@ -7849,8 +7850,9 @@ class DockTest(unittest.TestCase):
 
     def test_hit_and_visible(self):
         d = self.d
-        for k, _ in d.ITEMS:
+        for k in d.DEFAULT:
             self.assertEqual(self._tap(k), k)
+        self.assertNotIn("lessons", dict(d.centres()))           # not on it until ticked
         self.assertIsNone(d.hit(0.5, 0.5))                       # the face, not the row
         self.assertIsNone(d.hit(0.02, 0.97))                     # beside the row
         with state.lock:
@@ -7899,6 +7901,51 @@ class DockTest(unittest.TestCase):
         with state.lock:
             self.assertEqual(state.overlay[:1] + (state.overlay[2][0],), ("list", "Pogoda"))
 
+    def test_choose_icons(self):
+        d = self.d
+        self.assertEqual(d.chosen(), list(d.DEFAULT))
+        d.choose("shopping", False)
+        d.choose("lessons", True)
+        self.assertNotIn("shopping", d.chosen())
+        self.assertEqual(d.chosen()[2], "lessons")              # in its place, after the week's plan
+        self.assertEqual(self._tap("lessons"), "lessons")
+        xs = [x for _, x in d.centres()]
+        self.assertAlmostEqual((xs[0] + xs[-1]) / 2, d.W / 2)   # the row stays centred
+        import schedule
+        with mock.patch.object(schedule, "show_lessons") as sl:
+            d.open_page("lessons")
+        self.assertTrue(sl.called)
+        for k in d.chosen():
+            d.choose(k, False)
+        self.assertFalse(d.visible())                            # none ticked: no row at all
+        settings.put("dock_items", ["radio", "nonsense"])
+        self.assertEqual(d.chosen(), ["radio"])
+
+    def test_settings_tiles(self):
+        try:
+            import pygame  # noqa: F401
+        except ImportError:
+            self.skipTest("pygame")
+        import settings_page as sp
+        import ui_screens
+        tab = sp.TABS.index("Ikony")
+        sp._cache.clear()
+        sp.show(tab)
+        rows = sp.rows(tab)
+        self.assertEqual([r["key"] for r in rows[1:]], ["dock:" + k for k, _ in self.d.ITEMS])
+        L = ui_screens._settings_layout(800, 480, len(rows), len(rows) - 1)
+        for r in L["rows"] + L["tabs"]:
+            self.assertTrue(pygame_rect_inside(r, 800, 480), r)
+        k = [r["key"] for r in rows].index("dock:lessons")
+        settings.put("dock", False)
+        sp.tap(*L["rows"][k].center, 800, 480)                   # a tile: ticked, the row on
+        self.assertIn("lessons", self.d.chosen())
+        self.assertTrue(self.d.enabled())
+        with state.lock:
+            self.assertEqual(state.overlay[2]["toast"][0], "Plan lekcji: na dole")
+        sp.tap(*L["rows"][k].center, 800, 480)
+        self.assertNotIn("lessons", self.d.chosen())
+
     def test_voice_switch(self):
         import commands
         said = []
@@ -7906,6 +7953,10 @@ class DockTest(unittest.TestCase):
             self.assertTrue(commands.handle(text, lambda t, **k: said.append(t),
                                             lambda *a, **k: None))
             self.assertIs(settings.get("dock"), on)
+
+
+def pygame_rect_inside(r, W, H):
+    return r.x >= 0 and r.y >= 0 and r.right <= W and r.bottom <= H
 
 
 class SettingsPageTest(unittest.TestCase):
@@ -7959,7 +8010,7 @@ class SettingsPageTest(unittest.TestCase):
             with mock.patch.object(self.sp, "cost_rows", return_value=[]):
                 rows = self.sp.rows(tab)
             for r in rows:
-                self.assertIn(r["kind"], ("toggle", "cycle", "info", "danger"))
+                self.assertIn(r["kind"], ("toggle", "cycle", "info", "danger", "tile"))
                 self.assertTrue(r["label"])
 
     def test_cost(self):
