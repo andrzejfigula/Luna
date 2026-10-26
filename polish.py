@@ -454,6 +454,58 @@ def fix_desk(text):
     return re.sub(r"\bna\s+desk\b", "na biurku", text, flags=re.I)
 
 
+_GEN_ONES = ["", "jednego", "dwóch", "trzech", "czterech", "pięciu", "sześciu", "siedmiu",
+             "ośmiu", "dziewięciu"]
+_GEN_TEENS = ["dziesięciu", "jedenastu", "dwunastu", "trzynastu", "czternastu", "piętnastu",
+              "szesnastu", "siedemnastu", "osiemnastu", "dziewiętnastu"]
+_GEN_TENS = ["", "", "dwudziestu", "trzydziestu", "czterdziestu", "pięćdziesięciu"]
+
+
+def _gen_number(n):
+    """5 → "pięciu", 21 → "dwudziestu jeden" (0–59)."""
+    if n == 0:
+        return "zera"
+    t, o = divmod(n, 10)
+    if t == 0:
+        return _GEN_ONES[o]
+    if t == 1:
+        return _GEN_TEENS[o]
+    return _GEN_TENS[t] + ("" if not o else " jeden" if o == 1 else " " + _GEN_ONES[o])
+
+
+_NOM = {number_words(n): n for n in range(60)}
+_NUM = r"(?:minus\s+)?(?:\d{1,2}|" + "|".join(sorted(map(re.escape, _NOM), key=len, reverse=True)) + ")"
+_DEG = re.compile(rf"\b(około|okolo|od|do)\s+({_NUM})(?:\s*(?:do|–|-)\s*({_NUM}))?\s+"
+                  r"(?:stopni|stopnie|stopnia|stopień)\b", re.I)
+
+
+def fix_degrees(text):
+    """"około pięć do jedenaście stopni" → "około pięciu do jedenastu stopni",
+    "od 6 do 12 stopni" → "od sześciu do dwunastu stopni" (24–26 Oct weather
+    answers: the numbers left in the nominative after około / od / do)."""
+    def gen(num):
+        m = re.match(r"(minus\s+)?(.+)$", num, re.I)
+        minus, n = bool(m.group(1)), " ".join(m.group(2).lower().split())
+        n = int(n) if n.isdigit() else _NOM.get(n)
+        if n is None:
+            return num, None
+        return ("minus " if minus else "") + _gen_number(n), n
+
+    def one(m):
+        a, na = gen(m.group(2))
+        if na is None:
+            return m.group(0)
+        out = f"{m.group(1)} {a}"
+        last = na
+        if m.group(3):
+            b, last = gen(m.group(3))
+            if last is None:
+                return m.group(0)
+            out += f" do {b}"
+        return out + (" stopnia" if last == 1 else " stopni")
+    return _DEG.sub(one, text or "")
+
+
 def fix_vocative(text, vocatives):
     """"Maja, mama ma urodziny…" → "Maju, …" — a name said TO someone, at the
     start before a comma or after a comma at the end, takes the vocative

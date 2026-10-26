@@ -692,7 +692,8 @@ def _year_facts(today=None):
 
 
 from polish import (feminize, offer_only, empty_promise, claims_undone, neutral_you,   # (polish.py)
-                    looks_english, is_secret, fix_vocative, fix_desk, to_latin)
+                    looks_english, is_secret, fix_vocative, fix_desk, to_latin,
+                    fix_degrees)
 
 
 def _latin(text):
@@ -732,6 +733,7 @@ def _feminize(text):
     text = _latin(text or "")
     text = re.sub(r"\s*(?:\\n|\n)+\s*", " ", text or "")              # a poem's "\n"
     text = fix_desk(text if themes.male() else feminize(text))    # (HAL is a he)
+    text = fix_degrees(text)                       # "około pięciu stopni"
     try:
         text = fix_vocative(text, faces.vocatives())     # "Maja, …" → "Maju, …"
     except Exception:

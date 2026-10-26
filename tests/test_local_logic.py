@@ -4243,6 +4243,20 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(fix_desk("Zbudował mnie Andrzej, a mieszkam u nas na biurku."),
                          "Zbudował mnie Andrzej, a mieszkam u nas.")
         self.assertEqual(fix_desk("Telefon leży na biurku."), "Telefon leży na biurku.")
+
+    def test_fix_degrees(self):
+        from polish import fix_degrees as f
+        # 24 Oct: "Jutro ma padać, około pięć do jedenaście stopni."
+        self.assertEqual(f("Jutro ma padać, około pięć do jedenaście stopni."),
+                         "Jutro ma padać, około pięciu do jedenastu stopni.")
+        self.assertEqual(f("Teraz jest około dziesięć stopni."), "Teraz jest około dziesięciu stopni.")
+        self.assertEqual(f("od 6 do 12 stopni"), "od sześciu do dwunastu stopni")
+        self.assertEqual(f("od minus dwa do trzy stopni"), "od minus dwóch do trzech stopni")
+        self.assertEqual(f("około 5–11 stopni"), "około pięciu do jedenastu stopni")
+        self.assertEqual(f("około dwadzieścia jeden stopni"), "około dwudziestu jeden stopni")
+        self.assertEqual(f("około jeden stopień"), "około jednego stopnia")
+        for same in ("od sześciu do dwunastu stopni", "Jest dwa stopnie.", "Mam 8 lat, około 5 do 6."):
+            self.assertEqual(f(same), same)
         # …and "Głośność na pięćdziesiąt procent" (the model said "ustawiam" — nothing)
         import commands
         self.assertEqual(commands._volume_command("Głośność na pięćdziesiąt procent"), 0.5)
