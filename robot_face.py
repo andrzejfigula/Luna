@@ -496,22 +496,6 @@ def blush_lines(surf, fcx, fcy, k):
         surf.blit(img, img.get_rect(center=(int(fcx + side * 232), int(fcy + 70))))
 
 
-DIODE_COL = (70, 255, 120)              # HAL's status lights: "all systems go"
-
-
-def status_diodes(surf, fcx, fcy, k, blink=0.0):
-    """HAL's blush: a small green diode under each lens; tickled, they
-    flicker like a disk working."""
-    if blink > 0.05:
-        t = time.monotonic()
-        k *= 0.3 + 0.7 * (math.sin(t * 31.0) + math.sin(t * 17.3) > 0.0)
-    for side in (-1, 1):
-        x, y = fcx + side * 250, fcy + 85
-        _ring(surf, x, y, 10.0, 3.0, (96, 98, 104), min(1.0, 2.0 * k))  # the steel socket
-        _lines(surf, [(x, y)], 13.0, DIODE_COL, k, core=(225, 255, 230), core_w=5.0,
-               glow=11.0 * k)
-
-
 def anger_mark(surf, x, y, r, alpha=255):
     """The cartoon anger mark: four bulging arcs in a cross (cached)."""
     out = _fx(surf)
@@ -3308,9 +3292,6 @@ class RobotFace:
             blush = getattr(gl, "blush_now", 0.0)
             if blush > 0.55:                      # rosy: the "///" lines on the cheeks
                 blush_lines(base, fcx, fcy, min(1.0, (blush - 0.55) / 0.3))
-        diode, blink = getattr(gl, "diode_now", (0.0, 0.0)) if gl else (0.0, 0.0)
-        if diode > 0.03 and not own:              # HAL: status diodes, not a blush
-            status_diodes(base, fcx, fcy, min(1.0, 1.4 * diode), blink)
 
         # ── angry (the block face): a pulsing anger mark by the right brow ──
         if EYE_MODE == "block" and self._emotion == "angry" and not self._scene and not own:

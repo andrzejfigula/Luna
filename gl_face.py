@@ -107,6 +107,7 @@ uniform float uWave;          // > 0: the wavy mouth is a voice wave this tall (
 uniform vec3  uWaveBands;     // …made of her voice's low / mid / high share (long, short, fine waves)
 uniform float uLens;          // 1: the eyes are HAL's camera lenses, not her glossy ones
 uniform vec2  uShut;          // …and their shutters, closed 0..1 (his blink)
+uniform vec2  uRim;           // …HAL blushing: his steel rims warm red (x) and turn (y, radians)
 
 float gA;                     // the coverage of the shape just drawn (stage 2)
 
@@ -374,12 +375,18 @@ vec3 lensColour(vec2 q, vec2 b, vec4 pu, float sh) {
     col += red * 0.22 * exp(-sq((r - L * 1.01) / 0.012)) * (0.5 + 0.5 * smoothstep(-0.6, 0.8, n.y - g.y));
     // the steel rim: brushed, lit from above, a dark seam inside it
     float rk = smoothstep(0.885, 0.90, r);
-    float ang = atan(n.y, n.x);
+    float ang = atan(n.y, n.x) - uRim.y;
     vec3 steel = vec3(0.16, 0.16, 0.17) * (0.45 + 0.85 * clamp(0.5 - 0.6 * n.y, 0.0, 1.0))
                  * (0.92 + 0.08 * sin(ang * 46.0));
     steel += vec3(0.5) * exp(-sq((r - 0.905) / 0.007)) * clamp(-n.y, 0.0, 1.0);   // its bevel
+    if (uRim.x > 0.002) {                 // blushing: the steel warms red, a sheen goes round
+        float sweep = pow(0.5 + 0.5 * cos(ang - 2.2), 10.0);
+        steel = mix(steel, steel * vec3(1.5, 0.55, 0.5) + red * 0.12, uRim.x)
+              + red * uRim.x * (0.08 + 0.60 * sweep);
+    }
     col = mix(col, steel, rk);
     col *= 1.0 - 0.7 * exp(-sq((r - 0.89) / 0.008));
+    col += red * 0.30 * uRim.x * exp(-sq((r - 0.89) / 0.012));      // (its seam glows)
     // the glass over all of it: a window's curved reflection, a sharp spark
     vec2 hq = n + pu.xy / b * 0.10;
     float win = smoothstep(0.0, 0.05, 1.0 - length((hq - vec2(-0.10, -0.08)) / 0.78))
@@ -413,7 +420,7 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
         float breath = 1.0 + 0.07 * sin(uTime);          // she breathes: so does the light
         float dg = max(min(d, mix(1e5, ds, sa)), 0.0);
         glow += gc * (0.40 * exp(-dg / 10.0) + 0.17 * breath * exp(-dg / 40.0))
-                * (1.0 + 0.35 * uEnergy) * uDim * (1.0 - 0.6 * uLens)    // (black glass)
+                * (1.0 + 0.35 * uEnergy) * uDim * (1.0 - 0.6 * uLens + 0.5 * uRim.x)  // (black glass)
                 * smoothstep(0.0, 8.0, e.w);
         return col;
     }
@@ -949,6 +956,7 @@ class _Life:
         self.rem_t = _clock() + random.uniform(20, 40)   # asleep: dreaming
         self.closed_at = -9.0             # the last blink: a fresh wet glint after
         self.touched = 0.0                # the last touch we reacted to
+        self.rim_ang = 0.0                # HAL's rims: how far they turned, blushing
         self.taps = []                    # recent taps: three quick ones tickle
         self.giggle_t = -9.0
         self.boop_t = -9.0                # a tap on the nose: cross-eyed
@@ -1894,9 +1902,13 @@ class GLFace:
         u.update(self._mouth(face, rf, fcx, fcy, cur))
         blush = min(1.0, cur["blush"] + 0.55 * shy + 0.5 * content + 0.25 * beatv
                     + 0.4 * giggle)
-        # HAL has no cheeks: his status diodes light instead (robot_face)
-        self.diode_now = (blush, giggle) if lens else (0.0, 0.0)
-        blush = 0.0 if lens else blush
+        # HAL has no cheeks: his steel rims warm red and turn (tickled: they rattle)
+        if lens:
+            life.rim_ang += dt * 2.2 * blush
+            u["uRim"] = (blush, life.rim_ang + 0.06 * giggle * math.sin(now * 40.0))
+            blush = 0.0
+        else:
+            u["uRim"] = (0.0, 0.0)
         u["uBlush"] = (fcx, fcy, blush, 30.0)
         self.blush_now = blush                    # (robot_face: the "///" lines)
         sp = getattr(face, "_scene_p", 0.0)
