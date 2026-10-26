@@ -3,6 +3,8 @@ ui_schedule.py — the "plan tygodnia" page (schedule.py): drawing and taps.
 
   the week:   person chips (Wszyscy, Maja…), the seven days, that day's
               entries (time, whose, what, the reminder), "+ Dodaj",
+              "Z kartki" (the camera reads a plan on paper into the person's
+              week; on "Wszyscy" she asks whose it is),
               "Plan lekcji" (ui_lessons.py: one person's Pn–Pt grid; the
               week shows a day's lessons as one "Szkoła" row leading there),
               "Wyczyść" (tapped twice: the person's plan, or everyone's)
@@ -70,9 +72,10 @@ def layout(W, H, d):
     d["page"] = d.get("page", 0) % pages
     shown = evs[d["page"] * ROWS:(d["page"] + 1) * ROWS]
     L["rows"] = [(pygame.Rect(16, 152 + k * 55, W - 32, 50), e) for k, e in enumerate(shown)]
-    L["add"] = pygame.Rect(W - 16 - 170, H - 52, 170, 44)
+    L["add"] = pygame.Rect(W - 16 - 160, H - 52, 160, 44)
     L["more"] = pygame.Rect(16, H - 52, 150, 44) if pages > 1 else None
-    L["lessons"] = pygame.Rect(L["add"].x - 10 - 160, H - 52, 160, 44)
+    L["lessons"] = pygame.Rect(L["add"].x - 10 - 150, H - 52, 150, 44)
+    L["paper"] = pygame.Rect(L["lessons"].x - 10 - 128, H - 52, 128, 44)
     L["clear"] = (pygame.Rect(176, H - 52, 140, 44)
                   if schedule.week_entries(d.get("who")) else None)
     L["pages"] = pages
@@ -80,7 +83,7 @@ def layout(W, H, d):
 
 
 def hit(x, y, W, H, d):
-    """("day", k) | ("who", name) | ("row", id) | ("add",) | ("more",) | ("back",)
+    """("day", k) | ("who", name) | ("row", id) | ("add",) | ("paper",) | ("more",) | ("back",)
     | ("eday", k) | ("at-",) … | ("delete",) | None — a tap at (x, y) px."""
     L = layout(W, H, d)
     if d.get("sel"):
@@ -103,6 +106,8 @@ def hit(x, y, W, H, d):
         return ("add",)
     if L["lessons"].inflate(6, 6).collidepoint(x, y):
         return ("lessons",)
+    if L["paper"].inflate(4, 6).collidepoint(x, y):
+        return ("paper",)
     if L["clear"] and L["clear"].inflate(6, 6).collidepoint(x, y):
         return ("wipe",)
     if L["more"] and L["more"].collidepoint(x, y):
@@ -177,6 +182,9 @@ def draw(scr, d, now, W, H):
         hint = text("Dotknij „+ Dodaj” i powiedz, np. „Maja, angielski, Pn–Pt o 17”", 18,
                     DIM, "SemiBold")
         scr.blit(hint, hint.get_rect(center=(W // 2, 290)))
+        hint = text("albo potrzymaj kartkę z planem przed kamerą i dotknij „Z kartki”", 18,
+                    DIM, "SemiBold")
+        scr.blit(hint, hint.get_rect(center=(W // 2, 316)))
     for r, e in L["rows"]:
         scr.blit(rrect(r.w, r.h, 16, (255, 255, 255, 22)), r)
         at = text(e["at"], 22, _LABEL, "ExtraBold")
@@ -205,6 +213,7 @@ def draw(scr, d, now, W, H):
         scr.blit(ri, (r.right - 14 - ri.get_width(), r.centery - ri.get_height() // 2))
     _pill(scr, L["add"], "+ Dodaj", 22, col=(80, 170, 120, 220), weight="ExtraBold")
     _pill(scr, L["lessons"], "Plan lekcji", 20)
+    _pill(scr, L["paper"], "Z kartki", 20, col=(70, 120, 200, 220), weight="ExtraBold")
     if L["clear"]:
         sure = now - d.get("confirm", 0.0) < 4.0
         _pill(scr, L["clear"], "Na pewno?" if sure else "Wyczyść", 20,

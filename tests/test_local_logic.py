@@ -9113,6 +9113,35 @@ class ScheduleTest(unittest.TestCase):
         with state.lock:
             state.overlay = None
 
+    def test_week_page_paper_button(self):
+        import threading
+        from unittest import mock
+        from shared_state import state
+        import pygame
+        import ui_schedule
+        pygame.font.init()
+        got, done, said = [], threading.Event(), []
+
+        def fake(who, speak, fresh=False):
+            got.append((who, fresh))
+            done.set()
+            return True
+        with mock.patch.object(self.s, "import_paper", fake):
+            self.s.show("Maja", day=0)
+            d = self.s._page()
+            r = ui_schedule.layout(800, 480, d)["paper"]
+            self.assertEqual(ui_schedule.hit(r.centerx, r.centery, 800, 480, d), ("paper",))
+            self.s.tap(r.centerx, r.centery, 800, 480, said.append)
+            self.assertTrue(done.wait(2))
+            self.assertEqual(got, [("Maja", False)])           # Maja's week, not "fresh"
+            d["who"] = None                                    # "Wszyscy": whose is it?
+            self.s.tap(r.centerx, r.centery, 800, 480, said.append)
+            self.assertTrue(said[-1].startswith("Czyj to plan?"))
+            self.assertTrue(self.s.handle("Emilki", said.append))
+            self.assertEqual(got[-1], ("Emilka", False))
+        with state.lock:
+            state.overlay = None
+
     def test_lesson_page_has_room_for_8(self):
         L = self._lesson
         self.assertEqual(self.s.lesson_slots("Maja"), ([], {}, 0))      # empty: no grid

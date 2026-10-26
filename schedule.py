@@ -1389,6 +1389,23 @@ def _tap_lessons(d, x, y, W, H, speak):
     return True
 
 
+def _paper_tap(who, speak):
+    """"Z kartki" on the week page: read it into `who`'s week; on "Wszyscy",
+    asked whose it is first (the answer goes to import_paper)."""
+    if who is None:
+        _expect.update(until=time.time() + EXPECT_SECS, draft=None, paper=True, fresh=False)
+        with state.lock:
+            state.conversation_active = True
+            state.last_activity_time = time.time()
+        (speak or _say)("Czyj to plan? Powiedz na przykład: Mai — albo: cały dom.")
+        return
+
+    def run():                               # (it waits for the frames: not on the render thread)
+        from text_to_speech import speak as say
+        import_paper(who, speak or say)
+    threading.Thread(target=run, daemon=True, name="week-paper").start()
+
+
 def _page():
     with state.lock:
         ov = state.overlay
@@ -1475,6 +1492,8 @@ def tap(x, y, W, H, speak=None):
                                "Maja, angielski, od poniedziałku do piątku o siedemnastej.")
     elif kind == "lessons":
         d.update(view="lessons", who=_lesson_who(d.get("who")))
+    elif kind == "paper":                    # the plan on paper → this person's week
+        _paper_tap(d.get("who"), speak)
     elif kind == "back":
         d["sel"], d["confirm"] = None, 0.0
         d["view"] = d.pop("back", None) or d.get("view")
