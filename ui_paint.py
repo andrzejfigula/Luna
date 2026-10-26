@@ -19,7 +19,9 @@ from ui_screens import WHITE, DIM, text, fit, rrect, vgrad
 _GOLD = (255, 205, 120)
 _LABELS = {"talk": "Powiedz", "close": "Zamknij", "brush": "Pędzel", "eraser": "Gumka",
            "mark": "Pokaż", "undo": "Cofnij", "new": "Nowa", "open": "Otwórz",
-           "save": "Zapisz", "print": "Drukuj"}
+           "save": "Zapisz", "print": "Drukuj", "rotate": "Obróć"}
+_VOICE = {"listening": ("Słucham", (60, 190, 110)), "thinking": ("Myślę", (230, 160, 50)),
+          "speaking": ("Mówię", (150, 100, 220))}
 _sheet = {"ver": -1, "surf": None}
 _thumbs = {}                    # (path, mtime, w, h) → surface
 
@@ -147,8 +149,18 @@ def draw(scr, now, W, H):
             (v["picker"] is not None and key in ("brush", "eraser", "mark", "undo"))
         bg = (255, 205, 120, 95) if lit else (214, 52, 52, 200) if key == "close" else \
             (96, 170, 255, 120) if key == "talk" else (255, 255, 255, 30)
-        scr.blit(rrect(bw, bh, 12, bg), (bx, by))
         label = _LABELS[key]
+        if key == "talk" and v["voice"]:              # she listens / thinks / talks: seen here
+            label = _VOICE[v["voice"]][0]             # (the page hides her face and the bar)
+            pulse = 0.5 + 0.5 * math.sin(now * 5)
+            bg = _VOICE[v["voice"]][1] + (int(150 + 90 * pulse),)
+        scr.blit(rrect(bw, bh, 12, bg), (bx, by))
+        cx = bx + bw // 2
+        if key == "rotate":                           # the paper, the way it lies now
+            pw, ph = (16, 11) if v["wide"] else (11, 16)
+            pygame.draw.rect(scr, WHITE, (bx + 7 + (16 - pw) // 2, by + (bh - ph) // 2, pw, ph),
+                             2, border_radius=2)
+            cx += 10
         if key == "open" and v["picker"] is not None and v["picker"]["pages"] > 1:
             label = "Dalej ›"
         if key == "brush":                            # its size, in its colour
@@ -159,7 +171,7 @@ def draw(scr, now, W, H):
         if key == "mark" and v["marks"]:
             pygame.draw.circle(scr, paint.MARK_COL, (bx + bw - 11, by + 11), 6)
         lab = text(fit(label, 17, bw - 8, "Bold"), 17, (150, 150, 170) if dim else WHITE, "Bold")
-        scr.blit(lab, lab.get_rect(center=(bx + bw // 2, by + bh // 2 + 4)))
+        scr.blit(lab, lab.get_rect(center=(cx, by + bh // 2 + 2)))
 
     hx, hy, hw, hh = paint.HINT                       # a line of help
     hint = v["hint"]

@@ -10423,6 +10423,50 @@ class PaintTest(unittest.TestCase):
         self.assertTrue(p.voice("nowa kartka", said.append))
         self.assertTrue(p._is_blank(p._s["img"]))
 
+    def test_rotate(self):
+        p = self.p
+        said = []
+        p._s["img"].putpixel((0, 0), (255, 0, 0))               # top-left of the portrait
+        self._tap(*self._centre("rotate"))
+        self.assertEqual(p._s["img"].size, (1536, 1024))
+        self.assertEqual(p._s["img"].getpixel((0, 1023)), (255, 0, 0))   # turned with it
+        self.assertTrue(p.view()["wide"])
+        self.assertEqual(p.gen_prompt("zamek", "landscape")[1], "landscape")
+        self.assertEqual(p.gen_prompt("zamek pionowo", "landscape")[1], "portrait")
+        self.assertTrue(p.voice("nowa kartka", said.append))    # keeps the way it lies
+        self.assertEqual(p._s["img"].size, (1536, 1024))
+        self.assertTrue(p.voice("kartka poziomo", said.append))
+        self.assertIn("już leży poziomo", said[-1])
+        self.assertTrue(p.voice("obróć kartkę na pionowo", said.append))
+        self.assertEqual(p._s["img"].size, (1024, 1536))
+        self.assertTrue(p.voice("Luna, obróć kartkę", said.append))
+        self.assertEqual(p._s["img"].size, (1536, 1024))
+        self.assertTrue(p.undo())
+        self.assertEqual(p._s["img"].size, (1024, 1536))
+        self.assertEqual(self.started, [])
+
+    def test_talk_button(self):
+        p = self.p
+        try:
+            import touch_module
+            import text_to_speech
+        except ImportError as e:
+            self.skipTest(f"on the Pi: {e}")
+        with mock.patch.object(touch_module, "_publish") as pub, \
+                mock.patch.object(text_to_speech, "play_sound_async") as snd:
+            with state.lock:
+                state.conversation_active = False
+            self._tap(*self._centre("talk"))
+            pub.assert_called_with("hold", 0.5, 0.5)
+            self.assertFalse(snd.called)                         # idle_engine says "hm?" then
+            with state.lock:
+                state.conversation_active = True
+            self._tap(*self._centre("talk"))                     # already listening: "hm?" still
+            snd.assert_called_with("huh")
+        self.assertEqual(p.voice_state(), "listening")
+        with state.lock:
+            state.conversation_active = False
+
     def test_fallback_only_while_painting(self):
         p = self.p
         p._s["img"].putpixel((5, 5), (0, 0, 0))

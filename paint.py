@@ -72,14 +72,17 @@ def buttons():
     out = [("talk", (TB, 8, 76, 48)), ("close", (TB + 84, 8, 76, 48))]
     for i in range(len(COLOURS)):
         out.append((f"c{i}", (TB + (i % 4) * 41, 66 + (i // 4) * 41, 36, 36)))
-    rows = (("brush", "eraser"), ("mark", "undo"), ("new", "open"), ("save", "print"))
+    rows = (("brush", "eraser"), ("mark", "undo"), ("new", "rotate"), ("open", "save"),
+            ("print", None))
     for r, (a, b) in enumerate(rows):
-        y = 154 + r * 56
-        out += [(a, (TB, y, 76, 48)), (b, (TB + 84, y, 76, 48))]
+        y = 150 + r * 48
+        out.append((a, (TB, y, 76 if b else 160, 42)))
+        if b:
+            out.append((b, (TB + 84, y, 76, 42)))
     return out
 
 
-HINT = (TB, 380, 160, H - 388)     # a line of help / what she is doing
+HINT = (TB, 392, 160, H - 400)     # a line of help / what she is doing
 
 
 def canvas_rect(size):
@@ -229,7 +232,8 @@ def view():
                 "stroke": dict(st, pts=list(st["pts"])) if st else None,
                 "busy": _s["busy"], "busy_t": _s["busy_t"], "hint": _s["hint"],
                 "picker": _picker_page() if _s["picker"] is not None else None,
-                "undo": bool(_s["undo"]), "down": _s["down"]}
+                "undo": bool(_s["undo"]), "down": _s["down"],
+                "wide": _s["img"].width > _s["img"].height, "voice": voice_state()}
 
 
 def _hint(text):
@@ -317,8 +321,9 @@ def press(key):
                 return
         close()
     elif key == "talk":
-        import touch_module
-        touch_module._publish("hold", 0.5, 0.5)        # she listens, as for a held finger
+        listen()
+    elif key == "rotate":
+        rotate()
     elif key.startswith("c") and key[1:].isdigit():
         with _lock:
             _s["colour"] = int(key[1:])
@@ -364,6 +369,53 @@ def _say(text):
         print(f"[paint] couldn't say {text!r}: {e!r}", flush=True)
 
 
+def listen():
+    """"Powiedz": she listens, as for a held finger — and says "hm?" every
+    time (26 Oct: pressed again while already listening, nothing at all
+    happened, and the page hides her face and the bar that show it)."""
+    import touch_module
+    with state.lock:
+        already = state.conversation_active
+        state.last_activity_time = time.time()     # (a fresh window to speak in)
+    touch_module._publish("hold", 0.5, 0.5)
+    if already:
+        try:
+            from text_to_speech import play_sound_async
+            play_sound_async("huh")
+        except Exception as e:
+            print(f"[paint] no listening sound: {e!r}", flush=True)
+    _hint("Słucham — powiedz, co narysować albo zmienić")
+
+
+def voice_state():
+    """What the "Powiedz" button shows: "speaking" | "thinking" | "listening" | None."""
+    with state.lock:
+        if state.speaking:
+            return "speaking"
+        if state.luna_mode == "processing":
+            return "thinking"
+        muted = time.time() < state.mic_muted_until
+        return "listening" if (state.conversation_active or state.listening) and not muted \
+            else None
+
+
+def orientation(img):
+    return "landscape" if img.width > img.height else "portrait"
+
+
+def rotate():
+    """The paper turned a quarter (what is on it turns with it); undo turns it back."""
+    from PIL import Image
+    with _lock:
+        if _s["img"] is None:
+            _load()
+        _set(_s["img"].transpose(Image.ROTATE_90))
+        _s["hint"] = "Kartka poziomo" if orientation(_s["img"]) == "landscape" \
+            else "Kartka pionowo"
+    print(f"[paint] rotated → {_s['img'].size}", flush=True)
+    return True
+
+
 def undo():
     with _lock:
         if _s["marks"]:
@@ -380,8 +432,11 @@ def undo():
     return True
 
 
-def new_sheet(kind="portrait"):
+def new_sheet(kind=None):
+    """A clean sheet, the way the paper lies now unless told."""
     with _lock:
+        if kind is None:
+            kind = orientation(_s["img"]) if _s["img"] is not None else "portrait"
         _set(_blank(kind), title="")
         _s["picker"] = None
         _s["asked_t"] = time.time()
@@ -611,13 +666,20 @@ _DRESSY = re.compile(r"\bprzebier\w*|\bubran\w*|\bubrań|\bubiera\w*|\bubrać|\b
                      r"\blaleczk\w*|\bstroj\w*", re.I)
 _COLORING = re.compile(r"\bkolorowank\w*|\bdo\s+pokolorowania\b", re.I)
 _WIDE = re.compile(r"\bpoziom\w*|\bpanoram\w*|\bszerok\w*", re.I)
+_TALL = re.compile(r"\bpion(?:ow\w*|ie)?\b", re.I)
 _SQUARE = re.compile(r"\bkwadrat\w*", re.I)
 
 
-def gen_prompt(what):
+def size_kind(what, current="portrait"):
+    """"poziomo" / "pionowo" / "kwadrat", else the way the paper lies now."""
+    return ("landscape" if _WIDE.search(what) else "portrait" if _TALL.search(what)
+            else "square" if _SQUARE.search(what) else current)
+
+
+def gen_prompt(what, current="portrait"):
     """(prompt, size kind) for a new picture."""
     import printer
-    kind = "landscape" if _WIDE.search(what) else "square" if _SQUARE.search(what) else "portrait"
+    kind = size_kind(what, current)
     if _COLORING.search(what):
         style = printer.COLORING_STYLE
     elif _SHEETY.search(what) or _DRESSY.search(what):
@@ -704,8 +766,8 @@ def _run(kind, words, old, marks):
     try:
         c = _client()
         if kind == "new":
-            prompt, size_kind = gen_prompt(words)
-            tw, th = SIZES[size_kind]
+            prompt, kind_ = gen_prompt(words, orientation(old))
+            tw, th = SIZES[kind_]
             r = c.images.generate(model=MODEL, size=f"{tw}x{th}", quality=QUALITY, n=1,
                                   prompt=prompt)
             from PIL import Image
@@ -782,9 +844,15 @@ _SAVE = re.compile(r"^" + _POLITE + r"(?:zapisz|zachowaj|zapisać|zachować)(?:\
                    r"w\s+galerii|do\s+galerii))*\W*$", re.I)
 _BLANK = re.compile(r"^" + _POLITE + r"(?:(?:daj|weź|wez|poproszę)\s+(?:mi\s+|nam\s+)?)?"
                     r"(?:(?:nową|nowa|czystą|czysta|pustą|pusta)\s+(?:kartkę|kartke|kartka|"
-                    r"stronę|strona)(?:\s+poziom\w*)?|wyczyść\s+(?:wszystko|kartkę|kartke|"
+                    r"stronę|strona)(?:\s+(?:na\s+)?(?:poziom\w*|pionow\w*))?|wyczyść\s+(?:wszystko|kartkę|kartke|"
                     r"obrazek)|wyczyść|wyczysc|zmaż\s+wszystko|zacznijmy\s+od\s+nowa|"
                     r"od\s+nowa)\W*$", re.I)
+_ROTATE = re.compile(
+    r"^" + _POLITE + r"(?:(?:obróć|obroc|przekręć|przekrec|odwróć|odwroc|ustaw|połóż|poloz|"
+    r"zrób|zrob|daj)\s+(?:mi\s+|nam\s+)?(?:kartkę|kartke|papier|stronę|strone|arkusz)"
+    r"(?:\s+(?:na\s+)?(?:poziom\w*|pionow\w*|w\s+poziomie|w\s+pionie|bokiem|na\s+bok))?|"
+    r"obróć|obroc|(?:kartka|kartkę|kartke)\s+(?:na\s+)?(?:poziom\w*|pionow\w*)|"
+    r"(?:na\s+)?(?:poziomo|pionowo)|w\s+poziomie|w\s+pionie)\W*$", re.I)
 _UNMARK = re.compile(r"^" + _POLITE + r"(?:usuń|usun|wyczyść|wyczysc|skasuj|zabierz)\s+"
                      r"(?:te\s+|to\s+)?(?:zaznaczeni\w*|kółk\w*|kolk\w*|znaczk\w*|czerwon\w*)\W*$",
                      re.I)
@@ -874,8 +942,19 @@ def voice(text, speak):
             return print_sheet(speak, copies, mono)
         return False                               # "wydrukuj listę zakupów"
     if _BLANK.match(t):
-        new_sheet("landscape" if _WIDE.search(t) else "portrait")
+        new_sheet(size_kind(t, orientation(_s["img"])) if _s["img"] is not None else None)
         speak("Proszę, czysta kartka.")
+        return True
+    r = _ROTATE.match(t)
+    if r:
+        want = size_kind(t, "")
+        with _lock:
+            now = orientation(_s["img"]) if _s["img"] is not None else "portrait"
+        if want == now:
+            speak("Kartka już leży " + ("poziomo." if now == "landscape" else "pionowo."))
+            return True
+        rotate()
+        speak("Obracam kartkę.")
         return True
     if _UNMARK.match(t):
         with _lock:
