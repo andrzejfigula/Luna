@@ -145,6 +145,7 @@ LOCAL = {
     "Kto dziś zmywa: Maja, tata czy mama?": "asked",
     "Wylosuj liczbę od 1 do 6": "asked",
     "Która godzina w Tokio?": "asked",
+    "Jutro jest piątek?": "handled-but-unknown",   # 14 Oct: the model agreed (a Wednesday)
     "Jaki dzień tygodnia będzie 24 grudnia?": "calc",
     "Obudź mnie o 6:30": "timer",
     "Nastaw minutnik na 10 minut na makaron": "timer",
@@ -214,6 +215,7 @@ LOCAL = {
     "Normalne odpowiedzi proszę": "length",
 }
 MODEL = [
+    "Jutro piątek, więc idziemy do kina?",
     "Maja ma angielski w poniedziałki o 17",         # a fact for her memory, not the plan
     "Jaki jest plan na weekend?",
     "Co Maja ma w środę?",

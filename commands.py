@@ -1889,6 +1889,9 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
     # "która godzina?" / "jaki dziś dzień?" — answered at once, locally
     import clock
     said = clock.answer(text)
+    if not said:
+        import brain
+        said = clock.day_claim(text, brain.last_reply()[-200:])
     if said:
         close_after()                           # (a plain fact: nothing follows)
         speak(said)

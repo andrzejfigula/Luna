@@ -215,7 +215,29 @@ def days_short(days):
 
 
 def when_said(e):
-    return f"{days_said(e['days'])} o {e['at']}" + (f" do {e['end']}" if e.get("end") else "")
+    if e.get("end"):                          # (26 Oct: "w środę o 16:00 do 17:30")
+        return f"{days_said(e['days'])} od {e['at']} do {e['end']}"
+    return f"{days_said(e['days'])} o {e['at']}"
+
+
+_PLURAL_A = re.compile(r"(?:enia|ania|ęcia|ecia|ycia|icia)$")
+
+
+def title_after_ma(title):
+    """"Maja ma …": "lekkoatletyka" → "lekkoatletykę", "piłka nożna" →
+    "piłkę nożną"; "angielski", "zajęcia dodatkowe" stay (26 Oct: "Maja ma
+    lekkoatletyka")."""
+    words = (title or "").split(" ")
+    if not words[0].endswith("a") or _PLURAL_A.search(words[0].lower()) or len(words[0]) < 3:
+        return title
+    out = [words[0][:-1] + "ę"]
+    for w in words[1:]:
+        if not re.fullmatch(r"\w+(?:na|ka|wa|ta|ła|ra|ża|sza|cza)", w):
+            out.append(w)
+            out.extend(words[len(out):])
+            break
+        out.append(w[:-1] + "ą")
+    return " ".join(out)
 
 
 def remind_short(e):
@@ -395,7 +417,8 @@ def _confirm(e):
     r = e.get("remind") or {}
     note = (f" Przypomnę {r['before']} minut wcześniej." if r.get("before") else
             " Przypomnę o czasie." if r.get("before") == 0 else "")
-    return f"Dobrze, zapisałam: {whose}{e['title']} {when_said(e)}.{note}"
+    title = title_after_ma(e["title"]) if e["who"] else e["title"]
+    return f"Dobrze, zapisałam: {whose}{title} {when_said(e)}.{note}"
 
 
 def _take(p, speak):
@@ -1132,7 +1155,7 @@ def today_said(who=None, now=None):
     if not today:
         return "Oto plan tygodnia. Na dziś nic w nim nie ma."
     parts = [f"{e['title']}" + (f" — {e['who']}" if e["who"] and not who else "")
-             + f" o {e['at']}" + (f" do {e['end']}" if e.get("kind") == "school" else "")
+             + (f" od {e['at']} do {e['end']}" if e.get("kind") == "school" else f" o {e['at']}")
              for e in today[:3]]
     return "Oto plan tygodnia. Dziś: " + "; ".join(parts) + "."
 

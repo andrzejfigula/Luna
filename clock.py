@@ -262,6 +262,48 @@ def world_time(text, now=None):
     return out
 
 
+# "Jutro piątek?", "Dziś jest środa, prawda?" — a weekday said about a day
+# (14 Oct: "Jutro piątek." → the model, "Tak, jutro jest piątek, 16
+# października." — it was Wednesday)
+_REL = {"dziś": 0, "dzis": 0, "dzisiaj": 0, "jutro": 1, "wczoraj": -1,
+        "pojutrze": 2, "przedwczoraj": -2}
+_WD = re.compile(r"^(?:(poniedzia[łl]ek)|(wtorek)|([śs]rod[aęe])|(czwartek)|(pi[ąa]tek)|"
+                 r"(sobot[aęe])|(niedziel[aęe]))$")
+_CLAIM_FILL = {"luna", "luno", "a", "no", "to", "tak", "nie", "nieprawda", "prawda", "przecież",
+               "przeciez", "chyba", "czy", "jest", "będzie", "bedzie", "był", "była", "byl",
+               "byla", "mamy", "już", "juz", "bo", "że", "ze", "ale", "hm", "co", "oj", "ej"}
+
+
+def day_claim(text, her_last="", now=None):
+    """The answer to a weekday said or asked about dziś / jutro / wczoraj, or
+    None. A plain statement that is right is left alone (it may be said to
+    someone else) unless she had just named a day herself."""
+    from datetime import timedelta
+    now = now or (datetime.now(_TZ) if _TZ else datetime.now())
+    low = (text or "").lower()
+    words = re.findall(r"\w+", low)
+    rel = [_REL[w] for w in words if w in _REL]
+    days = [i for w in words if (m := _WD.match(w))
+            for i, g in enumerate(m.groups()) if g]
+    if len(rel) != 1 or len(days) != 1 or not all(
+            w in _REL or _WD.match(w) or w in _CLAIM_FILL for w in words):
+        return None
+    delta, said = rel[0], days[0]
+    real = (now + timedelta(days=delta)).weekday()
+    # after midnight "jutro" may still mean the day after the night's sleep
+    if said != real and now.hour < 4 and (now + timedelta(days=delta - 1)).weekday() == said:
+        return None
+    asked = ("?" in low or "czy" in words or "chyba" in words
+             or words[-1] in ("prawda", "nie", "tak"))
+    her_day = any(_WD.match(w) for w in re.findall(r"\w+", (her_last or "").lower()))
+    if said == real and not asked and not her_day:
+        return None
+    full = spoken_date(now) if delta == 0 else spoken_other_day(delta, now)
+    if said == real:
+        return f"Tak, {full[0].lower()}{full[1:]}"
+    return f"Nie, {full[0].lower()}{full[1:]}"
+
+
 def answer(text):
     """The spoken answer to a bare time/date question, or None."""
     said = world_time(text)

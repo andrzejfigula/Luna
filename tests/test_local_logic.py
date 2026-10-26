@@ -999,6 +999,26 @@ class TimersTest(unittest.TestCase):
             self.assertIsNotNone(clock.answer(t), t)
         self.assertIsNone(clock.answer("Jaki jutro dzień będzie na spacer?"))
 
+    def test_weekday_claimed_about_a_day(self):
+        import clock
+        now = datetime.datetime(2026, 10, 14, 18, 39)              # a Wednesday
+        # 14 Oct: "Jutro piątek." → the model agreed
+        self.assertEqual(clock.day_claim("Jutro piątek.", now=now),
+                         "Nie, jutro będzie czwartek, piętnasty października.")
+        self.assertEqual(clock.day_claim("Dziś jest środa, prawda?", now=now),
+                         "Tak, dziś jest środa, czternasty października.")
+        self.assertTrue(clock.day_claim("Czy mamy dzisiaj sobotę?", now=now).startswith("Nie, dziś"))
+        self.assertTrue(clock.day_claim("Wczoraj był wtorek?", now=now).startswith("Tak, wczoraj"))
+        # a right statement: maybe said to someone else — unless she just named a day
+        self.assertIsNone(clock.day_claim("Jutro czwartek.", now=now))
+        self.assertTrue(clock.day_claim("Nieprawda, jutro jest czwartek.",
+                                        "Tak, jutro jest piątek.", now=now).startswith("Tak, jutro"))
+        for t in ("Jutro piątek, więc idziemy do kina.", "W piątek jutro?", "Jutro i w piątek",
+                  "Jutro wtorek albo środa"):
+            self.assertIsNone(clock.day_claim(t, now=now), t)
+        # after midnight "jutro" may mean after the sleep
+        self.assertIsNone(clock.day_claim("Jutro czwartek.", now=datetime.datetime(2026, 10, 15, 1, 0)))
+
     def test_breathing_length_and_nap(self):
         import breathing
         import commands
@@ -9049,8 +9069,21 @@ class ScheduleTest(unittest.TestCase):
         self.assertEqual([e["title"] for e in self.s.week_rows(0, "Emilka")], ["szkoła"])
         self.assertEqual(self.s.today_rows(time.mktime((2026, 10, 26, 7, 0, 0, 0, 0, -1)))[0],
                          ("08:00", "Maja: szkoła (do 11:40)"))
-        self.assertIn("szkoła — Maja o 08:00 do 11:40",
+        self.assertIn("szkoła — Maja od 08:00 do 11:40",
                       self.s.today_said(None, time.mktime((2026, 10, 26, 7, 0, 0, 0, 0, -1))))
+
+    def test_confirmation_in_proper_polish(self):
+        t = self.s.title_after_ma
+        self.assertEqual(t("lekkoatletyka"), "lekkoatletykę")       # 26 Oct
+        self.assertEqual(t("piłka nożna"), "piłkę nożną")
+        self.assertEqual(t("gra na gitarze"), "grę na gitarze")
+        self.assertEqual(t("szkoła muzyczna dla dzieci"), "szkołę muzyczną dla dzieci")
+        for same in ("angielski", "zajęcia dodatkowe", "basen", "kółko przyrodnicze", "ćwiczenia"):
+            self.assertEqual(t(same), same)
+        e = {"who": "Maja", "title": "lekkoatletyka", "days": [2], "at": "16:00", "end": "17:30",
+             "remind": {"before": 15}}
+        self.assertEqual(self.s._confirm(e), "Dobrze, zapisałam: Maja ma lekkoatletykę w środę "
+                                             "od 16:00 do 17:30. Przypomnę 15 minut wcześniej.")
 
     def test_clear_week_by_voice(self):
         from shared_state import state
