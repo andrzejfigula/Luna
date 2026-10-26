@@ -145,8 +145,9 @@ THEMES.update({
               "accent": ((255, 214, 150), (230, 130, 30))}),
     "pixel": _char(
         "pixel", label="Pixel", sub="twarz z pikseli, bezpośrednia i dowcipna",
-        name="Pixel", call="Pixel", hello="Tu Piksel! Wszystkie piksele na miejscu.",
-        # ("Pixel online." came out Slovak or Russian 5 times by 24 Oct)
+        name="Pixel", call="Pixel", hello="Hej, tu Pixel! Gotowa do akcji.",
+        # ("Pixel online." and "Tu Piksel! Wszystkie piksele na miejscu." came out
+        # Slovak: 0 of 3 silent takes heard right, 26 Oct; this one 3 of 3)
         wake=["pixel", "piksel", "hej pixel", "hej piksel"],
         voice="nova", speed=1.32,
         tts=("Voice identity: a bright, crisp, quick-witted young woman; direct and "

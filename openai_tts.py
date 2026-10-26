@@ -533,12 +533,15 @@ class OpenAITTS:
         # (a stream that ended early without an error must not be kept: at
         # least ~0.03 s of audio per character)
         # (cut by a touch after the last chunk: finish() kept the previous
-        # last_utterance — it was checked against this text, 72 times by 23 Oct)
+        # last_utterance — it was checked against this text, 72 times by 23 Oct;
+        # still 19× "Proszę, oto ustawienia." heard as the line before, 26 Oct:
+        # only this utterance's own take, out.taken)
+        take = out.taken
         if (ok and key and played and not self._cut.is_set()
-                and len(out.last_utterance) >= len(text) * 1500):
-            low = pitch(out.last_utterance[:HEAD_BYTES])
+                and len(take) >= len(text) * 1500):
+            low = pitch(take[:HEAD_BYTES])
             if not (low and low < deep_hz()):
-                self._cache_if_clear(key, text, out.last_utterance, kwargs)
+                self._cache_if_clear(key, text, take, kwargs)
 
     def _cache_if_clear(self, key, text, pcm, kwargs=None):
         """Keep the take only if it can be heard as the text: short lines now

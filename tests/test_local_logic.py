@@ -4244,6 +4244,27 @@ class KidsTest(unittest.TestCase):
                          "Zbudował mnie Andrzej, a mieszkam u nas.")
         self.assertEqual(fix_desk("Telefon leży na biurku."), "Telefon leży na biurku.")
 
+    def test_a_cut_utterance_leaves_no_take(self):
+        try:
+            import audio_out
+        except ImportError:
+            self.skipTest("fcntl (the Pi)")
+        import threading
+        out = object.__new__(audio_out.AudioOut)          # no player process
+        out.lock, out.env = threading.Lock(), mock.Mock()
+        out.q, out.q_bytes, out.written = audio_out.collections.deque(), 0, 0
+        out.last_utterance, out.taken = b"old line", b"old line"
+        with mock.patch.object(audio_out, "night_quiet", lambda: False):
+            out.begin(record=True)
+            out.write(b"\x01\x00" * 10)
+        out.started = True
+        cut = threading.Event()
+        cut.set()                                          # a touch while she spoke
+        self.assertTrue(out.finish(cut))
+        # 26 Oct: "Proszę, oto ustawienia." checked against the line before
+        self.assertEqual(out.taken, b"")
+        self.assertEqual(out.last_utterance, b"old line")  # "powtórz" still has one
+
     def test_fix_degrees(self):
         from polish import fix_degrees as f
         # 24 Oct: "Jutro ma padać, około pięć do jedenaście stopni."

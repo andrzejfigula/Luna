@@ -86,6 +86,7 @@ class AudioOut:
         self.recording = False             # keep this utterance for "powtórz"
         self._rec = []
         self.last_utterance = b""          # her last spoken answer, as played
+        self.taken = b""                   # this utterance's audio, b"" unless played whole
         # health
         self.underruns = 0
         self.rebuffers = 0
@@ -236,7 +237,7 @@ class AudioOut:
         """record=True: keep the audio of this utterance as last_utterance
         (answers, not sounds) so "powtórz" can replay it without a request."""
         with self.lock:
-            self.recording, self._rec = record, []
+            self.recording, self._rec, self.taken = record, [], b""
             self.q.clear()
             self.q_bytes = 0
             self.active, self.holding, self.closed = True, True, False
@@ -289,7 +290,7 @@ class AudioOut:
             played = self.started
             self.active = False
             if self.recording and played and not (cut_event is not None and cut_event.is_set()):
-                self.last_utterance = b"".join(self._rec)
+                self.last_utterance = self.taken = b"".join(self._rec)
             self.recording, self._rec = False, []
         self.env.reset()
         return played
