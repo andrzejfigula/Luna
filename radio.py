@@ -590,6 +590,8 @@ def _play(p):
     fails = 0
     urls = [p["url"]] + FALLBACKS.get(p["url"], [])
     alt = 0                                  # which of them is playing
+    if preferred(p["url"]) in urls:          # the address that answered last night
+        alt = urls.index(preferred(p["url"]))
     try:
         while not p["stop"].is_set() and fails <= RETRIES:
             p["url"] = urls[alt % len(urls)]
@@ -1254,25 +1256,44 @@ def _mark(url, is_dead):
     settings.put("radio_dead", d)
 
 
+def _answers(url):
+    try:
+        return subprocess.run(["ffmpeg", "-nostdin", "-loglevel", "error", "-t", "1",
+                               "-i", url, "-f", "null", "-"], timeout=25,
+                              stdout=subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL).returncode == 0
+    except Exception:
+        return False
+
+
+def preferred(url):
+    """The address that answered the last health check for this station."""
+    import settings
+    return (settings.get("radio_alt", {}) or {}).get(url, url)
+
+
 def health_check():
-    """Every catalogue stream decoded for a second (ffmpeg, no sound): the
-    dead marked (skipped, greyed on the page), the live cleared."""
-    bad = []
+    """Every catalogue stream decoded for a second (ffmpeg, no sound), its
+    fallbacks too: dead only when none answers (skipped, greyed on the page);
+    a fallback that answered is played first (26 Oct: Trójka's MP3 down since
+    4 Oct, its HLS fine — greyed every night, 3 s of silence before it played)."""
+    import settings
+    bad, alt, was = [], {}, settings.get("radio_alt", {}) or {}
     for _, _, _, sts in CATALOG:
         for name, url, _ in sts:
             if playing() == name:
+                if url in was:
+                    alt[url] = was[url]
                 continue
-            try:
-                ok = subprocess.run(["ffmpeg", "-nostdin", "-loglevel", "error", "-t", "1",
-                                     "-i", url, "-f", "null", "-"], timeout=25,
-                                    stdout=subprocess.DEVNULL,
-                                    stderr=subprocess.DEVNULL).returncode == 0
-            except Exception:
-                ok = False
-            _mark(url, not ok)
-            if not ok:
+            good = next((u for u in [url] + FALLBACKS.get(url, []) if _answers(u)), None)
+            _mark(url, good is None)
+            if good is None:
                 bad.append(name)
-    print(f"[radio] health check: {len(bad)} not answering {bad}", flush=True)
+            elif good != url:
+                alt[url] = good
+    settings.put("radio_alt", alt)
+    print(f"[radio] health check: {len(bad)} not answering {bad}"
+          + (f"; {len(alt)} on a fallback address" if alt else ""), flush=True)
     return bad
 
 

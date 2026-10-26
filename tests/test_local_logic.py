@@ -6676,6 +6676,21 @@ class RadioCatalogTest(unittest.TestCase):
             with mock.patch.object(radio, "_player", None):
                 self.assertEqual(radio.music_pulse(), 0.0)         # nothing plays: still
 
+    def test_health_check_tries_the_fallbacks(self):
+        import radio
+        g, p, mem = self._store()
+        mp3 = "http://mp3.polskieradio.pl:8904/;.mp3"            # Trójka: MP3 down, HLS fine
+        hls = radio.FALLBACKS[mp3][0]
+        with g, p, mock.patch.object(radio, "_answers", lambda u: u != mp3 and "8900" not in u), \
+                mock.patch.object(radio, "playing", lambda: None), \
+                mock.patch.object(radio, "FALLBACKS", {mp3: [hls]}):
+            bad = radio.health_check()
+            self.assertNotIn("Trójka", bad)
+            self.assertNotIn(mp3, radio.dead())
+            self.assertEqual(radio.preferred(mp3), hls)
+            self.assertIn("Jedynka", bad)                      # 8900 and no fallback here
+            self.assertEqual(radio.preferred("http://x/"), "http://x/")
+
 
 class StoryTest(unittest.TestCase):
     """15 Oct: an interactive story — Maja chooses, each part has a picture,

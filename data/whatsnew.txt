@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 26 października ==
+- Trójka znowu nie jest szara na liście stacji i zaczyna grać od razu (jej stary adres nie działa, Luna sama używa zapasowego).
 - „Jutro piątek?”, „Dziś jest środa, prawda?” — Luna sprawdza w kalendarzu i mówi, czy to prawda (wcześniej potrafiła przytaknąć złemu dniu).
 - Na ekranie „Plan tygodnia” jest nowy przycisk „Z kartki”: potrzymaj kartkę z planem zajęć przed kamerą i dotknij go — Luna przepisze plan wybranej osobie (przy „Wszyscy” zapyta, czyj to plan).
 - „Skasuj cały plan Mai” albo „możesz usunąć plan lekcji Mai?” — Luna pyta, czy na pewno, i dopiero wtedy czyści. Samo „Pokaż.” otwiera jeszcze raz plan, listę albo zdjęcia sprzed chwili, a gdy nic nie było, Luna pyta, co pokazać. „Włącz następny motyw” przełącza na kolejną postać, a gdy Luna zapyta „na jaki?”, wystarczy powiedzieć samo imię, na przykład „Piksel”.
