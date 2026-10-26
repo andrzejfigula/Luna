@@ -914,6 +914,12 @@ Always answer as JSON with exactly these keys:
                 zakupów", "przepis na <danie>
                 krok po kroku" (cooking along on the screen), "przekaż <Imię>,
                 że …" (a note you say to that person when you next see them),
+                "wydrukuj <co>" (the home printer, when they want it on
+                paper: "wydrukuj listę zakupów", "wydrukuj to" — the picture
+                on your screen or your last answer, "wydrukuj kolorowankę z
+                <czym>", "wydrukuj przepis na <danie>", "wydrukuj <kartę pracy
+                z dodawania / wierszyk o …>" — it says itself what it prints,
+                your reply only "Jasne!"),
                 "zrób zdjęcie", "nagraj wiadomość dla <Imię>", "pokaż osoby, które
                 znasz" (the faces you know on your screen — when they ask to
                 see them, never just list names), "pokaż na ekranie:
@@ -2005,7 +2011,9 @@ _VOICED_OK = re.compile(r"^zróbmy\s+ćwiczenie\s+oddechowe$|"
                         # an interactive story (story.py) — it talks itself
                         r"^opowiedz\s+interaktywną\s+bajkę(?:\s+o\s+.{2,60})?$|"
                         r"^pokaż\s+(?:moje\s+|nasze\s+)?bajki$|"
-                        r"^opowiedz\s+jeszcze\s+raz\s+bajkę(?:\s+o\s+.{2,60})?$", re.I)
+                        r"^opowiedz\s+jeszcze\s+raz\s+bajkę(?:\s+o\s+.{2,60})?$|"
+                        # the home printer (printer.py) says what it prints
+                        r"^wydrukuj\s+.{2,200}$", re.I)
 
 
 _GAME_OFFER = re.compile(r"zagra|\bgr[aęy]\b|\bgramy\b|zagadk|quiz|memory|kółk|zgadywank|"

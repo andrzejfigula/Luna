@@ -1595,6 +1595,10 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         print(f"[cmd] microphone off for {secs} s", flush=True)
         return True
 
+    import printer                                 # "wydrukuj listę zakupów", "czy drukarka działa?"
+    if printer.wants(text):
+        return printer.handle(text, speak)
+
     # "pokaż podgląd kamery" / "ukryj podgląd" — the little camera picture
     m = _CAM_PREVIEW.match(low.strip(" .!?")) or _CAM_PREVIEW_K.match(low.strip(" .!?"))
     if m:

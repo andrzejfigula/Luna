@@ -304,9 +304,11 @@ def _from_photo(client, photo, what):
 # speech→text round trip as "Jus resuya, fika", "Gotowe!" as "Gotová" — a short
 # start drifts out of Polish; 3 of 3 clean with "Dobrze," (11 Oct). Cached, a
 # bad take would have been said that way on every drawing.
-def draw(what, speak, intro="Dobrze, już rysuję. Chwileczkę!", english=False, photo=None):
+def draw(what, speak, intro="Dobrze, już rysuję. Chwileczkę!", english=False, photo=None,
+         style=None, then=None):
     """Start a drawing in the background; True (handled) either way. photo:
-    JPEG bytes of the camera frame to redraw instead of imagining."""
+    JPEG bytes of the camera frame to redraw instead of imagining. style: in
+    place of _STYLE (a colouring page); then(path): called instead of "gotowy"."""
     with state.lock:
         online = state.online
     if not online:
@@ -349,7 +351,7 @@ def draw(what, speak, intro="Dobrze, już rysuję. Chwileczkę!", english=False,
             else:
                 r = c.images.generate(
                     model=MODEL, size="1024x1024", quality="low", n=1,
-                    prompt=f"Obrazek dla dziecka: {_subject(what)}. {_STYLE}")
+                    prompt=f"Obrazek dla dziecka: {_subject(what)}. {style or _STYLE}")
             png = base64.b64decode(r.data[0].b64_json)
             out = os.path.join(DIR, time.strftime("%Y%m%d-%H%M%S") + ".png")
             with open(out, "wb") as f:
@@ -362,7 +364,10 @@ def draw(what, speak, intro="Dobrze, już rysuję. Chwileczkę!", english=False,
             _keep_title(out, "z kamery" if photo else (what or "").strip(" .!?"))
             _gallery(auto=False, secs=SHOW_SECS)      # standing: "poprzednie" → older
             print(f"[draw] done: {out}", flush=True)
-            say("Here you go!" if english else "Dobrze, rysunek jest gotowy. Proszę bardzo!")
+            if then:                                  # (printer.py: a colouring page)
+                then(out)
+            else:
+                say("Here you go!" if english else "Dobrze, rysunek jest gotowy. Proszę bardzo!")
             with state.lock:
                 # a reaction needs no "Luna" (11 Oct: the window closed while
                 # she drew, and "jeszcze raz ze zdjęcia" waited for the wake word)

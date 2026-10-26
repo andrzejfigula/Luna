@@ -10072,5 +10072,172 @@ class WhisperTests(unittest.TestCase):
             self.assertFalse(themes.whispering(), t)
 
 
+class PrinterTest(unittest.TestCase):
+    """printer.py with fake CUPS tools: nothing is ever sent to a real printer."""
+
+    ATTRS = """
+        printer-make-and-model (textWithoutLanguage) = Samsung C48x Series
+        printer-state (enum) = idle
+        printer-state-reasons (keyword) = media-empty-error,toner-low-report
+        printer-is-accepting-jobs (boolean) = true
+        marker-levels (1setOf integer) = 69,62,61,4
+        marker-names (1setOf nameWithoutLanguage) = Black Toner_S/N_:C-1,Cyan Toner_S/N_:C-2,Magenta Toner_S/N_:C-3,Yellow Toner_S/N_:C-4
+"""
+
+    def setUp(self):
+        import printer
+        self.p = printer
+        self.calls = []
+        printer._found.update(dest=None, uri=None, t=0.0)
+        printer._today.update(day="", pages=0)
+
+        def run(cmd, timeout=10):
+            self.calls.append(cmd)
+            if cmd[0] == "lpstat" and cmd[1] == "-e":
+                return "Samsung_C48x_Series_SEC842519002C54\n"
+            if cmd[0] == "ippfind":
+                return "ipp://SEC842519002C54.local:631/ipp/print\n"
+            if cmd[0] == "ipptool":
+                return self.ATTRS
+            if cmd[0] == "lp":
+                return "request id is Samsung_C48x_Series_SEC842519002C54-7 (1 file(s))\n"
+            return ""
+        self.patches = [mock.patch.object(printer, "_run", run),
+                        mock.patch.object(printer, "save_pdf", lambda pages, path: None),
+                        mock.patch.object(printer, "_watch", lambda *a: None)]
+        for p in self.patches:
+            p.start()
+        self.addCleanup(lambda: [p.stop() for p in self.patches])
+
+    def lp(self):
+        return [c for c in self.calls if c[0] == "lp"]
+
+    def test_finds_and_says_status(self):
+        dest, uri = self.p.find()
+        self.assertEqual(dest, "Samsung_C48x_Series_SEC842519002C54")
+        self.assertIn("SEC842519002C54.local", uri)
+        said = self.p.say_status()
+        self.assertEqual(said, "Drukarka Samsung C48x: nie ma papieru. "
+                               "Mało żółtego tonera — 4 procent.")
+
+    def test_no_printer(self):
+        with mock.patch.object(self.p, "destinations", lambda: []):
+            self.assertEqual(self.p.say_status(), "Nie widzę żadnej drukarki w sieci. "
+                                                  "Czy jest włączona?")
+            _, err = self.p.submit(["page"], "x")
+            self.assertIn("Nie widzę drukarki", err)
+
+    def test_wants(self):
+        for t in ("Wydrukuj listę zakupów", "Luna, wydrukuj mi to", "Czy możesz wydrukować "
+                  "kolorowankę z kotem?", "Wydrukujesz przepis?", "Czy drukarka działa?",
+                  "Ile jest tonera?", "Jaką masz drukarkę?"):
+            self.assertTrue(self.p.wants(t), t)
+        for t in ("Jaka jest najlepsza drukarka do domu?", "Co to jest drukarka 3D?",
+                  "Pokaż listę zakupów", "Drukarnia w Krakowie"):
+            self.assertFalse(self.p.wants(t), t)
+
+    def test_copies_and_mono(self):
+        self.assertEqual(self.p._copies("listę zakupów dwa razy"), (2, "listę zakupów"))
+        self.assertEqual(self.p._copies("w trzech kopiach to"), (3, "to"))
+        self.assertEqual(self.p._copies("to"), (1, "to"))
+
+    def test_prints_shopping_list(self):
+        lists._lists = {"zakupy": ["mleko", "chleb"]}
+        said = []
+        with mock.patch.object(self.p, "text_pages", lambda t, lines, boxes=False:
+                               ["p"] if boxes and lines == ["mleko", "chleb"] else []):
+            self.assertTrue(self.p.handle("Wydrukuj listę zakupów dwa razy czarno-biało",
+                                          said.append))
+        self.assertEqual(said, ["Drukuję listę zakupów 2 razy."])
+        cmd = self.lp()[0]
+        self.assertEqual(cmd[cmd.index("-n") + 1], "2")
+        self.assertIn("print-color-mode=monochrome", cmd)
+        self.assertIn("Samsung_C48x_Series_SEC842519002C54", cmd)
+
+    def test_empty_list_not_printed(self):
+        lists._lists = {"zakupy": []}
+        said = []
+        self.p.handle("wydrukuj listę zakupów", said.append)
+        self.assertEqual(said, ["Lista zakupów jest pusta — nie ma czego drukować."])
+        self.assertFalse(self.lp())
+
+    def test_copies_capped_and_daily_limit(self):
+        self.p.submit(["p"], "x", copies=50)
+        cmd = self.lp()[0]
+        self.assertEqual(cmd[cmd.index("-n") + 1], str(self.p.MAX_COPIES))
+        self.p._today["pages"] = self.p.PAGES_PER_DAY
+        _, err = self.p.submit(["p"], "x")
+        self.assertIn("Na dziś wystarczy", err)
+
+    def test_this_prints_last_answer(self):
+        try:
+            import brain
+        except ImportError:
+            self.skipTest("brain needs cv2 (run on the Pi)")
+        said = []
+        long = "Oto wierszyk o kocie: Kotek mruczy na kanapie, łapką myszkę w nocy łapie."
+        with mock.patch.object(brain, "last_reply", lambda: long), \
+                mock.patch("gallery.current", lambda: None), \
+                mock.patch.object(self.p, "text_pages", lambda t, lines, boxes=False: ["p"]):
+            self.p.handle("wydrukuj to", said.append)
+        self.assertEqual(said, ["Drukuję to, co przed chwilą mówiłam."])
+        with mock.patch.object(brain, "last_reply", lambda: "Dobrze."), \
+                mock.patch("gallery.current", lambda: None):
+            self.p.handle("wydrukuj to", said.append)
+        self.assertIn("Nie wiem, co wydrukować", said[-1])
+        self.assertEqual(len(self.lp()), 1)
+
+    def test_named_thing_she_just_said(self):
+        # 26 Oct sweep: the poem, then "na kartce?" → the model sent "wydrukuj
+        # wierszyk o jesieni" — that poem, not a new one written for paper
+        poem = ("Jesień przyszła do parku w złotych butach, Liście szeleszczą cicho pod jej "
+                "stopami. Wiatr gra na drzewach swoją melodię, Kasztan spada — hop!")
+        brain = mock.MagicMock(last_reply=lambda: poem)
+        with mock.patch.dict(sys.modules, {"brain": brain}):
+            self.assertEqual(self.p._just_said("wierszyk o jesieni"), poem)
+            self.assertEqual(self.p._just_said("go"), poem)
+            self.assertIsNone(self.p._just_said("nowy wierszyk o jesieni"))
+            self.assertIsNone(self.p._just_said("wierszyk o zimie"))
+            self.assertIsNone(self.p._just_said("kartę pracy z dodawania"))
+        self.assertEqual(self.p._paras(poem)[:2], ["Jesień przyszła do parku w złotych butach,",
+                                                   "Liście szeleszczą cicho pod jej stopami."])
+        self.assertEqual(self.p._paras("Zrób tak: 1. Wbij jajka. 2. Smaż."),
+                         ["Zrób tak:", "1. Wbij jajka.", "2. Smaż."])
+
+    def test_coloring_page_draws_then_prints(self):
+        import drawing
+        said, got = [], {}
+
+        def draw(what, speak, intro, style=None, then=None):
+            got.update(what=what, style=style, then=then)
+            return True
+        with mock.patch.object(drawing, "draw", draw):
+            self.p.handle("wydrukuj kolorowankę z dinozaurem", said.append)
+        self.assertEqual(got["what"], "dinozaurem")
+        self.assertIn("kontury", got["style"])
+        with mock.patch.object(self.p, "image_page", lambda *a, **k: ["p"]), \
+                mock.patch.object(self.p, "_say", said.append):
+            got["then"]("/tmp/x.png")
+        self.assertIn("print-color-mode=monochrome", self.lp()[0])
+        self.assertEqual(said[-1], "Kolorowanka gotowa, już się drukuje!")
+
+    def test_routed_from_commands(self):
+        import commands
+        said = []
+        with mock.patch.object(self.p, "handle", lambda t, s: s("ok") or True):
+            self.assertTrue(commands.handle("Luna, czy możesz wydrukować listę zakupów?",
+                                            said.append, lambda *a, **k: True))
+        self.assertEqual(said, ["ok"])
+
+    def test_pages_render(self):
+        try:
+            import PIL  # noqa: F401
+        except ImportError:
+            self.skipTest("no PIL")
+        pages = self.p.text_pages("Lista zakupów", ["mleko"] * 200, boxes=True)
+        self.assertEqual(len(pages), self.p.MAX_PAGES)
+        self.assertEqual(pages[0].size, (self.p.W, self.p.H))
+
+
 if __name__ == "__main__":
     unittest.main()
