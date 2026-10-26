@@ -127,7 +127,7 @@ def draw(scr, d, now, W, H):
     _pill(scr, L["week"], "Plan tygodnia", 19)
     if L["clear"]:
         sure = now - d.get("confirm", 0.0) < 4.0
-        _pill(scr, L["clear"], "Na pewno? Dotknij" if sure else "Wyczyść", 18 if sure else 20,
+        _pill(scr, L["clear"], "Na pewno?" if sure else "Wyczyść", 20,
               col=(214, 52, 52, 255 if sure else 120), weight="ExtraBold")
     _pill(scr, L["paper"], "Wczytaj z kartki", 20, col=(70, 120, 200, 220), weight="ExtraBold")
     _toast(scr, d, now, W, H)
