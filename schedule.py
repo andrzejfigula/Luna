@@ -41,7 +41,9 @@ _DAYS_IN = ("w poniedziałek", "we wtorek", "w środę", "w czwartek", "w piąte
             "w niedzielę")
 
 _lock = threading.Lock()
-_expect = {"until": 0.0, "who": None, "day": None, "draft": None, "paper": False}
+_expect = {"until": 0.0, "who": None, "day": None, "draft": None, "paper": False,
+           "fresh": False}
+_clearing = {"who": None, "until": 0.0}     # "wyczyść plan lekcji" asked back: "tak" wipes it
 
 _DAY_RX = (r"poniedział\w*", r"wtor\w*|wtork\w*", r"środ\w*|srod\w*", r"czwart\w*",
            r"piątek|piątk\w*|piatek|piatk\w*", r"sobot\w*", r"niedziel\w*")
@@ -465,8 +467,17 @@ _INTO = re.compile(r"\bdo\s+(?:\w+\s+)?(?:planu|grafik\w*|harmonogram\w*|kalenda
 _LESSONS_PAPER = re.compile(
     r"(?:\b(?:zaktualizuj\w*|aktualizuj\w*|uaktualnij\w*|odczytaj\w*|zeskanuj\w*|"
     r"wczytaj\w*|zczytaj\w*)\s+(?:\w+\s+){0,2}|"
+    r"\bprzeczytaj\w*\s+(?:jeszcze\s+raz|ponownie|od\s+nowa)\s+(?:\w+\s+)?|"
     r"^(?:luna,?\s+)?(?:\w+\s+)?(?:mam|mamy|ma|oto|tu\s+jest|to\s+jest)\s+(?:mój\s+|moj\s+)?"
     r"now\w+\s+)plan\w*\s+lekcji\b")
+# "…od nowa": the old lessons all go once the paper is read (not only its days)
+_FRESH = re.compile(r"\bod\s+(?:nowa|zera|początku|poczatku)\b|\bzastąp\w*|\bzastap\w*")
+_LESSONS_CLEAR = re.compile(
+    r"^(?:luna,?\s+)?(?:wyczyść|wyczysc|usuń|usun|skasuj|wykasuj|wymaż|wymaz|wyrzuć|wyrzuc)"
+    r"\s+(?:(?:cały|caly|całą|cala|wszystkie|mój|moj|moje)\s+)*(?:plan\w*\s+lekcji|lekcje)"
+    r"(?:\s+(?:dla\s+)?(\w+))?\W*$")
+_SURE = re.compile(r"^(?:tak|no\s+tak|potwierdzam|na\s+pewno|pewnie|jasne|wyczyść|wyczysc|"
+                   r"usuń|usun|skasuj|dawaj|możesz|mozesz|proszę|prosze)\b")
 
 
 def paper_request(text):
@@ -641,9 +652,11 @@ def _frames(n=3, gap=0.6):
     return imgs
 
 
-def import_paper(who, speak):
+def import_paper(who, speak, fresh=False):
     """Read the plan held to the camera and save it as `who`'s entries; the
-    reading (15–30 s) runs on its own thread with "Czytam plan…" on screen."""
+    reading (15–30 s) runs on its own thread with "Czytam plan…" on screen.
+    fresh: a timetable on it replaces ALL their old lessons (cleared only
+    once the paper was read)."""
     import brain
     if time.time() < _reading[0]:
         print("[schedule] already reading a plan on paper", flush=True)
@@ -677,7 +690,10 @@ def import_paper(who, speak):
                 "i powiedz jeszcze raz: przepisz plan z kartki.")
             return
         entries, unclear, bells = from_paper(got["entries"])
+        cleared = (clear_lessons(who) if fresh and who
+                   and any(e["kind"] == "lesson" for e in entries) else 0)
         added, kept, replaced = save_paper(who, entries, by=by)
+        replaced += cleared
         text, ask = paper_said(who, added, kept, unclear, bells, replaced)
         print(f"[schedule] from paper: {len(added)} added, {len(kept)} already there, "
               f"{len(unclear)} with no time{', usual bells' if bells else ''}", flush=True)
@@ -720,14 +736,60 @@ def _paper_who(text):
     return None, False
 
 
+def _import(who, speak, fresh):
+    return import_paper(who, speak, fresh=True) if fresh else import_paper(who, speak)
+
+
+def _ask_clear(name, text, speak):
+    """"Wyczyść plan lekcji Mai" → asked back first, the page on show."""
+    import faces
+    who = None
+    if name and name not in _FILLER:
+        who = (faces.match_name(name) or faces.match_role(name)
+               or next((n for n in lesson_people() if name in faces.forms(n)), None))
+        if who is None:
+            return False                     # "usuń lekcje angielskiego"
+    if who is None and _MINE.search(text.lower()):
+        who = _speaker()
+    if who is None:
+        d = _page()
+        who = d.get("who") if d and d.get("view") == "lessons" else None
+    if who is None:
+        speak("Czyj plan lekcji wyczyścić? Powiedz na przykład: wyczyść plan lekcji Mai.")
+        return True
+    show_lessons(who)
+    if not lessons(who):
+        speak(f"Plan lekcji {genitive(who)} jest pusty.")
+        return True
+    _clearing.update(who=who, until=time.time() + EXPECT_SECS)
+    with state.lock:
+        state.conversation_active = True
+        state.last_activity_time = time.time()
+    speak(f"Na pewno wyczyścić cały plan lekcji {genitive(who)}? Powiedz: tak — albo nie.")
+    return True
+
+
 def handle(text, speak):
     """Local commands for the week's plan. True when handled."""
     low = text.lower().strip()
+    if _clearing["who"] is not None:
+        who, live = _clearing["who"], time.time() < _clearing["until"]
+        _clearing.update(who=None, until=0.0)
+        if live and _SURE.match(low) and not re.search(r"\bnie\b", low):
+            n = clear_lessons(who)
+            show_lessons(who)
+            speak(f"Wyczyściłam plan lekcji {genitive(who)}." if n else
+                  f"Plan lekcji {genitive(who)} był już pusty.")
+            return True
+        if live and (_STOP.match(low) or re.match(r"^nie\b", low)):
+            speak(f"Dobrze, plan lekcji {genitive(who)} zostaje.")
+            return True
+        # something else: the question lapses
     if expecting() and _expect.get("paper"):
         _expect.update(until=0.0, paper=False)
         who, known = _paper_who(text)
         if known:
-            return import_paper(who, speak)
+            return _import(who, speak, _expect.get("fresh"))
         if _STOP.match(low):
             speak("Dobrze, nie przepisuję.")
             return True
@@ -757,11 +819,15 @@ def handle(text, speak):
             if p:
                 return _take(p, speak)
         _expect.update(until=0.0, draft=None)        # something else: not an entry
+    m = _LESSONS_CLEAR.match(low)
+    if m and "?" not in low:
+        return _ask_clear(m.group(1), text, speak)
     if paper_request(text):
         who, known = _paper_who(text)
+        fresh = bool(_FRESH.search(low))
         if known:
-            return import_paper(who, speak)
-        _expect.update(until=time.time() + EXPECT_SECS, draft=None, paper=True)
+            return _import(who, speak, fresh)
+        _expect.update(until=time.time() + EXPECT_SECS, draft=None, paper=True, fresh=fresh)
         with state.lock:
             state.conversation_active = True
             state.last_activity_time = time.time()
@@ -867,6 +933,23 @@ def lessons(who):
     return [e for e in events() if e.get("kind") == "lesson" and (e.get("who") or "") == (who or "")]
 
 
+def clear_lessons(who):
+    """All of `who`'s lessons gone (the rest of their plan stays): how many
+    lesson-days went."""
+    with _lock:
+        d = _load()
+        gone = [e for e in d["events"] if e.get("kind") == "lesson"
+                and (e.get("who") or "") == (who or "")]
+        d["events"] = [e for e in d["events"] if e not in gone]
+        for e in gone:
+            d["done"].pop(e["id"], None)
+        if gone:
+            _save(d)
+    n = sum(len(e["days"]) for e in gone)
+    print(f"[schedule] cleared {who or 'dom'}'s lessons: {len(gone)} entries", flush=True)
+    return n
+
+
 def lesson_grid(who):
     """(rows, cells): rows = [(at, end)] the lesson hours Mon–Fri in order;
     cells[(row, weekday)] = that lesson's entries (two if the paper clashes)."""
@@ -882,6 +965,47 @@ def lesson_grid(who):
             if d < 5:
                 cells.setdefault((row_of[e["at"]], d), []).append(e)
     return rows, cells
+
+
+# each subject its own colour: the usual ones fixed (W-f always green), any
+# other one a colour no subject in that plan has
+SUBJECT_COLS = ((214, 64, 76), (58, 112, 220), (236, 132, 36), (46, 168, 84), (140, 86, 214),
+                (226, 86, 176), (196, 164, 30), (26, 156, 140), (30, 170, 214), (156, 104, 58),
+                (104, 116, 142), (92, 86, 200), (128, 150, 40), (170, 60, 90), (210, 110, 100),
+                (60, 130, 90), (180, 120, 200), (90, 160, 200), (200, 140, 90), (120, 180, 120))
+_SUBJECTS = ((r"\bw[\s.\-]*f\b|wychowani\w*\s+fizyczn", "w-f", 3),
+             (r"wczesnoszk|zintegrowan", "edukacja wczesnoszkolna", 11),
+             (r"świetlic|swietlic", "świetlica", 10),
+             (r"wychowawc|godz\w*\.?\s+wych", "wychowawcza", 12),
+             (r"polsk", "polski", 0), (r"matem|^mat\b", "matematyka", 1),
+             (r"angiel", "angielski", 2), (r"niemieck", "niemiecki", 14),
+             (r"relig", "religia", 4), (r"plasty", "plastyka", 5), (r"muzy", "muzyka", 6),
+             (r"przyrod", "przyroda", 7), (r"informaty|komputer", "informatyka", 8),
+             (r"techni", "technika", 9), (r"histor", "historia", 13),
+             (r"geograf", "geografia", 15))
+
+
+def subject_key(title):
+    """"WF", "w-f", "wychowanie fizyczne" → "w-f"; "j. polski" → "polski"."""
+    low = " ".join((title or "").lower().split())
+    for rx, key, _ in _SUBJECTS:
+        if re.search(rx, low):
+            return key
+    return re.sub(r"[^\w]+", " ", low).strip()
+
+
+def subject_colours(titles):
+    """{title: (r, g, b)} — the same subject the same colour, different ones
+    different (while there are colours)."""
+    fixed = {key: i for _, key, i in _SUBJECTS}
+    keys = {t: subject_key(t) for t in titles}
+    taken = {fixed[k] for k in keys.values() if k in fixed}
+    free = [i for i in range(len(SUBJECT_COLS)) if i not in taken]
+    free = [i for i in free if i >= len(fixed)] + [i for i in free if i < len(fixed)]
+    own = {}
+    for k in sorted({k for k in keys.values() if k not in fixed}):
+        own[k] = free[len(own) % len(free)] if free else len(own) % len(SUBJECT_COLS)
+    return {t: SUBJECT_COLS[fixed[k] if k in fixed else own[k]] for t, k in keys.items()}
 
 
 def lesson_people():
@@ -956,20 +1080,29 @@ def _tap_lessons(d, x, y, W, H, speak):
     if not hit:
         return True
     kind = hit[0]
+    if kind != "clear":
+        d["confirm"] = 0.0
     if kind == "who":
         d["who"] = hit[1]
     elif kind == "week":
         d["view"] = None
-    elif kind == "paper":
-        who = d.get("who")
-        if not who:
-            d["toast"] = ("Najpierw wybierz osobę", time.time() + 2.0)
-            return True
+    elif kind in ("paper", "clear") and not d.get("who"):
+        d["toast"] = ("Najpierw wybierz osobę", time.time() + 2.0)
+    elif kind == "paper":                    # the plan becomes what's on the paper
+        who = d["who"]
 
         def run():                           # (it waits for the frames: not on the render thread)
             from text_to_speech import speak as say
-            import_paper(who, speak or say)
+            import_paper(who, speak or say, fresh=True)
         threading.Thread(target=run, daemon=True, name="lessons-paper").start()
+    elif kind == "clear":                    # tapped twice
+        now = time.time()
+        if now - d.get("confirm", 0.0) < 4.0:
+            clear_lessons(d["who"])
+            d["confirm"], d["toast"] = 0.0, (f"Wyczyszczone: plan lekcji {genitive(d['who'])}",
+                                              now + 3.0)
+        else:
+            d["confirm"] = now
     elif kind == "cell":
         row, wd = hit[1], hit[2]
         rows, cells = lesson_grid(d.get("who"))

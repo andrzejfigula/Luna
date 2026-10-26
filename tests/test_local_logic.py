@@ -8786,11 +8786,13 @@ class ScheduleTest(unittest.TestCase):
             self.assertEqual((ov[0], ov[2]["view"], ov[2]["who"]), ("schedule", "lessons", who), t)
         self.assertFalse(self.s.handle("pokaż lekcje angielskiego", said.append))
         with mock.patch.object(self.s, "import_paper",
-                               lambda who, speak: calls.append(who) or True):
+                               lambda who, speak, fresh=False: calls.append((who, fresh)) or True):
             for t in ("Zaktualizuj plan lekcji Mai", "wczytaj nowy plan lekcji Emilki",
-                      "Maja ma nowy plan lekcji"):
+                      "Maja ma nowy plan lekcji", "Wczytaj od nowa plan lekcji Mai",
+                      "przeczytaj jeszcze raz plan lekcji Emilki"):
                 self.assertTrue(self.s.handle(t, said.append), t)
-        self.assertEqual(calls, ["Maja", "Emilka", "Maja"])
+        self.assertEqual(calls, [("Maja", False), ("Emilka", False), ("Maja", False),
+                                 ("Maja", True), ("Emilka", False)])
         for t in ("Czy Maja ma nowy plan lekcji?", "Maja dostanie w przyszłym tygodniu nowy "
                   "plan lekcji, bo zmienia się wychowawczyni i cała reszta klasy"):
             self.assertFalse(self.s.paper_request(t), t)
@@ -8819,10 +8821,67 @@ class ScheduleTest(unittest.TestCase):
         _, cells = self.s.lesson_grid("Maja")
         self.assertEqual(cells[(0, 3)][0]["title"], "geografia")
         self.assertEqual(cells[(0, 3)][0]["end"], "08:45")
+        r = L["clear"]                             # "Wyczyść": only the second tap
+        self.s.tap(r.centerx, r.centery, 800, 480, said.append)
+        self.assertEqual(len(self.s.lessons("Maja")), 2)
+        self.s.tap(r.centerx, r.centery, 800, 480, said.append)
+        self.assertEqual(self.s.lessons("Maja"), [])
+        self.assertIsNone(ui_lessons.layout(800, 480, d)["clear"])     # nothing to clear
         self.s.swipe(-200)
         self.assertEqual(d["who"], "Andrzej")
         with state.lock:
             state.overlay = None
+
+    def test_subject_colours(self):
+        K = self.s.subject_key
+        self.assertEqual({K(t) for t in ("WF", "w-f", "W.F.", "wychowanie fizyczne")}, {"w-f"})
+        self.assertEqual(K("j. polski"), "polski")
+        self.assertEqual(K("Świetlica"), "świetlica")
+        titles = ["WF", "w-f", "świetlica", "matematyka", "polski", "szachy", "robotyka",
+                  "Edukacja wczesnoszkolna"]
+        c = self.s.subject_colours(titles)
+        self.assertEqual(c["WF"], c["w-f"])
+        self.assertEqual(c["WF"], self.s.subject_colours(["wf"])["wf"])    # always the same
+        others = [c[t] for t in titles if t not in ("WF", "w-f")]
+        self.assertEqual(len(set(others)), len(others))                   # all different
+        self.assertNotIn(c["WF"], others)
+
+    def test_clear_lessons_by_voice(self):
+        from shared_state import state
+        said = []
+        L = self._lesson
+        self.s.save_paper("Maja", [L("polski", [0, 1], "08:00")])
+        self.s.save_paper("Emilka", [L("polski", [0], "08:00")])
+        self.s.add("Maja", "basen", [2], "16:00")
+        self.assertTrue(self.s.handle("Wyczyść plan lekcji Mai", said.append))
+        self.assertEqual(said[-1], "Na pewno wyczyścić cały plan lekcji Mai? "
+                                   "Powiedz: tak — albo nie.")
+        self.assertTrue(self.s.handle("nie", said.append))
+        self.assertEqual(said[-1], "Dobrze, plan lekcji Mai zostaje.")
+        self.assertEqual(len(self.s.lessons("Maja")), 1)
+        self.assertTrue(self.s.handle("usuń cały plan lekcji Mai", said.append))
+        self.assertTrue(self.s.handle("Tak", said.append))
+        self.assertEqual(said[-1], "Wyczyściłam plan lekcji Mai.")
+        self.assertEqual(self.s.lessons("Maja"), [])
+        self.assertEqual(len(self.s.lessons("Emilka")), 1)               # hers stays
+        self.assertTrue(any(e["title"] == "basen" for e in self.s.events()))  # not a lesson
+        # with the page open, "wyczyść plan lekcji" means the one on it
+        self.s.show_lessons("Emilka")
+        self.assertTrue(self.s.handle("wyczyść plan lekcji", said.append))
+        self.assertIn("Emilki", said[-1])
+        self.assertFalse(self.s.handle("włącz radio Trójkę", said.append))   # lapses
+        self.assertEqual(len(self.s.lessons("Emilka")), 1)
+        self.assertFalse(self.s.handle("usuń lekcje angielskiego", said.append))
+        with state.lock:
+            state.overlay = None
+
+    def test_fresh_paper_clears_all_old_lessons(self):
+        L = self._lesson
+        self.s.save_paper("Maja", [L("polski", [0], "08:00"), L("muzyka", [4], "09:50")])
+        # what a fresh read does once the paper came back readable
+        self.s.clear_lessons("Maja")
+        self.s.save_paper("Maja", [L("matematyka", [0], "08:00")])
+        self.assertEqual([e["title"] for e in self.s.lessons("Maja")], ["matematyka"])
 
 
 class TouchPageTest(unittest.TestCase):

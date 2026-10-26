@@ -612,6 +612,16 @@ class RoutingTest(unittest.TestCase):
     def test_mute(self):
         self.assertEqual(self.route("Luna, cicho"), "mute")
 
+    def test_yes_after_clear_lessons_reaches_the_plan(self):
+        """"Wyczyść plan lekcji Mai" → "Na pewno…?" → "Tak" must get to schedule."""
+        import time
+        cleared = []
+        with mock.patch.object(schedule, "clear_lessons", lambda who: cleared.append(who) or 3), \
+                mock.patch.object(schedule, "show_lessons", lambda who=None: who):
+            schedule._clearing.update(who="Maja", until=time.time() + 30)
+            self.assertEqual(self.route("Tak"), "handled-but-unknown")
+        self.assertEqual(cleared, ["Maja"])
+
     def test_bare_what_right_after_her_answer(self):
         """"Co?" just after she spoke repeats it; out of the blue it's the model's."""
         import time
