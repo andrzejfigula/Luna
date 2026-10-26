@@ -178,6 +178,8 @@ CHAT_MODEL     = "gpt-5.4-mini"     # her replies: first sentence 1.13 s vs 1.67
 CRAFT_MODEL    = "gpt-4.1"          # poems, rhymes, songs: the mini model's Polish
                                     # rhymes were weak (6 Oct, Maja's "wierszyk");
                                     # rare requests, so the cost and +~0.5 s are fine
+TIMETABLE_MODEL = "gpt-5.4"         # a timetable on paper (brain.read_timetable); falls
+                                    # back to CRAFT_MODEL if this one fails
 OPENAI_TIMEOUT = 15.0               # seconds — a stall must never freeze Luna
 SEARCH_MODEL   = "gpt-5.4-mini"    # web search (websearch.py): 4.4 s vs 5.4 s for gpt-4.1-mini
                                    # on 3 real questions (7 Oct), reasoning off

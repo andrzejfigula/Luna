@@ -43,7 +43,9 @@ _DAYS_IN = ("w poniedziałek", "we wtorek", "w środę", "w czwartek", "w piąte
 _lock = threading.Lock()
 _expect = {"until": 0.0, "who": None, "day": None, "draft": None, "paper": False,
            "fresh": False}
-_clearing = {"who": None, "until": 0.0}     # "wyczyść plan lekcji" asked back: "tak" wipes it
+# "wyczyść plan lekcji / tygodnia" asked back: "tak" wipes it. what: "lessons" | "week";
+# who None for the week: everyone's
+_clearing = {"what": None, "who": None, "until": 0.0}
 
 _DAY_RX = (r"poniedział\w*", r"wtor\w*|wtork\w*", r"środ\w*|srod\w*", r"czwart\w*",
            r"piątek|piątk\w*|piatek|piatk\w*", r"sobot\w*", r"niedziel\w*")
@@ -476,6 +478,10 @@ _LESSONS_CLEAR = re.compile(
     r"^(?:luna,?\s+)?(?:wyczyść|wyczysc|usuń|usun|skasuj|wykasuj|wymaż|wymaz|wyrzuć|wyrzuc)"
     r"\s+(?:(?:cały|caly|całą|cala|wszystkie|mój|moj|moje)\s+)*(?:plan\w*\s+lekcji|lekcje)"
     r"(?:\s+(?:dla\s+)?(\w+))?\W*$")
+_WEEK_CLEAR = re.compile(
+    r"^(?:luna,?\s+)?(?:wyczyść|wyczysc|usuń|usun|skasuj|wykasuj|wymaż|wymaz|wyrzuć|wyrzuc)"
+    r"\s+(?:(?:cały|caly|całą|cala|mój|moj)\s+)*(?:plan\s+(?:tygodnia|tygodniowy|zajęć|zajec)|"
+    r"tygodniowy\s+plan|harmonogram\w*|grafik\w*)(?:\s+(?:dla\s+)?(\w+))?\W*$")
 _SURE = re.compile(r"^(?:tak|no\s+tak|potwierdzam|na\s+pewno|pewnie|jasne|wyczyść|wyczysc|"
                    r"usuń|usun|skasuj|dawaj|możesz|mozesz|proszę|prosze)\b")
 
@@ -515,6 +521,8 @@ def from_paper(rows):
         if not title or not days:
             continue
         kind = "lesson" if r.get("kind") == "lesson" else "activity"
+        if kind == "lesson":
+            title = canonical_subject(title)
         no = r.get("lesson_no") if isinstance(r.get("lesson_no"), int) else 0
         clean.append({"title": title, "days": days, "at": _hm(r.get("at")),
                       "end": _hm(r.get("end")), "kind": kind, "no": no})
@@ -640,8 +648,34 @@ def paper_said(who, added, kept, unclear, bells, replaced=0):
     return out.strip(), ask
 
 
+def _sharpness(img):
+    import cv2
+    g = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    return float(cv2.Laplacian(g, cv2.CV_64F).var())
+
+
 def _frames(n=3, gap=0.6):
+    """The paper as JPEGs (base64): the two sharpest of a few full-size stills
+    (camera_thread.grab_stills); the usual frames when there are none."""
     import brain
+    try:
+        import base64
+        import cv2
+        import camera_thread
+        stills = camera_thread.grab_stills(4)
+        if stills:
+            best = sorted(stills, key=_sharpness, reverse=True)[:2]
+            print("[schedule] stills' sharpness: " + ", ".join(
+                f"{_sharpness(s):.0f}" for s in stills), flush=True)
+            out = []
+            for img in best:
+                ok, buf = cv2.imencode(".jpg", img, [int(cv2.IMWRITE_JPEG_QUALITY), 92])
+                if ok:
+                    out.append(base64.b64encode(buf.tobytes()).decode("ascii"))
+            if out:
+                return out
+    except Exception as e:
+        print(f"[schedule] no stills ({e!r}) — the usual frames", flush=True)
     imgs = []
     for i in range(n):
         if i:
@@ -761,28 +795,66 @@ def _ask_clear(name, text, speak):
     if not lessons(who):
         speak(f"Plan lekcji {genitive(who)} jest pusty.")
         return True
-    _clearing.update(who=who, until=time.time() + EXPECT_SECS)
+    _ask_sure("lessons", who)
+    speak(f"Na pewno wyczyścić cały plan lekcji {genitive(who)}? Powiedz: tak — albo nie.")
+    return True
+
+
+def _ask_sure(what, who):
+    _clearing.update(what=what, who=who, until=time.time() + EXPECT_SECS)
     with state.lock:
         state.conversation_active = True
         state.last_activity_time = time.time()
-    speak(f"Na pewno wyczyścić cały plan lekcji {genitive(who)}? Powiedz: tak — albo nie.")
+
+
+def _whose_week(who):
+    return f"plan tygodnia {genitive(who)}" if who else "cały plan tygodnia całej rodziny"
+
+
+def _ask_clear_week(name, text, speak):
+    """"Wyczyść plan tygodnia (Mai)" → asked back first: a person's, or everyone's
+    (the page's person when it's open)."""
+    import faces
+    who = None
+    if name and name not in _FILLER:
+        who = (faces.match_name(name) or faces.match_role(name)
+               or next((n for n in people() if name in faces.forms(n)), None))
+        if who is None:
+            return False
+    elif _MINE.search(text.lower()):
+        who = _speaker()
+    else:
+        d = _page()
+        who = d.get("who") if d else None
+    show(who)
+    if not week_entries(who):
+        speak(f"{_whose_week(who)[0].upper()}{_whose_week(who)[1:]} jest pusty.")
+        return True
+    _ask_sure("week", who)
+    speak(f"Na pewno wyczyścić {_whose_week(who)} — wszystko, razem z planem lekcji? "
+          "Powiedz: tak — albo nie.")
     return True
 
 
 def handle(text, speak):
     """Local commands for the week's plan. True when handled."""
     low = text.lower().strip()
-    if _clearing["who"] is not None:
-        who, live = _clearing["who"], time.time() < _clearing["until"]
-        _clearing.update(who=None, until=0.0)
+    if _clearing["what"]:
+        what, who = _clearing["what"], _clearing["who"]
+        live = time.time() < _clearing["until"]
+        _clearing.update(what=None, who=None, until=0.0)
+        name = f"plan lekcji {genitive(who)}" if what == "lessons" else _whose_week(who)
         if live and _SURE.match(low) and not re.search(r"\bnie\b", low):
-            n = clear_lessons(who)
-            show_lessons(who)
-            speak(f"Wyczyściłam plan lekcji {genitive(who)}." if n else
-                  f"Plan lekcji {genitive(who)} był już pusty.")
+            if what == "lessons":
+                n = clear_lessons(who)
+                show_lessons(who)
+            else:
+                n = clear_week(who)
+                show(who)
+            speak(f"Wyczyściłam {name}." if n else f"{name[0].upper()}{name[1:]} był już pusty.")
             return True
         if live and (_STOP.match(low) or re.match(r"^nie\b", low)):
-            speak(f"Dobrze, plan lekcji {genitive(who)} zostaje.")
+            speak(f"Dobrze, {name} zostaje.")
             return True
         # something else: the question lapses
     if expecting() and _expect.get("paper"):
@@ -822,6 +894,9 @@ def handle(text, speak):
     m = _LESSONS_CLEAR.match(low)
     if m and "?" not in low:
         return _ask_clear(m.group(1), text, speak)
+    m = _WEEK_CLEAR.match(low)
+    if m and "?" not in low:
+        return _ask_clear_week(m.group(1), text, speak)
     if paper_request(text):
         who, known = _paper_who(text)
         fresh = bool(_FRESH.search(low))
@@ -888,16 +963,57 @@ def handle(text, speak):
     return False
 
 
+def week_entries(who=None):
+    """Whose the week page's "Wyczyść" would take: a person's own, or all."""
+    return [e for e in events() if who is None or (e.get("who") or "") == who]
+
+
+def clear_week(who=None):
+    """The week's plan wiped: `who`'s entries (lessons too), or everyone's."""
+    with _lock:
+        d = _load()
+        gone = [e for e in d["events"] if who is None or (e.get("who") or "") == who]
+        d["events"] = [e for e in d["events"] if e not in gone]
+        for e in gone:
+            d["done"].pop(e["id"], None)
+        if gone:
+            _save(d)
+    print(f"[schedule] cleared the week of {who or 'everyone'}: {len(gone)} entries", flush=True)
+    return len(gone)
+
+
+def week_rows(wd, who=None):
+    """A day on the week page: the entries, but a person's lessons as one
+    "szkoła" row from the first to the last (its id "school:<who>")."""
+    out, school = [], {}
+    for e in on_day(wd, who):
+        if e.get("kind") != "lesson":
+            out.append(e)
+            continue
+        w = e.get("who") or ""
+        end = e.get("end") or _plus(e["at"], LESSON_MINS)
+        s = school.get(w)
+        if s is None:
+            school[w] = {"id": f"school:{w}", "kind": "school", "who": w, "title": "szkoła",
+                         "at": e["at"], "end": end, "days": [wd], "n": 1, "remind": None}
+        else:
+            s["n"] += 1
+            s["end"] = max(s["end"], end, key=_mins)
+    out += school.values()
+    return sorted(out, key=lambda e: _mins(e["at"]))
+
+
 def today_said(who=None, now=None):
     lt = time.localtime(now or time.time())
-    today = on_day(lt.tm_wday, who)
+    today = week_rows(lt.tm_wday, who)
     if not events():
         return ("Plan tygodnia jest jeszcze pusty. Dotknij plusa albo powiedz: dodaj do planu, "
                 "Maja, angielski, od poniedziałku do piątku o siedemnastej.")
     if not today:
         return "Oto plan tygodnia. Na dziś nic w nim nie ma."
     parts = [f"{e['title']}" + (f" — {e['who']}" if e["who"] and not who else "")
-             + f" o {e['at']}" for e in today[:3]]
+             + f" o {e['at']}" + (f" do {e['end']}" if e.get("kind") == "school" else "")
+             for e in today[:3]]
     return "Oto plan tygodnia. Dziś: " + "; ".join(parts) + "."
 
 
@@ -992,6 +1108,17 @@ def subject_key(title):
         if re.search(rx, low):
             return key
     return re.sub(r"[^\w]+", " ", low).strip()
+
+
+def canonical_subject(title):
+    """A lesson's name one way: "w-f" / "W.F." → "WF", "j. polski" → "polski" (the
+    same subject read differently on two days stays one entry)."""
+    key = subject_key(title)
+    if key == "w-f":
+        return "WF"
+    if any(key == k for _, k, _ in _SUBJECTS) and key != "wychowawcza":
+        return key
+    return title
 
 
 def subject_colours(titles):
@@ -1179,12 +1306,24 @@ def tap(x, y, W, H, speak=None):
         return True
     kind = hit[0]
     now = time.time()
+    if not d.get("sel") and kind != "wipe":
+        d["confirm"] = 0.0
     if kind == "day":
         d["day"], d["page"] = hit[1], 0
     elif kind == "who":
         d["who"], d["page"] = hit[1], 0
+    elif kind == "row" and hit[1].startswith("school:"):     # "szkoła" → the plan lekcji
+        d.update(view="lessons", who=hit[1].split(":", 1)[1] or _lesson_who(), confirm=0.0)
     elif kind == "row":
         d["sel"], d["confirm"] = hit[1], 0.0
+    elif kind == "wipe":                     # "Wyczyść", tapped twice
+        if now - d.get("confirm", 0.0) < 4.0:
+            n = clear_week(d.get("who"))
+            d["confirm"], d["page"] = 0.0, 0
+            d["toast"] = (f"Wyczyszczone: {n} {_pl(n, 'pozycja', 'pozycje', 'pozycji')}",
+                          now + 3.0)
+        else:
+            d["confirm"] = now
     elif kind == "more":
         d["page"] += 1
     elif kind == "add":
@@ -1388,5 +1527,6 @@ def prompt_line():
 def today_rows(now=None):
     """Today's entries for "plan dnia" (screens.today_rows)."""
     lt = time.localtime(now or time.time())
-    return [(e["at"], f"{e['who']}: {e['title']}" if e.get("who") else e["title"])
-            for e in on_day(lt.tm_wday)]
+    return [(e["at"], (f"{e['who']}: {e['title']}" if e.get("who") else e["title"])
+             + (f" (do {e['end']})" if e.get("kind") == "school" else ""))
+            for e in week_rows(lt.tm_wday)]

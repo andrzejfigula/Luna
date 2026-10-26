@@ -3,7 +3,9 @@ ui_schedule.py — the "plan tygodnia" page (schedule.py): drawing and taps.
 
   the week:   person chips (Wszyscy, Maja…), the seven days, that day's
               entries (time, whose, what, the reminder), "+ Dodaj",
-              "Plan lekcji" (ui_lessons.py: one person's Pn–Pt grid)
+              "Plan lekcji" (ui_lessons.py: one person's Pn–Pt grid; the
+              week shows a day's lessons as one "Szkoła" row leading there),
+              "Wyczyść" (tapped twice: the person's plan, or everyone's)
   an entry:   its days to toggle, the time and the end ± 15 min, the
               reminder (how long before · to whom · even when nobody is
               there) and "Usuń" (tapped twice)
@@ -63,7 +65,7 @@ def layout(W, H, d):
     L["who"], L["chip_fs"] = chip_row(W, _chips_people(d))
     w = (W - 32 - 6 * 6) // 7
     L["days"] = [pygame.Rect(16 + k * (w + 6), 100, w, 44) for k in range(7)]
-    evs = schedule.on_day(d["day"], d.get("who"))
+    evs = schedule.week_rows(d["day"], d.get("who"))
     pages = max(1, -(-len(evs) // ROWS))
     d["page"] = d.get("page", 0) % pages
     shown = evs[d["page"] * ROWS:(d["page"] + 1) * ROWS]
@@ -71,6 +73,8 @@ def layout(W, H, d):
     L["add"] = pygame.Rect(W - 16 - 170, H - 52, 170, 44)
     L["more"] = pygame.Rect(16, H - 52, 150, 44) if pages > 1 else None
     L["lessons"] = pygame.Rect(L["add"].x - 10 - 160, H - 52, 160, 44)
+    L["clear"] = (pygame.Rect(176, H - 52, 140, 44)
+                  if schedule.week_entries(d.get("who")) else None)
     L["pages"] = pages
     return L
 
@@ -99,6 +103,8 @@ def hit(x, y, W, H, d):
         return ("add",)
     if L["lessons"].inflate(6, 6).collidepoint(x, y):
         return ("lessons",)
+    if L["clear"] and L["clear"].inflate(6, 6).collidepoint(x, y):
+        return ("wipe",)
     if L["more"] and L["more"].collidepoint(x, y):
         return ("more",)
     for r, e in L["rows"]:
@@ -154,7 +160,7 @@ def draw(scr, d, now, W, H):
     for k, r in enumerate(L["days"]):
         sel = k == d["day"]
         scr.blit(rrect(r.w, r.h, 14, (255, 205, 120, 90) if sel else (255, 255, 255, 18)), r)
-        n = len(schedule.on_day(k, d.get("who")))
+        n = len(schedule.week_rows(k, d.get("who")))
         lab = text(schedule.DAYS_SHORT[k], 22, WHITE if sel else (225, 225, 240),
                    "ExtraBold" if sel else "Bold")
         scr.blit(lab, lab.get_rect(center=(r.centerx - (8 if n else 0), r.centery)))
@@ -183,9 +189,15 @@ def draw(scr, d, now, W, H):
         nm = text(fit(e["title"][:1].upper() + e["title"][1:], 20, room, "ExtraBold"), 20,
                   WHITE, "ExtraBold")
         scr.blit(nm, (r.x + 146, r.y + 2))
-        sub = (e.get("who") or "cały dom") + " · " + schedule.days_short(e["days"])
+        sub = (e.get("who") or "cały dom") + " · " + (
+            f"{e['n']} {schedule._pl(e['n'], 'lekcja', 'lekcje', 'lekcji')}"
+            if e.get("kind") == "school" else schedule.days_short(e["days"]))
         sb = text(fit(sub, 14, room, "SemiBold"), 14, DIM, "SemiBold")
         scr.blit(sb, (r.x + 146, r.bottom - sb.get_height() - 2))
+        if e.get("kind") == "school":         # the lessons: one row, a way to their plan
+            go = text("plan lekcji ›", 17, _GOLD, "Bold")
+            scr.blit(go, (r.right - 14 - go.get_width(), r.centery - go.get_height() // 2))
+            continue
         rm = schedule.remind_short(e)
         on = not rm.startswith("bez")
         ri = text(fit(rm, 16, 220, "SemiBold"), 16,
@@ -193,6 +205,10 @@ def draw(scr, d, now, W, H):
         scr.blit(ri, (r.right - 14 - ri.get_width(), r.centery - ri.get_height() // 2))
     _pill(scr, L["add"], "+ Dodaj", 22, col=(80, 170, 120, 220), weight="ExtraBold")
     _pill(scr, L["lessons"], "Plan lekcji", 20)
+    if L["clear"]:
+        sure = now - d.get("confirm", 0.0) < 4.0
+        _pill(scr, L["clear"], "Na pewno?" if sure else "Wyczyść", 20,
+              col=(214, 52, 52, 255 if sure else 120), weight="ExtraBold")
     if L["more"]:
         _pill(scr, L["more"], f"więcej ({d['page'] + 1}/{L['pages']})", 18)
     _toast(scr, d, now, W, H)

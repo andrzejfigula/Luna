@@ -56,6 +56,51 @@ def _esp32_loop():
 
 
 _opened = [None]           # the camera open now (settings page: "teraz: …")
+STILL_SIZE = (1280, 960)   # the C270's largest MJPG frame: paper held up to be read
+_still = {"want": 0, "frames": [], "done": None}
+
+
+def grab_stills(n=4, timeout=10.0):
+    """n frames at STILL_SIZE (a timetable on paper: 640x480 blurs its small
+    print) — the camera thread switches up, grabs them, and back; [] when it
+    can't (no camera, an ESP32 stream)."""
+    if USE_ESP32_CAM:
+        return []
+    ev = threading.Event()
+    _still.update(want=n, frames=[], done=ev)
+    ev.wait(timeout)
+    _still["want"] = 0
+    return list(_still["frames"])
+
+
+def _take_stills(cap):
+    """In the camera thread: the stills, then back to the usual size. False
+    when the camera didn't come back to it (the loop reopens it)."""
+    n, out = _still["want"], []
+    try:
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, STILL_SIZE[0])
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, STILL_SIZE[1])
+        t0 = last = time.time()
+        while len(out) < n and time.time() - t0 < 6.0:
+            ret, f = cap.read()
+            if not ret:
+                continue
+            with state.lock:                 # the face tracking keeps its size
+                state.frame = cv2.resize(f, (FRAME_WIDTH, FRAME_HEIGHT))
+            # the exposure settles after the switch; a hand shakes: a moment apart
+            if time.time() - t0 > 1.2 and time.time() - last > 0.3:
+                out.append(f)
+                last = time.time()
+        print(f"[camera] {len(out)} stills at {out[0].shape[1]}x{out[0].shape[0]}" if out
+              else "[camera] no stills", flush=True)
+    finally:
+        _still.update(want=0, frames=out)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
+        if _still["done"]:
+            _still["done"].set()
+    ret, f = cap.read()
+    return bool(ret) and f.shape[1] == FRAME_WIDTH
 
 
 def _open_local_camera():
@@ -164,6 +209,9 @@ def _local_loop():
                     state.frame = None
                     state.camera_ok = False
             if off:                          # …and the device is let go
+                break
+            if _still["want"] and not _take_stills(cap):
+                print("[camera] not back to its size after the stills — reopening", flush=True)
                 break
             if time.time() - last_light > 2.0:
                 last_light = time.time()

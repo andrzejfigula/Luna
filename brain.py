@@ -52,7 +52,7 @@ from config import (
     GESTURE_DURATION,
     KNOWLEDGE_PATH,
     OPENAI_API_KEY,
-    OPENAI_MODEL, CRAFT_MODEL, CHAT_MODEL, CHAT_HEDGE_AFTER,
+    OPENAI_MODEL, CRAFT_MODEL, CHAT_MODEL, CHAT_HEDGE_AFTER, TIMETABLE_MODEL,
     OPENAI_MAX_TOKENS,
     OPENAI_TEMPERATURE,
     OPENAI_MAX_HISTORY,
@@ -893,7 +893,8 @@ Always answer as JSON with exactly these keys:
                 "wyłącz szum", "włącz napisy", "wyłącz napisy", "pokaż zegar",
                 "pokaż plan dnia", "pokaż plan tygodnia" (the family's week,
                 by person), "pokaż plan lekcji <kto>" (that person's school
-                lessons Mon–Fri as a grid), "wyczyść plan lekcji <kto>" (send
+                lessons Mon–Fri as a grid), "wyczyść plan lekcji <kto>" / "wyczyść
+                plan tygodnia <kto>" (without <kto>: everyone's) (send
                 it at once when asked: right after your reply the app itself
                 asks "Na pewno?" and clears on their "tak" — so you say only
                 "Dobrze, tylko potwierdź", never that it is cleared), "dodaj do planu: <kto>, <co>, <dni>, o <godzina>"
@@ -1950,7 +1951,7 @@ _COMMAND_OK = re.compile(
     r"^nagraj\s+wiadomość(?:\s+dla\s+\w+)?$|^pokaż\s+na\s+ekranie[:,]?\s+.{1,80}$"
     r"|^pokaż\s+osoby,?\s+które\s+znasz$"
     # the week's plan (schedule.py; the sweep of 19 Oct: "dodaj do planu" refused)
-    r"|^pokaż\s+plan\s+tygodnia$|^pokaż\s+plan\s+lekcji(?:\s+\w+)?$|^wyczyść\s+plan\s+lekcji(?:\s+\w+)?$|^dodaj\s+do\s+planu[:,]?\s+.{3,160}$"
+    r"|^pokaż\s+plan\s+tygodnia$|^pokaż\s+plan\s+lekcji(?:\s+\w+)?$|^wyczyść\s+plan\s+(?:lekcji|tygodnia)(?:\s+\w+)?$|^dodaj\s+do\s+planu[:,]?\s+.{3,160}$"
     r"|^usuń\s+z\s+planu[:,]?\s+.{2,80}$"
     r"|^wyszukaj\s+w\s+internecie[:,]?\s+.{3,200}$"
     r"|^(?:przyciemnij|zgaś|rozjaśnij)\s+ekran$"
@@ -2622,6 +2623,9 @@ _TIMETABLE_SCHEMA = {
     "json_schema": {"name": "timetable", "strict": True, "schema": {
         "type": "object",
         "properties": {
+            # first the table copied as it is, then the entries from that copy:
+            # reading and sorting out in one go mixed up rows and days
+            "transcript": {"type": "string"},
             "readable": {"type": "boolean"},
             "entries": {"type": "array", "items": {
                 "type": "object",
@@ -2636,12 +2640,40 @@ _TIMETABLE_SCHEMA = {
                 "required": ["title", "days", "at", "end", "lesson_no", "kind"],
                 "additionalProperties": False}},
         },
-        "required": ["readable", "entries"],
+        "required": ["transcript", "readable", "entries"],
         "additionalProperties": False}},
 }
 
+_TIMETABLE_PROMPT = (
+    "These {n} photo(s), taken a moment apart, show a weekly schedule on paper held up "
+    "to a webcam (usually a Polish school timetable, \"plan lekcji\"; maybe a plan of "
+    "classes). Use the sharpest one; another may show a part the first hides.\n"
+    "STEP 1 — transcript: copy the table exactly as written, one line per row, cells "
+    "separated by \" | \", starting with the header row (lesson number, hours, the "
+    "days). Keep abbreviations as written; an empty cell is \"-\"; a cell you cannot "
+    "read is \"?\". Check each row's position: a subject belongs to the row its cell is "
+    "in, the day of the column above it. A merged cell spanning several rows or days "
+    "is that subject in each of them.\n"
+    "STEP 2 — entries, from your transcript: title = the subject or activity in Polish, "
+    "lowercase unless a name, abbreviations expanded (\"ed. wczesn.\" / \"e.w.\" → "
+    "\"edukacja wczesnoszkolna\", \"j. ang.\" → \"angielski\", \"j. pol.\" → "
+    "\"polski\", \"mat.\" → \"matematyka\", \"w-f\" / \"WF\" → \"wf\", \"rel.\" → "
+    "\"religia\", \"zaj. komp.\" / \"inf.\" → \"informatyka\", \"godz. wych.\" → "
+    "\"godzina wychowawcza\", \"świetl.\" → \"świetlica\"); usual subjects: polski, "
+    "matematyka, angielski, niemiecki, wf, religia, etyka, plastyka, muzyka, technika, "
+    "przyroda, informatyka, historia, geografia, biologia, chemia, fizyka, edukacja "
+    "wczesnoszkolna, świetlica. days = weekdays, 0 = Monday … 6 = Sunday; at / end = "
+    "start and end as HH:MM (24 h) — when a column gives the hours of each lesson "
+    "number, every lesson in that row has those hours; lesson_no = the lesson's number "
+    "in its row (0 if none); kind = lesson for anything in the school timetable "
+    "(świetlica too), activity for extra classes after school (music school, sport, a "
+    "club) on a plan of classes. The same title at the same time on several days is ONE "
+    "entry with all those days. A time you cannot read: at = \"\" — never guess one. "
+    "Skip breaks (przerwa) and empty cells. readable = false when this is not a "
+    "schedule or nothing can be read.")
 
-def read_timetable(imgs):
+
+def read_timetable(imgs, model=None):
     """A weekly plan on paper held to the camera (a school timetable, a list of
     classes) → {"readable", "entries": [{title, days, at, end, lesson_no,
     kind}]}, or None on failure. schedule.import_paper — 26 Oct: Luna read
@@ -2649,39 +2681,31 @@ def read_timetable(imgs):
     imgs = [b for b in (imgs or []) if b]
     if _client is None or not imgs:
         return None
-    content = [{"type": "text", "text":
-                f"These {len(imgs)} webcam frame(s), taken a moment apart, show a weekly "
-                "schedule on paper (a Polish school timetable or a plan of classes). Read it "
-                "from the clearest frame and transcribe EVERY entry that is written: "
-                "title = the subject or activity in Polish, lowercase unless a name, obvious "
-                "abbreviations expanded (\"ed. wczesn.\" → \"edukacja wczesnoszkolna\", "
-                "\"j. ang.\" → \"angielski\", \"w-f\" → \"wf\"); days = weekdays, "
-                "0 = Monday … 6 = Sunday; at / end = start and end time as HH:MM (24 h) — "
-                "when a column gives the hours of each lesson number, every lesson in that "
-                "row has those hours; lesson_no = the lesson's number in its row (0 if none); "
-                "kind = lesson for a school lesson in the school day, activity for anything "
-                "extra (after-school classes, music, sport, a club). The same title at the "
-                "same time on several days is ONE entry with all those days. A time you "
-                "cannot read: at = \"\" — never guess one. Skip breaks and empty cells. "
-                "readable = false when this is not a schedule or nothing can be read."}]
+    content = [{"type": "text", "text": _TIMETABLE_PROMPT.format(n=len(imgs))}]
     content += [{"type": "image_url",
                  "image_url": {"url": f"data:image/jpeg;base64,{b}", "detail": "high"}}
                 for b in imgs]
-    try:
-        r = _client.with_options(timeout=45.0).chat.completions.create(
-            model=CRAFT_MODEL,
-            response_format=_TIMETABLE_SCHEMA,
-            messages=[{"role": "user", "content": content}],
-            max_tokens=3000,
-            temperature=0.0,
-        )
-        out = json.loads(r.choices[0].message.content)
-        print(f"[brain] timetable read: {len(out.get('entries') or [])} entries, "
-              f"readable={out.get('readable')}", flush=True)
+    for model in dict.fromkeys(m for m in (model, TIMETABLE_MODEL, CRAFT_MODEL) if m):
+        req = {"model": model, "response_format": _TIMETABLE_SCHEMA,
+               "messages": [{"role": "user", "content": content}]}
+        if model.startswith("gpt-5"):        # it may think: it reads small print better
+            req.update(max_completion_tokens=12000, reasoning_effort="low")
+        else:
+            req.update(max_tokens=4000, temperature=0.0)
+        try:
+            t0 = time.time()
+            r = _client.with_options(timeout=90.0).chat.completions.create(**req)
+            out = json.loads(r.choices[0].message.content)
+        except Exception as e:
+            print(f"[brain] reading the timetable with {model} failed: {e!r}", flush=True)
+            continue
+        print(f"[brain] timetable read by {model} in {time.time() - t0:.1f} s: "
+              f"{len(out.get('entries') or [])} entries, readable={out.get('readable')}",
+              flush=True)
+        print("[brain] timetable transcript:\n" + str(out.get("transcript") or "")[:1500],
+              flush=True)
         return out
-    except Exception as e:
-        print(f"[brain] reading the timetable failed: {e!r}", flush=True)
-        return None
+    return None
 
 
 # ── Main process ──────────────────────────────────────────────────────────────

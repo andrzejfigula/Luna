@@ -8628,7 +8628,7 @@ class ScheduleTest(unittest.TestCase):
         out, unclear, bells = self.s.from_paper(rows)
         self.assertFalse(bells)
         self.assertEqual([(e["title"], e["days"], e["at"], e["end"]) for e in out],
-                         [("Matematyka", [0, 2, 4], "08:00", "08:45"),
+                         [("matematyka", [0, 2, 4], "08:00", "08:45"),
                           ("angielski", [1], "08:00", "08:45")])
         self.assertEqual([u["title"] for u in unclear], ["pianino"])
         out, unclear, bells = self.s.from_paper(
@@ -8874,6 +8874,109 @@ class ScheduleTest(unittest.TestCase):
         self.assertFalse(self.s.handle("usuń lekcje angielskiego", said.append))
         with state.lock:
             state.overlay = None
+
+    def test_paper_titles_one_way(self):
+        out, _, _ = self.s.from_paper(
+            [{"title": t, "days": [d], "at": "10:55", "end": "11:40", "lesson_no": 4,
+              "kind": "lesson"} for d, t in enumerate(("w-f", "WF", "W.F.", "wychowanie fizyczne"))]
+            + [{"title": "j. polski", "days": [0], "at": "08:00", "end": "", "lesson_no": 1,
+                "kind": "lesson"},
+               {"title": "zajęcia z wychowawcą", "days": [4], "at": "08:00", "end": "",
+                "lesson_no": 1, "kind": "lesson"},
+               {"title": "szkoła muzyczna", "days": [2], "at": "17:00", "end": "",
+                "lesson_no": 0, "kind": "activity"}])
+        self.assertEqual([(e["title"], e["days"]) for e in out],
+                         [("polski", [0]), ("WF", [0, 1, 2, 3]), ("szkoła muzyczna", [2]),
+                          ("zajęcia z wychowawcą", [4])])
+
+    def test_week_shows_school_as_one_row(self):
+        L = self._lesson
+        self.s.save_paper("Maja", [L("polski", [0, 1], "08:00", "08:45"),
+                                   L("matematyka", [0], "08:55", "09:40"),
+                                   L("WF", [0], "10:55")])
+        self.s.save_paper("Emilka", [L("biologia", [0], "09:50", "10:35")])
+        self.s.add("Maja", "basen", [0], "16:00")
+        rows = self.s.week_rows(0)
+        self.assertEqual([(e["title"], e.get("who"), e["at"], e.get("end")) for e in rows],
+                         [("szkoła", "Maja", "08:00", "11:40"),
+                          ("szkoła", "Emilka", "09:50", "10:35"),
+                          ("basen", "Maja", "16:00", "")])
+        self.assertEqual(rows[0]["n"], 3)
+        self.assertEqual([e["title"] for e in self.s.week_rows(0, "Emilka")], ["szkoła"])
+        self.assertEqual(self.s.today_rows(time.mktime((2026, 10, 26, 7, 0, 0, 0, 0, -1)))[0],
+                         ("08:00", "Maja: szkoła (do 11:40)"))
+        self.assertIn("szkoła — Maja o 08:00 do 11:40",
+                      self.s.today_said(None, time.mktime((2026, 10, 26, 7, 0, 0, 0, 0, -1))))
+
+    def test_clear_week_by_voice(self):
+        from shared_state import state
+        said = []
+        L = self._lesson
+        self.s.save_paper("Maja", [L("polski", [0], "08:00")])
+        self.s.add("Maja", "basen", [2], "16:00")
+        self.s.add("Emilka", "joga", [1], "19:00")
+        self.s.add("", "obiad u babci", [6], "13:00")
+        self.assertTrue(self.s.handle("Wyczyść plan tygodnia Mai", said.append))
+        self.assertEqual(said[-1], "Na pewno wyczyścić plan tygodnia Mai — wszystko, razem z "
+                                   "planem lekcji? Powiedz: tak — albo nie.")
+        self.assertTrue(self.s.handle("tak", said.append))
+        self.assertEqual(said[-1], "Wyczyściłam plan tygodnia Mai.")
+        self.assertEqual(sorted(e["title"] for e in self.s.events()), ["joga", "obiad u babci"])
+        with state.lock:                              # (no page: nobody's in particular)
+            state.overlay = None
+        self.assertTrue(self.s.handle("usuń cały harmonogram", said.append))
+        self.assertIn("całej rodziny", said[-1])
+        self.assertTrue(self.s.handle("nie", said.append))
+        self.assertEqual(len(self.s.events()), 2)
+        self.assertTrue(self.s.handle("wyczyść plan tygodnia", said.append))
+        self.assertTrue(self.s.handle("Tak, wyczyść", said.append))
+        self.assertEqual(self.s.events(), [])
+        self.assertFalse(self.s.handle("wyczyść plan tygodnia angielskiego", said.append))
+        with state.lock:
+            state.overlay = None
+
+    def test_week_page_school_row_and_wipe(self):
+        from shared_state import state
+        import pygame
+        import ui_schedule
+        pygame.font.init()
+        self.s.save_paper("Maja", [self._lesson("polski", [0], "08:00", "08:45")])
+        self.s.add("Emilka", "joga", [0], "19:00")
+        self.s.show(None, day=0)
+        d = self.s._page()
+        L = ui_schedule.layout(800, 480, d)
+        r, e = L["rows"][0]                           # "szkoła" → Maja's plan lekcji
+        self.assertEqual(e["title"], "szkoła")
+        self.s.tap(r.centerx, r.centery, 800, 480, lambda t: None)
+        self.assertEqual((d["view"], d["who"]), ("lessons", "Maja"))
+        d.update(view=None, who="Emilka")
+        r = ui_schedule.layout(800, 480, d)["clear"]   # Emilka's: twice
+        self.s.tap(r.centerx, r.centery, 800, 480, lambda t: None)
+        self.assertEqual(len(self.s.events()), 2)
+        self.s.tap(r.centerx, r.centery, 800, 480, lambda t: None)
+        self.assertEqual([e["who"] for e in self.s.events()], ["Maja"])
+        with state.lock:
+            state.overlay = None
+
+    def test_camera_stills_and_back(self):
+        import numpy as np
+        import camera_thread as ct
+
+        class Cap:                                    # a camera that gives what it's set to
+            size = [640, 480]
+
+            def set(self, prop, v):
+                import cv2
+                self.size[0 if prop == cv2.CAP_PROP_FRAME_WIDTH else 1] = int(v)
+
+            def read(self):
+                return True, np.zeros((self.size[1], self.size[0], 3), np.uint8)
+        cap = Cap()
+        ct._still.update(want=2, frames=[], done=None)
+        self.assertTrue(ct._take_stills(cap))
+        self.assertEqual([f.shape[:2] for f in ct._still["frames"]], [(960, 1280)] * 2)
+        self.assertEqual(cap.size, [640, 480])
+        self.assertEqual(ct._still["want"], 0)
 
     def test_fresh_paper_clears_all_old_lessons(self):
         L = self._lesson
