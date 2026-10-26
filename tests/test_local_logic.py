@@ -8799,7 +8799,9 @@ class ScheduleTest(unittest.TestCase):
 
     def test_lesson_page_taps(self):
         from shared_state import state
+        import pygame
         import ui_lessons
+        pygame.font.init()                         # (the chips are measured in text)
         self.s.save_paper("Maja", [self._lesson("polski", [0], "08:00", "08:45")])
         self.s.show_lessons("Maja")
         d = self.s._page()
