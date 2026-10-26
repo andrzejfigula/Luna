@@ -573,6 +573,11 @@ def photo_command(low, speak):
         name = max(binned, key=lambda f: os.stat(os.path.join(BIN, f)).st_mtime_ns)
         os.replace(os.path.join(BIN, name), os.path.join(PHOTOS_DIR, name))
         print(f"[screens] photo {name} back from the bin", flush=True)
+        import paint
+        if paint.active():                   # binned in Malowanie's "Otwórz": back there
+            paint.refresh_picker()
+            speak("Proszę, wróciło.")
+            return True
         _show("photo", PHOTO_SHOW_SECS, os.path.join(PHOTOS_DIR, name))
         speak("Proszę, wróciło.")
         return True

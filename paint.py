@@ -67,6 +67,7 @@ _s.update(paper="landscape", photo=False)   # how new sheets lie ("Obróć" chan
 _s.update(camera=None, flash_t=0.0)          # "Zdjęcie": the countdown on the live camera ("" before it)
 COUNT_SECS = 0.9
 _s.update(confirm=None, confirm_t=0.0, printing=False, printed_t=0.0, kept_ver=-1)
+_s.update(bin_ask=None, bin_t=0.0, note="", note_t=0.0)   # "Otwórz": the bin on a picture
 CONFIRM_SECS = 4.0       # "Nowa", "Drukuj", "Upiększ": a second tap this soon does it
 CONFIRM = {"new": "Nowa kartka? Dotknij „Nowa” jeszcze raz",
            "print": "Wydrukować? Dotknij „Drukuj” jeszcze raz",
@@ -112,6 +113,12 @@ def picker_cells():
     cw, ch = (bw - 3 * 8) / 4, (bh - 8) / 2
     return [(int(bx + c * (cw + 8)), int(by + r * (ch + 8)), int(cw), int(ch))
             for r in range(2) for c in range(4)]
+
+
+def bin_rect(cell):
+    """The bin in a picker cell's top right corner."""
+    x, y, w, h = cell
+    return (x + w - 44, y + 4, 40, 40)
 
 
 def _inside(p, r):
@@ -283,6 +290,8 @@ def view():
                 "busy": _s["busy"], "busy_t": _s["busy_t"],
                 "hint": CONFIRM[confirm] if confirm else _s["hint"], "confirm": confirm,
                 "printing": _print_resting(), "running": sorted(_running),
+                "bin_ask": _s["bin_ask"] if time.time() - _s["bin_t"] < CONFIRM_SECS else None,
+                "note": _s["note"] if time.time() - _s["note_t"] < 8 else "",
                 "undo_n": len(_s["undo"]),
                 "picker": _picker_page() if _s["picker"] is not None else None,
                 "undo": bool(_s["undo"]), "down": _s["down"],
@@ -659,14 +668,108 @@ def _picker_page():
 
 
 def _pick_at(x, y):
+    """A tap in the picker: a picture opens; its bin asks, a second tap bins it."""
+    now = time.time()
     with _lock:
         if _s["picker"] is None:
             return
         paths = _picker_page()["paths"]
+        ask = _s["bin_ask"] if now - _s["bin_t"] < CONFIRM_SECS else None
+        _s["bin_ask"] = None
     for path, cell in zip(paths, picker_cells()):
+        if _inside((x, y), bin_rect(cell)):
+            if ask == path:
+                _delete_picked(path)
+            else:
+                with _lock:
+                    _s["bin_ask"], _s["bin_t"] = path, now
+                print(f"[paint] bin {os.path.basename(path)}? — once more to do it", flush=True)
+            return
         if _inside((x, y), cell):
             open_picture(path)
             return
+
+
+def _bin_saved(path):
+    """A saved sheet into saved/kosz (as drawing.bin_drawing: the binning stamped,
+    so "przywróć rysunek" brings back the last one)."""
+    if not os.path.exists(path):
+        return False
+    binned = os.path.join(SAVED, "kosz")
+    os.makedirs(binned, exist_ok=True)
+    newest = max((os.stat(os.path.join(binned, f)).st_mtime_ns for f in os.listdir(binned)),
+                 default=0)
+    dst = os.path.join(binned, os.path.basename(path))
+    os.replace(path, dst)
+    t = max(time.time_ns(), newest + 1000)
+    os.utime(dst, ns=(t, t))
+    return True
+
+
+def binned_last():
+    """(when, path) of the saved sheet binned last, or (0, None)."""
+    binned = os.path.join(SAVED, "kosz")
+    try:
+        files = [os.path.join(binned, f) for f in os.listdir(binned) if f.endswith(".png")]
+    except OSError:
+        return 0, None
+    return max(((os.stat(f).st_mtime_ns, f) for f in files), default=(0, None))
+
+
+def restore_saved():
+    """The saved sheet binned last, back among the saved ones; its path or None."""
+    _t, last = binned_last()
+    if not last:
+        return None
+    out = os.path.join(SAVED, os.path.basename(last))
+    os.replace(last, out)
+    print(f"[paint] {os.path.basename(out)} back from the bin", flush=True)
+    refresh_picker()
+    return out
+
+
+def refresh_picker():
+    """Something came back from a bin: "Otwórz", if it is up, shows it."""
+    with _lock:
+        if _s["picker"] is not None:
+            _s["picker"] = _openable()
+
+
+def bin_picture(path):
+    """One of "Otwórz"'s pictures into its bin — never for good. What brings it
+    back ("przywróć zdjęcie" / "przywróć rysunek"), or None when it failed."""
+    import drawing
+    where = os.path.dirname(os.path.abspath(path))
+    try:
+        if where == os.path.abspath(PHOTOS_DIR):
+            import screens
+            ok, back = screens.bin_photo(path), "przywróć zdjęcie"
+        elif where == os.path.abspath(drawing.DIR):
+            ok, back = drawing.bin_drawing(path), "przywróć rysunek"
+        elif where == os.path.abspath(SAVED):
+            ok, back = _bin_saved(path), "przywróć rysunek"
+        else:
+            return None
+    except Exception as e:
+        print(f"[paint] couldn't bin {path}: {e!r}", flush=True)
+        return None
+    return back if ok else None
+
+
+def _delete_picked(path):
+    back = bin_picture(path)
+    with _lock:
+        if back and _s["picker"] is not None:
+            _s["picker"] = [p for p in _s["picker"] if p != path]
+            _s["page"] = min(_s["page"], max(0, math.ceil(len(_s["picker"]) / 8) - 1))
+        _s["note"] = f"Usunięte. Gdyby co — powiedz: {back}" if back else "Nie udało się usunąć"
+        _s["note_t"] = time.time()
+    print(f"[paint] binned {path}" if back else f"[paint] couldn't bin {path}", flush=True)
+    try:
+        from text_to_speech import play_sound_async
+        play_sound_async("tick")
+    except Exception:
+        pass
 
 
 def open_picture(path, title=""):

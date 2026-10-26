@@ -339,10 +339,19 @@ def restore_voice(text, speak):
         return False
     if m.group(1).lower() in ("rysunek", "obrazek"):
         import drawing
+        import paint
+        sheet_t, _sheet = paint.binned_last()        # a sheet binned in Malowanie's "Otwórz"?
+        if sheet_t > drawing.binned_last()[0]:
+            got = paint.restore_saved()
+            speak("Proszę, wrócił — jest w malowaniu, pod Otwórz." if got
+                  else "Nie mam czego przywrócić.")
+            return True
         got = drawing.restore_drawing()
         speak("Proszę, wrócił." if got else "Nie mam czego przywrócić.")
         if got:
-            drawing.show_one(got)
+            paint.refresh_picker()
+            if not paint.active():
+                drawing.show_one(got)
     else:
         import faces
         name = faces.restore()

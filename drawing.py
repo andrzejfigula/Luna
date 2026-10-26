@@ -250,15 +250,20 @@ def bin_drawing(item):
     return True
 
 
-def restore_drawing():
-    """The drawing binned last, back; its path (None: nothing in the bin)."""
+def binned_last():
+    """(when, path) of the drawing binned last, or (0, None)."""
     try:
         binned = [os.path.join(BIN, f) for f in os.listdir(BIN) if f.endswith(".png")]
     except OSError:
+        return 0, None
+    return max(((os.stat(f).st_mtime_ns, f) for f in binned), default=(0, None))
+
+
+def restore_drawing():
+    """The drawing binned last, back; its path (None: nothing in the bin)."""
+    _t, last = binned_last()
+    if not last:
         return None
-    if not binned:
-        return None
-    last = max(binned, key=lambda f: os.stat(f).st_mtime_ns)
     out = os.path.join(DIR, os.path.basename(last))
     os.replace(last, out)
     return out

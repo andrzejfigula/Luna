@@ -10354,7 +10354,8 @@ class PaintTest(unittest.TestCase):
                         marks=[], stroke=None, busy=None, hint="", picker=None, page=0,
                         title="", down=None, saved_ver=-1, asked_t=0.0, touch_t=0.0,
                         paper="landscape", photo=False, camera=None, flash_t=0.0,
-                        confirm=None, confirm_t=0.0, printing=False, printed_t=0.0, kept_ver=-1)
+                        confirm=None, confirm_t=0.0, printing=False, printed_t=0.0, kept_ver=-1,
+                        bin_ask=None, bin_t=0.0, note="", note_t=0.0)
         paint._running.clear()
         self.flush = paint._flush                                # (the real one, for its test)
         self.started = []
@@ -10710,6 +10711,74 @@ class PaintTest(unittest.TestCase):
         self.assertLessEqual(n, p.UNDO)
         self.assertLessEqual(sum(e["img"].width * e["img"].height for e in p._s["undo"]),
                              p.UNDO_PIXELS)
+
+    def test_bin_in_the_picker(self):
+        # "Otwórz": a bin on every picture — tapped twice, into its bin (never
+        # for good); "przywróć rysunek" brings back the one binned last
+        p = self.p
+        import drawing
+        import gallery
+        import screens
+        d = tempfile.mkdtemp(prefix="luna-bin-")
+        dd, pd = os.path.join(d, "drawings"), os.path.join(d, "photos")
+        for k in (dd, pd, p.SAVED):
+            os.makedirs(k, exist_ok=True)
+        with mock.patch.object(drawing, "DIR", dd), \
+                mock.patch.object(drawing, "BIN", os.path.join(dd, "kosz")), \
+                mock.patch.object(screens, "PHOTOS_DIR", pd), \
+                mock.patch.object(screens, "BIN", os.path.join(pd, "kosz")), \
+                mock.patch.object(p, "PHOTOS_DIR", pd), \
+                mock.patch.object(drawing, "show_one", lambda path: None):
+            sheet = os.path.join(p.SAVED, "20261026-100000.png")
+            draw = os.path.join(dd, "kot.png")
+            photo = os.path.join(pd, "20261026-090000.jpg")
+            from PIL import Image
+            for i, path in enumerate((photo, draw, sheet)):        # newest last
+                Image.new("RGB", (40, 30), (200, 0, 0)).save(path)
+                os.utime(path, (1000 + i, 1000 + i))
+            self._tap(*self._centre("open"))
+            self.assertEqual(p._s["picker"], [sheet, draw, photo])
+            cells = p.picker_cells()
+            for c in cells:                                       # the bin inside its cell
+                b = p.bin_rect(c)
+                self.assertTrue(c[0] <= b[0] and b[0] + b[2] <= c[0] + c[2] and
+                                c[1] <= b[1] and b[1] + b[3] <= c[1] + c[3])
+
+            def bin_tap(i):
+                b = p.bin_rect(cells[i])
+                self._tap(b[0] + b[2] / 2, b[1] + b[3] / 2)
+            bin_tap(1)                                            # once: only "usunąć?"
+            self.assertTrue(os.path.exists(draw))
+            self.assertEqual(p.view()["bin_ask"], draw)
+            bin_tap(1)                                            # twice: into the bin
+            self.assertFalse(os.path.exists(draw))
+            self.assertTrue(os.path.exists(os.path.join(dd, "kosz", "kot.png")))
+            self.assertEqual(p._s["picker"], [sheet, photo])
+            self.assertIn("przywróć rysunek", p.view()["note"])
+            bin_tap(0)
+            bin_tap(0)                                            # a saved sheet: its own bin
+            self.assertFalse(os.path.exists(sheet))
+            self.assertEqual(p._s["picker"], [photo])
+            bin_tap(0)
+            bin_tap(0)                                            # a photo: the photos' bin
+            self.assertEqual(p._s["picker"], [])
+            self.assertTrue(os.path.exists(os.path.join(pd, "kosz", os.path.basename(photo))))
+            # "przywróć rysunek": the sheet (binned after the drawing) first
+            said = []
+            self.assertTrue(gallery.restore_voice("przywróć rysunek", said.append))
+            self.assertTrue(os.path.exists(sheet))
+            self.assertIn("Otwórz", said[-1])
+            self.assertEqual(p._s["picker"], [sheet])             # back in "Otwórz" at once
+            self.assertTrue(gallery.restore_voice("przywróć obrazek", said.append))
+            self.assertTrue(os.path.exists(draw))
+            self.assertEqual(p._s["picker"], [sheet, draw])
+            # a tap on the bin, then on the picture: it opens, nothing binned
+            bin_tap(0)
+            c = cells[0]
+            self._tap(c[0] + 20, c[1] + c[3] - 20)
+            self.assertTrue(os.path.exists(sheet))
+            self.assertIsNone(p._s["picker"])
+            self.assertIsNone(p.view()["bin_ask"])
 
     def test_save_twice_keeps_one(self):
         p, said = self.p, []

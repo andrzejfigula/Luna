@@ -81,6 +81,21 @@ def _marks(surf, marks, k, ox, oy, now):
             pygame.draw.circle(surf, paint.MARK_COL + (230,), (int(p[0]), int(p[1])), r, 2)
 
 
+def _bin(scr, r, armed):
+    """A little bin on a picture in "Otwórz" (red: the next tap bins it)."""
+    x, y, w, h = r
+    c = (x + w // 2, y + h // 2)
+    pygame.draw.circle(scr, (214, 52, 52) if armed else (30, 30, 44), c, w // 2 - 3)
+    pygame.draw.circle(scr, WHITE, c, w // 2 - 3, 2)
+    bx, by = c[0] - 7, c[1] - 6
+    pygame.draw.line(scr, WHITE, (bx - 2, by), (bx + 16, by), 2)              # the lid
+    pygame.draw.line(scr, WHITE, (bx + 5, by - 3), (bx + 9, by - 3), 2)       # its handle
+    pygame.draw.polygon(scr, WHITE, [(bx, by + 3), (bx + 14, by + 3), (bx + 12, by + 16),
+                                     (bx + 2, by + 16)], 2)                    # the can
+    for dx in (5, 9):
+        pygame.draw.line(scr, WHITE, (bx + dx, by + 6), (bx + dx, by + 13), 1)
+
+
 def _camera(scr, count):
     """The camera's picture in the sheet's box, mirrored (as the photo will be)."""
     from shared_state import state
@@ -122,6 +137,15 @@ def draw(scr, now, W, H):
             t = _thumb(path, cw - 12, ch - 12, budget)
             if t is not None:
                 scr.blit(t, t.get_rect(center=(cx + cw // 2, cy + ch // 2)))
+            armed = v["bin_ask"] == path
+            if armed:                                 # "really?" over the picture
+                scr.blit(rrect(cw, ch, 12, (120, 20, 30, 170)), (cx, cy))
+                q = text("Usunąć?", 24, WHITE, "ExtraBold")
+                scr.blit(q, q.get_rect(center=(cx + cw // 2, cy + ch // 2 - 12)))
+                for i, line in enumerate(_wrap("Dotknij kosza jeszcze raz", 14, cw - 16)):
+                    s = text(line, 14, WHITE, "SemiBold")
+                    scr.blit(s, s.get_rect(center=(cx + cw // 2, cy + ch // 2 + 16 + i * 17)))
+            _bin(scr, paint.bin_rect((cx, cy, cw, ch)), armed)
     else:
         if _sheet["ver"] != v["ver"] and v["view"] is not None:
             _sheet["surf"], _sheet["ver"] = _surface(v["view"]), v["ver"]
@@ -248,8 +272,9 @@ def draw(scr, now, W, H):
     hint = v["hint"]
     if v["picker"] is not None:
         p = v["picker"]
-        hint = "Dotknij obrazka, żeby go otworzyć" + (
-            f" · strona {p['page'] + 1}/{p['pages']}" if p["pages"] > 1 else "")
+        hint = "Usunąć? Dotknij kosza jeszcze raz" if v["bin_ask"] else v["note"] or (
+            "Dotknij obrazka, żeby go otworzyć" + (
+                f" · strona {p['page'] + 1}/{p['pages']}" if p["pages"] > 1 else ""))
     elif v["busy"] and not v["confirm"]:
         hint = "Luna rysuje — to trwa chwilę"
     for fs, step in ((16, 21), (14, 17), (13, 15)):  # smaller rather than cut off
