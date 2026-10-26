@@ -1894,6 +1894,9 @@ class GLFace:
         u.update(self._mouth(face, rf, fcx, fcy, cur))
         blush = min(1.0, cur["blush"] + 0.55 * shy + 0.5 * content + 0.25 * beatv
                     + 0.4 * giggle)
+        # HAL has no cheeks: his status diodes light instead (robot_face)
+        self.diode_now = (blush, giggle) if lens else (0.0, 0.0)
+        blush = 0.0 if lens else blush
         u["uBlush"] = (fcx, fcy, blush, 30.0)
         self.blush_now = blush                    # (robot_face: the "///" lines)
         sp = getattr(face, "_scene_p", 0.0)

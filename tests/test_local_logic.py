@@ -6289,6 +6289,12 @@ class Oct14NightTest(unittest.TestCase):
         self.assertTrue(commands.close_page("Wyłącz kogo znam.", said.append))
         with state.lock:
             self.assertIsNone(state.overlay)
+        for words in ("Zamknij plan tygodnia", "Wyłącz grafik Mai", "Schowaj plan lekcji."):
+            with state.lock:                            # 26 Oct: the week plan stayed up
+                state.overlay = ("schedule", time.time() + 30, {"day": 0})
+            self.assertTrue(commands.close_page(words, said.append), words)
+            with state.lock:
+                self.assertIsNone(state.overlay)
 
     def test_bare_stop_closes_the_page(self):
         import ambience
@@ -6318,6 +6324,11 @@ class Oct14NightTest(unittest.TestCase):
                 mock.patch.dict(timers._last_rang, {"t": 0.0}):
             self.assertFalse(commands.close_page("Cisza", said.append))   # her voice
             self.assertTrue(commands.close_page("Stop", said.append))     # nothing plays
+            with state.lock:                                # 26 Oct: "Hal, wyłącz." on the plan
+                state.overlay = ("schedule", now + 30, {"day": 0})
+            self.assertTrue(commands.close_page("Wyłącz.", said.append))
+            with state.lock:
+                self.assertIsNone(state.overlay)
             with state.lock:
                 state.overlay = ("card", now + 30, None)                # a game's card
             self.assertFalse(commands.close_page("Stop", said.append))
@@ -10543,6 +10554,34 @@ class PaintTest(unittest.TestCase):
             self.assertFalse(p.fallback(no, print), no)
         self.assertTrue(p.fallback("kot ma być rudy", print))
         self.assertEqual(self.started[-1], ("edit", "kot ma być rudy"))
+
+    def test_my_photo_in_the_editor(self):
+        p, said = self.p, []
+        p.close()
+        photo = os.path.join(p.DIR, "a.jpg")
+        with mock.patch.object(p, "_openable", lambda: [photo]):
+            # 26 Oct: "Hal, włącz w edytorze moje zdjęcie" — the model said "włączam"
+            for words in ("włącz w edytorze moje zdjęcie", "Chcę upiększyć swoje zdjęcie.",
+                          "Możesz je włączyć w edytorze zdjęć?"):
+                p.close()
+                self.assertTrue(p.voice(words.rstrip("?"), said.append), words)
+                self.assertTrue(p.active())
+                self.assertEqual(p._s["picker"], [photo])
+            self.assertIn("Wybierz", said[-1])
+            for no in ("pokaż mi zdjęcie słonia", "zrób mi zdjęcie", "pokaż zdjęcia"):
+                p.close()
+                self.assertFalse(p.opener(no, said.append), no)
+            # the page up on a clean sheet: not a picture to draw
+            p.open_page()
+            p._s["touch_t"] = time.time()
+            self.assertTrue(p.voice("Na razie chcę je zobaczyć w edytorze.", said.append))
+            self.assertEqual(self.started, [])
+            self.assertFalse(p.fallback("pokaż to w edytorze proszę", said.append))
+            # a picture on the sheet: "upiększ moje zdjęcie" is that one
+            p._s["picker"] = None
+            p._s["img"].putpixel((5, 5), (0, 0, 0))
+            self.assertTrue(p.voice("upiększ moje zdjęcie", said.append))
+            self.assertEqual(self.started[-1][0], "beautify")
 
     def test_print_and_save(self):
         p = self.p

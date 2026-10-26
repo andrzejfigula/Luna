@@ -1120,6 +1120,11 @@ use something, explain in your own words, briefly, a few examples at a time
   say one short sentence with the command; never say you can't show photos.
   "Pokaż inne / jeszcze jedno" after a photo: command "pokaż inne zdjęcie".
   People and the camera's picture: drawing, as above
+- a painting page, Malowanie / the editor: they paint with a finger, you
+  change the picture when they say what; a camera photo or a saved picture
+  can go on it to paint over or make nicer. Command "otwórz malowanie";
+  their photo in it ("włącz moje zdjęcie w edytorze", "chcę upiększyć swoje
+  zdjęcie"): command "otwórz zdjęcie w malowaniu" (they pick it with a finger)
 - interactive stories: the child chooses what happens next, every part
   with its own picture ("opowiedz bajkę, w której wybieram", "interaktywna
   bajka o smoku"); finished ones are kept — "pokaż moje bajki" lists them and
@@ -1980,6 +1985,8 @@ _COMMAND_OK = re.compile(
     r"|^głośność\s+na\s+\d{1,3}(?:\s*%|\s+procent)?$"
     r"|^(?:wyłącz\s+się|idź\s+spać)$"
     r"|^pokaż\s+ustawienia$|^(?:załóż|zdejmij)\s+[\wąćęłńóśźż ]{3,30}$"
+    # Malowanie (paint.py; 26 Oct: "włączam Twoje zdjęcie w edytorze", nothing opened)
+    r"|^otwórz\s+malowanie$|^otwórz\s+zdjęcie\s+w\s+malowaniu$"
     # a station by its name ("włącz Polskie Radio Chopin" was refused, 11 Oct)
     r"|^(?:włącz|puść)\s+(?:[\w.]+\s+){0,4}(?:radio|fm)\b[\w .]{0,40}$"
     # her own capability text says to send these (18 Oct: refused three times)

@@ -209,6 +209,9 @@ FX_LOOKS = [            # (name, how to set it up: a state field → value; "sta
     ("love", {"emotion": "love"}),
     ("excited", {"emotion": "excited"}),
     ("waves", {"inject": "wave"}),
+    # blushing (HAL: his status diodes): looked at a long while, tickled
+    ("looked_at", {"inject": "shy"}),
+    ("tickled", {"inject": "giggle"}),
 ]
 # the reply scenes that draw props (reply_scenes.py), caught a little past halfway
 SCENE_LOOKS = ("big_pupils", "flutter", "heart_eyes", "sparkle_eyes", "snap", "air_heart",
@@ -280,6 +283,8 @@ def fx_sheet(out_dir, theme_keys=("luna", "hal"), only=None):
             elif inject == "zzz":
                 face.zzz_particles += [rf.ZzzParticle(fcx + 40, fcy - 100),
                                        rf.ZzzParticle(fcx - 30, fcy - 60)]
+            elif inject in ("shy", "giggle"):        # (the bump's peak at the capture)
+                setattr(face.gl.life, inject + "_t", gl_face._clock() + (0.8 - 1.25 if inject == "shy" else 0.0))
             elif inject == "wave":
                 face.sound_waves += [rf.SoundWave(fcx, fcy + 120) for _ in range(3)]
                 face.sound_waves[1].r, face.sound_waves[2].r = 45.0, 70.0

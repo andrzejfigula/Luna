@@ -919,7 +919,8 @@ _POLITE = r"(?:(?:a\s+|no\s+|to\s+|dobra,?\s+|okej,?\s+|teraz\s+|luna,?\s+)*" \
 _OPEN = re.compile(
     r"^" + _POLITE + r"(?:(?:otwórz|otworz|włącz|wlacz|pokaż|pokaz|uruchom|otworzyć|włączyć)\s+"
     r"(?:mi\s+|nam\s+)?(?:malowanie|malowank[eęi]|paint|kartkę\s+do\s+malowania|"
-    r"edytor\s+obrazków)|(?:chcę|chce|chcemy|chciałabym|chciałbym)\s+(?:po)?malować|"
+    r"edytor(?:\s+(?:obrazków|obrazkow|zdjęć|zdjec|rysunków|rysunkow))?)|"
+    r"(?:chcę|chce|chcemy|chciałabym|chciałbym)\s+(?:po)?malować|"
     r"pomalujmy|(?:po)?malujmy(?:\s+razem)?|malujemy(?:\s+razem)?|porysujmy(?:\s+razem)?)"
     r"\W*$", re.I)
 _EDIT_SHOWN = re.compile(
@@ -927,6 +928,23 @@ _EDIT_SHOWN = re.compile(
     r"(?:do|w)\s+malowani\w*|(?:edytuj|popraw|przerób|przerob|pomaluj|zmień|zmien|"
     r"przemaluj)\s+(?:to(?:\s+zdjęcie|\s+zdjecie)?|ten\s+(?:rysunek|obrazek|obraz)|"
     r"tę\s+(?:fotkę|fotke)|to\s+co\s+(?:jest\s+)?na\s+ekranie))(?:\s*[:,—–-]?\s*(.*))?$", re.I)
+# "Hal, włącz w edytorze moje zdjęcie", "chcę upiększyć swoje zdjęcie" (26 Oct:
+# the model said "włączam", nothing opened; on a clean sheet the next "chcę je
+# zobaczyć w edytorze" was drawn as a picture)
+_PHOTO_WORD = r"(?:zdjęci[eua]|zdjeci[eua]|fotk[eęia]|fotografi[eęia])"
+_MY = r"(?:moje|swoje|moją|moja|swoją|swoja|nasze|to|ostatnie|jakieś|jakies)"
+_IN_EDITOR = (r"(?:w|do)\s+(?:edytor\w*|malowani\w*|malowank\w*)"
+              r"(?:\s+(?:zdjęć|zdjec|obrazków|obrazkow|rysunków|rysunkow))?")
+_PHOTO_OBJ = r"(?:(?:" + _MY + r"\s+)?" + _PHOTO_WORD + r"|je|go|ją)"
+_OPEN_PHOTO = re.compile(
+    r"^" + _POLITE + r"(?:(?:na\s+razie|teraz|najpierw|tylko)\s+)?"
+    r"(?:(?:chcę|chce|chcemy|chciałbym|chcialbym|chciałabym|chcialabym)\s+)?"
+    r"(?:(?:na\s+razie|teraz|najpierw|tylko)\s+)?(?:(?:je|go|ją)\s+)?(?:(?:włącz\w*|wlacz\w*|"
+    r"otwórz|otworz\w*|pokaż|pokaz\w*|daj|wrzuć|wrzuc\w*|weź|wez|wczytaj|wczytać|zobaczyć|"
+    r"zobaczyc|obejrzeć)\s+(?:mi\s+|nam\s+)?(?:" + _PHOTO_OBJ + r"\s+" + _IN_EDITOR + r"|"
+    + _IN_EDITOR + r"(?:\s+" + _PHOTO_OBJ + r")?)|(?:upiększ\w*|upieksz\w*|popraw\w*|edytuj|edytować|edytowac|pomaluj|"
+    r"pomalować|pomalowac|przerób|przerob\w*)\s+(?:mi\s+)?(?:" + _MY + r"\s+)?" + _PHOTO_WORD
+    + r"(?:\s+" + _IN_EDITOR + r")?)\W*$", re.I)
 _UNDO = re.compile(r"^" + _POLITE + r"(?:cofnij|cofnąć|cofnac|wróć|wroc|jednak\s+nie|"
                    r"przywróć|przywroc)(?:\s+(?:to|go|jak\s+było|tak\s+jak\s+było|"
                    r"poprzedni\w*|zmian\w*|ostatni\w*|wszystko|do\s+poprzedniego))*\W*$", re.I)
@@ -991,6 +1009,7 @@ _DISLIKE = re.compile(r"\bnie\s+podoba\s+mi\s+się|\bnie\s+podoba\s+mi\s+sie|\bn
                       r"\bto\s+(?:jest\s+)?(?:brzydk\w*|złe|zle|głupie|glupie|okropne)|"
                       r"\bbez\s+tego\b|\bzabierz\s+to\b|\busuń\s+to\b|\busun\s+to\b|"
                       r"\bwyrzuć\s+to\b", re.I)
+_ABOUT_PAGE = re.compile(r"\bedytor\w*|\bw\s+malowaniu\b", re.I)    # the page, not a picture
 _QUESTION = re.compile(r"^(?:a\s+)?(?:co|jak|jaki\w*|jaka|jakie|kto|ile|czy|kiedy|gdzie|"
                        r"dlaczego|czemu|po\s+co|któr\w*|ktor\w*|skąd|skad)\b", re.I)
 _REACTION = re.compile(r"^(?:(?:dzięki|dzieki|dziękuję|dziekuje|super|fajnie|fajne|ok|okej|"
@@ -1027,7 +1046,29 @@ def opener(text, speak):
             return _start("edit", rest, speak)
         speak("Otwieram w malowaniu. Co zmienić?")
         return True
+    if _OPEN_PHOTO.match(t):
+        return open_photo(speak)
     return False
+
+
+def open_photo(speak):
+    """"Włącz moje zdjęcie w edytorze": the photo on the screen onto the sheet,
+    else the page with its picker (photos and pictures, newest first)."""
+    import gallery
+    shown = gallery.current()
+    if shown and shown.get("path") and os.path.exists(shown["path"]):
+        open_picture(shown["path"], str(shown.get("caption") or ""))
+        open_page("Maluj albo powiedz, co zmienić")
+        speak("Otwieram w malowaniu. Co zmienić?")
+        return True
+    pics = _openable()
+    open_page("Wybierz zdjęcie albo naciśnij „Zdjęcie”, żeby zrobić nowe")
+    with _lock:
+        _s["picker"], _s["page"] = (pics or None), 0
+    print(f"[paint] a photo to open: the picker ({len(pics)})", flush=True)
+    speak("Wybierz palcem, które otworzyć — albo powiedz: zrób zdjęcie." if pics else
+          "Nie mam jeszcze zdjęć. Powiedz: zrób zdjęcie, a zrobię nowe.")
+    return True
 
 
 def voice(text, speak):
@@ -1068,6 +1109,8 @@ def voice(text, speak):
         rotate()
         speak("Obracam kartkę.")
         return True
+    if _OPEN_PHOTO.match(t) and not (_BEAUTIFY.match(t) and _has_picture()):
+        return open_photo(speak)                    # another photo onto the sheet
     if _BEAUTIFY.match(t):
         return _start("beautify", "upiększ", speak)
     if _PHOTO.match(t):
@@ -1103,7 +1146,7 @@ def fallback(text, speak):
         return False
     t = _clean(text)
     if (len(t.split()) < 2 or _QUESTION.match(t) or text.strip().endswith("?")
-            or _REACTION.match(t) or _NOT_PICTURE.search(t)):
+            or _REACTION.match(t) or _NOT_PICTURE.search(t) or _ABOUT_PAGE.search(t)):
         return False
     with _lock:
         marked = bool(_s["marks"])
@@ -1134,6 +1177,11 @@ def _edit(t, marked, blank, speak):
     if marked and re.fullmatch(r"(?:" + _DISLIKE.pattern + r")\W*", t, re.I):
         instr = "usuń to, co tu jest, i uzupełnij tło tak, żeby pasowało do reszty"
     return _start("edit", instr, speak)
+
+
+def _has_picture():
+    with _lock:
+        return _s["img"] is not None and not _is_blank(_s["img"])
 
 
 def _is_blank(img):
