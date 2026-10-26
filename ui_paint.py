@@ -19,7 +19,8 @@ from ui_screens import WHITE, DIM, text, fit, rrect, vgrad
 _GOLD = (255, 205, 120)
 _LABELS = {"talk": "Powiedz", "close": "Zamknij", "brush": "Pędzel", "eraser": "Gumka",
            "mark": "Pokaż", "undo": "Cofnij", "new": "Nowa", "open": "Otwórz",
-           "save": "Zapisz", "print": "Drukuj", "rotate": "Obróć", "beautify": "Upiększ"}
+           "save": "Zapisz", "print": "Drukuj", "rotate": "Obróć", "beautify": "Upiększ",
+           "photo": "Zdjęcie"}
 _VOICE = {"listening": ("Słucham", (60, 190, 110)), "thinking": ("Myślę", (230, 160, 50)),
           "speaking": ("Mówię", (150, 100, 220))}
 _sheet = {"ver": -1, "surf": None}
@@ -80,6 +81,27 @@ def _marks(surf, marks, k, ox, oy, now):
             pygame.draw.circle(surf, paint.MARK_COL + (230,), (int(p[0]), int(p[1])), r, 2)
 
 
+def _camera(scr, count):
+    """The camera's picture in the sheet's box, mirrored (as the photo will be)."""
+    from shared_state import state
+    with state.lock:
+        frame = state.frame
+    bx, by, bw, bh = paint.BOX
+    if frame is not None:
+        fh, fw = frame.shape[:2]
+        img = pygame.image.frombuffer(frame.tobytes(), (fw, fh), "BGR")
+        img = pygame.transform.flip(img, True, False)
+        k = min(bw / fw, bh / fh)
+        img = pygame.transform.scale(img, (int(fw * k), int(fh * k)))
+        scr.blit(img, img.get_rect(center=(bx + bw // 2, by + bh // 2)))
+    if count:
+        n = text(count, 120, WHITE, "ExtraBold")
+        sh = text(count, 120, (0, 0, 0), "ExtraBold")
+        c = (bx + bw // 2, by + bh // 2)
+        scr.blit(sh, sh.get_rect(center=(c[0] + 3, c[1] + 4)))
+        scr.blit(n, n.get_rect(center=c))
+
+
 def draw(scr, now, W, H):
     v = paint.view()
     scr.blit(vgrad(W, H, (22, 24, 40), (44, 36, 64)), (0, 0))
@@ -87,7 +109,9 @@ def draw(scr, now, W, H):
     k = v["k"]
     budget = [2]
 
-    if v["picker"] is not None:                       # pictures to open
+    if v["camera"] is not None:                       # "Zdjęcie": the live camera, 3-2-1
+        _camera(scr, v["camera"])
+    elif v["picker"] is not None:                     # pictures to open
         paths = v["picker"]["paths"]
         if not paths:
             msg = text("Nie ma jeszcze obrazków do otwarcia", 22, DIM)
@@ -119,6 +143,11 @@ def draw(scr, now, W, H):
             layer = pygame.Surface((w, h), pygame.SRCALPHA)
             _marks(layer, marks, k, 0, 0, now)
             scr.blit(layer, (x, y))
+        if now - v["flash_t"] < 0.3:                  # the shutter
+            white = pygame.Surface((w, h))           # (not rrect: it caches every alpha)
+            white.fill(WHITE)
+            white.set_alpha(int(255 * (1 - (now - v["flash_t"]) / 0.3)))
+            scr.blit(white, (x, y))
         if v["busy"]:                                 # she is drawing: the sheet waits
             scr.blit(rrect(w, h, 0, (20, 20, 36, 150)), (x, y))
             base = v["busy"].rstrip("…")
@@ -164,6 +193,12 @@ def draw(scr, now, W, H):
                                              (sx - 1.5, sy + 1.5), (sx - 6, sy),
                                              (sx - 1.5, sy - 1.5)])
             cx += 6
+        if key == "photo":                            # a little camera
+            px, py = bx + 5, by + bh // 2 - 6
+            pygame.draw.rect(scr, WHITE, (px, py + 2, 16, 11), 2, border_radius=2)
+            pygame.draw.rect(scr, WHITE, (px + 5, py, 6, 3))
+            pygame.draw.circle(scr, WHITE, (px + 8, py + 7), 3, 1)
+            cx += 9
         if key == "rotate":                           # the paper, the way it lies now
             pw, ph = (16, 11) if v["wide"] else (11, 16)
             pygame.draw.rect(scr, WHITE, (bx + 7 + (16 - pw) // 2, by + (bh - ph) // 2, pw, ph),
@@ -192,6 +227,10 @@ def draw(scr, now, W, H):
             f" · strona {p['page'] + 1}/{p['pages']}" if p["pages"] > 1 else "")
     elif v["busy"]:
         hint = "Luna rysuje — to trwa chwilę"
-    for i, line in enumerate(_wrap(hint, 16, hw)[:4]):
-        img = text(line, 16, _GOLD if i == 0 and v["marks"] else DIM, "SemiBold")
-        scr.blit(img, (hx, hy + i * 22))
+    for fs, step in ((16, 21), (14, 17), (13, 15)):  # smaller rather than cut off
+        lines = _wrap(hint, fs, hw)
+        if len(lines) * step <= hh + 4:
+            break
+    for i, line in enumerate(lines[:max(1, (hh + 4) // step)]):
+        img = text(line, fs, _GOLD if i == 0 and v["marks"] else DIM, "SemiBold")
+        scr.blit(img, (hx, hy + i * step))

@@ -118,8 +118,25 @@ def close():
         state.overlay = None
 
 
-def _take_photo(speak, play_sound_async):
+def save_frame(frame):
+    """A camera frame kept as a photo (mirrored, as seen on the screen):
+    who is in it, the oldest past PHOTOS_KEEP gone. (path, names)."""
     import cv2
+    os.makedirs(PHOTOS_DIR, exist_ok=True)
+    path = os.path.join(PHOTOS_DIR, time.strftime("%Y%m%d-%H%M%S") + ".jpg")
+    cv2.imwrite(path, cv2.flip(frame, 1), [int(cv2.IMWRITE_JPEG_QUALITY), 92])
+    print(f"[screens] photo saved: {path}", flush=True)
+    names = _tag(path)
+    shots = sorted(f for f in os.listdir(PHOTOS_DIR) if f.endswith(".jpg"))
+    for old in shots[:-PHOTOS_KEEP]:
+        try:
+            os.remove(os.path.join(PHOTOS_DIR, old))
+        except OSError:
+            pass
+    return path, names
+
+
+def _take_photo(speak, play_sound_async):
     speak("Uśmiech! Patrz w kamerę.")
     for n in ("3", "2", "1"):
         with state.lock:
@@ -132,17 +149,7 @@ def _take_photo(speak, play_sound_async):
     if frame is None:
         speak("Ojej, nie widzę nic przez kamerę.")
         return
-    os.makedirs(PHOTOS_DIR, exist_ok=True)
-    path = os.path.join(PHOTOS_DIR, time.strftime("%Y%m%d-%H%M%S") + ".jpg")
-    cv2.imwrite(path, cv2.flip(frame, 1), [int(cv2.IMWRITE_JPEG_QUALITY), 92])
-    print(f"[screens] photo saved: {path}", flush=True)
-    names = _tag(path)
-    shots = sorted(f for f in os.listdir(PHOTOS_DIR) if f.endswith(".jpg"))
-    for old in shots[:-PHOTOS_KEEP]:
-        try:
-            os.remove(os.path.join(PHOTOS_DIR, old))
-        except OSError:
-            pass
+    path, names = save_frame(frame)
     time.sleep(0.25)
     # in the gallery, standing: "poprzednie" goes back to the older ones
     shots = sorted((f for f in os.listdir(PHOTOS_DIR) if f.endswith(".jpg")), reverse=True)

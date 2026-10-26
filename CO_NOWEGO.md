@@ -3,6 +3,8 @@
 Ściąga: co Luna teraz potrafi i jak to wywołać. Wszystko po polsku, zwykłymi
 zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `docs/backlog-done.md`.
 
+> **Malowanie — Zdjęcie:** przycisk **Zdjęcie** (albo „**zrób zdjęcie**” przy otwartym malowaniu, „**zrób zdjęcie do malowania**” skądkolwiek) — 3, 2, 1 na obrazie z kamery, zdjęcie od razu na kartce: maluj po nim, **Upiększ**, „dodaj mi koronę”, Zapisz, Drukuj
+>
 > **Malowanie — Upiększ:** przycisk **Upiększ** (albo „**upiększ to**”, „zrób to ładniej”) — twój rysunek narysowany jeszcze raz, starannie, w tym samym układzie; zdjęcie tylko poprawione (światło, kolory); z zaznaczeniem „Pokaż” — tylko to miejsce · nowa kartka jest **pozioma** (Obróć zmienia)
 >
 > **Nowe (26.10) — Malowanie:** ikonka **palety** na dole ekranu (albo „Luna, **otwórz malowanie**”, „chcę malować”) · maluj **palcem**: kolory, Pędzel (dotknij jeszcze raz — grubszy), Gumka, Cofnij, Nowa kartka, **Obróć** (kartka poziomo / pionowo; „obróć kartkę”, „kartka poziomo”) · „**Narysuj arkusz A4 z uroczymi zwierzątkami i ubrankami do przebierania**” — Luna rysuje (ok. 25 s) · potem „**dodaj kotu kapelusz**”, „zmień tło na niebieskie”, „zrób z mojego rysunku ładny obrazek” · przycisk **Pokaż**: dotknij (albo obrysuj) tego, co ci się nie podoba, i powiedz „**tego nie chcę**” / „zamień to na pandę” — zmienia się **tylko to miejsce** · „Cofnij”, „**Zapisz**”, „**Wydrukuj to**” (też „dwa razy”, „czarno-biało”) · **Otwórz** — zapisane obrazki, jej rysunki i zdjęcia; „**popraw ten rysunek: dodaj tęczę**”, kiedy rysunek jest na ekranie · przycisk **Powiedz** — Luna słucha bez „Luna”.

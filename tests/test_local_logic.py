@@ -10294,7 +10294,7 @@ class PaintTest(unittest.TestCase):
         paint._s.update(img=None, ver=0, view=None, undo=[], tool="brush", colour=0, size=1,
                         marks=[], stroke=None, busy=None, hint="", picker=None, page=0,
                         title="", down=None, saved_ver=-1, asked_t=0.0, touch_t=0.0,
-                        paper="landscape", photo=False)
+                        paper="landscape", photo=False, camera=None, flash_t=0.0)
         self.started = []
         p = mock.patch.object(paint, "_start",
                               lambda kind, words, speak: self.started.append((kind, words)) or True)
@@ -10455,6 +10455,43 @@ class PaintTest(unittest.TestCase):
         path = os.path.join(self.p.DIR, name)
         Image.new("RGB", size, (200, 120, 40)).save(path)
         return path
+
+    def test_photo(self):
+        p = self.p
+        import screens
+        said, saved = [], []
+
+        def save_frame(frame):
+            path = self._png((640, 480), f"shot{len(saved)}.jpg")
+            saved.append(path)
+            return path, []
+        self.addCleanup(lambda: setattr(state, "frame", None))
+        with mock.patch.object(p, "COUNT_SECS", 0), \
+                mock.patch.object(screens, "save_frame", save_frame):
+            with state.lock:
+                state.frame, state.camera_ok = object(), True
+                state.camera_off_until = time.time() + 60
+            self.assertTrue(p.voice("zrób zdjęcie", said.append))
+            self.assertIn("wyłączona", said[-1])                 # camera off: no photo
+            self.assertEqual(saved, [])
+            with state.lock:
+                state.camera_off_until = 0.0
+            for text in ("zrób zdjęcie", "Luna, zrób mi zdjęcie", "cyknij fotkę", "aparat"):
+                self.assertTrue(p.voice(text, said.append), text)
+            self.assertEqual(len(saved), 4)
+            self.assertEqual(p._s["img"].size, (640, 480))       # on the sheet, a photo
+            self.assertTrue(p._s["photo"])
+            self.assertIsNone(p._s["camera"])
+            self.assertIn("Mam!", said[-1])
+            p.close()                                            # from elsewhere: "do malowania"
+            self.assertFalse(p.opener("zrób mi zdjęcie", said.append))   # (screens.py's)
+            self.assertTrue(p.voice("zrób zdjęcie do malowania", said.append))
+            self.assertTrue(p.active())
+            self.assertEqual(len(saved), 5)
+            p.close()
+            self.assertTrue(p.voice("zrób mi zdjęcie i pomalujmy je", said.append) or
+                            p.voice("zrób zdjęcie i otwórz je w malowaniu", said.append))
+            self.assertEqual(len(saved), 6)
 
     def test_beautify(self):
         p = self.p

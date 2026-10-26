@@ -63,6 +63,8 @@ _s = {"img": None, "ver": 0, "view": None, "undo": [], "tool": "brush", "colour"
       "asked_t": 0.0, "touch_t": 0.0}
 TALK_SECS = 120          # a wish with no command word counts this long after a touch / her question
 _s.update(paper="landscape", photo=False)   # how new sheets lie ("Obróć" changes it); a photo on it
+_s.update(camera=None, flash_t=0.0)          # "Zdjęcie": the countdown on the live camera ("" before it)
+COUNT_SECS = 0.9
 _save_timer = [None]
 
 
@@ -73,17 +75,17 @@ def buttons():
     out = [("talk", (TB, 8, 76, 48)), ("close", (TB + 84, 8, 76, 48))]
     for i in range(len(COLOURS)):
         out.append((f"c{i}", (TB + (i % 4) * 41, 66 + (i // 4) * 41, 36, 36)))
-    rows = (("brush", "eraser"), ("mark", "undo"), ("beautify", "new"), ("rotate", "open"),
-            ("save", "print"))
+    rows = (("brush", "eraser"), ("mark", "undo"), ("beautify", "rotate"), ("new", "photo"),
+            ("open", "save"), ("print", None))
     for r, (a, b) in enumerate(rows):
-        y = 150 + r * 48
-        out.append((a, (TB, y, 76 if b else 160, 42)))
+        y = 148 + r * 46
+        out.append((a, (TB, y, 76 if b else 160, 40)))
         if b:
-            out.append((b, (TB + 84, y, 76, 42)))
+            out.append((b, (TB + 84, y, 76, 40)))
     return out
 
 
-HINT = (TB, 392, 160, H - 400)     # a line of help / what she is doing
+HINT = (TB, 426, 160, H - 430)     # a line of help / what she is doing
 
 
 def canvas_rect(size):
@@ -234,7 +236,8 @@ def view():
                 "busy": _s["busy"], "busy_t": _s["busy_t"], "hint": _s["hint"],
                 "picker": _picker_page() if _s["picker"] is not None else None,
                 "undo": bool(_s["undo"]), "down": _s["down"],
-                "wide": _s["img"].width > _s["img"].height, "voice": voice_state()}
+                "wide": _s["img"].width > _s["img"].height, "voice": voice_state(),
+                "camera": _s["camera"], "flash_t": _s["flash_t"]}
 
 
 def _hint(text):
@@ -293,7 +296,7 @@ def raw(phase, nx, ny):
     if down:
         key = down if isinstance(down, str) else None
         if key and button_at(x, y) == key:
-            if key in ("save", "print", "beautify"):   # (she talks: not on the touch thread)
+            if key in ("save", "print", "beautify", "photo"):   # (she talks: not on this thread)
                 threading.Thread(target=press, args=(key,), daemon=True, name="paint-btn").start()
             else:
                 press(key)
@@ -330,6 +333,8 @@ def press(key):
         rotate()
     elif key == "beautify":
         _start("beautify", "upiększ", _say)
+    elif key == "photo":
+        take_photo(_say)
     elif key.startswith("c") and key[1:].isdigit():
         with _lock:
             _s["colour"] = int(key[1:])
@@ -403,6 +408,58 @@ def voice_state():
         muted = time.time() < state.mic_muted_until
         return "listening" if (state.conversation_active or state.listening) and not muted \
             else None
+
+
+def take_photo(speak):
+    """"Zdjęcie": the live camera on the sheet, 3-2-1, the photo onto the sheet
+    (and kept with the other photos, like "zrób mi zdjęcie")."""
+    with state.lock:
+        frame, ok = state.frame, state.camera_ok
+        off = time.time() < getattr(state, "camera_off_until", 0.0)
+    if off:
+        speak("Kamera jest teraz wyłączona. Powiedz: włącz kamerę.")
+        return True
+    if frame is None or not ok:
+        speak("Ojej, nie widzę nic przez kamerę.")
+        return True
+    with _lock:
+        if _s["busy"] or _s["camera"] is not None:
+            return True
+        _s["camera"], _s["picker"] = "", None
+        _s["hint"] = "Uśmiech! Patrz w kamerę"
+    if not active():
+        open_page("Uśmiech! Patrz w kamerę")
+    try:
+        from text_to_speech import play_sound_async
+    except Exception:
+        play_sound_async = None
+    try:
+        speak("Uśmiech! Patrz w kamerę.")
+        for n in ("3", "2", "1"):
+            with _lock:
+                _s["camera"] = n
+            _keep_up()
+            if play_sound_async:
+                play_sound_async("tick")
+            time.sleep(COUNT_SECS)
+        with state.lock:
+            frame = state.frame
+        if frame is None:
+            speak("Ojej, nie widzę nic przez kamerę.")
+            return True
+        import screens
+        path, names = screens.save_frame(frame)
+        with _lock:
+            _s["flash_t"] = time.time()
+    finally:
+        with _lock:
+            _s["camera"] = None
+    open_picture(path, "zdjęcie")
+    _hint("Maluj po zdjęciu, „Upiększ” albo powiedz, co zmienić")
+    with _lock:
+        _s["asked_t"] = time.time()
+    speak("Mam! Możesz po nim malować albo powiedz, co zmienić.")
+    return True
 
 
 def orientation(img):
@@ -881,6 +938,16 @@ _BLANK = re.compile(r"^" + _POLITE + r"(?:(?:daj|weź|wez|poproszę)\s+(?:mi\s+|
                     r"stronę|strona)(?:\s+(?:na\s+)?(?:poziom\w*|pionow\w*))?|wyczyść\s+(?:wszystko|kartkę|kartke|"
                     r"obrazek)|wyczyść|wyczysc|zmaż\s+wszystko|zacznijmy\s+od\s+nowa|"
                     r"od\s+nowa)\W*$", re.I)
+_SNAP = r"(?:zrób|zrob|zróbmy|zrobmy|zrobić|zrobic|cyknij|strzel)\s+(?:mi\s+|nam\s+)?" \
+        r"(?:(?:nowe|jakieś|jakies)\s+)?(?:zdjęcie|zdjecie|fotkę|fotke|fotografię|fotografie)"
+_PHOTO = re.compile(r"^" + _POLITE + r"(?:" + _SNAP + r"(?:\s+(?:mi|nam|mnie|nas|"
+                    r"aparatem|kamerą|kamera|z\s+kamery|do\s+malowania))*|(?:weź|wez)\s+"
+                    r"(?:zdjęcie|zdjecie)\s+z\s+(?:kamery|aparatu)|(?:z\s+)?aparat\w*)\W*$", re.I)
+_PHOTO_TO_PAINT = re.compile(
+    r"^" + _POLITE + _SNAP + r"(?:\s+(?:mi|nam|mnie|nas))*\s+(?:do\s+(?:malowania|"
+    r"pomalowania|rysowania|edytora)|(?:i|żeby|zeby|by)\s+(?:je\s+|go\s+)?(?:otwórz\w*|"
+    r"otworz\w*|pomaluj\w*|pomalować|pomalowac|edytuj\w*|edytować|popraw\w*)(?:\s+(?:je|go|"
+    r"to))?(?:\s+w\s+malowaniu)?)\W*$", re.I)
 _BEAUTIFY = re.compile(
     r"^" + _POLITE + r"(?:upiększ\w*|upieksz\w*|wypiększ\w*|"
     r"(?:zrób|zrob|zrobić|zrobic|narysuj|namaluj|popraw)\s+(?:to\s+|go\s+|ją\s+|je\s+|"
@@ -944,6 +1011,9 @@ def opener(text, speak):
         open_page()
         speak("Dobrze! Maluj palcem albo powiedz mi, co narysować.")
         return True
+    if _PHOTO_TO_PAINT.match(t):                    # "zrób zdjęcie do malowania"
+        open_page("Uśmiech! Patrz w kamerę")
+        return take_photo(speak)
     m = _EDIT_SHOWN.match(t)
     if m:
         import gallery
@@ -1000,6 +1070,8 @@ def voice(text, speak):
         return True
     if _BEAUTIFY.match(t):
         return _start("beautify", "upiększ", speak)
+    if _PHOTO.match(t):
+        return take_photo(speak)
     if _UNMARK.match(t):
         with _lock:
             _s["marks"] = []
