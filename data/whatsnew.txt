@@ -2,7 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 26 października ==
-- Luna drukuje na domowej drukarce (sama ją znajduje w sieci): „wydrukuj listę zakupów”, „wydrukuj to” (obrazek z ekranu albo to, co przed chwilą mówiła), „wydrukuj kolorowankę z kotem”, „wydrukuj przepis na naleśniki”, „wydrukuj kartę pracy z dodawania”. Można dodać „dwa razy” albo „czarno-biało”. „Czy drukarka działa?” — powie, czy jest papier i ile tonera.
+- Luna drukuje na domowej drukarce (sama ją znajduje w sieci): „wydrukuj listę zakupów”, „wydrukuj plan lekcji Mai” (kolorowa tabelka), „wydrukuj plan tygodnia”, „wydrukuj to” (obrazek z ekranu albo to, co przed chwilą mówiła), „wydrukuj kolorowankę z kotem”, „wydrukuj przepis na naleśniki”, „wydrukuj kartę pracy z dodawania”. Można dodać „dwa razy” albo „czarno-biało”. „Czy drukarka działa?” — powie, czy jest papier i ile tonera.
 - Trójka znowu nie jest szara na liście stacji i zaczyna grać od razu (jej stary adres nie działa, Luna sama używa zapasowego).
 - „Jutro piątek?”, „Dziś jest środa, prawda?” — Luna sprawdza w kalendarzu i mówi, czy to prawda (wcześniej potrafiła przytaknąć złemu dniu).
 - Na ekranie „Plan tygodnia” jest nowy przycisk „Z kartki”: potrzymaj kartkę z planem zajęć przed kamerą i dotknij go — Luna przepisze plan wybranej osobie (przy „Wszyscy” zapyta, czyj to plan).

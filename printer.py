@@ -79,7 +79,7 @@ def find(force=False):
     tail = dest.rsplit("_", 1)[-1].lower()           # "…_SEC842519002C54" → its mDNS name
     uri = next((u for u in uris if tail in u.lower()), uris[0] if len(uris) == 1 else None)
     with _lock:
-        _found.update(dest=dest, uri=uri, t=time.time())
+        _found.update(dest=dest, uri=uri, t=time.time(), ps=None)
     print(f"[print] printer: {dest} ({uri or 'no ipp address'}); all: {dests}", flush=True)
     return dest, uri
 
@@ -111,7 +111,28 @@ def parse_attributes(out, dest=""):
             "reasons": [r for r in attrs.get("printer-state-reasons", "none").split(",")
                         if r and r != "none"],
             "accepting": attrs.get("printer-is-accepting-jobs", "true") == "true",
-            "markers": list(zip(names, levels))}
+            "markers": list(zip(names, levels)),
+            "formats": [f.strip().lower() for f in attrs.get("document-format-supported",
+                                                               "").split(",") if f.strip()]}
+
+
+def _postscript():
+    """Send PostScript ourselves (CUPS raw) rather than let CUPS pick: for the
+    Samsung C48x driverless CUPS chose Apple Raster (URF), and the printer
+    printed a few garbage characters a page (26 Oct; same on Andrzej's Mac
+    over AirPrint). settings "printer_format": "ps" / "pdf" overrides."""
+    import settings
+    fmt = (settings.get("printer_format") or "").lower()
+    if fmt in ("ps", "pdf"):
+        return fmt == "ps"
+    with _lock:
+        known = _found.get("ps")
+    if known is None:
+        st = status()
+        known = bool(st and "application/postscript" in st.get("formats", []))
+        with _lock:
+            _found["ps"] = known
+    return known
 
 
 _REASONS = [                        # IPP printer-state-reasons → what to tell them
@@ -183,12 +204,19 @@ def _wrap(draw, text, font, width):
     return lines + [line] if line else lines or [""]
 
 
+def _grey(draw, v):
+    """A grey for this page: one number on "L", (v, v, v) on RGB (60 alone is dark red)."""
+    return v if draw.mode == "L" else (v, v, v)
+
+
 def _footer(draw, n, total):
     f = _font(24)
-    draw.text((MARGIN, H - 100), f"Luna · {time.strftime('%d.%m.%Y')}", font=f, fill=150)
+    draw.text((MARGIN, H - 100), f"Luna · {time.strftime('%d.%m.%Y')}", font=f,
+              fill=_grey(draw, 150))
     if total > 1:
         s = f"{n}/{total}"
-        draw.text((W - MARGIN - draw.textlength(s, font=f), H - 100), s, font=f, fill=150)
+        draw.text((W - MARGIN - draw.textlength(s, font=f), H - 100), s, font=f,
+                  fill=_grey(draw, 150))
 
 
 def text_pages(title, lines, boxes=False):
@@ -259,6 +287,72 @@ def image_page(path, caption="", mono=False):
     return [page]
 
 
+def lessons_page(who):
+    """The school timetable (schedule.py) as a grid, Mon–Fri, each subject on
+    its own pale colour; None without lessons."""
+    import schedule
+    from PIL import Image, ImageDraw
+    rows, cells = schedule.lesson_grid(who)
+    if not rows:
+        return None
+    cols = schedule.subject_colours({e["title"] for es in cells.values() for e in es})
+    page = Image.new("RGB", (W, H), (255, 255, 255))
+    d = ImageDraw.Draw(page)
+    title = f"Plan lekcji {schedule.genitive(who)}" if who else "Plan lekcji"
+    d.text((MARGIN, MARGIN), title, font=_font(64, bold=True), fill=0)
+    top, time_w, head_h = MARGIN + 140, 220, 80
+    cw = (W - 2 * MARGIN - time_w) / 5
+    rh = min(190, (H - top - head_h - MARGIN - 80) / len(rows))
+    hf, tf, cf = _font(34, bold=True), _font(30), _font(32)
+    for wd in range(5):
+        x = MARGIN + time_w + wd * cw
+        name = schedule.DAYS[wd].capitalize()
+        d.text((x + (cw - d.textlength(name, font=hf)) / 2, top + 20), name, font=hf, fill=0)
+    for i, (at, end) in enumerate(rows):
+        y = top + head_h + i * rh
+        end = end or schedule._plus(at, schedule.LESSON_MINS)
+        hours = f"{at.lstrip('0')}–{end.lstrip('0')}"
+        d.text((MARGIN + 8, y + (rh - 34) / 2), hours, font=tf, fill=(60, 60, 60))
+        for wd in range(5):
+            x = MARGIN + time_w + wd * cw
+            es = cells.get((i, wd)) or []
+            fill = (255, 255, 255)
+            if es:
+                r, g, b = cols.get(es[0]["title"], (200, 200, 200))
+                fill = tuple(int(c + (255 - c) * 0.72) for c in (r, g, b))
+            d.rectangle((x, y, x + cw, y + rh), fill=fill, outline=(120, 120, 120), width=2)
+            text = " / ".join(e["title"] for e in es)
+            f, size = cf, 32
+            while text and size > 20 and max(d.textlength(w, font=f) for w in text.split()) \
+                    > cw - 16:                     # "wczesnoszkolna" ran over the line
+                size -= 2
+                f = _font(size)
+            lines = _wrap(d, text, f, cw - 16)[:3] if text else []
+            step = size + 8
+            ty = y + (rh - step * len(lines)) / 2
+            for ln in lines:
+                d.text((x + (cw - d.textlength(ln, font=f)) / 2, ty), ln, font=f, fill=0)
+                ty += step
+    _footer(d, 1, 1)
+    return [page]
+
+
+def week_lines(who):
+    """The week's plan (schedule.py) as print lines, a heading a day."""
+    import schedule
+    lines = []
+    for wd in range(7):
+        rows = schedule.week_rows(wd, who)
+        if not rows:
+            continue
+        lines += ([""] if lines else []) + [f"## {schedule.DAYS[wd].capitalize()}"]
+        for e in rows:
+            span = e["at"].lstrip("0") + (f"–{e['end'].lstrip('0')}" if e.get("end") else "")
+            whose = f" ({e['who']})" if who is None and e.get("who") else ""
+            lines.append(f"{span}  {e['title']}{whose}")
+    return lines
+
+
 def save_pdf(pages, path):
     pages[0].save(path, "PDF", resolution=DPI, save_all=True, append_images=pages[1:],
                   quality=92)
@@ -289,26 +383,38 @@ def submit(pages, title, copies=1, mono=False):
     copies = _room(pages, max(1, min(MAX_COPIES, copies)))
     if not copies:
         return None, "Na dziś wystarczy drukowania — jutro wydrukuję więcej."
+    if mono:
+        pages = [p.convert("L") if hasattr(p, "convert") else p for p in pages]
+    ps = not dry and _postscript()
     path = os.path.join(tempfile.gettempdir(), f"luna-print-{time.strftime('%H%M%S')}.pdf")
-    save_pdf(pages, path)
-    print(f"[print] {title!r}: {len(pages)} page(s) × {copies}"
-          f"{' mono' if mono else ''} → {dest} ({path})", flush=True)
+    # raw PostScript goes to the printer as it is: the copies are in the file
+    save_pdf(pages * copies if ps else pages, path)
+    files = [path]
+    if ps:
+        files.append(path[:-4] + ".ps")
+        ps = _run(["pdftops", "-paper", "A4", "-level3", path, files[1]], 60) is not None
+    print(f"[print] {title!r}: {len(pages)} page(s) × {copies}{' mono' if mono else ''}"
+          f"{' postscript' if ps else ''} → {dest} ({path})", flush=True)
     if dry:
         return "dry-run", None
-    cmd = ["lp", "-d", dest, "-n", str(copies), "-t", title[:60] or "Luna",
-           "-o", "media=A4", "-o", "print-color-mode=" + ("monochrome" if mono else "color")]
-    out = _run(cmd + [path], 30)
+    cmd = ["lp", "-d", dest, "-t", title[:60] or "Luna"]
+    if ps:
+        cmd += ["-o", "raw", files[1]]
+    else:
+        cmd += ["-n", str(copies), "-o", "media=A4",
+                "-o", "print-color-mode=" + ("monochrome" if mono else "color"), path]
+    out = _run(cmd, 30)
     job = re.search(r"request id is (\S+)", out or "")
     if not job:
         st = status()
         trouble = problems(st) if st else []
         return None, ("Drukarka nie przyjęła wydruku" + (f" — {trouble[0]}." if trouble else "."))
-    threading.Thread(target=_watch, args=(job.group(1), path), daemon=True,
+    threading.Thread(target=_watch, args=(job.group(1), files), daemon=True,
                      name="print-watch").start()
     return job.group(1), None
 
 
-def _watch(job, path, secs=180):
+def _watch(job, files, secs=180):
     """Tell them if the job gets stuck (no paper, a jam); remove the file after."""
     t0, told = time.time(), False
     while time.time() - t0 < secs:
@@ -324,10 +430,11 @@ def _watch(job, path, secs=180):
                 told = True
                 print(f"[print] {job} stuck: {trouble}", flush=True)
                 _say(f"Drukarka czeka: {trouble[0]}.")
-    try:
-        os.remove(path)
-    except OSError:
-        pass
+    for path in files:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
 
 
 def _say(text):
@@ -362,6 +469,8 @@ _LAST = re.compile(r"\bostatni\w*|\bnajnowsz\w*", re.I)
 _LIST = re.compile(r"\blist[aęy]\b|\blistę\b", re.I)
 _RECIPE = re.compile(r"\bprzepis\w*(?:\s+na\s+(.+))?", re.I)
 _COLORING = re.compile(r"\bkolorowank\w*(?:\s+(?:z|ze|o|:)\s*(.+))?", re.I)
+_PLAN = re.compile(r"\bplan\w*\s+(?:(lekcji|zajęć\s+szkolnych)|tygodni\w*|zajęć|tydzień)\b|"
+                   r"\blekcj[ei]\b", re.I)
 _TEST = re.compile(r"\bstron\w*\s+testow\w*|\btest\w*\s+drukark\w*", re.I)
 
 COLORING_STYLE = ("Kolorowanka dla dziecka: tylko czarne, grube, czyste kontury na białym tle, "
@@ -524,6 +633,29 @@ def handle(text, speak):
             _say(err or "Kolorowanka gotowa, już się drukuje!")
         return drawing.draw(subject, speak, "Dobrze, rysuję kolorowankę i zaraz ją wydrukuję.",
                             style=COLORING_STYLE, then=then)
+
+    m4 = _PLAN.search(low)
+    if m4:
+        import schedule
+        who = schedule._who_of(low)[0] or None
+        if m4.group(1) or m4.group(0).startswith("lekcj"):
+            who = schedule._lesson_who(who)
+            pages = lessons_page(who) if who else None
+            whose = f" {schedule.genitive(who)}" if who else ""
+            if not pages:
+                speak(f"Nie mam jeszcze planu lekcji{whose}. Pokaż mi go na kartce, "
+                      "to go przepiszę.")
+                return True
+            return _send(speak, f"Plan lekcji{whose}", pages, copies, mono,
+                         f"Drukuję plan lekcji{whose}.")
+        lines = week_lines(who)
+        whose = f" {schedule.genitive(who)}" if who else ""
+        if not lines:
+            speak(f"Plan tygodnia{whose} jest pusty — nie ma czego drukować.")
+            return True
+        return _send(speak, f"Plan tygodnia{whose}",
+                     text_pages(f"Plan tygodnia{whose}", lines), copies, mono,
+                     f"Drukuję plan tygodnia{whose}.")
 
     if _LIST.search(low):
         import lists

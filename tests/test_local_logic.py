@@ -10088,7 +10088,7 @@ class PrinterTest(unittest.TestCase):
         import printer
         self.p = printer
         self.calls = []
-        printer._found.update(dest=None, uri=None, t=0.0)
+        printer._found.update(dest=None, uri=None, t=0.0, ps=None)
         printer._today.update(day="", pages=0)
 
         def run(cmd, timeout=10):
@@ -10186,6 +10186,40 @@ class PrinterTest(unittest.TestCase):
             self.p.handle("wydrukuj to", said.append)
         self.assertIn("Nie wiem, co wydrukować", said[-1])
         self.assertEqual(len(self.lp()), 1)
+
+    def test_postscript_when_the_printer_takes_it(self):
+        # 26 Oct: CUPS sent the Samsung Apple Raster — garbage on every page;
+        # PostScript sent raw printed right. The copies are in the file then.
+        self.ATTRS += ("        document-format-supported (1setOf mimeMediaType) = "
+                       "application/PCL,application/postscript,image/urf\n")
+        saved = []
+        with mock.patch.object(self.p, "save_pdf", lambda pages, path: saved.append(pages)):
+            self.p.submit(["p"], "x", copies=2)
+        self.assertEqual(saved, [["p", "p"]])
+        self.assertTrue(any(c[0] == "pdftops" for c in self.calls))
+        cmd = self.lp()[0]
+        self.assertIn("raw", cmd)
+        self.assertTrue(cmd[-1].endswith(".ps"))
+        self.assertNotIn("-n", cmd)
+        with mock.patch.object(settings, "get", lambda k, d=None: "pdf" if k == "printer_format"
+                               else d):
+            self.p.submit(["p"], "x")
+        self.assertNotIn("raw", self.lp()[1])
+
+    def test_plans(self):
+        import schedule
+        said = []
+        with mock.patch.object(schedule, "_who_of", lambda t: ("Maja", t)), \
+                mock.patch.object(schedule, "_lesson_who", lambda w: w), \
+                mock.patch.object(self.p, "lessons_page", lambda who: ["p"] if who else None):
+            self.p.handle("Wydrukuj plan lekcji Mai", said.append)
+        self.assertEqual(said, ["Drukuję plan lekcji Mai."])
+        with mock.patch.object(schedule, "_who_of", lambda t: (None, t)), \
+                mock.patch.object(self.p, "week_lines", lambda who: ["## Poniedziałek", "x"]), \
+                mock.patch.object(self.p, "text_pages", lambda t, lines, boxes=False: ["p"]):
+            self.p.handle("wydrukuj plan tygodnia", said.append)
+        self.assertEqual(said[-1], "Drukuję plan tygodnia.")
+        self.assertEqual(len(self.lp()), 2)
 
     def test_named_thing_she_just_said(self):
         # 26 Oct sweep: the poem, then "na kartce?" → the model sent "wydrukuj
