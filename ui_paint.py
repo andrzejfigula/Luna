@@ -194,9 +194,10 @@ def draw(scr, now, W, H):
             i = int(key[1:])
             col = paint.COLOURS[i]
             ccx, ccy = bx + bw // 2, by + bh // 2
+            r = min(bw, bh) // 2 + 1
             if i == v["colour"] and v["tool"] == "brush":
-                pygame.draw.circle(scr, WHITE, (ccx, ccy), bw // 2, 3)
-            pygame.draw.circle(scr, col, (ccx, ccy), bw // 2 - 5)
+                pygame.draw.circle(scr, WHITE, (ccx, ccy), r, 3)
+            pygame.draw.circle(scr, col, (ccx, ccy), r - 5)
             continue
         dim = (key == "undo" and not v["undo"] and not v["marks"]) or \
             (v["picker"] is not None and key in ("brush", "eraser", "mark", "undo")) or \

@@ -51,8 +51,9 @@ SIZES = {"portrait": (1024, 1536), "landscape": (1536, 1024), "square": (1024, 1
 W, H = SCREEN_WIDTH, SCREEN_HEIGHT
 BOX = (8, 8, W - 184, H - 16)      # where the sheet goes (x, y, w, h)
 TB = W - 168                       # the toolbar's left edge
-COLOURS = ((25, 25, 30), (230, 57, 70), (247, 140, 40), (250, 210, 50),
-           (70, 180, 90), (60, 120, 220), (150, 90, 210), (240, 120, 170))
+COLOURS = ((25, 25, 30), (230, 57, 70), (247, 140, 40), (250, 210, 50), (70, 180, 90),
+           (60, 120, 220), (150, 90, 210), (240, 120, 170), (125, 78, 40), (250, 204, 170))
+# (brown and skin — 26 Oct Maja: "tu nie ma brązowego"); two rows of five
 BRUSH = (4, 10, 22)                # px on the screen
 MARK_R = 30                        # a tap with "Pokaż": a circle this big on the screen
 MARK_COL = (255, 40, 60)
@@ -85,7 +86,7 @@ def buttons():
     """[(key, (x, y, w, h))] — the toolbar."""
     out = [("talk", (TB, 8, 76, 48)), ("close", (TB + 84, 8, 76, 48))]
     for i in range(len(COLOURS)):
-        out.append((f"c{i}", (TB + (i % 4) * 41, 66 + (i // 4) * 41, 36, 36)))
+        out.append((f"c{i}", (TB + (i % 5) * 32, 66 + (i // 5) * 41, 31, 36)))
     rows = (("brush", "eraser"), ("mark", "undo"), ("beautify", "rotate"), ("new", "photo"),
             ("open", "save"), ("print", None))
     for r, (a, b) in enumerate(rows):
@@ -1162,8 +1163,12 @@ _OPEN = re.compile(
     r"^" + _POLITE + r"(?:(?:otwórz|otworz|włącz|wlacz|pokaż|pokaz|uruchom|otworzyć|włączyć)\s+"
     r"(?:mi\s+|nam\s+)?(?:malowanie|malowank[eęi]|paint|kartkę\s+do\s+malowania|"
     r"edytor(?:\s+(?:obrazków|obrazkow|zdjęć|zdjec|rysunków|rysunkow))?)|"
-    r"(?:chcę|chce|chcemy|chciałabym|chciałbym)\s+(?:po)?malować|"
-    r"pomalujmy|(?:po)?malujmy(?:\s+razem)?|malujemy(?:\s+razem)?|porysujmy(?:\s+razem)?)"
+    r"(?:chcę|chce|chcemy|chciałabym|chciałbym|chciałabym\s+sobie|chcę\s+sobie)\s+"
+    r"(?:po)?(?:malować|rysować|rysowac)(?:\s+(?:palcem|na\s+ekranie|trochę|troche))?|"
+    r"(?:daj|dajcie|pozwól|pozwol)\s+(?:mi|nam)\s+(?:sobie\s+)?(?:po)?(?:malować|malowac|rysować|"
+    r"rysowac)(?:\s+(?:palcem|na\s+ekranie|trochę|troche))?|"
+    r"pomalujmy|(?:po)?malujmy(?:\s+razem)?|malujemy(?:\s+razem)?|porysujmy(?:\s+razem)?|"
+    r"porysujemy(?:\s+razem)?)"
     r"\W*$", re.I)
 _EDIT_SHOWN = re.compile(
     r"^" + _POLITE + r"(?:(?:otwórz|otworz|weź|wez|daj)\s+(?:to|go|je|ją|ten\s+\w+|tę\s+\w+)\s+"
@@ -1203,11 +1208,18 @@ _SNAP = r"(?:zrób|zrob|zróbmy|zrobmy|zrobić|zrobic|cyknij|strzel)\s+(?:mi\s+|
 _PHOTO = re.compile(r"^" + _POLITE + r"(?:" + _SNAP + r"(?:\s+(?:mi|nam|mnie|nas|"
                     r"aparatem|kamerą|kamera|z\s+kamery|do\s+malowania))*|(?:weź|wez)\s+"
                     r"(?:zdjęcie|zdjecie)\s+z\s+(?:kamery|aparatu)|(?:z\s+)?aparat\w*)\W*$", re.I)
+# "chcę, żebyś nam zrobiła zdjęcie i żebyśmy mogli je potem wyedytować" (26 Oct:
+# the model opened the picker and said "już mam to zdjęcie, ładnie wyszło")
+_ASK_SNAP = (r"(?:(?:chcę|chce|chcemy|chciałbym|chcialbym|chciałabym|chcialabym),?\s+)?"
+             r"(?:żebyś|zebys|abyś|abys)\s+(?:mi\s+|nam\s+)?(?:zrobiła|zrobila|zrobił|zrobil)\s+"
+             r"(?:mi\s+|nam\s+)?(?:zdjęcie|zdjecie|fotkę|fotke)")
 _PHOTO_TO_PAINT = re.compile(
-    r"^" + _POLITE + _SNAP + r"(?:\s+(?:mi|nam|mnie|nas))*\s+(?:do\s+(?:malowania|"
-    r"pomalowania|rysowania|edytora)|(?:i|żeby|zeby|by)\s+(?:je\s+|go\s+)?(?:otwórz\w*|"
-    r"otworz\w*|pomaluj\w*|pomalować|pomalowac|edytuj\w*|edytować|popraw\w*)(?:\s+(?:je|go|"
-    r"to))?(?:\s+w\s+malowaniu)?)\W*$", re.I)
+    r"^" + _POLITE + r"(?:" + _SNAP + r"|" + _ASK_SNAP + r")(?:\s+(?:mi|nam|mnie|nas))*,?\s+"
+    r"(?:do\s+(?:malowania|pomalowania|rysowania|edytora|edycji)|(?:i\s+)?(?:i|żeby|zeby|by|"
+    r"żebyśmy|zebysmy|abyśmy|abysmy)\s+(?:(?:potem|później|pozniej|mogli|mogła|mogla|mógł|"
+    r"mogl|można|mozna|moglibyśmy|moglibysmy|je|go)\s+)*(?:otwórz\w*|otworz\w*|pomaluj\w*|"
+    r"pomalować|pomalowac|(?:wy)?edytuj\w*|(?:wy)?edytować|(?:wy)?edytowac|popraw\w*)"
+    r"(?:\s+(?:je|go|to|potem|później|pozniej))*(?:\s+w\s+(?:malowaniu|edytorze))?)\W*$", re.I)
 _BEAUTIFY = re.compile(
     r"^" + _POLITE + r"(?:upiększ\w*|upieksz\w*|wypiększ\w*|"
     r"(?:zrób|zrob|zrobić|zrobic|narysuj|namaluj|popraw)\s+(?:to\s+|go\s+|ją\s+|je\s+|"

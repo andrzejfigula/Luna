@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 26 października ==
+- Malowanie: dwa nowe kolory — brązowy i cielisty (teraz dziesięć). „Daj mi porysować” albo „chcę porysować” otwiera malowanie, a „zrób nam zdjęcie, żebyśmy mogli je wyedytować” robi zdjęcie prosto na kartkę.
 - Malowanie, „Otwórz”: każdy obrazek ma w rogu kosz — dotknij go dwa razy („Usunąć?”), a obrazek, rysunek albo zdjęcie trafia do kosza. Nic nie znika na zawsze: „przywróć rysunek” albo „przywróć zdjęcie” go oddaje.
 - Malowanie: po każdym poleceniu Luna przestaje słuchać — następne zaczyna się od przycisku „Powiedz” (albo „Luna”). Kiedy słucha, na przycisku jest „Słucham — dotknij: stop”: dotknięcie go wyłącza. „Nowa”, „Drukuj” i „Upiększ” trzeba dotknąć dwa razy („Na pewno?”). „Drukuj” nie drukuje kilka razy naraz, „Cofnij” cofa do 40 kroków, a zepsuty obrazek już nie blokuje malowania.
 - Plan tygodnia i plan lekcji zamyka samo „wyłącz” albo „stop” (i „zamknij plan”, „wyłącz grafik”). Hal zamiast rumieńców ma czerwieniejące, obracające się stalowe obręcze obiektywów (połaskotany — drżą). „Włącz moje zdjęcie w edytorze” albo „chcę upiększyć swoje zdjęcie” otwiera malowanie z wyborem zdjęcia.

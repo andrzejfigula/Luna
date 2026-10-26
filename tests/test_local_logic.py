@@ -10555,6 +10555,35 @@ class PaintTest(unittest.TestCase):
             self.assertTrue(p.voice("zrób mi zdjęcie i pomalujmy je", said.append) or
                             p.voice("zrób zdjęcie i otwórz je w malowaniu", said.append))
             self.assertEqual(len(saved), 6)
+            for text in ("Chcę, żebyś nam zrobiła zdjęcie i żebyśmy mogli je potem wyedytować.",
+                         "zrób nam zdjęcie, żebyśmy mogli je potem pomalować"):   # (26 Oct)
+                p.close()
+                self.assertTrue(p.voice(text, said.append), text)
+                self.assertTrue(p._s["photo"])
+            self.assertEqual(len(saved), 8)
+            p.close()
+            self.assertFalse(p.opener("chcę, żebyś zrobiła zdjęcie", said.append))
+
+    def test_open_by_voice(self):
+        p, said = self.p, []
+        for text in ("Daj mi porysować.", "chcę porysować", "pozwól mi pomalować",
+                     "chcę rysować palcem", "porysujemy razem"):   # 26 Oct: "Daj mi porysować"
+            p.close()
+            self.assertTrue(p.voice(text.rstrip("."), said.append), text)
+            self.assertTrue(p.active())
+        for no in ("narysuj kota", "chcę, żebyś narysowała kota", "daj mi to"):
+            p.close()
+            self.assertFalse(p.opener(no, said.append), no)
+
+    def test_ten_colours_with_brown(self):
+        p = self.p                                    # 26 Oct, Maja: "tu nie ma brązowego"
+        keys = dict(p.buttons())
+        self.assertEqual(len(p.COLOURS), 10)
+        self.assertIn("c9", keys)
+        r, g, b = p.COLOURS[8]
+        self.assertTrue(r > g > b)
+        self._tap(*self._centre("c8"))
+        self.assertEqual(p._s["colour"], 8)
 
     def test_beautify(self):
         p = self.p
