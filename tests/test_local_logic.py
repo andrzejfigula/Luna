@@ -455,6 +455,8 @@ class TimersTest(unittest.TestCase):
         self.assertFalse(claims_undone("Nie wyłączam, spokojnie.", []))
         self.assertFalse(claims_undone("Zapisałam to sobie.", []))
         self.assertFalse(claims_undone("Mogę włączyć radio, chcesz?", []))
+        self.assertTrue(claims_undone("Tak, skasowałam. Plan Mai już nie ma.", []))
+        self.assertTrue(claims_undone("Już kasuję cały plan Mai.", []))
 
     def test_log_report_audio_by_hour(self):
         sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
@@ -664,11 +666,26 @@ class TimersTest(unittest.TestCase):
         self.assertEqual(said[-1], "Proszę.")                 # still on
         with st.lock:
             st.overlay = ("list", now - 900, data)            # long ago: the model's
-        self.assertFalse(commands.show_again("Pokaż.", said.append, now))
+        import brain
+        with mock.patch.object(brain, "last_reply", lambda: "Mogę ci pokazać zdjęcie kota."):
+            self.assertFalse(commands.show_again("Pokaż.", said.append, now))   # her offer
+        with mock.patch.object(brain, "last_reply", lambda: "Tak, skasowałam."), \
+                mock.patch.object(brain, "awaits_answer", lambda: False):
+            # nothing to show again: asked, never the camera's "Andrzej." (26 Oct)
+            self.assertTrue(commands.show_again("Pokaż.", said.append, now))
+            self.assertTrue(said[-1].startswith("Co mam pokazać?"))
+            with st.lock:
+                st.overlay = None
+            self.assertTrue(commands.show_again("Luna, pokaż.", said.append, now))
+        self.assertFalse(commands.show_again("Pokaż zdjęcia", said.append, now))
+        with st.lock:                                         # the plan page again
+            st.overlay = ("schedule", now - 30, {"day": 0, "who": "Maja", "sel": 3,
+                                                  "page": 0, "confirm": 1.0, "toast": None})
+        self.assertTrue(commands.show_again("Pokaż jeszcze raz", said.append, now))
+        self.assertEqual((st.overlay[0], st.overlay[2]["who"], st.overlay[2]["sel"]),
+                         ("schedule", "Maja", None))
         with st.lock:
             st.overlay = None
-        self.assertFalse(commands.show_again("Pokaż.", said.append, now))
-        self.assertFalse(commands.show_again("Pokaż zdjęcia", said.append, now))
 
     def test_show_a_list_said_any_way(self):
         import screens
@@ -8314,8 +8331,18 @@ class ThemesTest(unittest.TestCase):
         self.assertEqual(r("Zmień charakter na Mochi."), ("set", "mochi"))
         # 24 Oct 14:52: "Hal, przełącz na inny charakter" — the next one, as a tap
         for said in ("Hal, przełącz na inny charakter.", "Zmień charakter.",
-                     "Przełącz się na inną postać.", "Następny motyw."):
+                     "Przełącz się na inną postać.", "Następny motyw.",
+                     "Włącz następny motyw.", "Włącz inną postać"):
             self.assertEqual(r(said), ("set", "pip"), said)
+        # 25 Oct: "Piksel." answering her list of names
+        import brain
+        with mock.patch.object(brain, "last_reply",
+                               lambda: "Powiedz: Luna, Hal, Pip, Retro albo Pixel."):
+            self.assertTrue(commands.switch_theme("Piksel.", [].append))
+            self.assertEqual(themes.current(), "pixel")
+        with mock.patch.object(brain, "last_reply", lambda: "Dziś będzie deszcz."):
+            self.assertFalse(commands.switch_theme("Hal.", [].append))
+        themes.set_theme("hal")
         for other in ("Zmień temat.", "Inny kanał.", "Przełącz na inną stację."):
             self.assertIsNone(r(other), other)
         for other in ("Przełącz na retro.", "Zmień na RMF", "włącz się", "nie włączaj radia"):
@@ -9049,6 +9076,17 @@ class ScheduleTest(unittest.TestCase):
         self.assertTrue(self.s.handle("Tak, wyczyść", said.append))
         self.assertEqual(self.s.events(), [])
         self.assertFalse(self.s.handle("wyczyść plan tygodnia angielskiego", said.append))
+        # 26 Oct: a bare "plan" with a name, and the polite question, ask back too
+        self.s.add("Maja", "basen", [2], "16:00")
+        for line in ("Skasuj cały plan Mai.", "Możesz skasować cały plan Mai?"):
+            self.assertTrue(self.s.handle(line, said.append), line)
+            self.assertIn("plan tygodnia Mai", said[-1])
+            self.assertTrue(self.s.handle("nie", said.append))
+        self.assertTrue(self.s.handle("Czy możesz usunąć plan lekcji Mai?", said.append))
+        self.assertFalse(self.s.handle("usuń plan dnia", said.append))
+        self.assertFalse(self.s.handle("usuń plan zakupów", said.append))
+        self.assertFalse(self.s.handle("czy usunąć plan Mai?", said.append))
+        self.assertEqual(len(self.s.events()), 1)
         with state.lock:
             state.overlay = None
 

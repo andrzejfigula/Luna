@@ -1304,7 +1304,10 @@ _STOP_CLOSES = ("clock", "clockface", "list", "gallery", "photo", "stars", "mirr
 _AGAIN = re.compile(r"^(?:luna,?\s+|a\s+|no\s+|to\s+)*(?:(?:jeszcze\s+raz|znowu|ponownie)\s+)?"
                     r"(?:pokaż|pokaz)(?:\s+(?:mi|nam|to|je|go|ją|jeszcze\s+raz|jeszcze|znowu|"
                     r"ponownie|z\s+powrotem))*\W*$", re.I)
-_AGAIN_KINDS = {"gallery": 0, "list": 20, "card": 20, "weather": 20, "settings": 60}
+_AGAIN_KINDS = {"gallery": 0, "list": 20, "card": 20, "weather": 20, "settings": 60,
+                "schedule": 90}
+_OFFERED_SHOW = re.compile(r"\bpoka[zż]\w*|\bzobacz\w*|\bzdję\w*|\bzdje\w*|\bobraz\w*|"
+                           r"\brysun\w*", re.I)
 
 
 def show_again(text, speak, now=None):
@@ -1314,13 +1317,29 @@ def show_again(text, speak, now=None):
     with state.lock:
         ov = state.overlay
     if not ov or ov[0] not in _AGAIN_KINDS or now - ov[1] > 600:
-        return False                       # nothing to show again: the model asks what
+        import brain
+        import quiz
+        import story
+        import twenty
+        if (_OFFERED_SHOW.search(brain.last_reply()[-200:]) or brain.awaits_answer()
+                or quiz.active() or twenty.active() or story.active()):
+            return False                   # "Mogę ci pokazać…" — "Pokaż." is her yes
+        # (26 Oct: the model with the camera answered "Andrzej." again)
+        with state.lock:
+            state.conversation_active = True
+            state.last_activity_time = now
+        speak("Co mam pokazać? Na przykład zdjęcia, listę zakupów albo plan tygodnia.")
+        return True
     if now < ov[1]:
         speak("Proszę.")                   # still on the screen
         return True
     kind, _, data = ov
     if kind == "gallery":
         gallery.show(data["items"], data.get("title", ""))
+    elif kind == "schedule":
+        with state.lock:
+            state.overlay = (kind, now + _AGAIN_KINDS[kind],
+                             dict(data, sel=None, confirm=0.0, toast=None))
     else:
         with state.lock:
             state.overlay = (kind, now + _AGAIN_KINDS[kind], data)
@@ -1409,6 +1428,10 @@ def undoubled(text):
     return text
 
 
+_ASKED_THEME = re.compile(r"\bmotyw\w*|\bprofil\w*|\bpostać\w*|\bpostaci\w*|\bcharakter\w*|"
+                          r"\bmogę\s+być\b", re.I)
+
+
 def switch_theme(text, speak):
     """"Włącz motyw HAL", "zmień się w Mochi", "wróć do Luny", "jakie masz
     motywy?" — the settings page's Motyw row by voice; the new one says hello
@@ -1424,6 +1447,14 @@ def switch_theme(text, speak):
             print(f"[cmd] {kind} accessories → {acc[0]}", flush=True)
             speak(acc[1])
             return True
+    if not req and len(text.split()) <= 2 and themes.named(text):
+        # "Piksel." answering her "Powiedz: Luna, Hal, Pip, Retro albo Pixel." (25 Oct:
+        # refused — "nie mam motywu Piksel")
+        import brain
+        said = brain.last_reply()[-200:]
+        if _ASKED_THEME.search(said) or len({themes.named(w) for w in re.findall(
+                r"\w+", said)} - {None}) >= 2:
+            req = ("set", themes.named(text))
     if not req:
         return False
     kind, what = req

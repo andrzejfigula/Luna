@@ -478,14 +478,22 @@ _LESSONS_PAPER = re.compile(
     r"now\w+\s+)plan\w*\s+lekcji\b")
 # "…od nowa": the old lessons all go once the paper is read (not only its days)
 _FRESH = re.compile(r"\bod\s+(?:nowa|zera|początku|poczatku)\b|\bzastąp\w*|\bzastap\w*")
+# "skasuj …" or "możesz skasować …?" (26 Oct: the polite one went to the model)
+_CLEAR_VERB = (r"^(?:luna,?\s+)?(?:(?:wyczyść|wyczysc|usuń|usun|skasuj|wykasuj|wymaż|wymaz|"
+               r"wyrzuć|wyrzuc)|(?P<polite>(?:czy\s+)?(?:możesz|mozesz|mógłbyś|moglbys|"
+               r"mogłabyś|moglabys|proszę|prosze)\s+(?:mi\s+)?(?:wyczyścić|wyczyscic|usunąć|"
+               r"usunac|skasować|skasowac|wykasować|wykasowac|wymazać|wymazac)))")
 _LESSONS_CLEAR = re.compile(
-    r"^(?:luna,?\s+)?(?:wyczyść|wyczysc|usuń|usun|skasuj|wykasuj|wymaż|wymaz|wyrzuć|wyrzuc)"
+    _CLEAR_VERB +
     r"\s+(?:(?:cały|caly|całą|cala|wszystkie|mój|moj|moje)\s+)*(?:plan\w*\s+lekcji|lekcje)"
     r"(?:\s+(?:dla\s+)?(\w+))?\W*$")
+# "skasuj cały plan Mai" — a bare "plan" only with a name (26 Oct: a timer cancel
+# 'plan Mai' and "Tak, skasowałam")
 _WEEK_CLEAR = re.compile(
-    r"^(?:luna,?\s+)?(?:wyczyść|wyczysc|usuń|usun|skasuj|wykasuj|wymaż|wymaz|wyrzuć|wyrzuc)"
-    r"\s+(?:(?:cały|caly|całą|cala|mój|moj)\s+)*(?:plan\s+(?:tygodnia|tygodniowy|zajęć|zajec)|"
-    r"tygodniowy\s+plan|harmonogram\w*|grafik\w*)(?:\s+(?:dla\s+)?(\w+))?\W*$")
+    _CLEAR_VERB +
+    r"\s+(?:(?:cały|caly|całą|cala|mój|moj)\s+)*(?:(?:plan\s+(?:tygodnia|tygodniowy|zajęć|zajec)|"
+    r"tygodniowy\s+plan|harmonogram\w*|grafik\w*)(?:\s+(?:dla\s+)?(\w+))?|"
+    r"plan\s+(?!dnia\b|na\b|lekcji\b)(\w+))\W*$")
 _SURE = re.compile(r"^(?:tak|no\s+tak|potwierdzam|na\s+pewno|pewnie|jasne|wyczyść|wyczysc|"
                    r"usuń|usun|skasuj|dawaj|możesz|mozesz|proszę|prosze)\b")
 
@@ -1004,11 +1012,11 @@ def handle(text, speak):
                 return _take(p, speak)
         _expect.update(until=0.0, draft=None)        # something else: not an entry
     m = _LESSONS_CLEAR.match(low)
-    if m and "?" not in low:
-        return _ask_clear(m.group(1), text, speak)
+    if m and ("?" not in low or m.group("polite")):
+        return _ask_clear(m.group(2), text, speak)
     m = _WEEK_CLEAR.match(low)
-    if m and "?" not in low:
-        return _ask_clear_week(m.group(1), text, speak)
+    if m and ("?" not in low or m.group("polite")) and m.group(3) not in _FILLER:
+        return _ask_clear_week(m.group(2) or m.group(3), text, speak)
     if paper_request(text):
         who, known = _paper_who(text)
         fresh = bool(_FRESH.search(low))

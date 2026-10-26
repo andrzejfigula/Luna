@@ -455,6 +455,7 @@ class RoutingTest(unittest.TestCase):
         fake_brain.translator = lambda: None
         fake_brain.process = lambda text, **k: self._mark("story")
         fake_brain.last_reply = lambda: ""
+        fake_brain.awaits_answer = lambda: False
         fake_brain.english_wanted = lambda: False
         fake_brain.set_english = lambda on, hours=2: self._mark("language")
         stubs_dict = mock.patch.dict(sys.modules, {"text_to_speech": fake_tts,

@@ -216,7 +216,8 @@ _SCALES = [("", "", ""), ("tysiąc", "tysiące", "tysięcy"),
 # "I'm doing it / I did it" for the app's own switches and lists (not
 # "przypomnę" — empty_promise asks for the time; not "zapisałam" — memory)
 _DOING = re.compile(r"(?<!nie )\b(?:włączam|wyłączam|nastawiam|ustawiam|puszczam|"
-                    r"dodałam|dopisałam|skreśliłam|usunęłam|wyczyściłam)\b", re.I)
+                    r"dodałam|dopisałam|skreśliłam|usunęłam|wyczyściłam|skasowałam|"
+                    r"wykasowałam|kasuję|czyszczę)\b", re.I)
 
 
 def claims_undone(reply, actions, refused=()):

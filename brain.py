@@ -1753,6 +1753,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             data["actions"] = [a for a in data["actions"]
                                if a.get("type") not in ("timer", "reminder", "alarm")]
         set_now = timers.apply(data.get("actions") or [], said=text)
+        corrected = False
         empty_clear = [a for a in data.get("actions") or [] if a.get("type") == "list_clear"
                        and not lists.get(a.get("list"))]
         listed = lists.apply(data.get("actions") or [], said=text)
@@ -1791,6 +1792,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             if on_sentence:
                 on_sentence(extra)
             reply = f"{reply} {extra}"
+            corrected = True
         other = [a for a in data.get("actions") or []
                  if a.get("type") not in ("timer", "reminder", "alarm", "cancel")]
         if empty_promise(reply, set_now + other) and not errands.mentioned(
@@ -1890,8 +1892,13 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             _spoken_command(label, "")
             copied = True
 
-        if not (tuned or drew or copied or translator()) and claims_undone(
-                reply, data.get("actions"), refused):
+        # a cancel that matched nothing did nothing (26 Oct: "skasuj cały plan Mai" →
+        # cancel 'plan Mai', "Tak, skasowałam")
+        done_acts = [a for a in data.get("actions") or [] if a.get("type") != "cancel"
+                     or any(d.startswith("cancelled ") and "nothing matched" not in d
+                            for d in set_now)]
+        if not (tuned or drew or copied or corrected or translator()) and claims_undone(
+                reply, done_acts, refused):
             # "Jasne, usunęłam to z listy." / "wyłączam ekran gry" and nothing
             # happened (18 Oct log, 3 a day): she says so instead of leaving it
             extra = "Ojej, poprawka — tego jednak nie zrobiłam."
