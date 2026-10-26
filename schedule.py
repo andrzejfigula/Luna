@@ -56,7 +56,7 @@ _EVERYONE = re.compile(r"\b(?:wszyscy|wszystkich|wszystkim|cała\s+rodzina|całe
 
 _SHOW = re.compile(r"^(?:luna,?\s+)?(?:(?:pokaż|pokaz|otwórz|otworz)\s+(?:mi\s+|nam\s+)?)?"
                    r"(?:(?:cały\s+|caly\s+)?plan\s+(?:tygodnia|tygodniowy|na\s+tydzień|"
-                   r"na\s+tydzien|zajęć|zajec|lekcji)|tygodniowy\s+plan|harmonogram\w*|"
+                   r"na\s+tydzien|zajęć|zajec)|tygodniowy\s+plan|harmonogram\w*|"
                    r"grafik\w*|rozkład\s+zajęć|rozklad\s+zajec)"
                    r"(?:\s+(?:dla\s+)?(\w+))?\W*$")
 _SHOW_WHO = re.compile(r"^(?:luna,?\s+)?(?:pokaż|pokaz|otwórz|otworz)\s+(?:mi\s+|nam\s+)?"
@@ -68,6 +68,11 @@ _REMOVE = re.compile(r"^(?:luna,?\s+)?(?:usuń|usun|skasuj|wykreśl|wykresl|wyrz
                      r"(?:z\s+(?:planu|harmonogramu|grafiku)(?:\s+(?:tygodnia|zajęć|zajec))?"
                      r"\W*\s*(.+)|(.+?)\s+z\s+(?:planu|harmonogramu|grafiku)"
                      r"(?:\s+(?:tygodnia|zajęć|zajec))?)\W*$")
+_LESSONS_SHOW = re.compile(
+    r"^(?:luna,?\s+)?(?:(?:pokaż|pokaz|otwórz|otworz)\s+(?:mi\s+|nam\s+)?|"
+    r"(?:a\s+)?jaki\s+(?:jest\s+|mam\s+|masz\s+)?)?(?:(?:mój|moj|swój|swoj)\s+)?"
+    r"plan\s+lekcji(?:\s+(?:dla\s+)?(\w+))?\W*$|"
+    r"^(?:luna,?\s+)?(?:pokaż|pokaz)\s+(?:mi\s+)?(?:moje\s+)?lekcje(?:\s+(\w+))?\W*$")
 _STOP = re.compile(r"^(?:anuluj|nieważne|niewazne|nic|stop|koniec|zostaw|jednak\s+nie|"
                    r"nie\s+dodawaj|już\s+nic|juz\s+nic)\b")
 # after "+": a command or a question is something else, not a title
@@ -456,12 +461,20 @@ _reading = [0.0]                # a paper being read until then: no second one
 
 
 _INTO = re.compile(r"\bdo\s+(?:\w+\s+)?(?:planu|grafik\w*|harmonogram\w*|kalendarz\w*)\b")
+# "zaktualizuj plan lekcji Mai", "mam nowy plan lekcji" — a new one, from paper
+_LESSONS_PAPER = re.compile(
+    r"(?:\b(?:zaktualizuj\w*|aktualizuj\w*|uaktualnij\w*|odczytaj\w*|zeskanuj\w*|"
+    r"wczytaj\w*|zczytaj\w*)\s+(?:\w+\s+){0,2}|"
+    r"^(?:luna,?\s+)?(?:\w+\s+)?(?:mam|mamy|ma|oto|tu\s+jest|to\s+jest)\s+(?:mój\s+|moj\s+)?"
+    r"now\w+\s+)plan\w*\s+lekcji\b")
 
 
 def paper_request(text):
     """"Weź ten plan i dodaj do grafiku Mai", "przepisz plan z kartki",
     "mam na kartce plan Mai, ogarniesz go do jej grafiku?" — True."""
     low = text.lower()
+    if _LESSONS_PAPER.search(low) and "?" not in low and len(low.split()) <= 14:
+        return True
     return bool(len(low.split()) <= 25 and (_PAPER_VERB.search(low) or _INTO.search(low))
                 and _PAPER_REF.search(low) and _PLAN_WORD.search(low)
                 and not re.search(r"\bnie\s+(?:dodawaj|wpisuj|przepisuj|zapisuj)", low))
@@ -527,21 +540,44 @@ _NO_REMIND = {"before": None, "to": "owner", "always": False}
 
 
 def save_paper(who, entries, by=None):
-    """The read entries into the plan: (added, already there). An entry with
-    the same owner, title and time gets the new days instead of a twin."""
-    added, kept = [], []
+    """The read entries into the plan: (added, already there, replaced). An
+    entry with the same owner, title and time gets the new days instead of a
+    twin. A timetable is the whole school week: on the days it covers, the
+    person's old lessons give way (replaced: how many lesson-days went)."""
+    added, kept, replaced = [], [], 0
+    covered = {d for e in entries if e["kind"] == "lesson" for d in e["days"]}
+    old = [x for x in events() if x.get("who", "") == who and x.get("kind") == "lesson"]
     for e in entries:
         same = next((x for x in events() if x.get("who", "") == who
                      and x["title"].lower() == e["title"].lower() and x["at"] == e["at"]), None)
         if same:
-            if not set(e["days"]) <= set(same["days"]):
-                update(same["id"], days=sorted(set(same["days"]) | set(e["days"])))
+            days = set(same["days"]) | set(e["days"])
+            if same.get("kind") == "lesson" and e["kind"] == "lesson":
+                gone = set(same["days"]) & covered - set(e["days"])
+                replaced += len(gone)
+                days -= gone
+            if days != set(same["days"]):
+                update(same["id"], days=sorted(days))
+                same["changed"] = True
             kept.append(same)
             continue
         added.append(add(who, e["title"], e["days"], e["at"], e["end"], by=by,
                          remind=dict(_NO_REMIND) if e["kind"] == "lesson" else None,
                          kind="lesson" if e["kind"] == "lesson" else None))
-    return added, kept
+    matched = {x["id"] for x in kept}
+    for x in old:
+        gone = set(x["days"]) & covered
+        if x["id"] in matched or not gone:
+            continue
+        replaced += len(gone)
+        left = sorted(set(x["days"]) - covered)
+        if left:
+            update(x["id"], days=left)
+        else:
+            remove(x["id"])
+    if replaced:
+        print(f"[schedule] {who or 'dom'}: {replaced} old lesson-days replaced", flush=True)
+    return added, kept, replaced
 
 
 def _pl(n, one, few, many):
@@ -550,9 +586,10 @@ def _pl(n, one, few, many):
     return few if n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14) else many
 
 
-def paper_said(who, added, kept, unclear, bells):
+def paper_said(who, added, kept, unclear, bells, replaced=0):
     """What she says after reading the paper (and the question for the first
     entry with no time, if any)."""
+    changed = replaced or any(x.get("changed") for x in kept)
     lessons = [e for e in added if e.get("kind") == "lesson"]
     other = [e for e in added if e.get("kind") != "lesson"]
     n = sum(len(e["days"]) for e in lessons)
@@ -566,12 +603,16 @@ def paper_said(who, added, kept, unclear, bells):
     if parts:
         whose = f"{who} ma teraz w planie" if who else "W planie domu jest teraz"
         out = f"Przepisałam z kartki. {whose} " + ", a ".join(parts) + "."
+    elif changed:
+        out = "Przepisałam z kartki nowy plan lekcji" + (f" {genitive(who)}" if who else "") + "."
     elif kept:
         out = "To wszystko już jest w planie tygodnia."
     else:
         out = ""
     if kept and parts:
         out += f" {len(kept)} {_pl(len(kept), 'pozycję', 'pozycje', 'pozycji')} już było."
+    if replaced:
+        out += " Stary plan lekcji na te dni zastąpiłam nowym."
     if bells:
         out += (" Godzin lekcji nie ma na kartce, więc wpisałam zwykłe dzwonki od ósmej — "
                 "popraw je na ekranie, jeśli są inne.")
@@ -636,11 +677,14 @@ def import_paper(who, speak):
                 "i powiedz jeszcze raz: przepisz plan z kartki.")
             return
         entries, unclear, bells = from_paper(got["entries"])
-        added, kept = save_paper(who, entries, by=by)
-        text, ask = paper_said(who, added, kept, unclear, bells)
+        added, kept, replaced = save_paper(who, entries, by=by)
+        text, ask = paper_said(who, added, kept, unclear, bells, replaced)
         print(f"[schedule] from paper: {len(added)} added, {len(kept)} already there, "
               f"{len(unclear)} with no time{', usual bells' if bells else ''}", flush=True)
-        show(who, day=min(added[0]["days"]) if added else None)
+        if who and any(e["kind"] == "lesson" for e in entries):
+            show_lessons(who)
+        else:
+            show(who, day=min(added[0]["days"]) if added else None)
         say(text + (" " + ask if ask else ""))
         try:
             brain.add_to_last_reply(f"(Zapisane w planie tygodnia z kartki: {len(added)} "
@@ -723,6 +767,18 @@ def handle(text, speak):
             state.last_activity_time = time.time()
         speak("Czyj to plan? Powiedz na przykład: Mai.")
         return True
+    m = _LESSONS_SHOW.match(low)
+    if m:
+        import faces
+        name = next((g for g in m.groups() if g), "")
+        who = (faces.match_name(name) or faces.match_role(name)
+               or next((n for n in lesson_people() if name in faces.forms(n)), None)
+               ) if name else None
+        if name and not who and name not in _FILLER:
+            return False                     # "pokaż lekcje angielskiego"
+        who = show_lessons(who)
+        speak(lessons_said(who))
+        return True
     m, m2 = _SHOW.match(low), _SHOW_WHO.match(low)
     if m or m2:
         import faces
@@ -791,6 +847,145 @@ def show(who=None, day=None):
         state.overlay = ("schedule", time.time() + PAGE_SECS, data)
 
 
+# ── plan lekcji: one person's school week, Pn–Pt, a grid ──────────────────────
+# The same entries (kind "lesson", each person's own); "pokaż plan lekcji Mai",
+# a new paper replaces the old lessons on its days (save_paper).
+
+def genitive(name):
+    """Maja → Mai, Emilka → Emilki, Andrzej → Andrzeja (for "plan lekcji …")."""
+    if not name:
+        return ""
+    low = name.lower()
+    if low.endswith("ja"):
+        return name[:-2] + "i"
+    if low.endswith("a"):
+        return name[:-1] + ("i" if low[-2:-1] in ("k", "g", "l", "i") else "y")
+    return name + "a"
+
+
+def lessons(who):
+    return [e for e in events() if e.get("kind") == "lesson" and (e.get("who") or "") == (who or "")]
+
+
+def lesson_grid(who):
+    """(rows, cells): rows = [(at, end)] the lesson hours Mon–Fri in order;
+    cells[(row, weekday)] = that lesson's entries (two if the paper clashes)."""
+    ls = [e for e in lessons(who) if any(d < 5 for d in e["days"])]
+    ends = {}
+    for e in ls:
+        ends[e["at"]] = max(ends.get(e["at"], ""), e.get("end") or "")
+    rows = sorted(ends.items(), key=lambda t: _mins(t[0]))
+    row_of = {at: i for i, (at, _) in enumerate(rows)}
+    cells = {}
+    for e in ls:
+        for d in e["days"]:
+            if d < 5:
+                cells.setdefault((row_of[e["at"]], d), []).append(e)
+    return rows, cells
+
+
+def lesson_people():
+    """The chips: those with lessons first, then everyone else she knows."""
+    have = []
+    for e in events():
+        if e.get("kind") == "lesson" and e.get("who") and e["who"] not in have:
+            have.append(e["who"])
+    return have + [n for n in people() if n not in have]
+
+
+def _lesson_who(who=None):
+    """Named, else the speaker, else the first with lessons."""
+    import faces
+    if who:
+        return who
+    me = _speaker()
+    if me and me in faces.names():
+        return me
+    ps = lesson_people()
+    return ps[0] if ps else None
+
+
+def show_lessons(who=None):
+    """The "plan lekcji" page; returns whose it shows."""
+    who = _lesson_who(who)
+    data = {"view": "lessons", "who": who, "day": time.localtime().tm_wday, "sel": None,
+            "page": 0, "confirm": 0.0, "toast": None}
+    with state.lock:
+        state.overlay = ("schedule", time.time() + PAGE_SECS, data)
+    return who
+
+
+def _school_day(who, now=None):
+    """(weekday, "Dziś" / "Jutro" / "W poniedziałek") — today until its last
+    lesson ends, else the next day with lessons; None with no lessons."""
+    rows, cells = lesson_grid(who)
+    if not rows:
+        return None
+    lt = time.localtime(now or time.time())
+    mins = lt.tm_hour * 60 + lt.tm_min
+    for k in range(8):
+        wd = (lt.tm_wday + k) % 7
+        here = [r for r in range(len(rows)) if (r, wd) in cells]
+        if not here:
+            continue
+        last = rows[here[-1]]
+        if k == 0 and mins >= _mins(last[1] or _plus(last[0], LESSON_MINS)):
+            continue
+        return wd, ("Dziś" if k == 0 else "Jutro" if k == 1 else _DAYS_IN[wd].capitalize())
+    return None
+
+
+def lessons_said(who, now=None):
+    whose = f" {genitive(who)}" if who else ""
+    nxt = _school_day(who, now)
+    if nxt is None:
+        return (f"Nie mam jeszcze planu lekcji{whose}. Potrzymaj kartkę z planem przed kamerą "
+                f"i powiedz: wczytaj plan lekcji{whose}.")
+    wd, when = nxt
+    rows, cells = lesson_grid(who)
+    day = [(rows[r], cells[(r, wd)]) for r in range(len(rows)) if (r, wd) in cells]
+    titles = ", ".join(" / ".join(e["title"] for e in es) for _, es in day)
+    (at, _), ((lat, lend), _) = day[0][0], day[-1]
+    return (f"Plan lekcji{whose}. {when}: {titles} — od {at.lstrip('0') or '0'} "
+            f"do {(lend or _plus(lat, LESSON_MINS)).lstrip('0')}.")
+
+
+def _tap_lessons(d, x, y, W, H, speak):
+    import ui_lessons
+    hit = ui_lessons.hit(x, y, W, H, d)
+    if not hit:
+        return True
+    kind = hit[0]
+    if kind == "who":
+        d["who"] = hit[1]
+    elif kind == "week":
+        d["view"] = None
+    elif kind == "paper":
+        who = d.get("who")
+        if not who:
+            d["toast"] = ("Najpierw wybierz osobę", time.time() + 2.0)
+            return True
+
+        def run():                           # (it waits for the frames: not on the render thread)
+            from text_to_speech import speak as say
+            import_paper(who, speak or say)
+        threading.Thread(target=run, daemon=True, name="lessons-paper").start()
+    elif kind == "cell":
+        row, wd = hit[1], hit[2]
+        rows, cells = lesson_grid(d.get("who"))
+        es = cells.get((row, wd))
+        if es:
+            d.update(view=None, sel=es[0]["id"], confirm=0.0, back="lessons")
+        elif row < len(rows) and d.get("who"):
+            at, end = rows[row]
+            expect(d["who"], wd)
+            _expect["draft"] = {"who": d["who"], "title": None, "days": [wd], "at": at,
+                                "end": end, "remind": dict(_NO_REMIND), "kind": "lesson"}
+            (speak or _say)(f"Jaka lekcja jest {_DAYS_IN[wd]} o {at.lstrip('0')}? "
+                            "Powiedz samą nazwę.")
+    return True
+
+
 def _page():
     with state.lock:
         ov = state.overlay
@@ -844,6 +1039,8 @@ def tap(x, y, W, H, speak=None):
     d = _page()
     if d is None:
         return False
+    if d.get("view") == "lessons" and not d.get("sel"):
+        return _tap_lessons(d, x, y, W, H, speak)
     hit = ui_schedule.hit(x, y, W, H, d)
     if not hit:
         return True
@@ -861,8 +1058,11 @@ def tap(x, y, W, H, speak=None):
         expect(d.get("who"), d.get("day"))
         (speak or _say)("Powiedz, co dodać — kto, co, w jakie dni i o której. Na przykład: "
                                "Maja, angielski, od poniedziałku do piątku o siedemnastej.")
+    elif kind == "lessons":
+        d.update(view="lessons", who=_lesson_who(d.get("who")))
     elif kind == "back":
         d["sel"], d["confirm"] = None, 0.0
+        d["view"] = d.pop("back", None) or d.get("view")
     else:
         e = get(d.get("sel") or "")
         if e is None:
@@ -899,6 +1099,7 @@ def tap(x, y, W, H, speak=None):
             if now - d.get("confirm", 0.0) < 4.0:
                 remove(e["id"])
                 d["sel"], d["confirm"] = None, 0.0
+                d["view"] = d.pop("back", None) or d.get("view")
                 d["toast"] = (f"Usunięte: {e['title']}", now + 3.0)
             else:
                 d["confirm"] = now
@@ -909,6 +1110,12 @@ def swipe(dx):
     d = _page()
     if d is None or d.get("sel"):
         return False
+    if d.get("view") == "lessons":           # the next person / the one before
+        ps = lesson_people()
+        if ps:
+            k = ps.index(d["who"]) if d.get("who") in ps else -1
+            d["who"] = ps[(k + (1 if dx < 0 else -1)) % len(ps)]
+        return True
     d["day"], d["page"] = (d["day"] + (1 if dx < 0 else -1)) % 7, 0
     return True
 
@@ -1036,7 +1243,8 @@ def prompt_line():
                                                               for e in day))
         school.append(f"{who or 'the whole house'}'s school lessons: " + "; ".join(days))
     return ("The family's weekly plan (plan tygodnia; the app reminds by itself, "
-            "\"pokaż plan tygodnia\" shows it; to add or remove an entry use the command "
+            "\"pokaż plan tygodnia\" shows it, \"pokaż plan lekcji <kto>\" one person's "
+            "lessons Mon–Fri; to add or remove an entry use the command "
             "\"dodaj do planu: <kto>, <co>, <dni>, o <godzina>\" / \"usuń z planu <co> <kto>\"): "
             + "; ".join([f"{e.get('who') or 'the whole house'}: {e['title']} "
                          f"{days_said(e['days'])} {e['at']}"

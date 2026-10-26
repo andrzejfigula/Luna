@@ -34,6 +34,8 @@ LOCAL = {
     "Pokaż kalendarz": "screen",
     "Pokaż plan tygodnia": "schedule",
     "Pokaż harmonogram": "schedule",
+    "Pokaż mój plan lekcji": "schedule",
+    "Jaki mam plan lekcji?": "schedule",
     "Dodaj do planu: angielski od poniedziałku do piątku o 17": "schedule",
     "Ekran ciemniej": "handled-but-unknown",
     "Odliczaj do startu rakiety": "count",
@@ -430,6 +432,7 @@ class RoutingTest(unittest.TestCase):
             (twenty, "start", lambda *a: self._mark("twenty")),
             (radio, "play", lambda *a, **k: self._mark("radio")),
             (schedule, "show", lambda *a, **k: self._mark("schedule")),
+            (schedule, "show_lessons", lambda *a, **k: self._mark("schedule") or "Maja"),
             (schedule, "add", lambda *a, **k: self._mark("schedule") or {
                 "id": "x", "who": "", "title": "t", "days": [0], "at": "17:00", "end": "",
                 "remind": None}),

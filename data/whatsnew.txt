@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 26 października ==
+- Plan lekcji: „pokaż plan lekcji Mai” (albo „mój plan lekcji”) — lekcje od poniedziałku do piątku w jednej tabelce, każdy ma swój. Nowy plan: potrzymaj kartkę przed kamerą i powiedz „zaktualizuj plan lekcji Mai” albo dotknij „Wczytaj z kartki” — Luna zastąpi stary plan. Dotknij lekcji, żeby ją zmienić, albo pustego pola, żeby dopisać.
 - Plan z kartki: pokaż Lunie plan lekcji albo zajęć i powiedz „przepisz plan z kartki Mai” (albo „dodaj ten plan do grafiku Mai”). Luna przepisze cały tydzień do planu tygodnia: lekcje bez przypominania, zajęcia dodatkowe z przypomnieniem. Godzinę, której nie odczyta, zapyta.
 
 == 25 października ==

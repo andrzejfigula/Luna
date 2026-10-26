@@ -892,12 +892,14 @@ Always answer as JSON with exactly these keys:
                 <kolor>", "włącz szum deszczu / morza", "biały szum",
                 "wyłącz szum", "włącz napisy", "wyłącz napisy", "pokaż zegar",
                 "pokaż plan dnia", "pokaż plan tygodnia" (the family's week,
-                by person), "dodaj do planu: <kto>, <co>, <dni>, o <godzina>"
+                by person), "pokaż plan lekcji <kto>" (that person's school
+                lessons Mon–Fri as a grid), "dodaj do planu: <kto>, <co>, <dni>, o <godzina>"
                 (a weekly entry, e.g. "dodaj do planu: Maja, angielski, od
                 poniedziałku do piątku o 17" — she reminds by herself), "usuń
                 z planu <co> <kto>", "przepisz plan z kartki: <kto>" (a
                 timetable or plan on paper, ALL of it into the week's plan in
-                one go — send it as soon as they ask, even when you don't see
+                one go; a new school timetable replaces the old lessons — send
+                it as soon as they ask, even when you don't see
                 the paper: the app asks them to hold it up and looks itself;
                 never entry by entry, never read it out first), "pokaż listę
                 zakupów", "przepis na <danie>
@@ -1945,7 +1947,7 @@ _COMMAND_OK = re.compile(
     r"^nagraj\s+wiadomość(?:\s+dla\s+\w+)?$|^pokaż\s+na\s+ekranie[:,]?\s+.{1,80}$"
     r"|^pokaż\s+osoby,?\s+które\s+znasz$"
     # the week's plan (schedule.py; the sweep of 19 Oct: "dodaj do planu" refused)
-    r"|^pokaż\s+plan\s+tygodnia$|^dodaj\s+do\s+planu[:,]?\s+.{3,160}$"
+    r"|^pokaż\s+plan\s+tygodnia$|^pokaż\s+plan\s+lekcji(?:\s+\w+)?$|^dodaj\s+do\s+planu[:,]?\s+.{3,160}$"
     r"|^usuń\s+z\s+planu[:,]?\s+.{2,80}$"
     r"|^wyszukaj\s+w\s+internecie[:,]?\s+.{3,200}$"
     r"|^(?:przyciemnij|zgaś|rozjaśnij)\s+ekran$"

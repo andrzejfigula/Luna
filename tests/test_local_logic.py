@@ -8645,7 +8645,8 @@ class ScheduleTest(unittest.TestCase):
                     "kind": "activity"},
                    {"title": "pianino", "days": [4], "at": "17:00", "end": "",
                     "kind": "activity"}]
-        added, kept = self.s.save_paper("Maja", entries)
+        added, kept, replaced = self.s.save_paper("Maja", entries)
+        self.assertEqual(replaced, 0)
         self.assertEqual(len(self.s.events()), 3)            # no twin of angielski
         eng = next(e for e in self.s.events() if e["title"] == "angielski")
         self.assertEqual(eng["days"], [1, 3])
@@ -8662,8 +8663,8 @@ class ScheduleTest(unittest.TestCase):
         self.assertEqual(ask, "O której jest basen?")
         self.assertIn("Maja's school lessons: Pn 08:00 matematyka", self.s.prompt_line())
         # nothing new the second time
-        added, kept = self.s.save_paper("Maja", entries)
-        self.assertEqual((len(added), len(kept)), (0, 3))
+        added, kept, replaced = self.s.save_paper("Maja", entries)
+        self.assertEqual((len(added), len(kept), replaced), (0, 3, 0))
         self.assertEqual(self.s.paper_said("Maja", added, kept, [], False)[0],
                          "To wszystko już jest w planie tygodnia.")
 
@@ -8717,6 +8718,109 @@ class ScheduleTest(unittest.TestCase):
                                    "end": "", "remind": None, "kind": None}
         self.assertTrue(self.s.handle("o szesnastej", said.append))
         self.assertIn("Maja ma pianino w piątek o 16:00", said[-1])
+
+    def _lesson(self, title, days, at, end=""):
+        return {"title": title, "days": days, "at": at, "end": end, "kind": "lesson"}
+
+    def test_lesson_grid_is_each_persons_own(self):
+        L = self._lesson
+        self.s.save_paper("Maja", [L("polski", [0, 2], "08:00", "08:45"),
+                                   L("matematyka", [1], "08:00", "08:45"),
+                                   L("w-f", [0], "08:55", "09:40"),
+                                   L("religia", [5], "10:00")])     # Saturday: not in the grid
+        self.s.save_paper("Andrzej", [L("fizyka", [3], "09:50")])
+        self.s.add("Maja", "basen", [0], "16:00")                  # not a lesson
+        rows, cells = self.s.lesson_grid("Maja")
+        self.assertEqual(rows, [("08:00", "08:45"), ("08:55", "09:40")])
+        self.assertEqual(cells[(0, 2)][0]["title"], "polski")
+        self.assertEqual(cells[(1, 0)][0]["title"], "w-f")
+        self.assertNotIn((0, 3), cells)
+        self.assertEqual(self.s.lesson_grid("Andrzej")[0], [("09:50", "")])
+        self.assertEqual(self.s.lesson_grid("Emilka"), ([], {}))
+        self.assertEqual(self.s.lesson_people()[:2], ["Maja", "Andrzej"])
+        # Monday 7:30: today; Monday 10:00 (lessons over): Tuesday
+        mon = time.mktime((2026, 10, 26, 7, 30, 0, 0, 0, -1))
+        self.assertEqual(self.s.lessons_said("Maja", mon),
+                         "Plan lekcji Mai. Dziś: polski, w-f — od 8:00 do 9:40.")
+        self.assertEqual(self.s.lessons_said("Maja", mon + 9000),
+                         "Plan lekcji Mai. Jutro: matematyka — od 8:00 do 8:45.")
+        self.assertIn("Nie mam jeszcze planu lekcji Emilki", self.s.lessons_said("Emilka", mon))
+        self.assertEqual([self.s.genitive(n) for n in ("Maja", "Emilka", "Andrzej", "Anna")],
+                         ["Mai", "Emilki", "Andrzeja", "Anny"])
+
+    def test_new_timetable_replaces_the_old_lessons(self):
+        L = self._lesson
+        self.s.save_paper("Maja", [L("polski", [0, 1], "08:00", "08:45"),
+                                   L("plastyka", [2], "08:00", "08:45"),
+                                   L("muzyka", [4], "09:50")])
+        self.s.save_paper("Emilka", [L("polski", [0], "08:00")])
+        self.s.add("Maja", "angielski", [2], "17:00")
+        # the new one covers Mon–Wed: plastyka goes, polski moves to Monday only
+        added, kept, replaced = self.s.save_paper(
+            "Maja", [L("polski", [0], "08:00", "08:45"), L("technika", [1, 2], "08:00", "08:45")])
+        self.assertEqual(replaced, 2)                    # polski Tue, plastyka Wed
+        _, cells = self.s.lesson_grid("Maja")
+        self.assertEqual({k: [e["title"] for e in v] for k, v in cells.items()},
+                         {(0, 0): ["polski"], (0, 1): ["technika"], (0, 2): ["technika"],
+                          (1, 4): ["muzyka"]})                  # Friday untouched
+        self.assertEqual(len(self.s.lessons("Emilka")), 1)       # hers untouched
+        self.assertTrue(any(e["title"] == "angielski" for e in self.s.events()))
+        text, _ = self.s.paper_said("Maja", added, kept, [], False, replaced)
+        self.assertIn("Stary plan lekcji na te dni zastąpiłam nowym.", text)
+        # the same paper again: nothing to say but that it's there
+        added, kept, replaced = self.s.save_paper(
+            "Maja", [L("polski", [0], "08:00", "08:45"), L("technika", [1, 2], "08:00", "08:45")])
+        self.assertEqual((added, replaced), ([], 0))
+        self.assertEqual(self.s.paper_said("Maja", added, kept, [], False, replaced)[0],
+                         "To wszystko już jest w planie tygodnia.")
+
+    def test_lessons_by_voice(self):
+        from shared_state import state
+        said, calls = [], []
+        self.s.save_paper("Maja", [self._lesson("polski", [0], "08:00")])
+        for t, who in (("Pokaż plan lekcji Mai", "Maja"), ("plan lekcji Andrzeja", "Andrzej"),
+                       ("Luna, pokaż plan lekcji", "Maja"), ("pokaż lekcje Emilki", "Emilka")):
+            self.assertTrue(self.s.handle(t, said.append), t)
+            with state.lock:
+                ov = state.overlay
+            self.assertEqual((ov[0], ov[2]["view"], ov[2]["who"]), ("schedule", "lessons", who), t)
+        self.assertFalse(self.s.handle("pokaż lekcje angielskiego", said.append))
+        with mock.patch.object(self.s, "import_paper",
+                               lambda who, speak: calls.append(who) or True):
+            for t in ("Zaktualizuj plan lekcji Mai", "wczytaj nowy plan lekcji Emilki",
+                      "Maja ma nowy plan lekcji"):
+                self.assertTrue(self.s.handle(t, said.append), t)
+        self.assertEqual(calls, ["Maja", "Emilka", "Maja"])
+        for t in ("Czy Maja ma nowy plan lekcji?", "Maja dostanie w przyszłym tygodniu nowy "
+                  "plan lekcji, bo zmienia się wychowawczyni i cała reszta klasy"):
+            self.assertFalse(self.s.paper_request(t), t)
+        with state.lock:
+            state.overlay = None
+
+    def test_lesson_page_taps(self):
+        from shared_state import state
+        import ui_lessons
+        self.s.save_paper("Maja", [self._lesson("polski", [0], "08:00", "08:45")])
+        self.s.show_lessons("Maja")
+        d = self.s._page()
+        L = ui_lessons.layout(800, 480, d)
+        said = []
+        r = L["cells"][(0, 0)]                     # a lesson → its editor, back → here
+        self.s.tap(r.centerx, r.centery, 800, 480, said.append)
+        self.assertEqual((d["view"], self.s.get(d["sel"])["title"]), (None, "polski"))
+        self.s.tap(30, 30, 800, 480, said.append)               # "‹"
+        self.assertEqual((d["view"], d["sel"]), ("lessons", None))
+        r = L["cells"][(0, 3)]                     # an empty one: asked by voice
+        self.s.tap(r.centerx, r.centery, 800, 480, said.append)
+        self.assertEqual(said[-1], "Jaka lekcja jest w czwartek o 8:00? Powiedz samą nazwę.")
+        self.assertTrue(self.s.handle("geografia", said.append))
+        _, cells = self.s.lesson_grid("Maja")
+        self.assertEqual(cells[(0, 3)][0]["title"], "geografia")
+        self.assertEqual(cells[(0, 3)][0]["end"], "08:45")
+        self.s.swipe(-200)
+        self.assertEqual(d["who"], "Andrzej")
+        with state.lock:
+            state.overlay = None
 
 
 class TouchPageTest(unittest.TestCase):

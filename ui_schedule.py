@@ -2,7 +2,8 @@
 ui_schedule.py — the "plan tygodnia" page (schedule.py): drawing and taps.
 
   the week:   person chips (Wszyscy, Maja…), the seven days, that day's
-              entries (time, whose, what, the reminder), "+ Dodaj"
+              entries (time, whose, what, the reminder), "+ Dodaj",
+              "Plan lekcji" (ui_lessons.py: one person's Pn–Pt grid)
   an entry:   its days to toggle, the time and the end ± 15 min, the
               reminder (how long before · to whom · even when nobody is
               there) and "Usuń" (tapped twice)
@@ -28,6 +29,20 @@ def _chips_people(d):
     return [None] + schedule.people()
 
 
+def chip_row(W, names, x=250):
+    """The person chips along the top: ([(rect, name)], font size)."""
+    chips, room, fs = [], W - 96 - x, 20
+    while fs > 15 and sum(text(n or "Wszyscy", fs).get_width() + 34 for n in names) > room:
+        fs -= 1
+    for n in names:
+        w = text(n or "Wszyscy", fs).get_width() + 26
+        if x + w > W - 96:
+            break
+        chips.append((pygame.Rect(x, 16, w, 40), n))
+        x += w + 8
+    return chips, fs
+
+
 def layout(W, H, d):
     """{"who": [(rect, name)], "days": [rect]*7, "rows": [(rect, id)],
     "add", "more"} for the week; for an entry: "back", "edays", "at-"…"""
@@ -45,19 +60,7 @@ def layout(W, H, d):
         L["always"] = pygame.Rect(190, 364, 300, 46)
         L["delete"] = pygame.Rect(W - 24 - 200, H - 24 - 50, 200, 50)
         return L
-    x, chips = 250, []
-    room = W - 96 - x
-    names = _chips_people(d)
-    fs = 20
-    while fs > 15 and sum(text(n or "Wszyscy", fs).get_width() + 34 for n in names) > room:
-        fs -= 1
-    for n in names:
-        w = text(n or "Wszyscy", fs).get_width() + 26
-        if x + w > W - 96:
-            break
-        chips.append((pygame.Rect(x, 16, w, 40), n))
-        x += w + 8
-    L["who"], L["chip_fs"] = chips, fs
+    L["who"], L["chip_fs"] = chip_row(W, _chips_people(d))
     w = (W - 32 - 6 * 6) // 7
     L["days"] = [pygame.Rect(16 + k * (w + 6), 100, w, 44) for k in range(7)]
     evs = schedule.on_day(d["day"], d.get("who"))
@@ -67,6 +70,7 @@ def layout(W, H, d):
     L["rows"] = [(pygame.Rect(16, 152 + k * 55, W - 32, 50), e) for k, e in enumerate(shown)]
     L["add"] = pygame.Rect(W - 16 - 170, H - 52, 170, 44)
     L["more"] = pygame.Rect(16, H - 52, 150, 44) if pages > 1 else None
+    L["lessons"] = pygame.Rect(L["add"].x - 10 - 160, H - 52, 160, 44)
     L["pages"] = pages
     return L
 
@@ -93,6 +97,8 @@ def hit(x, y, W, H, d):
             return ("day", k)
     if L["add"].inflate(6, 6).collidepoint(x, y):
         return ("add",)
+    if L["lessons"].inflate(6, 6).collidepoint(x, y):
+        return ("lessons",)
     if L["more"] and L["more"].collidepoint(x, y):
         return ("more",)
     for r, e in L["rows"]:
@@ -126,6 +132,9 @@ def _toast(scr, d, now, W, H):
 
 
 def draw(scr, d, now, W, H):
+    if d.get("view") == "lessons" and not d.get("sel"):
+        import ui_lessons
+        return ui_lessons.draw(scr, d, now, W, H)
     scr.blit(vgrad(W, H, (18, 22, 40), (38, 34, 70)), (0, 0))
     L = layout(W, H, d)
     if d.get("sel"):
@@ -183,6 +192,7 @@ def draw(scr, d, now, W, H):
                   _GOLD if on else (150, 150, 170), "SemiBold")
         scr.blit(ri, (r.right - 14 - ri.get_width(), r.centery - ri.get_height() // 2))
     _pill(scr, L["add"], "+ Dodaj", 22, col=(80, 170, 120, 220), weight="ExtraBold")
+    _pill(scr, L["lessons"], "Plan lekcji", 20)
     if L["more"]:
         _pill(scr, L["more"], f"więcej ({d['page'] + 1}/{L['pages']})", 18)
     _toast(scr, d, now, W, H)
