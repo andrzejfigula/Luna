@@ -10305,7 +10305,10 @@ class PaintTest(unittest.TestCase):
         paint._s.update(img=None, ver=0, view=None, undo=[], tool="brush", colour=0, size=1,
                         marks=[], stroke=None, busy=None, hint="", picker=None, page=0,
                         title="", down=None, saved_ver=-1, asked_t=0.0, touch_t=0.0,
-                        paper="landscape", photo=False, camera=None, flash_t=0.0)
+                        paper="landscape", photo=False, camera=None, flash_t=0.0,
+                        confirm=None, confirm_t=0.0, printing=False, printed_t=0.0, kept_ver=-1)
+        paint._running.clear()
+        self.flush = paint._flush                                # (the real one, for its test)
         self.started = []
         p = mock.patch.object(paint, "_start",
                               lambda kind, words, speak: self.started.append((kind, words)) or True)
@@ -10533,16 +10536,141 @@ class PaintTest(unittest.TestCase):
                 mock.patch.object(text_to_speech, "play_sound_async") as snd:
             with state.lock:
                 state.conversation_active = False
+                state.speaking, state.luna_mode, state.mic_muted_until = False, "idle", 0.0
             self._tap(*self._centre("talk"))
             pub.assert_called_with("hold", 0.5, 0.5)
             self.assertFalse(snd.called)                         # idle_engine says "hm?" then
             with state.lock:
-                state.conversation_active = True
-            self._tap(*self._centre("talk"))                     # already listening: "hm?" still
-            snd.assert_called_with("huh")
-        self.assertEqual(p.voice_state(), "listening")
+                state.conversation_active = True                 # (idle_engine opened it)
+            self.assertEqual(p.voice_state(), "listening")
+            pub.reset_mock()
+            # 26 Oct: no way to stop her listening — tapped again, she stops
+            self._tap(*self._centre("talk"))
+            self.assertFalse(pub.called)
+            snd.assert_called_with("tick")
+            with state.lock:
+                self.assertFalse(state.conversation_active)
+                self.assertTrue(state.convo_closed_hard)
+            self.assertIsNone(p.voice_state())
+            self.assertIn("Nie słucham", p.view()["hint"])
         with state.lock:
             state.conversation_active = False
+            state.convo_closed_hard = False
+
+    def test_broken_sheet_is_kept_aside(self):
+        # 26 Oct: a crash left a broken current.png; PIL's SyntaxError escaped _load
+        # and the page never opened again
+        p = self.p
+        with open(p.CURRENT, "wb") as f:
+            f.write(b"\x89PNG\r\n\x1a\n" + b"\x00" * 64)
+        p._s["img"] = None
+        p.open_page()
+        self.assertEqual(p._s["img"].size, p.SIZES["landscape"])
+        self.assertIn("zepsuł", p._s["hint"])
+        self.assertFalse(os.path.exists(p.CURRENT))
+        self.assertTrue([f for f in os.listdir(p.DIR) if f.startswith("broken-")])
+        self.assertFalse(p.open_picture(os.path.join(p.DIR, os.listdir(p.DIR)[0])))
+
+    def test_saves_meet_safely(self):
+        # the timer's write and close()'s met in one .tmp: a broken current.png
+        import threading
+        p = self.p
+        from PIL import Image
+        errors = []
+
+        def write(i):
+            with p._lock:
+                p._s["img"].putpixel((i, i), (i, 0, 0))
+                p._s["ver"] += 1
+            try:
+                self.flush()
+            except Exception as e:
+                errors.append(e)
+        ts = [threading.Thread(target=write, args=(i,)) for i in range(8)]
+        for t in ts:
+            t.start()
+        for t in ts:
+            t.join()
+        self.assertEqual(errors, [])
+        with Image.open(p.CURRENT) as f:
+            f.load()
+        self.assertEqual([n for n in os.listdir(p.DIR) if n.endswith(".tmp")], [])
+
+    def test_confirm_new_and_print(self):
+        import threading
+        p = self.p
+        import printer
+        p._s["img"].putpixel((5, 5), (0, 0, 0))
+        self._tap(*self._centre("new"))                          # once: only "na pewno?"
+        self.assertEqual(p._s["img"].getpixel((5, 5)), (0, 0, 0))
+        self.assertEqual(p.view()["confirm"], "new")
+        self.assertIn("jeszcze raz", p.view()["hint"])
+        self._tap(*self._centre("new"))                          # twice: a clean sheet
+        self.assertEqual(p._s["img"].getpixel((5, 5)), (255, 255, 255))
+        self.assertIsNone(p.view()["confirm"])
+        self._tap(*self._centre("new"))                          # a clean one: no question
+        self.assertIsNone(p.view()["confirm"])
+        p._s["confirm"], p._s["confirm_t"] = "new", time.time() - p.CONFIRM_SECS - 1
+        self.assertIsNone(p.view()["confirm"])                   # the question went stale
+        # Maja tapped "Drukuj" 20 times: one job, the rest waits
+        gate, sent = threading.Event(), []
+
+        def submit(pages, title, copies=1, mono=False):
+            sent.append(title)
+            gate.wait(5)
+            return "1", None
+        with mock.patch.object(printer, "submit", submit), \
+                mock.patch.object(p, "_say", lambda t: None):
+            self._tap(*self._centre("print"))
+            self.assertEqual(p.view()["confirm"], "print")
+            for _ in range(20):
+                self._tap(*self._centre("print"))
+            deadline = time.time() + 5
+            while not sent and time.time() < deadline:
+                time.sleep(0.01)
+            self.assertTrue(p.view()["printing"])
+            self.assertEqual(p.voice("wydrukuj to", lambda t: sent.append(t)), True)
+            gate.set()
+            while "print" in p._running and time.time() < deadline:
+                time.sleep(0.01)
+        self.assertEqual(sent[0], "Malowanie")
+        self.assertEqual(sent.count("Malowanie"), 1)
+        self.assertIn("Już drukuję", sent[1])
+        self.assertTrue(p.view()["printing"])                    # resting a moment after
+        self._tap(*self._centre("print"))
+        self.assertIsNone(p.view()["confirm"])
+
+    def test_many_undo_steps(self):
+        p = self.p
+        x, y, w, h, k = p.canvas_rect(p._s["img"].size)
+        for i in range(30):
+            a = (x + 20 + i * 4, y + 30)
+            p.raw("down", a[0] / p.W, a[1] / p.H)
+            p.raw("move", a[0] / p.W, (a[1] + 50) / p.H)
+            p.raw("up", a[0] / p.W, (a[1] + 50) / p.H)
+        self.assertEqual(len(p._s["undo"]), 30)
+        self.assertTrue(all("box" in e for e in p._s["undo"]))   # patches, not 30 pictures
+        self.assertFalse(p._is_blank(p._s["img"]))
+        p.new_sheet()
+        for _ in range(31):
+            self.assertTrue(p.undo())
+        self.assertTrue(p._is_blank(p._s["img"]))
+        self.assertFalse(p.undo())
+        for _ in range(p.UNDO + 5):                              # whole pictures: capped
+            p.rotate()
+        n = len(p._s["undo"])
+        self.assertLessEqual(n, p.UNDO)
+        self.assertLessEqual(sum(e["img"].width * e["img"].height for e in p._s["undo"]),
+                             p.UNDO_PIXELS)
+
+    def test_save_twice_keeps_one(self):
+        p, said = self.p, []
+        p._s["img"].putpixel((5, 5), (0, 0, 0))
+        p._changed()
+        self.assertTrue(p.save(said.append))
+        self.assertTrue(p.save(said.append))
+        self.assertEqual(len(p.saved_works()), 1)
+        self.assertIn("już", said[-1])
 
     def test_fallback_only_while_painting(self):
         p = self.p

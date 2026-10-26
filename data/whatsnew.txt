@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 26 października ==
+- Malowanie: po każdym poleceniu Luna przestaje słuchać — następne zaczyna się od przycisku „Powiedz” (albo „Luna”). Kiedy słucha, na przycisku jest „Słucham — dotknij: stop”: dotknięcie go wyłącza. „Nowa”, „Drukuj” i „Upiększ” trzeba dotknąć dwa razy („Na pewno?”). „Drukuj” nie drukuje kilka razy naraz, „Cofnij” cofa do 40 kroków, a zepsuty obrazek już nie blokuje malowania.
 - Plan tygodnia i plan lekcji zamyka samo „wyłącz” albo „stop” (i „zamknij plan”, „wyłącz grafik”). Hal zamiast rumieńców ma czerwieniejące, obracające się stalowe obręcze obiektywów (połaskotany — drżą). „Włącz moje zdjęcie w edytorze” albo „chcę upiększyć swoje zdjęcie” otwiera malowanie z wyborem zdjęcia.
 - Malowanie: przycisk „Zdjęcie” (albo „zrób zdjęcie”, kiedy malowanie jest otwarte, albo „zrób zdjęcie do malowania”) — Luna liczy 3, 2, 1, robi zdjęcie z kamery i od razu kładzie je na kartce: można po nim malować, „Upiększ” albo „dodaj mi koronę”.
 - Malowanie: przycisk „Upiększ” (albo „upiększ to”, „zrób to ładniej”) — Luna rysuje twój obrazek jeszcze raz, starannie i kolorowo, w tym samym układzie; zdjęcie tylko poprawia (światło, kolory). Nie podoba się? „Cofnij”. Nowa kartka jest teraz pozioma (przycisk „Obróć” zmienia).

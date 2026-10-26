@@ -143,6 +143,7 @@ def voice_loop():
             text = listen()
             import radio
             import ambience
+            import paint
             # said over the radio ("Luna, wyłącz radio"): a command, then quiet
             radio_was_on = bool(text) and bool(radio.playing() or ambience.playing())
             if text:
@@ -241,7 +242,11 @@ def voice_loop():
                     # answers keep it: "jeszcze ciszej", "i chleb", "a jutro?"
                     with state.lock:
                         done, state.close_after = state.close_after, False
-                    if done and state.conversation_active and not _answer_awaited():
+                    # Malowanie up: always — "Powiedz" opens the next one (26 Oct:
+                    # the room's talk while she drew became edits, no way to stop it)
+                    painting = paint.active()
+                    if (done or painting) and state.conversation_active and \
+                            (painting or not _answer_awaited()):
                         with state.lock:
                             state.conversation_active = False
                             state.convo_closed_hard = True

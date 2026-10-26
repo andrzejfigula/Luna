@@ -23,6 +23,7 @@ printer. State and toner: `ipptool get-printer-attributes` on the address
 `ippfind` gives. LUNA_PRINT_DRY=1: the PDF is kept, nothing is printed.
 """
 
+import itertools
 import json
 import os
 import re
@@ -43,6 +44,8 @@ CACHE_SECS = 600
 FONT_DIR = "/usr/share/fonts/truetype/dejavu"
 
 _lock = threading.Lock()
+_jobs = threading.Lock()
+_job_no = itertools.count(1)
 _found = {"dest": None, "uri": None, "t": 0.0}
 _today = {"day": "", "pages": 0}
 
@@ -268,10 +271,13 @@ def text_pages(title, lines, boxes=False):
 
 
 def image_page(path, caption="", mono=False):
-    """A picture fitted on an A4 page, its caption under it."""
+    """A picture (a file, or a PIL image) fitted on an A4 page, its caption under it."""
     from PIL import Image, ImageDraw
-    pic = Image.open(path)
-    pic = pic.convert("L" if mono else "RGB")
+    if hasattr(path, "convert"):
+        pic = path.convert("L" if mono else "RGB")
+    else:
+        with Image.open(path) as f:
+            pic = f.convert("L" if mono else "RGB")
     page = Image.new(pic.mode, (W, H), 255 if mono else (255, 255, 255))
     room_h = H - 2 * MARGIN - (140 if caption else 0)
     scale = min((W - 2 * MARGIN) / pic.width, room_h / pic.height)
@@ -385,8 +391,14 @@ def submit(pages, title, copies=1, mono=False):
         return None, "Na dziś wystarczy drukowania — jutro wydrukuję więcej."
     if mono:
         pages = [p.convert("L") if hasattr(p, "convert") else p for p in pages]
+    with _jobs:          # one job made at a time, each in its own file (26 Oct: two in one
+        return _submit(pages, title, copies, mono, dry, dest)  # second shared a .pdf)
+
+
+def _submit(pages, title, copies, mono, dry, dest):
     ps = not dry and _postscript()
-    path = os.path.join(tempfile.gettempdir(), f"luna-print-{time.strftime('%H%M%S')}.pdf")
+    path = os.path.join(tempfile.gettempdir(),
+                        f"luna-print-{time.strftime('%H%M%S')}-{next(_job_no)}.pdf")
     # raw PostScript goes to the printer as it is: the copies are in the file
     save_pdf(pages * copies if ps else pages, path)
     files = [path]

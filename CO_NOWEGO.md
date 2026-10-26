@@ -3,6 +3,8 @@
 Ściąga: co Luna teraz potrafi i jak to wywołać. Wszystko po polsku, zwykłymi
 zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `docs/backlog-done.md`.
 
+> **Malowanie — słuchanie i potwierdzenia:** po poleceniu Luna **przestaje słuchać** — następne: przycisk **Powiedz** (albo „Luna”); kiedy słucha (**Słucham**), dotknij go, żeby przestała · **Nowa**, **Drukuj**, **Upiększ** — dotknij **dwa razy** („Na pewno?”) · **Cofnij** — do 40 kroków (liczba w rogu przycisku)
+>
 > **Malowanie — Zdjęcie:** przycisk **Zdjęcie** (albo „**zrób zdjęcie**” przy otwartym malowaniu, „**zrób zdjęcie do malowania**” skądkolwiek) — 3, 2, 1 na obrazie z kamery, zdjęcie od razu na kartce: maluj po nim, **Upiększ**, „dodaj mi koronę”, Zapisz, Drukuj
 >
 > **Malowanie — Upiększ:** przycisk **Upiększ** (albo „**upiększ to**”, „zrób to ładniej”) — twój rysunek narysowany jeszcze raz, starannie, w tym samym układzie; zdjęcie tylko poprawione (światło, kolory); z zaznaczeniem „Pokaż” — tylko to miejsce · nowa kartka jest **pozioma** (Obróć zmienia)

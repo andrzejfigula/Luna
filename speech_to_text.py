@@ -140,12 +140,12 @@ def _auto_input_device():
         pass
 
     try:
-        devices = sd.query_devices()
+        all_devs = sd.query_devices()
     except Exception as e:
         print(f"[STT] Could not query audio devices: {e}")
         return None, None
 
-    for i, dev in enumerate(devices):
+    for i, dev in enumerate(all_devs):
         if dev["max_input_channels"] > 0 and i not in candidates:
             candidates.append(i)
 

@@ -44,7 +44,8 @@ MODEL = "gpt-image-1-mini"
 QUALITY = "medium"                 # printed on A4: "low" was blotchy at that size
 PER_DAY = 40                       # pictures made or changed by the model, a day
 PAGE_SECS = 1800                   # the page stays up this long untouched
-UNDO = 8
+UNDO = 40                          # steps back ("Cofnij"); a stroke keeps only its own patch
+UNDO_PIXELS = 12_000_000           # …and all of them together at most this much (~36 MB)
 SIZES = {"portrait": (1024, 1536), "landscape": (1536, 1024), "square": (1024, 1024)}
 
 W, H = SCREEN_WIDTH, SCREEN_HEIGHT
@@ -65,7 +66,16 @@ TALK_SECS = 120          # a wish with no command word counts this long after a 
 _s.update(paper="landscape", photo=False)   # how new sheets lie ("Obróć" changes it); a photo on it
 _s.update(camera=None, flash_t=0.0)          # "Zdjęcie": the countdown on the live camera ("" before it)
 COUNT_SECS = 0.9
+_s.update(confirm=None, confirm_t=0.0, printing=False, printed_t=0.0, kept_ver=-1)
+CONFIRM_SECS = 4.0       # "Nowa", "Drukuj", "Upiększ": a second tap this soon does it
+CONFIRM = {"new": "Nowa kartka? Dotknij „Nowa” jeszcze raz",
+           "print": "Wydrukować? Dotknij „Drukuj” jeszcze raz",
+           "beautify": "Upiększyć? Dotknij „Upiększ” jeszcze raz"}
+PRINT_COOL = 20.0        # "Drukuj" rests this long after a page went to the printer
+SLOW = ("save", "print", "beautify", "photo")   # buttons that run on their own thread
+_running = set()         # …whose work is still going: a tap on them again waits (lock held)
 _save_timer = [None]
+_save_lock = threading.Lock()   # one writer of current.png at a time
 
 
 # ── layout ───────────────────────────────────────────────────────────────────
@@ -144,12 +154,12 @@ def close():
 def open_page(hint=None):
     """Open the sheet (the last one, else a clean A4)."""
     with _lock:
-        if _s["img"] is None:
-            _load()
+        broken = _s["img"] is None and _load()
         _s["picker"] = None
         _s["asked_t"] = time.time()
         _s["hint"] = hint if hint is not None else (
-            "" if _s["busy"] else "Maluj palcem albo powiedz Lunie, co narysować")
+            "" if _s["busy"] else "Poprzedni obrazek się zepsuł — oto czysta kartka" if broken
+            else "Maluj palcem albo naciśnij „Powiedz” i powiedz, co narysować")
     _show()
     print("[paint] page open", flush=True)
 
@@ -160,14 +170,22 @@ def _blank(kind="landscape"):
 
 
 def _load():
-    """The sheet from last time (lock held)."""
+    """The sheet from last time (lock held); True when it was broken (kept aside)."""
     from PIL import Image
-    img = None
+    img, broken = None, False
     try:
         with Image.open(CURRENT) as f:
             img = f.convert("RGB")
-    except (OSError, ValueError):
+    except FileNotFoundError:
         pass
+    except Exception as e:       # (PIL calls a broken PNG a SyntaxError — 26 Oct: the page never opened)
+        aside = os.path.join(DIR, time.strftime("broken-%Y%m%d-%H%M%S.png"))
+        print(f"[paint] the sheet is broken ({e!r}) — kept as {aside}, a clean one", flush=True)
+        broken = True
+        try:
+            os.replace(CURRENT, aside)
+        except OSError:
+            pass
     _set(img or _blank(), push=False)
     try:
         with open(CURRENT[:-4] + ".json", encoding="utf-8") as f:
@@ -175,13 +193,13 @@ def _load():
     except (OSError, ValueError):
         pass
     _s["saved_ver"] = _s["ver"]
+    return broken
 
 
 def _set(img, push=True, title=None):
     """A new picture on the sheet (lock held); the old one can be undone."""
     if push and _s["img"] is not None:
-        _s["undo"].append((_s["img"], _s["title"]))
-        del _s["undo"][:-UNDO]
+        _push_undo({"img": _s["img"], "title": _s["title"]})
     _s["img"] = img
     if title is not None:
         _s["title"] = title
@@ -202,24 +220,52 @@ def _changed():
         t.start()
 
 
-def _flush():
-    """Write the sheet to disk if it changed (atomically: never half a file)."""
-    with _lock:
-        _save_timer[0] = None
-        if _s["img"] is None or _s["saved_ver"] == _s["ver"]:
-            return
-        img, title, ver = _s["img"].copy(), _s["title"], _s["ver"]
+def _push_undo(entry):
+    """(lock held) {"img", "title"} — the whole picture, or {"box", "crop", "title"} —
+    only what a stroke covered. The oldest go past UNDO steps or UNDO_PIXELS."""
+    u = _s["undo"]
+    u.append(entry)
+
+    def px(e):
+        im = e.get("img") or e.get("crop")
+        return im.width * im.height
+    total = sum(px(e) for e in u)
+    while len(u) > 1 and (len(u) > UNDO or total > UNDO_PIXELS):
+        total -= px(u.pop(0))
+
+
+def _atomic(path, write):
+    """write(f) into a file beside path, then swap it in: never half a file."""
+    tmp = f"{path}.{os.getpid()}-{threading.get_ident()}.tmp"
     try:
-        os.makedirs(DIR, exist_ok=True)
-        tmp = CURRENT + ".tmp"
-        img.save(tmp, "PNG")
-        os.replace(tmp, CURRENT)
-        with open(CURRENT[:-4] + ".json", "w", encoding="utf-8") as f:
-            json.dump({"title": title}, f, ensure_ascii=False)
+        with open(tmp, "wb") as f:
+            write(f)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+
+
+def _flush():
+    """Write the sheet to disk if it changed. One writer at a time (26 Oct: the
+    timer's write and close()'s met in one .tmp — a broken current.png)."""
+    with _save_lock:
         with _lock:
-            _s["saved_ver"] = max(_s["saved_ver"], ver)
-    except OSError as e:
-        print(f"[paint] couldn't save the sheet: {e!r}", flush=True)
+            _save_timer[0] = None
+            if _s["img"] is None or _s["saved_ver"] == _s["ver"]:
+                return
+            img, title, ver = _s["img"].copy(), _s["title"], _s["ver"]
+        try:
+            os.makedirs(DIR, exist_ok=True)
+            _atomic(CURRENT, lambda f: img.save(f, "PNG"))
+            _atomic(CURRENT[:-4] + ".json",
+                    lambda f: f.write(json.dumps({"title": title}, ensure_ascii=False).encode()))
+            with _lock:
+                _s["saved_ver"] = max(_s["saved_ver"], ver)
+        except Exception as e:
+            print(f"[paint] couldn't save the sheet: {e!r}", flush=True)
 
 
 def view():
@@ -229,11 +275,15 @@ def view():
             _load()
         x, y, w, h, k = canvas_rect(_s["img"].size)
         st = _s["stroke"]
+        confirm = _confirming()
         return {"ver": _s["ver"], "view": _s["view"], "rect": (x, y, w, h), "k": k,
                 "tool": _s["tool"], "colour": _s["colour"], "size": _s["size"],
                 "marks": [dict(m, pts=list(m["pts"])) for m in _s["marks"]],
                 "stroke": dict(st, pts=list(st["pts"])) if st else None,
-                "busy": _s["busy"], "busy_t": _s["busy_t"], "hint": _s["hint"],
+                "busy": _s["busy"], "busy_t": _s["busy_t"],
+                "hint": CONFIRM[confirm] if confirm else _s["hint"], "confirm": confirm,
+                "printing": _print_resting(), "running": sorted(_running),
+                "undo_n": len(_s["undo"]),
                 "picker": _picker_page() if _s["picker"] is not None else None,
                 "undo": bool(_s["undo"]), "down": _s["down"],
                 "wide": _s["img"].width > _s["img"].height, "voice": voice_state(),
@@ -243,6 +293,18 @@ def view():
 def _hint(text):
     with _lock:
         _s["hint"] = text
+
+
+def _confirming(now=None):
+    """The button waiting for its second tap, or None (lock held)."""
+    c = _s["confirm"]
+    return c if c and (now or time.time()) - _s["confirm_t"] < CONFIRM_SECS else None
+
+
+def _print_resting(now=None):
+    """Printing, or a page just went out: "Drukuj" waits (lock held). 26 Oct:
+    Maja tapped it 20 times, 20 threads on one file, a Bus error."""
+    return _s["printing"] or (now or time.time()) - _s["printed_t"] < PRINT_COOL
 
 
 # ── the finger ───────────────────────────────────────────────────────────────
@@ -265,6 +327,7 @@ def raw(phase, nx, ny):
             cx, cy, cw, ch, k = canvas_rect(_s["img"].size)
             on_sheet = _inside((x, y), (cx, cy, cw, ch))
             if on_sheet and _s["picker"] is None:
+                _s["confirm"] = None                    # (painting on: not "na pewno?")
                 tool = _s["tool"]
                 r = (MARK_R if tool == "mark" else
                      BRUSH[_s["size"]] * (1.8 if tool == "eraser" else 1.0) / 2) / k
@@ -296,21 +359,59 @@ def raw(phase, nx, ny):
     if down:
         key = down if isinstance(down, str) else None
         if key and button_at(x, y) == key:
-            if key in ("save", "print", "beautify", "photo"):   # (she talks: not on this thread)
-                threading.Thread(target=press, args=(key,), daemon=True, name="paint-btn").start()
-            else:
-                press(key)
+            tapped(key)
         elif not key:
             _pick_at(x, y)
+
+
+def tapped(key):
+    """A toolbar tap: "Nowa", "Drukuj", "Upiększ" ask for a second tap first;
+    the slow ones run on their own thread (she talks), one at a time each."""
+    now = time.time()
+    with _lock:
+        armed = _confirming(now) == key
+        _s["confirm"] = None
+        if key in _running or (key == "print" and _print_resting(now)):
+            _s["hint"] = "Już drukuję — chwileczkę" if key == "print" else "Chwileczkę…"
+            print(f"[paint] button {key} — still busy, ignored", flush=True)
+            return False
+        blank = _s["img"] is not None and _is_blank(_s["img"])
+        if key in CONFIRM and not armed and not (key == "new" and blank):
+            _s["confirm"], _s["confirm_t"] = key, now
+            print(f"[paint] button {key} — once more to do it", flush=True)
+            return False
+        slow = key in SLOW
+        if slow:
+            _running.add(key)
+    if slow:
+        threading.Thread(target=_press_bg, args=(key,), daemon=True, name="paint-btn").start()
+    else:
+        press(key)
+    return True
+
+
+def _press_bg(key):
+    try:
+        press(key)
+    except Exception as e:
+        print(f"[paint] button {key} failed: {e!r}", flush=True)
+    finally:
+        with _lock:
+            _running.discard(key)
 
 
 def _paint(st):
     """A finished stroke into the picture (lock held)."""
     from PIL import ImageDraw
-    _s["undo"].append((_s["img"].copy(), _s["title"]))
-    del _s["undo"][:-UNDO]
-    d = ImageDraw.Draw(_s["img"])
-    pts, r = st["pts"], st["r"]
+    img, pts, r = _s["img"], st["pts"], st["r"]
+    pad = r + 3
+    box = (max(0, int(min(p[0] for p in pts) - pad)), max(0, int(min(p[1] for p in pts) - pad)),
+           min(img.width, int(max(p[0] for p in pts) + pad) + 1),
+           min(img.height, int(max(p[1] for p in pts) + pad) + 1))
+    if box[2] <= box[0] or box[3] <= box[1]:
+        return
+    _push_undo({"box": box, "crop": img.crop(box), "title": _s["title"]})
+    d = ImageDraw.Draw(img)
     if len(pts) > 1:
         d.line(pts, fill=st["colour"], width=max(1, int(2 * r)), joint="curve")
     for p in (pts[0], pts[-1]) if len(pts) > 1 else pts:     # round ends; a tap: a dot
@@ -328,7 +429,10 @@ def press(key):
                 return
         close()
     elif key == "talk":
-        listen()
+        if voice_state() == "listening":
+            stop_listening()
+        else:
+            listen()
     elif key == "rotate":
         rotate()
     elif key == "beautify":
@@ -381,21 +485,30 @@ def _say(text):
 
 
 def listen():
-    """"Powiedz": she listens, as for a held finger — and says "hm?" every
-    time (26 Oct: pressed again while already listening, nothing at all
-    happened, and the page hides her face and the bar that show it)."""
+    """"Powiedz": she listens, as for a held finger (idle_engine says "hm?";
+    while she talks or thinks the touch cuts in the same way)."""
     import touch_module
     with state.lock:
-        already = state.conversation_active
         state.last_activity_time = time.time()     # (a fresh window to speak in)
     touch_module._publish("hold", 0.5, 0.5)
-    if already:
-        try:
-            from text_to_speech import play_sound_async
-            play_sound_async("huh")
-        except Exception as e:
-            print(f"[paint] no listening sound: {e!r}", flush=True)
     _hint("Słucham — powiedz, co narysować albo zmienić")
+
+
+def stop_listening():
+    """"Słucham" tapped: she stops listening now ("Luna" still wakes her). 26 Oct:
+    the window stayed open and the room's talk became edits — no way to stop it."""
+    with state.lock:
+        state.conversation_active = False
+        state.convo_expired_time = time.time()
+        state.convo_closed_hard = True
+        state.listening = False
+    try:
+        from text_to_speech import play_sound_async
+        play_sound_async("tick")
+    except Exception as e:
+        print(f"[paint] no sound: {e!r}", flush=True)
+    _hint("Nie słucham. Naciśnij „Powiedz”, żeby mówić")
+    print("[paint] stopped listening", flush=True)
 
 
 def voice_state():
@@ -458,7 +571,7 @@ def take_photo(speak):
     _hint("Maluj po zdjęciu, „Upiększ” albo powiedz, co zmienić")
     with _lock:
         _s["asked_t"] = time.time()
-    speak("Mam! Możesz po nim malować albo powiedz, co zmienić.")
+    speak("Mam! Możesz po nim malować albo naciśnij Powiedz i powiedz, co zmienić.")
     return True
 
 
@@ -488,10 +601,16 @@ def undo():
         if not _s["undo"]:
             _s["hint"] = "Nie ma czego cofnąć"
             return False
-        _s["img"], _s["title"] = _s["undo"].pop()
+        e = _s["undo"].pop()
+        if "box" in e:                          # a stroke: only its patch goes back
+            _s["img"].paste(e["crop"], e["box"][:2])
+        else:
+            _s["img"] = e["img"]
+        _s["title"] = e["title"]
         _s["marks"] = []
         _changed()
-        _s["hint"] = "Cofnięte"
+        n = len(_s["undo"])
+        _s["hint"] = f"Cofnięte — jeszcze {n} do cofnięcia" if n else "Cofnięte — to już wszystko"
     return True
 
 
@@ -556,7 +675,7 @@ def open_picture(path, title=""):
     try:
         with Image.open(path) as f:
             img = f.convert("RGB")
-    except (OSError, ValueError) as e:
+    except Exception as e:                  # (a broken PNG is a SyntaxError)
         print(f"[paint] couldn't open {path}: {e!r}", flush=True)
         _hint("Nie udało się otworzyć obrazka")
         return False
@@ -578,16 +697,24 @@ def save(speak):
     with _lock:
         if _s["img"] is None:
             _load()
-        img, title = _s["img"].copy(), _s["title"]
+        if _s["kept_ver"] == _s["ver"]:         # (26 Oct: two taps, two same files)
+            _s["hint"] = "Już zapisane — „Otwórz” je pokaże"
+            speak("Ten obrazek już jest zapisany.")
+            return True
+        img, title, ver = _s["img"].copy(), _s["title"], _s["ver"]
     try:
         os.makedirs(SAVED, exist_ok=True)
-        path = os.path.join(SAVED, time.strftime("%Y%m%d-%H%M%S") + ".png")
-        img.save(path, "PNG")
+        stem = os.path.join(SAVED, time.strftime("%Y%m%d-%H%M%S"))
+        path = next(p for p in (stem + s + ".png" for s in ("", "-2", "-3", "-4", "-5", "-6"))
+                    if not os.path.exists(p))
+        _atomic(path, lambda f: img.save(f, "PNG"))
         _keep_title(path, title)
-    except OSError as e:
+    except Exception as e:
         print(f"[paint] save failed: {e!r}", flush=True)
         speak("Nie udało mi się zapisać obrazka.")
         return True
+    with _lock:
+        _s["kept_ver"] = ver
     print(f"[paint] saved {path}", flush=True)
     _hint("Zapisane — „Otwórz” je pokaże")
     speak("Zapisane! Znajdziesz je pod przyciskiem Otwórz.")
@@ -603,15 +730,14 @@ def _keep_title(path, title):
         d = {}
     d[os.path.basename(path)] = title
     try:
-        with open(tp, "w", encoding="utf-8") as f:
-            json.dump(d, f, ensure_ascii=False)
+        _atomic(tp, lambda f: f.write(json.dumps(d, ensure_ascii=False).encode()))
     except OSError:
         pass
 
 
 def print_pages(mono=False):
-    """The sheet on A4 (a wide picture turned to fill the page)."""
-    import tempfile
+    """The sheet on A4 (a wide picture turned to fill the page). In memory: 26 Oct
+    every tap wrote one shared /tmp file while another read it — a broken PNG."""
     import printer
     with _lock:
         if _s["img"] is None:
@@ -619,21 +745,36 @@ def print_pages(mono=False):
         img = _s["img"].copy()
     if img.width > img.height:
         img = img.rotate(90, expand=True)
-    path = os.path.join(tempfile.gettempdir(), "luna-paint-print.png")
-    img.save(path, "PNG")
-    return printer.image_page(path, "", mono)
+    return printer.image_page(img, "", mono)
 
 
 def print_sheet(speak, copies=1, mono=False):
+    """One print at a time: asked again meanwhile, she says she is on it."""
     import printer
+    with _lock:
+        busy = _s["printing"]
+        _s["printing"] = True
+    if busy:
+        speak("Już drukuję — chwileczkę.")
+        return True
+    sent = False
     try:
+        _hint("Drukuję…")
         pages = print_pages(mono)
+        job, err = printer.submit(pages, "Malowanie", copies, mono)
+        sent = bool(job)
+        _hint("Wysłane do drukarki" if sent else "Nie wydrukowało się")
+        speak(err or "Drukuję obrazek" + (f" {copies} razy." if copies > 1 else "."))
     except Exception as e:
         print(f"[paint] print failed: {e!r}", flush=True)
+        _hint("Nie wydrukowało się")
         speak("Nie udało mi się przygotować wydruku.")
-        return True
-    _hint("Drukuję…")
-    return printer._send(speak, "Malowanie", pages, copies, mono, "Drukuję obrazek.")
+    finally:
+        with _lock:
+            _s["printing"] = False
+            if sent:
+                _s["printed_t"] = time.time()
+    return True
 
 
 # ── marks → the model's mask ─────────────────────────────────────────────────
@@ -882,17 +1023,15 @@ def _run(kind, words, old, marks, paper="landscape", photo=False):
             _set(img, title=title)
             if kind == "new":
                 _s["photo"] = False
-            _s["hint"] = "Co zmienić? Powiedz albo pokaż palcem („Pokaż”)"
+            _s["hint"] = "Coś zmienić? Naciśnij „Powiedz” albo pokaż palcem („Pokaż”)"
             _s["asked_t"] = time.time()
         if not active():
             _show()
         print(f"[paint] done: {kind}", flush=True)
-        _say({"edit": "Gotowe! Co zmienić?",
-              "beautify": "Gotowe! Podoba się? Jeśli nie, powiedz: cofnij."}.get(
-                  kind, "Gotowe! Jeśli coś zmienić, powiedz albo pokaż mi palcem."))
-        with state.lock:
-            state.conversation_active = True       # an answer needs no "Luna"
-            state.last_activity_time = max(state.last_activity_time, time.time())
+        # (not listening after it: 26 Oct the open window took "Ależ nieładna",
+        # "Się" for wishes — "Powiedz" or "Luna" starts the next one)
+        _say({"beautify": "Gotowe! Jeśli się nie podoba, naciśnij Cofnij."}.get(
+            kind, "Gotowe! Jeśli coś zmienić, naciśnij Powiedz."))
         try:
             import brain
             brain.add_to_last_reply("(Na ekranie Malowanie: " +
@@ -1028,7 +1167,7 @@ def opener(text, speak):
     t = _clean(text)
     if _OPEN.match(t):
         open_page()
-        speak("Dobrze! Maluj palcem albo powiedz mi, co narysować.")
+        speak("Dobrze! Maluj palcem albo naciśnij Powiedz i powiedz, co narysować.")
         return True
     if _PHOTO_TO_PAINT.match(t):                    # "zrób zdjęcie do malowania"
         open_page("Uśmiech! Patrz w kamerę")
@@ -1044,7 +1183,7 @@ def opener(text, speak):
         rest = (m.group(1) or "").strip(" ,.")
         if len(rest) >= 3:
             return _start("edit", rest, speak)
-        speak("Otwieram w malowaniu. Co zmienić?")
+        speak("Otwieram w malowaniu. Jeśli coś zmienić, naciśnij Powiedz.")
         return True
     if _OPEN_PHOTO.match(t):
         return open_photo(speak)
@@ -1059,15 +1198,15 @@ def open_photo(speak):
     if shown and shown.get("path") and os.path.exists(shown["path"]):
         open_picture(shown["path"], str(shown.get("caption") or ""))
         open_page("Maluj albo powiedz, co zmienić")
-        speak("Otwieram w malowaniu. Co zmienić?")
+        speak("Otwieram w malowaniu. Jeśli coś zmienić, naciśnij Powiedz.")
         return True
     pics = _openable()
     open_page("Wybierz zdjęcie albo naciśnij „Zdjęcie”, żeby zrobić nowe")
     with _lock:
         _s["picker"], _s["page"] = (pics or None), 0
     print(f"[paint] a photo to open: the picker ({len(pics)})", flush=True)
-    speak("Wybierz palcem, które otworzyć — albo powiedz: zrób zdjęcie." if pics else
-          "Nie mam jeszcze zdjęć. Powiedz: zrób zdjęcie, a zrobię nowe.")
+    speak("Wybierz palcem, które otworzyć — albo naciśnij Zdjęcie." if pics else
+          "Nie mam jeszcze zdjęć. Naciśnij Zdjęcie, a zrobię nowe.")
     return True
 
 
@@ -1168,7 +1307,7 @@ def _edit(t, marked, blank, speak):
                 _s["hint"] = "Dotknij tego, co ci się nie podoba"
                 _s["ver"] += 1
             speak("Pokaż mi palcem, co ci się nie podoba — dotknij tego miejsca na obrazku, "
-                  "a potem powiedz, co zrobić.")
+                  "a potem naciśnij Powiedz i powiedz, co zrobić.")
             return True
     if blank:
         speak("Kartka jest pusta — powiedz, co narysować, albo maluj palcem.")
