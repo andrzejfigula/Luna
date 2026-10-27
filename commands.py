@@ -819,7 +819,7 @@ def _spell_word(text):
         return None
     word = m.group(1).strip(" -")
     if (not word or len(_words(word)) > 3 or any(c.isdigit() for c in word)
-            or re.search(r"\bpo \w+sku\b|\bin \w+", word.lower())):   # translation
+            or re.search(r"\bpo \w+[sc]ku\b|\bin \w+", word.lower())):   # translation
         return None
     return word
 
@@ -879,6 +879,44 @@ def show_text(text, speak):
                          {"text": shown, "sub": "", "tone": None})
     print(f"[cmd] on the screen: {shown!r}", flush=True)
     speak("Proszę, masz na ekranie.")
+    return True
+
+
+# "Pokaż mi, jak to się pisze", "A jak to się pisze?", "Pokaż po angielsku" right
+# after "jak jest klasówka po angielsku?" (27 Oct 22:11: "„klasówka”." said,
+# nothing shown; then 'quiz' shown for "test albo quiz")
+_SHOW_TRANSLATION = re.compile(
+    r"^(?:luna,?\s+)?(?:(?:a|ale|no|to|i)\s+)*(?:"
+    r"(?:pokaż|pokaz|napisz|wyświetl|wyswietl)(?:\s+(?:mi|nam))?(?:\s+(?:to|je|go))?"
+    r"(?:\s+(?:na\s+ekranie|po\s+\w+[sc]ku|tak\s+jak\s+się\s+pisze))?"
+    r"(?:,?\s+jak\s+(?:to\s+)?(?:się|sie)\s+(?:pisze|piszę))?"
+    r"|jak\s+(?:to\s+)?(?:się|sie)\s+(?:to\s+)?(?:pisze|piszę|literuje)(?:\s+po\s+\w+[sc]ku)?"
+    r"|przeliteruj(?:\s+(?:mi\s+)?to)?)\W*$", re.I)
+
+
+def show_translation(text, speak):
+    import brain
+    t = text.strip()
+    if not _SHOW_TRANSLATION.match(t):
+        return False
+    last = brain.last_translation()
+    if not last:
+        return False
+    word, lang = last
+    asked = brain.LANG_ASK.search(t)
+    if asked and asked.group(0).lower() != lang:
+        return False                       # "a po niemiecku?" — a new translation
+    with state.lock:
+        state.overlay = ("card", time.time() + SHOW_TEXT_SECS,
+                         {"text": word, "sub": lang, "tone": None})
+    print(f"[cmd] translation on the screen: {word!r} ({lang})", flush=True)
+    letters = [c.upper() for c in word if c.isalpha()]
+    if lang in ("po angielsku", "in english") and 1 < len(letters) <= 16:
+        spelled = " — ".join(", ".join(c.upper() for c in w if c.isalpha())
+                             for w in word.split())
+        speak(f"Proszę: {word}. Literami: {spelled}.")
+    else:
+        speak(f"Proszę, masz na ekranie: {word}.")
     return True
 
 
@@ -1573,6 +1611,8 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
     must not go to the model)."""
     text = _without_name(text)
     if close_page(text, speak):
+        return True
+    if show_translation(text, speak):
         return True
     if show_again(text, speak):
         return True

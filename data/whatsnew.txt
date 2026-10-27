@@ -2,7 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 27 października ==
-- „Pokaż po angielsku” albo „napisz to na ekranie” po tłumaczeniu słowa: Luna pokazuje przetłumaczone słowo duże na ekranie, a nie tylko je mówi.
+- Po pytaniu „jak jest klasówka po angielsku?” wystarczy „pokaż”, „pokaż po angielsku” albo „a jak to się pisze?”: Luna pokazuje przetłumaczone słowo duże na ekranie i literuje je po angielsku.
 - Gra w zegar startuje także na „chcę zagrać w zagadki z zegarem” albo „quiz z zegarem”: Luna pokazuje na ekranie zegar ze wskazówkami i pyta, która godzina — nie czyta już godziny na głos. Rozumie też „wpółdo”, „pół do ósmej” i godziny zapisane bez polskich liter („za pietnascie osma”).
 - „Daj głośniej” i „daj ciszej” zmieniają głośność od razu, także gdy radio nie gra. Na pytanie Luny „czego mam włączyć?” wystarczy powiedzieć imię postaci, na przykład „Hal”.
 - Po przytulasie (i po minach na życzenie, jak „zrób smutną minę”) twarz po chwili wraca do zwykłej — serduszka w oczach Mochi już nie zostają na stałe.

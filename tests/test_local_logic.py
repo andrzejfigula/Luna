@@ -3770,6 +3770,40 @@ class KidsTest(unittest.TestCase):
                             [{"type": "command", "label": "pokaż na ekranie: klasówka"}]))
         self.assertIsNone(w("Jak jest kot po angielsku?", "Cat.", []))
         self.assertIsNone(w("Pokaż po angielsku.", "To jest długie zdanie bez cudzysłowu w ogóle tutaj.", []))
+        # 27 Oct 22:11: "quiz" was shown for "„test” albo „quiz”"
+        self.assertEqual(w("Ale pokaż mi po angielsku.", "Widziałam Andrzeja. „Klasówka” po angielsku "
+                           "to „test” albo „quiz”, zależnie od tego.", []), "test")
+
+    def test_the_last_translation_is_shown_and_spelled(self):
+        import brain
+        import commands
+        self.assertEqual(brain._foreign_word("Jak jest klasówka po angielsku?",
+                                             "Klasówka po angielsku to test albo quiz."), "test")
+        self.assertEqual(brain._foreign_word("Jak jest kot po angielsku?", "Cat."), "Cat")
+        self.assertIsNone(brain._foreign_word("Jak jest kot po angielsku?", "Nie wiem, przepraszam."))
+        for t in ("Jak jest klasówka po angielsku?", "A jak jest kredka po angielsku?",
+                  "Jak się mówi „dzień dobry” po niemiecku?"):
+            self.assertTrue(brain._WORD_ASK.match(t), t)
+        self.assertFalse(brain._WORD_ASK.match("Jak jest dzisiaj pogoda po angielsku powiedz mi?"))
+        saved = list(brain._history)
+        said = []
+        try:
+            brain._history[:] = [{"role": "user", "content": "[Andrzej] Jak jest klasówka po angielsku?"},
+                                 {"role": "assistant", "content": "Najczęściej „test”."}]
+            for t in ("Pokaż mi, jak to się pisze.", "A jak to się pisze?", "Ale pokaż mi po angielsku.",
+                      "Pokaż to na ekranie", "Przeliteruj"):
+                said.clear()
+                self.assertTrue(commands.show_translation(t, said.append), t)
+                self.assertEqual(commands.state.overlay[2]["text"], "test")
+                self.assertIn("T, E, S, T", said[0])
+            self.assertFalse(commands.show_translation("A pokaż po niemiecku.", said.append))
+            self.assertFalse(commands.show_translation("Pokaż mi zdjęcia.", said.append))
+            brain._history[:] = [{"role": "user", "content": "Jak się masz?"},
+                                 {"role": "assistant", "content": "Dobrze!"}]
+            self.assertFalse(commands.show_translation("Pokaż mi, jak to się pisze.", said.append))
+        finally:
+            brain._history[:] = saved
+            commands.state.overlay = None
 
     def test_a_promised_drawing_is_drawn(self):
         import brain

@@ -1514,6 +1514,10 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
     # prompt ("Set a timer for five minutes" → "Jasne, pięć minut", 7 Oct)
     en_hint = (" (in English — reply in English; actions keep their Polish labels "
                "and list items, e.g. \"włącz radio\", \"mleko\")") if _reply_language_line(text) else ""
+    if not en_hint and _WORD_ASK.match(text or ""):
+        # 27 Oct: "Assessment.", then "test albo exam… albo quiz albo class test"
+        en_hint = (" (one word asked: give the ONE everyday word a child would use, in „quotes”, "
+                   "in one short sentence — no list of alternatives)")
     try:
         if image_b64:
             # The frame rides along with every message so Luna can always
@@ -2184,7 +2188,49 @@ def _promised_paper_plan(reply, text, actions):
 
 
 _SHOW_ASK = re.compile(r"\b(?:pokaż|pokaz|napisz|wyświetl|wyswietl)\w*\b", re.I)
-_SHOW_WHERE = re.compile(r"\bna\s+ekran\w*|\bpo\s+\w+sku\b|\bpo\s+polsku\b", re.I)
+_SHOW_WHERE = re.compile(r"\bna\s+ekran\w*|\bpo\s+\w+[sc]ku\b|\bpo\s+polsku\b|\bsię\s+pisze\b", re.I)
+LANG_ASK = re.compile(r"\bpo\s+(angielsku|niemiecku|hiszpańsku|hiszpansku|francusku|włosku|"
+                      r"wlosku|ukraińsku|ukrainsku|rosyjsku|czesku|norwesku|szwedzku)\b|"
+                      r"\bin\s+english\b", re.I)
+_PL_LETTER = re.compile(r"[ąćęłńóśźż]", re.I)
+_WORD_ASK = re.compile(r"^(?:luna,?\s+)?(?:(?:a|i|to)\s+)?jak\s+(?:jest|będzie|bedzie|się\s+mówi|"
+                       r"sie\s+mowi|powiesz)\s+(?:słowo\s+|slowo\s+)?[„\"]?[^\s,]+(?:\s+[^\s,]+)?[”\"]?"
+                       r"\s+po\s+\w+[sc]ku\W*$", re.I)
+
+
+def _foreign_word(asked, reply):
+    """The translation in her reply to "jak jest klasówka po angielsku?":
+    „test” (the first quoted word that isn't the Polish one), "…po angielsku to
+    test albo quiz", or a bare "Assessment."; None when there isn't one."""
+    asked, reply = (asked or "").lower(), reply or ""
+    for q in re.findall(r"[„\"“]([^„\"“”]{1,40})[”\"“]", reply):
+        q = q.strip(" .,!?")
+        if q and q.lower() not in asked and not _PL_LETTER.search(q):
+            return q
+    m = re.search(r"\bpo\s+\w+[sc]ku\s+(?:to|jest|mówi\s+się|mowi\s+sie|:)\s*(?:po\s+prostu\s+|"
+                  r"najczęściej\s+|zwykle\s+)?([A-Za-z][A-Za-z' -]{0,30}?)(?=\s+(?:albo|lub|czyli)\b|"
+                  r"\s*[,.;!:—–-]|\s*$)", reply, re.I)
+    if m:
+        return m.group(1).strip()
+    bare = reply.strip().rstrip(".!")
+    if bare and len(bare.split()) <= 3 and re.fullmatch(r"[A-Za-z' -]+", bare):
+        return bare
+    return None
+
+
+def last_translation(back=4):
+    """(word, "po angielsku") from the last few turns — "jak jest klasówka po
+    angielsku?" answered — or None."""
+    h = [m for m in _history[-back:] if isinstance(m.get("content"), str)]
+    for i in range(len(h) - 1, 0, -1):
+        if h[i].get("role") != "assistant" or h[i - 1].get("role") != "user":
+            continue
+        lang = LANG_ASK.search(h[i - 1]["content"])
+        if lang:
+            word = _foreign_word(h[i - 1]["content"], h[i]["content"])
+            if word:
+                return word, lang.group(0).lower()
+    return None
 
 
 def _word_to_show(text, reply, actions):
@@ -2196,6 +2242,8 @@ def _word_to_show(text, reply, actions):
         if a.get("type") == "command" and re.match(
                 r"(?:pokaż|pokaz|wyświetl|wyswietl|napisz)\b", str(a.get("label", "")).strip(), re.I):
             return None
+    if LANG_ASK.search(text or ""):
+        return _foreign_word(text, reply)
     quoted = re.findall(r"[„\"“]([^„\"“”]{1,80})[”\"“]", reply or "")
     if quoted:
         return quoted[-1].strip()
