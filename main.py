@@ -199,6 +199,11 @@ def voice_loop():
                     elif forget_reply := check_forget(text):
                         speak(forget_reply)   # never goes near the model
                     elif handled := commands.handle(text, _logged(said := []), play_sound):
+                        # as after a model reply: the mood was for her words; a
+                        # face_override holds it on (27 Oct: the hug's "Love" left
+                        # Mochi's eyes hearts for good)
+                        with state.lock:
+                            state.emotion = "Neutral"
                         if handled != "recorded":
                             note_local(text, said)   # the model learns what happened
                         if isinstance(handled, tuple) and handled[0] == "ask":
