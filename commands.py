@@ -377,6 +377,9 @@ def _learn_face(name_as_said, text, speak):
     if status == "many":
         speak("Widzę kilka osób naraz. Niech przede mną zostanie tylko jedna i powtórz.")
         return True
+    if status == "unlike":
+        speak(f"Hmm, nie wyglądasz jak {name}. Jeśli to ty, niech ktoś z rodziny mi pomoże.")
+        return True
     if status != "ok":
         speak("Nie widzę dobrze twarzy. Stań przodem do mnie, blisko, i powtórz.")
         return True
@@ -390,6 +393,49 @@ def _learn_face(name_as_said, text, speak):
                                  f"{name} warmly by name — the Polish vocative — in one or "
                                  "two sentences; say you will recognise them from now on.\n"))
     return "recorded"
+
+
+_FAMILY_ON = re.compile(r"^(?:dodaj|zapisz)\s+(\w+)\s+do\s+(?:naszej\s+)?rodziny\W*$|"
+                        r"^(\w+)\s+(?:jest|będzie)\s+(?:z\s+(?:naszej\s+)?rodziny|"
+                        r"w\s+(?:naszej\s+)?rodzinie|członkiem\s+(?:naszej\s+)?rodziny|"
+                        r"domownikiem|domowniczką)\W*$|^(\w+)\s+to\s+(?:też\s+)?(?:nasza\s+)?rodzina\W*$",
+                        re.I)
+_FAMILY_OFF = re.compile(r"^(?:usuń|usun|wypisz)\s+(\w+)\s+z\s+(?:naszej\s+)?rodziny\W*$|"
+                         r"^(\w+)\s+nie\s+jest\s+(?:z\s+(?:naszej\s+)?rodziny|w\s+(?:naszej\s+)?"
+                         r"rodzinie|domownikiem|domowniczką)\W*$|^(\w+)\s+(?:jest|to)\s+gościem\W*$",
+                         re.I)
+
+
+def _family_says(text, speak):
+    """"Kasia jest z rodziny" / "usuń Kasię z rodziny" — only from someone of
+    the family she recognises; a guest gets no plan and hears nothing of the
+    house."""
+    t = re.sub(r"^(?:luna|luno|hej)[,!]?\s+", "", text.strip(), flags=re.I).strip()
+    on, off = _FAMILY_ON.search(t), _FAMILY_OFF.search(t)
+    m = on or off
+    if not m:
+        return False
+    import faces
+    said = next(g for g in m.groups() if g)
+    who = faces.match_name(said) or faces.match_role(said)
+    if not faces.family_here():
+        speak("O tym, kto jest z rodziny, decyduje ktoś z domowników — niech stanie "
+              "przede mną i to powie.")
+        return True
+    if not who:
+        name = faces.nominative(said.capitalize())
+        speak(f"Nie znam jeszcze twarzy: {name}. Niech stanie przede mną i powie: "
+              f"jestem {name}. Potem powiedz mi, że jest z rodziny.")
+        return True
+    if off and who in faces.family() and len(faces.family()) == 1:
+        speak("To jedyna osoba z rodziny — ktoś musi zostać.")
+        return True
+    faces.set_family(who, bool(on))
+    if on:
+        speak(f"Dobrze, {who} jest z rodziny — może mieć swój plan tygodnia.")
+    else:
+        speak(f"Dobrze, {who} jest teraz gościem.")
+    return True
 
 
 _name_wanted = [0.0]        # until when a bare name ("Ola.") answers "jak masz na imię?"
@@ -693,7 +739,7 @@ def _stranger_here():
         import faces
         with state.lock:
             unknown = state.person is None and state.face_detected
-        return bool(unknown and faces.names() and not faces.probably_family())
+        return bool(unknown and faces.names() and not faces.probably_family())             or faces.guest_here()
     except Exception:
         return False
 
@@ -2464,10 +2510,15 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         quiz.start(kind, text, speak, _sound_async)
         return True
 
+    if _family_says(text, speak):                  # "Kasia jest z rodziny"
+        return True
     # faces: "to jest Kasia" / "jestem Andrzej" / "zapomnij moją twarz"
     m = _FACE_FORGET.search(text)
     if m and _short(text, 6):
         import faces
+        if m.group(1) and not faces.family_here():
+            speak("O tym, kogo zapominam, decyduje ktoś z rodziny.")
+            return True
         if m.group(1):
             who = faces.match_name(m.group(1)) or faces.nominative(m.group(1))
         else:

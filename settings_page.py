@@ -6,6 +6,8 @@ settings_page.py — "pokaż ustawienia": one page on her screen, four tabs.
   Ikony   — the quick icons along the bottom (dock.py): on/off, a tile to tick for each
   Urządzenia — the speaker, microphone and camera she uses (devices.py)
   Koszty  — API calls by day and their estimated cost (health.py's counts)
+  Osoby   — who she knows: family or guest (a guest gets no plan and hears
+            nothing of the house), the bin tapped twice; not for a guest/stranger
   Reset   — what she remembers; the factory reset: memories and the people she
             knows MOVED to data/reset-<date>/ (never deleted), then a restart
 
@@ -29,7 +31,9 @@ from config import (DATA_DIR, PHOTOS_DIR, OPENAI_TTS_SPEED, CAMERA_PREVIEW, DRAW
 
 PAGE_SECS = 60                # untouched this long, the page closes
 CONFIRM_SECS = 20             # the reset's "Na pewno?" waits this long
-TABS = ("Ogólne", "Asystent", "Ekran", "Ikony", "Urządzenia", "Koszty", "Reset")
+TABS = ("Ogólne", "Asystent", "Ekran", "Ikony", "Urządzenia", "Koszty", "Osoby", "Reset")
+PEOPLE_PER_PAGE = 4
+BIN_SECS = 4.0                # the bin tapped again within this: forgotten
 
 _LANGS = (("pl", "Polski"), ("en", "English"))
 _SPEEDS = (1.0, 1.1, 1.2, 1.3, 1.4)
@@ -47,6 +51,7 @@ def _plural(n, one, few, many):
 
 
 def show(tab=0):
+    _people_page[0] = 0
     with state.lock:
         state.overlay = ("settings", time.time() + PAGE_SECS, {"tab": tab})
 
@@ -170,7 +175,7 @@ _cache = {}                   # tab → (when, rows): drawn every frame, read on
 
 
 def rows(tab, now=None):
-    """[{"key", "label", "sub", "value", "kind": toggle|cycle|info|danger|tile}]"""
+    """[{"key", "label", "sub", "value", "kind": toggle|cycle|info|danger|tile|person}]"""
     now = now or time.time()
     hit = _cache.get(tab)
     if hit and now - hit[0] < 1.0:
@@ -220,6 +225,8 @@ def _rows(tab):
         return device_rows()
     if name == "Koszty":
         return cost_rows()
+    if name == "Osoby":
+        return people_rows()
     import memory
     import faces
     try:
@@ -238,6 +245,80 @@ def _rows(tab):
          "sub": "zapomina wspomnienia i osoby (zostaje kopia)",
          "value": "Wyczyść"},
     ]
+
+
+_people_page = [0]
+_bin_armed = [None, 0.0]       # (name, when) — the bin tapped once
+
+
+def _ago(t, now=None):
+    """"widziałam dziś" / "wczoraj" / "5 dni temu"."""
+    import datetime
+    if not t:
+        return "dawno nie widziałam"
+    days = (datetime.date.fromtimestamp(now or time.time())
+            - datetime.date.fromtimestamp(t)).days
+    return ("widziałam dziś" if days <= 0 else "widziałam wczoraj" if days == 1 else
+            f"widziałam {days} dni temu")
+
+
+def people_rows(now=None):
+    """One row per person (family first, then guests seen last first), a
+    page switch when there are many, and how to add someone."""
+    import faces
+    fam = faces.family()
+    rest = sorted(faces.guests(), key=lambda n: -(faces.last_seen(n) or 0))
+    everyone = fam + rest
+    pages = max(1, -(-len(everyone) // PEOPLE_PER_PAGE))
+    page = _people_page[0] % pages
+    out = []
+    for n in everyone[page * PEOPLE_PER_PAGE:(page + 1) * PEOPLE_PER_PAGE]:
+        f = n in fam
+        out.append({"key": "person:" + n, "kind": "person", "label": n,
+                    "sub": ("rodzina" if f else "gość") + " · " + _ago(faces.last_seen(n), now),
+                    "value": "Rodzina" if f else "Gość",
+                    "armed": _bin_armed[0] == n and time.time() - _bin_armed[1] < BIN_SECS})
+    if pages > 1:
+        out.append({"key": "people_page", "kind": "cycle", "label": "Więcej osób",
+                    "sub": f"{len(everyone)} osób", "value": f"{page + 1} z {pages}"})
+    out.append({"kind": "info", "label": "Nowa osoba",
+                "sub": "niech stanie przed kamerą i powie „jestem Kasia” — będzie gościem",
+                "value": ""})
+    return out
+
+
+def _outsider_here():
+    """A guest or a stranger in front of her: the family decides who is who."""
+    import faces
+    with state.lock:
+        unknown = state.person is None and state.face_detected
+    return faces.guest_here() or bool(unknown and faces.names()
+                                      and not faces.probably_family())
+
+
+def person_change(key, binned=False, now=None):
+    """The family/guest switch or the bin on a person's row. Returns the toast."""
+    import faces
+    _cache.clear()
+    if key == "people_page":
+        _people_page[0] += 1
+        return None
+    name = key.split(":", 1)[1]
+    if _outsider_here():
+        return "Poproś kogoś z rodziny"
+    now = now or time.time()
+    if binned:
+        if _bin_armed[0] == name and now - _bin_armed[1] < BIN_SECS:
+            _bin_armed[:] = [None, 0.0]
+            faces.forget(name)
+            return f"Zapomniałam: {name} (przywróć osobę — wróci)"
+        _bin_armed[:] = [name, now]
+        return f"Dotknij kosza jeszcze raz, by zapomnieć: {name}"
+    on = not faces.is_family(name)
+    if not on and faces.family() == [name]:
+        return "Ktoś musi zostać w rodzinie"
+    faces.set_family(name, on)
+    return f"{name}: z rodziny" if on else f"{name}: gość"
 
 
 def _speed_of():
@@ -470,9 +551,16 @@ def tap(x, y, W, H, now=None):
         return True
     if hit[0] == "tab":
         data["tab"] = hit[1]
+    elif hit[0] == "bin":
+        r = rows(data.get("tab", 0))[hit[1]]
+        _toast(data, person_change(r["key"], binned=True, now=now))
     elif hit[0] == "row":
         r = rows(data.get("tab", 0))[hit[1]]
-        if r["kind"] == "danger":
+        if r.get("key", "").startswith("person:") or r.get("key") == "people_page":
+            said = person_change(r["key"], now=now)
+            if said:
+                _toast(data, said)
+        elif r["kind"] == "danger":
             data["confirm"] = now
         elif r.get("key"):
             said = change(r["key"])

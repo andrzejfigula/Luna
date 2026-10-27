@@ -1,6 +1,9 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
+== 27 października ==
+- Rodzina i goście: plan tygodnia i wszystko o domu jest tylko dla rodziny (Andrzej, Emilka, Maja). Kogoś nowego, kto powie „jestem Ola”, Luna zapamięta jako gościa — przywita go po imieniu, ale nie opowie mu o domownikach i nie da mu planu. „Ola jest z rodziny” albo „usuń Olę z rodziny” może powiedzieć tylko ktoś z rodziny. W ustawieniach nowa zakładka „Osoby”: każda osoba z przełącznikiem Rodzina/Gość i koszem (dotknij dwa razy; „przywróć osobę” ją oddaje).
+
 == 26 października ==
 - Malowanie: dwa nowe kolory — brązowy i cielisty (teraz dziesięć). „Daj mi porysować” albo „chcę porysować” otwiera malowanie, a „zrób nam zdjęcie, żebyśmy mogli je wyedytować” robi zdjęcie prosto na kartkę.
 - Malowanie, „Otwórz”: każdy obrazek ma w rogu kosz — dotknij go dwa razy („Usunąć?”), a obrazek, rysunek albo zdjęcie trafia do kosza. Nic nie znika na zawsze: „przywróć rysunek” albo „przywróć zdjęcie” go oddaje.

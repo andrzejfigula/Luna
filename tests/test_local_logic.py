@@ -5430,6 +5430,118 @@ class FacesReloadTest(unittest.TestCase):
             self.assertEqual(json.load(f)["Maja"]["voc"], "Maju")    # not lost
 
 
+class FamilyTest(unittest.TestCase):
+    """Only the family get a plan and hear about the house; anyone else she
+    learns is a guest, made family only by someone of the family."""
+
+    def setUp(self):
+        import faces
+        self.d = tempfile.mkdtemp(prefix="luna-family-")
+        self.p = mock.patch.multiple(faces, PEOPLE_PATH=os.path.join(self.d, "people.json"),
+                                     FORGOTTEN_PATH=os.path.join(self.d, "forgotten.json"),
+                                     PORTRAITS=os.path.join(self.d, "faces"),
+                                     SEEN_PATH=os.path.join(self.d, "seen.json"),
+                                     _people=None, _seen={})
+        self.p.start()
+        faces._mtime[0] = None
+        with open(faces.PEOPLE_PATH, "w", encoding="utf-8") as f:   # as set up by hand
+            json.dump({"Andrzej": {"samples": [[1.0, 0.0, 0.0, 0.0]], "note": "tata Mai"},
+                       "Maja": {"samples": [[0.0, 1.0, 0.0, 0.0]],
+                                "note": "córka, 8 lat — dziecko"},
+                       "Ola": {"samples": [[0.0, 0.0, 1.0, 0.0]], "family": False}}, f)
+        with state.lock:
+            self.old = (state.person, state.face_detected)
+
+    def tearDown(self):
+        import faces
+        with state.lock:
+            state.person, state.face_detected = self.old
+        self.p.stop()
+        faces._mtime[0] = None
+        shutil.rmtree(self.d, ignore_errors=True)
+
+    def _enrol(self, name, feature):
+        import faces
+        faces.start_enrolment(name)
+        faces._enroll["until"] = 0
+        faces.offer(feature, 1)
+        return faces.enrolment_result()[0]
+
+    def _here(self, who):
+        with state.lock:
+            state.person = (who, 0.9, time.time()) if who else None
+            state.face_detected = True
+
+    def test_old_people_are_family_new_ones_guests(self):
+        import faces
+        self.assertEqual(faces.family(), ["Andrzej", "Maja"])
+        self.assertEqual(faces.guests(), ["Ola"])
+        self.assertEqual(self._enrol("Kasia", [0.0, 0.0, 0.0, 1.0]), "ok")   # "jestem Kasia"
+        self.assertEqual(faces.guests(), ["Kasia", "Ola"])
+        self.assertEqual(faces.set_family("kasia", True), "Kasia")
+        self.assertIn("Kasia", faces.family())
+
+    def test_a_guest_cant_become_maja(self):
+        import faces
+        self.assertEqual(self._enrol("Maja", [1.0, 0.0, 0.0, 0.0]), "unlike")  # Andrzej's face
+        self.assertEqual(len(faces._load()["Maja"]["samples"]), 1)
+        self.assertEqual(self._enrol("Maja", [0.1, 1.0, 0.0, 0.0]), "ok")     # Maja in the dark
+        self.assertEqual(len(faces._load()["Maja"]["samples"]), 2)
+
+    def test_prompt_and_plan_keep_guests_out(self):
+        import faces
+        import schedule
+        self._here("Ola")
+        line = faces.prompt_line()
+        self.assertIn("Ola is a guest", line)
+        self.assertIn("guests (not family", line)
+        self.assertNotIn("Ola", schedule.people())
+        self.assertIsNone(schedule._speaker())
+        self.assertEqual(schedule._who_of("ola angielski")[0], None)
+        self._here("Maja")
+        self.assertNotIn("is a guest", faces.prompt_line())
+        self.assertEqual(schedule._speaker(), "Maja")
+
+    def test_only_the_family_says_who_is_family(self):
+        try:
+            import commands
+        except ImportError:
+            self.skipTest("fcntl (the Pi)")
+        import faces
+        said = []
+        self._here("Ola")
+        self.assertTrue(commands._family_says("Ola jest z rodziny", said.append))
+        self.assertNotIn("Ola", faces.family())
+        self._here("Maja")                        # any of the family, a child too
+        self.assertTrue(commands._family_says("Luna, Ola jest z rodziny.", said.append))
+        self.assertIn("Ola", faces.family())
+        self.assertTrue(commands._family_says("usuń Olę z rodziny", said.append))
+        self.assertNotIn("Ola", faces.family())
+        self.assertTrue(commands._family_says("Basia jest z rodziny", said.append))
+        self.assertIn("Nie znam", said[-1])
+        self.assertFalse(commands._family_says("Maja jest z rodziny Kowalskich i co", said.append))
+
+    def test_settings_osoby(self):
+        import faces
+        import settings_page as sp
+        sp._cache.clear()
+        rows = sp.people_rows()
+        self.assertEqual([r["label"] for r in rows if r["kind"] == "person"],
+                         ["Andrzej", "Maja", "Ola"])
+        self._here("Ola")                                       # a guest can't
+        self.assertEqual(sp.person_change("person:Ola"), "Poproś kogoś z rodziny")
+        self._here("Andrzej")
+        sp.person_change("person:Ola")
+        self.assertIn("Ola", faces.family())
+        self.assertIn("Dotknij", sp.person_change("person:Ola", binned=True))
+        self.assertIn("Ola", faces.names())                     # once: only asks
+        sp.person_change("person:Ola", binned=True)
+        self.assertNotIn("Ola", faces.names())                  # twice: in the bin
+        sp.person_change("person:Maja")
+        self.assertEqual(sp.person_change("person:Andrzej"), "Ktoś musi zostać w rodzinie")
+        self.assertIn("Andrzej", faces.family())
+
+
 class ErrandsTest(unittest.TestCase):
 
     def test_tell_maja_when_you_see_her(self):
@@ -8157,7 +8269,7 @@ class SettingsPageTest(unittest.TestCase):
             with mock.patch.object(self.sp, "cost_rows", return_value=[]):
                 rows = self.sp.rows(tab)
             for r in rows:
-                self.assertIn(r["kind"], ("toggle", "cycle", "info", "danger", "tile"))
+                self.assertIn(r["kind"], ("toggle", "cycle", "info", "danger", "tile", "person"))
                 self.assertTrue(r["label"])
 
     def test_cost(self):
@@ -8698,6 +8810,9 @@ class ScheduleTest(unittest.TestCase):
         schedule._mem.update(mtime=None, data=None)
         schedule._expect.update(until=0.0, draft=None, who=None, day=None)
         self.p = [mock.patch.object(faces, "names", lambda: ["Andrzej", "Emilka", "Maja"]),
+                  mock.patch.object(faces, "family", lambda: ["Andrzej", "Emilka", "Maja"]),
+                  mock.patch.object(faces, "is_family",
+                                    lambda n, people=None: n in ("Andrzej", "Emilka", "Maja")),
                   mock.patch.object(faces, "notes", lambda: {"Andrzej": "tata Mai"}),
                   mock.patch.object(faces, "vocatives",
                                     lambda: {"Maja": "Maju", "Andrzej": "Andrzeju"})]

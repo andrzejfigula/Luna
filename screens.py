@@ -212,13 +212,13 @@ def people_items(now=None):
     """The people she knows for the gallery: a portrait (faces.py), else
     their newest photo, else none (ui_screens draws the first letter)."""
     import faces
-    notes, out = faces.notes(), []
+    notes, out, fam = faces.notes(), [], set(faces.family())
     for name in faces.names():
         # their portrait — else their face cut from a photo of hers, else the
         # first letter (never a whole photo: its middle may be someone else)
         pic = faces.portrait(name) or faces.portrait_from_photos(name, photos_of(name))
         seen = faces.last_seen(name)
-        sub = [notes.get(name, "").split("—")[0].strip(" ,")]
+        sub = [notes.get(name, "").split("—")[0].strip(" ,") or ("" if name in fam else "gość")]
         if seen:
             lt = time.localtime(seen)
             sub.append("widziałam " + gallery.day_word(lt.tm_year, lt.tm_mon, lt.tm_mday, now)

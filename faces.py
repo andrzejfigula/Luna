@@ -240,6 +240,56 @@ def names():
         return sorted(_load())
 
 
+def is_family(name, people=None):
+    """Family get a plan and hear about the house; anyone else she learnt
+    ("jestem Ola", her "jak masz na imię?") is a guest. No "family" key: one of
+    the first, set up by hand — family."""
+    if people is None:
+        with _lock:
+            return is_family(name, _load())
+    p = people.get(name)
+    return bool(p) and p.get("family", True) is not False
+
+
+def family():
+    with _lock:
+        people = _load()
+        return sorted(n for n in people if is_family(n, people))
+
+
+def guests():
+    with _lock:
+        people = _load()
+        return sorted(n for n in people if not is_family(n, people))
+
+
+def set_family(name, on):
+    """Mark someone family (or a guest again). Their name, or None if unknown."""
+    with _lock:
+        people = _load()
+        key = next((n for n in people if n.lower() == (name or "").lower()), None)
+        if key is None:
+            return None
+        people[key]["family"] = bool(on)
+        _save()
+    print(f"[faces] {key} is now {'family' if on else 'a guest'}", flush=True)
+    return key
+
+
+def family_here():
+    """The one in front of her is recognised and family — they may add people."""
+    with state.lock:
+        who = state.person[0] if state.person else None
+    return bool(who) and is_family(who)
+
+
+def guest_here():
+    """A recognised guest in front of her — nothing about the family's routine."""
+    with state.lock:
+        who = state.person[0] if state.person else None
+    return bool(who) and not is_family(who)
+
+
 def vocatives():
     """{name: vocative} — "Maju", not "Majo" (the model got it wrong). Kept as
     "voc" in data/people.json; set by hand, or by the model when someone is
@@ -396,13 +446,28 @@ def learn(name, feature):
           flush=True)
 
 
-def start_enrolment(name):
+UNLIKE = 0.25      # a family name re-learnt from a face below this: someone else
+
+
+def _alike(new, old):
+    """Best cosine similarity between the new samples and the kept ones."""
+    if not new or not old:
+        return 1.0
+    a = np.asarray(new, np.float32)
+    b = np.asarray(old, np.float32)
+    a = a / (np.linalg.norm(a, axis=1, keepdims=True) + 1e-9)
+    b = b / (np.linalg.norm(b, axis=1, keepdims=True) + 1e-9)
+    return float((a @ b.T).max())
+
+
+def start_enrolment(name, family=False):
     """Begin collecting samples of the face in view; returns an Event that is
-    set when done (see enrolment_result)."""
+    set when done (see enrolment_result). Someone new is a guest unless
+    `family` (an existing person keeps what they are)."""
     global _enroll
     with _lock:
         _enroll = {"name": name, "until": time.time() + ENROLL_SECS, "samples": [],
-                   "done": threading.Event(), "many": 0}
+                   "done": threading.Event(), "many": 0, "family": family}
         return _enroll["done"]
 
 
@@ -423,9 +488,16 @@ def offer(feature, n_faces):
         elif feature is not None:
             e["samples"].append([round(float(v), 5) for v in feature])
         if time.time() >= e["until"]:
+            people = _load()
+            old = people.get(e["name"])
+            if e["samples"] and old and is_family(e["name"], people) and \
+                    _alike(e["samples"], old.get("samples", []) + old.get("auto", [])) < UNLIKE:
+                # "Jestem Maja" from a face nothing like Maja's: not added to hers
+                print(f"[faces] not {e['name']} — too unlike their face", flush=True)
+                e["unlike"], e["samples"] = True, []
             if e["samples"]:
-                people = _load()
-                p = people.setdefault(e["name"], {"samples": [], "added": time.time()})
+                p = people.setdefault(e["name"], {"samples": [], "added": time.time(),
+                                                  "family": bool(e.get("family"))})
                 p["samples"] = (p["samples"] + e["samples"])[-SAMPLES_MAX:]
                 _save()
                 print(f"[faces] learned {e['name']}: {len(e['samples'])} samples", flush=True)
@@ -433,11 +505,13 @@ def offer(feature, n_faces):
 
 
 def enrolment_result():
-    """("ok", name) / ("nobody", name) / ("many", name) once enrolment ended."""
+    """("ok"|"nobody"|"many"|"unlike", name) once enrolment ended."""
     with _lock:
         e = _enroll
     if e is None:
         return ("nobody", "")
+    if e.get("unlike"):
+        return ("unlike", e["name"])
     if e["samples"]:
         return ("ok", e["name"])
     return ("many" if e["many"] else "nobody", e["name"])
@@ -771,7 +845,11 @@ def prompt_line():
                ([about[n]] if about.get(n) else []) + \
                ([age(n)] if age(n) else [])
         return f"{n} ({'; '.join(bits)})" if bits else n
-    who = ", ".join(one(n) for n in known)
+    fam = set(family())
+    who = ", ".join(one(n) for n in known if n in fam)
+    if len(fam) < len(known):
+        who += ("; guests (not family — they get no plan and hear nothing of the "
+                "family's routine): " + ", ".join(one(n) for n in known if n not in fam))
     now = (f"In front of you now: {person[0]} (recognised by face — you know their "
            "name, so never ask it)."
            if person else
@@ -781,6 +859,11 @@ def prompt_line():
         now += (" You don't know who is speaking: address them without gendered "
                 "forms (\"Chcesz…?\", \"Możesz…\", not \"Chciałabyś/Chciałbyś\", "
                 "\"zrobiłaś/zrobiłeś\").")
+    if person and person[0] not in fam:
+        now += (f" {person[0]} is a guest, not one of the family: tell them nothing about "
+                "the family's routine — when the home is empty, when people leave or come "
+                "back, alarms, the address, the child's school or plans (\"To pytanie do "
+                "domowników.\"). Making someone family is for the family to say.")
     if not person and seen and known and not probably_family():
         # a stranger asking when the home is empty (8 Oct probe: an unknown face
         # was told the child's name) — only for a face really seen and unknown

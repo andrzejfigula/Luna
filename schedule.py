@@ -357,8 +357,8 @@ def _who_of(text):
     if _EVERYONE.search(low):
         return "", _EVERYONE.sub(" ", low)
     for w in re.findall(r"\w+", low):
-        n = faces.match_name(w) or faces.match_role(w)
-        if n:
+        n = faces.match_name(w, known=faces.family()) or faces.match_role(w)
+        if n and faces.is_family(n):           # a guest has no plan
             return n, re.sub(rf"\b(?:dla\s+)?{re.escape(w)}\b", " ", low, count=1)
     return None, low
 
@@ -396,8 +396,11 @@ def missing(p):
 # ── voice ─────────────────────────────────────────────────────────────────────
 
 def _speaker():
+    """The one talking, if they are family (a guest's "mój plan" is no one's)."""
+    import faces
     with state.lock:
-        return state.person[0] if state.person and time.time() - state.person[2] < 30 else None
+        who = state.person[0] if state.person and time.time() - state.person[2] < 30 else None
+    return who if who and faces.is_family(who) else None
 
 
 def expect(who=None, day=None):
@@ -1164,7 +1167,7 @@ def today_said(who=None, now=None):
 
 def show(who=None, day=None):
     import faces
-    if who and who not in faces.names():
+    if who and who not in faces.family():
         who = None
     data = {"day": time.localtime().tm_wday if day is None else day, "who": who,
             "sel": None, "page": 0, "confirm": 0.0, "toast": None}
@@ -1316,7 +1319,7 @@ def _lesson_who(who=None):
     if who:
         return who
     me = _speaker()
-    if me and me in faces.names():
+    if me and me in faces.family():
         return me
     ps = lesson_people()
     return ps[0] if ps else None
@@ -1451,9 +1454,9 @@ def _toast(msg):
 
 
 def people():
-    """The page's person chips: everyone she knows, and anyone in the plan."""
+    """The page's person chips: the family, and anyone in the plan."""
     import faces
-    names = list(faces.names())
+    names = list(faces.family())
     for e in events():
         if e.get("who") and e["who"] not in names:
             names.append(e["who"])

@@ -147,7 +147,8 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `docs/backlog-d
 | Dla Mai | mówi do niej wolniej i cieplej; przy lekcjach naprowadza zamiast podawać wynik; bajki mogą być o niej; wiadomości tylko lekkie |
 | Radio każdego | „Włącz radio” włącza stację, której ta osoba słuchała ostatnio |
 | Zdjęcia z imionami | po „zrób nam zdjęcie” powie, kto jest na zdjęciu; „pokaż zdjęcia Mai” / „**pokaż mi zdjęcie Mai**” / „**jak wygląda Maja?**” — tylko te z Mają (gdy nie ma żadnego — narysuje); w galerii imiona pod zdjęciem |
-| Gość | nieznaną twarz Luna przywita i zapyta o imię — wystarczy odpowiedzieć „Jestem Ola” albo samo „Ola” |
+| Gość | nieznaną twarz Luna przywita i zapyta o imię — wystarczy odpowiedzieć „Jestem Ola” albo samo „Ola”; zapamięta ją jako **gościa** (przywita po imieniu, ale bez planu i bez opowiadania o domownikach) |
+| Rodzina | „Ola jest z rodziny”, „usuń Olę z rodziny” — tylko gdy mówi ktoś z rodziny; też w ustawieniach, zakładka „Osoby” (Rodzina/Gość, kosz dotknięty dwa razy) |
 | Przekaż komuś | „Przekaż Mai, żeby posprzątała pokój”, „Jak zobaczysz Emilkę, powiedz jej, że dzwoniła babcia” — Luna powie to tej osobie, gdy ją rozpozna |
 | Przypomnienie dla kogoś | „O 18 powiedz Emilce, żeby zadzwoniła do mamy”, „Codziennie o 20:30 przypominaj Mai, że pora spać” — powie tej osobie po tej godzinie, gdy ją zobaczy; „Usuń przypomnienia dla Mai” |
 | Urodziny | „Maja ma urodziny 12 maja 2018”, „Moje urodziny są 14 lutego” — potem „Ile dni do urodzin Mai?”; w dniu urodzin Luna złoży życzenia przy powitaniu |
@@ -220,7 +221,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 
 ## Pod maską
 
-- „Pokaż ustawienia” — ekran z zakładkami: Ogólne (język, tempo mowy, długość odpowiedzi, napisy, pasek), Ekran (podgląd kamery, płynność buzi 30/45/60 kl./s), Koszty (szacunek: dziś, wczoraj, 7 dni, miesiąc), Reset (reset fabryczny — wspomnienia i znane osoby trafiają do `data/reset-<data>/`, nic nie jest kasowane; dziecko przed kamerą nie może go zrobić).
+- „Pokaż ustawienia” — ekran z zakładkami: Ogólne (język, tempo mowy, długość odpowiedzi, napisy, pasek), Ekran (podgląd kamery, płynność buzi 30/45/60 kl./s), Koszty (szacunek: dziś, wczoraj, 7 dni, miesiąc), Osoby (kto jest z rodziny, kto gościem; kosz), Reset (reset fabryczny — wspomnienia i znane osoby trafiają do `data/reset-<data>/`, nic nie jest kasowane; dziecko przed kamerą nie może go zrobić).
 - „Pokaż status” — temperatura, obciążenie, czas pracy, połączenie z chmurą, pamięć, wywołania API w tej godzinie, przerwy w dźwięku.
 - „Luna, zrestartuj się” — wychodzi, a autostart uruchamia ją od nowa (np. po zmianie `.env`).
 - Mniejsze koszty w tle: słowo „Luna” sprawdzane w chmurze tylko, gdy coś brzmi podobnie (max 60/h); w `[health]` widać liczbę wywołań API.
@@ -319,7 +320,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 
 1. **Panel w sieci domowej** (listy, przypomnienia, wiadomości z telefonu) — gotowy, ale wyłączony: otwiera port w sieci LAN. Daj znać, jeśli włączyć.
 2. **„Stop!” głosem, gdy Luna mówi** (usuwanie echa) — przygotowane, ale wymaga restartu PipeWire i prób na głos za dnia, w Twojej obecności.
-3. **Twarze gości** — Luna nie zapamiętuje ich sama (tak zdecydowałeś); „jestem Ola” zapamiętuje tylko, gdy ktoś sam się przedstawi.
+3. **Twarze gości** — Luna pyta nieznajomego o imię i zapamiętuje go jako gościa (bez planu, bez informacji o domu); rodziną robi go tylko ktoś z rodziny (27.10).
 4. ~~**Fakt w pamięci „Andrzej mówi po hiszpańsku”**~~ — już go nie ma (codzienne porządki pamięci go usunęły, 10.10).
 5. **Koszt rysunków** — ok. 1 centa (ok. 4 grosze) za obrazek, najwyżej 25 dziennie; limit można zmienić w `drawing.py` (`DRAW_PER_DAY`).
 6. ~~**Portret ze zdjęcia**~~ — **zrobione 11.10** (Andrzej się zgodził): „narysuj mnie / nas / to, co widzisz” wysyła klatkę z kamery do OpenAI i przerysowuje ją. Inne rysunki („narysuj smoka”) — dalej z wyobraźni. Kamera wyłączona („wyłącz kamerę”) — żadna klatka nie wychodzi.

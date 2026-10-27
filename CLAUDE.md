@@ -45,7 +45,8 @@ After a brain.py / prompt change, run ONE real-model line
   (see `tests/dialog_pi.py`) — a handler once counted out loud, a test once
   left a real timer.
 - Real-model sweeps cost money — keep them few (`--max-calls`).
-- No idle animations (she does nothing on her own). Guests aren't auto-enrolled.
+- No idle animations (she does nothing on her own). A face she learns is a
+  guest (`faces.is_family`): no plan, no house info; only family make it family.
 - Parked: interrupting her by voice/camera (until a hardware-AEC speakerphone,
   `docs/voice-interrupt.md`); the web panel.
 - User-visible change → a plain-Polish line on top of `data/whatsnew.txt`.

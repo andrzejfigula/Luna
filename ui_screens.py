@@ -1208,14 +1208,16 @@ def _settings_layout(W, H, n_rows, n_tiles=0):
         rws += [pygame.Rect(x0 + (k % cols) * tw, y0 + (k // cols) * th, tw - 8, th - 8)
                 for k in range(n_tiles)]
     ctrls = [pygame.Rect(r.right - 160, r.centery - 21, 148, 42) for r in rws]
+    bins = [pygame.Rect(c.x - 58, c.centery - 23, 46, 46) for c in ctrls]   # Osoby
     dlg = pygame.Rect(W // 2 - 270, H // 2 - 125, 540, 250)
     no = pygame.Rect(dlg.x + 30, dlg.bottom - 78, 225, 54)
     yes = pygame.Rect(dlg.right - 255, dlg.bottom - 78, 225, 54)
-    return {"tabs": tabs, "rows": rws, "ctrls": ctrls, "dialog": dlg, "yes": yes, "no": no}
+    return {"tabs": tabs, "rows": rws, "ctrls": ctrls, "bins": bins, "dialog": dlg,
+            "yes": yes, "no": no}
 
 
 def settings_hit(x, y, W, H, data):
-    """("tab", i) | ("row", i) | ("yes",) | ("no",) | None for a tap at (x, y) px."""
+    """("tab", i) | ("row", i) | ("bin", i) | ("yes",) | ("no",) | None for a tap."""
     import settings_page
     rows = settings_page.rows(data.get("tab", 0))
     L = _settings_layout(W, H, len(rows), sum(r["kind"] == "tile" for r in rows))
@@ -1229,6 +1231,9 @@ def settings_hit(x, y, W, H, data):
             return ("tab", k)
     for k, r in enumerate(L["rows"]):
         if r.collidepoint(x, y):
+            if (k < len(rows) and rows[k]["kind"] == "person"
+                    and L["bins"][k].inflate(12, 12).collidepoint(x, y)):
+                return ("bin", k)
             return ("row", k)
     return None
 
@@ -1274,7 +1279,8 @@ def draw_settings(scr, data, now, W, H):
             _settings_tile(scr, r, row, gold, soft)
             continue
         scr.blit(rrect(r.w, r.h, 16, (255, 255, 255, 22)), r)
-        room = (c.x if kind != "info" else r.right - 250) - r.x - 28
+        room = (c.x - (60 if kind == "person" else 0) if kind != "info"
+                else r.right - 250) - r.x - 28
         nm = text(fit(row["label"], 22, room, "ExtraBold"), 22, WHITE, "ExtraBold")
         sub = text(fit(row["sub"], 16, room, "SemiBold"), 16, soft, "SemiBold")
         y = r.centery - (nm.get_height() + sub.get_height()) // 2
@@ -1287,6 +1293,16 @@ def draw_settings(scr, data, now, W, H):
             scr.blit(knob, (sw.right - 30 if val else sw.x + 4, sw.y + 4))
             lab = text("Wł." if val else "Wył.", 17, WHITE if val else soft, "Bold")
             scr.blit(lab, (sw.x - lab.get_width() - 10, c.centery - lab.get_height() // 2))
+        elif kind == "person":                        # family (gold) or a guest; the bin
+            fam = val == "Rodzina"
+            scr.blit(rrect(c.w, c.h, 21, (255, 196, 110, 200) if fam else (255, 255, 255, 34)), c)
+            v = text(val, 19, (40, 32, 66) if fam else WHITE, "ExtraBold")
+            scr.blit(v, v.get_rect(center=c.center))
+            b = L["bins"][rows.index(row)]
+            if row.get("armed"):
+                scr.blit(rrect(b.w, b.h, b.w // 2, (214, 52, 52, 230)), b)
+            ico = bin_button(22)
+            scr.blit(ico, ico.get_rect(center=b.center))
         elif kind in ("cycle", "danger"):             # a value to tap through / the reset
             col = (214, 52, 52, 230) if kind == "danger" else (255, 255, 255, 34)
             scr.blit(rrect(c.w, c.h, 21, col), c)
