@@ -282,7 +282,7 @@ def people_rows(now=None):
         out.append({"key": "people_page", "kind": "cycle", "label": "Więcej osób",
                     "sub": f"{len(everyone)} osób", "value": f"{page + 1} z {pages}"})
     out.append({"kind": "info", "label": "Nowa osoba",
-                "sub": "niech stanie przed kamerą i powie „jestem Kasia” — będzie gościem",
+                "sub": "powie mi „jestem Kasia” — będzie gościem",
                 "value": ""})
     return out
 
