@@ -924,7 +924,8 @@ Always answer as JSON with exactly these keys:
                 znasz" (the faces you know on your screen — when they ask to
                 see them, never just list names), "pokaż na ekranie:
                 <tekst>" (a name, number or word big on her screen for 30 s — when
-                they want to see it or copy it down), "wyszukaj w internecie:
+                they want to see it or copy it down; "pokaż po angielsku" → the
+                English word itself), "wyszukaj w internecie:
                 <zapytanie>" (see below), "przyciemnij ekran", "zgaś ekran",
                 "rozjaśnij ekran", and to START A GAME (it then talks
                 itself — your reply only says something short like "Super,
@@ -1905,6 +1906,12 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
             _spoken_command(label, "")
             copied = True
 
+        shown = _word_to_show(text, reply, data.get("actions")) if not translator() else None
+        if shown:
+            # "A pokaż po angielsku" → "Assessment." said, nothing on the screen (27 Oct 22:05)
+            print(f"[brain] asked to show it, no command — showing {shown!r}", flush=True)
+            run_command(f"pokaż na ekranie: {shown}", reply)
+
         # a cancel that matched nothing did nothing (26 Oct: "skasuj cały plan Mai" →
         # cancel 'plan Mai', "Tak, skasowałam")
         done_acts = [a for a in data.get("actions") or [] if a.get("type") != "cancel"
@@ -2174,6 +2181,26 @@ def _promised_paper_plan(reply, text, actions):
     # jest na kartce?" → "Odczytam to i dopiszę do grafiku Mai") — nothing ran
     said = " ".join([text or "", reply] + _recent_user_texts(4, ("user", "assistant"))).lower()
     return bool(schedule._PAPER_REF.search(said) and schedule._PLAN_WORD.search(said))
+
+
+_SHOW_ASK = re.compile(r"\b(?:pokaż|pokaz|napisz|wyświetl|wyswietl)\w*\b", re.I)
+_SHOW_WHERE = re.compile(r"\bna\s+ekran\w*|\bpo\s+\w+sku\b|\bpo\s+polsku\b", re.I)
+
+
+def _word_to_show(text, reply, actions):
+    """The word or phrase to put on the screen when they asked to see it
+    ("pokaż po angielsku", "napisz to na ekranie") and she only said it."""
+    if not (_SHOW_ASK.search(text or "") and _SHOW_WHERE.search(text or "")):
+        return None
+    for a in actions or []:
+        if a.get("type") == "command" and re.match(
+                r"(?:pokaż|pokaz|wyświetl|wyswietl|napisz)\b", str(a.get("label", "")).strip(), re.I):
+            return None
+    quoted = re.findall(r"[„\"“]([^„\"“”]{1,80})[”\"“]", reply or "")
+    if quoted:
+        return quoted[-1].strip()
+    bare = (reply or "").strip().rstrip(".!")
+    return bare if bare and len(bare.split()) <= 5 and len(bare) <= 80 else None
 
 
 def _answering_a_search():

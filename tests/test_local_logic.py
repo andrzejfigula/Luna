@@ -3760,6 +3760,17 @@ class KidsTest(unittest.TestCase):
         self.assertTrue(brain._daypart(19).startswith("evening"))
         self.assertTrue(brain._daypart(7).startswith("early morning"))
 
+    def test_a_translation_asked_on_screen_is_shown(self):
+        import brain
+        w = brain._word_to_show
+        self.assertEqual(w("A pokaż po angielsku.", "Assessment.", []), "Assessment")
+        self.assertEqual(w("Ale pokaż to drugie po angielsku.", "Po angielsku to „test”.", []), "test")
+        self.assertEqual(w("Napisz to na ekranie.", "Jasne — „Rode NT-USB”.", []), "Rode NT-USB")
+        self.assertIsNone(w("Pokaż na ekranie.", "Już pokazuję: „klasówka”.",
+                            [{"type": "command", "label": "pokaż na ekranie: klasówka"}]))
+        self.assertIsNone(w("Jak jest kot po angielsku?", "Cat.", []))
+        self.assertIsNone(w("Pokaż po angielsku.", "To jest długie zdanie bez cudzysłowu w ogóle tutaj.", []))
+
     def test_a_promised_drawing_is_drawn(self):
         import brain
         import drawing
