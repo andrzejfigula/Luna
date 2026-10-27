@@ -4345,6 +4345,10 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(f("Wiem tylko, że tata, Andrzej, lubi pizzę.", v),
                          "Wiem tylko, że tata, Andrzej, lubi pizzę.")
         self.assertEqual(f("Pa, Andrzej.", v), "Pa, Andrzeju.")
+        # 26 Oct: "Dobrze, Andrzejko." — no such form; Emilko is right
+        self.assertEqual(f("Dobrze, Andrzejko.", v), "Dobrze, Andrzeju.")
+        self.assertEqual(f("Mogę mówić do ciebie „Andrzejko”.", v), "Mogę mówić do ciebie „Andrzeju”.")
+        self.assertEqual(f("Dobranoc, Emilko!", v), "Dobranoc, Emilko!")
 
     def test_third_person_fact(self):
         import memory
@@ -11037,10 +11041,14 @@ class PaintTest(unittest.TestCase):
         p._s["asked_t"] = p._s["touch_t"] = 0.0
         self.assertFalse(p.fallback("kot ma być rudy", print))  # the page idle: talk in the room
         p._s["touch_t"] = time.time()
-        for no in ("dziękuję", "super", "jak się masz?", "co to jest"):
+        for no in ("dziękuję", "super", "jak się masz?", "co to jest",
+                   # 26 Oct: "Tak, mów do mnie Andrzejku" became an edit of the picture
+                   "Tak, mów do mnie Andrzejku", "Jestem Andrzej", "mam na imię Ola", "mów ciszej"):
             self.assertFalse(p.fallback(no, print), no)
+            self.assertFalse(p.voice(no, print), no)
         self.assertTrue(p.fallback("kot ma być rudy", print))
         self.assertEqual(self.started[-1], ("edit", "kot ma być rudy"))
+        self.assertTrue(p.fallback("kot mówi miau w dymku", print))
 
     def test_my_photo_in_the_editor(self):
         p, said = self.p, []

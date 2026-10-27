@@ -1257,7 +1257,12 @@ _EDIT = re.compile(
     r"więcej|wiecej|mniej|bez)\b.{0,200}$", re.I)
 _NOT_PICTURE = re.compile(r"\bdo\s+(?:listy|zakupów|zakupow|planu|kalendarza|przypomnie\w*)|"
                           r"\bna\s+list\w*|\bprzypomnieni\w*|\bbudzik\w*|\bminut\w*|\bgłośn\w*|"
-                          r"\bglosn\w*|\bradi\w+|\bmuzyk\w*|\bświatł\w*|\blampk\w*", re.I)
+                          r"\bglosn\w*|\bradi\w+|\bmuzyk\w*|\bświatł\w*|\blampk\w*|"
+                          # talk to her, not a wish (26 Oct: "Tak, mów do mnie Andrzejku" → an edit)
+                          r"\b(?:mów|mow|mówisz|mowisz|nazywaj|wołaj|wolaj)\s+(?:do\s+mnie|mi|na\s+mnie|"
+                          r"ciszej|głośniej|glosniej|wolniej|szybciej|normalnie|szeptem)\b|"
+                          r"^(?:(?:tak|nie|no)\W+)?(?:jestem|to\s+ja)\b|\bmam\s+na\s+imię|\bmam\s+na\s+imie|"
+                          r"\bnie\s+jestem\b|\bmoje\s+imię|\bmoje\s+imie", re.I)
 _DISLIKE = re.compile(r"\bnie\s+podoba\s+mi\s+się|\bnie\s+podoba\s+mi\s+sie|\bnie\s+chcę\s+"
                       r"(?:tego|tu|tutaj)|\bnie\s+chce\s+(?:tego|tu|tutaj)|\btego\s+nie\s+chc\w+|"
                       r"\bto\s+(?:jest\s+)?(?:brzydk\w*|złe|zle|głupie|glupie|okropne)|"

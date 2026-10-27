@@ -516,6 +516,8 @@ def fix_vocative(text, vocatives):
     for name, voc in (vocatives or {}).items():
         if not voc or voc == name:
             continue
+        if not name.endswith(("a", "k")):     # "Dobrze, Andrzejko." (26 Oct: "Jestem Andrzejką" misheard)
+            text = re.sub(rf"\b{re.escape(name)}ko\b", voc, text)
         text = re.sub(rf"^{re.escape(name)}(?=\s*,)", voc, text)
         if not several:
             text = re.sub(rf"(\w*)(,\s*){re.escape(name)}(?=\s*[.!?,]|\s*$)",
