@@ -3773,6 +3773,11 @@ class KidsTest(unittest.TestCase):
         # 27 Oct 22:11: "quiz" was shown for "„test” albo „quiz”"
         self.assertEqual(w("Ale pokaż mi po angielsku.", "Widziałam Andrzeja. „Klasówka” po angielsku "
                            "to „test” albo „quiz”, zależnie od tego.", []), "test")
+        # 27 Oct 22:36: "Jak się pisze książka po niemiecku?" — said, not shown
+        self.assertEqual(w("Jak się pisze książka po niemiecku?", "Po niemiecku to „Buch”.", []), "Buch")
+        self.assertEqual(w("A jak to się pisze?", "Jasne, Andrzeju: r-y-n-e-k.", []), "rynek")
+        self.assertEqual(w("Możesz mi pokazać, jak to się pisze?",
+                           "Klasówka pisze się tak: klasówka. Na końcu ó.", []), "klasówka")
 
     def test_the_last_translation_is_shown_and_spelled(self):
         import brain
@@ -3791,7 +3796,8 @@ class KidsTest(unittest.TestCase):
             brain._history[:] = [{"role": "user", "content": "[Andrzej] Jak jest klasówka po angielsku?"},
                                  {"role": "assistant", "content": "Najczęściej „test”."}]
             for t in ("Pokaż mi, jak to się pisze.", "A jak to się pisze?", "Ale pokaż mi po angielsku.",
-                      "Pokaż to na ekranie", "Przeliteruj"):
+                      "Pokaż to na ekranie", "Przeliteruj", "A pokażę, jak to się pisze.",
+                      "Możesz mi pokazać, jak to się pisze?"):
                 said.clear()
                 self.assertTrue(commands.show_translation(t, said.append), t)
                 self.assertEqual(commands.state.overlay[2]["text"], "test")

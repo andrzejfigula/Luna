@@ -887,7 +887,8 @@ def show_text(text, speak):
 # nothing shown; then 'quiz' shown for "test albo quiz")
 _SHOW_TRANSLATION = re.compile(
     r"^(?:luna,?\s+)?(?:(?:a|ale|no|to|i)\s+)*(?:"
-    r"(?:pokaż|pokaz|napisz|wyświetl|wyswietl)(?:\s+(?:mi|nam))?(?:\s+(?:to|je|go))?"
+    r"(?:(?:czy\s+)?(?:możesz|mozesz)(?:\s+(?:mi|nam))?\s+(?:pokazać|pokazac|napisać|napisac)|"
+    r"pokaż|pokaz|pokażę|pokaże|pokaze|napisz|wyświetl|wyswietl)(?:\s+(?:mi|nam))?(?:\s+(?:to|je|go))?"
     r"(?:\s+(?:na\s+ekranie|po\s+\w+[sc]ku|tak\s+jak\s+się\s+pisze))?"
     r"(?:,?\s+jak\s+(?:to\s+)?(?:się|sie)\s+(?:pisze|piszę))?"
     r"|jak\s+(?:to\s+)?(?:się|sie)\s+(?:to\s+)?(?:pisze|piszę|literuje)(?:\s+po\s+\w+[sc]ku)?"

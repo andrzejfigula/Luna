@@ -2189,6 +2189,8 @@ def _promised_paper_plan(reply, text, actions):
 
 _SHOW_ASK = re.compile(r"\b(?:pokaż|pokaz|napisz|wyświetl|wyswietl)\w*\b", re.I)
 _SHOW_WHERE = re.compile(r"\bna\s+ekran\w*|\bpo\s+\w+[sc]ku\b|\bpo\s+polsku\b|\bsię\s+pisze\b", re.I)
+_SPELL_ASK = re.compile(r"\bjak\s+(?:to\s+)?(?:się|sie)\s+(?:to\s+)?(?:pisze|piszę|literuje)\b|"
+                        r"\b(?:prze)?literuj\b|\bhow\s+do\s+you\s+spell\b", re.I)
 LANG_ASK = re.compile(r"\bpo\s+(angielsku|niemiecku|hiszpańsku|hiszpansku|francusku|włosku|"
                       r"wlosku|ukraińsku|ukrainsku|rosyjsku|czesku|norwesku|szwedzku)\b|"
                       r"\bin\s+english\b", re.I)
@@ -2236,7 +2238,8 @@ def last_translation(back=4):
 def _word_to_show(text, reply, actions):
     """The word or phrase to put on the screen when they asked to see it
     ("pokaż po angielsku", "napisz to na ekranie") and she only said it."""
-    if not (_SHOW_ASK.search(text or "") and _SHOW_WHERE.search(text or "")):
+    spelling = bool(_SPELL_ASK.search(text or ""))
+    if not (spelling or _SHOW_ASK.search(text or "") and _SHOW_WHERE.search(text or "")):
         return None
     for a in actions or []:
         if a.get("type") == "command" and re.match(
@@ -2244,9 +2247,18 @@ def _word_to_show(text, reply, actions):
             return None
     if LANG_ASK.search(text or ""):
         return _foreign_word(text, reply)
+    if spelling:   # "Jasne: r-y-n-e-k.", "Klasówka pisze się tak: klasówka."
+        m = re.search(r"\b([^\W\d_](?:-[^\W\d_]){2,})\b", reply or "")
+        if m:
+            return m.group(1).replace("-", "")
     quoted = re.findall(r"[„\"“]([^„\"“”]{1,80})[”\"“]", reply or "")
     if quoted:
         return quoted[-1].strip()
+    if spelling:
+        m = re.search(r"\bpisze\s+się\s+(?:tak|po\s+prostu)?\s*:\s*([^\W\d_]+(?:[ -][^\W\d_]+){0,2})",
+                      reply or "", re.I)
+        if m:
+            return m.group(1)
     bare = (reply or "").strip().rstrip(".!")
     return bare if bare and len(bare.split()) <= 5 and len(bare) <= 80 else None
 
