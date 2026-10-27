@@ -3778,6 +3778,13 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(w("A jak to się pisze?", "Jasne, Andrzeju: r-y-n-e-k.", []), "rynek")
         self.assertEqual(w("Możesz mi pokazać, jak to się pisze?",
                            "Klasówka pisze się tak: klasówka. Na końcu ó.", []), "klasówka")
+        # 27 Oct 22:41: Chinese and "Po niemiecku: Tochter." not shown; a photo for "książka"
+        self.assertEqual(w("Jak się pisze córcia po chińsku?",
+                           "Po chińsku to córka: 女儿, czyta się nǚ'ér.", []), "女儿")
+        self.assertEqual(w("A jak się pisze po niemiecku?", "Po niemiecku: Tochter.", []), "Tochter")
+        self.assertFalse(brain._wants_vision("jak się pisze książka po niemiecku?"))
+        self.assertTrue(brain._wants_vision("przeczytaj, co jest w tej książce po angielsku"))
+        self.assertTrue(brain._wants_vision("pomożesz mi z zadaniem z tej książki?"))
 
     def test_the_last_translation_is_shown_and_spelled(self):
         import brain

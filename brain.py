@@ -1264,7 +1264,15 @@ def load_history(now=None):
 
 # ── Camera → image attachment ─────────────────────────────────────────────────
 
+_LOOK_WORDS = ("widzisz", "widać", "widac", "zobacz", "spójrz", "spojrz", "popatrz", "przeczytaj",
+               "napisane", "kamer", "trzymam", "tutaj", " tu ", "see", "look", "read", "holding")
+
+
 def _wants_vision(lower):
+    # 27 Oct: "jak się pisze książka po niemiecku?" → a photo ("książk"), "widzę Cię na zdjęciu"
+    if (_SPELL_ASK.search(lower) or LANG_ASK.search(lower)) and not any(
+            k in f" {lower} " for k in _LOOK_WORDS):
+        return False
     return any(k in lower for k in VISION_KEYWORDS)
 
 
@@ -2192,9 +2200,15 @@ _SHOW_WHERE = re.compile(r"\bna\s+ekran\w*|\bpo\s+\w+[sc]ku\b|\bpo\s+polsku\b|\b
 _SPELL_ASK = re.compile(r"\bjak\s+(?:to\s+)?(?:się|sie)\s+(?:to\s+)?(?:pisze|piszę|literuje)\b|"
                         r"\b(?:prze)?literuj\b|\bhow\s+do\s+you\s+spell\b", re.I)
 LANG_ASK = re.compile(r"\bpo\s+(angielsku|niemiecku|hiszpańsku|hiszpansku|francusku|włosku|"
-                      r"wlosku|ukraińsku|ukrainsku|rosyjsku|czesku|norwesku|szwedzku)\b|"
+                      r"wlosku|ukraińsku|ukrainsku|rosyjsku|czesku|norwesku|szwedzku|chińsku|chinsku|"
+                      r"japońsku|japonsku|koreańsku|koreansku|grecku|arabsku|hebrajsku|turecku|"
+                      r"portugalsku|holendersku|węgiersku|wegiersku|fińsku|finsku|duńsku|dunsku|"
+                      r"słowacku|slowacku|litewsku|łacinie|lacinie)\b|"
                       r"\bin\s+english\b", re.I)
 _PL_LETTER = re.compile(r"[ąćęłńóśźż]", re.I)
+# Greek, Cyrillic, Hebrew, Arabic, kana, CJK, Hangul — a translation not in Latin letters
+_OTHER_SCRIPT = re.compile(r"[Ͱ-ϿЀ-ӿ֐-ۿ぀-ヿ㐀-鿿가-힯]"
+                           r"[Ͱ-ϿЀ-ӿ֐-ۿ぀-ヿ㐀-鿿가-힯 ]*")
 _WORD_ASK = re.compile(r"^(?:luna,?\s+)?(?:(?:a|i|to)\s+)?jak\s+(?:jest|będzie|bedzie|się\s+mówi|"
                        r"sie\s+mowi|powiesz)\s+(?:słowo\s+|slowo\s+)?[„\"]?[^\s,]+(?:\s+[^\s,]+)?[”\"]?"
                        r"\s+po\s+\w+[sc]ku\W*$", re.I)
@@ -2209,7 +2223,10 @@ def _foreign_word(asked, reply):
         q = q.strip(" .,!?")
         if q and q.lower() not in asked and not _PL_LETTER.search(q):
             return q
-    m = re.search(r"\bpo\s+\w+[sc]ku\s+(?:to|jest|mówi\s+się|mowi\s+sie|:)\s*(?:po\s+prostu\s+|"
+    m = _OTHER_SCRIPT.search(reply)        # "Po chińsku to córka: 女儿, czyta się nǚ'ér."
+    if m:
+        return m.group(0).strip()
+    m = re.search(r"\bpo\s+\w+[sc]ku(?:\s+(?:to|jest|mówi\s+się|mowi\s+sie)|\s*:)\s*(?:po\s+prostu\s+|"
                   r"najczęściej\s+|zwykle\s+)?([A-Za-z][A-Za-z' -]{0,30}?)(?=\s+(?:albo|lub|czyli)\b|"
                   r"\s*[,.;!:—–-]|\s*$)", reply, re.I)
     if m:

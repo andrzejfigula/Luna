@@ -407,6 +407,21 @@ def _get_font(size):
     return f
 
 
+def _card_font(size, text):
+    """Nunito has no Chinese/Cyrillic/Greek…: a translation like 女儿 was boxes."""
+    if not any(ord(c) > 0x2FF and not 0x2000 <= ord(c) <= 0x206F for c in text):
+        return _get_font(size)
+    cjk = any(0x3040 <= ord(c) <= 0x9FFF or 0xAC00 <= ord(c) <= 0xD7AF for c in text)
+    key = ("cjk" if cjk else "wide", size)
+    f = _FONT_CACHE.get(key)
+    if f is None:     # Droid Fallback has CJK but no Latin or Cyrillic; DejaVu the rest
+        path = ((cjk and pygame.font.match_font("droidsansfallbackfull,droidsansfallback,"
+                                                "notosanscjksc,notosanscjk"))
+                or pygame.font.match_font("dejavusans", bold=True))
+        f = _FONT_CACHE[key] = pygame.font.Font(path, size) if path else _get_font(size)
+    return f
+
+
 # ── Particles ─────────────────────────────────────────────────────────────────
 
 class ZzzParticle:
@@ -3692,10 +3707,10 @@ class RobotFace:
             if getattr(self, "_card_cache", (None,))[0] != key:
                 text = data["text"]
                 size = 130
-                font = _get_font(size)
+                font = _card_font(size, text)
                 while font.size(text)[0] > WIDTH - 60 and size > 40:
                     size -= 10
-                    font = _get_font(size)
+                    font = _card_font(size, text)
                 lines = [text]
                 if size < 70 and " " in text:
                     # a sentence (reading practice): two lines, bigger letters
@@ -3704,10 +3719,10 @@ class RobotFace:
                         len(" ".join(words[:k])) - len(" ".join(words[k:]))))
                     lines = [" ".join(words[:cut]), " ".join(words[cut:])]
                     size = 110
-                    font = _get_font(size)
+                    font = _card_font(size, text)
                     while max(font.size(x)[0] for x in lines) > WIDTH - 60 and size > 40:
                         size -= 10
-                        font = _get_font(size)
+                        font = _card_font(size, text)
                 imgs = [font.render(x, True, col) for x in lines]
                 w = max(i.get_width() for i in imgs)
                 h = sum(i.get_height() for i in imgs)
