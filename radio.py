@@ -1459,7 +1459,9 @@ def _world_play(what, speak):
     if not asked:
         return False
     code, tag, where = asked
-    speak(f"Szukam radia {where}…" if where else "Szukam takiej stacji…")
+    # ("Szukam takiej stacji…" came out Japanese, Greek, Korean: 5 bad takes in
+    # Mochi's voice, 25 Oct; this one 3 of 3 silent takes heard right)
+    speak(f"Szukam radia {where}…" if where else "Dobrze, poszukam takiej stacji.")
     found = _world_search(code, tag)
     first = next((i for i, (_, u) in enumerate(found[:5]) if _alive(u)), None)
     if first is None:

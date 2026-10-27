@@ -1163,7 +1163,8 @@ def _volume_command(text):
         n = calc.number_in(low)
         if n is not None and 0 <= n <= 100:
             return n / 100.0
-    if _bare(re.sub(r"\b(?:radio|muzyk[ęe]|dźwięk|dzwiek|to)\b", " ", low),
+    # ("Daj ciszej", "Retro, daj głośniej" with the radio off — to the model)
+    if _bare(re.sub(r"\b(?:radio|muzyk[ęe]|dźwięk|dzwiek|to|daj|dać|dac)\b", " ", low),
              _LOUDER + _QUIETER):
         cur = get_volume()
         if cur is None:
@@ -1477,7 +1478,10 @@ def undoubled(text):
 
 
 _ASKED_THEME = re.compile(r"\bmotyw\w*|\bprofil\w*|\bpostać\w*|\bpostaci\w*|\bcharakter\w*|"
-                          r"\bmogę\s+być\b", re.I)
+                          r"\bmogę\s+być\b|"
+                          # 25 Oct: "Włącz." → "czego mam włączyć?" → "Hal." — refused
+                          r"\b(?:co|czego)\b[^.?!]{0,20}\b(?:włączyć|wlaczyc|przełączyć|przelaczyc)\b",
+                          re.I)
 
 
 def switch_theme(text, speak):

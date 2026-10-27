@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 27 października ==
+- „Daj głośniej” i „daj ciszej” zmieniają głośność od razu, także gdy radio nie gra. Na pytanie Luny „czego mam włączyć?” wystarczy powiedzieć imię postaci, na przykład „Hal”.
 - Po przytulasie (i po minach na życzenie, jak „zrób smutną minę”) twarz po chwili wraca do zwykłej — serduszka w oczach Mochi już nie zostają na stałe.
 - Malowanie nie bierze już rozmowy za polecenie do obrazka: „mów do mnie Andrzej”, „jestem Ola”, „mam na imię…”, „mów ciszej” trafiają do Luny, a obrazek się nie zmienia. Luna nie mówi już „Andrzejko” — zawsze „Andrzeju”.
 - „Przełącz na Lunę”, „przełącz na Retro” i „włącz Retro” zmieniają postać (Retro jako radio ze starymi przebojami tylko wtedy, gdy radio już gra). „Pokaż złą minę”, „pokaż okej”, „zrób duże oczy” — Luna robi minę albo znak OK, zamiast szukać zdjęcia. Mochi pyta „Przytulas na powitanie?” — na „tak” albo „pewnie” przytula (zawsze też na „przytul mnie”). Drukarka, która właśnie drukuje, nie jest już zgłaszana jako „nie przyjmuje wydruków”.

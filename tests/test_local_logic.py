@@ -8590,6 +8590,10 @@ class ThemesTest(unittest.TestCase):
                                lambda: "Powiedz: Luna, Hal, Pip, Retro albo Pixel."):
             self.assertTrue(commands.switch_theme("Piksel.", [].append))
             self.assertEqual(themes.current(), "pixel")
+        with mock.patch.object(brain, "last_reply", lambda: "Ooo, ale czego mam włączyć?"):
+            self.assertTrue(commands.switch_theme("Hal.", [].append))
+            self.assertEqual(themes.current(), "hal")
+            self.assertFalse(commands.switch_theme("Radio.", [].append))
         with mock.patch.object(brain, "last_reply", lambda: "Dziś będzie deszcz."):
             self.assertFalse(commands.switch_theme("Hal.", [].append))
         themes.set_theme("hal")

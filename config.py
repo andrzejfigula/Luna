@@ -606,7 +606,7 @@ TOUCH_SPEECH_COOLDOWN = 25    # seconds between spoken touch reactions. Being
                               # proactive one (quiet hours and mute still apply)
 TOUCH_REPLY_CHANCE = 0.6    # how often a touch also gets a spoken line
 TOUCH_REPLIES = {
-    "eye":   {"tap":    ["Hej, to moje oko!", "Łaskocze!"],
+    "eye":   {"tap":    ["Hej, to moje oko!", "Ojoj, łaskotki!"],   # ("Łaskocze!": 1 of 3 heard right)
               "multi":  ["No dobra, wystarczy!", "Przestań mnie dziobać!"]},
     "mouth": {"tap":    ["Mmm?", "Chcesz, żebym coś powiedziała?"]},
     "top":   {"stroke": ["Mmm, miło...", "Głaszcz dalej!"],
