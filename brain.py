@@ -2055,7 +2055,8 @@ def _game_asked_for():
         if m.get("role") == "user":
             said = str(m.get("content", ""))
             return bool(re.search(r"\b(?:zagrajmy|zagraj|pobawmy\s+się|pobaw\s+się|zagramy)"
-                                  r"(?:\s+ze?\s+mną)?\s+w\s+\w+", said, re.I))
+                                  r"(?:\s+ze?\s+mną)?\s+w\s+\w+|\b(?:chcę|chce)\s+(?:za)?gra\w*"
+                                  r"\s+w\s+\w+|\b(?:chcę|chce)\s+(?:quiz|kwiz)\w*", said, re.I))
     return False
 
 

@@ -215,7 +215,7 @@ def trigger(text):
         return "dictation"                     # not "jutro mamy dyktando w szkole"
     if re.search(r"\bzegar", low) and re.search(
             r"\b(?:pobawmy|zagrajmy|naucz|ucz|uczyć|przepytaj|ćwicz\w*|cwicz\w*|gra\w*|"
-            r"odczytywa\w*|czytać|czytac)\b", low):
+            r"zagra\w*|quiz\w*|kwiz\w*|zagadk\w*|odczytywa\w*|czytać|czytac)\b", low):
         return "clock"                         # not "pokaż zegar" (screens.py)
     if _riddle_request(low):
         return "riddle"

@@ -2138,6 +2138,10 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(clockgame.say(7, 30), "wpół do ósmej, czyli siódma trzydzieści")
         self.assertEqual(quiz.trigger("Pobawmy się w zegar"), "clock")
         self.assertIsNone(quiz.trigger("Pokaż zegar"))
+        # 27 Oct: riddles started, then the model read times out loud
+        self.assertEqual(quiz.trigger("Hal, chcę zagrać w zagadki z zegarem."), "clock")
+        self.assertEqual(quiz.trigger("Hal, ja chcę quiz, zegar."), "clock")
+        self.assertIsNone(quiz.trigger("Włącz lampkę z zegarem."))
         said = []
         quiz.start("clock", "zegar", lambda t, **k: said.append(t), lambda n: None)
         h, m = quiz._q["answer"]
@@ -2875,6 +2879,8 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(quiz.trigger("Zagrajmy w zwierzaki"), "animals")
         self.assertEqual(drawing.looks_wanted("Jak wyglądają pingwiny?"), "pingwiny")
         with mock.patch.object(brain, "_history", [{"role": "user", "content": "[Maja] Zagrajmy w zgadywankę"}]):
+            self.assertTrue(brain._game_asked_for())
+        with mock.patch.object(brain, "_history", [{"role": "user", "content": "Ja chcę quiz, zegar."}]):
             self.assertTrue(brain._game_asked_for())
         with mock.patch.object(brain, "_history", [{"role": "user", "content": "[Maja] Pobawimy się?"}]):
             self.assertFalse(brain._game_asked_for())

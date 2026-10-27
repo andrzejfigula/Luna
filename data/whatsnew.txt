@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 27 października ==
+- Gra w zegar startuje także na „chcę zagrać w zagadki z zegarem” albo „quiz z zegarem”: Luna pokazuje na ekranie zegar ze wskazówkami i pyta, która godzina — nie czyta już godziny na głos.
 - „Daj głośniej” i „daj ciszej” zmieniają głośność od razu, także gdy radio nie gra. Na pytanie Luny „czego mam włączyć?” wystarczy powiedzieć imię postaci, na przykład „Hal”.
 - Po przytulasie (i po minach na życzenie, jak „zrób smutną minę”) twarz po chwili wraca do zwykłej — serduszka w oczach Mochi już nie zostają na stałe.
 - Malowanie nie bierze już rozmowy za polecenie do obrazka: „mów do mnie Andrzej”, „jestem Ola”, „mam na imię…”, „mów ciszej” trafiają do Luny, a obrazek się nie zmienia. Luna nie mówi już „Andrzejko” — zawsze „Andrzeju”.
