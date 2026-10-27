@@ -26,7 +26,7 @@ new=$(git ls-files --others --exclude-standard -- '*.py' '*.sh' '*.txt')
 if [ -n "$new" ]; then
     echo "[deploy] not in git yet, so NOT copied (git add them first):"; sed 's/^/  /' <<<"$new"
 fi
-files=$(git ls-files | grep -v -E '\.md$|^\.git|^\.env')
+files=$(git ls-files | grep -v -E '\.md$|^\.git|^\.env|^\.claude/')
 # one checksum program per side for all the files (it was three programs per
 # file — ~20 s on Windows); raw bytes, so a file differing only in line
 # endings is copied too (harmless)

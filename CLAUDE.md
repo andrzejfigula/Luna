@@ -8,11 +8,17 @@ while you work. Code here (`D:\Code\luna`, Windows + Git Bash); the Pi copy
 
 ## Save tokens
 
+- Every call re-reads the whole conversation, so the cost is calls × context
+  (measured: 99% of tokens). Batch independent commands into one Bash call,
+  read a file once, `grep -c`/`-l` before a broad grep. Context compacts at
+  200k and unused tools are denied (`.claude/settings.json`); check with
+  `python -X utf8 tools/claude_usage.py`.
 - Find code with `grep -n` and read line ranges; most modules are 500–3500
   lines. The module map below says where to look.
 - Logs: `bash tools/lastlog.sh [lines] [all] ['extra|pattern']` — only the
   useful lines since the last restart. A day's summary:
-  `ssh raspberry@raspberrypi.local 'cd ~/luna && python3 tools/log_report.py'`.
+  `ssh raspberry@raspberrypi.local 'cd ~/luna && python3 tools/log_report.py'`
+  (last 40 exchanges; `--all` is ~20k tokens).
 - `docs/backlog-done.md` (350 KB) is history — don't open it unless asked.
   New rows: `python tools/backlog_add.py "**Title** — what changed" "why"`.
 - Keep new code comments to a line or two; the story goes in the commit.

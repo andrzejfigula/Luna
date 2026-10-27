@@ -3,6 +3,7 @@ log_report.py — a day of luna.log in one screen: what to look at first.
 
     cd ~/luna && python3 tools/log_report.py            # the whole log
     cd ~/luna && python3 tools/log_report.py 2026-10-06 # lines after that day's first start
+    ... log_report.py --all                             # every exchange (default: the last 40)
 
 Reading the log after real use found most of the bugs worth fixing (actions
 the model claimed but couldn't do, memory wearing away, audio clock drift,
@@ -122,7 +123,8 @@ def latency_summary(lines):
 
 
 def main():
-    since = sys.argv[1] if len(sys.argv) > 1 else None
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    since = args[0] if args else None
     lines = open("luna.log", encoding="utf-8", errors="replace").read().splitlines()
     if since:
         # keep from the first start on that date onward (the log has no dates,
@@ -165,7 +167,7 @@ def main():
     for r in flagged[-15:]:
         print(f"  ! {r[:120]}")
 
-    print("\n── exchanges (what was asked → what she said) ──")
+    exchanges = []
     asked = None
     for l in lines:
         m = re.match(r"^\[brain\] Processing: (.*)", l)
@@ -174,11 +176,17 @@ def main():
             continue
         m = re.match(r"^\[brain\] OpenAI \([^)]*\): (.*)", l)
         if m and asked:
-            print(f"  « {asked[:70]}\n    → {m.group(1)[:110]}")
+            exchanges.append(f"  « {asked[:70]}\n    → {m.group(1)[:110]}")
             asked = None
         elif "staying quiet" in l and asked:
-            print(f"  « {asked[:70]}\n    → (quiet: not for her)")
+            exchanges.append(f"  « {asked[:70]}\n    → (quiet: not for her)")
             asked = None
+    # a whole day is ~20k tokens for Claude to read; the last 40 are usually enough
+    shown = exchanges if "--all" in sys.argv else exchanges[-40:]
+    more = "" if len(shown) == len(exchanges) else f", the last {len(shown)}; --all for every one"
+    print(f"\n── exchanges (what was asked → what she said: {len(exchanges)}{more}) ──")
+    for e in shown:
+        print(e)
 
 
 if __name__ == "__main__":

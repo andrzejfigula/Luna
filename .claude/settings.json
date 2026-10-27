@@ -1,0 +1,12 @@
+{
+  "autoCompactWindow": 200000,
+  "permissions": {
+    "deny": [
+      "Artifact",
+      "PowerShell",
+      "mcp__Claude_Browser",
+      "mcp__visualize",
+      "mcp__1a59c906-04da-521d-bda7-7f71b9f9e01c"
+    ]
+  }
+}
