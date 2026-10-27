@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 27 października ==
+- Plan lekcji: na górze są tylko osoby, które mają plan lekcji (dorośli bez planu już się nie pojawiają); gdy plan ma jedna osoba, od razu widać jej plan. „+ Dodaj” obok imion — wybierz, czyj plan dodać, i pokaż kartkę kamerze. „Wyczyść” najpierw pyta: „Tak, wyczyść” albo „Anuluj”.
 - Rodzina i goście: plan tygodnia i wszystko o domu jest tylko dla rodziny (Andrzej, Emilka, Maja). Kogoś nowego, kto powie „jestem Ola”, Luna zapamięta jako gościa — przywita go po imieniu, ale nie opowie mu o domownikach i nie da mu planu. „Ola jest z rodziny” albo „usuń Olę z rodziny” może powiedzieć tylko ktoś z rodziny. W ustawieniach nowa zakładka „Osoby”: każda osoba z przełącznikiem Rodzina/Gość i koszem (dotknij dwa razy; „przywróć osobę” ją oddaje).
 
 == 26 października ==

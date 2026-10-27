@@ -9064,7 +9064,7 @@ class ScheduleTest(unittest.TestCase):
         self.assertNotIn((0, 3), cells)
         self.assertEqual(self.s.lesson_grid("Andrzej")[0], [("09:50", "")])
         self.assertEqual(self.s.lesson_grid("Emilka"), ([], {}))
-        self.assertEqual(self.s.lesson_people()[:2], ["Maja", "Andrzej"])
+        self.assertEqual(self.s.lesson_people(), ["Maja", "Andrzej"])     # not Emilka
         # Monday 7:30: today; Monday 10:00 (lessons over): Tuesday
         mon = time.mktime((2026, 10, 26, 7, 30, 0, 0, 0, -1))
         self.assertEqual(self.s.lessons_said("Maja", mon),
@@ -9148,14 +9148,56 @@ class ScheduleTest(unittest.TestCase):
         _, cells = self.s.lesson_grid("Maja")
         self.assertEqual(cells[(0, 3)][0]["title"], "geografia")
         self.assertEqual(cells[(0, 3)][0]["end"], "08:45")
-        r = L["clear"]                             # "Wyczyść": only the second tap
+        r = L["clear"]                             # "Wyczyść": asked first, "Anuluj" keeps it
         self.s.tap(r.centerx, r.centery, 800, 480, said.append)
-        self.assertEqual(len(self.s.lessons("Maja")), 2)
+        self.assertTrue(d["ask"])
+        b = ui_lessons.layout(800, 480, d)["no"]
+        self.s.tap(b.centerx, b.centery, 800, 480, said.append)
+        self.assertEqual((d["ask"], len(self.s.lessons("Maja"))), (False, 2))
         self.s.tap(r.centerx, r.centery, 800, 480, said.append)
+        self.s.tap(5, 470, 800, 480, said.append)          # beside the dialog: cancelled
+        self.assertEqual((d["ask"], len(self.s.lessons("Maja"))), (False, 2))
+        self.s.tap(r.centerx, r.centery, 800, 480, said.append)
+        b = ui_lessons.layout(800, 480, d)["yes"]
+        self.s.tap(b.centerx, b.centery, 800, 480, said.append)
         self.assertEqual(self.s.lessons("Maja"), [])
-        self.assertIsNone(ui_lessons.layout(800, 480, d)["clear"])     # nothing to clear
-        self.s.swipe(-200)
-        self.assertEqual(d["who"], "Andrzej")
+        L = ui_lessons.layout(800, 480, d)
+        self.assertIsNone(L["clear"])                       # nothing to clear
+        self.assertEqual([n for _, n in L["who"]], ["Maja"])   # still hers, for a new paper
+        with state.lock:
+            state.overlay = None
+
+    def test_lesson_page_only_those_with_lessons(self):
+        from shared_state import state
+        import pygame
+        import ui_lessons
+        pygame.font.init()
+        L = self._lesson
+        with mock.patch.object(self.s, "_speaker", lambda: "Andrzej"):
+            self.assertIsNone(self.s.show_lessons())        # nobody has one: no chips
+            d = self.s._page()
+            self.assertEqual(ui_lessons.layout(800, 480, d)["who"], [])
+            self.s.save_paper("Maja", [L("polski", [0], "08:00")])
+            self.assertEqual(self.s.show_lessons(), "Maja")    # the only one: hers
+            d = self.s._page()
+            lay = ui_lessons.layout(800, 480, d)
+            self.assertEqual([n for _, n in lay["who"]], ["Maja"])
+            self.s.tap(lay["add"].centerx, lay["add"].centery, 800, 480)    # "+ Dodaj"
+            picks = ui_lessons.layout(800, 480, d)["picks"]
+            self.assertEqual([n for _, n in picks], ["Andrzej", "Emilka"])
+            r = picks[1][0]
+            self.s.tap(r.centerx, r.centery, 800, 480)
+            self.assertEqual((d["who"], d["pick"]), ("Emilka", False))
+            self.assertEqual([n for _, n in ui_lessons.layout(800, 480, d)["who"]],
+                             ["Maja", "Emilka"])
+            self.s.swipe(-200)
+            self.assertEqual(d["who"], "Maja")
+            # the week page's "Plan lekcji" on Andrzej (no lessons): Maja's
+            self.s.show("Andrzej")
+            d = self.s._page()
+            r = __import__("ui_schedule").layout(800, 480, d)["lessons"]
+            self.s.tap(r.centerx, r.centery, 800, 480)
+            self.assertEqual((d["view"], d["who"], d["added"]), ("lessons", "Maja", []))
         with state.lock:
             state.overlay = None
 

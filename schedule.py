@@ -1305,31 +1305,50 @@ def subject_colours(titles):
 
 
 def lesson_people():
-    """The chips: those with lessons first, then everyone else she knows."""
+    """Those with lessons (an adult without a timetable is no chip)."""
     have = []
     for e in events():
         if e.get("kind") == "lesson" and e.get("who") and e["who"] not in have:
             have.append(e["who"])
-    return have + [n for n in people() if n not in have]
+    return have
+
+
+def page_people(d):
+    """The page's chips: those with lessons, then the ones "+ Dodaj"-ed there."""
+    have = lesson_people()
+    return have + [n for n in d.get("added") or () if n not in have]
+
+
+def lesson_candidates(d):
+    """Whom "+ Dodaj" offers: the family and anyone in the plan, not yet a chip."""
+    shown = page_people(d)
+    return [n for n in people() if n not in shown]
 
 
 def _lesson_who(who=None):
-    """Named, else the speaker, else the first with lessons."""
-    import faces
+    """Named, else the speaker if they have lessons, else the first with lessons."""
     if who:
         return who
-    me = _speaker()
-    if me and me in faces.family():
-        return me
     ps = lesson_people()
+    me = _speaker()
+    if me and me in ps:
+        return me
     return ps[0] if ps else None
+
+
+def _open_lessons(d, who=None):
+    """The week page → the plan lekcji page (a named person without lessons a chip)."""
+    who = _lesson_who(who)
+    d.update(view="lessons", who=who, confirm=0.0, pick=False, ask=False,
+             added=[who] if who and who not in lesson_people() else [])
 
 
 def show_lessons(who=None):
     """The "plan lekcji" page; returns whose it shows."""
     who = _lesson_who(who)
     data = {"view": "lessons", "who": who, "day": time.localtime().tm_wday, "sel": None,
-            "page": 0, "confirm": 0.0, "toast": None}
+            "page": 0, "confirm": 0.0, "toast": None, "pick": False, "ask": False,
+            "added": [who] if who and who not in lesson_people() else []}
     with state.lock:
         state.overlay = ("schedule", time.time() + PAGE_SECS, data)
     return who
@@ -1376,14 +1395,26 @@ def _tap_lessons(d, x, y, W, H, speak):
     if not hit:
         return True
     kind = hit[0]
-    if kind != "clear":
-        d["confirm"] = 0.0
     if kind == "who":
         d["who"] = hit[1]
+    elif kind == "add" or (kind == "paper" and not d.get("who")):
+        d["pick"] = True                     # whose plan: the family not on a chip yet
+    elif kind == "pick":
+        d.setdefault("added", []).append(hit[1])
+        d["who"], d["pick"] = hit[1], False
+    elif kind == "no":                       # "Anuluj", or a tap beside the dialog
+        d["pick"] = d["ask"] = False
+    elif kind == "clear":
+        d["ask"] = True
+    elif kind == "yes":                      # "Tak, wyczyść" — they stay a chip for a new paper
+        who = d["who"]
+        clear_lessons(who)
+        if who not in d.setdefault("added", []):
+            d["added"].append(who)
+        d["ask"] = False
+        d["toast"] = (f"Wyczyszczone: plan lekcji {genitive(who)}", time.time() + 3.0)
     elif kind == "week":
         d["view"] = None
-    elif kind in ("paper", "clear") and not d.get("who"):
-        d["toast"] = ("Najpierw wybierz osobę", time.time() + 2.0)
     elif kind == "paper":                    # the plan becomes what's on the paper
         who = d["who"]
 
@@ -1391,14 +1422,6 @@ def _tap_lessons(d, x, y, W, H, speak):
             from text_to_speech import speak as say
             import_paper(who, speak or say, fresh=True)
         threading.Thread(target=run, daemon=True, name="lessons-paper").start()
-    elif kind == "clear":                    # tapped twice
-        now = time.time()
-        if now - d.get("confirm", 0.0) < 4.0:
-            clear_lessons(d["who"])
-            d["confirm"], d["toast"] = 0.0, (f"Wyczyszczone: plan lekcji {genitive(d['who'])}",
-                                              now + 3.0)
-        else:
-            d["confirm"] = now
     elif kind == "cell":
         row, wd = hit[1], hit[2]
         rows, cells, _ = lesson_slots(d.get("who"))
@@ -1499,7 +1522,7 @@ def tap(x, y, W, H, speak=None):
     elif kind == "who":
         d["who"], d["page"] = hit[1], 0
     elif kind == "row" and hit[1].startswith("school:"):     # "szkoła" → the plan lekcji
-        d.update(view="lessons", who=hit[1].split(":", 1)[1] or _lesson_who(), confirm=0.0)
+        _open_lessons(d, hit[1].split(":", 1)[1] or None)
     elif kind == "row":
         d["sel"], d["confirm"] = hit[1], 0.0
     elif kind == "wipe":                     # "Wyczyść", tapped twice
@@ -1517,7 +1540,7 @@ def tap(x, y, W, H, speak=None):
         (speak or _say)("Powiedz, co dodać — kto, co, w jakie dni i o której. Na przykład: "
                                "Maja, angielski, od poniedziałku do piątku o siedemnastej.")
     elif kind == "lessons":
-        d.update(view="lessons", who=_lesson_who(d.get("who")))
+        _open_lessons(d, d.get("who") if d.get("who") in lesson_people() else None)
     elif kind == "paper":                    # the plan on paper → this person's week
         _paper_tap(d.get("who"), speak)
     elif kind == "back":
@@ -1571,7 +1594,9 @@ def swipe(dx):
     if d is None or d.get("sel"):
         return False
     if d.get("view") == "lessons":           # the next person / the one before
-        ps = lesson_people()
+        if d.get("pick") or d.get("ask"):
+            return True
+        ps = page_people(d)
         if ps:
             k = ps.index(d["who"]) if d.get("who") in ps else -1
             d["who"] = ps[(k + (1 if dx < 0 else -1)) % len(ps)]

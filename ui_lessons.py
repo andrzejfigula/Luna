@@ -3,9 +3,11 @@ ui_lessons.py — the "plan lekcji" page (schedule.show_lessons): one person's
 school week, Monday to Friday, as a grid — lesson hours down the side, the
 five days across, today's column and the lesson now lit.
 
-  person chips · "Plan tygodnia" · "Wyczyść" (tapped twice) · "Wczytaj z
-  kartki" (the camera reads a new timetable; once read, it replaces all the
-  old lessons) — each subject in its own colour (schedule.subject_colours)
+  person chips (only those with lessons) · "+ Dodaj" (whose plan: picked from
+  the family, a chip until the page closes) · "Plan tygodnia" · "Wyczyść" (a
+  dialog: "Tak, wyczyść" / "Anuluj") · "Wczytaj z kartki" (the camera reads a
+  new timetable; once read, it replaces all the old lessons) — each subject in
+  its own colour (schedule.subject_colours)
   a lesson: tapped → the week page's editor for it (back returns here)
   an empty cell in a row: "Jaka lekcja…?" — said by voice
 
@@ -22,13 +24,43 @@ from ui_screens import WHITE, DIM, text, fit, rrect, vgrad
 
 TOP = 92                       # the day headers
 TIME_W = 84                    # the hours column
+ADD = "+ Dodaj"
+
+
+def _dialog(W, H, d):
+    """The picker / the clear question: {"dialog", "no", "yes" | "picks": [(rect, name)]}."""
+    D = {}
+    if d.get("pick"):
+        names = schedule.lesson_candidates(d)
+        dw, x, y, rows = 560, 0, 0, []
+        for n in names:                      # chips in rows, wrapped
+            w = text(n, 20, WHITE, "Bold").get_width() + 34
+            if x and x + w > dw - 60:
+                x, y = 0, y + 54
+            if y > 54:
+                break
+            rows.append((x, y, w, n))
+            x += w + 10
+        dh = 200 + (rows[-1][1] + 54 if rows else 30)
+        D["dialog"] = dg = pygame.Rect((W - dw) // 2, (H - dh) // 2, dw, dh)
+        D["picks"] = [(pygame.Rect(dg.x + 30 + cx, dg.y + 92 + cy, w, 46), n)
+                      for cx, cy, w, n in rows]
+        D["no"] = pygame.Rect(dg.centerx - 90, dg.bottom - 70, 180, 50)
+    elif d.get("ask"):
+        D["dialog"] = dg = pygame.Rect((W - 480) // 2, (H - 230) // 2, 480, 230)
+        D["no"] = pygame.Rect(dg.x + 30, dg.bottom - 74, 180, 50)
+        D["yes"] = pygame.Rect(dg.right - 30 - 210, dg.bottom - 74, 210, 50)
+    return D
 
 
 def layout(W, H, d):
     """{"who": [(rect, name)], "heads": [rect]*5, "cells": {(row, wd): rect},
-    "times": [rect], "week", "paper", "clear" (with lessons)}."""
+    "times": [rect], "week", "paper", "clear" (with lessons), "add", "dialog"…}."""
     L = {}
-    L["who"], L["chip_fs"] = chip_row(W, schedule.lesson_people())
+    chips, L["chip_fs"] = chip_row(W, schedule.page_people(d) + [ADD])
+    L["who"] = [(r, n) for r, n in chips if n != ADD]
+    L["add"] = next((r for r, n in chips if n == ADD), None)
+    L.update(_dialog(W, H, d))
     rows, cells, spare = schedule.lesson_slots(d.get("who"))
     x0, gap = 16 + TIME_W, 6
     w = (W - 16 - x0 - 4 * gap) // 5
@@ -48,12 +80,21 @@ def layout(W, H, d):
 
 
 def hit(x, y, W, H, d):
-    """("who", name) | ("cell", row, weekday) | ("week",) | ("paper",) | None."""
+    """("who", name) | ("cell", row, weekday) | ("week",) | ("paper",) | ("clear",)
+    | ("add",) | ("pick", name) | ("yes",) | ("no",) | None."""
     L = layout(W, H, d)
+    if L.get("dialog"):                      # only the dialog's buttons; beside it: cancel
+        for r, n in L.get("picks") or ():
+            if r.inflate(4, 6).collidepoint(x, y):
+                return ("pick", n)
+        for key in ("yes", "no"):
+            if L.get(key) and L[key].inflate(6, 6).collidepoint(x, y):
+                return (key,)
+        return None if L["dialog"].collidepoint(x, y) else ("no",)
     for r, n in L["who"]:
         if r.inflate(4, 6).collidepoint(x, y):
             return ("who", n)
-    for key in ("week", "paper", "clear"):
+    for key in ("week", "paper", "clear", "add"):
         if L[key] and L[key].inflate(6, 6).collidepoint(x, y):
             return (key,)
     for (row, k), r in L["cells"].items():
@@ -73,8 +114,10 @@ def draw(scr, d, now, W, H):
     scr.blit(title, (24, 36 - title.get_height() // 2))
     for r, n in L["who"]:
         _pill(scr, r, n, L["chip_fs"], on=n == d.get("who"))
+    if L["add"]:
+        _pill(scr, L["add"], ADD, L["chip_fs"], col=(70, 120, 200, 160))
     who = d.get("who")
-    sub = text(fit((who or "nikt nie wybrany") + (" · dotknij lekcji, żeby ją zmienić"
+    sub = text(fit((who or "dotknij „+ Dodaj”, żeby dodać plan lekcji") + (" · dotknij lekcji, żeby ją zmienić"
                                                   if L["rows"] else ""), 17, 520, "SemiBold"),
                17, DIM, "SemiBold")
     scr.blit(sub, (26, 64))
@@ -92,7 +135,9 @@ def draw(scr, d, now, W, H):
         img = text(msg, 24, DIM, "SemiBold")
         scr.blit(img, img.get_rect(center=(W // 2, 230)))
         for i, line in enumerate(("Potrzymaj kartkę z planem przed kamerą",
-                                  "i dotknij „Wczytaj z kartki”")):
+                                  "i dotknij „Wczytaj z kartki”") if who else
+                                 ("Dotknij „+ Dodaj” i wybierz osobę,",
+                                  "potem pokaż jej plan kamerze")):
             hint = text(line, 18, DIM, "SemiBold")
             scr.blit(hint, hint.get_rect(center=(W // 2, 272 + i * 26)))
     rh = L["row_h"]
@@ -128,8 +173,39 @@ def draw(scr, d, now, W, H):
         scr.blit(img, img.get_rect(center=r.center))
     _pill(scr, L["week"], "Plan tygodnia", 19)
     if L["clear"]:
-        sure = now - d.get("confirm", 0.0) < 4.0
-        _pill(scr, L["clear"], "Na pewno?" if sure else "Wyczyść", 20,
-              col=(214, 52, 52, 255 if sure else 120), weight="ExtraBold")
+        _pill(scr, L["clear"], "Wyczyść", 20, col=(214, 52, 52, 120), weight="ExtraBold")
     _pill(scr, L["paper"], "Wczytaj z kartki", 20, col=(70, 120, 200, 220), weight="ExtraBold")
+    if L.get("dialog"):
+        _draw_dialog(scr, d, L, W, H)
     _toast(scr, d, now, W, H)
+
+
+def _draw_dialog(scr, d, L, W, H):
+    shade = pygame.Surface((W, H), pygame.SRCALPHA)
+    shade.fill((0, 0, 0, 150))
+    scr.blit(shade, (0, 0))
+    dg = L["dialog"]
+    scr.blit(rrect(dg.w, dg.h, 22, (34, 30, 54, 250)), dg)
+    if d.get("pick"):
+        q = text("Czyj plan lekcji dodać?", 26, WHITE, "ExtraBold")
+        scr.blit(q, q.get_rect(center=(dg.centerx, dg.y + 46)))
+        for r, n in L["picks"]:
+            _pill(scr, r, n, 20)
+        if not L["picks"]:
+            t = text("Wszyscy z rodziny już tu są.", 19, DIM, "SemiBold")
+            scr.blit(t, t.get_rect(center=(dg.centerx, dg.y + 100)))
+    else:
+        who = schedule.genitive(d.get("who"))
+        q = text(fit(f"Wyczyścić plan lekcji {who}?", 26, dg.w - 40, "ExtraBold"), 26, WHITE,
+                 "ExtraBold")
+        scr.blit(q, q.get_rect(center=(dg.centerx, dg.y + 44)))
+        for j, ln in enumerate(("Wszystkie lekcje znikną.", "Reszta planu tygodnia zostaje.")):
+            t = text(ln, 19, DIM, "SemiBold")
+            scr.blit(t, t.get_rect(center=(dg.centerx, dg.y + 88 + j * 26)))
+    for key, lab, col in (("no", "Anuluj", (255, 255, 255, 40)),
+                          ("yes", "Tak, wyczyść", (214, 52, 52, 240))):
+        if L.get(key):
+            b = L[key]
+            scr.blit(rrect(b.w, b.h, 24, col), b)
+            t = text(lab, 21, WHITE, "ExtraBold")
+            scr.blit(t, t.get_rect(center=b.center))
