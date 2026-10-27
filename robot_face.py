@@ -34,6 +34,7 @@ import random
 import time
 import numpy as np
 from shared_state import state
+import autoclose
 import characters
 import dock
 import face_spec
@@ -2655,6 +2656,8 @@ class RobotFace:
             elif touch_kind in ("tap", "stop"):         # (a stroke or a held finger: nothing)
                 if ui_screens.close_hit(*touch_pt):     # ✕ — a game's page: the game ends too
                     screens.end_game_page(ov_kind)
+                elif autoclose.hit(touch_pt[0], touch_pt[1], WIDTH) and autoclose.toggle():
+                    pass                                # ⏸ / ▶: it stays, or goes on
                 elif ov_kind == "list" and screens.list_tap(*touch_pt):
                     pass                                # an item: "Usunąć?", then crossed off
                 elif ov_kind == "story":                # an idea, a choice, a story
@@ -3388,6 +3391,9 @@ class RobotFace:
                 ov_now = state.overlay
             if ov_now and ov_now[0] not in ("flash", "gallery", "paint"):   # (those: their own)
                 ui_screens.draw_close(self.screen, WIDTH)
+            left = autoclose.progress(ov_now)           # closes by itself: the line, ⏸
+            if left:
+                ui_screens.draw_countdown(self.screen, WIDTH, HEIGHT, *left)
 
         t3 = time.perf_counter()
         if self.gl:

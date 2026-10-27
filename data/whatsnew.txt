@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 27 października ==
+- Kiedy Luna coś pokazuje na chwilę (tłumaczenie, kartkę, listę, zegar, zdjęcie), na dole ekranu kurczy się pasek — tyle zostało do zamknięcia. Przycisk ⏸ obok ✕ zatrzymuje zamykanie, ▶ puszcza dalej.
 - Po pytaniu „jak jest klasówka po angielsku?” wystarczy „pokaż”, „pokaż po angielsku” albo „a jak to się pisze?”: Luna pokazuje przetłumaczone słowo duże na ekranie i literuje je po angielsku.
 - Gra w zegar startuje także na „chcę zagrać w zagadki z zegarem” albo „quiz z zegarem”: Luna pokazuje na ekranie zegar ze wskazówkami i pyta, która godzina — nie czyta już godziny na głos. Rozumie też „wpółdo”, „pół do ósmej” i godziny zapisane bez polskich liter („za pietnascie osma”).
 - „Daj głośniej” i „daj ciszej” zmieniają głośność od razu, także gdy radio nie gra. Na pytanie Luny „czego mam włączyć?” wystarczy powiedzieć imię postaci, na przykład „Hal”.

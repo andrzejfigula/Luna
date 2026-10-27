@@ -6216,6 +6216,38 @@ class GalleryWeatherScreensTest(unittest.TestCase):
         self.assertTrue(commands.close_page("Zamknij", self.speak))
 
 
+class AutoCloseTest(unittest.TestCase):
+    """A page that closes by itself: the countdown line, ⏸ keeps it, ▶ goes on."""
+
+    def tearDown(self):
+        with state.lock:
+            state.overlay = None
+
+    def test_pause_and_resume(self):
+        import autoclose
+        t = 1000.0
+        with state.lock:
+            state.overlay = ("card", t + 10, {"text": "test"})
+        self.assertEqual(autoclose.progress(state.overlay, t), (1.0, False))
+        self.assertAlmostEqual(autoclose.progress(state.overlay, t + 4)[0], 0.6)
+        self.assertEqual(autoclose.toggle(t + 4), "paused")
+        self.assertGreater(state.overlay[1], t + 3600)
+        self.assertEqual(autoclose.progress(state.overlay, t + 500), (0.6, True))
+        self.assertEqual(autoclose.toggle(t + 500), "resumed")
+        self.assertAlmostEqual(state.overlay[1], t + 506)
+        self.assertAlmostEqual(autoclose.progress(state.overlay, t + 503)[0], 0.3)
+
+    def test_no_line(self):
+        import autoclose
+        for ov in (("lamp", 2000.0, {}), ("gallery", 1010.0, {}), ("card", 1000.0 + 3600, {})):
+            self.assertIsNone(autoclose.progress(ov, 1000.0), ov[0])
+        with state.lock:
+            state.overlay = ("ttt", 1030.0, {})
+        self.assertIsNone(autoclose.toggle(1000.0))
+        self.assertTrue(autoclose.hit(0.875, 0.08, 800))
+        self.assertFalse(autoclose.hit(0.95, 0.08, 800))
+
+
 class GalleryDeletePeopleTest(unittest.TestCase):
     """Deleting photos, drawings and people from the gallery (into a bin),
     getting them back, and the gallery of the people she knows."""

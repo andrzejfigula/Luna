@@ -121,6 +121,12 @@ def circle_button(kind, r=26, alpha=110):
         if kind == "close":
             for a, b in (((-k, -k), (k, k)), ((-k, k), (k, -k))):
                 _line(big, WHITE, (c + a[0], c + a[1]), (c + b[0], c + b[1]), lw)
+        elif kind == "pause":
+            for dx in (-k * 0.45, k * 0.45):
+                _line(big, WHITE, (c + dx, c - k), (c + dx, c + k), lw)
+        elif kind == "play":
+            pygame.draw.polygon(big, WHITE, [(c - k * 0.6, c - k * 1.05),
+                                             (c - k * 0.6, c + k * 1.05), (c + k * 1.0, c)])
         else:
             sx = 1 if kind == "next" else -1
             tip = (c + sx * k * 0.75, c)
@@ -134,6 +140,17 @@ def draw_close(scr, W):
     """The ✕ in the top right corner of every page (robot_face)."""
     btn = circle_button("close", 24)
     scr.blit(btn, btn.get_rect(center=(W - 38, 38)))
+
+
+def draw_countdown(scr, W, H, left, paused):
+    """A page that closes by itself (autoclose.py): the line along the
+    bottom shrinking, ⏸ left of ✕ (▶ while it is held)."""
+    w = int(W * left)
+    if w > 0:
+        col = (120, 124, 140) if paused else (230, 232, 240)
+        pygame.draw.rect(scr, col, pygame.Rect(0, H - 4, w, 4))
+    btn = circle_button("play" if paused else "pause", 24)
+    scr.blit(btn, btn.get_rect(center=(W - 100, 38)))
 
 
 def close_hit(nx, ny):
