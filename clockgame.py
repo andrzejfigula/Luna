@@ -74,8 +74,8 @@ def parse(text):
     """(hour 0-23, minute) from a spoken time, or None. "Wieczorem", "po
     południu", "w nocy" move it past noon: "budzik na 8 wieczorem" was 08:00
     (14 Oct probe); "o drugiej w nocy" stays 2:00, "dwunasta w nocy" is 0:00."""
-    low = text.lower()
-    low = re.sub(r"\bw\s+(?:pół|pol)\s+do\b", "wpół do", low)       # "w pół do ósmej"
+    low = _restore(text.lower())
+    low = re.sub(r"\b(?:w\s*)?(?:pół|pol|pul)\s*do\b", "wpół do", low)  # "w pół do", "wpółdo"
     t = _parse(low)
     if t is None:
         return None
@@ -87,6 +87,20 @@ def parse(text):
         elif h < 12 and not (night and h <= 5):
             h += 12
     return h, mi
+
+
+_FOLD = str.maketrans("ąćęłńóśźż", "acelnoszz")
+_PLAIN = {}
+
+
+def _restore(low):
+    """"za pietnascie osma" → "za piętnaście ósma": transcripts without Polish letters."""
+    if not _PLAIN:
+        import calc
+        for table in (_NOM, _LOC, _ACC, _UNITS, calc._ONES):
+            for w in table:
+                _PLAIN.setdefault(w.translate(_FOLD), w)
+    return re.sub(r"[a-z]+", lambda m: _PLAIN.get(m.group(0), m.group(0)), low)
 
 
 def _parse(low):

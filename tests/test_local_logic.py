@@ -2135,6 +2135,11 @@ class KidsTest(unittest.TestCase):
                 self.assertEqual(clockgame.parse(text), want)
         self.assertIsNone(clockgame.parse("nie wiem"))
         self.assertTrue(clockgame.same((19, 30), (7, 30)))
+        # 27 Oct: transcripts without Polish letters, "wpółdo" glued
+        for said, want in (("za pietnascie osma", (7, 45)), ("pietnascie po siodmej", (7, 15)),
+                           ("wpółdo ósmej", (7, 30)), ("wpoldo osmej", (7, 30)),
+                           ("pół do ósmej", (7, 30))):
+            self.assertEqual(clockgame.parse(said), want, said)
         self.assertEqual(clockgame.say(7, 30), "wpół do ósmej, czyli siódma trzydzieści")
         self.assertEqual(quiz.trigger("Pobawmy się w zegar"), "clock")
         self.assertIsNone(quiz.trigger("Pokaż zegar"))
