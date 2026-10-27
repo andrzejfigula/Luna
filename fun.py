@@ -153,6 +153,9 @@ _FACES = [
     (re.compile(r"^(?:zaśmiej|zasmiej|pośmiej|posmiej)\s+się" + _MIN), "laugh", "happy",
      ("Ha, ha, ha!", "Hihihi!")),
     (re.compile(r"^(?:zasalutuj|salutuj)" + _MIN), "salute", "happy", ("Melduję się!",)),
+    # 25 Oct: "Pokaż okej" ×2 → a Wikipedia photo of "Robotyka"
+    (re.compile(r"^(?:pokaż|pokaz|zrób|zrob|daj)\s+(?:mi\s+)?(?:znak\s+)?(?:okej|ok|okay)" + _MIN),
+     "ok_sign", "happy", ("Okej!",)),
     (re.compile(r"^(?:klaśnij|klasnij|klaszcz|pokaż\s+jak\s+klaszczesz|zaklaszcz)"
                 r"(?:\s+w\s+(?:dłonie|rączki|ręce))?" + _MIN), "clap", "happy", ("Brawo!",)),
     (re.compile(r"^(?:przewróć|przewroc)\s+oczami" + _MIN), "eye_roll", "neutral", ("No weź…",)),
@@ -164,7 +167,9 @@ _FACES = [
     (re.compile(r"^(?:zrób|zrob)\s+(?:mi\s+)?(?:złą|zla|groźną|grozna|gniewną)\s+(?:minę|mine|minkę)$"
                 r"|^(?:zezłość|zezlosc)\s+się$"), None, "angry", ("Grrr!",)),
     (re.compile(r"^(?:zrób|zrob)\s+(?:mi\s+)?(?:zdziwioną|zdziwiona|zaskoczoną|zaskoczona)\s+"
-                r"(?:minę|mine|minkę)$|^(?:zdziw|zdziwić)\s+się$"), "big_pupils", "surprised",
+                r"(?:minę|mine|minkę)$|^(?:zdziw|zdziwić)\s+się$"
+                r"|^(?:(?:zrób|zrob|pokaż|pokaz)\s+(?:mi\s+)?)?(?:duże|duze|wielkie)\s+oczy" + _MIN),
+     "big_pupils", "surprised",
      ("Oooo!", "Coo?!")),
     (re.compile(r"^(?:zrób|zrob)\s+(?:mi\s+)?(?:przestraszoną|przestraszona|wystraszoną)\s+"
                 r"(?:minę|mine|minkę)$|^(?:przestrasz|wystrasz)\s+się$"), "scared", "surprised",
@@ -186,6 +191,8 @@ def face_play(text, speak):
     """A face asked for — wink, cross-eyes, a dance, a sad face — at once.
     True when it was one."""
     low = re.sub(r"^(?:luna|luno)\W+", "", text.lower().strip(" .!?"))
+    # "Pokaż złą minę" (25 Oct: a Wikipedia photo of Łomża) — as "zrób złą minę"
+    low = re.sub(r"^(?:pokaż|pokaz)(\s+(?:mi\s+|nam\s+)?\w+\s+(?:minę|mine|minkę|minke))$", r"zrób\1", low)
     for rx, scene, emotion, lines in _FACES:
         if rx.match(low):
             now = time.time()

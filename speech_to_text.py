@@ -843,6 +843,9 @@ def _strip_wake_from_cloud(cloud_text):
     if m is None:
         return cloud_text
     before = cloud_text[:m.start()].rstrip(" ,")
+    if m.start() and before == cloud_text[:m.start()].rstrip() and re.search(
+            r"\b(?:na|w|do|motyw\w*|postać|postac|profil\w*|włącz|wlacz|bądź|badz)$", before, re.I):
+        return cloud_text           # "Przełącz na Lunę." — her name is the theme (25 Oct: "Przełącz na.")
     after  = cloud_text[m.end():].lstrip()
     if after[:1] in (",", ":", ";", "-") or (not before and after[:1] in (".", "!", "?")):
         after = after[1:].lstrip()          # the comma after "Luna"

@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 27 października ==
+- „Przełącz na Lunę”, „przełącz na Retro” i „włącz Retro” zmieniają postać (Retro jako radio ze starymi przebojami tylko wtedy, gdy radio już gra). „Pokaż złą minę”, „pokaż okej”, „zrób duże oczy” — Luna robi minę albo znak OK, zamiast szukać zdjęcia. Mochi pyta „Przytulas na powitanie?” — na „tak” albo „pewnie” przytula (zawsze też na „przytul mnie”). Drukarka, która właśnie drukuje, nie jest już zgłaszana jako „nie przyjmuje wydruków”.
 - Plan lekcji: na górze są tylko osoby, które mają plan lekcji (dorośli bez planu już się nie pojawiają); gdy plan ma jedna osoba, od razu widać jej plan. „+ Dodaj” obok imion — wybierz, czyj plan dodać, i pokaż kartkę kamerze. „Wyczyść” najpierw pyta: „Tak, wyczyść” albo „Anuluj”.
 - Rodzina i goście: plan tygodnia i wszystko o domu jest tylko dla rodziny (Andrzej, Emilka, Maja). Kogoś nowego, kto powie „jestem Ola”, Luna zapamięta jako gościa — przywita go po imieniu, ale nie opowie mu o domownikach i nie da mu planu. „Ola jest z rodziny” albo „usuń Olę z rodziny” może powiedzieć tylko ktoś z rodziny. W ustawieniach nowa zakładka „Osoby”: każda osoba z przełącznikiem Rodzina/Gość i koszem (dotknij dwa razy; „przywróć osobę” ją oddaje).
 

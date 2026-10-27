@@ -5915,6 +5915,10 @@ class Oct14EveningTest(unittest.TestCase):
                                      ("Zrób zeza", "cross_eyes", "Happy"),
                                      ("Zatańcz", "dance", "Happy"),
                                      ("Zrób smutną minę", "sigh", "Sad"),
+                                     ("Pokaż mi smutną minę", "sigh", "Sad"),   # 25 Oct: photos
+                                     ("Zrób duże oczy", "big_pupils", "Surprised"),
+                                     ("Pokaż okej.", "ok_sign", "Happy"),
+                                     ("Zrób znak OK", "ok_sign", "Happy"),
                                      ("Luna, pokaż mi swój język", "cross_eyes", "Happy"),
                                      ("Uśmiechnij się", "slow_blink", "Happy")):
             with state.lock:
@@ -8537,7 +8541,7 @@ class ThemesTest(unittest.TestCase):
         self.assertEqual(r("Zmień profil na PIP."), ("set", "pip"))
         self.assertEqual(r("Włącz profil."), ("list", None))
         self.assertEqual(r("Jakie masz profile?"), ("list", None))
-        for other in ("włącz radio", "włącz retro", "włącz echo", "włącz Mirę", "bądź Ice",
+        for other in ("włącz radio", "włącz echo", "włącz Mirę", "bądź Ice",
                       "bądź cicho",
                       "zamień się w kotka", "włącz lampkę", "włącz Polskie Radio Chopin"):
             self.assertIsNone(r(other), other)
@@ -8587,8 +8591,11 @@ class ThemesTest(unittest.TestCase):
         themes.set_theme("hal")
         for other in ("Zmień temat.", "Inny kanał.", "Przełącz na inną stację."):
             self.assertIsNone(r(other), other)
-        for other in ("Przełącz na retro.", "Zmień na RMF", "włącz się", "nie włączaj radia"):
+        for other in ("Zmień na RMF", "włącz się", "nie włączaj radia"):
             self.assertIsNone(r(other), other)
+        import radio
+        with mock.patch.object(radio, "playing", lambda: "RMF FM"):      # the oldies then
+            self.assertIsNone(r("Przełącz na retro."))
         self.assertIn("włącz motyw <name>", themes.persona_line())
         self.assertTrue(commands.handle("Przełącz charakter na Lunę.", [].append,
                                         lambda *a, **k: None))
@@ -8661,6 +8668,48 @@ class ThemesTest(unittest.TestCase):
         themes.set_theme("luna")
         self.assertIsNone(s._find_wake_word(["hal", "która", "godzina"]))
         self.assertFalse(s._cloud_has_wake("HAL, otwórz drzwi."))
+
+    def test_mochi_hug_after_her_hello(self):
+        import commands
+        said = []
+        # 25 Oct: "Hej, tu Mochi! Przytulas na powitanie?" — "Pewnie." → "bez przytulasa"
+        self.assertTrue(commands.switch_theme("włącz Mochi", said.append))
+        self.assertTrue(commands.hug("Pewnie.", said.append))
+        self.assertIn(said[-1], ("Mocno cię przytulam!", "Przytulas! Mmm, ciepło.", "Tulę cię mocno!"))
+        with state.lock:
+            self.assertEqual(state.reply_scene, "heart_eyes")
+        self.assertFalse(commands.hug("Tak.", said.append))           # once only
+        commands.switch_theme("włącz Hal", said.append)
+        commands.switch_theme("włącz Mochi", said.append)
+        self.assertFalse(commands.hug("Pewnie nie.", said.append))
+        commands.switch_theme("włącz Hal", said.append)
+        commands.switch_theme("włącz Mochi", said.append)
+        self.assertFalse(commands.hug("Jaka jest pogoda?", said.append))
+        self.assertFalse(commands.hug("Tak.", said.append))           # the offer was for the next line
+        self.assertTrue(commands.hug("Przytul mnie mocno!", said.append))   # any time
+        self.assertFalse(commands.hug("Przytul misia do snu", said.append))
+
+    def test_switching_to_luna_and_retro_by_name(self):
+        from unittest import mock
+        import radio
+        import themes
+        import speech_to_text as s
+        # 25 Oct: "Przełącz na Lunę." lost "Lunę" (the theme list), "przełącz na retro" played oldies
+        self.assertEqual(s._strip_wake_from_cloud("Przełącz na Lunę."), "Przełącz na Lunę.")
+        self.assertEqual(s._strip_wake_from_cloud("Włącz motyw Luna."), "Włącz motyw Luna.")
+        self.assertEqual(s._strip_wake_from_cloud("Co to jest, Luno?"), "Co to jest?")
+        self.assertEqual(s._strip_wake_from_cloud("Luna, włącz radio."), "Włącz radio.")
+        themes.set_theme("mochi")
+        try:
+            self.assertEqual(themes.voice_request("Przełącz na Lunę."), ("set", "luna"))
+            with mock.patch.object(radio, "playing", lambda: None):
+                self.assertEqual(themes.voice_request("przełącz na retro"), ("set", "retro"))
+                self.assertEqual(themes.voice_request("włącz retro"), ("set", "retro"))
+            with mock.patch.object(radio, "playing", lambda: "FIP Electro"):
+                self.assertIsNone(themes.voice_request("włącz retro"))       # the oldies station
+                self.assertEqual(themes.voice_request("włącz motyw retro"), ("set", "retro"))
+        finally:
+            themes.set_theme("luna")
 
     def test_voice_and_grammar(self):
         import themes
@@ -10422,6 +10471,13 @@ class PrinterTest(unittest.TestCase):
                                else d):
             self.p.submit(["p"], "x")
         self.assertNotIn("raw", self.lp()[1])
+
+    def test_busy_printer_is_no_trouble(self):
+        # 26 Oct: "Drukarka czeka: nie przyjmuje teraz wydruków" six times — it was printing
+        st = {"state": "processing", "reasons": [], "accepting": False, "markers": []}
+        self.assertEqual(self.p.problems(st), [])
+        self.assertEqual(self.p.problems(dict(st, state="stopped")), ["nie przyjmuje teraz wydruków"])
+        self.assertEqual(self.p.problems(dict(st, reasons=["media-empty-error"])), ["nie ma papieru"])
 
     def test_plans(self):
         import schedule

@@ -306,6 +306,16 @@ _LIST = re.compile(r"\b(?:jakie|które|ktore|pokaż|pokaz)\s+(?:masz\s+|są\s+|m
 # a bare "włącz <name>" only for names nothing else uses ("włącz retro" may be
 # the 80s radio)
 _BARE_OK = ("hal", "mochi", "pixel", "pip")
+
+
+def _radio_on():
+    """"Przełącz na retro" played oldies 3× on 25 Oct while he cycled the
+    characters: retro is the radio only while the radio plays."""
+    try:
+        import radio
+        return bool(radio.playing())
+    except Exception:
+        return False
 _HOME_WORDS = ("domyśln", "domysln", "zwykł", "zwykl", "normaln", "standard")
 
 
@@ -371,7 +381,8 @@ def voice_request(text):
     words = next(g for g in m.groups() if g)
     k = named(words)
     # a bare "włącz Lunę" while another character is on (24 Oct, Hal: refused)
-    if k and (m.group(4) or m.group(6)) and k not in _BARE_OK and not (k == DEFAULT and current() != DEFAULT):
+    if k and (m.group(4) or m.group(6)) and k not in _BARE_OK and not (k == DEFAULT and current() != DEFAULT) \
+            and not (k == "retro" and not _radio_on()):
         return None
     if k:
         return ("set", k)

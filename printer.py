@@ -156,7 +156,9 @@ def problems(st):
     for rx, said in _REASONS:
         if any(re.search(rx, r) and not r.endswith("-report") for r in st["reasons"]):
             out.append(said)
-    if not st["accepting"] and not out:
+    # the Samsung says "not accepting" while it prints: 26 Oct, six "Drukarka czeka"
+    # for jobs that came out 10 s later
+    if not st["accepting"] and not out and st.get("state") != "processing":
         out.append("nie przyjmuje teraz wydruków")
     return out
 

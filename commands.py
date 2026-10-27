@@ -1516,6 +1516,38 @@ def switch_theme(text, speak):
         themes.set_theme(what)
         print(f"[cmd] theme → {what}", flush=True)
         speak(themes.THEMES[what]["hello"])
+        global _hug_offered
+        _hug_offered = time.time() if themes.THEMES[what]["hello"].endswith("?") else 0.0
+    return True
+
+
+_hug_offered = 0.0                  # when Mochi's hello asked "Przytulas na powitanie?"
+_HUG = re.compile(r"^(?:(?:a\s+)?(?:teraz\s+)?(?:przytul|uściskaj|usciskaj)\s+(?:mnie|nas)|"
+                  r"(?:poproszę\s+|chcę\s+|chce\s+|daj\s+)?(?:przytulasa|przytulas|przytulaska|"
+                  r"buziaka|uścisk|uscisk))(?:\s+(?:mocno|proszę|prosze|jeszcze\s+raz))*$", re.I)
+
+
+def hug(text, speak):
+    """"Przytul mnie", or a yes to Mochi's "Przytulas na powitanie?" (25 Oct:
+    "Pewnie." → "No to niech będzie tak bez przytulasa")."""
+    global _hug_offered
+    low = text.lower().strip(" .!?")
+    if not _HUG.match(low):
+        offered, _hug_offered = time.time() - _hug_offered < 90, 0.0   # only the next thing said
+        if not offered or len(low.split()) > 4 or "nie" in low.split():
+            return False
+        import news
+        if not (news.is_yes(text) or re.match(
+                r"^(?:no\s+)?(?:pewnie|jasne|chętnie|chetnie|oczywiście|oczywiscie|poproszę|poprosze)\b",
+                low)):
+            return False
+    _hug_offered = 0.0
+    with state.lock:
+        state.reply_scene, state.reply_scene_start = "heart_eyes", time.time()
+        state.emotion = "Love"
+        state.face_override, state.face_override_until = "love", time.time() + 5.0
+    print("[cmd] a hug", flush=True)
+    speak(random.choice(("Mocno cię przytulam!", "Przytulas! Mmm, ciepło.", "Tulę cię mocno!")))
     return True
 
 
@@ -1552,7 +1584,9 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
             state.emotion = "Happy"
         speak(random.choice(("Już nie śpię!", "Jestem, jestem!", "Dzień dobry! Słucham.")))
         return True
-    later = _LATER_OFF.match(text.strip()) if _split else None
+    if hug(text, speak):
+        return True
+    later =_LATER_OFF.match(text.strip()) if _split else None
     if later:
         # "Za 10 minut wyłącz radio" stopped it at once (8 Oct sweep): the time
         # goes to the end, where the radio / lamp / sound timers look for it
