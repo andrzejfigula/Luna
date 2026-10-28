@@ -643,7 +643,90 @@ def chars_sheet(out_dir, kinds=None):
     return timings
 
 
+ENV_LOOKS = ("night clear winter", "dawn", "sunrise", "morning", "noon summer", "golden",
+             "sunset", "dusk", "day cloudy", "day fog", "sunrise fog", "day drizzle",
+             "day rain", "night heavy-rain wind=40", "day snow winter", "night heavy-snow winter",
+             "dusk storm", "day spring", "day autumn", "night partly")
+
+
+def env_sheet(out_dir, only=None):
+    """Luna's world outside (environment.py), every look simulated (labelled
+    SIM): a sheet, each at full size, a few frames of rain and snow 1/12 s
+    apart, and the GPU time with it and without."""
+    egl_context()
+    fbo = framebuffer()
+    from PIL import Image, ImageDraw
+    import robot_face as rf
+    import gl_face
+    import environment
+    import themes
+    themes.current = lambda now=None: "luna"           # (hers alone)
+    rf.apply_style(3)
+    g = gl_face.GLFace(W, H)
+    g.target_fbo = fbo
+    face = FakeFace(rf)
+    fcx, fcy = W // 2, H // 2 + rf.FACE_Y_OFFSET
+    fake = [1000.0]
+    gl_face._clock = lambda: fake[0]
+    env = environment.get()
+    os.makedirs(out_dir, exist_ok=True)
+
+    def shot(words, steps=20):
+        for _ in range(steps):
+            fake[0] += 1.0 / 30
+            u = g.face_uniforms(face, rf, fcx, fcy)
+        g.render(u)
+        px = GL.glReadPixels(0, 0, W, H, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE)
+        return u, Image.frombytes("RGBA", (W, H), px).transpose(Image.FLIP_TOP_BOTTOM).convert("RGB")
+
+    def timed(u, n=60):
+        GL.glFinish()
+        t0 = time.perf_counter()
+        for _ in range(n):
+            g.render(u)
+        GL.glFinish()
+        return (time.perf_counter() - t0) / n * 1000
+
+    tiles = []
+    for words in (only or ENV_LOOKS):
+        env.simulate(words)
+        env.cur = None                       # (straight there, not eased)
+        u, img = shot(words)
+        img.save(os.path.join(out_dir, "env_" + words.split()[0] + "_" + "_".join(words.split()[1:]) + ".png"))
+        ImageDraw.Draw(img).text((10, 8), "SIM: " + words, fill=(255, 255, 255))
+        tiles.append(img)
+        print(f"[env] {words}: {timed(u, 20):.1f} ms", flush=True)
+    for words in ("day rain", "night snow winter"):       # the motion: 4 frames, 1/12 s apart
+        env.simulate(words)
+        env.cur = None
+        strip = Image.new("RGB", (4 * W // 2, H // 2))
+        for i in range(4):
+            u, img = shot(words, steps=1 if i else 20)
+            fake[0] += 1.0 / 12 - 1.0 / 30
+            crop = img.crop((0, 0, W // 2, H // 2))         # (the top left, full size)
+            strip.paste(crop, (i * W // 2, 0))
+        strip.save(os.path.join(out_dir, "env_motion_" + words.split()[1] + ".png"))
+    for words in ("day clear", "night clear", "night heavy-rain", "night heavy-snow", "off"):
+        env.simulate("day clear" if words == "off" else words)
+        env.cur = None
+        u, _ = shot("", 5)
+        if words == "off":
+            u["uEnvOn"] = 0.0
+        print(f"[env] GPU per frame, {words}: {timed(u):.1f} ms, again {timed(u):.1f} ms")
+    cols = 4
+    rows = (len(tiles) + cols - 1) // cols
+    sheet = Image.new("RGB", (cols * W // 2, rows * H // 2))
+    for i, t in enumerate(tiles):
+        sheet.paste(t.resize((W // 2, H // 2), Image.LANCZOS),
+                    ((i % cols) * W // 2, (i // cols) * H // 2))
+    sheet.save(os.path.join(out_dir, "env_sheet.png"))
+    print(f"[env] wrote {out_dir}")
+
+
 def main():
+    if "--env" in sys.argv:                           # --env [out_dir] ["look words"…]
+        args = [a for a in sys.argv[1:] if not a.startswith("--")]
+        return env_sheet(args[0] if args else "/tmp/gl_env", args[1:] or None)
     if "--chars" in sys.argv:                         # --chars [out_dir] [kind…]
         args = [a for a in sys.argv[1:] if not a.startswith("--")]
         return chars_sheet(args[0] if args else "/tmp/gl_chars", args[1:] or None)

@@ -11281,5 +11281,66 @@ class PaintTest(unittest.TestCase):
         self.assertNotIn("paint", dock.chosen())                   # unticked: stays off
 
 
+class TestEnvironment(unittest.TestCase):
+    """Luna's world outside (environment.py, gl_env.py): the sun, seasons,
+    no weather made up, the uniforms the shaders read."""
+
+    def test_sun_and_seasons(self):
+        import calendar
+        import environment as E
+        noon = calendar.timegm((2026, 6, 21, 10, 55, 0))           # Warsaw, solar noon
+        self.assertAlmostEqual(E.sun_elevation(noon, 52.23, 21.01), 61.2, delta=1.0)
+        winter = calendar.timegm((2026, 12, 21, 10, 50, 0))
+        self.assertAlmostEqual(E.sun_elevation(winter, 52.23, 21.01), 14.3, delta=1.0)
+        self.assertLess(E.sun_elevation(calendar.timegm((2026, 6, 21, 23, 0, 0)), 52.23, 21.01), -5)
+        self.assertAlmostEqual(E.season_weights(197).get("summer", 0), 1.0)
+        self.assertAlmostEqual(E.season_weights(15, south=True).get("summer", 0), 1.0, delta=0.05)
+        w = E.season_weights(60)
+        self.assertAlmostEqual(sum(w.values()), 1.0)
+        self.assertEqual(set(w), {"winter", "spring"})
+
+    def test_no_weather_made_up(self):
+        import environment as E
+        self.assertEqual(E.weather_of(None)["rain"], 0.0)
+        e = E.Env(wall=lambda: 1793700000.0)
+        e._real_sky = lambda t: None                 # no forecast: a clear sky, nothing falling
+        u = e.frame(100.0, 800, 480, 400, 212)
+        self.assertEqual(u["uEnvW"], (0.0, 0.0, 0.0, 0.0))
+        self.assertEqual(u["uEnvRain"][0], 0.0)
+        self.assertEqual(u["uEnvSnow"][0], 0.0)
+        self.assertIsNone(e.label())
+
+    def test_simulated_and_clocks(self):
+        import environment as E
+        e = E.Env(wall=lambda: 1793700000.0)
+        e.simulate("night heavy-rain wind=40 dir=x")      # (a mistyped word: left out)
+        self.assertTrue(e.label().startswith("SYMULACJA: "))
+        t = 100.0
+        for _ in range(400):
+            t += 2.0
+            u = e.frame(t, 800, 480, 400, 212)
+        self.assertGreater(u["uEnvW"][2], 0.8)
+        self.assertGreater(u["uEnvRain"][0], 200)
+        self.assertTrue(all(0.0 <= c < E.CLOCK_WRAP for c in u["uEnvClk"]))
+        self.assertNotEqual(u["uEnvX"][1], 0.0)            # the wind leans it
+        e.simulate(None)
+        self.assertIsNone(e.label())
+
+    def test_uniforms_match_the_shaders(self):
+        import re
+        import environment as E
+        import gl_env
+        import gl_face
+        u = E.Env(wall=lambda: 1793700000.0).frame(1.0, 800, 480, 400, 212)
+        src = gl_face._FRAG + gl_env._VERT
+        glsl = set(re.findall(r"uEnv\w+", src))
+        for k in u:
+            if not k.endswith("C") or k in ("uEnvC0", "uEnvC1"):
+                if k not in ("uEnvRain", "uEnvSnow", "uEnvStars"):    # (gl_env: as its uK)
+                    self.assertIn(k, glsl)
+        for k in glsl:
+            self.assertIn(k, u)
+
+
 if __name__ == "__main__":
     unittest.main()

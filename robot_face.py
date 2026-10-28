@@ -37,6 +37,7 @@ from shared_state import state
 import autoclose
 import characters
 import dock
+import environment
 import face_spec
 import gallery
 import gl_fx
@@ -3409,6 +3410,11 @@ class RobotFace:
             left = autoclose.progress(ov_now)           # closes by itself: the line, ⏸
             if left:
                 ui_screens.draw_countdown(self.screen, WIDTH, HEIGHT, *left)
+
+        sim = environment.sim_label() if self.gl and not self._overlay_on() else None
+        if sim:                                         # a simulated sky: say so (tools/env_sim.py)
+            txt = _get_font(15).render(sim, True, (150, 140, 120))
+            self.screen.blit(txt, (12, HEIGHT - txt.get_height() - 8))
 
         t3 = time.perf_counter()
         if self.gl:

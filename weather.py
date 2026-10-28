@@ -168,7 +168,8 @@ def _fetch(lat=None, lon=None):
         lat, lon, _ = _place()
     q = urllib.parse.urlencode({
         "latitude": lat, "longitude": lon,
-        "current": "temperature_2m,apparent_temperature,weather_code,wind_speed_10m,precipitation",
+        "current": "temperature_2m,apparent_temperature,weather_code,wind_speed_10m,"
+                   "wind_direction_10m,precipitation",
         "daily": "weather_code,temperature_2m_max,temperature_2m_min,"
                  "precipitation_probability_max,sunrise,sunset",
         "hourly": "temperature_2m,precipitation_probability,weather_code",
@@ -385,6 +386,14 @@ def _apply(d):
         _screen.clear()
         _screen.update(scr or {})
         try:
+            cur = d["current"]
+            _sky_cur.clear()
+            _sky_cur.update(time=cur["time"], code=cur["weather_code"],
+                            wind=cur.get("wind_speed_10m"), wind_dir=cur.get("wind_direction_10m"),
+                            precip=cur.get("precipitation"))
+        except (KeyError, TypeError):
+            _sky_cur.clear()
+        try:
             h, day = d["hourly"], d["daily"]
             _sky.clear()
             _sky.update(hours=dict(zip(h["time"], zip(h["temperature_2m"],
@@ -467,6 +476,7 @@ def _loop():
 
 _today = {}        # today's rain chance and max temperature (the last fetch)
 _sky = {}          # hour → (temperature, WMO code); day → (sunrise, sunset)
+_sky_cur = {}      # the "current" block: time, code, wind, wind_dir, precip
 
 # WMO code → the status bar's little picture (statusbar.py)
 _KIND = {0: "clear", 1: "clear", 2: "partly", 3: "cloud", 45: "fog", 48: "fog",
@@ -493,6 +503,29 @@ def now(t=None):
     stamp = time.strftime("%Y-%m-%dT%H:%M", lt)
     day = bool(light) and light[0] <= stamp < light[1]
     return round(temp), kind, day
+
+
+def sky_now(t=None):
+    """The weather right now for Luna's background (environment.py):
+    {code, wind, wind_dir, precip} from the last fetch's "current" block
+    while it is under 90 min old, else this hour's forecast code alone;
+    None without a forecast (nothing is made up)."""
+    if not enabled():
+        return None
+    t = time.time() if t is None else t
+    lt = time.localtime(t)
+    with _lock:
+        cur = dict(_sky_cur)
+        got = _sky.get("hours", {}).get(time.strftime("%Y-%m-%dT%H:00", lt))
+    try:
+        age = t - time.mktime(time.strptime(cur["time"], "%Y-%m-%dT%H:%M"))
+        if -600 < age < 5400 and cur.get("code") is not None:
+            return {k: cur.get(k) for k in ("code", "wind", "wind_dir", "precip")}
+    except (KeyError, ValueError, TypeError, OverflowError):
+        pass
+    if got and got[1] is not None:
+        return {"code": got[1], "wind": None, "wind_dir": None, "precip": None}
+    return None
 
 
 _SUN_Q = re.compile(r"\b(wschód|wschod|zachód|zachod)\s+słońca|\b(wschodzi|zachodzi)\s+słońce|"

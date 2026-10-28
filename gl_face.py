@@ -25,6 +25,7 @@ import sys
 import time
 
 import face_spec
+import environment
 import themes
 import visualizer
 
@@ -108,6 +109,15 @@ uniform vec3  uWaveBands;     // …made of her voice's low / mid / high share (
 uniform float uLens;          // 1: the eyes are HAL's camera lenses, not her glossy ones
 uniform vec2  uShut;          // …and their shutters, closed 0..1 (his blink)
 uniform vec2  uRim;           // …HAL blushing: his steel rims warm red (x) and turn (y, radians)
+
+uniform float uEnvOn;         // 1: Luna's world outside behind her (environment.py)
+uniform vec3  uEnvZen, uEnvMid, uEnvHor, uEnvLow;    // the sky: top, behind her, haze band, bottom
+uniform vec4  uEnvSun, uEnvSunP;      // the sun's haze: rgb, a; x, y, size, the shade behind her
+uniform vec4  uEnvArc, uEnvArcG, uEnvArcA;   // the arc: rgb, a; centre, r, phase; ends, width, glow
+uniform vec4  uEnvW;          // cloud, fog, rain, snow (0..1)
+uniform vec4  uEnvX;          // a storm's far light, the wind's lean, its x, the haze band's y
+uniform vec4  uEnvC0, uEnvC1; // two clouds' shadows: x, y, half sizes
+uniform vec4  uEnvClk;        // clocks (s, wrap at 600): rain, snow, haze, spare
 
 float gA;                     // the coverage of the shape just drawn (stage 2)
 
@@ -664,6 +674,65 @@ float featureShadow(vec2 p) {
     return s;
 }
 
+
+// ── the world outside (environment.py) ───────────────────────────────────
+// the arc: (its distance in px, how far along it 0..1)
+vec2 envArc(vec2 q) {
+    vec2 d = q - uEnvArcG.xy;
+    float a = atan(d.y, d.x);
+    if (a < uEnvArcA.x - 1.5) a += 6.28318;
+    return vec2(abs(length(d) - uEnvArcG.z), (a - uEnvArcA.x) / (uEnvArcA.y - uEnvArcA.x));
+}
+
+// its light along it: in from the screen's edge, gone before her brow, a slow swell
+float envArcK(float t) {
+    return smoothstep(-0.02, 0.30, t) * (1.0 - smoothstep(0.62, 1.0, t))
+           * (0.78 + 0.22 * sin(t * 7.0 + uEnvArcG.w));
+}
+
+// an angular rate that turns whole in the clocks' 600 s (no jump when they wrap)
+float perw(float w) { return floor(w * 95.4930 + 0.5) / 95.4930; }
+
+// (the soft pass) the gradient, the sun's haze, clouds, fog, a storm's light,
+// the arc's glow — screen px, not turned with her head
+vec3 envSky(vec2 q) {
+    float hy = uEnvX.w;
+    vec3 c = mix(uEnvZen, uEnvMid, smoothstep(0.0, hy * 0.85, q.y));
+    float side = exp(-sq((q.x - uEnvSunP.x) / (0.60 * uRes.x)));
+    float band = exp(-sq((q.y - hy) / (0.17 * uRes.y)));
+    c = mix(c, uEnvHor, band * (0.45 + 0.50 * side));
+    c = mix(c, uEnvLow, smoothstep(hy, uRes.y * 1.08, q.y) * 0.9);
+    vec2 s = (q - uEnvSunP.xy) / uEnvSunP.z;
+    float ss = dot(s, s);
+    c += uEnvSun.rgb * uEnvSun.a * (0.32 * exp(-ss * 0.35) + 0.40 * exp(-ss * 5.0));
+    if (uEnvW.x > 0.01) {                 // clouds: one or two very soft, slow shadows
+        vec2 k0 = (q - uEnvC0.xy) / uEnvC0.zw;
+        vec2 k1 = (q - uEnvC1.xy) / uEnvC1.zw;
+        float wob = 0.85 + 0.15 * sin(q.x * 0.013 + uEnvClk.z * perw(0.05))
+                                * sin(q.y * 0.021 - uEnvClk.z * perw(0.03));
+        float cl = min(1.0, (exp(-dot(k0, k0)) + 0.8 * exp(-dot(k1, k1))) * wob);
+        c = mix(c, c * 0.60 + uEnvMid * 0.06, uEnvW.x * cl * 0.75);
+    }
+    if (uEnvW.y > 0.01) {                 // fog: a pale veil, thicker low, drifting
+        float b = 0.5 + 0.25 * sin(q.x * 0.0061 + uEnvClk.z * perw(0.021))
+                      + 0.25 * sin(q.x * 0.0113 + q.y * 0.004 - uEnvClk.z * perw(0.013));
+        vec3 haze = mix(uEnvHor, vec3(dot(uEnvMid, vec3(0.30, 0.59, 0.11))) * 1.5 + 0.04, 0.5);
+        float f = uEnvW.y * (0.30 + 0.35 * b) * (0.45 + 0.55 * smoothstep(0.0, hy * 1.1, q.y));
+        c = mix(c, haze, clamp(f, 0.0, 0.8));
+    }
+    if (uEnvX.x > 0.001) {                // a storm's far light, low behind the clouds
+        vec2 fq = (q - vec2(uEnvX.z, hy)) / (0.35 * uRes);
+        c += vec3(0.55, 0.60, 0.85) * uEnvX.x * exp(-dot(fq, fq));
+    }
+    vec2 ar = envArc(q);
+    if (ar.y > -0.1 && ar.y < 1.1)
+        c += uEnvArc.rgb * uEnvArc.a * envArcK(ar.y)
+             * (0.30 * exp(-ar.x / uEnvArcA.w) + 0.10 * exp(-ar.x / (uEnvArcA.w * 4.0)));
+    vec2 fr = (q - uBlush.xy - vec2(0.0, 30.0)) / vec2(300.0, 190.0);
+    c *= 1.0 - uEnvSunP.w * exp(-dot(fr, fr) * 1.3);      // darker behind her
+    return c;
+}
+
 void main() {
     vec2 fc;
     if (uPass < 0.5) {
@@ -686,6 +755,7 @@ void main() {
         // glass: a faint diagonal sheen across the panel
         float sheen = exp(-sq((uv.x + uv.y * 0.6 - 0.35) / 0.10));
         col += vec3(0.010, 0.009, 0.012) * sheen;
+        if (uEnvOn > 0.5) col = envSky(fc);
         if (uFace > 0.5) {
             if (uBlush.z > 0.01) {                       // blush under the eyes
                 vec2 bq = (p - uBlush.xy - vec2(-232.0, 70.0)) / vec2(uBlush.w * 1.5, uBlush.w);
@@ -701,8 +771,9 @@ void main() {
             float sh = featureShadow(p);
             col += glow * 0.55 * (1.0 - 0.9 * sh);
             col *= 1.0 - 0.6 * sh;
-            col += (eyeFloor(p, uEye0, uLidA0, uLidB0, -1.0)
-                    + eyeFloor(p, uEye1, uLidA1, uLidB1, 1.0)) * (1.0 - sh);
+            if (uEnvOn < 0.5)                            // (the world outside: no floor)
+                col += (eyeFloor(p, uEye0, uLidA0, uLidB0, -1.0)
+                        + eyeFloor(p, uEye1, uLidA1, uLidB1, 1.0)) * (1.0 - sh);
         } else {
             col = vec3(0.0);
         }
@@ -1117,6 +1188,7 @@ class GLFace:
         head += _LAYER_DEF
         self.p_stretch = _Prog(GL, self._program(head + _VERT, head + "#define STRETCH\n" + _FRAG_FLAT))
         self.p_layer = _Prog(GL, self._program(head + _VERT, head + _FRAG_FLAT))
+        self.envp = None                 # the world outside's rain, snow… (gl_env.py)
         for p in (self.p_stretch, self.p_layer):
             GL.glUseProgram(p.id)
             p.u("uRes", (width, height))
@@ -1188,6 +1260,7 @@ class GLFace:
                 raise RuntimeError(GL.glGetShaderInfoLog(sh).decode(errors="replace")[:400])
             GL.glAttachShader(prog, sh)
         GL.glBindAttribLocation(prog, 0, "aPos")
+        GL.glBindAttribLocation(prog, 1, "aSeed")     # (gl_env.py's particles)
         GL.glLinkProgram(prog)
         if not GL.glGetProgramiv(prog, GL.GL_LINK_STATUS):
             raise RuntimeError(GL.glGetProgramInfoLog(prog).decode(errors="replace")[:400])
@@ -1383,6 +1456,17 @@ class GLFace:
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
         GL.glEnable(GL.GL_BLEND)
         GL.glBlendFunc(GL.GL_ONE, GL.GL_ONE_MINUS_SRC_ALPHA)    # premultiplied
+        if (not ch and uniforms.get("uEnvOn", 0.0) > 0.5 and uniforms.get("uFace", 0.0) > 0.5
+                and self.envp is not False):     # the world outside: its rain, snow, the arc
+            try:
+                if self.envp is None:
+                    import gl_env
+                    self.envp = gl_env.EnvPass(self)
+                self.envp.draw(uniforms)
+            except Exception as e:
+                self.envp = False
+                print(f"[gl] world outside off: {e}", flush=True)
+            self._bind_quad()
         if uniforms.get("_vis"):             # the radio's picture (gl_vis.py), behind it all
             if self.vis is None:
                 import gl_vis
@@ -1923,6 +2007,15 @@ class GLFace:
             if not getattr(self, "_vis_err", False):
                 self._vis_err = True
                 print(f"[vis] {e}", flush=True)
+        u["uEnvOn"] = 0.0
+        if not kind and themes.current() == themes.DEFAULT and environment.enabled():
+            try:                                  # the world outside behind her (Luna only)
+                u.update(environment.get().frame(now, self.w, self.h, fcx, fcy, asleep=asleep))
+            except Exception as e:
+                u["uEnvOn"] = 0.0
+                if not getattr(self, "_env_err", False):
+                    self._env_err = True
+                    print(f"[env] {e}", flush=True)
         if kind:
             import gl_chars
             gl_chars.apply(self, face, u, cur, fcx, fcy, kind, now, dt)

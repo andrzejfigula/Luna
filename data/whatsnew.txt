@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 28 października ==
+- Za Luną widać niebo: zmienia się z porą dnia i roku (świt, zachód słońca, noc z gwiazdami), a kiedy naprawdę pada deszcz albo śnieg, u niej też pada. Pogoda jest prawdziwa, z prognozy. Tylko w zwykłym wyglądzie Luny.
 - W Ustawieniach → Osoby przycisk „Dodaj” przy „Nowa osoba” działa: Luna zamyka ustawienia, pyta „jak masz na imię?”, a po samym imieniu („Kasia”) uczy się twarzy — jako gościa.
 - W Ustawieniach → Osoby dotknięcie kogoś z rodziny najpierw pyta „…nie z rodziny?” — dopiero „Tak, gość” robi z niego gościa. Wcześniej jedno przypadkowe dotknięcie wystarczało.
 
