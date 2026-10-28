@@ -5644,6 +5644,33 @@ class FamilyTest(unittest.TestCase):
             self.assertIn("Maja", faces.family())                # back in: no question
             self.assertFalse(data.get("confirm"))
 
+    def test_settings_new_person_asks_name(self):
+        # 28 Oct: "Nowa osoba" looked like a button and a tap did nothing
+        import commands
+        import settings_page as sp
+        import text_to_speech
+        import ui_screens
+        from unittest import mock
+        data = {"tab": sp.TABS.index("Osoby")}
+        k = [r.get("key") for r in sp.people_rows()].index("new_person")
+        with mock.patch.object(sp, "_page_data", return_value=data), \
+                mock.patch.object(sp, "rows", side_effect=lambda t, now=None: sp.people_rows()), \
+                mock.patch.object(ui_screens, "settings_hit", return_value=("row", k)), \
+                mock.patch.object(sp.threading, "Thread") as th:
+            sp.tap(1, 1, 800, 480)
+        self.assertIs(th.call_args.kwargs["target"], sp._ask_name)
+        said = []
+        with state.lock:
+            state.overlay = ("settings", time.time() + 60, data)
+        with mock.patch.object(text_to_speech, "speak", side_effect=said.append), \
+                mock.patch.object(sp.time, "sleep"):
+            sp._ask_name()
+        self.assertIn("jak masz na imię", said[0])
+        with state.lock:
+            self.assertIsNone(state.overlay)
+            self.assertTrue(state.conversation_active)
+        self.assertEqual(commands._bare_name("Kasia."), "Kasia")
+
 
 class ErrandsTest(unittest.TestCase):
 

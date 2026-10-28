@@ -281,10 +281,26 @@ def people_rows(now=None):
     if pages > 1:
         out.append({"key": "people_page", "kind": "cycle", "label": "Więcej osób",
                     "sub": f"{len(everyone)} osób", "value": f"{page + 1} z {pages}"})
-    out.append({"kind": "info", "label": "Nowa osoba",
-                "sub": "powie mi „jestem Kasia” — będzie gościem",
-                "value": ""})
+    out.append({"key": "new_person", "kind": "cycle", "label": "Nowa osoba",
+                "sub": "zapytam o imię i zapamiętam twarz — jako gościa",
+                "value": "Dodaj"})
     return out
+
+
+def _ask_name():
+    """"Nowa osoba" tapped: the page closes and she asks; the bare name
+    ("Kasia.") is the answer, then commands._learn_face as for "jestem Kasia"."""
+    import commands
+    from text_to_speech import speak
+    with state.lock:
+        if state.overlay and state.overlay[0] == "settings":
+            state.overlay = None
+    time.sleep(0.3)
+    speak("Stań przede mną i powiedz, jak masz na imię.")
+    commands.expect_name()
+    with state.lock:                       # the answer needs no "Luna"
+        state.conversation_active = True
+        state.last_activity_time = time.time() + 8
 
 
 def _outsider_here():
@@ -563,7 +579,9 @@ def tap(x, y, W, H, now=None):
         _toast(data, person_change(r["key"], binned=True, now=now))
     elif hit[0] == "row":
         r = rows(data.get("tab", 0))[hit[1]]
-        if r.get("key", "").startswith("person:") or r.get("key") == "people_page":
+        if r.get("key") == "new_person":
+            threading.Thread(target=_ask_name, daemon=True, name="new-person").start()
+        elif r.get("key", "").startswith("person:") or r.get("key") == "people_page":
             said = person_change(r["key"], now=now, sure=False)
             if said == "ask":                   # out of the family: "Na pewno?" first
                 data["confirm"], data["confirm_who"] = now, r["key"].split(":", 1)[1]
