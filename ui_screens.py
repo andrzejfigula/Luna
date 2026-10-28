@@ -1337,13 +1337,19 @@ def draw_settings(scr, data, now, W, H):
         scr.blit(shade, (0, 0))
         d = L["dialog"]
         scr.blit(rrect(d.w, d.h, 22, (34, 30, 54, 250)), d)
-        q = text("Reset fabryczny?", 28, WHITE, "ExtraBold")
+        who = data.get("confirm_who")                 # out of the family, or the reset
+        title, lines, yes = ((fit(f"{who} nie z rodziny?", 28, d.w - 40, "ExtraBold"),
+                              ("Będzie gościem: bez planu dnia", "i bez wiadomości o domu."),
+                              "Tak, gość") if who else
+                             ("Reset fabryczny?", ("Luna zapomni wszystkie wspomnienia",
+                                                   "i wszystkie znane osoby."), "Tak, wyczyść"))
+        q = text(title, 28, WHITE, "ExtraBold")
         scr.blit(q, q.get_rect(center=(d.centerx, d.y + 42)))
-        for j, ln in enumerate(("Luna zapomni wszystkie wspomnienia", "i wszystkie znane osoby.")):
+        for j, ln in enumerate(lines):
             t = text(ln, 19, soft, "SemiBold")
             scr.blit(t, t.get_rect(center=(d.centerx, d.y + 86 + j * 26)))
         for key, lab, col in (("no", "Anuluj", (255, 255, 255, 40)),
-                              ("yes", "Tak, wyczyść", (214, 52, 52, 240))):
+                              ("yes", yes, (214, 52, 52, 240))):
             b = L[key]
             scr.blit(rrect(b.w, b.h, 24, col), b)
             t = text(lab, 21, WHITE, "ExtraBold")

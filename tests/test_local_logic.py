@@ -5614,6 +5614,36 @@ class FamilyTest(unittest.TestCase):
         self.assertEqual(sp.person_change("person:Andrzej"), "Ktoś musi zostać w rodzinie")
         self.assertIn("Andrzej", faces.family())
 
+    def test_settings_osoby_asks_before_guest(self):
+        # 28 Oct: one tap on his own name made Andrzej a guest
+        import faces
+        import settings_page as sp
+        import ui_screens
+        from unittest import mock
+        self._here("Andrzej")
+        data = {"tab": sp.TABS.index("Osoby")}
+        k = [r.get("key") for r in sp.people_rows()].index("person:Maja")
+        with mock.patch.object(sp, "_page_data", return_value=data), \
+                mock.patch.object(sp, "rows", side_effect=lambda t, now=None: sp.people_rows()), \
+                mock.patch.object(ui_screens, "settings_hit") as hit:
+            hit.return_value = ("row", k)
+            sp.tap(1, 1, 800, 480)
+            self.assertEqual(data.get("confirm_who"), "Maja")
+            self.assertIn("Maja", faces.family())                # only asks
+            hit.return_value = ("no",)
+            sp.tap(1, 1, 800, 480)
+            self.assertIn("Maja", faces.family())                # Anuluj
+            self.assertFalse(data.get("confirm"))
+            hit.return_value = ("row", k)
+            sp.tap(1, 1, 800, 480)
+            hit.return_value = ("yes",)
+            sp.tap(1, 1, 800, 480)
+            self.assertNotIn("Maja", faces.family())             # Tak, gość
+            hit.return_value = ("row", k)
+            sp.tap(1, 1, 800, 480)
+            self.assertIn("Maja", faces.family())                # back in: no question
+            self.assertFalse(data.get("confirm"))
+
 
 class ErrandsTest(unittest.TestCase):
 

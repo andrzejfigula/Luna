@@ -296,8 +296,9 @@ def _outsider_here():
                                       and not faces.probably_family())
 
 
-def person_change(key, binned=False, now=None):
-    """The family/guest switch or the bin on a person's row. Returns the toast."""
+def person_change(key, binned=False, now=None, sure=True):
+    """The family/guest switch or the bin on a person's row. Returns the toast,
+    or "ask" when taking someone out of the family and not `sure` yet."""
     import faces
     _cache.clear()
     if key == "people_page":
@@ -317,6 +318,8 @@ def person_change(key, binned=False, now=None):
     on = not faces.is_family(name)
     if not on and faces.family() == [name]:
         return "Ktoś musi zostać w rodzinie"
+    if not on and not sure:
+        return "ask"
     faces.set_family(name, on)
     return f"{name}: z rodziny" if on else f"{name}: gość"
 
@@ -537,8 +540,12 @@ def tap(x, y, W, H, now=None):
         return False
     hit = ui_screens.settings_hit(x, y, W, H, data)
     if data.get("confirm"):
+        who = data.pop("confirm_who", None)
         if now - data["confirm"] > CONFIRM_SECS or hit == ("no",) or not hit:
             data["confirm"] = None
+        elif hit == ("yes",) and who:
+            data["confirm"] = None
+            _toast(data, person_change("person:" + who, now=now))
         elif hit == ("yes",):
             data["confirm"] = None
             if _child_here():
@@ -557,8 +564,10 @@ def tap(x, y, W, H, now=None):
     elif hit[0] == "row":
         r = rows(data.get("tab", 0))[hit[1]]
         if r.get("key", "").startswith("person:") or r.get("key") == "people_page":
-            said = person_change(r["key"], now=now)
-            if said:
+            said = person_change(r["key"], now=now, sure=False)
+            if said == "ask":                   # out of the family: "Na pewno?" first
+                data["confirm"], data["confirm_who"] = now, r["key"].split(":", 1)[1]
+            elif said:
                 _toast(data, said)
         elif r["kind"] == "danger":
             data["confirm"] = now
