@@ -49,17 +49,21 @@ float envCloudD(vec2 q, vec4 f, vec4 g) {
         float r = w * (0.13 + 0.12 * h) * max(k, 0.25)
                   * (1.0 + 0.09 * envcW(g.w * (1.0 + floor(h * 4.0) * 0.25) + h));
         vec2 c = vec2(t * w * 0.31 + (h - 0.5) * w * 0.07, -r * (0.35 + 0.40 * envcH(h * 91.7)));
-        d = envcMin(d, length(p - c) - r, w * 0.10);
+        d = envcMin(d, length(p - c) - r, w * 0.06);
     }
     return -envcMin(-d, w * 0.025 - p.y, w * 0.05);
 }
+
+// the edge's softness (px): a few px, far ones a little softer (the sky's
+// quarter-size pass, stretched, still keeps them crisp)
+float envcS(vec4 f, vec4 g) { return 3.5 + f.z * (0.010 - 0.005 * g.y); }
 
 // how much the clouds cover this point (0..1)
 float envcOne(vec2 q, vec4 f, vec4 g) {
     if (g.x < 0.004) return 0.0;
     vec2 p = q - f.xy;
     if (abs(p.x) > 0.62 * f.z || p.y > 0.12 * f.z || p.y < -0.62 * f.z * g.z) return 0.0;
-    float s = f.z * (0.05 - 0.025 * g.y) + 2.0;
+    float s = envcS(f, g);
     return g.x * (1.0 - smoothstep(-s, s, envCloudD(q, f, g)));
 }
 float envCover(vec2 q) {

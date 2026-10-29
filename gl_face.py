@@ -717,14 +717,14 @@ vec3 envCloud(vec3 c, vec2 q, vec4 f, vec4 g) {
     float w = f.z;
     if (abs(p.x) > 0.62 * w || p.y > 0.12 * w || p.y < -0.62 * w * g.z) return c;
     float d = envCloudD(q, f, g);
-    float s = w * (0.05 - 0.025 * g.y) + 2.0;
+    float s = envcS(f, g);
     float a = 1.0 - smoothstep(-s, s, d);
     if (a < 0.003) return c;
-    float k = w * 0.16;
+    float k = w * 0.09;
     float d2 = envCloudD(q + uEnvL.xy * k, f, g);
-    float lit = exp(-max(0.0, -d2) / (w * 0.22));                // the light's way in
+    float lit = exp(-max(0.0, -d2) / (w * 0.12));                // the light's way in
     float up = smoothstep(f.y + 0.02 * w, f.y - 0.42 * w * g.z, q.y);   // tops lighter
-    float sh = clamp(0.20 + (0.90 - uEnvCl.a) * lit + uEnvCl.a * up, 0.0, 1.0);
+    float sh = clamp(0.15 + (0.90 - uEnvCl.a) * lit + uEnvCl.a * up, 0.0, 1.0);
     vec3 col = mix(uEnvCs.rgb, uEnvCl.rgb, sh);
     float face = clamp((d2 - d) / k, 0.0, 1.0);                  // the side toward the light
     col += uEnvCr.rgb * uEnvCr.a * face * exp(-abs(d + 0.8 * s) / s) * 0.6;
