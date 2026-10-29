@@ -22,6 +22,7 @@ from openai_tts import tts, envelope
 import polish
 import sounds
 import themes
+import activation
 
 from shared_state import state
 from config import (
@@ -238,8 +239,12 @@ def speak_stream(sentences):
     starts on the first one."""
     said = []
 
+    turn = activation.turn_id()
+
     def collect():
         for sentence in sentences:
+            if activation.turn_cancelled(turn):
+                break                      # a tap called the answer off
             sentence = _EMOJI.sub("", sentence).strip()
             if not sentence:
                 continue                   # "😼" alone (22 Oct) — nothing to say
@@ -271,6 +276,9 @@ def _current_style():
 def _speaking(run, spoken_text, can_drop):
     """The state around any speech: the lock (one voice at a time), the
     speaking flags the face and mic watch, echo protection afterwards."""
+    if activation.turn_cancelled():
+        print("[TTS] dropped — the turn was cancelled", flush=True)
+        return
     if can_drop:
         if not _speak_lock.acquire(blocking=False):
             return

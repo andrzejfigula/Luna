@@ -38,6 +38,7 @@ import relationship
 import themes
 from reply_stream import ReplyStream
 import body
+import activation
 import health
 import homework
 import memory
@@ -2895,6 +2896,11 @@ def weather_told(text, gesture):
         re.search(r"\b(?:pogod|prognoz)", text, re.I))
 
 
+def _speak_for(turn, sentences):
+    activation.join_turn(turn)
+    speak_stream(sentences)
+
+
 def process(text, context=None):
     """context: extra system-prompt text for this one question (news.py).
     Usually called from the voice thread; reading.py's end-after-silence
@@ -2926,6 +2932,7 @@ def _process(text, context=None):
 
     # Streamed: the face is set when the model gets to the reply, the first
     # sentence is spoken while it writes the rest (see reply_stream.py).
+    turn = activation.turn_id()             # a tap calls it off (activation.cancel)
     sentences = queue.Queue()
     speaker = []
     head = {}
@@ -2936,7 +2943,7 @@ def _process(text, context=None):
         head["gesture"] = gesture if gesture in GESTURES else "none"
         answered.set()
         _show(head["emotion"], head["gesture"])
-        t = threading.Thread(target=speak_stream, args=(iter(sentences.get, None),),
+        t = threading.Thread(target=_speak_for, args=(turn, iter(sentences.get, None)),
                              daemon=True)
         t.start()
         speaker.append(t)
@@ -2961,6 +2968,13 @@ def _process(text, context=None):
         print(f"[brain] reply started streaming after {head['_t']:.1f}s, "
               f"model done after {time.time() - t0:.1f}s")
     health.note_reply(bool(result), time.time() - t0)
+    if activation.turn_cancelled():
+        print("[brain] the turn was cancelled — the reply isn't said", flush=True)
+        with state.lock:
+            state.emotion = "Neutral"
+        if speaker:
+            speaker[0].join()
+        return
 
     if result and not result[0] and not speaker:     # said to someone else: silence
         return

@@ -79,13 +79,14 @@ weekly.start_weekly()
 
 import random
 
+import activation
 from speech_to_text import listen, WAKE_ACK
 from text_to_speech import speak, play_sound
 from brain import process, note_local
 from shared_state import close_after, state
 from config import (WAKE_REPLIES, ECHO_GUARD_WINDOW,
                     ECHO_RUN_THRESH, ECHO_OVERLAP_THRESH,
-                    WAKE_SOUND_CHANCE)
+                    WAKE_SOUND_CHANCE, FOLLOWUP_NEEDS_NAME)
 
 
 def _is_self_echo(text):
@@ -124,6 +125,13 @@ def _heard_unsure():
     return speech_to_text.heard_unsure
 
 
+def _stt_flag(name):
+    """speech_to_text's verdict on the sentence just returned: quiet_wake
+    (her name alone, unsure — no "hm?"), local_only (no name: commands only)."""
+    import speech_to_text
+    return getattr(speech_to_text, name, False)
+
+
 def _answer_awaited():
     """A game waits for an answer, a page is open (gallery.py) or she has
     just asked something (brain.awaits_answer): with the
@@ -152,6 +160,7 @@ def voice_loop():
             if text:
                 import timing
                 timing.mark("text")             # (the "[latency]" breakdown)
+                activation.begin_turn()         # a tap now calls off what she'd say
             try:
                 if text == WAKE_ACK:
                     commands.wake_up("wake word")
@@ -159,9 +168,13 @@ def voice_loop():
                     with state.lock:
                         state.bare_wake = True
                     # wake word alone ("Luna!") — short acknowledgement; a
-                    # quick "hm?" is instant, a sentence needs a TTS round trip
-                    if not (random.random() < WAKE_SOUND_CHANCE
-                            and play_sound("huh", can_drop=False)):
+                    # quick "hm?" is instant, a sentence needs a TTS round trip.
+                    # Unsure it was her name: the listening face only (activation.py)
+                    if _stt_flag("quiet_wake"):
+                        print("[Luna] (quiet — unsure of her name, the face listens)",
+                              flush=True)
+                    elif not (random.random() < WAKE_SOUND_CHANCE
+                              and play_sound("huh", can_drop=False)):
                         speak(random.choice(WAKE_REPLIES))
                 elif text:
                     text = commands.undoubled(text)
@@ -208,6 +221,11 @@ def voice_loop():
                             note_local(text, said)   # the model learns what happened
                         if isinstance(handled, tuple) and handled[0] == "ask":
                             process(handled[1])      # e.g. the weather question, now answerable
+                    elif _stt_flag("local_only"):
+                        # no name, the radio on, not a command: said to someone
+                        # in the room — never the model (the window closes below)
+                        activation.reject(activation.Candidate("radio-face", vosk=text,
+                                                               radio=True), "not_a_command")
                     elif _is_self_echo(text):
                         print(f"[Luna] Ignoring self-echo: \"{text}\"")
                     elif _heard_unsure():
@@ -222,6 +240,7 @@ def voice_loop():
                         # dropped
                         process(text)
             finally:
+                activation.end_turn()
                 # never leave the mode stuck on "processing" (e.g. empty input)
                 with state.lock:
                     if not state.speaking and state.luna_mode == "processing":
@@ -250,6 +269,7 @@ def voice_loop():
                     # Malowanie up: always — "Powiedz" opens the next one (26 Oct:
                     # the room's talk while she drew became edits, no way to stop it)
                     painting = paint.active()
+                    done = done or FOLLOWUP_NEEDS_NAME     # (config: no open window)
                     if (done or painting) and state.conversation_active and \
                             (painting or not _answer_awaited()):
                         with state.lock:

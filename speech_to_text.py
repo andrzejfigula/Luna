@@ -36,6 +36,7 @@ import sounddevice as sd
 from vosk import Model, KaldiRecognizer
 
 from shared_state import state
+import activation
 import devices
 import themes
 from config import (
@@ -44,6 +45,7 @@ from config import (
     VOSK_SAMPLE_RATE,
     CONVO_TIMEOUT,
     CONVO_GRACE,
+    WAKE_UNSURE_WINDOW,
     POST_SPEAK_DELAY,
     DOUBLE_FLUSH,
     MIC_GAIN,
@@ -1047,7 +1049,7 @@ def _wake_check_worth(words, peak=None, secs=None):
     dozens went to the cloud, every one came back empty. But a word-likeness
     test alone missed 21:09 "Luna, jaka jutro pogoda?" → Vosk "nuda i pobudzi
     oczu powoda" (3.5× the gate), and its two repeats."""
-    if not CLOUD_WAKE_CHECK or _cloud is None or call_pause():
+    if not CLOUD_WAKE_CHECK or _cloud is None or call_pause() or activation.cooling():
         return False
     if words is not None and _radio_on():
         loud = peak is not None and peak >= RADIO_LOUD * _energy_gate() and len(words) >= 2
@@ -1142,27 +1144,65 @@ def _name_like(word):
 
 def _cloud_wake_check(pcm16k, words=None, peak=None):
     """Vosk heard speech but no wake word: ask the cloud whether the wake
-    word is actually in there. Returns (found, cleaned_text). Rationed: a
+    word is actually in there. Returns (found, cleaned_text); _wake_seen
+    says how ("cloud" or "radio-face") and what the cloud heard. Rationed: a
     room with the TV on would otherwise send every sentence to the cloud."""
+    global _wake_seen
+    _wake_seen = (None, None)
     job = _spec_take(pcm16k) if pcm16k else None
     if job is not None:
         # already transcribed on the pause (Vosk's partial words had her name,
         # its final ones lost it: 6 Oct 18:36 "Luna, jakie stacje radiowe
         # masz?" heard as "no jakie stacje…" — and ignored); free to use
         cloud = job["result"]
-        _note_wake_check_result(cloud)
-        if not cloud or not _cloud_has_wake(cloud) or not _cloud_wake_plausible(cloud, words):
-            seen = _seen_saying_it(cloud, len(pcm16k) / 32000.0)
-            return (True, seen) if seen else (False, None)
-        return True, _strip_wake_from_cloud(cloud)
-    if not _wake_check_worth(words, peak, len(pcm16k) / 32000.0) or not _wake_budget():
+    elif not _wake_check_worth(words, peak, len(pcm16k) / 32000.0) or not _wake_budget():
         return False, None
-    cloud = _cloud_transcribe(pcm16k)
+    else:
+        cloud = _cloud_transcribe(pcm16k)
     _note_wake_check_result(cloud)
     if not cloud or not _cloud_has_wake(cloud) or not _cloud_wake_plausible(cloud, words):
         seen = _seen_saying_it(cloud, len(pcm16k) / 32000.0)
+        _wake_seen = ("radio-face", cloud) if seen else (None, cloud)
         return (True, seen) if seen else (False, None)
+    _wake_seen = ("cloud", cloud)
     return True, _strip_wake_from_cloud(cloud)
+
+
+_wake_seen = (None, None)              # (how the last cloud wake check found her, its words)
+local_only = False      # the last text may only run a local command (activation.py)
+quiet_wake = False      # the last WAKE_ACK: no sound — only the listening face
+
+
+def _wake(src, text, vosk, cloud=None, conf=None, pcm=None):
+    """A call of her name → the activation firewall's verdict. Accepted: the
+    conversation opens (the brain hears it came with her name only when the
+    name was sure). Returns the verdict, or None when rejected."""
+    global local_only, quiet_wake
+    c = activation.Candidate(src, text, vosk, cloud, conf,
+                             name_like=_sounds_like_name(vosk.split()) or
+                             _find_wake_word(vosk.split()) is not None,
+                             radio=_radio_on())
+    v = activation.judge(c, _wake_re())
+    if v.outcome != activation.ACCEPT:
+        _save_utterance(pcm, vosk, cloud, f"(rejected: {v.reason})")
+        return None
+    print("[STT] Wake word" + (" (cloud)" if src in activation.WEAK else "")
+          + " — conversation active")
+    if v.stamp:
+        _stamp_wake()
+    local_only, quiet_wake = v.scope == "local", v.quiet
+    with state.lock:
+        state.conversation_active = True
+        state.last_activity_time = time.time()
+        if v.quiet:      # unsure it was her name: a short window for the request
+            state.last_activity_time -= max(0.0, CONVO_TIMEOUT - WAKE_UNSURE_WINDOW)
+    return v
+
+
+def _reject(src, reason, vosk, cloud=None, conf=None, pcm=None):
+    activation.reject(activation.Candidate(src, "", vosk, cloud, conf, radio=_radio_on()),
+                      reason)
+    _save_utterance(pcm, vosk, cloud, f"(rejected: {reason})")
 
 
 # ── Optional utterance log (review misrecognitions) ─────────────────────────
@@ -1268,6 +1308,7 @@ def _expire_conversation():
         state.convo_expired_time  = time.time()
         state.convo_closed_hard   = False      # timed out: a late start still counts
         state.listening           = False
+    activation.expire()                        # a quiet "Luna?" nobody followed
 
 
 # ── Main listen ───────────────────────────────────────────────────────────────
@@ -1292,8 +1333,8 @@ def listen():
     when actionable, "" otherwise.
     """
 
-    global heard_unsure
-    heard_unsure = False
+    global heard_unsure, local_only, quiet_wake
+    heard_unsure = local_only = quiet_wake = False
 
     # no mic? — don't spin, just idle politely (keeper thread is retrying)
     if not _mic_ok:
@@ -1303,6 +1344,7 @@ def listen():
     # "Luna, nie słuchaj": the audio is thrown away unheard — no Vosk, no cloud
     if _muted():
         _flush_queue()
+        activation.cancel("muted")
         with state.lock:
             state.listening = False
         time.sleep(0.5)
@@ -1371,10 +1413,13 @@ def listen():
                 with state.lock:
                     state.luna_mode = "idle"
             with state.lock:
-                if active and not state.conversation_active:    # closed from outside
+                closed = active and not state.conversation_active    # closed from outside
+                if closed:
                     state.listening = False
                     state.luna_mode = "idle"
-                    return ""
+            if closed:
+                activation.cancel("closed")
+                return ""
             continue
 
         # if Luna started speaking, abort this listen (mic gets flushed after);
@@ -1574,11 +1619,8 @@ def listen():
                     # if it was clearly loud speech, let the cloud check it.
                     if not active and peak_rms >= 2.0 * _energy_gate():
                         found, cleaned = _cloud_wake_check(utt_pcm, words, peak_rms)
-                        if found:
-                            print("[STT] Wake word (cloud) — conversation active"); _stamp_wake()
-                            with state.lock:
-                                state.conversation_active = True
-                                state.last_activity_time  = time.time()
+                        if found and _wake(_wake_seen[0], cleaned, text, _wake_seen[1],
+                                           pcm=utt_pcm):
                             if cleaned and cut_off(cleaned) and not messages_armed():
                                 # "Hej Luna, jaki jest najlepszy sposób..." — wait for the rest
                                 # (6 Oct 21:44: answered at once, "Chyba nie dokończyłeś pytania")
@@ -1605,6 +1647,7 @@ def listen():
                 # when no camera is available).
                 if not _addressed_to_luna():
                     print(f"[STT] Wake ignored (nobody facing me): \"{text}\"")
+                    _reject("vosk", "no_face", text, pcm=utt_pcm)
                     with state.lock:
                         state.luna_mode = "listening" if active else "idle"
                         state.listening = active
@@ -1620,20 +1663,22 @@ def listen():
                     if not fuzzy_cloud or not _cloud_has_wake(fuzzy_cloud):
                         print(f"[STT] false wake — \"{text}\" was not her name "
                               f"(cloud: \"{fuzzy_cloud}\")", flush=True)
+                        _reject("vosk-fuzzy", "not_her_name", text, fuzzy_cloud, wake_conf,
+                                utt_pcm)
                         with state.lock:
                             state.luna_mode = "listening" if active else "idle"
                             state.listening = active
                         continue
-                print("[STT] Wake word — conversation active"); _stamp_wake()
-                with state.lock:
-                    state.conversation_active = True
-                    state.last_activity_time  = time.time()
+                src = "vosk-fuzzy" if fuzzy else "vosk"
                 if (cleaned and not fuzzy
                         and fast_command(cleaned, _avg_confidence(result))):
+                    if not _wake(src, cleaned, text, None, wake_conf, utt_pcm):
+                        continue
                     print(f"[STT] sure of \"{cleaned}\" — no cloud", flush=True)
                     return cleaned
                 if fuzzy:
                     cleaned = _strip_wake_from_cloud(fuzzy_cloud)
+                cloud, asked = fuzzy_cloud, bool(cleaned)
                 if cleaned:
                     cloud = fuzzy_cloud or _cloud_transcribe(utt_pcm)
                     if cloud and not messages_armed() and english_side_talk(cloud):
@@ -1641,6 +1686,7 @@ def listen():
                         # a "luna" in them; the real words have no "Luna" at all
                         # (6 Oct 16:42: "…we need more people on the sprint review")
                         print(f"[STT] false wake — English side talk: \"{cloud}\"", flush=True)
+                        _reject(src, "english_side_talk", text, cloud, wake_conf, utt_pcm)
                         with state.lock:
                             state.conversation_active = False
                             state.proactive_muted_until = max(state.proactive_muted_until,
@@ -1657,6 +1703,12 @@ def listen():
                         # the cloud heard no words after "Luna" — whatever
                         # Vosk made of the rest was noise; just answer "Tak?"
                         cleaned = ""
+                if not _wake(src, cleaned, text, cloud, wake_conf, utt_pcm):
+                    with state.lock:
+                        state.luna_mode = "listening" if active else "idle"
+                        state.listening = active
+                    continue
+                if asked:
                     _save_utterance(utt_pcm, text, cloud, cleaned or "(wake)")
                 if cleaned and cut_off(cleaned) and not messages_armed():
                     _held = (cleaned, time.time())  # "Luna, żeby to wyk..." — the rest
@@ -1682,6 +1734,7 @@ def listen():
                     print(f"[STT] sure of \"{fast}\" — no cloud", flush=True)
                     with state.lock:
                         state.last_activity_time = time.time()
+                    activation.followed()
                     return fast
                 cloud = fix_lone_nie(_cloud_transcribe(utt_pcm, short_lang(text.split())),
                                      text, conf)
@@ -1732,16 +1785,13 @@ def listen():
                         state.listening = True
                     continue
                 _save_utterance(utt_pcm, text, cloud, final)
+                activation.followed()
                 return final
 
             # Passive mode and Vosk didn't spot the wake word — its small
             # model mishears "Luna" often, so let the cloud have a look.
             found, cleaned = _cloud_wake_check(utt_pcm, words, peak_rms)
-            if found:
-                print("[STT] Wake word (cloud) — conversation active"); _stamp_wake()
-                with state.lock:
-                    state.conversation_active = True
-                    state.last_activity_time  = time.time()
+            if found and _wake(_wake_seen[0], cleaned, text, _wake_seen[1], pcm=utt_pcm):
                 if cleaned and cut_off(cleaned) and not messages_armed():
                     # "Hej Luna, jaki jest najlepszy sposób..." — wait for the rest
                     # (6 Oct 21:44: answered at once, "Chyba nie dokończyłeś pytania")

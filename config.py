@@ -119,6 +119,17 @@ CONVO_QUESTION_BONUS = 12  # …plus this when her reply asks or offers somethin
                            # a thoughtful answer needs longer than 10 s
 CONVO_GRACE        = 4    # speech that STARTED up to this long after the window
                            # closed is still answered — you began in time
+FOLLOWUP_NEEDS_NAME = False  # True: after her answer the window closes — the next
+                           # sentence needs "Luna" (not when a game, a page or her
+                           # own question waits for an answer)
+# The activation firewall (activation.py): every call of her name gets one verdict
+WAKE_SURE_CONF     = 0.8   # her name alone: Vosk this sure of it, or both recognisers agree
+WAKE_UNSURE_QUIET  = True  # …otherwise no "hm?" — the listening face only, and
+WAKE_UNSURE_WINDOW = 5     # …the next sentence must start within this many seconds
+WAKE_REJECT_COOLDOWN = 3.0 # after a rejected call: no cloud-only wakes for this long
+RADIO_FACE_LOCAL_ONLY = True  # radio on, no name, the face seen talking: a local
+                           # command only, never the model (29 Oct log: half of
+                           # these were side talk — "a przelałem ci tysiąc złotych")
 POST_SPEAK_DELAY   = 0.2   # settle time after Luna speaks before listening again
 DOUBLE_FLUSH       = True  # flush audio queue twice (before and after delay)
 # Talking seen by the camera (mouth.py): the mouth of the face in front of her

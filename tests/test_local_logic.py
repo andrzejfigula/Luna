@@ -11385,5 +11385,242 @@ class TestEnvironment(unittest.TestCase):
             self.assertIn(k, u)
 
 
+
+class ActivationFirewallTest(unittest.TestCase):
+    """activation.py: one verdict per call of her name (the 15 cases of the
+    false-activation task, with mocks — no audio, no model)."""
+
+    _KEEP = ("conversation_active", "last_activity_time", "mic_muted_until", "last_wake_time",
+             "speaking", "luna_mode", "mic_unblock_time", "last_spoken_text",
+             "last_spoken_time", "caption", "frozen_emotion", "audio_playing", "heard_at",
+             "touch_kind", "touch_time", "touch_on_page", "touch_x", "touch_y", "touch_dx")
+
+    def setUp(self):
+        import activation
+        self.a = activation
+        self._old = {k: getattr(state, k) for k in self._KEEP}
+        self._mod = (activation._cool_until, activation._pending)
+        activation._cool_until, activation._pending = 0.0, None
+        activation.end_turn()
+        state.mic_muted_until = 0.0
+
+    def tearDown(self):
+        for k, v in self._old.items():
+            setattr(state, k, v)
+        self.a._cool_until, self.a._pending = self._mod
+        self.a.end_turn()
+
+    _stt = None
+
+    @classmethod
+    def stt(cls):
+        if cls._stt is None:
+            import numpy                    # (not dropped with the stubs below)
+            with mock.patch.dict(sys.modules, {"sounddevice": mock.MagicMock(),
+                                               "vosk": mock.MagicMock()}):
+                import speech_to_text
+            cls._stt = speech_to_text
+        return cls._stt
+
+    @staticmethod
+    def pi_only(name):
+        try:
+            return __import__(name)
+        except ImportError:
+            raise unittest.SkipTest("fcntl (the Pi)")
+
+    def rx(self):
+        return self.stt()._wake_re()
+
+    def judge(self, *a, **k):
+        with mock.patch("builtins.print"):
+            return self.a.judge(self.a.Candidate(*a, **k), self.rx())
+
+    # 1, 2, 15 — a direct request, a short command, "Luna, stop"
+    def test_direct_and_short_commands_accepted(self):
+        for text in ("jaka jest pogoda", "stop", "ciszej"):
+            v = self.judge("vosk", text, "luna " + text, conf=0.9)
+            self.assertEqual((v.outcome, v.reason, v.scope, v.quiet),
+                             ("ACCEPT", "request", "full", False))
+        v = self.judge("cloud", "stop", "luna stop", "Luna, stop.", name_like=True)
+        self.assertEqual(v.outcome, "ACCEPT")
+
+    # 3 — her name and then silence
+    def test_bare_name_sure_and_unsure(self):
+        v = self.judge("vosk", "", "luna", conf=0.95)
+        self.assertEqual((v.reason, v.quiet, v.stamp), ("bare", False, True))
+        v = self.judge("vosk", "", "luna", conf=0.5)             # Vosk unsure
+        self.assertEqual((v.reason, v.quiet, v.stamp), ("bare_unsure", True, False))
+        v = self.judge("cloud", "", "nowa", "Luna?", name_like=False)   # only the cloud
+        self.assertEqual((v.outcome, v.quiet), ("ACCEPT", True))
+        self.assertTrue(self.a.pending())
+
+    # 4, 5 — a word like her name, her name inside a longer talk
+    def test_name_role(self):
+        nr = lambda t: self.a.name_role(t, self.rx())
+        for t in ("Chodź Maja, pokażę ci, co Luna nauczyłem nowego.", "Zapytaj Lunę, ona wie.",
+                  "Opowiadałam o Lunie babci.", "Maja i Luna się bawią."):
+            self.assertEqual(nr(t), "about", t)
+        for t in ("I jak, Luna, jak tam w szkole?", "Co tam Luna?", "Włącz radio Luna.",
+                  "Luna, stop", "Hej Luna jaka pogoda", "Powiedz mi Luna jaka pogoda",
+                  "Lunę, przepraszam, Luna, co słychać?"):
+            self.assertEqual(nr(t), "call", t)
+        self.assertIsNone(nr("Kupiłam dziś mleko."))
+        v = self.judge("cloud", "nauczyłem nowego", "co luna",
+                       "Chodź Maja, pokażę ci, co Luna nauczyłem nowego.")
+        self.assertEqual((v.outcome, v.reason), ("REJECT", "about_her"))
+
+    # 6 — repeated background events: a reject cools the cloud-only wakes down
+    def test_cooldown_after_reject(self):
+        self.judge("cloud", "x", "co luna", "Pokażę ci, co Luna umie.")
+        self.assertTrue(self.a.cooling())
+        v = self.judge("cloud", "jaka pogoda", "luna", "Luna, jaka pogoda?", name_like=True)
+        self.assertEqual((v.outcome, v.reason), ("REJECT", "cooldown"))
+        v = self.judge("vosk", "jaka pogoda", "luna jaka pogoda", conf=0.9)   # Vosk's own: fine
+        self.assertEqual(v.outcome, "ACCEPT")
+        self.a._cool_until = time.time() - 1
+        self.assertFalse(self.a.cooling())
+        with mock.patch("builtins.print"):
+            self.a.reject(self.a.Candidate("vosk", vosk="luny"), "not_her_name")
+        self.assertTrue(self.a.cooling())
+
+    # 14 — muted
+    def test_muted_rejects(self):
+        state.mic_muted_until = time.time() + 60
+        self.assertEqual(self.judge("vosk", "jaka pogoda", "luna jaka pogoda", conf=0.9).reason,
+                         "muted")
+        self.assertFalse(self.a.cooling())                    # muted isn't a false call
+
+    def test_radio_face_local_only(self):
+        v = self.judge("radio-face", "jutro idziemy do kina", "jutro idziemy do kina",
+                       "Jutro idziemy do kina.", radio=True)
+        self.assertEqual((v.outcome, v.scope, v.stamp), ("ACCEPT", "local", False))
+
+    # 9, 10, 11 — a follow-up, an unrelated one, an expired one
+    def test_pending_followed_and_expired(self):
+        self.judge("vosk", "", "luna", conf=0.5)
+        self.assertTrue(self.a.pending())
+        self.a.followed()
+        self.assertFalse(self.a.pending())
+        self.judge("vosk", "", "luna", conf=0.5)
+        with mock.patch("builtins.print") as p:
+            self.a.expire()
+        self.assertFalse(self.a.pending())
+        self.assertIn("EXPIRE nothing_followed", p.call_args[0][0])
+        with mock.patch("builtins.print") as p:
+            self.a.expire()                                   # nothing pending: silent
+        p.assert_not_called()
+
+    def test_log_line_has_no_words(self):
+        with mock.patch("builtins.print") as p:
+            self.a.judge(self.a.Candidate("cloud", "tajemnica", "co luna",
+                                          "Pokażę ci, co Luna tajemnica."), self.rx())
+        line = p.call_args[0][0]
+        self.assertTrue(line.startswith("[wake] REJECT about_her src=cloud"), line)
+        self.assertNotIn("tajemnica", line)
+        self.assertIn("words=5", line)
+
+    # the STT side: the window a quiet call opens, and the brain's "she was called"
+    def test_stt_wake_effects(self):
+        stt = self.stt()
+        stamps = []
+        with mock.patch.object(stt, "_radio_on", lambda: False), \
+                mock.patch.object(stt, "_stamp_wake", lambda: stamps.append(1)), \
+                mock.patch("builtins.print"):
+            state.conversation_active = False
+            v = stt._wake("vosk", "", "luna", conf=0.5)
+            self.assertTrue(v and stt.quiet_wake)
+            self.assertFalse(stt.local_only)
+            self.assertEqual(stamps, [])                         # not "called" for the brain
+            left = stt.CONVO_TIMEOUT - (time.time() - state.last_activity_time)
+            self.assertAlmostEqual(left, stt.WAKE_UNSURE_WINDOW, delta=0.5)
+            v = stt._wake("vosk", "jaka pogoda", "luna jaka pogoda", conf=0.95)
+            self.assertFalse(stt.quiet_wake)
+            self.assertEqual(stamps, [1])
+            state.conversation_active = False
+            self.assertIsNone(stt._wake("cloud", "x", "co luna", "Pokażę ci, co Luna umie."))
+            self.assertFalse(state.conversation_active)          # rejected: no window
+            self.a._cool_until = 0.0
+            v = stt._wake("radio-face", "idziemy do kina", "idziemy do kina",
+                          "Idziemy do kina.")
+            self.assertTrue(stt.local_only)
+        stt.local_only = stt.quiet_wake = False
+
+    # 12, 13 — a turn cancelled while the answer is still being prepared
+    def test_cancel_turn(self):
+        import threading
+        with mock.patch("builtins.print"):
+            self.assertFalse(self.a.cancel("touch"))             # nothing going on
+            tid = self.a.begin_turn()
+            self.assertEqual(self.a.turn_id(), tid)
+            seen = {}
+
+            def helper():
+                seen["before"] = self.a.turn_cancelled()
+                self.a.join_turn(tid)
+                seen["id"] = self.a.turn_id()
+                seen["joined"] = self.a.turn_cancelled()
+
+            def stranger():                                       # a timer ringing meanwhile
+                seen["stranger"] = self.a.turn_cancelled()
+
+            self.assertTrue(self.a.cancel("touch"))
+            self.assertFalse(self.a.cancel("touch"))             # once
+            self.assertTrue(self.a.turn_cancelled())
+            for f in (helper, stranger):
+                t = threading.Thread(target=f)
+                t.start()
+                t.join()
+            self.assertEqual(seen, {"before": False, "id": tid, "joined": True,
+                                    "stranger": False})
+            self.assertTrue(self.a.turn_cancelled(tid))
+            self.a.end_turn()
+            self.assertFalse(self.a.turn_cancelled())
+            self.assertFalse(self.a.turn_cancelled(tid))
+            self.a.begin_turn()
+            self.assertFalse(self.a.turn_cancelled(tid))         # an old turn's id
+
+    def test_cancelled_turn_says_nothing(self):
+        text_to_speech = self.pi_only("text_to_speech")
+        ran = []
+        with mock.patch("builtins.print"):
+            self.a.begin_turn()
+            text_to_speech._speaking(lambda style: ran.append(1), lambda: "", False)
+            self.assertEqual(ran, [1])
+            self.a.cancel("touch")
+            text_to_speech._speaking(lambda style: ran.append(2), lambda: "", False)
+            self.assertEqual(ran, [1])
+
+    def test_streamed_answer_stops_at_cancel(self):
+        text_to_speech = self.pi_only("text_to_speech")
+        heard = []
+
+        def sentences():
+            yield "Raz."
+            self.a.cancel("touch")
+            yield "Dwa."
+            yield "Trzy."
+
+        fake = mock.MagicMock()
+        fake.speak_stream.side_effect = lambda it, **k: heard.extend(it)
+        with mock.patch.object(text_to_speech, "tts", fake), mock.patch("builtins.print"):
+            self.a.begin_turn()
+            text_to_speech.speak_stream(sentences())
+        self.assertEqual(heard, ["Raz."])
+
+    def test_touch_while_thinking_cancels(self):
+        touch_module = self.pi_only("touch_module")
+        with mock.patch.object(touch_module, "_page_up", lambda now: False), \
+                mock.patch("builtins.print"):
+            state.speaking, state.luna_mode = False, "processing"
+            self.a.begin_turn()
+            touch_module._publish("tap", 0.5, 0.5)
+            self.assertTrue(self.a.turn_cancelled())
+            self.assertEqual(state.touch_kind, "stop")           # no stroke reply on top
+            self.a.end_turn()
+            state.luna_mode = "idle"
+            touch_module._publish("tap", 0.5, 0.5)
+            self.assertEqual(state.touch_kind, "tap")
+
 if __name__ == "__main__":
     unittest.main()

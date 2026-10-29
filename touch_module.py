@@ -99,6 +99,13 @@ def _publish(kind, nx, ny, dx=0.0):
             from text_to_speech import stop_speaking   # deferred (heavy import)
             stop_speaking()
     on_page = _page_up(time.time())     # judged now: the ✕ closes it before idle_engine looks
+    if kind in ("tap", "hold") and not on_page:
+        with state.lock:
+            thinking = state.luna_mode == "processing"
+        if thinking:
+            import activation               # a tap while she's still thinking: no answer
+            if activation.cancel("touch") and kind == "tap":
+                kind = "stop"
     with state.lock:
         state.touch_on_page = on_page
         state.touch_kind = kind
