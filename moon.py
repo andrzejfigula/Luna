@@ -7,7 +7,7 @@ which is how the family uses it.
 
 import math
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 SYNODIC = 29.530588853
 _NEW = datetime(2000, 1, 6, 18, 14)          # a new moon (UTC)
@@ -24,6 +24,11 @@ def _age(when=None):
     """Days since the last new moon."""
     when = when or datetime.utcnow()
     return ((when - _NEW).total_seconds() / 86400.0) % SYNODIC
+
+
+def age_at(t):
+    """Days since the last new moon at unix time t."""
+    return _age(datetime.fromtimestamp(t, timezone.utc).replace(tzinfo=None))
 
 
 def phase(when=None):

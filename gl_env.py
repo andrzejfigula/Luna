@@ -11,15 +11,16 @@ is its seed and the clocks (environment.Env.clk): stable, no resets.
 import ctypes
 import random
 
-RAIN_N, SNOW_N, STAR_N, ARC_N = 520, 360, 60, 120
+RAIN_N, SNOW_N, STAR_N, ARC_N = 520, 360, 160, 120
+CLOUD_N = 12                  # formations (environment.TUNE["clouds"])
 
 # the clouds' shapes: gl_face's sky draws them (and their billows), the stars
-# and the moon here hide behind them. Eight formations, back to front
+# and the moon here hide behind them. CLOUD_N formations, back to front
 # (environment.Env.frame): F = x, its underside's y, width, seed; G = opacity,
 # near (0 far..1), kind * 2 + height, the shape's slow change. Kinds: 0 a heap
 # (cumulus), 1 a band of rolls (stratocumulus), 2 a veil of streaks (cirrus)
 CLOUD_GLSL = """
-uniform vec4  uEnvF[8], uEnvG[8];
+uniform vec4  uEnvF[12], uEnvG[12];
 
 float envcH(float n) {
     n = fract(n * 0.1031 + 0.137);
@@ -82,7 +83,7 @@ float envcOne(vec2 q, vec4 f, vec4 g) {
 }
 float envCover(vec2 q) {
     float a = 0.0;
-    for (int i = 0; i < 8; i++) a = max(a, envcOne(q, uEnvF[i], uEnvG[i]));
+    for (int i = 0; i < 12; i++) a = max(a, envcOne(q, uEnvF[i], uEnvG[i]));
     return a;
 }
 """
@@ -142,19 +143,20 @@ void main() {
                                               + aSeed.w * 40.0), y);
             vA = uK.y * (0.45 + 0.55 * z) * mask(c);
         } else if (uKind < 3.5) {               // a star, behind the clouds
-            c = vec2(aSeed.x * W, aSeed.y * uEnvX.w * 0.55);
-            r = 0.7 + 0.6 * aSeed.z;
-            vA = uK.y * (0.35 + 0.65 * aSeed.z) * mask(c) * (1.0 - envCover(c))
+            c = vec2(aSeed.x * W, aSeed.y * aSeed.y * uEnvX.w * 0.95);
+            float z3 = aSeed.z * aSeed.z * aSeed.z;
+            r = 0.8 + 2.2 * z3;
+            vA = uK.y * (0.30 + 0.70 * aSeed.z) * mask(c) * (1.0 - envCover(c))
                  * (0.65 + 0.35 * sin(6.28318 * uEnvClk.z * per(0.04 + 0.08 * aSeed.w)
                                       + aSeed.w * 60.0));
         } else {                                // the moon, a quad 5 r wide
             c = uEnvMoon.xy;
-            r = uEnvMoon.z * 1.25;
-            vA = uEnvMoon.w * (1.0 - envCover(c));
+            r = uEnvMoon.z * 1.8;
+            vA = uEnvMoon.w * (1.0 - 0.85 * envCover(c));       // (a little through thin cloud)
         }
         vUV = vec2(aPos.x, aPos.y * 2.0 - 1.0) * 2.0;
         pos = c + vUV * r;
-        if (uKind > 3.5) vUV *= 1.25;           // (the moon's: in its radii)
+        if (uKind > 3.5) vUV *= 1.8;            // (the moon's: in its radii)
     }
     gl_Position = vec4(pos.x / W * 2.0 - 1.0, 1.0 - pos.y / H * 2.0, 0.0, 1.0);
 }
@@ -175,12 +177,20 @@ void main() {
         a = vA * max(0.0, 1.0 - abs(vUV.x)) * (1.0 - vUV.y);   // its tail fades
     } else if (uKind < 3.5) {
         a = vA * exp(-dot(vUV, vUV));
-    } else {                                    // a crescent, a faint rest, a faint halo
+    } else {                                    // the moon: its phase, seas, earthshine, a glow
         float e = uK.z;
-        float disk = 1.0 - smoothstep(1.0 - e, 1.0 + e, length(vUV));
-        float cut = 1.0 - smoothstep(1.0 - e, 1.0 + e, length(vUV - vec2(-0.42, -0.30)) * 1.04);
-        a = vA * (disk * (1.0 - cut) + 0.07 * disk * cut
-                  + 0.14 * exp(-max(0.0, length(vUV) - 1.0) * 2.2) * (1.0 - disk));
+        float l = length(vUV);
+        float disk = 1.0 - smoothstep(1.0 - e, 1.0 + e, l);
+        float sq = sqrt(max(0.0, 1.0 - vUV.y * vUV.y));
+        float lit = smoothstep(-0.06, 0.06, uK.w * vUV.x - uK.x * sq);   // (x: cos of its age, w: side)
+        vec2 v = vUV;                            // the seas, roughly where they are
+        float sea = 1.0 - smoothstep(0.05, 0.42, length((v - vec2(-0.42, 0.02)) * vec2(1.3, 0.8)));
+        sea = max(sea, 1.0 - smoothstep(0.05, 0.30, length(v - vec2(-0.12, -0.38))));
+        sea = max(sea, 1.0 - smoothstep(0.04, 0.24, length((v - vec2(0.22, -0.22)) * vec2(0.9, 1.2))));
+        sea = max(sea, 0.8 - 0.8 * smoothstep(0.03, 0.22, length(v - vec2(0.38, 0.02))));
+        sea = max(sea, 0.6 - 0.6 * smoothstep(0.03, 0.20, length(v - vec2(-0.12, 0.40))));
+        a = vA * (disk * (lit * (1.0 - 0.16 * sea) + 0.06 * (1.0 - lit))
+                  + (0.10 + 0.12 * uK.y) * exp(-max(0.0, l - 1.0) * 1.6) * (1.0 - disk));
     }
     gl_FragColor = vec4(uCol * a, 0.0);         // (light added: premultiplied, no cover)
 }
@@ -248,7 +258,7 @@ class EnvPass:
         GL.glUseProgram(self.prog)
         self._set("uRes", (face.w, face.h))
         for k in ("uEnvArcG", "uEnvArcA", "uEnvClk", "uEnvX", "uEnvMask", "uEnvMoon", "uEnvL") \
-                + tuple(f"uEnv{a}[{i}]" for a in "FG" for i in range(8)):
+                + tuple(f"uEnv{a}[{i}]" for a in "FG" for i in range(CLOUD_N)):
             self._set(k, u[k])
         stride = 6 * 4
         GL.glEnableVertexAttribArray(1)
@@ -279,6 +289,7 @@ class EnvPass:
         if moon[3] > 0.003:
             self._set("uKind", 4.0)
             self._set("uCol", u["uEnvMoonC"])
-            self._set("uK", (0.0, 1.0, 1.2 / max(1.0, moon[2]), 0.0))
+            ph = u.get("uEnvMoonP", (0.3, 1.0))
+            self._set("uK", (ph[0], ph[2] if len(ph) > 2 else 0.6, 1.2 / max(1.0, moon[2]), ph[1]))
             mesh("stars", GL.GL_TRIANGLES, 6)
         GL.glDisableVertexAttribArray(1)

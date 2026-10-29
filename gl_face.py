@@ -784,7 +784,7 @@ vec3 envSky(vec2 q) {
         dc += uEnvSun.rgb * 0.22 * exp(-ss * 0.5);          // the light through it
         c = mix(c, dc, uEnvL.z * 0.88 * (1.0 - smoothstep(hy * 0.70, hy * 1.15, q.y)));
     }
-    for (int i = 0; i < 8; i++) c = envCloud(c, q, uEnvF[i], uEnvG[i]);   // (a loop: one copy to compile)
+    for (int i = 0; i < 12; i++) c = envCloud(c, q, uEnvF[i], uEnvG[i]);   // (a loop: one copy to compile)
     if (uEnvW.y > 0.01) {                 // fog: layers close to the sky's own tone, drifting
         vec3 haze = mix(uEnvHor, vec3(dot(uEnvMid, vec3(0.30, 0.59, 0.11))) * 1.4 + 0.03, 0.5);
         float f = 0.0;

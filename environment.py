@@ -19,6 +19,8 @@ import os
 import random
 import time
 
+import moon
+
 SIM_FILE = "/tmp/luna_env_sim"
 HOME = (52.0, 19.0)          # no place set: the sun over Poland's middle
 CLOCK_WRAP = 600.0           # the particles' clocks wrap here (the shader's per())
@@ -38,21 +40,25 @@ TUNE = {
     "rain_count": 340, "rain_alpha": 0.32, "rain_len": 24.0, "rain_speed": 620.0,
     # snow at its heaviest: flakes, opacity, size px, speed px/s
     "snow_count": 230, "snow_alpha": 0.75, "snow_size": 1.6, "snow_speed": 34.0,
-    "stars": 0.7, "star_count": 42,     # clear nights: a few faint points
-    "moon": 0.80, "moon_pos": (0.11, 0.15), "moon_r": 10.0,   # a crescent, dark nights
+    "stars": 1.0, "star_count": 150,    # clear nights: many, a few big bright ones
+    "moon": 0.95, "moon_pos": (0.10, 0.17), "moon_r": 32.0,   # its real phase (at least a sliver)
     # the clouds, back to front: their underside's y and width (fractions of
     # the screen), drift px/s, near (0 far..1), the cloud amount they come in
     # over, how much of them shows on a clear day, kind (0 a heap, 1 a band
     # of rolls, 2 a veil of streaks high up)
     "clouds": ((0.10, 0.62, 0.8, 0.00, (0.05, 0.40), 0.80, 2),   # veils: clear days too
                (0.21, 0.48, 1.0, 0.00, (0.15, 0.50), 0.50, 2),
-               (0.36, 0.85, 1.6, 0.25, (0.50, 0.85), 0.0, 1),     # bands: overcast's masses
-               (0.66, 0.75, 1.9, 0.35, (0.60, 0.92), 0.0, 1),
-               (0.20, 0.26, 1.4, 0.10, (0.12, 0.40), 0.0, 0),     # heaps, far to near
-               (0.84, 0.34, 1.7, 0.35, (0.20, 0.45), 0.0, 0),
-               (0.30, 0.42, 3.2, 1.00, (0.25, 0.50), 0.0, 0),
-               (0.96, 0.52, 2.5, 0.85, (0.35, 0.60), 0.0, 0)),
-    "cloud_x": (0.30, 0.78, 0.25, 0.70, 0.12, 0.80, 0.88, 0.30),   # where they start
+               (0.48, 0.60, 1.2, 0.10, (0.30, 0.70), 0.0, 1),     # bands: overcast's masses
+               (0.36, 0.85, 1.6, 0.25, (0.45, 0.85), 0.0, 1),
+               (0.66, 0.75, 1.9, 0.35, (0.55, 0.92), 0.0, 1),
+               (0.55, 0.22, 1.2, 0.05, (0.08, 0.32), 0.0, 0),     # heaps, far to near
+               (0.20, 0.26, 1.4, 0.10, (0.10, 0.35), 0.0, 0),
+               (0.84, 0.34, 1.7, 0.35, (0.15, 0.40), 0.0, 0),
+               (0.12, 0.30, 2.0, 0.45, (0.18, 0.42), 0.0, 0),
+               (0.60, 0.38, 2.8, 0.70, (0.25, 0.50), 0.0, 0),
+               (0.96, 0.52, 2.5, 0.85, (0.30, 0.55), 0.0, 0),
+               (0.30, 0.42, 3.2, 1.00, (0.20, 0.45), 0.0, 0)),
+    "cloud_x": (0.30, 0.78, 0.45, 0.25, 0.70, 0.55, 0.12, 0.80, 0.62, 0.05, 0.30, 0.88),
     "motion": 1.0,           # every animation's pace (0: still)
     "ease": 7.0, "ease_weather": 10.0, "ease_sim": 2.5,      # seconds
     "asleep_dim": 0.62,      # her asleep: the sky dims to this
@@ -277,7 +283,7 @@ def compose(elev, rising, weights, wx):
         * (1.0 + 0.12 * (1.0 - cloud) * day),
         "low": sky(k["low"]),
         "cloud": cloud, "fog": fog, "rain": rain, "snow": snow, "storm": storm,
-        "stars": TUNE["stars"] * (1.0 - _smooth((elev + 14.0) / 8.0)) * (1.0 - cloud) * (1.0 - fog),
+        "stars": TUNE["stars"] * (1.0 - _smooth((elev + 14.0) / 8.0)) * (1.0 - 0.7 * cloud) * (1.0 - fog),
         "elev": elev,
     }
 
@@ -418,6 +424,7 @@ class Env:
         tg["slant"] = _wind_slant(wx)
         # the clouds' drift: with the wind across (+ right), slow without one
         tg["drift"] = -math.sin(math.radians(wx["wind_dir"])) * (0.5 + min(1.5, wx["wind"] / 20.0))
+        tg["moon_age"] = moon.age_at(t) / moon.SYNODIC         # 0 new, 0.5 full
         return tg
 
     # per frame ------------------------------------------------------------
@@ -502,7 +509,8 @@ class Env:
             "uEnvCr": (*c(cur["cr"]), cur["cr_a"]),
             "uEnvL": (_mix(ls, lm, night)[0], _mix(ls, lm, night)[1], deck, self.deck_x),
             "uEnvMoon": (mx, my, T["moon_r"], moon_a),
-            "uEnvMoonC": c((0.92, 0.88, 0.74)),
+            "uEnvMoonC": c((0.94, 0.91, 0.80)),
+            "uEnvMoonP": self._moon_phase(tg.get("moon_age", 0.3)),
             "uEnvClk": tuple(self.clk),
             # (gl_env.py: how many, opacity, length / size, speed)
             "uEnvRain": (T["rain_count"] * rain ** 1.3, T["rain_alpha"] * (0.6 + 0.4 * rain),
@@ -511,7 +519,7 @@ class Env:
             "uEnvSnow": (T["snow_count"] * snow ** 1.2, T["snow_alpha"], T["snow_size"],
                          T["snow_speed"]),
             "uEnvSnowC": c((0.86, 0.90, 1.0)),
-            "uEnvStars": (T["star_count"] * min(1.0, cur["stars"] * 2.0), 0.55 * cur["stars"],
+            "uEnvStars": (T["star_count"] * min(1.0, cur["stars"] * 2.0), 0.95 * cur["stars"],
                           0.0, 0.0),
             "uEnvStarsC": c((0.85, 0.88, 1.0)),
             "uEnvMask": (fcx, fcy + 20.0, 330.0, 190.0),
@@ -519,8 +527,16 @@ class Env:
         out.update(clouds)
         return out
 
+    @staticmethod
+    def _moon_phase(age):
+        """(the terminator: cos of its age, the lit side: +1 right waxing,
+        -1 left waning, how full) — at least a sliver, never a new moon."""
+        age = min(0.90, max(0.10, age))
+        return (math.cos(math.tau * age), 1.0 if age < 0.5 else -1.0,
+                0.5 - 0.5 * math.cos(math.tau * age))
+
     def _clouds(self, dt, w, h, cur):
-        """The eight formations (gl_env.CLOUD_GLSL's F and G): drifting on
+        """The formations (gl_env.CLOUD_GLSL's F and G): drifting on
         their own, wrapping (a new shape) off screen, in and out with the
         cloud amount — wisps when clear, broad masses when overcast."""
         slots = TUNE["clouds"]
