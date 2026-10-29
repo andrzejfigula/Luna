@@ -53,6 +53,8 @@ After a brain.py / prompt change, run ONE real-model line
 - Real-model sweeps cost money — keep them few (`--max-calls`).
 - No idle animations (she does nothing on her own). A face she learns is a
   guest (`faces.is_family`): no plan, no house info; only family make it family.
+- Side talk in the open window: measured, left as is — mouth.py's "talking %"
+  carries no signal with this camera (`docs/side-talk.md`, `tools/mouth_stats.py`).
 - Parked: interrupting her by voice/camera (until a hardware-AEC speakerphone,
   `docs/voice-interrupt.md`); the web panel.
 - User-visible change → a plain-Polish line on top of `data/whatsnew.txt`.
