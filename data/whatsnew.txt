@@ -2,9 +2,9 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 29 października ==
-- Chmury za Luną są bardziej prawdziwe: kłębiaste cumulusy, szerokie pasma przy pochmurnej pogodzie i cienkie smugi wysoko na niebie, nawet w pogodny dzień. Bliższe płyną szybciej niż dalsze, a chmur jest więcej.
+- Chmury za Luną są miękkie i lekkie: długie, poziome smugi i mgiełki, które rozpływają się na brzegach, a nie kamienie czy góry. Płyną powoli i zmieniają kształt; w pogodną noc to tylko kilka cienkich pasemek, przy pochmurnej pogodzie zasnuwają niebo, w deszczu robią się ciemne i gęste. O zachodzie słońca mają delikatny brzoskwiniowy kolor.
 - W nocy za Luną świeci księżyc w prawdziwej fazie, z poświatą dookoła, i gwiazdy; najjaśniejsze błyszczą jak małe krzyżyki. Za chmurą księżyc prześwituje.
-- W nocy chmury układają się wokół brzegów ekranu, a środek za twarzą zostaje czysty. Są ciemne, a ich brzegi świecą ciepłym, pomarańczowym blaskiem od Luny.
+- W nocy środek za twarzą Luny zostaje czysty, chmury trzymają się brzegów ekranu.
 
 == 28 października ==
 - Za Luną widać niebo: zmienia się z porą dnia i roku (jasny błękit w dzień, granatowa noc z gwiazdami i księżycem, różowy świt, pomarańczowy zachód słońca), płyną po nim chmury, a kiedy naprawdę pada deszcz albo śnieg, u niej też pada. Pogoda jest prawdziwa, z prognozy. Tylko w zwykłym wyglądzie Luny.

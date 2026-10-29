@@ -11334,10 +11334,9 @@ class TestEnvironment(unittest.TestCase):
         u = E.Env(wall=lambda: 1793700000.0).frame(1.0, 800, 480, 400, 212)
         src = gl_face._FRAG + gl_face._FRAG_SKY + gl_env._VERT
         glsl = set(re.findall(r"uEnv\w+", src))
-        self.assertEqual(len(E.TUNE["clouds"]), gl_env.CLOUD_N)
-        self.assertEqual(len(E.TUNE["cloud_x"]), gl_env.CLOUD_N)
-        self.assertIn(f"uEnvF[{gl_env.CLOUD_N}]", src)
-        u = {k.split("[")[0]: v for k, v in u.items()}       # (arrays: uEnvF[0] → uEnvF)
+        self.assertIn(f"uEnvCa[{len(E.TUNE['cloud_layers'])}]", src)
+        self.assertIn(f"i < {len(E.TUNE['cloud_layers'])}; i++) c = envLayer", src)
+        u = {k.split("[")[0]: v for k, v in u.items()}       # (arrays: uEnvCa[0] → uEnvCa)
         for k in u:
             if not k.endswith("C"):
                 if k not in ("uEnvRain", "uEnvSnow", "uEnvStars", "uEnvMoonP"):   # (gl_env: its uK)

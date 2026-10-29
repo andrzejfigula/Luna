@@ -799,8 +799,10 @@ uniform vec4  uEnvArc, uEnvArcG, uEnvArcA;   // the arc: rgb, a; centre, r, phas
 uniform vec4  uEnvW;          // cloud, fog, rain, snow (0..1)
 uniform vec4  uEnvX;          // a storm's far light, the wind's lean, its x, the haze band's y
 uniform vec4  uEnvCl, uEnvCs, uEnvCr;  // clouds: lit (rgb, how much from above), shaded (rgb,
-                                      // how much lit from her middle: night), rim
-uniform vec4  uEnvL;          // toward the light (px per px), overcast's deck, its drift
+                                      // night), the light on some of their tops (rgb, a)
+uniform vec4  uEnvCa[4], uEnvCb[4];   // cloud layers: y, half height, px a noise tile spans
+                                      // across, up; drift, change (tiles), cover, opacity
+uniform sampler2D uSkyNz;     // tiling noise (_cloud_noise): broad, fine, two slow fields
 uniform vec4  uEnvMask;       // her face: centre, half sizes (clouds thinner there)
 uniform vec4  uEnvClk;        // clocks (s, wrap at 600): rain, snow, haze; her middle cleared
 
@@ -828,72 +830,44 @@ float per(float f) { return floor(f * 600.0 + 0.5) / 600.0; }       // (a rate, 
 // (the soft pass) the gradient, the sun's haze, an overcast deck, the
 // clouds, fog's layers, a storm's light, the arc's glow — screen px, not
 // turned with her head
-""" + gl_env.CLOUD_GLSL + """
-float envN(vec2 p) {                      // value noise, no sin (the Pi's GPU)
-    vec2 i = floor(p), f = fract(p);
-    f = f * f * (3.0 - 2.0 * f);
-    float a = envcH(i.x + i.y * 57.0), b = envcH(i.x + 1.0 + i.y * 57.0);
-    float c = envcH(i.x + (i.y + 1.0) * 57.0), d = envcH(i.x + 1.0 + (i.y + 1.0) * 57.0);
-    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+// a cheap smooth wave, -0.5..0.5, period 1
+float envcW(float x) { float f = fract(x); return 4.0 * f * (1.0 - f) - 0.5; }
+
+// her middle cleared (uEnvClk.w): the clouds keep round the edges
+float envcClear(vec2 q) {
+    vec2 m = (q - uEnvMask.xy) / uEnvMask.zw;
+    return mix(0.65 * (1.0 - uEnvClk.w), 1.0, smoothstep(0.62, 1.22, length(m)));
 }
 
-// billows: three octaves of value noise round the formation's own point
-// (u: px from it / its width), turning slowly with its change; 0..1
-float envcB(vec2 u, vec4 f, vec4 g) {
-    vec2 o = vec2(fract(f.w * 0.618), fract(f.w * 0.382)) * 40.0
-             + 0.35 * vec2(envcW(g.w * 0.25), envcW(g.w * 0.25 + 0.25));
-    return (envN(u * 7.0 + o) + 0.5 * envN(u * 15.0 - o) + 0.25 * envN(u * 31.0 + o.yx)) * 0.571;
-}
+float gCov;                   // the cloud over this point: the sky's alpha (stars, the moon behind it)
 
-// a veil high up: slanting fibres in patches, no shadow, lit even when the
-// sun is low
-vec3 envCirrus(vec3 c, vec2 q, vec4 f, vec4 g) {
-    float w = f.z;
-    float e = 1.0 - smoothstep(-0.08 * w, 0.03 * w, envCloudD(q, f, g));
-    if (e < 0.003) return c;
-    vec2 u = (q - f.xy) / w;
-    vec2 o = vec2(fract(f.w * 0.618), fract(f.w * 0.382)) * 40.0 + 0.25 * envcW(g.w * 0.25);
-    e *= smoothstep(0.20, 0.60, envN(u * vec2(2.5, 6.0) + o.yx));
-    vec2 sp = vec2(u.x + 1.4 * u.y, u.y);
-    float n = 0.65 * envN(sp * vec2(3.0, 18.0) + o) + 0.35 * envN(sp * vec2(7.0, 34.0) - o);
-    float a = e * smoothstep(0.32, 0.78, n) * 0.85 * g.x;
-    return mix(c, mix(mix(uEnvCl.rgb, uEnvCr.rgb, 0.35), c, 0.30), a);
-}
-
-// one formation over the sky: its billows, each lit toward the light and
-// shaded deep in and under, the base darker, a rim where the light comes
-// through, thin edges letting the sky through; far ones paler
-vec3 envCloud(vec3 c, vec2 q, vec4 f, vec4 g) {
-    if (g.x < 0.004) return c;
-    vec2 p = q - f.xy;
-    float w = f.z, ht = envcT(g), kind = envcK(g);
-    if (abs(p.x) > 0.62 * w || p.y > 0.12 * w || p.y < -0.62 * w * ht) return c;
-    if (kind > 1.5) return envCirrus(c, q, f, g);
-    float d = envCloudD(q, f, g);
-    if (d > 0.10 * w) return c;                 // even its billows don't reach here
-    vec2 sc = kind > 0.5 ? vec2(1.0, 1.7) : vec2(1.0);       // a band's rolls: wider
-    float amp = kind > 0.5 ? 0.07 : 0.025 + 0.06 * smoothstep(-0.02, -0.30 * ht, p.y / w);
-    d -= w * amp * (2.0 * envcB(p / w * sc, f, g) - 0.9);
-    float s = envcS(f, g);
-    float a = 1.0 - smoothstep(-s, s, d);
+// one layer of cloud: a density field (noise stretched across, warped by a
+// slower field so it changes as it drifts) inside its band with an uneven
+// top, through a soft threshold so its edges thin out to nothing; lit
+// broadly (lighter high up), a faint light on some of its tops, warm by the arc
+vec3 envLayer(vec3 c, vec2 q, vec4 ca, vec4 cb, float arcw) {
+    if (cb.w < 0.004) return c;
+    float v = (q.y - ca.x) / ca.y;                       // -1 its top .. 1 its bottom
+    if (v < -2.0 || v > 1.8) return c;
+    vec2 u = vec2(q.x / ca.z + cb.x, q.y / ca.w);
+    vec4 wv = texture2D(uSkyNz, u * 0.5 + vec2(cb.y, 0.5 * cb.y));
+    u += (wv.ba - 0.5) * 0.35;
+    float n = 0.70 * texture2D(uSkyNz, u).r
+              + 0.30 * texture2D(uSkyNz, u * 2.0 + vec2(0.5 * cb.y, 0.25)).g;
+    float env = smoothstep(-1.5, -0.35, v + 0.9 * (wv.b - 0.5)) * (1.0 - smoothstep(0.15, 1.5, v));
+    float th = mix(0.66, 0.20, cb.z);
+    float d = n - (1.0 - env) * 0.55;
+    float a = smoothstep(th, th + 0.26, d);
     if (a < 0.003) return c;
-    float k = w * 0.07;
-    vec2 l = mix(uEnvL.xy, normalize(uEnvMask.xy - f.xy + 0.001), uEnvCs.a) * k;   // her glow lights them
-    float d2 = envCloudD(q + l, f, g) - w * amp * (2.0 * envcB((p + l) / w * sc, f, g) - 0.9);
-    float lit = exp(-max(0.0, -d2) / (w * (0.15 - 0.10 * uEnvCs.a)));   // the light's way in (at night: just the edge)
-    float up = smoothstep(f.y + 0.02 * w, f.y - 0.42 * w * ht, q.y);   // tops lighter
-    float sh = clamp(0.10 + (1.0 - uEnvCl.a) * lit + uEnvCl.a * up, 0.0, 1.0);
-    sh = sh * sh * (3.0 - 2.0 * sh);                             // sunlit white, shade deep
-    vec3 col = mix(mix(uEnvCs.rgb, uEnvZen, 0.15), uEnvCl.rgb, sh);   // shade takes the sky's blue
-    col *= 1.0 - 0.22 * smoothstep(f.y - 0.10 * w, f.y + 0.01 * w, q.y);   // the base darker
-    float face = clamp((d2 - d) / k, 0.0, 1.0);                  // the side toward the light
-    vec3 rc = mix(uEnvCr.rgb, vec3(0.42, 0.50, 0.78),               // by the moon: cooler
-                  0.3 * uEnvCs.a * (1.0 - smoothstep(0.10, 0.60, f.x / uRes.x)));
-    col += rc * uEnvCr.a * face * ((0.6 + 0.4 * uEnvCs.a) * exp(-abs(d + 0.8 * s) / s)
-                                   + 0.4 * uEnvCs.a * exp(min(0.0, d) / (0.035 * w)));
-    col = mix(col, c, 0.35 * (1.0 - g.y));
-    a *= mix(0.75, 1.0, smoothstep(0.0, 0.04 * w, -d));
-    a *= g.x * envcClear(q);
+    float deep = smoothstep(th + 0.08, th + 0.50, d);
+    float up = clamp(0.5 - 0.45 * v, 0.0, 1.0);
+    vec3 col = mix(uEnvCs.rgb, uEnvCl.rgb, mix(0.45, up, 0.5 + 0.5 * uEnvCl.a) * (1.0 - 0.35 * deep));
+    float sel = smoothstep(0.45, 0.75, wv.a)              // (at night: only by the moon)
+                * mix(1.0, 1.0 - smoothstep(0.15, 0.65, q.x / uRes.x), uEnvCs.a);
+    col += uEnvCr.rgb * uEnvCr.a * 0.5 * sel * up * (1.0 - deep);
+    col += uEnvArc.rgb * uEnvArc.a * 0.30 * arcw * (1.0 - 0.5 * deep);
+    a *= cb.w * envcClear(q);
+    gCov = 1.0 - (1.0 - gCov) * (1.0 - a);
     return mix(c, col, a);
 }
 
@@ -907,14 +881,10 @@ vec3 envSky(vec2 q) {
     vec2 s = (q - uEnvSunP.xy) / uEnvSunP.z;
     float ss = dot(s, s);
     c += uEnvSun.rgb * uEnvSun.a * (0.32 * exp(-ss * 0.35) + 0.40 * exp(-ss * 5.0));
-    if (uEnvL.z > 0.01) {                 // overcast: one grey deck, lighter and darker in it
-        float n = envN(vec2(q.x * 0.0045 + uEnvL.w, q.y * 0.008))
-                  + 0.5 * envN(vec2(q.x * 0.011 - uEnvL.w * 1.7, q.y * 0.019 + 3.0));
-        vec3 dc = mix(uEnvCs.rgb, uEnvCl.rgb, 0.18 + 0.36 * n);
-        dc += uEnvSun.rgb * 0.22 * exp(-ss * 0.5);          // the light through it
-        c = mix(c, dc, uEnvL.z * 0.88 * (1.0 - smoothstep(hy * 0.70, hy * 1.15, q.y)));
-    }
-    for (int i = 0; i < 12; i++) c = envCloud(c, q, uEnvF[i], uEnvG[i]);   // (a loop: one copy to compile)
+    vec2 ar = envArc(q);
+    float arcw = ar.y > -0.1 && ar.y < 1.1 ? envArcK(ar.y) * exp(-ar.x / 90.0) : 0.0;
+    gCov = 0.0;
+    for (int i = 0; i < 4; i++) c = envLayer(c, q, uEnvCa[i], uEnvCb[i], arcw);   // (a loop: one copy to compile)
     if (uEnvW.y > 0.01) {                 // fog: layers close to the sky's own tone, drifting
         vec3 haze = mix(uEnvHor, vec3(dot(uEnvMid, vec3(0.30, 0.59, 0.11))) * 1.4 + 0.03, 0.5);
         float f = 0.0;
@@ -931,7 +901,6 @@ vec3 envSky(vec2 q) {
         vec2 fq = (q - vec2(uEnvX.z, hy)) / (0.35 * uRes);
         c += vec3(0.55, 0.60, 0.85) * uEnvX.x * exp(-dot(fq, fq));
     }
-    vec2 ar = envArc(q);
     if (ar.y > -0.1 && ar.y < 1.1)
         c += uEnvArc.rgb * uEnvArc.a * envArcK(ar.y)
              * (0.30 * exp(-ar.x / uEnvArcA.w) + 0.10 * exp(-ar.x / (uEnvArcA.w * 4.0)));
@@ -942,9 +911,37 @@ vec3 envSky(vec2 q) {
 
 void main() {
     vec2 fc = vec2(gl_FragCoord.x, uSoftRes.y - gl_FragCoord.y) * (uRes / uSoftRes);
-    gl_FragColor = vec4(envSky(fc), 1.0);
+    vec3 c = envSky(fc);
+    gl_FragColor = vec4(c, gCov);
 }
 """
+
+def _cloud_noise(n=128, seed=29):
+    """The clouds' noise (_FRAG_SKY's uSkyNz): n×n RGBA bytes that tile —
+    r a broad value-noise fBm, g a finer one, b and a two slow fields."""
+    import numpy as np
+    rng = np.random.default_rng(seed)
+    t = np.arange(n) / n
+
+    def octave(cells):
+        g = rng.random((cells, cells))
+        x = t * cells
+        i = np.floor(x).astype(int)
+        f = x - i
+        f = f * f * (3.0 - 2.0 * f)
+        j = (i + 1) % cells
+        fx, fy = f[None, :], f[:, None]
+        return ((g[i][:, i] * (1 - fx) + g[i][:, j] * fx) * (1 - fy)
+                + (g[j][:, i] * (1 - fx) + g[j][:, j] * fx) * fy)
+
+    def fbm(cells):
+        v = sum(octave(k) * 0.5 ** e for e, k in enumerate(cells))
+        lo, hi = np.percentile(v, (1.0, 99.0))
+        return np.clip((v - lo) / (hi - lo), 0.0, 1.0)
+
+    rgba = np.stack([fbm((3, 6, 12, 24, 48)), fbm((8, 16, 32)), fbm((2, 4)), fbm((3, 6))], axis=-1)
+    return (rgba * 255.0 + 0.5).astype(np.uint8).tobytes()
+
 
 class _Prog:
     """A small program's id, its uniforms' locations and the values they hold."""
@@ -1506,8 +1503,20 @@ class GLFace:
         GL = self.GL
         if self.p_sky is None:
             try:
-                self.p_sky = _Prog(GL, self._program(self._head + _VERT, self._head + _FRAG_SKY))
-                self.sky = self._texture(self.sw, self.sh, GL.GL_NEAREST)
+                try:                         # (the noise's coordinates: mediump steps in texels)
+                    hd = self._head.replace("mediump", "highp")
+                    self.p_sky = _Prog(GL, self._program(hd + _VERT, hd + _FRAG_SKY))
+                except RuntimeError:
+                    self.p_sky = _Prog(GL, self._program(self._head + _VERT, self._head + _FRAG_SKY))
+                n = 128
+                self.sky_nz = self._texture(n, n, GL.GL_LINEAR)
+                GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_REPEAT)
+                GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_REPEAT)
+                GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA, n, n, 0,
+                                GL.GL_RGBA, GL.GL_UNSIGNED_BYTE, _cloud_noise(n))
+                GL.glUseProgram(self.p_sky.id)
+                self.p_sky.unit("uSkyNz", 5)
+                self.sky = self._texture(self.sw, self.sh, GL.GL_LINEAR)   # (a: cloud, for gl_env)
                 self.sky_fbo = GL.glGenFramebuffers(1)
                 GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.sky_fbo)
                 GL.glFramebufferTexture2D(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0,
@@ -1525,6 +1534,8 @@ class GLFace:
             for k, v in u.items():
                 if k.startswith("uEnv") or k == "uBlush":
                     ps.u(k, v)
+            GL.glActiveTexture(GL.GL_TEXTURE0 + 5)
+            GL.glBindTexture(GL.GL_TEXTURE_2D, self.sky_nz)
             self._quad()
             GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.soft_fbo)
         GL.glUseProgram(self.prog)

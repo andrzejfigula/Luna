@@ -6,92 +6,13 @@ in gl_face.py.
 
 Per pixel over the whole screen the same drops cost the Pi's GPU 9 ms a frame
 (28 Oct); as a few hundred thin quads, next to nothing. Every particle's place
-is its seed and the clocks (environment.Env.clk): stable, no resets.
+is its seed and the clocks (environment.Env.clk): stable, no resets. Stars
+and the moon hide behind the clouds by the sky's alpha (gl_face._FRAG_SKY).
 """
 import ctypes
 import random
 
 RAIN_N, SNOW_N, STAR_N, ARC_N = 520, 360, 160, 120
-CLOUD_N = 12                  # formations (environment.TUNE["clouds"])
-
-# the clouds' shapes: gl_face's sky draws them (and their billows), the stars
-# and the moon here hide behind them. CLOUD_N formations, back to front
-# (environment.Env.frame): F = x, its underside's y, width, seed; G = opacity,
-# near (0 far..1), kind * 2 + height, the shape's slow change. Kinds: 0 a heap
-# (cumulus), 1 a band of rolls (stratocumulus), 2 a veil of streaks (cirrus)
-CLOUD_GLSL = """
-uniform vec4  uEnvF[12], uEnvG[12];
-
-float envcH(float n) {
-    n = fract(n * 0.1031 + 0.137);
-    n *= n + 33.33;
-    return fract((n + n) * n);
-}
-// a cheap smooth wave, -0.5..0.5, period 1
-float envcW(float x) { float f = fract(x); return 4.0 * f * (1.0 - f) - 0.5; }
-float envcMin(float a, float b, float k) {
-    float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
-    return mix(b, a, h) - k * h * (1.0 - h);
-}
-
-float envcK(vec4 g) { return floor(g.z * 0.5); }          // the kind
-float envcT(vec4 g) { return g.z - 2.0 * envcK(g); }      // the height
-
-// a formation's distance (px, < 0 inside), before its billows. A heap: five
-// puffs, the highest off centre, a tower on some, a soft flat underside; a
-// band or a veil: a long low lens
-float envCloudD(vec2 q, vec4 f, vec4 g) {
-    vec2 p = q - f.xy;
-    float w = f.z;
-    float kind = envcK(g), ht = envcT(g);
-    if (kind > 0.5) {
-        float hh = w * (kind > 1.5 ? 0.10 : 0.11) * ht;
-        vec2 e = vec2(max(abs(p.x) - 0.5 * w + hh, 0.0), p.y + hh);
-        return length(e) - hh;
-    }
-    p.y /= ht;
-    float peak = (envcH(f.w * 3.1) - 0.5) * 0.9;
-    float d = 1e4;
-    for (int i = 0; i < 5; i++) {
-        float fi = float(i);
-        float h = envcH(f.w * 13.7 + fi * 7.31);
-        float t = fi * 0.5 - 1.0;
-        float k = 1.0 - 0.42 * (t - peak) * (t - peak);
-        float r = w * (0.13 + 0.12 * h) * max(k, 0.25)
-                  * (1.0 + 0.09 * envcW(g.w * (1.0 + floor(h * 4.0) * 0.25) + h));
-        vec2 c = vec2(t * w * 0.31 + (h - 0.5) * w * 0.07, -r * (0.35 + 0.40 * envcH(h * 91.7)));
-        d = envcMin(d, length(p - c) - r, w * 0.06);
-    }
-    float tw = envcH(f.w * 5.3);                       // 0 a low heap .. 1 towering
-    vec2 c = vec2(peak * w * 0.31 + (tw - 0.5) * w * 0.06, -w * (0.28 + 0.10 * tw));
-    d = envcMin(d, length(p - c) - w * (0.03 + 0.11 * tw), w * 0.06);
-    return -envcMin(-d, w * 0.025 - p.y, w * 0.05);
-}
-
-// the edge's softness (px): a few px, far ones a little softer (the sky's
-// quarter-size pass, stretched, still keeps them crisp)
-float envcS(vec4 f, vec4 g) { return 3.5 + f.z * (0.010 - 0.005 * g.y); }
-
-// how much the clouds cover this point (0..1)
-float envcOne(vec2 q, vec4 f, vec4 g) {
-    if (g.x < 0.004) return 0.0;
-    vec2 p = q - f.xy;
-    if (abs(p.x) > 0.62 * f.z || p.y > 0.12 * f.z || p.y < -0.62 * f.z * envcT(g)) return 0.0;
-    float s = envcS(f, g);
-    float a = g.x * (1.0 - smoothstep(-s, s, envCloudD(q, f, g)));
-    return envcK(g) > 1.5 ? 0.4 * a : a;                  // a veil: thin
-}
-// her middle cleared (uEnvClk.w): the clouds bank round the edges
-float envcClear(vec2 q) {
-    vec2 m = (q - uEnvMask.xy) / uEnvMask.zw;
-    return mix(0.65 * (1.0 - uEnvClk.w), 1.0, smoothstep(0.62, 1.22, length(m)));
-}
-float envCover(vec2 q) {
-    float a = 0.0;
-    for (int i = 0; i < 12; i++) a = max(a, envcOne(q, uEnvF[i], uEnvG[i]));
-    return a * envcClear(q);
-}
-"""
 
 _VERT = """
 attribute vec2 aPos;          // the corner: across -1..1, along 0..1
@@ -99,10 +20,9 @@ attribute vec4 aSeed;         // the particle's: x, y, size/near (0..1), phase
 uniform vec2  uRes;
 uniform float uKind;          // 0 the arc, 1 rain, 2 snow, 3 stars, 4 the moon
 uniform vec4  uK;             // (count), alpha, length / size / half width, speed
-uniform vec4  uEnvArcG, uEnvArcA, uEnvClk, uEnvX, uEnvMask, uEnvMoon, uEnvL;
-varying vec2  vUV;
+uniform vec4  uEnvArcG, uEnvArcA, uEnvClk, uEnvX, uEnvMask, uEnvMoon;
+varying vec2  vUV, vSky;
 varying float vA, vS;
-""" + CLOUD_GLSL + """
 
 // a rate that repeats whole in the clocks' 600 s (no jump when they wrap)
 float per(float f) { return floor(f * 600.0 + 0.5) / 600.0; }
@@ -153,19 +73,20 @@ void main() {
             float z3 = aSeed.z * aSeed.z * aSeed.z;
             r = 0.8 + 2.2 * z3;
             vS = smoothstep(0.35, 0.9, z3);         // the brightest: a sparkle
-            vA = uK.y * (0.30 + 0.70 * aSeed.z) * mask(c) * (1.0 - envCover(c))
+            vA = uK.y * (0.30 + 0.70 * aSeed.z) * mask(c)
                  * (0.65 + 0.35 * sin(6.28318 * uEnvClk.z * per(0.04 + 0.08 * aSeed.w)
                                       + aSeed.w * 60.0));
         } else {                                // the moon, a quad 5 r wide
             c = uEnvMoon.xy;
             r = uEnvMoon.z * 4.0;                   // (room for its halo)
-            vA = uEnvMoon.w * (1.0 - 0.85 * envCover(c));       // (a little through thin cloud)
+            vA = uEnvMoon.w;
         }
         vUV = vec2(aPos.x, aPos.y * 2.0 - 1.0) * 2.0;
         if (uKind > 2.5 && uKind < 3.5) vUV *= 3.0;   // (a star's: room for its rays)
         pos = c + vUV * r;
         if (uKind > 3.5) vUV *= 4.0;            // (the moon's: in its radii)
     }
+    vSky = vec2(pos.x / W, 1.0 - pos.y / H);
     gl_Position = vec4(pos.x / W * 2.0 - 1.0, 1.0 - pos.y / H * 2.0, 0.0, 1.0);
 }
 """
@@ -174,7 +95,8 @@ _FRAG = """
 uniform float uKind;
 uniform vec3  uCol;
 uniform vec4  uK;
-varying vec2  vUV;
+uniform sampler2D uSky;       // the sky (gl_face): its alpha, the cloud in front
+varying vec2  vUV, vSky;
 varying float vA, vS;
 void main() {
     float a;
@@ -188,7 +110,8 @@ void main() {
     } else if (uKind < 3.5) {                   // a star: a point, the bright ones four rays
         vec2 v = abs(vUV);
         a = vA * (exp(-dot(vUV, vUV))
-                  + 0.8 * vS * (exp(-v.x * 0.8 - v.y * v.y * 5.0) + exp(-v.y * 0.8 - v.x * v.x * 5.0)));
+                  + 0.8 * vS * (exp(-v.x * 0.8 - v.y * v.y * 5.0) + exp(-v.y * 0.8 - v.x * v.x * 5.0)))
+            * (1.0 - texture2D(uSky, vSky).a);
     } else {                                    // the moon: its phase, seas, earthshine, a glow
         float e = uK.z;
         float l = length(vUV);
@@ -203,7 +126,8 @@ void main() {
         sea = max(sea, 0.6 - 0.6 * smoothstep(0.03, 0.20, length(v - vec2(-0.12, 0.40))));
         a = vA * (disk * (lit * (1.0 - 0.16 * sea) + 0.06 * (1.0 - lit))
                   + (0.14 + 0.20 * uK.y) * (exp(-max(0.0, l - 1.0) * 2.0) + 0.55 * exp(-max(0.0, l - 1.0) * 0.6))
-                    * (1.0 - smoothstep(2.4, 4.0, l)) * (1.0 - disk));   // a halo, wide
+                    * (1.0 - smoothstep(2.4, 4.0, l)) * (1.0 - disk))    // a halo, wide
+            * (1.0 - 0.85 * texture2D(uSky, vSky).a);            // (a little through thin cloud)
     }
     gl_FragColor = vec4(uCol * a, 0.0);         // (light added: premultiplied, no cover)
 }
@@ -270,9 +194,15 @@ class EnvPass:
         GL, face = self.GL, self.face
         GL.glUseProgram(self.prog)
         self._set("uRes", (face.w, face.h))
-        for k in ("uEnvArcG", "uEnvArcA", "uEnvClk", "uEnvX", "uEnvMask", "uEnvMoon", "uEnvL") \
-                + tuple(f"uEnv{a}[{i}]" for a in "FG" for i in range(CLOUD_N)):
+        for k in ("uEnvArcG", "uEnvArcA", "uEnvClk", "uEnvX", "uEnvMask", "uEnvMoon"):
             self._set(k, u[k])
+        GL.glActiveTexture(GL.GL_TEXTURE0 + 6)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, getattr(face, "sky", 0) or 0)
+        GL.glActiveTexture(GL.GL_TEXTURE0)
+        if "uSky" not in self._loc:
+            self._loc["uSky"] = GL.glGetUniformLocation(self.prog, "uSky")
+            if self._loc["uSky"] >= 0:
+                GL.glUniform1i(self._loc["uSky"], 6)
         stride = 6 * 4
         GL.glEnableVertexAttribArray(1)
 
