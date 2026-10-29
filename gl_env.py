@@ -1,6 +1,6 @@
 """
 gl_env.py — the fine part of Luna's world outside (environment.py): the arc's
-line, rain, snow and stars, as small meshes moved in the vertex shader. The
+line, rain, snow, stars and the moon, as small meshes moved in the vertex shader. The
 sky itself (gradient, sun, clouds, fog, the arc's glow) is the soft pass's,
 in gl_face.py.
 
@@ -13,15 +13,75 @@ import random
 
 RAIN_N, SNOW_N, STAR_N, ARC_N = 520, 360, 60, 120
 
+# the clouds' shapes: gl_face's sky draws them, the stars and the moon here
+# hide behind them. Six formations (environment.Env.frame): F = x, its flat
+# underside's y, width, seed; G = opacity, near (0 far..1), height (wisps
+# flat), the shape's slow change
+CLOUD_GLSL = """
+uniform vec4  uEnvF0, uEnvF1, uEnvF2, uEnvF3, uEnvF4, uEnvF5;
+uniform vec4  uEnvG0, uEnvG1, uEnvG2, uEnvG3, uEnvG4, uEnvG5;
+
+float envcH(float n) {
+    n = fract(n * 0.1031 + 0.137);
+    n *= n + 33.33;
+    return fract((n + n) * n);
+}
+// a cheap smooth wave, -0.5..0.5, period 1
+float envcW(float x) { float f = fract(x); return 4.0 * f * (1.0 - f) - 0.5; }
+float envcMin(float a, float b, float k) {
+    float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
+    return mix(b, a, h) - k * h * (1.0 - h);
+}
+
+// a formation's distance (px, < 0 inside): five puffs, their highest one
+// off centre, on a soft flat underside
+float envCloudD(vec2 q, vec4 f, vec4 g) {
+    vec2 p = q - f.xy;
+    float w = f.z;
+    p.y /= g.z;
+    float peak = (envcH(f.w * 3.1) - 0.5) * 0.9;
+    float d = 1e4;
+    for (int i = 0; i < 5; i++) {
+        float fi = float(i);
+        float h = envcH(f.w * 13.7 + fi * 7.31);
+        float t = fi * 0.5 - 1.0;
+        float k = 1.0 - 0.42 * (t - peak) * (t - peak);
+        float r = w * (0.13 + 0.12 * h) * max(k, 0.25)
+                  * (1.0 + 0.09 * envcW(g.w * (1.0 + floor(h * 4.0) * 0.25) + h));
+        vec2 c = vec2(t * w * 0.31 + (h - 0.5) * w * 0.07, -r * (0.35 + 0.40 * envcH(h * 91.7)));
+        d = envcMin(d, length(p - c) - r, w * 0.10);
+    }
+    return -envcMin(-d, w * 0.025 - p.y, w * 0.05);
+}
+
+// how much the clouds cover this point (0..1)
+float envcOne(vec2 q, vec4 f, vec4 g) {
+    if (g.x < 0.004) return 0.0;
+    vec2 p = q - f.xy;
+    if (abs(p.x) > 0.62 * f.z || p.y > 0.12 * f.z || p.y < -0.62 * f.z * g.z) return 0.0;
+    float s = f.z * (0.05 - 0.025 * g.y) + 2.0;
+    return g.x * (1.0 - smoothstep(-s, s, envCloudD(q, f, g)));
+}
+float envCover(vec2 q) {
+    float a = envcOne(q, uEnvF0, uEnvG0);
+    a = max(a, envcOne(q, uEnvF1, uEnvG1));
+    a = max(a, envcOne(q, uEnvF2, uEnvG2));
+    a = max(a, envcOne(q, uEnvF3, uEnvG3));
+    a = max(a, envcOne(q, uEnvF4, uEnvG4));
+    return max(a, envcOne(q, uEnvF5, uEnvG5));
+}
+"""
+
 _VERT = """
 attribute vec2 aPos;          // the corner: across -1..1, along 0..1
 attribute vec4 aSeed;         // the particle's: x, y, size/near (0..1), phase
 uniform vec2  uRes;
-uniform float uKind;          // 0 the arc, 1 rain, 2 snow, 3 stars
+uniform float uKind;          // 0 the arc, 1 rain, 2 snow, 3 stars, 4 the moon
 uniform vec4  uK;             // (count), alpha, length / size / half width, speed
-uniform vec4  uEnvArcG, uEnvArcA, uEnvClk, uEnvX, uEnvMask;
+uniform vec4  uEnvArcG, uEnvArcA, uEnvClk, uEnvX, uEnvMask, uEnvMoon, uEnvL;
 varying vec2  vUV;
 varying float vA;
+""" + CLOUD_GLSL + """
 
 // a rate that repeats whole in the clocks' 600 s (no jump when they wrap)
 float per(float f) { return floor(f * 600.0 + 0.5) / 600.0; }
@@ -66,15 +126,20 @@ void main() {
                      + (6.0 + 10.0 * z) * sin(6.28318 * uEnvClk.y * per(0.05 + 0.06 * aSeed.w)
                                               + aSeed.w * 40.0), y);
             vA = uK.y * (0.45 + 0.55 * z) * mask(c);
-        } else {
+        } else if (uKind < 3.5) {               // a star, behind the clouds
             c = vec2(aSeed.x * W, aSeed.y * uEnvX.w * 0.55);
             r = 0.7 + 0.6 * aSeed.z;
-            vA = uK.y * (0.35 + 0.65 * aSeed.z) * mask(c)
+            vA = uK.y * (0.35 + 0.65 * aSeed.z) * mask(c) * (1.0 - envCover(c))
                  * (0.65 + 0.35 * sin(6.28318 * uEnvClk.z * per(0.04 + 0.08 * aSeed.w)
                                       + aSeed.w * 60.0));
+        } else {                                // the moon, a quad 5 r wide
+            c = uEnvMoon.xy;
+            r = uEnvMoon.z * 1.25;
+            vA = uEnvMoon.w * (1.0 - envCover(c));
         }
         vUV = vec2(aPos.x, aPos.y * 2.0 - 1.0) * 2.0;
         pos = c + vUV * r;
+        if (uKind > 3.5) vUV *= 1.25;           // (the moon's: in its radii)
     }
     gl_Position = vec4(pos.x / W * 2.0 - 1.0, 1.0 - pos.y / H * 2.0, 0.0, 1.0);
 }
@@ -93,8 +158,14 @@ void main() {
         a = vA * (0.8 * clamp(uK.w - d + 0.5, 0.0, 1.0) + 0.3 * exp(-d / 2.5));
     } else if (uKind < 1.5) {
         a = vA * max(0.0, 1.0 - abs(vUV.x)) * (1.0 - vUV.y);   // its tail fades
-    } else {
+    } else if (uKind < 3.5) {
         a = vA * exp(-dot(vUV, vUV));
+    } else {                                    // a crescent, a faint rest, a faint halo
+        float e = uK.z;
+        float disk = 1.0 - smoothstep(1.0 - e, 1.0 + e, length(vUV));
+        float cut = 1.0 - smoothstep(1.0 - e, 1.0 + e, length(vUV - vec2(-0.42, -0.30)) * 1.04);
+        a = vA * (disk * (1.0 - cut) + 0.07 * disk * cut
+                  + 0.14 * exp(-max(0.0, length(vUV) - 1.0) * 2.2) * (1.0 - disk));
     }
     gl_FragColor = vec4(uCol * a, 0.0);         // (light added: premultiplied, no cover)
 }
@@ -161,7 +232,8 @@ class EnvPass:
         GL, face = self.GL, self.face
         GL.glUseProgram(self.prog)
         self._set("uRes", (face.w, face.h))
-        for k in ("uEnvArcG", "uEnvArcA", "uEnvClk", "uEnvX", "uEnvMask"):
+        for k in ("uEnvArcG", "uEnvArcA", "uEnvClk", "uEnvX", "uEnvMask", "uEnvMoon", "uEnvL") \
+                + tuple(f"uEnv{a}{i}" for a in "FG" for i in range(6)):
             self._set(k, u[k])
         stride = 6 * 4
         GL.glEnableVertexAttribArray(1)
@@ -188,4 +260,10 @@ class EnvPass:
             self._set("uCol", u[key + "C"])
             self._set("uK", p)
             mesh(kind, GL.GL_TRIANGLES, 6 * n)
+        moon = u["uEnvMoon"]
+        if moon[3] > 0.003:
+            self._set("uKind", 4.0)
+            self._set("uCol", u["uEnvMoonC"])
+            self._set("uK", (0.0, 1.0, 1.2 / max(1.0, moon[2]), 0.0))
+            mesh("stars", GL.GL_TRIANGLES, 6)
         GL.glDisableVertexAttribArray(1)

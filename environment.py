@@ -25,7 +25,7 @@ CLOCK_WRAP = 600.0           # the particles' clocks wrap here (the shader's per
 
 # ── everything tunable ────────────────────────────────────────────────────
 TUNE = {
-    "brightness": 0.80,      # the whole sky
+    "brightness": 1.0,       # the whole sky
     "face_shade": 0.38,      # darker behind her face (her features stay the brightest)
     "horizon": 0.66,         # the haze band's height, a fraction of the height
     # the one arc: three points it passes (fractions of the screen), its
@@ -38,7 +38,18 @@ TUNE = {
     "rain_count": 340, "rain_alpha": 0.32, "rain_len": 24.0, "rain_speed": 620.0,
     # snow at its heaviest: flakes, opacity, size px, speed px/s
     "snow_count": 230, "snow_alpha": 0.75, "snow_size": 1.6, "snow_speed": 34.0,
-    "stars": 0.5, "star_count": 42,     # clear nights: a few faint points
+    "stars": 0.7, "star_count": 42,     # clear nights: a few faint points
+    "moon": 0.80, "moon_pos": (0.11, 0.15), "moon_r": 10.0,   # a crescent, dark nights
+    # the clouds, back to front: their flat underside's y and width (fractions
+    # of the screen), drift px/s, near (0 far..1), the cloud amount they come
+    # in over, how much of them shows as a wisp on a clear day
+    "clouds": ((0.30, 0.78, 2.6, 0.45, (0.55, 0.85), 0.0),     # overcast's masses
+               (0.64, 0.70, 1.9, 0.35, (0.62, 0.92), 0.0),
+               (0.17, 0.32, 1.4, 0.00, (0.10, 0.40), 0.30),    # far: wisps when clear
+               (0.80, 0.40, 1.1, 0.10, (0.20, 0.45), 0.22),
+               (0.25, 0.42, 3.2, 1.00, (0.25, 0.50), 0.0),     # near
+               (0.90, 0.52, 2.5, 0.85, (0.35, 0.60), 0.0)),
+    "cloud_x": (0.25, 0.70, 0.12, 0.85, 0.80, 0.30),           # where they start
     "motion": 1.0,           # every animation's pace (0: still)
     "ease": 7.0, "ease_weather": 10.0, "ease_sim": 2.5,      # seconds
     "asleep_dim": 0.62,      # her asleep: the sky dims to this
@@ -46,38 +57,49 @@ TUNE = {
 
 # the sky by the sun's height (degrees): evening and morning keys, eased between
 # zen: the top, mid: behind her, hor: the horizon, sun: its haze (rgb, a),
-# arc: the arc's colour and strength, low: the bottom of the screen
-def _k(zen, mid, hor, sun, sun_a, arc, arc_a, low):
+# arc: the arc's colour and strength, low: the bottom of the screen;
+# clouds: cl lit, cs shaded, cr their rim's light (rgb, a)
+def _k(zen, mid, hor, sun, sun_a, arc, arc_a, low, cl, cs, cr, cr_a):
     return {"zen": zen, "mid": mid, "hor": hor, "sun": sun, "sun_a": sun_a,
-            "arc": arc, "arc_a": arc_a, "low": low}
+            "arc": arc, "arc_a": arc_a, "low": low, "cl": cl, "cs": cs, "cr": cr, "cr_a": cr_a}
 
 
-NIGHT = _k((5, 7, 20), (10, 12, 34), (30, 26, 62), (70, 70, 140), 0.10,
-           (240, 168, 98), 0.55, (5, 5, 14))
-DAY = _k((28, 52, 98), (62, 82, 112), (168, 150, 130), (255, 236, 200), 0.35,
-         (255, 226, 160), 0.55, (24, 24, 30))
+NIGHT = _k((3, 5, 20), (8, 13, 42), (20, 27, 68), (60, 70, 130), 0.08,
+           (240, 170, 100), 0.42, (3, 5, 15),
+           (34, 41, 72), (10, 13, 31), (130, 140, 190), 0.35)
+DAY = _k((30, 98, 190), (80, 148, 216), (172, 208, 232), (255, 248, 230), 0.30,
+         (255, 226, 160), 0.80, (52, 98, 152),
+         (242, 246, 252), (142, 162, 192), (255, 255, 245), 0.30)
 EVENING = [
     (-18.0, NIGHT),
-    (-10.0, _k((10, 12, 38), (34, 28, 76), (104, 62, 112), (170, 90, 120), 0.25,
-               (255, 170, 95), 0.75, (10, 8, 22))),                      # dusk
-    (-3.0, _k((20, 18, 54), (72, 40, 84), (190, 92, 82), (255, 120, 70), 0.45,
-              (255, 160, 80), 0.90, (16, 10, 22))),                      # late sunset
-    (1.0, _k((30, 28, 74), (108, 56, 78), (230, 128, 80), (255, 150, 70), 0.60,
-             (255, 175, 90), 1.00, (24, 14, 22))),                       # sunset
-    (7.0, _k((38, 42, 86), (124, 78, 62), (232, 158, 98), (255, 185, 95), 0.60,
-             (255, 196, 110), 0.90, (30, 20, 18))),                      # golden hour
+    (-10.0, _k((6, 8, 30), (24, 24, 72), (80, 56, 110), (150, 90, 140), 0.20,
+               (250, 170, 95), 0.60, (6, 6, 20),
+               (60, 52, 96), (18, 18, 44), (200, 120, 140), 0.35)),          # dusk
+    (-3.0, _k((14, 16, 52), (64, 40, 96), (196, 92, 94), (255, 120, 80), 0.45,
+              (255, 160, 80), 0.85, (14, 10, 26),
+              (150, 90, 112), (40, 30, 64), (255, 130, 90), 0.80)),          # late sunset
+    (1.0, _k((28, 30, 84), (122, 70, 112), (252, 140, 92), (255, 150, 80), 0.65,
+             (255, 175, 90), 1.00, (30, 20, 40),
+             (240, 152, 122), (80, 54, 96), (255, 160, 90), 1.00)),          # sunset
+    (7.0, _k((36, 70, 140), (130, 120, 150), (250, 184, 120), (255, 196, 110), 0.55,
+             (255, 200, 115), 0.95, (40, 42, 72),
+             (255, 214, 172), (112, 98, 132), (255, 190, 110), 0.80)),       # golden hour
     (20.0, DAY),
 ]
 MORNING = [
     (-18.0, NIGHT),
-    (-10.0, _k((10, 12, 40), (40, 40, 92), (110, 86, 132), (150, 110, 150), 0.25,
-               (250, 180, 120), 0.70, (10, 9, 22))),                     # dawn
-    (-3.0, _k((20, 24, 66), (84, 70, 128), (220, 140, 130), (255, 160, 120), 0.45,
-              (255, 190, 130), 0.85, (16, 12, 24))),
-    (1.0, _k((30, 34, 80), (100, 76, 106), (226, 154, 122), (255, 190, 140), 0.55,
-             (255, 200, 140), 0.95, (22, 16, 24))),                      # sunrise
-    (7.0, _k((36, 50, 98), (112, 92, 92), (214, 170, 132), (255, 210, 150), 0.55,
-             (255, 214, 150), 0.85, (26, 20, 22))),                      # morning gold
+    (-10.0, _k((6, 9, 32), (30, 34, 90), (96, 80, 136), (150, 120, 170), 0.20,
+               (250, 180, 120), 0.60, (6, 7, 20),
+               (70, 66, 110), (20, 22, 50), (210, 160, 170), 0.35)),         # dawn
+    (-3.0, _k((14, 20, 62), (72, 64, 128), (220, 140, 136), (255, 160, 120), 0.45,
+              (255, 190, 130), 0.80, (12, 12, 28),
+              (170, 122, 142), (46, 40, 80), (255, 170, 130), 0.80)),
+    (1.0, _k((24, 36, 92), (100, 86, 140), (248, 176, 136), (255, 196, 150), 0.60,
+             (255, 200, 140), 0.95, (24, 22, 44),
+             (250, 188, 162), (90, 80, 124), (255, 196, 140), 1.00)),        # sunrise
+    (7.0, _k((34, 76, 150), (110, 130, 180), (244, 200, 160), (255, 220, 170), 0.50,
+             (255, 214, 150), 0.90, (36, 50, 84),
+             (255, 230, 208), (124, 124, 156), (255, 214, 160), 0.70)),      # morning gold
     (20.0, DAY),
 ]
 
@@ -228,14 +250,24 @@ def compose(elev, rising, weights, wx):
         c = _warm(c, warm * amt)
         g = lum(c)
         c = _mix(c, (g * 0.96, g * 0.98, g * 1.04), 0.45 * cloud + 0.30 * rain)  # muted
-        c = tuple(x * (1.0 - 0.20 * cloud - 0.18 * rain - 0.35 * storm) for x in c)
+        c = tuple(x * (1.0 - 0.20 * cloud - 0.32 * rain ** 1.3 - 0.35 * storm) for x in c)
         c = _mix(c, tuple(x * y for x, y in zip(c, (0.84, 0.92, 1.16))),
                  0.55 * snow + 0.35 * storm + 0.25 * rain)                  # cool
         c = _mix(c, (g * 0.9 + 0.03, g * 0.92 + 0.035, g * 0.95 + 0.045), 0.35 * fog)
         return tuple(max(0.0, x * b) for x in c)
 
+    def cloudc(c):                            # rain clouds darker, snow's cooler
+        c = _c(c)
+        c = _mix(c, tuple(x * y for x, y in zip(c, tint)), 0.5)
+        g = lum(c)
+        c = tuple(x * (1.0 - 0.80 * rain ** 1.3 - 0.30 * storm - 0.08 * cloud) for x in c)
+        c = _mix(c, (g * 0.92, g * 0.97, g * 1.08), 0.35 * rain + 0.40 * snow)
+        return tuple(max(0.0, x * b) for x in c)
+
     day = _smooth((elev + 4.0) / 14.0)
     return {
+        "cl": cloudc(k["cl"]), "cs": cloudc(k["cs"]), "cr": cloudc(k["cr"]),
+        "cr_a": k["cr_a"] * (1.0 - 0.6 * rain) * (1.0 - 0.5 * fog) * (1.0 - 0.5 * _smooth((cloud - 0.6) / 0.3)),
         "zen": sky(k["zen"]), "mid": sky(k["mid"]), "hor": sky(k["hor"]),
         "sun": sky(k["sun"]), "sun_a": k["sun_a"] * (1.0 - 0.65 * cloud) * (1.0 - 0.4 * fog),
         "arc": sky(k["arc"], 0.33), "arc_a": k["arc_a"] * (1.0 - 0.30 * cloud) * (1.0 - 0.45 * fog)
@@ -255,8 +287,9 @@ def _wind_slant(wx):
 
 
 # ── the live state ────────────────────────────────────────────────────────
-_EASED = ("zen", "mid", "hor", "sun", "sun_a", "arc", "arc_a", "low", "stars", "elev")
-_WX = ("cloud", "fog", "rain", "snow", "storm", "slant")
+_EASED = ("zen", "mid", "hor", "sun", "sun_a", "arc", "arc_a", "low", "stars", "elev",
+          "cl", "cs", "cr", "cr_a")
+_WX = ("cloud", "fog", "rain", "snow", "storm", "slant", "drift")
 
 
 class Env:
@@ -276,6 +309,10 @@ class Env:
         self.asleep = 0.0
         self.flash, self.flash_t, self.flash_x, self.flash_next = 0.0, -99.0, 0.6, 0.0
         self.t_last = None
+        self.cx = None                     # the clouds' x (px), seeds, shapes' change
+        self.cseed = [3.0 + 17.0 * i for i in range(len(TUNE["clouds"]))]
+        self.cev = [0.7 * i for i in range(len(TUNE["clouds"]))]
+        self.deck_x = 0.0
 
     # the simulated state -------------------------------------------------
     def simulate(self, words):
@@ -376,6 +413,8 @@ class Env:
         wx = weather_of(sky)
         tg = compose(elev, rising, season_weights(doy, south=lat < 0), wx)
         tg["slant"] = _wind_slant(wx)
+        # the clouds' drift: with the wind across (+ right), slow without one
+        tg["drift"] = -math.sin(math.radians(wx["wind_dir"])) * (0.5 + min(1.5, wx["wind"] / 20.0))
         return tg
 
     # per frame ------------------------------------------------------------
@@ -431,19 +470,36 @@ class Env:
         rain, snow = max(0.0, cur["rain"]), max(0.0, cur["snow"])
         hor = cur["hor"]
         rain_c = tuple((0.7 * a + 0.3 * b) * dim for a, b in zip((0.70, 0.76, 0.88), hor))
-        return {
+        clouds = self._clouds(dt * mo, w, h, cur)
+        # toward the light: the sun (at the horizon when below it), the moon at night
+        night = 1.0 - _smooth((e + 10.0) / 6.0)
+        mx, my = w * T["moon_pos"][0], h * T["moon_pos"][1]
+        ls = (sx - w * 0.5, sy - h * 0.35)
+        lm = (mx - w * 0.5, my - h * 0.35)
+        ls = tuple(v / math.hypot(*ls) for v in ls)
+        lm = tuple(v / math.hypot(*lm) for v in lm)
+        deck = _smooth((cur["cloud"] - 0.6) / 0.3)
+        self.deck_x = (self.deck_x + dt * mo * 0.004 * cur["drift"]) % 997.0
+        moon_a = T["moon"] * night * (1.0 - cur["fog"]) * (1.0 - 0.7 * deck)
+        out = {
             "uEnvOn": 1.0,
             "uEnvZen": c(cur["zen"]), "uEnvMid": c(cur["mid"]), "uEnvHor": c(cur["hor"]),
             "uEnvLow": c(cur["low"]),
             "uEnvSun": (*c(cur["sun"]), sun_a + night_glow),
-            "uEnvSunP": (sx, sy, h * TUNE["sun_size"], TUNE["face_shade"]),
+            "uEnvSunP": (sx, sy, h * TUNE["sun_size"],
+                         TUNE["face_shade"] * (1.0 - 0.45 * _smooth((e + 2.0) / 14.0))),
             "uEnvArc": (*c(cur["arc"]), cur["arc_a"] * (0.85 + 0.15 * math.sin(ph * 0.05))),
             "uEnvArcG": (cx, cy, r, ph * 0.045 % math.tau),
             "uEnvArcA": (a0, a1, TUNE["arc_width"], TUNE["arc_glow"]),
             "uEnvW": (cur["cloud"], cur["fog"], cur["rain"], cur["snow"]),
             "uEnvX": (self.flash, cur["slant"], self.flash_x * w, hy),
-            "uEnvC0": (_wrap(w * 0.15 + ph * 3.1, -1.0 * w, 2.0 * w), h * 0.22, w * 0.42, h * 0.16),
-            "uEnvC1": (_wrap(w * 0.95 + ph * 2.2, -1.0 * w, 2.0 * w), h * 0.50, w * 0.36, h * 0.12),
+            # (with the sun low, clouds are lit from the side, not from above)
+            "uEnvCl": (*c(cur["cl"]), 0.12 + 0.33 * _smooth((e - 3.0) / 15.0)),
+            "uEnvCs": (*c(cur["cs"]), 0.0),
+            "uEnvCr": (*c(cur["cr"]), cur["cr_a"]),
+            "uEnvL": (_mix(ls, lm, night)[0], _mix(ls, lm, night)[1], deck, self.deck_x),
+            "uEnvMoon": (mx, my, T["moon_r"], moon_a),
+            "uEnvMoonC": c((0.92, 0.88, 0.74)),
             "uEnvClk": tuple(self.clk),
             # (gl_env.py: how many, opacity, length / size, speed)
             "uEnvRain": (T["rain_count"] * rain ** 1.3, T["rain_alpha"] * (0.6 + 0.4 * rain),
@@ -457,6 +513,31 @@ class Env:
             "uEnvStarsC": c((0.85, 0.88, 1.0)),
             "uEnvMask": (fcx, fcy + 20.0, 330.0, 190.0),
         }
+        out.update(clouds)
+        return out
+
+    def _clouds(self, dt, w, h, cur):
+        """The six formations (gl_env.CLOUD_GLSL's F and G): drifting on
+        their own, wrapping (a new shape) off screen, in and out with the
+        cloud amount — wisps when clear, broad masses when overcast."""
+        slots = TUNE["clouds"]
+        if self.cx is None:
+            self.cx = [x * w for x in TUNE["cloud_x"]]
+        cloud, fog = cur["cloud"], cur["fog"]
+        out = {}
+        for i, (y, wd, v, near, (lo, hi), wisp) in enumerate(slots):
+            span = wd * w * 1.2 * 0.62
+            self.cx[i] += dt * v * cur["drift"]
+            if self.cx[i] > w + span or self.cx[i] < -span:     # off screen: round again, new
+                self.cx[i] = -span if self.cx[i] > 0 else w + span
+                self.cseed[i] = (self.cseed[i] + 1.0) % 997.0
+            self.cev[i] = (self.cev[i] + dt * (0.015 + 0.004 * i)) % 4.0
+            on = _smooth((cloud - lo) / (hi - lo))
+            a = (wisp + (1.0 - wisp) * on) if wisp else on
+            tall = (0.32 + 0.68 * on) if wisp else (0.80 if near < 0.5 else 1.0)
+            out[f"uEnvF{i}"] = (self.cx[i], y * h, wd * w * (0.85 + 0.35 * cloud), self.cseed[i])
+            out[f"uEnvG{i}"] = (a * (1.0 - 0.75 * fog), near, tall, self.cev[i])
+        return out
 
     def _storm(self, mono, storm):
         """A rare, soft, far-away light at the horizon: rises in 0.2 s, fades in ~1.5 s."""

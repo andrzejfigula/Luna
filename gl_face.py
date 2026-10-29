@@ -26,6 +26,7 @@ import time
 
 import face_spec
 import environment
+import gl_env
 import themes
 import visualizer
 
@@ -116,7 +117,9 @@ uniform vec4  uEnvSun, uEnvSunP;      // the sun's haze: rgb, a; x, y, size, the
 uniform vec4  uEnvArc, uEnvArcG, uEnvArcA;   // the arc: rgb, a; centre, r, phase; ends, width, glow
 uniform vec4  uEnvW;          // cloud, fog, rain, snow (0..1)
 uniform vec4  uEnvX;          // a storm's far light, the wind's lean, its x, the haze band's y
-uniform vec4  uEnvC0, uEnvC1; // two clouds' shadows: x, y, half sizes
+uniform vec4  uEnvCl, uEnvCs, uEnvCr;  // clouds: lit (rgb, how much from above), shaded, rim
+uniform vec4  uEnvL;          // toward the light (px per px), overcast's deck, its drift
+uniform vec4  uEnvMask;       // her face: centre, half sizes (clouds thinner there)
 uniform vec4  uEnvClk;        // clocks (s, wrap at 600): rain, snow, haze, spare
 
 float gA;                     // the coverage of the shape just drawn (stage 2)
@@ -692,9 +695,45 @@ float envArcK(float t) {
 
 // an angular rate that turns whole in the clocks' 600 s (no jump when they wrap)
 float perw(float w) { return floor(w * 95.4930 + 0.5) / 95.4930; }
+float per(float f) { return floor(f * 600.0 + 0.5) / 600.0; }       // (a rate, likewise)
 
-// (the soft pass) the gradient, the sun's haze, clouds, fog, a storm's light,
-// the arc's glow — screen px, not turned with her head
+// (the soft pass) the gradient, the sun's haze, an overcast deck, the
+// clouds, fog's layers, a storm's light, the arc's glow — screen px, not
+// turned with her head
+""" + gl_env.CLOUD_GLSL + """
+float envN(vec2 p) {                      // value noise, no sin (the Pi's GPU)
+    vec2 i = floor(p), f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float a = envcH(i.x + i.y * 57.0), b = envcH(i.x + 1.0 + i.y * 57.0);
+    float c = envcH(i.x + (i.y + 1.0) * 57.0), d = envcH(i.x + 1.0 + (i.y + 1.0) * 57.0);
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+// one formation over the sky: lit toward the light, shaded deep in and
+// under, a rim where the light comes through; far ones paler and softer
+vec3 envCloud(vec3 c, vec2 q, vec4 f, vec4 g) {
+    if (g.x < 0.004) return c;
+    vec2 p = q - f.xy;
+    float w = f.z;
+    if (abs(p.x) > 0.62 * w || p.y > 0.12 * w || p.y < -0.62 * w * g.z) return c;
+    float d = envCloudD(q, f, g);
+    float s = w * (0.05 - 0.025 * g.y) + 2.0;
+    float a = 1.0 - smoothstep(-s, s, d);
+    if (a < 0.003) return c;
+    float k = w * 0.16;
+    float d2 = envCloudD(q + uEnvL.xy * k, f, g);
+    float lit = exp(-max(0.0, -d2) / (w * 0.22));                // the light's way in
+    float up = smoothstep(f.y + 0.02 * w, f.y - 0.42 * w * g.z, q.y);   // tops lighter
+    float sh = clamp(0.20 + (0.90 - uEnvCl.a) * lit + uEnvCl.a * up, 0.0, 1.0);
+    vec3 col = mix(uEnvCs.rgb, uEnvCl.rgb, sh);
+    float face = clamp((d2 - d) / k, 0.0, 1.0);                  // the side toward the light
+    col += uEnvCr.rgb * uEnvCr.a * face * exp(-abs(d + 0.8 * s) / s) * 0.6;
+    col = mix(col, c, 0.35 * (1.0 - g.y));
+    vec2 m = (q - uEnvMask.xy) / uEnvMask.zw;
+    a *= g.x * mix(0.55, 1.0, smoothstep(0.70, 1.20, length(m)));
+    return mix(c, col, a);
+}
+
 vec3 envSky(vec2 q) {
     float hy = uEnvX.w;
     vec3 c = mix(uEnvZen, uEnvMid, smoothstep(0.0, hy * 0.85, q.y));
@@ -705,20 +744,30 @@ vec3 envSky(vec2 q) {
     vec2 s = (q - uEnvSunP.xy) / uEnvSunP.z;
     float ss = dot(s, s);
     c += uEnvSun.rgb * uEnvSun.a * (0.32 * exp(-ss * 0.35) + 0.40 * exp(-ss * 5.0));
-    if (uEnvW.x > 0.01) {                 // clouds: one or two very soft, slow shadows
-        vec2 k0 = (q - uEnvC0.xy) / uEnvC0.zw;
-        vec2 k1 = (q - uEnvC1.xy) / uEnvC1.zw;
-        float wob = 0.85 + 0.15 * sin(q.x * 0.013 + uEnvClk.z * perw(0.05))
-                                * sin(q.y * 0.021 - uEnvClk.z * perw(0.03));
-        float cl = min(1.0, (exp(-dot(k0, k0)) + 0.8 * exp(-dot(k1, k1))) * wob);
-        c = mix(c, c * 0.60 + uEnvMid * 0.06, uEnvW.x * cl * 0.75);
+    if (uEnvL.z > 0.01) {                 // overcast: one grey deck, lighter and darker in it
+        float n = envN(vec2(q.x * 0.0045 + uEnvL.w, q.y * 0.008))
+                  + 0.5 * envN(vec2(q.x * 0.011 - uEnvL.w * 1.7, q.y * 0.019 + 3.0));
+        vec3 dc = mix(uEnvCs.rgb, uEnvCl.rgb, 0.18 + 0.36 * n);
+        dc += uEnvSun.rgb * 0.22 * exp(-ss * 0.5);          // the light through it
+        c = mix(c, dc, uEnvL.z * 0.88 * (1.0 - smoothstep(hy * 0.70, hy * 1.15, q.y)));
     }
-    if (uEnvW.y > 0.01) {                 // fog: a pale veil, thicker low, drifting
-        float b = 0.5 + 0.25 * sin(q.x * 0.0061 + uEnvClk.z * perw(0.021))
-                      + 0.25 * sin(q.x * 0.0113 + q.y * 0.004 - uEnvClk.z * perw(0.013));
-        vec3 haze = mix(uEnvHor, vec3(dot(uEnvMid, vec3(0.30, 0.59, 0.11))) * 1.5 + 0.04, 0.5);
-        float f = uEnvW.y * (0.30 + 0.35 * b) * (0.45 + 0.55 * smoothstep(0.0, hy * 1.1, q.y));
-        c = mix(c, haze, clamp(f, 0.0, 0.8));
+    c = envCloud(c, q, uEnvF0, uEnvG0);
+    c = envCloud(c, q, uEnvF1, uEnvG1);
+    c = envCloud(c, q, uEnvF2, uEnvG2);
+    c = envCloud(c, q, uEnvF3, uEnvG3);
+    c = envCloud(c, q, uEnvF4, uEnvG4);
+    c = envCloud(c, q, uEnvF5, uEnvG5);
+    if (uEnvW.y > 0.01) {                 // fog: layers close to the sky's own tone, drifting
+        vec3 haze = mix(uEnvHor, vec3(dot(uEnvMid, vec3(0.30, 0.59, 0.11))) * 1.4 + 0.03, 0.5);
+        float f = 0.0;
+        for (int i = 0; i < 3; i++) {
+            float fi = float(i);
+            float y = hy * (0.30 + 0.30 * fi)
+                      + 26.0 * envcW(q.x * (0.0021 + 0.0009 * fi) + uEnvClk.z * per(0.004 + 0.002 * fi) + fi * 0.37);
+            f += 0.30 * smoothstep(y - 70.0, y + 50.0, q.y);
+        }
+        f += 0.18;
+        c = mix(c, haze, clamp(uEnvW.y * f, 0.0, 0.85));
     }
     if (uEnvX.x > 0.001) {                // a storm's far light, low behind the clouds
         vec2 fq = (q - vec2(uEnvX.z, hy)) / (0.35 * uRes);
@@ -1460,7 +1509,6 @@ class GLFace:
                 and self.envp is not False):     # the world outside: its rain, snow, the arc
             try:
                 if self.envp is None:
-                    import gl_env
                     self.envp = gl_env.EnvPass(self)
                 self.envp.draw(uniforms)
             except Exception as e:

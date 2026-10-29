@@ -643,10 +643,10 @@ def chars_sheet(out_dir, kinds=None):
     return timings
 
 
-ENV_LOOKS = ("night clear winter", "dawn", "sunrise", "morning", "noon summer", "golden",
-             "sunset", "dusk", "day cloudy", "day fog", "sunrise fog", "day drizzle",
-             "day rain", "night heavy-rain wind=40", "day snow winter", "night heavy-snow winter",
-             "dusk storm", "day spring", "day autumn", "night partly")
+ENV_LOOKS = ("noon clear summer", "night clear winter", "sunrise partly", "day cloudy",
+             "day rain", "day snow winter", "sunset partly", "day partly",
+             "golden partly", "dawn", "dusk", "night partly", "night heavy-rain wind=40",
+             "day drizzle", "day fog", "dusk storm")
 
 
 def env_sheet(out_dir, only=None):

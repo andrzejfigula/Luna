@@ -11335,7 +11335,7 @@ class TestEnvironment(unittest.TestCase):
         src = gl_face._FRAG + gl_env._VERT
         glsl = set(re.findall(r"uEnv\w+", src))
         for k in u:
-            if not k.endswith("C") or k in ("uEnvC0", "uEnvC1"):
+            if not k.endswith("C"):
                 if k not in ("uEnvRain", "uEnvSnow", "uEnvStars"):    # (gl_env: as its uK)
                     self.assertIn(k, glsl)
         for k in glsl:
