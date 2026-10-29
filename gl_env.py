@@ -81,10 +81,15 @@ float envcOne(vec2 q, vec4 f, vec4 g) {
     float a = g.x * (1.0 - smoothstep(-s, s, envCloudD(q, f, g)));
     return envcK(g) > 1.5 ? 0.4 * a : a;                  // a veil: thin
 }
+// her middle cleared (uEnvClk.w): the clouds bank round the edges
+float envcClear(vec2 q) {
+    vec2 m = (q - uEnvMask.xy) / uEnvMask.zw;
+    return mix(0.65 * (1.0 - uEnvClk.w), 1.0, smoothstep(0.62, 1.22, length(m)));
+}
 float envCover(vec2 q) {
     float a = 0.0;
     for (int i = 0; i < 12; i++) a = max(a, envcOne(q, uEnvF[i], uEnvG[i]));
-    return a;
+    return a * envcClear(q);
 }
 """
 
@@ -96,7 +101,7 @@ uniform float uKind;          // 0 the arc, 1 rain, 2 snow, 3 stars, 4 the moon
 uniform vec4  uK;             // (count), alpha, length / size / half width, speed
 uniform vec4  uEnvArcG, uEnvArcA, uEnvClk, uEnvX, uEnvMask, uEnvMoon, uEnvL;
 varying vec2  vUV;
-varying float vA;
+varying float vA, vS;
 """ + CLOUD_GLSL + """
 
 // a rate that repeats whole in the clocks' 600 s (no jump when they wrap)
@@ -112,6 +117,7 @@ void main() {
     float W = uRes.x, H = uRes.y, s = uEnvX.y;
     vec2 pos;
     vUV = aPos;
+    vS = 0.0;
     if (uKind < 0.5) {                          // the arc: in from the edge, gone before her brow
         float t = aPos.y;
         float a = mix(uEnvArcA.x, uEnvArcA.y, t);
@@ -146,17 +152,19 @@ void main() {
             c = vec2(aSeed.x * W, aSeed.y * aSeed.y * uEnvX.w * 0.95);
             float z3 = aSeed.z * aSeed.z * aSeed.z;
             r = 0.8 + 2.2 * z3;
+            vS = smoothstep(0.35, 0.9, z3);         // the brightest: a sparkle
             vA = uK.y * (0.30 + 0.70 * aSeed.z) * mask(c) * (1.0 - envCover(c))
                  * (0.65 + 0.35 * sin(6.28318 * uEnvClk.z * per(0.04 + 0.08 * aSeed.w)
                                       + aSeed.w * 60.0));
         } else {                                // the moon, a quad 5 r wide
             c = uEnvMoon.xy;
-            r = uEnvMoon.z * 1.8;
+            r = uEnvMoon.z * 4.0;                   // (room for its halo)
             vA = uEnvMoon.w * (1.0 - 0.85 * envCover(c));       // (a little through thin cloud)
         }
         vUV = vec2(aPos.x, aPos.y * 2.0 - 1.0) * 2.0;
+        if (uKind > 2.5 && uKind < 3.5) vUV *= 3.0;   // (a star's: room for its rays)
         pos = c + vUV * r;
-        if (uKind > 3.5) vUV *= 1.8;            // (the moon's: in its radii)
+        if (uKind > 3.5) vUV *= 4.0;            // (the moon's: in its radii)
     }
     gl_Position = vec4(pos.x / W * 2.0 - 1.0, 1.0 - pos.y / H * 2.0, 0.0, 1.0);
 }
@@ -167,7 +175,7 @@ uniform float uKind;
 uniform vec3  uCol;
 uniform vec4  uK;
 varying vec2  vUV;
-varying float vA;
+varying float vA, vS;
 void main() {
     float a;
     if (uKind < 0.5) {                          // the line, then a little glow
@@ -175,8 +183,12 @@ void main() {
         a = vA * (0.8 * clamp(uK.w - d + 0.5, 0.0, 1.0) + 0.3 * exp(-d / 2.5));
     } else if (uKind < 1.5) {
         a = vA * max(0.0, 1.0 - abs(vUV.x)) * (1.0 - vUV.y);   // its tail fades
-    } else if (uKind < 3.5) {
+    } else if (uKind < 2.5) {
         a = vA * exp(-dot(vUV, vUV));
+    } else if (uKind < 3.5) {                   // a star: a point, the bright ones four rays
+        vec2 v = abs(vUV);
+        a = vA * (exp(-dot(vUV, vUV))
+                  + 0.8 * vS * (exp(-v.x * 0.8 - v.y * v.y * 5.0) + exp(-v.y * 0.8 - v.x * v.x * 5.0)));
     } else {                                    // the moon: its phase, seas, earthshine, a glow
         float e = uK.z;
         float l = length(vUV);
@@ -190,7 +202,8 @@ void main() {
         sea = max(sea, 0.8 - 0.8 * smoothstep(0.03, 0.22, length(v - vec2(0.38, 0.02))));
         sea = max(sea, 0.6 - 0.6 * smoothstep(0.03, 0.20, length(v - vec2(-0.12, 0.40))));
         a = vA * (disk * (lit * (1.0 - 0.16 * sea) + 0.06 * (1.0 - lit))
-                  + (0.10 + 0.12 * uK.y) * exp(-max(0.0, l - 1.0) * 1.6) * (1.0 - disk));
+                  + (0.14 + 0.20 * uK.y) * (exp(-max(0.0, l - 1.0) * 2.0) + 0.55 * exp(-max(0.0, l - 1.0) * 0.6))
+                    * (1.0 - smoothstep(2.4, 4.0, l)) * (1.0 - disk));   // a halo, wide
     }
     gl_FragColor = vec4(uCol * a, 0.0);         // (light added: premultiplied, no cover)
 }

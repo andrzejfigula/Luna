@@ -40,8 +40,8 @@ TUNE = {
     "rain_count": 340, "rain_alpha": 0.32, "rain_len": 24.0, "rain_speed": 620.0,
     # snow at its heaviest: flakes, opacity, size px, speed px/s
     "snow_count": 230, "snow_alpha": 0.75, "snow_size": 1.6, "snow_speed": 34.0,
-    "stars": 1.0, "star_count": 150,    # clear nights: many, a few big bright ones
-    "moon": 0.95, "moon_pos": (0.10, 0.17), "moon_r": 32.0,   # its real phase (at least a sliver)
+    "stars": 1.0, "star_count": 110,    # clear nights: many, a few big bright ones
+    "moon": 0.95, "moon_pos": (0.12, 0.16), "moon_r": 22.0,   # its real phase (at least a sliver)
     # the clouds, back to front: their underside's y and width (fractions of
     # the screen), drift px/s, near (0 far..1), the cloud amount they come in
     # over, how much of them shows on a clear day, kind (0 a heap, 1 a band
@@ -55,9 +55,9 @@ TUNE = {
                (0.20, 0.26, 1.4, 0.10, (0.10, 0.35), 0.0, 0),
                (0.84, 0.34, 1.7, 0.35, (0.15, 0.40), 0.0, 0),
                (0.12, 0.30, 2.0, 0.45, (0.18, 0.42), 0.0, 0),
-               (0.60, 0.38, 2.8, 0.70, (0.25, 0.50), 0.0, 0),
-               (0.96, 0.52, 2.5, 0.85, (0.30, 0.55), 0.0, 0),
-               (0.30, 0.42, 3.2, 1.00, (0.20, 0.45), 0.0, 0)),
+               (0.92, 0.46, 2.8, 0.70, (0.15, 0.45), 0.0, 0),     # low, near: banks round her
+               (0.98, 0.56, 2.5, 0.85, (0.20, 0.50), 0.0, 0),
+               (1.04, 0.60, 3.2, 1.00, (0.12, 0.40), 0.0, 0)),
     "cloud_x": (0.30, 0.78, 0.45, 0.25, 0.70, 0.55, 0.12, 0.80, 0.62, 0.05, 0.30, 0.88),
     "motion": 1.0,           # every animation's pace (0: still)
     "ease": 7.0, "ease_weather": 10.0, "ease_sim": 2.5,      # seconds
@@ -73,9 +73,9 @@ def _k(zen, mid, hor, sun, sun_a, arc, arc_a, low, cl, cs, cr, cr_a):
             "arc": arc, "arc_a": arc_a, "low": low, "cl": cl, "cs": cs, "cr": cr, "cr_a": cr_a}
 
 
-NIGHT = _k((3, 5, 20), (8, 13, 42), (20, 27, 68), (60, 70, 130), 0.08,
-           (240, 170, 100), 0.42, (3, 5, 15),
-           (34, 41, 72), (10, 13, 31), (130, 140, 190), 0.35)
+NIGHT = _k((5, 8, 32), (14, 19, 60), (34, 34, 92), (60, 70, 130), 0.08,
+           (240, 170, 100), 0.50, (4, 6, 20),
+           (30, 36, 72), (5, 7, 19), (255, 150, 80), 1.00)
 DAY = _k((30, 98, 190), (80, 148, 216), (172, 208, 232), (255, 248, 230), 0.30,
          (255, 226, 160), 0.80, (52, 98, 152),
          (242, 246, 252), (142, 162, 192), (255, 255, 245), 0.30)
@@ -253,12 +253,15 @@ def compose(elev, rising, weights, wx):
     cloud, fog, rain, snow, storm = (wx[n] for n in ("cloud", "fog", "rain", "snow", "storm"))
     lum = lambda c: 0.30 * c[0] + 0.59 * c[1] + 0.11 * c[2]    # noqa: E731
 
+    day = _smooth((elev + 4.0) / 14.0)
+
     def sky(c, amt=1.0):
         c = _c(c)
         c = _mix(c, tuple(x * y for x, y in zip(c, tint)), amt)
         c = _warm(c, warm * amt)
         g = lum(c)
-        c = _mix(c, (g * 0.96, g * 0.98, g * 1.04), 0.45 * cloud + 0.30 * rain)  # muted
+        c = _mix(c, (g * 0.96, g * 0.98, g * 1.04),
+                 (0.45 * cloud + 0.30 * rain) * (0.35 + 0.65 * day))               # muted
         c = tuple(x * (1.0 - 0.20 * cloud - 0.32 * rain ** 1.3 - 0.35 * storm) for x in c)
         c = _mix(c, tuple(x * y for x, y in zip(c, (0.84, 0.92, 1.16))),
                  0.55 * snow + 0.35 * storm + 0.25 * rain)                  # cool
@@ -273,7 +276,6 @@ def compose(elev, rising, weights, wx):
         c = _mix(c, (g * 0.92, g * 0.97, g * 1.08), 0.35 * rain + 0.40 * snow)
         return tuple(max(0.0, x * b) for x in c)
 
-    day = _smooth((elev + 4.0) / 14.0)
     return {
         "cl": cloudc(k["cl"]), "cs": cloudc(k["cs"]), "cr": cloudc(k["cr"]),
         "cr_a": k["cr_a"] * (1.0 - 0.6 * rain) * (1.0 - 0.5 * fog) * (1.0 - 0.5 * _smooth((cloud - 0.6) / 0.3)),
@@ -505,13 +507,14 @@ class Env:
             "uEnvX": (self.flash, cur["slant"], self.flash_x * w, hy),
             # (with the sun low, clouds are lit from the side, not from above)
             "uEnvCl": (*c(cur["cl"]), 0.12 + 0.33 * _smooth((e - 3.0) / 15.0)),
-            "uEnvCs": (*c(cur["cs"]), 0.0),
+            # (at night: the clouds bank round her, lit warm from her middle)
+            "uEnvCs": (*c(cur["cs"]), 0.85 * night * (1.0 - deck)),
             "uEnvCr": (*c(cur["cr"]), cur["cr_a"]),
             "uEnvL": (_mix(ls, lm, night)[0], _mix(ls, lm, night)[1], deck, self.deck_x),
             "uEnvMoon": (mx, my, T["moon_r"], moon_a),
             "uEnvMoonC": c((0.94, 0.91, 0.80)),
             "uEnvMoonP": self._moon_phase(tg.get("moon_age", 0.3)),
-            "uEnvClk": tuple(self.clk),
+            "uEnvClk": (*self.clk[:3], (0.35 + 0.55 * night) * (1.0 - deck)),   # (w: her middle cleared)
             # (gl_env.py: how many, opacity, length / size, speed)
             "uEnvRain": (T["rain_count"] * rain ** 1.3, T["rain_alpha"] * (0.6 + 0.4 * rain),
                          T["rain_len"], T["rain_speed"] * (0.85 + 0.3 * rain)),

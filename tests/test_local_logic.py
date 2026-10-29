@@ -11332,7 +11332,7 @@ class TestEnvironment(unittest.TestCase):
         import gl_env
         import gl_face
         u = E.Env(wall=lambda: 1793700000.0).frame(1.0, 800, 480, 400, 212)
-        src = gl_face._FRAG + gl_env._VERT
+        src = gl_face._FRAG + gl_face._FRAG_SKY + gl_env._VERT
         glsl = set(re.findall(r"uEnv\w+", src))
         self.assertEqual(len(E.TUNE["clouds"]), gl_env.CLOUD_N)
         self.assertEqual(len(E.TUNE["cloud_x"]), gl_env.CLOUD_N)
