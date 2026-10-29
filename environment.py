@@ -20,6 +20,7 @@ import random
 import time
 
 import moon
+import settings
 
 SIM_FILE = "/tmp/luna_env_sim"
 HOME = (52.0, 19.0)          # no place set: the sun over Poland's middle
@@ -571,7 +572,9 @@ _env = None
 
 
 def enabled():
-    return os.environ.get("LUNA_ENV_BG", "1") != "0"
+    """The sky behind her: Ustawienia → Asystent → Niebo w tle (on unless
+    switched off there or by LUNA_ENV_BG=0)."""
+    return os.environ.get("LUNA_ENV_BG", "1") != "0" and settings.get("sky_bg", True) is not False
 
 
 def get():

@@ -8391,7 +8391,7 @@ class SettingsPageTest(unittest.TestCase):
     def setUp(self):
         import settings_page
         self.sp = settings_page
-        for k in ("language", "captions", "status_bar", "draw_fps", "tts_speed"):
+        for k in ("language", "captions", "status_bar", "draw_fps", "tts_speed", "sky_bg"):
             settings._load()
             settings._data.pop(k, None)
         settings_page._cache.clear()
@@ -8406,6 +8406,17 @@ class SettingsPageTest(unittest.TestCase):
         self.assertEqual(sp.change("status_bar"), "Wyłączone")       # on by default
         self.assertIs(settings.get("status_bar"), False)
         self.assertEqual(sp.change("captions"), "Włączone")          # off by default
+        import environment
+        import themes
+        with mock.patch.object(themes, "get", return_value=themes.THEMES[themes.DEFAULT]), \
+                mock.patch.dict(os.environ, {"LUNA_ENV_BG": "1"}):
+            row = [r for r in sp._rows(sp.TABS.index("Asystent")) if r.get("key") == "sky_bg"]
+            self.assertEqual(len(row), 1)
+            self.assertTrue(row[0]["value"] and environment.enabled())
+            self.assertEqual(sp.change("sky_bg"), "Wyłączone")       # on by default
+            self.assertFalse(environment.enabled())
+            sp.change("sky_bg")
+            self.assertTrue(environment.enabled())
         fps = [sp.draw_fps()]
         for _ in range(3):
             sp.change("draw_fps")

@@ -206,7 +206,7 @@ def _rows(tab):
                  "sub": th["sub"], "value": th["label"]},
                 {"key": "tts_speed", "kind": "cycle", "label": "Tempo mowy",
                  "sub": f"dla: {who} (własne)" if who else "wspólne dla całego domu",
-                 "value": f"{speed:.1f}×".replace(".", ",")}] + char_rows(th)
+                 "value": f"{speed:.1f}×".replace(".", ",")}] + sky_rows(th) + char_rows(th)
     if name == "Ekran":
         return [
             {"key": "brightness", "kind": "cycle", "label": "Jasność",
@@ -357,6 +357,15 @@ def _acc_label(names):
     return ", ".join(characters.ACC_LABELS.get(n, n) for n in names) or "bez dodatków"
 
 
+def sky_rows(th):
+    """Luna's own theme: the sky behind her (environment.py) on or off."""
+    if th is not themes.THEMES.get(themes.DEFAULT):
+        return []
+    return [{"key": "sky_bg", "kind": "toggle", "label": "Niebo w tle",
+             "sub": "pora dnia i pogoda za twarzą; wyłączone = lżej dla procesora",
+             "value": settings.get("sky_bg", True) is not False}]
+
+
 def char_rows(th):
     """A drawn character's own rows (characters.py): its accessories, RETRO's
     case, how lively its effects are."""
@@ -461,10 +470,10 @@ def change(key):
         settings.put("draw_fps", new)
         return f"Płynność: {new} klatek na sekundę"
     defaults = {"captions": False, "status_bar": True, "dock": True,
-                "camera_preview": CAMERA_PREVIEW}
+                "camera_preview": CAMERA_PREVIEW, "sky_bg": True}
     if key in defaults:
         cur = settings.get(key, defaults[key])
-        new = not (cur is not False if key in ("status_bar", "dock") else bool(cur))
+        new = not (cur is not False if key in ("status_bar", "dock", "sky_bg") else bool(cur))
         settings.put(key, new)
         return "Włączone" if new else "Wyłączone"
     return None
