@@ -204,12 +204,13 @@ class EnvPass:
             if self._loc["uSky"] >= 0:
                 GL.glUniform1i(self._loc["uSky"], 6)
         stride = 6 * 4
+        attrib = getattr(face, "attrib", GL.glVertexAttribPointer)
         GL.glEnableVertexAttribArray(1)
 
         def mesh(kind, mode, n):
             GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.bufs[kind])
-            GL.glVertexAttribPointer(0, 2, GL.GL_FLOAT, GL.GL_FALSE, stride, None)
-            GL.glVertexAttribPointer(1, 4, GL.GL_FLOAT, GL.GL_FALSE, stride, ctypes.c_void_p(8))
+            attrib(0, 2, GL.GL_FLOAT, GL.GL_FALSE, stride, None)
+            attrib(1, 4, GL.GL_FLOAT, GL.GL_FALSE, stride, ctypes.c_void_p(8))
             GL.glDrawArrays(mode, 0, n)
 
         arc = u["uEnvArc"]

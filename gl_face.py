@@ -1267,6 +1267,12 @@ class GLFace:
         _pick_platform()
         from OpenGL import GL
         self.GL = GL
+        # the bare C call: PyOpenGL's wrapper of it is ~0.15 ms (6+ a frame; 29 Oct, Pi 4)
+        try:
+            from OpenGL.raw.GL.VERSION.GL_2_0 import glVertexAttribPointer as attrib
+        except ImportError:
+            attrib = GL.glVertexAttribPointer
+        self.attrib = attrib
         self.w, self.h = width, height
         self.prog = None
         errors = []
@@ -1495,7 +1501,7 @@ class GLFace:
         GL = self.GL
         GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.vbo)
         GL.glEnableVertexAttribArray(self.apos)
-        GL.glVertexAttribPointer(self.apos, 2, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
+        self.attrib(self.apos, 2, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
 
     def _sky(self, u, full):
         """The world outside's sky into its texture (then the soft pass's
