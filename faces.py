@@ -795,10 +795,12 @@ def picture_note():
     # itself, the vision model declines ("nie mogę powiedzieć, kto to jest")
     known = ("To wiesz na pewno: Twój własny system rozpoznawania domowników "
              "(osoby, które same się przedstawiły) rozpoznał ")
+    # 29 Oct: "…przypomnę Mai. Widzę dziś Andrzeja i Emilkę." — nobody asked
+    unasked = " Nie mów, kogo widzisz, gdy nie pytam o to, kto tu jest."
     if len(names) == 1:
-        return f" {known}{names[0]}. Gdy pytam, kto to, powiedz to imię."
+        return f" {known}{names[0]}. Gdy pytam, kto to, powiedz to imię.{unasked}"
     return (f" {known}twarze na zdjęciu, od lewej: {', '.join(names)}. Gdy pytam, kto to, "
-            "powiedz te imiona (postacie w telewizorze albo na obrazku to nie oni).")
+            f"powiedz te imiona (postacie w telewizorze albo na obrazku to nie oni).{unasked}")
 
 
 _CHILD_SAFE = ("Święty Mikołaj, the Tooth Fairy (Wróżka Zębuszka), the Easter bunny: keep "

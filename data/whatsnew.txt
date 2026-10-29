@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 29 października ==
+- Luna rzadziej myli osoby: gdy ktoś siedzi przy niej, jedno niewyraźne ujęcie nie zmienia go w kogoś innego. Nie wtrąca też „widzę Andrzeja”, gdy nikt o to nie pyta.
 - W Ustawieniach → Asystent jest przełącznik „Niebo w tle”: wyłącza niebo, chmury i pogodę za Luną (zostaje zwykłe tło).
 - Chmury za Luną są miękkie i lekkie: długie, poziome smugi i mgiełki, które rozpływają się na brzegach, a nie kamienie czy góry. Płyną powoli i zmieniają kształt; w pogodną noc to tylko kilka cienkich pasemek, przy pochmurnej pogodzie zasnuwają niebo, w deszczu robią się ciemne i gęste. O zachodzie słońca mają delikatny brzoskwiniowy kolor.
 - W nocy za Luną świeci księżyc w prawdziwej fazie, z poświatą dookoła, i gwiazdy; najjaśniejsze błyszczą jak małe krzyżyki. Za chmurą księżyc prześwituje.

@@ -52,6 +52,29 @@ face_cascade = cv2.CascadeClassifier(
 )
 
 
+SWITCH_SURE = 0.50        # a different person than the one just here: this sure at once…
+_switch = [None, 0.0]     # …or the same weaker name twice in a row (name, when)
+
+
+def _confirmed_switch(name, sim, now=None):
+    """One borderline frame of someone else is not a new person (29 Oct: Andrzej
+    for minutes, then "Maja 0.43" once → "Maju, cześć!")."""
+    import faces as faces_mod
+    now = now or time.time()
+    with state.lock:
+        prev = state.person
+    fresh = prev and prev[0] != name and now - prev[2] < 3 * faces_mod.RECOGNISE_EVERY
+    if not name or not fresh or sim >= SWITCH_SURE:
+        _switch[0] = None
+        return name
+    if _switch[0] == name and now - _switch[1] < 3 * faces_mod.RECOGNISE_EVERY:
+        _switch[0] = None
+        return name
+    _switch[:] = [name, now]
+    print(f"[faces] {name} ({sim:.2f}) instead of {prev[0]}? — once more first", flush=True)
+    return None
+
+
 def _who(frame, rows, last_seen):
     """Recognise the biggest face now and then (and every frame while she is
     learning someone). Returns when it last tried."""
@@ -81,6 +104,7 @@ def _who(frame, rows, last_seen):
         faces_mod.offer(feat, len(rows))
         return time.time()
     name, sim = faces_mod.identify(feat)
+    name = _confirmed_switch(name, sim)
     if name:                                  # "kogo znasz?" shows this (once a day)
         try:
             faces_mod.keep_portrait(name, sim, frame, big, scale, feature=feat)

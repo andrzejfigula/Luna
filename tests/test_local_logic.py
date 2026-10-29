@@ -3785,6 +3785,35 @@ class KidsTest(unittest.TestCase):
         self.assertFalse(brain._wants_vision("jak się pisze książka po niemiecku?"))
         self.assertTrue(brain._wants_vision("przeczytaj, co jest w tej książce po angielsku"))
         self.assertTrue(brain._wants_vision("pomożesz mi z zadaniem z tej książki?"))
+        # 29 Oct: an errand for Maja → a frame → "Widzę dziś Andrzeja i Emilkę."
+        for t in ("jak zobaczysz dzisiaj maję, to przypomnij jej, że ma jutro dyktando",
+                  "dobra, zobaczymy jutro", "do zobaczenia, luna", "gdy tylko zobaczysz tatę, powiedz mu"):
+            self.assertFalse(brain._wants_vision(t), t)
+        self.assertTrue(brain._wants_vision("zobacz, co mam w ręce"))
+        self.assertTrue(brain._wants_vision("jak zobaczysz maję, to powiedz mi, co widzisz"))
+
+    def test_one_weak_frame_of_someone_else_is_not_them(self):
+        import vision_module as vm
+        from shared_state import state
+        now = time.time()
+        with state.lock:
+            old = state.person
+            state.person = ("Andrzej", 0.55, now - 1)
+        vm._switch[0] = None
+        try:
+            # 29 Oct: Andrzej for minutes, then "Maja 0.43" once → "Maju, cześć!"
+            self.assertIsNone(vm._confirmed_switch("Maja", 0.43, now))
+            self.assertEqual(vm._confirmed_switch("Maja", 0.44, now + 2.5), "Maja")   # twice: her
+            self.assertEqual(vm._confirmed_switch("Maja", 0.62, now), "Maja")         # sure: at once
+            self.assertEqual(vm._confirmed_switch("Andrzej", 0.41, now), "Andrzej")   # the same one
+            self.assertIsNone(vm._confirmed_switch(None, 0.2, now))
+            with state.lock:
+                state.person = ("Andrzej", 0.55, now - 60)                           # he left
+            self.assertEqual(vm._confirmed_switch("Maja", 0.43, now), "Maja")
+        finally:
+            vm._switch[0] = None
+            with state.lock:
+                state.person = old
 
     def test_the_last_translation_is_shown_and_spelled(self):
         import brain

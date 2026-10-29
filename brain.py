@@ -1268,11 +1268,19 @@ _LOOK_WORDS = ("widzisz", "widać", "widac", "zobacz", "spójrz", "spojrz", "pop
                "napisane", "kamer", "trzymam", "tutaj", " tu ", "see", "look", "read", "holding")
 
 
+# "zobacz" that isn't "look": 29 Oct "Jak zobaczysz dzisiaj Maję, to przypomnij jej…"
+# → a high-detail frame → "…Widzę dziś Andrzeja i Emilkę."
+_NOT_LOOKING = re.compile(r"\b(?:jak|gdy|kiedy|jeśli|jesli|jeżeli|jezeli|jak\s+tylko)\s+"
+                          r"(?:\w+\s+)?zobaczysz\b|\bzobaczymy\b|\bzobaczę\b|\bzobacze\b|"
+                          r"\bdo\s+zobaczenia\b|\bzobaczy\b|\bzobaczą\b", re.I)
+
+
 def _wants_vision(lower):
     # 27 Oct: "jak się pisze książka po niemiecku?" → a photo ("książk"), "widzę Cię na zdjęciu"
     if (_SPELL_ASK.search(lower) or LANG_ASK.search(lower)) and not any(
             k in f" {lower} " for k in _LOOK_WORDS):
         return False
+    lower = _NOT_LOOKING.sub(" ", lower)
     return any(k in lower for k in VISION_KEYWORDS)
 
 
