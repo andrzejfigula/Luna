@@ -40,16 +40,19 @@ TUNE = {
     "snow_count": 230, "snow_alpha": 0.75, "snow_size": 1.6, "snow_speed": 34.0,
     "stars": 0.7, "star_count": 42,     # clear nights: a few faint points
     "moon": 0.80, "moon_pos": (0.11, 0.15), "moon_r": 10.0,   # a crescent, dark nights
-    # the clouds, back to front: their flat underside's y and width (fractions
-    # of the screen), drift px/s, near (0 far..1), the cloud amount they come
-    # in over, how much of them shows as a wisp on a clear day
-    "clouds": ((0.30, 0.78, 2.6, 0.45, (0.55, 0.85), 0.0),     # overcast's masses
-               (0.64, 0.70, 1.9, 0.35, (0.62, 0.92), 0.0),
-               (0.17, 0.32, 1.4, 0.00, (0.10, 0.40), 0.30),    # far: wisps when clear
-               (0.80, 0.40, 1.1, 0.10, (0.20, 0.45), 0.22),
-               (0.25, 0.42, 3.2, 1.00, (0.25, 0.50), 0.0),     # near
-               (0.90, 0.52, 2.5, 0.85, (0.35, 0.60), 0.0)),
-    "cloud_x": (0.25, 0.70, 0.12, 0.85, 0.80, 0.30),           # where they start
+    # the clouds, back to front: their underside's y and width (fractions of
+    # the screen), drift px/s, near (0 far..1), the cloud amount they come in
+    # over, how much of them shows on a clear day, kind (0 a heap, 1 a band
+    # of rolls, 2 a veil of streaks high up)
+    "clouds": ((0.10, 0.62, 0.8, 0.00, (0.05, 0.40), 0.80, 2),   # veils: clear days too
+               (0.21, 0.48, 1.0, 0.00, (0.15, 0.50), 0.50, 2),
+               (0.36, 0.85, 1.6, 0.25, (0.50, 0.85), 0.0, 1),     # bands: overcast's masses
+               (0.66, 0.75, 1.9, 0.35, (0.60, 0.92), 0.0, 1),
+               (0.20, 0.26, 1.4, 0.10, (0.12, 0.40), 0.0, 0),     # heaps, far to near
+               (0.84, 0.34, 1.7, 0.35, (0.20, 0.45), 0.0, 0),
+               (0.30, 0.42, 3.2, 1.00, (0.25, 0.50), 0.0, 0),
+               (0.96, 0.52, 2.5, 0.85, (0.35, 0.60), 0.0, 0)),
+    "cloud_x": (0.30, 0.78, 0.25, 0.70, 0.12, 0.80, 0.88, 0.30),   # where they start
     "motion": 1.0,           # every animation's pace (0: still)
     "ease": 7.0, "ease_weather": 10.0, "ease_sim": 2.5,      # seconds
     "asleep_dim": 0.62,      # her asleep: the sky dims to this
@@ -517,7 +520,7 @@ class Env:
         return out
 
     def _clouds(self, dt, w, h, cur):
-        """The six formations (gl_env.CLOUD_GLSL's F and G): drifting on
+        """The eight formations (gl_env.CLOUD_GLSL's F and G): drifting on
         their own, wrapping (a new shape) off screen, in and out with the
         cloud amount — wisps when clear, broad masses when overcast."""
         slots = TUNE["clouds"]
@@ -525,7 +528,8 @@ class Env:
             self.cx = [x * w for x in TUNE["cloud_x"]]
         cloud, fog = cur["cloud"], cur["fog"]
         out = {}
-        for i, (y, wd, v, near, (lo, hi), wisp) in enumerate(slots):
+        for i, (y, wd, v, near, (lo, hi), wisp, kind) in enumerate(slots):
+            wd *= 0.85 + 0.30 * (self.cseed[i] * 0.618 % 1.0)       # each new one its own size
             span = wd * w * 1.2 * 0.62
             self.cx[i] += dt * v * cur["drift"]
             if self.cx[i] > w + span or self.cx[i] < -span:     # off screen: round again, new
@@ -534,9 +538,10 @@ class Env:
             self.cev[i] = (self.cev[i] + dt * (0.015 + 0.004 * i)) % 4.0
             on = _smooth((cloud - lo) / (hi - lo))
             a = (wisp + (1.0 - wisp) * on) if wisp else on
-            tall = (0.32 + 0.68 * on) if wisp else (0.80 if near < 0.5 else 1.0)
-            out[f"uEnvF{i}"] = (self.cx[i], y * h, wd * w * (0.85 + 0.35 * cloud), self.cseed[i])
-            out[f"uEnvG{i}"] = (a * (1.0 - 0.75 * fog), near, tall, self.cev[i])
+            tall = (0.7 + 0.3 * on if kind == 2 else 1.0 if kind == 1
+                    else 0.80 if near < 0.5 else 1.0)
+            out[f"uEnvF[{i}]"] = (self.cx[i], y * h, wd * w * (0.85 + 0.35 * cloud), self.cseed[i])
+            out[f"uEnvG[{i}]"] = (a * (1.0 - 0.75 * fog), near, kind * 2 + tall, self.cev[i])
         return out
 
     def _storm(self, mono, storm):

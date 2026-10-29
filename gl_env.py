@@ -13,13 +13,13 @@ import random
 
 RAIN_N, SNOW_N, STAR_N, ARC_N = 520, 360, 60, 120
 
-# the clouds' shapes: gl_face's sky draws them, the stars and the moon here
-# hide behind them. Six formations (environment.Env.frame): F = x, its flat
-# underside's y, width, seed; G = opacity, near (0 far..1), height (wisps
-# flat), the shape's slow change
+# the clouds' shapes: gl_face's sky draws them (and their billows), the stars
+# and the moon here hide behind them. Eight formations, back to front
+# (environment.Env.frame): F = x, its underside's y, width, seed; G = opacity,
+# near (0 far..1), kind * 2 + height, the shape's slow change. Kinds: 0 a heap
+# (cumulus), 1 a band of rolls (stratocumulus), 2 a veil of streaks (cirrus)
 CLOUD_GLSL = """
-uniform vec4  uEnvF0, uEnvF1, uEnvF2, uEnvF3, uEnvF4, uEnvF5;
-uniform vec4  uEnvG0, uEnvG1, uEnvG2, uEnvG3, uEnvG4, uEnvG5;
+uniform vec4  uEnvF[8], uEnvG[8];
 
 float envcH(float n) {
     n = fract(n * 0.1031 + 0.137);
@@ -33,12 +33,22 @@ float envcMin(float a, float b, float k) {
     return mix(b, a, h) - k * h * (1.0 - h);
 }
 
-// a formation's distance (px, < 0 inside): five puffs, their highest one
-// off centre, on a soft flat underside
+float envcK(vec4 g) { return floor(g.z * 0.5); }          // the kind
+float envcT(vec4 g) { return g.z - 2.0 * envcK(g); }      // the height
+
+// a formation's distance (px, < 0 inside), before its billows. A heap: five
+// puffs, the highest off centre, a tower on some, a soft flat underside; a
+// band or a veil: a long low lens
 float envCloudD(vec2 q, vec4 f, vec4 g) {
     vec2 p = q - f.xy;
     float w = f.z;
-    p.y /= g.z;
+    float kind = envcK(g), ht = envcT(g);
+    if (kind > 0.5) {
+        float hh = w * (kind > 1.5 ? 0.10 : 0.11) * ht;
+        vec2 e = vec2(max(abs(p.x) - 0.5 * w + hh, 0.0), p.y + hh);
+        return length(e) - hh;
+    }
+    p.y /= ht;
     float peak = (envcH(f.w * 3.1) - 0.5) * 0.9;
     float d = 1e4;
     for (int i = 0; i < 5; i++) {
@@ -51,6 +61,9 @@ float envCloudD(vec2 q, vec4 f, vec4 g) {
         vec2 c = vec2(t * w * 0.31 + (h - 0.5) * w * 0.07, -r * (0.35 + 0.40 * envcH(h * 91.7)));
         d = envcMin(d, length(p - c) - r, w * 0.06);
     }
+    float tw = envcH(f.w * 5.3);                       // 0 a low heap .. 1 towering
+    vec2 c = vec2(peak * w * 0.31 + (tw - 0.5) * w * 0.06, -w * (0.28 + 0.10 * tw));
+    d = envcMin(d, length(p - c) - w * (0.03 + 0.11 * tw), w * 0.06);
     return -envcMin(-d, w * 0.025 - p.y, w * 0.05);
 }
 
@@ -62,17 +75,15 @@ float envcS(vec4 f, vec4 g) { return 3.5 + f.z * (0.010 - 0.005 * g.y); }
 float envcOne(vec2 q, vec4 f, vec4 g) {
     if (g.x < 0.004) return 0.0;
     vec2 p = q - f.xy;
-    if (abs(p.x) > 0.62 * f.z || p.y > 0.12 * f.z || p.y < -0.62 * f.z * g.z) return 0.0;
+    if (abs(p.x) > 0.62 * f.z || p.y > 0.12 * f.z || p.y < -0.62 * f.z * envcT(g)) return 0.0;
     float s = envcS(f, g);
-    return g.x * (1.0 - smoothstep(-s, s, envCloudD(q, f, g)));
+    float a = g.x * (1.0 - smoothstep(-s, s, envCloudD(q, f, g)));
+    return envcK(g) > 1.5 ? 0.4 * a : a;                  // a veil: thin
 }
 float envCover(vec2 q) {
-    float a = envcOne(q, uEnvF0, uEnvG0);
-    a = max(a, envcOne(q, uEnvF1, uEnvG1));
-    a = max(a, envcOne(q, uEnvF2, uEnvG2));
-    a = max(a, envcOne(q, uEnvF3, uEnvG3));
-    a = max(a, envcOne(q, uEnvF4, uEnvG4));
-    return max(a, envcOne(q, uEnvF5, uEnvG5));
+    float a = 0.0;
+    for (int i = 0; i < 8; i++) a = max(a, envcOne(q, uEnvF[i], uEnvG[i]));
+    return a;
 }
 """
 
@@ -237,7 +248,7 @@ class EnvPass:
         GL.glUseProgram(self.prog)
         self._set("uRes", (face.w, face.h))
         for k in ("uEnvArcG", "uEnvArcA", "uEnvClk", "uEnvX", "uEnvMask", "uEnvMoon", "uEnvL") \
-                + tuple(f"uEnv{a}{i}" for a in "FG" for i in range(6)):
+                + tuple(f"uEnv{a}[{i}]" for a in "FG" for i in range(8)):
             self._set(k, u[k])
         stride = 6 * 4
         GL.glEnableVertexAttribArray(1)

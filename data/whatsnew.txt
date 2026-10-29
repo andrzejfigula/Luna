@@ -1,6 +1,9 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
+== 29 października ==
+- Chmury za Luną są bardziej prawdziwe: kłębiaste cumulusy, szerokie pasma przy pochmurnej pogodzie i cienkie smugi wysoko na niebie, nawet w pogodny dzień. Bliższe płyną szybciej niż dalsze.
+
 == 28 października ==
 - Za Luną widać niebo: zmienia się z porą dnia i roku (jasny błękit w dzień, granatowa noc z gwiazdami i księżycem, różowy świt, pomarańczowy zachód słońca), płyną po nim chmury, a kiedy naprawdę pada deszcz albo śnieg, u niej też pada. Pogoda jest prawdziwa, z prognozy. Tylko w zwykłym wyglądzie Luny.
 - W Ustawieniach → Osoby przycisk „Dodaj” przy „Nowa osoba” działa: Luna zamyka ustawienia, pyta „jak masz na imię?”, a po samym imieniu („Kasia”) uczy się twarzy — jako gościa.

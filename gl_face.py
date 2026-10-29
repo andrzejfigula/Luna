@@ -709,28 +709,61 @@ float envN(vec2 p) {                      // value noise, no sin (the Pi's GPU)
     return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }
 
-// one formation over the sky: lit toward the light, shaded deep in and
-// under, a rim where the light comes through; far ones paler and softer
+// billows: three octaves of value noise round the formation's own point
+// (u: px from it / its width), turning slowly with its change; 0..1
+float envcB(vec2 u, vec4 f, vec4 g) {
+    vec2 o = vec2(fract(f.w * 0.618), fract(f.w * 0.382)) * 40.0
+             + 0.35 * vec2(envcW(g.w * 0.25), envcW(g.w * 0.25 + 0.25));
+    return (envN(u * 7.0 + o) + 0.5 * envN(u * 15.0 - o) + 0.25 * envN(u * 31.0 + o.yx)) * 0.571;
+}
+
+// a veil high up: slanting fibres in patches, no shadow, lit even when the
+// sun is low
+vec3 envCirrus(vec3 c, vec2 q, vec4 f, vec4 g) {
+    float w = f.z;
+    float e = 1.0 - smoothstep(-0.08 * w, 0.03 * w, envCloudD(q, f, g));
+    if (e < 0.003) return c;
+    vec2 u = (q - f.xy) / w;
+    vec2 o = vec2(fract(f.w * 0.618), fract(f.w * 0.382)) * 40.0 + 0.25 * envcW(g.w * 0.25);
+    e *= smoothstep(0.20, 0.60, envN(u * vec2(2.5, 6.0) + o.yx));
+    vec2 sp = vec2(u.x + 1.4 * u.y, u.y);
+    float n = 0.65 * envN(sp * vec2(3.0, 18.0) + o) + 0.35 * envN(sp * vec2(7.0, 34.0) - o);
+    float a = e * smoothstep(0.32, 0.78, n) * 0.85 * g.x;
+    return mix(c, mix(mix(uEnvCl.rgb, uEnvCr.rgb, 0.35), c, 0.30), a);
+}
+
+// one formation over the sky: its billows, each lit toward the light and
+// shaded deep in and under, the base darker, a rim where the light comes
+// through, thin edges letting the sky through; far ones paler
 vec3 envCloud(vec3 c, vec2 q, vec4 f, vec4 g) {
     if (g.x < 0.004) return c;
     vec2 p = q - f.xy;
-    float w = f.z;
-    if (abs(p.x) > 0.62 * w || p.y > 0.12 * w || p.y < -0.62 * w * g.z) return c;
+    float w = f.z, ht = envcT(g), kind = envcK(g);
+    if (abs(p.x) > 0.62 * w || p.y > 0.12 * w || p.y < -0.62 * w * ht) return c;
+    if (kind > 1.5) return envCirrus(c, q, f, g);
     float d = envCloudD(q, f, g);
+    if (d > 0.10 * w) return c;                 // even its billows don't reach here
+    vec2 sc = kind > 0.5 ? vec2(1.0, 1.7) : vec2(1.0);       // a band's rolls: wider
+    float amp = kind > 0.5 ? 0.07 : 0.025 + 0.06 * smoothstep(-0.02, -0.30 * ht, p.y / w);
+    d -= w * amp * (2.0 * envcB(p / w * sc, f, g) - 0.9);
     float s = envcS(f, g);
     float a = 1.0 - smoothstep(-s, s, d);
     if (a < 0.003) return c;
-    float k = w * 0.09;
-    float d2 = envCloudD(q + uEnvL.xy * k, f, g);
-    float lit = exp(-max(0.0, -d2) / (w * 0.12));                // the light's way in
-    float up = smoothstep(f.y + 0.02 * w, f.y - 0.42 * w * g.z, q.y);   // tops lighter
-    float sh = clamp(0.15 + (0.90 - uEnvCl.a) * lit + uEnvCl.a * up, 0.0, 1.0);
-    vec3 col = mix(uEnvCs.rgb, uEnvCl.rgb, sh);
+    float k = w * 0.07;
+    vec2 l = uEnvL.xy * k;
+    float d2 = envCloudD(q + l, f, g) - w * amp * (2.0 * envcB((p + l) / w * sc, f, g) - 0.9);
+    float lit = exp(-max(0.0, -d2) / (w * 0.15));                // the light's way in
+    float up = smoothstep(f.y + 0.02 * w, f.y - 0.42 * w * ht, q.y);   // tops lighter
+    float sh = clamp(0.10 + (1.0 - uEnvCl.a) * lit + uEnvCl.a * up, 0.0, 1.0);
+    sh = sh * sh * (3.0 - 2.0 * sh);                             // sunlit white, shade deep
+    vec3 col = mix(mix(uEnvCs.rgb, uEnvZen, 0.15), uEnvCl.rgb, sh);   // shade takes the sky's blue
+    col *= 1.0 - 0.22 * smoothstep(f.y - 0.10 * w, f.y + 0.01 * w, q.y);   // the base darker
     float face = clamp((d2 - d) / k, 0.0, 1.0);                  // the side toward the light
     col += uEnvCr.rgb * uEnvCr.a * face * exp(-abs(d + 0.8 * s) / s) * 0.6;
     col = mix(col, c, 0.35 * (1.0 - g.y));
+    a *= mix(0.75, 1.0, smoothstep(0.0, 0.04 * w, -d));
     vec2 m = (q - uEnvMask.xy) / uEnvMask.zw;
-    a *= g.x * mix(0.55, 1.0, smoothstep(0.70, 1.20, length(m)));
+    a *= g.x * mix(0.65, 1.0, smoothstep(0.70, 1.20, length(m)));
     return mix(c, col, a);
 }
 
@@ -751,12 +784,7 @@ vec3 envSky(vec2 q) {
         dc += uEnvSun.rgb * 0.22 * exp(-ss * 0.5);          // the light through it
         c = mix(c, dc, uEnvL.z * 0.88 * (1.0 - smoothstep(hy * 0.70, hy * 1.15, q.y)));
     }
-    c = envCloud(c, q, uEnvF0, uEnvG0);
-    c = envCloud(c, q, uEnvF1, uEnvG1);
-    c = envCloud(c, q, uEnvF2, uEnvG2);
-    c = envCloud(c, q, uEnvF3, uEnvG3);
-    c = envCloud(c, q, uEnvF4, uEnvG4);
-    c = envCloud(c, q, uEnvF5, uEnvG5);
+    for (int i = 0; i < 8; i++) c = envCloud(c, q, uEnvF[i], uEnvG[i]);   // (a loop: one copy to compile)
     if (uEnvW.y > 0.01) {                 // fog: layers close to the sky's own tone, drifting
         vec3 haze = mix(uEnvHor, vec3(dot(uEnvMid, vec3(0.30, 0.59, 0.11))) * 1.4 + 0.03, 0.5);
         float f = 0.0;
