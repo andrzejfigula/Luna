@@ -584,6 +584,19 @@ def get():
     return _env
 
 
+def backdrop_light():
+    """0..1: how light the sky is along the bottom of the screen (the dock's
+    icons go bolder over it); 0 while no sky is on screen."""
+    e = _env
+    if e is None or e.cur is None or e.t_last is None or time.monotonic() - e.t_last > 1.0:
+        return 0.0
+    cur = e.cur
+    lum = lambda c: 0.30 * c[0] + 0.59 * c[1] + 0.11 * c[2]    # noqa: E731
+    sky = 0.7 * lum(cur["low"]) + 0.3 * lum(cur["hor"])
+    sky += (lum(cur["cl"]) - sky) * min(1.0, 0.7 * cur["cloud"] + 0.5 * cur["fog"])
+    return _smooth((sky - 0.12) / 0.25)
+
+
 def sim_label():
     """The "SYMULACJA: …" line while a simulated sky is on screen, else None."""
     e = _env

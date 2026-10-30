@@ -11425,6 +11425,20 @@ class TestEnvironment(unittest.TestCase):
         self.assertEqual(u["uEnvSnow"][0], 0.0)
         self.assertIsNone(e.label())
 
+    def test_backdrop_light(self):
+        import environment as E
+        old = E._env
+        self.addCleanup(setattr, E, "_env", old)
+        E._env = None
+        self.assertEqual(E.backdrop_light(), 0.0)                  # no sky on screen
+        e = E._env = E.Env()
+        e.t_last = time.monotonic()
+        grey = dict(E.weather_of(None), cloud=1.0)
+        e.cur = E.compose(-20.0, False, {"autumn": 1.0}, E.weather_of(None))
+        self.assertLess(E.backdrop_light(), 0.1)                   # night: the dock stays faint
+        e.cur = E.compose(20.0, False, {"autumn": 1.0}, grey)
+        self.assertGreater(E.backdrop_light(), 0.8)                # an overcast day: bolder
+
     def test_simulated_and_clocks(self):
         import environment as E
         e = E.Env(wall=lambda: 1793700000.0)

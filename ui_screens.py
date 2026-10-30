@@ -1445,9 +1445,10 @@ def _prims(surf, prims, k, ox, oy, col, w, aa=True):
                              lw, border_radius=int(2 * k) if aa else 0)
 
 
-def dock_icon(key, kind, col, size=40):
-    """One icon in this character's style: lines, pixels or neon (cached)."""
-    ck = ("dock", key, kind, col, size)
+def dock_icon(key, kind, col, size=40, halo=False):
+    """One icon in this character's style: lines, pixels or neon (cached);
+    halo: a soft dark shadow round it (readable over a light sky)."""
+    ck = ("dock", key, kind, col, size, halo)
     s = _cache.get(ck)
     if s is not None:
         return s
@@ -1468,6 +1469,16 @@ def dock_icon(key, kind, col, size=40):
             for x in range(n):
                 if low.get_at((x, y))[3] > 105:
                     ico.fill(col, (x * cell, y * cell, cell - gap, cell - gap))
+    if halo:
+        sh = pygame.Surface((size + 2 * m, size + 2 * m), pygame.SRCALPHA)
+        sh.blit(ico, (m, m))
+        sh.fill((0, 0, 0), special_flags=pygame.BLEND_RGB_MULT)
+        for f in (3, 5):
+            sh = pygame.transform.smoothscale(sh, (sh.get_width() // f, sh.get_height() // f))
+            sh = pygame.transform.smoothscale(sh, (size + 2 * m, size + 2 * m))
+        sh.set_alpha(230)
+        out.blit(sh, (0, 1))
+        out.blit(sh, (0, 1))
     if st["glow"]:                                 # a soft halo of its own light
         pad = pygame.Surface((size + 2 * m, size + 2 * m), pygame.SRCALPHA)
         pad.blit(ico, (m, m))
@@ -1487,16 +1498,20 @@ def dock_icon(key, kind, col, size=40):
 
 
 def draw_dock(scr, kind, cols, now=None):
-    """The row of quick icons, faint, in the face's colours (dock.py)."""
+    """The row of quick icons in the face's colours (dock.py): faint on a dark
+    face, bolder (a darker pill, a shadow) over a light sky."""
     import dock
+    import environment
     now = now if now is not None else time.time()
+    light = environment.backdrop_light()
     col = tuple(int(c) for c in cols[0][:3])
     tint = tuple(int(c) for c in cols[1][:3])
     where = dock.centres()
     bw, bh = dock.STEP * len(where) - 12, 52
-    pill = rrect(bw, bh, bh // 2, (tint[0] // 8, tint[1] // 8, tint[2] // 8, 70))
+    pill = rrect(bw, bh, bh // 2, (tint[0] // 8, tint[1] // 8, tint[2] // 8, int(70 + 90 * light)))
     scr.blit(pill, pill.get_rect(center=(dock.W // 2, dock.CY)))
+    base = 95 + 110 * light
     for key, cx in where:
-        ico = dock_icon(key, kind, col, dock.ICON)
-        ico.set_alpha(int(95 + 150 * dock.lit(key, now)))
+        ico = dock_icon(key, kind, col, dock.ICON, halo=True)
+        ico.set_alpha(int(base + (255 - base) * dock.lit(key, now)))
         scr.blit(ico, ico.get_rect(center=(int(cx), dock.CY)))
