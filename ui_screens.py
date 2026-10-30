@@ -1233,9 +1233,34 @@ def _settings_layout(W, H, n_rows, n_tiles=0):
             "yes": yes, "no": no}
 
 
+def _picker_layout(W, H, n):
+    """The picker over the page: the dialog, its × and a button per option
+    (up to 4 a row, 1–2 for a few long ones)."""
+    n = max(1, min(n, 16))
+    cols = min(4, -(-n // 4))
+    dw = min(W - 40, (460, 620, 720, 760)[cols - 1])
+    rows_n = -(-n // cols)
+    gap = 10
+    bh = max(40, min(56, (H - 40 - 90) // rows_n - gap))
+    dh = 76 + rows_n * (bh + gap) + 14
+    dlg = pygame.Rect(W // 2 - dw // 2, H // 2 - dh // 2, dw, dh)
+    bw = (dw - 48 - (cols - 1) * gap) // cols
+    opts = [pygame.Rect(dlg.x + 24 + (k % cols) * (bw + gap), dlg.y + 76 + (k // cols) * (bh + gap),
+                        bw, bh) for k in range(n)]
+    close = pygame.Rect(dlg.right - 56, dlg.y + 16, 40, 40)
+    return {"dialog": dlg, "opts": opts, "close": close}
+
+
 def settings_hit(x, y, W, H, data):
-    """("tab", i) | ("row", i) | ("bin", i) | ("yes",) | ("no",) | None for a tap."""
+    """("tab", i) | ("row", i) | ("bin", i) | ("yes",) | ("no",) | None for a tap;
+    with the picker open: ("opt", i) | ("close",) | None (outside)."""
     import settings_page
+    if data.get("picker"):
+        L = _picker_layout(W, H, len(data["picker"][2]))
+        for k, r in enumerate(L["opts"]):
+            if r.inflate(8, 8).collidepoint(x, y):
+                return ("opt", k)
+        return ("close",) if L["close"].inflate(16, 16).collidepoint(x, y) else None
     rows = settings_page.rows(data.get("tab", 0))
     L = _settings_layout(W, H, len(rows), sum(r["kind"] == "tile" for r in rows))
     if data.get("confirm"):
@@ -1354,6 +1379,8 @@ def draw_settings(scr, data, now, W, H):
             scr.blit(rrect(b.w, b.h, 24, col), b)
             t = text(lab, 21, WHITE, "ExtraBold")
             scr.blit(t, t.get_rect(center=b.center))
+    if data.get("picker"):
+        _settings_picker(scr, data["picker"], W, H, gold)
     toast = data.get("toast")
     if toast and now < toast[1]:                      # "Język: English", "Włączone"
         img = text(toast[0], 20, WHITE, "Bold")
@@ -1361,6 +1388,30 @@ def draw_settings(scr, data, now, W, H):
         pr = pill.get_rect(center=(W // 2 + 90, H - 30))
         scr.blit(pill, pr)
         scr.blit(img, img.get_rect(center=pr.center))
+
+
+def _settings_picker(scr, picker, W, H, gold):
+    """A row's every option at once (settings_page.choices): the current one gold."""
+    _, title, opts, cur = picker
+    shade = pygame.Surface((W, H), pygame.SRCALPHA)
+    shade.fill((0, 0, 0, 150))
+    scr.blit(shade, (0, 0))
+    L = _picker_layout(W, H, len(opts))
+    d = L["dialog"]
+    scr.blit(rrect(d.w, d.h, 22, (34, 30, 54, 250)), d)
+    t = text(fit(title, 28, d.w - 120, "ExtraBold"), 28, WHITE, "ExtraBold")
+    scr.blit(t, (d.x + 26, d.y + 36 - t.get_height() // 2))
+    c = L["close"]
+    scr.blit(rrect(c.w, c.h, c.w // 2, (255, 255, 255, 34)), c)
+    for a, b in (((-8, -8), (8, 8)), ((-8, 8), (8, -8))):
+        pygame.draw.line(scr, WHITE, (c.centerx + a[0], c.centery + a[1]),
+                         (c.centerx + b[0], c.centery + b[1]), 3)
+    for k, (r, (_, label)) in enumerate(zip(L["opts"], opts)):
+        on = k == cur
+        scr.blit(rrect(r.w, r.h, 18, (255, 196, 110, 220) if on else (255, 255, 255, 30)), r)
+        v = text(fit(str(label), 19, r.w - 20, "ExtraBold"), 19,
+                 (40, 32, 66) if on else WHITE, "ExtraBold")
+        scr.blit(v, v.get_rect(center=r.center))
 
 
 # ── the dock: quick icons along the bottom (dock.py) ─────────────────────────

@@ -353,11 +353,15 @@ def pick_next(kind):
     keys = [k for k, _ in opts]
     cur = settings.get(kind) or ""
     i = keys.index(cur) if cur in keys else 0
-    key, label = opts[(i + 1) % len(opts)]
+    return pick(kind, opts[(i + 1) % len(opts)][0])
+
+
+def pick(kind, key):
+    """One device chosen ("" = automatic). Returns its label."""
     settings.put(kind, key or None)
     if kind == "speaker":
         speaker_changed.set()
-    return label
+    return dict(options(kind)).get(key, key or AUTO)
 
 
 def now_label(kind):

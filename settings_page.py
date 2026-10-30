@@ -129,7 +129,7 @@ def cost_rows(today=None):
 _DEVICES = (("speaker", "Głośnik"), ("mic", "Mikrofon"), ("camera", "Kamera"))
 
 
-_VOLUMES = (0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
+_VOLUMES = (0.25, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
 _BRIGHT = (100, 80, 60, 40)
 
 
@@ -385,77 +385,131 @@ def char_rows(th):
     return rows
 
 
-def change(key):
-    """A tap on a row's control: the next value. Returns the toast text."""
+def _pct(v):
+    return f"{round(v * 100)} %"
+
+
+def _speed(v):
+    return f"{v:.1f}×".replace(".", ",")
+
+
+def choices(key):
+    """A row's picker: (title, [(value, label)], index of the current) —
+    every option on the screen at once — or None (a toggle, a button)."""
+    if key == "language":
+        opts, cur = list(_LANGS), language()
+    elif key == "reply_length":
+        opts, cur = list(_LENGTHS), settings.get("reply_length", "normal")
+    elif key == "theme":
+        opts, cur = [(k, t["label"]) for k, t in themes.THEMES.items()], themes.current()
+    elif key == "tts_speed":
+        opts, cur = [(s, _speed(s)) for s in _SPEEDS], _speed_of()[1]
+    elif key == "volume":
+        import commands
+        opts, cur = [(v, _pct(v)) for v in _VOLUMES], commands.get_volume()
+    elif key == "brightness":
+        opts, cur = [(b, f"{b} %") for b in _BRIGHT], display_base()
+    elif key == "draw_fps":
+        opts, cur = [(f, f"{f} kl./s") for f in _FPS], draw_fps()
+    elif key == "char_fx":
+        opts = [(k, l) for k, l, _ in characters.FX_LEVELS]
+        cur = settings.get("char_fx", "full")
+    elif key == "char_acc":
+        kind = characters.kind_of(themes.get())
+        if not kind:
+            return None
+        opts = [(tuple(c), _acc_label(c)) for c in characters.acc_choices(kind)]
+        have = set(characters.accessories(kind))
+        cur = next((v for v, _ in opts if set(v) == have), None)
+    elif key in dict(_DEVICES):
+        opts, cur = devices.options(key), settings.get(key) or ""
+    else:
+        return None
+    i = next((j for j, (v, _) in enumerate(opts) if v == cur), -1)
+    if i < 0 and isinstance(cur, (int, float)) and opts and isinstance(opts[0][0], float):
+        i = min(range(len(opts)), key=lambda j: abs(opts[j][0] - cur))   # 0.45 set by voice
+    labels = dict(_DEVICES, language="Język", reply_length="Długość odpowiedzi", theme="Motyw",
+                  tts_speed="Tempo mowy", volume="Głośność", brightness="Jasność",
+                  draw_fps="Płynność twarzy", char_fx="Efekty postaci", char_acc="Dodatki")
+    return labels[key], opts, i
+
+
+def pick(key, value):
+    """One option chosen (the picker, or change's next one). Returns the toast."""
     _cache.clear()
     if key == "language":
-        new = _next(_LANGS, language())
-        settings.put("language", new)
-        return f"Język: {_label(_LANGS, new)}"
+        settings.put("language", value)
+        return f"Język: {_label(_LANGS, value)}"
     if key == "tts_speed":
-        who, cur = _speed_of()
-        new = next((s for s in _SPEEDS if s > cur + 0.01), _SPEEDS[0])
+        who, _ = _speed_of()
         if who:                              # their own speed ("mów wolniej") wins: change it
             by = dict(settings.get("tts_speed_by", {}) or {})
-            by[who] = new
+            by[who] = value
             settings.put("tts_speed_by", by)
         else:
-            settings.put("tts_speed", new)
-        return f"Tempo mowy {new:.1f}×".replace(".", ",") + (f" ({who})" if who else "")
+            settings.put("tts_speed", value)
+        return f"Tempo mowy {_speed(value)}" + (f" ({who})" if who else "")
     if key == "reply_length":
-        new = _next(_LENGTHS, settings.get("reply_length", "normal"))
-        settings.put("reply_length", new)
-        return f"Odpowiedzi: {_label(_LENGTHS, new).lower()}"
+        settings.put("reply_length", value)
+        return f"Odpowiedzi: {_label(_LENGTHS, value).lower()}"
     if key == "theme":
-        keys = list(themes.THEMES)
-        new = keys[(keys.index(themes.current()) + 1) % len(keys)]
-        themes.set_theme(new)
-        threading.Thread(target=_introduce, args=(new,), daemon=True, name="theme").start()
-        return f"Motyw: {themes.THEMES[new]['label']}"
+        if value != themes.current():
+            themes.set_theme(value)
+            threading.Thread(target=_introduce, args=(value,), daemon=True, name="theme").start()
+        return f"Motyw: {themes.THEMES[value]['label']}"
     if key == "volume":
         import commands
-        cur = commands.get_volume() or 0.0
-        new = next((v for v in _VOLUMES if v > cur + 0.01), _VOLUMES[0])
-        v = commands.set_volume(new)
+        v = commands.set_volume(value)
         threading.Thread(target=_say_volume, daemon=True, name="volume").start()
-        return f"Głośność {round(v * 100)} %"
-    if key == "night_quiet":
-        new = settings.get("night_quiet", True) is False
-        settings.put("night_quiet", new)
-        return "Ciszej w nocy: tak" if new else "W nocy tak samo głośno"
+        return f"Głośność {_pct(v)}"
     if key == "brightness":
-        cur = display_base()
-        new = next((b for b in _BRIGHT if b < cur), _BRIGHT[0])
-        settings.put("brightness", new)
+        settings.put("brightness", value)
         import display
-        display.set_user_override(new)   # seen now, at night too (22 Oct: "not working" —
-        return f"Jasność {new} %"        # the night cap held it at 12 %)
+        display.set_user_override(value)  # seen now, at night too (22 Oct: "not working" —
+        return f"Jasność {value} %"       # the night cap held it at 12 %)
     if key == "char_acc":
         kind = characters.kind_of(themes.get())
         if not kind:
             return None
-        choices = characters.acc_choices(kind)
-        cur = characters.accessories(kind)
-        i = next((j for j, c in enumerate(choices) if set(c) == set(cur)), -1)
-        new = choices[(i + 1) % len(choices)]
-        characters.set_accessories(kind, new)
-        return f"Dodatki: {_acc_label(new)}"
+        characters.set_accessories(kind, value)
+        return f"Dodatki: {_acc_label(value)}"
+    if key == "char_fx":
+        settings.put("char_fx", value)
+        characters._scache.clear()
+        return f"Efekty: {_label([(k, l) for k, l, _ in characters.FX_LEVELS], value)}"
+    if key == "draw_fps":
+        settings.put("draw_fps", value)
+        return f"Płynność: {value} klatek na sekundę"
+    if key in dict(_DEVICES):
+        label = devices.pick(key, value)
+        if key == "speaker":
+            threading.Thread(target=_say_speaker, daemon=True, name="speaker-hello").start()
+        return f"{dict(_DEVICES)[key]}: {label}"
+    return None
+
+
+def change(key):
+    """A tap that steps a row on: the next value, or a toggle flipped. Returns the toast."""
+    _cache.clear()
+    if key == "tts_speed":
+        cur = _speed_of()[1]
+        return pick(key, next((s for s in _SPEEDS if s > cur + 0.01), _SPEEDS[0]))
+    if key == "volume":
+        import commands
+        cur = commands.get_volume() or 0.0
+        return pick(key, next((v for v in _VOLUMES if v > cur + 0.01), _VOLUMES[0]))
+    if key == "brightness":
+        cur = display_base()
+        return pick(key, next((b for b in _BRIGHT if b < cur), _BRIGHT[0]))
+    ch = choices(key)
+    if ch:
+        opts, i = ch[1], ch[2]
+        return pick(key, opts[(i + 1) % len(opts)][0])
     if key == "retro_mode":
         new = "face" if characters.retro_console() else "console"
         settings.put("retro_mode", new)
         characters._scache.clear()
         return "Cała konsola" if new == "console" else "Sam ekran"
-    if key == "char_fx":
-        levels = [(k, l) for k, l, _ in characters.FX_LEVELS]
-        new = _next(levels, settings.get("char_fx", "full"))
-        settings.put("char_fx", new)
-        characters._scache.clear()
-        return f"Efekty: {_label(levels, new)}"
-    if key in dict(_DEVICES):
-        label = devices.pick_next(key)
-        if key == "speaker":
-            threading.Thread(target=_say_speaker, daemon=True, name="speaker-hello").start()
-        return f"{dict(_DEVICES)[key]}: {label}"
     if key.startswith("dock:"):
         import dock
         k = key[5:]
@@ -465,16 +519,15 @@ def change(key):
         if on and not dock.enabled():          # (the row was off: a tile ticked wants it)
             settings.put("dock", True)
         return f"{label}: na dole" if on else f"{label}: schowane"
-    if key == "draw_fps":
-        new = _next(_FPS, draw_fps())
-        settings.put("draw_fps", new)
-        return f"Płynność: {new} klatek na sekundę"
     defaults = {"captions": False, "status_bar": True, "dock": True,
-                "camera_preview": CAMERA_PREVIEW, "sky_bg": True}
+                "camera_preview": CAMERA_PREVIEW, "sky_bg": True, "night_quiet": True}
     if key in defaults:
         cur = settings.get(key, defaults[key])
-        new = not (cur is not False if key in ("status_bar", "dock", "sky_bg") else bool(cur))
+        new = not (cur is not False if key in ("status_bar", "dock", "sky_bg", "night_quiet")
+                   else bool(cur))
         settings.put(key, new)
+        if key == "night_quiet":
+            return "Ciszej w nocy: tak" if new else "W nocy tak samo głośno"
         return "Włączone" if new else "Wyłączone"
     return None
 
@@ -557,13 +610,21 @@ def _toast(data, text):
 
 
 def tap(x, y, W, H, now=None):
-    """A tap (px) on the page: a tab, a row's control, the reset's dialog."""
+    """A tap (px) on the page: a tab, a row's control (a value: its picker),
+    the reset's dialog."""
     import ui_screens
     now = now or time.time()
     data = _page_data()
     if data is None:
         return False
     hit = ui_screens.settings_hit(x, y, W, H, data)
+    if data.get("picker"):                       # every option at once: one tapped, or away
+        key, _, opts, _ = data.pop("picker")
+        if hit and hit[0] == "opt" and hit[1] < len(opts):
+            said = pick(key, opts[hit[1]][0])
+            if said:
+                _toast(data, said)
+        return True
     if data.get("confirm"):
         who = data.pop("confirm_who", None)
         if now - data["confirm"] > CONFIRM_SECS or hit == ("no",) or not hit:
@@ -598,6 +659,8 @@ def tap(x, y, W, H, now=None):
                 _toast(data, said)
         elif r["kind"] == "danger":
             data["confirm"] = now
+        elif r["kind"] == "cycle" and choices(r["key"]):
+            data["picker"] = (r["key"],) + choices(r["key"])
         elif r.get("key"):
             said = change(r["key"])
             if said:
@@ -608,7 +671,7 @@ def tap(x, y, W, H, now=None):
 def swipe(dx):
     """A swipe: the next tab (to the left) or the one before."""
     data = _page_data()
-    if data is None or data.get("confirm"):
+    if data is None or data.get("confirm") or data.get("picker"):
         return False
     data["tab"] = (data.get("tab", 0) + (1 if dx < 0 else -1)) % len(TABS)
     return True

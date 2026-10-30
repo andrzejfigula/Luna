@@ -5781,6 +5781,30 @@ class FamilyTest(unittest.TestCase):
             self.assertTrue(state.conversation_active)
         self.assertEqual(commands._bare_name("Kasia."), "Kasia")
 
+    def test_settings_picker_shows_every_option(self):
+        # 30 Oct: values were tapped through one by one — now a tap shows them all
+        import settings_page as sp
+        import ui_screens
+        from unittest import mock
+        settings.put("reply_length", "normal")
+        data = {"tab": 0}
+        k = [r.get("key") for r in sp.rows(0, now=1)].index("reply_length")
+        with mock.patch.object(sp, "_page_data", return_value=data), \
+                mock.patch.object(ui_screens, "settings_hit") as hit:
+            hit.return_value = ("row", k)
+            sp.tap(1, 1, 800, 480)
+            key, title, opts, cur = data["picker"]
+            self.assertEqual((key, len(opts), opts[cur][0]), ("reply_length", 3, "normal"))
+            hit.return_value = ("opt", 2)
+            sp.tap(1, 1, 800, 480)
+        self.assertEqual(settings.get("reply_length"), "long")
+        self.assertNotIn("picker", data)
+        self.assertEqual(data["toast"][0], "Odpowiedzi: długie")
+        settings.put("tts_speed", 1.2)
+        with mock.patch.object(sp, "_speed_of", return_value=(None, 1.2)):
+            self.assertEqual(sp.choices("tts_speed")[2], 2)
+        self.assertIsNone(sp.choices("captions"))                 # a switch stays a switch
+
 
 class ErrandsTest(unittest.TestCase):
 
@@ -8780,7 +8804,7 @@ class DevicesTest(unittest.TestCase):
              mock.patch.object(sp, "_say_volume"):
             self.assertEqual(sp.change("volume"), "Głośność 50 %")
             vol[0] = 1.0
-            self.assertEqual(sp.change("volume"), "Głośność 30 %")    # round again
+            self.assertEqual(sp.change("volume"), "Głośność 25 %")    # round again
         try:
             with mock.patch.dict(os.environ, {"LUNA_BRIGHTNESS": "100"}),                  mock.patch.object(display, "set_user_override") as now:   # (the Pi's .env: less)
                 self.assertEqual(sp.change("brightness"), "Jasność 80 %")
