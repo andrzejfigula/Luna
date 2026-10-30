@@ -11628,24 +11628,30 @@ class ActivationFirewallTest(unittest.TestCase):
             self.assertFalse(self.a.cancel("touch"))             # nothing going on
             tid = self.a.begin_turn()
             self.assertEqual(self.a.turn_id(), tid)
-            seen = {}
+            seen, joined, checked = {}, threading.Event(), threading.Event()
 
             def helper():
                 seen["before"] = self.a.turn_cancelled()
                 self.a.join_turn(tid)
                 seen["id"] = self.a.turn_id()
                 seen["joined"] = self.a.turn_cancelled()
+                joined.set()
+                checked.wait(5)          # alive: Linux reuses a dead thread's ident
 
             def stranger():                                       # a timer ringing meanwhile
                 seen["stranger"] = self.a.turn_cancelled()
+                checked.set()
 
             self.assertTrue(self.a.cancel("touch"))
             self.assertFalse(self.a.cancel("touch"))             # once
             self.assertTrue(self.a.turn_cancelled())
-            for f in (helper, stranger):
-                t = threading.Thread(target=f)
-                t.start()
-                t.join()
+            h = threading.Thread(target=helper)
+            h.start()
+            joined.wait(5)
+            s = threading.Thread(target=stranger)
+            s.start()
+            s.join()
+            h.join()
             self.assertEqual(seen, {"before": False, "id": tid, "joined": True,
                                     "stranger": False})
             self.assertTrue(self.a.turn_cancelled(tid))
