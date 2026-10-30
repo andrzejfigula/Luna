@@ -630,7 +630,8 @@ def _check(q, text):
         t = clockgame.parse(text)
         if t is None:
             return None
-        q["last_try"] = f"{t[0]}:{t[1]:02d}"
+        import clock
+        q["last_try"] = clock.hour_nominative(*t)   # 30 Oct: "nie 3:00" took the TTS 3 tries
         ok = clockgame.same(t, q["answer"])
         q["streak"] = q.get("streak", 0) + 1 if ok else 0
         if q["streak"] >= 2 and q.get("level", 1) < 2:

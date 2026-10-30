@@ -2183,6 +2183,15 @@ class KidsTest(unittest.TestCase):
         quiz.answer(f"{h}:{m:02d}", lambda t, **k: said.append(t), lambda n: None)
         self.assertEqual(quiz._q["score"], 1)
         quiz.answer("koniec", lambda t, **k: said.append(t), lambda n: None)
+        # a wrong time is said in words: "nie 3:00" took the TTS three tries
+        q = {"kind": "clock", "answer": (8, 15)}
+        self.assertFalse(quiz._check(q, "Trzecia."))
+        self.assertEqual(q["last_try"], "trzecia")
+        self.assertFalse(quiz._check(q, "Druga czterdzieści pięć."))
+        self.assertEqual(q["last_try"], "druga czterdzieści pięć")
+        import clock
+        self.assertEqual(clock.hour_nominative(6, 5), "szósta zero pięć")
+        self.assertEqual(clock.hour_nominative(0, 30), "dwunasta trzydzieści")
 
     def test_capitals_and_checked_sums(self):
         import quiz

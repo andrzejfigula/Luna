@@ -96,6 +96,14 @@ def spoken_time(now=None):
     return f"Jest {_HOURS[h]} {_minutes(m)}."
 
 
+def hour_nominative(h, m):
+    """3:00 → "trzecia", 2:45 → "druga czterdzieści pięć" (said, not "3:00")."""
+    hour = _HOURS[h] if h else "dwunasta"
+    if m == 0:
+        return hour
+    return f"{hour} {'zero ' if m < 10 else ''}{_minutes(m)}"
+
+
 def hour_accusative(h, m):
     """7:30 → "siódmą trzydzieści", 6:05 → "szóstą zero pięć" ("na …")."""
     if h == 0 and m == 0:
