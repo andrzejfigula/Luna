@@ -8924,6 +8924,11 @@ class ThemesTest(unittest.TestCase):
         self.assertEqual(s._strip_wake_from_cloud("HAL, otwórz drzwi."), "Otwórz drzwi.")
         self.assertIn("Luna albo Hal", s.stt_prompt())
         themes.set_theme("luna")
+        with mock.patch("schedule.events", return_value=[
+                {"title": "lekkoatletyka"}, {"title": "basen"}, {"title": "basen"}]):
+            self.assertTrue(s.stt_prompt().endswith(" Zajęcia: basen, lekkoatletyka."))
+            self.assertTrue(s._is_prompt_echo("Zajęcia: basen, lekkoatletyka."))
+            self.assertFalse(s._is_prompt_echo("A lekkoatletyka nie poszła."))
         self.assertIsNone(s._find_wake_word(["hal", "która", "godzina"]))
         self.assertFalse(s._cloud_has_wake("HAL, otwórz drzwi."))
 

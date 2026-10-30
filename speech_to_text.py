@@ -670,7 +670,14 @@ def stt_prompt():
     except Exception:
         names = []
     base = CLOUD_STT_PROMPT.replace("Luna.", themes.stt_name() + ".")
-    return base + (f" Domownicy: {', '.join(names)}." if names else "")
+    base += f" Domownicy: {', '.join(names)}." if names else ""
+    # the plan's activities: 30 Oct "a lekkoatletyka" came out "Aleko, atletyka"
+    try:
+        import schedule
+        titles = sorted({e["title"].strip() for e in schedule.events() if e.get("title")})
+    except Exception:
+        titles = []
+    return base + (f" Zajęcia: {', '.join(titles[:25])}." if titles else "")
 
 
 # Short commands Vosk hears reliably: when it is sure (FAST_CONF), the cloud
