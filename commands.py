@@ -2201,7 +2201,8 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
     if not said:
         import lists
         said = (lists.read_answer(text) or lists.clear_empty_answer(text)  # "co mam na liście…?"
-                or lists.local_remove(text))       # "skreśl chleb" — when it's there
+                or lists.local_remove(text)        # "skreśl chleb" — when it's there
+                or (not _stranger_here() and lists.local_clear(text)))
     if not said:
         import fun
         said = fun.random_answer(text)             # "kto zmywa: Maja czy tata?"

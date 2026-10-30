@@ -389,16 +389,54 @@ def clear_empty_answer(text):
     """"Wyczyść listę zakupów" when it is already empty → said here (9 Oct: "Jasne,
     już czyszczę… Właściwie ta lista już była pusta" — the first half was already
     spoken). None when the list has items: the model clears it (with undo)."""
+    name = _clear_target(text)
+    if not name or get(name):
+        return None
+    return ("Lista zakupów już jest pusta." if name == "zakupy"
+            else f"Lista „{name}” już jest pusta.")
+
+
+def _clear_target(text, named=False):
+    """The list "wyczyść listę …" names (zakupy when none); named: None unless one is."""
     m = _CLEAR.match((text or "").strip())
     if not m:
         return None
     low = text.lower()
-    name = ("do zrobienia" if "do zrobienia" in low else m.group(1).lower() if m.group(1)
-            else "zakupy")
-    if get(name):
+    if named and not re.search(r"list[eę]\s+\w", low):
         return None
-    return ("Lista zakupów już jest pusta." if name == "zakupy"
-            else f"Lista „{name}” już jest pusta.")
+    return ("do zrobienia" if "do zrobienia" in low else m.group(1).lower() if m.group(1)
+            else "zakupy")
+
+
+def local_clear(text):
+    """"Wyczyść listę zakupów" with things on it — cleared here, undo kept (30 Oct:
+    via the model, 4.7 s and a hedge retry). A bare "usuń listę" stays the model's."""
+    global _undo
+    name = _clear_target(text, named=True)
+    if not name:
+        return None
+    with _lock:
+        if _lists is None:
+            _load()
+        items = _lists.get(name)
+        if not items:
+            return None
+        _undo = (time.time(), name, list(items))
+        _lists.pop(name)
+        if name in owners():
+            _set_owner(name, None)
+        _save()
+    print(f"[lists] cleared {name} (local, {len(items)})", flush=True)
+    title = "zakupów" if name == "zakupy" else f"„{name}”"
+    return (f"Wyczyściłam listę {title} — {_things(len(items))}. "
+            "Gdyby co, powiedz: przywróć listę.")
+
+
+def _things(n):
+    if n == 1:
+        return "była jedna rzecz"
+    few = n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14)
+    return f"{'były' if few else 'było'} {n} rzeczy"
 
 
 def empty_answer(name, now=None):

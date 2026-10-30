@@ -1711,6 +1711,22 @@ class ListsTest(unittest.TestCase):
         for t in ("Kupiłam prezent", "Kupiłem Emilce kolczyki, tylko jej nie mów"):
             self.assertIsNone(lists.local_remove(t), t)
 
+    def test_local_clear(self):
+        # 30 Oct 16:50: "Wyczyść listę zakupów." went to the model (4.7 s)
+        lists._lists = {"zakupy": ["mleko", "chleb"], "do zrobienia": ["umyć auto"]}
+        self.assertIsNone(lists.local_clear("Usuń listę."))           # unnamed: the model's
+        self.assertIsNone(lists.local_clear("Wyczyść listę Mai."))    # no such list
+        self.assertEqual(lists.local_clear("Luna, wyczyść listę zakupów."),
+                         "Wyczyściłam listę zakupów — były 2 rzeczy. "
+                         "Gdyby co, powiedz: przywróć listę.")
+        self.assertIsNone(lists.get("zakupy") or None)
+        self.assertEqual(lists.get("do zrobienia"), ["umyć auto"])
+        self.assertIsNone(lists.local_clear("Wyczyść listę zakupów."))  # empty now
+        self.assertEqual(lists.clear_empty_answer("Wyczyść listę zakupów."),
+                         "Lista zakupów już jest pusta.")
+        self.assertIn("mleko, chleb", lists.restore("przywróć listę"))
+        self.assertIn("jedna rzecz", lists.local_clear("Skasuj całą listę do zrobienia"))
+
     def test_local_add(self):
         self.assertEqual(lists.local_add("Dopisz mleko i chleb do listy zakupów"),
                          "Dopisałam: mleko, chleb.")
