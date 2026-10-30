@@ -5030,6 +5030,21 @@ class KidsTest(unittest.TestCase):
             self.assertIn("man's", brain.not_them_line("Zrobiłem obiad.", ("Maja", 0.6)))
             self.assertEqual(brain.not_them_line("Andrzej jest w pracy.", None), "")
 
+    def test_no_mans_name_to_a_womans_words(self):
+        import brain
+        # 29 Oct 19:01, the face unsure: "Zauważyłam, że…" → "Przepraszam, Andrzeju"
+        v = {"Andrzej": "Andrzeju", "Emilka": "Emilko", "Maja": "Maju"}
+        d = lambda reply, heard: brain.drop_wrong_name(reply, heard, v)
+        self.assertEqual(d("Przepraszam, Andrzeju — poprawię się.",
+                           "Zauważyłam, że masz olbrzymi problem."), "Przepraszam — poprawię się.")
+        self.assertEqual(d("Andrzeju, masz rację.", "Zauważyłam błąd."), "Masz rację.")
+        self.assertEqual(d("Dobrze, Emilko.", "Zrobiłem obiad."), "Dobrze.")
+        for reply, heard in (("Dobrze, Maju.", "Zrobiłam lekcje."),          # same gender
+                             ("Przepraszam, Andrzeju.", "Jaka pogoda?"),      # nothing said
+                             ("Andrzej będzie zadowolony.", "Ugotowałam zupę."),  # not to him
+                             ("Dobrze, Andrzeju.", "Zrobiłam to, co zrobiłem.")):
+            self.assertEqual(d(reply, heard), reply, reply)
+
     def test_list_clear_needs_a_list(self):
         import brain
         # 22 Oct: "Usuń to." (about a memory) came with list_clear

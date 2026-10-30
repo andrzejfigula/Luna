@@ -385,6 +385,30 @@ def _crisis_line(text, person):
 _SELF_NAMED = re.compile(r"\b(?:jestem|ja|to\s+ja|mam\s+na\s+imię|nazywam\s+się|tu)\W+$")
 
 
+def speaker_gender(text):
+    """"f" for "zauważyłam", "m" for "zrobiłem", None when unsaid or both."""
+    low = (text or "").lower()
+    she = bool(re.search(r"\b\w{2,}(?:łam|łabym)\b", low))
+    he = bool(re.search(r"\b\w{2,}(?:łem|łbym)\b", low))
+    return "f" if she and not he else "m" if he and not she else None
+
+
+def drop_wrong_name(reply, heard, vocatives):
+    """No man's name said to a woman's words, or the reverse (29 Oct 19:01,
+    the face unsure: "Zauważyłam, że…" → "Przepraszam, Andrzeju")."""
+    gender = speaker_gender(heard)
+    if not gender or not reply:
+        return reply
+    for name, voc in (vocatives or {}).items():
+        if (gender == "f") == faces._female(name):
+            continue
+        for w in {voc or name, name}:
+            w = re.escape(w)
+            reply = re.sub(rf",\s*{w}(?=\s*[.!?,—–-]|\s*$)", "", reply)
+            reply = re.sub(rf"^{w},\s*(\w)", lambda m: m.group(1).upper(), reply)
+    return reply
+
+
 def not_them_line(text, person):
     """The words say it isn't the face she recognised: that one named in the
     third person, or past-tense forms of the other gender (22 Oct, Emilka in
@@ -398,15 +422,12 @@ def not_them_line(text, person):
                 and not _SELF_NAMED.search(text[:m.start()].lower())
                 and not re.match(r"\s*[,!]", text[m.end():])          # "…, Andrzeju!"
                 for m in words)
-    low = text.lower()
-    she = bool(re.search(r"\b\w{2,}(?:łam|łabym)\b", low))
-    he = bool(re.search(r"\b\w{2,}(?:łem|łbym)\b", low))
-    female = faces._female(name)
-    other_gender = (she and not he and not female) or (he and not she and female)
+    gender = speaker_gender(text)
+    other_gender = gender == ("m" if faces._female(name) else "f")
     if not (named or other_gender):
         return ""
     why = f"they speak of {name} in the third person" if named else (
-        "their verbs are a woman's" if she else "their verbs are a man's")
+        "their verbs are a woman's" if gender == "f" else "their verbs are a man's")
     return (f"The face recognised is {name}, but {why} — so it is probably someone else "
             f"speaking: don't call the speaker {name}; address no one by name.\n")
 
@@ -728,7 +749,10 @@ def _looks_like_json(sentence):
     return bool(t) and (t[0] == "{" or bool(re.search(r'"\w+"\s*:', t)))
 
 
-def _feminize(text):
+_heard = ""          # what this answer is to (drop_wrong_name)
+
+
+def _feminize(text, heard=""):
     """Her own forms feminine; and with nobody recognised in front of her, no
     guessed gender for "you" either."""
     text = _latin(text or "")
@@ -736,7 +760,9 @@ def _feminize(text):
     text = fix_desk(text if themes.male() else feminize(text))    # (HAL is a he)
     text = fix_degrees(text)                       # "około pięciu stopni"
     try:
-        text = fix_vocative(text, faces.vocatives())     # "Maja, …" → "Maju, …"
+        vocs = faces.vocatives()
+        text = fix_vocative(text, vocs)            # "Maja, …" → "Maju, …"
+        text = drop_wrong_name(text, heard, vocs)
     except Exception:
         pass
     # "przekażę Maji" — Maja's genitive/dative is "Mai" (13 Oct 22:33; the
@@ -1677,7 +1703,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                     data[k] = inner[k]
         # the history tags speakers ("[Maja] …"); a reply must never copy that
         reply   = re.sub(r"^\[[^\]]{1,40}\]\s*", "", reply)    # ("[Andrzej, with Maja]")
-        fixed   = _feminize(reply)
+        fixed   = _feminize(reply, _heard)
         if fixed != reply:
             print(f"[brain] feminized: {reply!r} → {fixed!r}")
             reply = fixed
@@ -2915,6 +2941,8 @@ def _process(text, context=None):
         return
 
     print(f"[brain] Processing: {text}")
+    global _heard
+    _heard = text
 
     lower = text.lower()
 
@@ -2955,7 +2983,7 @@ def _process(text, context=None):
         import timing
         timing.mark("sentence")
         sentence = re.sub(r"^\[[^\]]{1,40}\]\s*", "", sentence)    # no "[Luna] " spoken
-        sentences.put(_feminize(sentence))
+        sentences.put(_feminize(sentence, _heard))
 
     t0 = time.time()
     try:
