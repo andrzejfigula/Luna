@@ -1488,7 +1488,8 @@ def dock_icon(key, kind, col, size=40):
 
 def draw_dock(scr, kind, cols, now=None):
     """The row of quick icons in the face's colours (dock.py): faint on a dark
-    face, bolder (a darker pill) over a light sky."""
+    face, bolder over a light sky; behind them a dark fade up from the
+    bottom edge, transparent at its top."""
     import dock
     import environment
     now = now if now is not None else time.time()
@@ -1496,9 +1497,10 @@ def draw_dock(scr, kind, cols, now=None):
     col = tuple(int(c) for c in cols[0][:3])
     tint = tuple(int(c) for c in cols[1][:3])
     where = dock.centres()
-    bw, bh = dock.STEP * len(where) - 12, 52
-    pill = rrect(bw, bh, bh // 2, (tint[0] // 8, tint[1] // 8, tint[2] // 8, int(70 + 50 * light)))
-    scr.blit(pill, pill.get_rect(center=(dock.W // 2, dock.CY)))
+    dark = (tint[0] // 8, tint[1] // 8, tint[2] // 8)
+    a = int(60 + 70 * light) // 10 * 10                # (in steps: a few cached fades)
+    fade = vgrad(dock.W, 100, dark + (0,), dark + (a,))
+    scr.blit(fade, (0, dock.H - 100))
     base = 95 + 110 * light
     for key, cx in where:
         ico = dock_icon(key, kind, col, dock.ICON)
