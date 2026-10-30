@@ -312,6 +312,45 @@ def day_claim(text, her_last="", now=None):
     return f"Nie, {full[0].lower()}{full[1:]}"
 
 
+_EN = ("zero one two three four five six seven eight nine ten eleven twelve thirteen "
+       "fourteen fifteen sixteen seventeen eighteen nineteen").split()
+_EN_TENS = {2: "twenty", 3: "thirty", 4: "forty", 5: "fifty"}
+
+
+def _en_time(h, m):
+    """16:20 → "four twenty in the afternoon" — in words: the Polish voice
+    read "It's 16:20." as "Jest szesnasta dwadzieścia" (28 Oct)."""
+    if m == 0 and h in (0, 12):
+        return "midnight" if h == 0 else "noon"
+    hour = _EN[h % 12 or 12]
+    if m == 0:
+        mins = " o'clock"
+    elif m < 10:
+        mins = " oh " + _EN[m]
+    elif m < 20:
+        mins = " " + _EN[m]
+    else:
+        t, u = divmod(m, 10)
+        mins = " " + _EN_TENS[t] + ("-" + _EN[u] if u else "")
+    part = ("at night" if h < 5 or h >= 22 else "in the morning" if h < 12
+            else "in the afternoon" if h < 18 else "in the evening")
+    return f"{hour}{mins} {part}"
+
+
+_EN_ORD = ("first second third fourth fifth sixth seventh eighth ninth tenth eleventh "
+           "twelfth thirteenth fourteenth fifteenth sixteenth seventeenth eighteenth "
+           "nineteenth twentieth").split()
+
+
+def _en_day(d):
+    """30 → "thirtieth" (not "30": the Polish voice says it in Polish)."""
+    if d <= 20:
+        return _EN_ORD[d - 1]
+    if d == 30:
+        return "thirtieth"
+    return ("twenty-" if d < 30 else "thirty-") + _EN_ORD[d % 10 - 1]
+
+
 def answer(text):
     """The spoken answer to a bare time/date question, or None."""
     said = world_time(text)
@@ -322,12 +361,12 @@ def answer(text):
     if _bare(low, _TIME_Q):
         if english:
             now = datetime.now(_TZ) if _TZ else datetime.now()
-            return f"It's {now.hour}:{now.minute:02d}."
+            return f"It's {_en_time(now.hour, now.minute)}."
         return spoken_time()
     if _bare(low, _DATE_Q):
         if english:
             now = datetime.now(_TZ) if _TZ else datetime.now()
-            return now.strftime("It's %A, %B %d.")
+            return now.strftime(f"It's %A, %B the {_en_day(now.day)}.")
         return spoken_date()
     if not english and _bare(low, _AFTER_Q):
         return spoken_other_day(2)

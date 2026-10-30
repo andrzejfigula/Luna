@@ -65,6 +65,14 @@ def transcribe(client, pcm, sr=PCM_RATE, prompt=None):
                                               **extra).text
 
 
+_NUMBER_WORDS = set(
+    "zero zera jeden jedna jedno dwa dwie trzy cztery pięć sześć siedem osiem dziewięć "
+    "dziesięć jedenaście dwanaście trzynaście czternaście piętnaście szesnaście siedemnaście "
+    "osiemnaście dziewiętnaście dwadzieścia trzydzieści czterdzieści pięćdziesiąt "
+    "sześćdziesiąt siedemdziesiąt osiemdziesiąt dziewięćdziesiąt sto dwieście trzysta "
+    "czterysta pięćset tysiąc tysiące tysięcy".split())
+
+
 def _words(text):
     return re.findall(r"[a-ząćęłńóśźż]+|\d+", (text or "").lower())
 
@@ -73,10 +81,13 @@ def sounds_like(text, heard, least=0.5):
     """The take was heard as (mostly) the words meant. Digits and number words
     both count ("0 do 0" / "zero do zera"); a take heard with Czech/Slovak
     letters ("Súham") is not."""
-    if re.search(r"[áéíýůúšěřčžďťňőűöüä]", heard or "", re.I):
+    # (not a letter the text has itself: 27 Oct "netopýr" was never cached)
+    if set(re.findall(r"[áéíýůúšěřčžďťňőűöüä]", (heard or "").lower())) - set(text.lower()):
         return False
+    # digits said as words: 27 Oct "Pięknie! 4 na 5!" heard "Piękna, cztery na pięć."
+    nums = _NUMBER_WORDS if re.search(r"\d", text or "") else ()
     want = [w for w in _words(text) if not w.isdigit()]
-    got = [w for w in _words(heard) if not w.isdigit()]
+    got = [w for w in _words(heard) if not w.isdigit() and w not in nums]
     if not want:
         return True                     # only numbers: nothing to compare
     if difflib.SequenceMatcher(None, want, got).ratio() >= least:

@@ -1841,6 +1841,18 @@ class ListsTest(unittest.TestCase):
 
 class ClockTest(unittest.TestCase):
 
+    def test_english_time_in_words(self):
+        # 28 Oct: "It's 16:20." was read by the Polish voice as "Jest szesnasta dwadzieścia"
+        import clock
+        self.assertEqual(clock._en_time(16, 20), "four twenty in the afternoon")
+        self.assertEqual(clock._en_time(7, 5), "seven oh five in the morning")
+        self.assertEqual(clock._en_time(23, 47), "eleven forty-seven at night")
+        self.assertEqual(clock._en_time(12, 0), "noon")
+        self.assertEqual([clock._en_day(d) for d in (3, 22, 30, 31)],
+                         ["third", "twenty-second", "thirtieth", "thirty-first"])
+        said = clock.answer("Hey Luna, what time is it?")
+        self.assertTrue(said.startswith("It's ") and not any(c.isdigit() for c in said), said)
+
     def test_greeting_before_the_question(self):
         import clock
         self.assertTrue(clock.answer("Cześć, która godzina?").startswith("Jest "))
@@ -3714,6 +3726,14 @@ class KidsTest(unittest.TestCase):
         self.assertFalse(voicecheck.sounds_like("Już rysuję… chwilka!", "Juš resa"))
         self.assertTrue(voicecheck.sounds_like("Ja nożyce, ty papier — 1 do 0.",
                                                "Ja nożyce, ty papier, 1:0."))
+        # 27 Oct, right takes never cached: a letter the text has, digits said as words
+        self.assertTrue(voicecheck.sounds_like("Proszę, masz na ekranie: netopýr.",
+                                               "Proszę, masz na ekranie netopýr."))
+        self.assertFalse(voicecheck.sounds_like("Proszę, masz na ekranie: netopýr.",
+                                                "Prošę, masz na ekranie netopýr."))
+        self.assertTrue(voicecheck.sounds_like("Pięknie! 4 na 5!", "Piękna, cztery na pięć."))
+        self.assertFalse(voicecheck.sounds_like("Pięknie! 4 na 5!", "Stille Nacht."))
+        self.assertFalse(voicecheck.sounds_like("Pięknie! 4 na 5!", "Chtělina pět."))
         # 24–25 Oct: "Pa, pa!" heard as "파 파" / "パパ" — asked again, not a bad take
         for heard in ("파 파", "パパ。", "سهم", "Σου κάνω τάκλινγκ στάση."):
             self.assertTrue(voicecheck.foreign_script(heard), heard)
