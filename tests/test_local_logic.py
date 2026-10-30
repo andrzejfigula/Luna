@@ -9167,7 +9167,7 @@ class ScheduleTest(unittest.TestCase):
         E = s.ends_said
         self.assertEqual(E("Luna, o której Maja kończy zajęcia?", fri),
                          "Maja skończyła dziś lekcje o 12:20. Potem ma jeszcze ukulele o 15:00 "
-                         "i lekkoatletyka o 16:00, do 17:30.")
+                         "i lekkoatletykę o 16:00, do 17:30.")
         self.assertEqual(E("O której Maja kończy jutro lekcje?", fri),
                          "Maja nie ma jutro lekcji. Ma angielski o 09:00, do 10:00.")
         wed = time.mktime((2026, 10, 28, 8, 0, 0, 0, 0, -1))
@@ -9711,6 +9711,9 @@ class ScheduleTest(unittest.TestCase):
              "remind": {"before": 15}}
         self.assertEqual(self.s._confirm(e), "Dobrze, zapisałam: Maja ma lekkoatletykę w środę "
                                              "od 16:00 do 17:30. Przypomnę 15 minut wcześniej.")
+        start = time.mktime((2026, 10, 28, 16, 0, 0, 0, 0, -1))
+        self.assertEqual(self.s.phrase(e, None, start, start - 15 * 60),
+                         "Przypominam: Maja za 15 minut ma lekkoatletykę.")
 
     def test_clear_week_by_voice(self):
         from shared_state import state

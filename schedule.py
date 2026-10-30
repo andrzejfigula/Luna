@@ -1154,7 +1154,7 @@ def ends_said(text, now=None):
     else:
         return f"{when.capitalize()} {who} nie ma w planie ani lekcji, ani zajęć."
     if rest:
-        items = [f"{e['title']} o {e['at']}" for e in rest]
+        items = [f"{title_after_ma(e['title'])} o {e['at']}" for e in rest]
         last = rest[-1].get("end")
         out += (" Potem ma jeszcze " if school else " Ma ") + (
             " i ".join([", ".join(items[:-1]), items[-1]]) if len(items) > 1 else items[0]) + (
@@ -1734,16 +1734,17 @@ def phrase(e, to, start, now=None):
         when = "już"
     title = e["title"]
     owner = e.get("who") or ""
+    acc = title_after_ma(title)                  # "ma lekkoatletykę", not "ma lekkoatletyka"
     if to:
         voc = faces.vocatives().get(to) or to
         if owner == to:
             return (f"{voc}, właśnie trwa {title} — o {e['at']}." if when == "już"
-                    else f"{voc}, {when} masz {title}.")
+                    else f"{voc}, {when} masz {acc}.")
         if owner:
-            return f"{voc}, przypominam: {owner} {when} ma {title}."
+            return f"{voc}, przypominam: {owner} {when} ma {acc}."
         return f"{voc}, przypominam: {when} {title}."
     if owner:
-        return f"Przypominam: {owner} {when} ma {title}."
+        return f"Przypominam: {owner} {when} ma {acc}."
     return f"Przypominam: {when} {title}."
 
 

@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 30 października ==
+- Przypomnienia i odpowiedź „o której Maja kończy zajęcia” mówią poprawnie: „ma lekkoatletykę”, nie „ma lekkoatletyka”.
 - „Wyczyść listę zakupów” (albo listę do zrobienia) działa od razu, bez czekania: Luna mówi, ile rzeczy było na liście, a „przywróć listę” je oddaje.
 - Szum deszczu (i inne dźwięki do spania) nie włącza się już, gdy ktoś tylko mówi „deszcz pada”, a „wyłącz efekt deszczu” albo „zatrzymaj deszcz” od razu go wyłącza.
 - Ikony na dole ekranu są lepiej widoczne w dzień: na jasnym niebie mają pod sobą delikatne przyciemnienie od dołu ekranu, w nocy dalej są ledwo widoczne.
