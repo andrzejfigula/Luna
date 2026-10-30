@@ -9085,6 +9085,74 @@ class ScheduleTest(unittest.TestCase):
         for p in self.p:
             p.stop()
 
+    def test_prompt_names_today(self):
+        # 30 Oct: on a Friday the model answered with Wednesday's lessons
+        s = self.s
+        s.add("Maja", "WF", [4], "08:50", "09:35", kind="lesson")
+        s.add("Maja", "religia", [4], "11:35", "12:20", kind="lesson")
+        s.add("Maja", "hiszpański", [2], "14:30", "15:15", kind="lesson")
+        s.add("Maja", "ukulele", [4], "15:00", "16:00")
+        fri = time.mktime((2026, 10, 30, 13, 25, 0, 0, 0, -1))
+        line = s.prompt_line(fri)
+        today = line[line.index("TODAY"):]
+        self.assertIn("TODAY is piątek (Pt)", today)
+        self.assertIn("school (lessons) 08:50–12:20 (already over)", today)
+        self.assertIn("Maja: ukulele 15:00–16:00. Tomorrow", today)
+        self.assertNotIn("hiszpański", today)
+        self.assertIn("Tomorrow, sobota: nothing in the plan", today)
+        self.assertIn("Śr 14:30–15:15: 14:30 hiszpański", line)
+
+    def test_plan_answer_closes_the_window(self):
+        # 30 Oct: after the plan she kept listening; nothing follows it
+        from shared_state import state
+        s = self.s
+        with mock.patch.object(s, "show", lambda *a, **k: None):
+            state.close_after = False
+            s.handle("pokaż plan tygodnia", lambda t: None)
+            self.assertFalse(state.close_after)         # empty: "dodaj do planu…" may follow
+            s.add("Maja", "WF", [4], "08:50", "09:35", kind="lesson")
+            for t in ("pokaż plan tygodnia", "o której Maja kończy lekcje?"):
+                state.close_after = False
+                self.assertTrue(s.handle(t, lambda t: None), t)
+                self.assertTrue(state.close_after, t)
+        state.close_after = False
+        s.add("Maja", "basen", [3], "16:45")
+        for t in ("Luna, jakie Maja ma dzisiaj zajęcia po lekcjach?", "czy Maja ma jutro basen?",
+                  "co jest dziś w planie?", "A jutro? Jakie ma lekcje?"):
+            self.assertTrue(s.asked(t), t)
+        for t in ("dodaj do planu basen Mai w czwartek", "jak jest po angielsku pies?",
+                  "opowiedz mi o szkole w starożytnym Rzymie, jak tam uczono dzieci, "
+                  "czego się uczyły i kto był nauczycielem", "Maja idzie na basen"):
+            self.assertFalse(s.asked(t), t)
+
+    def test_when_lessons_end(self):
+        s = self.s
+        s.add("Maja", "WF", [4], "08:50", "09:35", kind="lesson")
+        s.add("Maja", "religia", [4], "11:35", "12:20", kind="lesson")
+        s.add("Maja", "hiszpański", [2], "14:30", "15:15", kind="lesson")
+        s.add("Maja", "ukulele", [4], "15:00", "16:00")
+        s.add("Maja", "lekkoatletyka", [4], "16:00", "17:30")
+        s.add("Maja", "angielski", [5], "09:00", "10:00")
+        fri = time.mktime((2026, 10, 30, 13, 25, 0, 0, 0, -1))
+        E = s.ends_said
+        self.assertEqual(E("Luna, o której Maja kończy zajęcia?", fri),
+                         "Maja skończyła dziś lekcje o 12:20. Potem ma jeszcze ukulele o 15:00 "
+                         "i lekkoatletyka o 16:00, do 17:30.")
+        self.assertEqual(E("O której Maja kończy jutro lekcje?", fri),
+                         "Maja nie ma jutro lekcji. Ma angielski o 09:00, do 10:00.")
+        wed = time.mktime((2026, 10, 28, 8, 0, 0, 0, 0, -1))
+        self.assertEqual(E("do której Maja ma dziś lekcje", wed),
+                         "Maja kończy dziś lekcje o 15:15.")
+        self.assertEqual(E("kiedy Maja kończy zajęcia", wed),
+                         "Maja kończy dziś lekcje o 15:15. Po szkole nic już dziś nie ma.")
+        R = s._ENDS.search
+        for t in ("luna, o której maja kończy zajęcia?", "kiedy maja skończy lekcje",
+                  "do której maja ma jutro szkołę", "o ktorej maja konczy lekcje"):
+            self.assertTrue(R(t), t)
+        for t in ("kiedy kończy się rok szkolny", "o której kończy się film",
+                  "kiedy maja ma angielski", "jakie maja ma dziś lekcje"):
+            self.assertFalse(R(t), t)
+
     def test_parse(self):
         P = self.s.parse
         self.assertEqual(P("Maja angielski od poniedziałku do piątku o 17"),
@@ -9246,7 +9314,7 @@ class ScheduleTest(unittest.TestCase):
         self.assertIn("1 pozycję już było", text)
         self.assertIn("Nie odczytałam godziny: basen w środę.", text)
         self.assertEqual(ask, "O której jest basen?")
-        self.assertIn("Maja's school lessons: Pn 08:00 matematyka", self.s.prompt_line())
+        self.assertIn("Maja's school lessons: Pn 08:00–08:45: 08:00 matematyka", self.s.prompt_line())
         # nothing new the second time
         added, kept, replaced = self.s.save_paper("Maja", entries)
         self.assertEqual((len(added), len(kept), replaced), (0, 3, 0))

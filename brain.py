@@ -2982,7 +2982,7 @@ def _process(text, context=None):
         reply, emotion, gesture = result
         if not speaker:                              # answered without streaming
             _show(emotion, gesture)
-        if weather_told(text, gesture):
+        if weather_told(text, gesture) or schedule.asked(text):
             close_after()                            # (main keeps it open if she asked back)
     elif speaker:                                    # broke off mid-answer
         reply, emotion, gesture = "", head["emotion"], head["gesture"]

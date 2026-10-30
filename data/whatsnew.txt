@@ -1,6 +1,9 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
+== 30 października ==
+- „O której Maja kończy zajęcia?” (albo „do której Maja ma jutro lekcje?”) — Luna odpowiada sama z planu tygodnia, na dziś albo na jutro: kiedy kończą się lekcje i jakie zajęcia są jeszcze potem. Wcześniej potrafiła pomylić dni i podać plan ze środy w piątek.
+
 == 29 października ==
 - Luna rzadziej odzywa się niepotrzebnie: gdy ktoś mówi o niej („co Luna umie”), nie odpowiada, a gdy nie jest pewna, czy ktoś ją zawołał, tylko patrzy i słucha, bez „hm?”. Przy włączonym radiu zdanie bez imienia może być tylko komendą. Dotknięcie ekranu, gdy Luna jeszcze myśli, odwołuje odpowiedź.
 - Luna rzadziej myli osoby: gdy ktoś siedzi przy niej, jedno niewyraźne ujęcie nie zmienia go w kogoś innego. Nie wtrąca też „widzę Andrzeja”, gdy nikt o to nie pyta.

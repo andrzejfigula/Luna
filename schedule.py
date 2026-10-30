@@ -27,7 +27,7 @@ import time
 import uuid
 
 from config import DATA_DIR
-from shared_state import state
+from shared_state import close_after, state
 
 PATH = os.path.join(DATA_DIR, "schedule.json")
 PAGE_SECS = 90                 # untouched this long, the page closes
@@ -1065,6 +1065,8 @@ def handle(text, speak):
             return False                     # "pokaż lekcje angielskiego"
         who = show_lessons(who)
         speak(lessons_said(who))
+        if lesson_people():
+            close_after()                # (the plan read out: nothing follows)
         return True
     m, m2 = _SHOW.match(low), _SHOW_WHO.match(low)
     if m or m2:
@@ -1075,7 +1077,15 @@ def handle(text, speak):
             return False                     # "pokaż plan dnia" and the like
         show(who)
         speak(today_said(who))
+        if events():
+            close_after()
         return True
+    if _ENDS.search(low):
+        said = ends_said(text)
+        if said:
+            speak(said)
+            close_after()
+            return True
     m = _ADD.match(low)
     if m:
         body = text.strip()[m.start(1):]
@@ -1107,6 +1117,74 @@ def handle(text, speak):
                   + (f" ({hits[0]['who']})" if hits[0]["who"] else "") + ".")
         return True
     return False
+
+
+_ENDS = re.compile(
+    r"^(?:luna,?\s+)?(?:a\s+)?"
+    r"(?=.*\b(?:lekcj|zaję|zajec|szkoł|szkol))(?!.*\b(?:rok|semestr|ferie|wakacj))"
+    r"(?:(?:o\s+któr|o\s+ktor|kiedy\b)(?=.*\bs?ko[nń]cz)|"
+    r"(?:do\s+któr|do\s+ktor)(?=.*\b(?:ma|mam|masz|są|trwaj\w*|s?ko[nń]cz\w*)\b))")
+
+
+def ends_said(text, now=None):
+    """'O której Maja kończy zajęcia?' from the plan — 30 Oct: the model,
+    shown the whole week, answered a Friday with Wednesday's lessons."""
+    low = text.lower()
+    who = _who_of(text)[0]
+    if not who and re.search(r"\b(?:kończę|konczę|mam)\b", low):
+        who = _speaker()
+    if not who:
+        mine = {e.get("who") for e in events() if e.get("who")}
+        who = next(iter(mine)) if len(mine) == 1 else None
+    if not who:
+        return None
+    lt = time.localtime(now or time.time())
+    tomorrow = bool(re.search(r"\bjutr", low))
+    wd = (lt.tm_wday + tomorrow) % 7
+    mins = -1 if tomorrow else lt.tm_hour * 60 + lt.tm_min
+    when = "jutro" if tomorrow else "dziś"
+    rows = [e for e in week_rows(wd, who) if e.get("who") == who]
+    school = next((e for e in rows if e.get("kind") == "school"), None)
+    rest = [e for e in rows if e is not school and _mins(e.get("end") or e["at"]) > mins]
+    if school:
+        verb = "skończyła" if mins >= _mins(school["end"]) else "kończy"
+        out = f"{who} {verb} {when} lekcje o {school['end']}."
+    elif rows:
+        out = f"{who} nie ma {when} lekcji."
+    else:
+        return f"{when.capitalize()} {who} nie ma w planie ani lekcji, ani zajęć."
+    if rest:
+        items = [f"{e['title']} o {e['at']}" for e in rest]
+        last = rest[-1].get("end")
+        out += (" Potem ma jeszcze " if school else " Ma ") + (
+            " i ".join([", ".join(items[:-1]), items[-1]]) if len(items) > 1 else items[0]) + (
+            f", do {last}." if last else ".")
+    elif school and re.search(r"zaję|zajec", low):
+        out += f" Po szkole nic już {when} nie ma."
+    return out
+
+
+_ASKED = re.compile(r"^(?:luna,?\s+)?(?:a\s+)?(?:co|jakie|jaki|jaka|jaką|o\s+któr|o\s+ktor|"
+                    r"do\s+któr|do\s+ktor|kiedy|czy|ile)\b")
+_PLAN_Q = re.compile(r"\b(?:lekcj|zaję|zajec|szkoł|szkol|w\s+planie|plan\s+(?:tygodnia|lekcji|"
+                     r"dnia|zajęć))")
+_EDIT = re.compile(r"\b(?:dodaj|dopisz|wpisz|usuń|usun|skreśl|zmień|zmien|przenieś|przenies|"
+                   r"przesuń|przesun|wyczyść|wyczysc|wczytaj|przepisz)")
+
+
+def asked(text):
+    """A short question about the plan answered by the model ("jakie Maja ma
+    dziś zajęcia po lekcjach?", "czy Maja ma jutro basen?"): nothing follows,
+    the window closes (brain, like weather_told)."""
+    low = text.lower().strip()
+    if len(low.split()) > 14 or _EDIT.search(low):
+        return False
+    if not (_ASKED.search(low) or low.endswith("?")):
+        return False
+    if _PLAN_Q.search(low):
+        return True
+    titles = {w for e in events() for w in re.findall(r"\w{4,}", e["title"].lower())}
+    return any(w in titles for w in re.findall(r"\w+", low))
 
 
 def week_entries(who=None):
@@ -1710,10 +1788,29 @@ def tick(now, person, someone, can_speak, busy, speak):
     return said
 
 
-def prompt_line():
+def _day_line(wd, mins=None):
+    """One day's plan for the prompt, lessons as one school span; with `mins`
+    (now, minutes) what is already over is marked."""
+    parts = []
+    for e in week_rows(wd):
+        end = e.get("end") or ""
+        what = "school (lessons)" if e.get("kind") == "school" else e["title"]
+        over = mins is not None and mins >= _mins(end or e["at"])
+        parts.append(f"{e.get('who') or 'the whole house'}: {what} {e['at']}"
+                     + (f"–{end}" if end else "") + (" (already over)" if over else ""))
+    return "; ".join(parts) or "nothing in the plan"
+
+
+def prompt_line(now=None):
     evs = events()
     if not evs:
         return ""
+    lt = time.localtime(now or time.time())
+    wd, nxt = lt.tm_wday, (lt.tm_wday + 1) % 7
+    near = (f"TODAY is {DAYS[wd]} ({DAYS_SHORT[wd]}). Today's plan: "
+            f"{_day_line(wd, lt.tm_hour * 60 + lt.tm_min)}. Tomorrow, {DAYS[nxt]}: "
+            f"{_day_line(nxt)}. Answer about \"dziś\"/\"jutro\" from these two lines "
+            "only, never from another day of the week.\n")
     lessons = [e for e in evs if e.get("kind") == "lesson"]
     by = sorted((e for e in evs if e.get("kind") != "lesson"),
                 key=lambda e: (e.get("who") or "~", min(e["days"]), _mins(e["at"])))
@@ -1724,8 +1821,9 @@ def prompt_line():
             day = sorted((e for e in lessons if (e.get("who") or "") == who and wd in e["days"]),
                          key=lambda e: _mins(e["at"]))
             if day:
-                days.append(f"{DAYS_SHORT[wd]} " + ", ".join(f"{e['at']} {e['title']}"
-                                                              for e in day))
+                end = max((e.get("end") or _plus(e["at"], LESSON_MINS) for e in day), key=_mins)
+                days.append(f"{DAYS_SHORT[wd]} {day[0]['at']}–{end}: "
+                            + ", ".join(f"{e['at']} {e['title']}" for e in day))
         school.append(f"{who or 'the whole house'}'s school lessons: " + "; ".join(days))
     return ("The family's weekly plan (plan tygodnia; the app reminds by itself, "
             "\"pokaż plan tygodnia\" shows it, \"pokaż plan lekcji <kto>\" one person's "
@@ -1734,7 +1832,7 @@ def prompt_line():
             + "; ".join([f"{e.get('who') or 'the whole house'}: {e['title']} "
                          f"{days_said(e['days'])} {e['at']}"
                          + (f"–{e['end']}" if e.get("end") else "") for e in by] + school)
-            + ".\n")
+            + ".\n" + near)
 
 
 def today_rows(now=None):
