@@ -3533,6 +3533,14 @@ class KidsTest(unittest.TestCase):
         self.assertTrue(s._cloud_wake_plausible("Luna, która godzina?", ["ma", "prawo"], 0.47))
         self.assertTrue(s._cloud_wake_plausible("Luna, czy ananaska…? Co będzie ananasie.",
                                                 ["luna", "rose"], 0.33))      # her name: as before
+        # 29 Oct 18:46: her name late in a long sentence Vosk heard too
+        coach = ("Musisz jej po imieniu powiedzieć. Ale powiedz ładnie. "
+                 "Maja, powiedz do Luny cześć Luna. Cześć.")
+        vosk = "panie prezesie po imieniu dawać ładny tak bardzo zdolny część".split()
+        self.assertTrue(s._cloud_wake_plausible(coach, vosk, 0.66))
+        self.assertFalse(s._cloud_wake_plausible(coach, ["głos"]))     # faint: still made up
+        self.assertFalse(s._cloud_wake_plausible(
+            "Luna, coś się pokaże. To malutkiego. Tu wyjęła z tej torebki.", ["głos"]))
 
     def test_variety_rule(self):
         import brain

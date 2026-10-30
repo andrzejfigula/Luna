@@ -1105,6 +1105,13 @@ def _cloud_wake_plausible(cloud, words, conf=None):
     0.33, → "Luna, czy ananaska…? Co będzie ananasie."; 1 of 364)."""
     if not words:
         return True
+    if len(words) >= 5:
+        # Vosk heard real speech: words before the sentence with her name were
+        # said too (29 Oct: "…Ale powiedz ładnie. Maja, powiedz do Luny cześć Luna.")
+        m = _wake_re().search(cloud)
+        if m:
+            cut = max(cloud.rfind(p, 0, m.start()) for p in ".!?")
+            cloud = cloud[cut + 1:].lstrip()
     rest = re.findall(r"\w+", _strip_wake_from_cloud(cloud) or "")
     weak = (conf is not None and conf < _WAKE_WEAK_CONF and not _sounds_like_name(words)
             and _find_wake_word(words) is None)
