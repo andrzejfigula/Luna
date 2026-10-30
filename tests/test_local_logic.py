@@ -937,6 +937,20 @@ class TimersTest(unittest.TestCase):
                 self.assertTrue(played, text)
             with mock.patch.object(ambience, "stop", lambda: True):
                 self.assertTrue(ambience.handle("Wyłącz dźwięk kominka", said.append))
+                # 30 Oct 17:53: went to the model, which only claimed it
+                for text in ("Luna, wyłącz efekt deszczu.", "Zatrzymaj deszcz",
+                             "Wyłącz te fale"):
+                    self.assertTrue(ambience.handle(text, said.append), text)
+                self.assertFalse(ambience.handle("Wyłącz Radio Fala", said.append))
+                self.assertFalse(ambience.handle("Wyłącz lampkę kominek", said.append))
+            # 30 Oct 17:53: a remark, not a request, started the rain
+            played.clear()
+            for text in ("Deszcz pada.", "Deszcz przestał padać", "Fale są duże",
+                         "Szumi mi w uszach"):
+                self.assertFalse(ambience.handle(text, said.append), text)
+            self.assertFalse(played)
+            self.assertTrue(ambience.handle("Deszcz na pół godziny", said.append))
+            self.assertEqual(played[0][0], "rain")
         for kind in ("fire", "forest"):
             g = ambience._Gen(kind)
             x = np.concatenate([g.block() for _ in range(80)])           # 8 s

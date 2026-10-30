@@ -46,7 +46,13 @@ NIGHT_MINUTES = 8 * 60                 # "…na noc"
 _KIND_RX = {k: re.compile(r"(?<!\w)(?:" + "|".join(
     (r"las\b" if s == "las" else re.escape(s)) for s in stems) + ")") for k, stems in KINDS.items()}
 _SWITCH = re.compile(r"\b(?:przełącz|przelacz|zmie[ńn]\s+na)\b")   # "przełącz na kominek"
-_ON = re.compile(r"\b(?:włącz|wlacz|puść|pusc|zagraj|daj)\b|^(?:szum|deszcz|fale)\b")
+_ON_VERB = re.compile(r"\b(?:włącz|wlacz|puść|pusc|zagraj|daj)\b")
+_ON = re.compile(_ON_VERB.pattern + r"|^(?:szum|deszcz|fale)\b")
+# 30 Oct 17:53: "Deszcz pada." (told, not asked) started the rain
+_REMARK = re.compile(r"\b(?:pada\w*|padał\w*|leje|lał\w*|lało|kropi\w*|jest|są|był\w*|"
+                     r"będzie|idzie|szumi\w*|przesta\w*|zaczą\w*|zaczęł\w*)\b")
+# 30 Oct: "Wyłącz efekt deszczu" went to the model, which only said it did
+_OFF_VERB = re.compile(r"\b(?:wyłącz\w*|wylacz\w*|zatrzymaj|zgaś|zgas|wycisz|stop|koniec)\b")
 _OFF = ("wyłącz szum", "wylacz szum", "wyłącz deszcz", "wyłącz morze", "wyłącz fale",
         "stop szum", "koniec szumu", "wyłącz dźwięki", "zatrzymaj szum",
         "wyłącz kominek", "wyłącz kominka", "wyłącz dźwięk kominka", "wyłącz ognisko",
@@ -258,7 +264,9 @@ def playing():
 def handle(text, speak):
     low = text.lower().strip(" .!?")
     words = re.findall(r"\w+", low)
-    if any(k in low for k in _OFF) and len(words) <= 7:
+    named_off = (_OFF_VERB.search(low) and not re.search(r"\b(?:lamp|radi|stacj)", low)
+                 and any(rx.search(low) for rx in _KIND_RX.values()))
+    if (any(k in low for k in _OFF) or named_off) and len(words) <= 7:
         import timers
         secs, _ = timers.parse_duration(low) if re.search(r"\bza\b", low) else (None, None)
         if secs:                                # "wyłącz szum za pół godziny" — later
@@ -277,6 +285,8 @@ def handle(text, speak):
     if (len(words) > 8 or text.strip().endswith("?")
             or (words and words[0] in ("jak", "czy", "dlaczego", "co", "jaki", "kiedy"))):
         return False                            # "czy pada deszcz?" is a question
+    if not _ON_VERB.search(low) and _REMARK.search(low):
+        return False                            # "deszcz pada", "fale są duże"
     import intent                               # not "szum morza mnie uspokaja"
     night = bool(re.search(r"\bna\s+(?:całą\s+|cala\s+)?noc\b", low))   # "biały szum na noc"
     if not (_SWITCH.search(low) or (_ON.search(low) or "szum" in words) and (

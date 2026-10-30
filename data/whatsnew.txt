@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 30 października ==
+- Szum deszczu (i inne dźwięki do spania) nie włącza się już, gdy ktoś tylko mówi „deszcz pada”, a „wyłącz efekt deszczu” albo „zatrzymaj deszcz” od razu go wyłącza.
 - Ikony na dole ekranu są lepiej widoczne w dzień: na jasnym niebie mają pod sobą delikatne przyciemnienie od dołu ekranu, w nocy dalej są ledwo widoczne.
 - „O której Maja kończy zajęcia?” (albo „do której Maja ma jutro lekcje?”) — Luna odpowiada sama z planu tygodnia, na dziś albo na jutro: kiedy kończą się lekcje i jakie zajęcia są jeszcze potem. Wcześniej potrafiła pomylić dni i podać plan ze środy w piątek.
 
