@@ -11633,6 +11633,26 @@ class ActivationFirewallTest(unittest.TestCase):
                        "Jutro idziemy do kina.", radio=True)
         self.assertEqual((v.outcome, v.scope, v.stamp), ("ACCEPT", "local", False))
 
+    def test_radio_face_one_verdict(self):
+        # 30 Oct 14:02: "No nie. On zmienił kolor." → ACCEPT radio_face, then REJECT
+        self.a._held = None
+        lines = lambda p: [c[0][0] for c in p.call_args_list if c[0][0].startswith("[wake]")]
+        for ran, want in ((False, "[wake] REJECT not_a_command"), (True, "[wake] ACCEPT radio_face")):
+            self.a._cool_until, self.a._turn["at"] = 0.0, 0.0
+            with mock.patch("builtins.print") as p:
+                self.a.judge(self.a.Candidate("radio-face", "on zmienił kolor", "no nie zmienia kolor",
+                                              "No nie. On zmienił kolor.", radio=True), self.rx())
+                self.assertEqual(lines(p), [])                 # nothing yet
+                self.a.settle(ran)                             # a turn that began earlier: not this one
+                self.assertEqual(lines(p), [])
+                self.a.begin_turn()
+                self.a.settle(ran)
+                self.a.settle(ran)                             # once only
+                self.a.end_turn()
+            self.assertEqual(len(lines(p)), 1)
+            self.assertTrue(lines(p)[0].startswith(want), lines(p))
+            self.assertEqual(self.a.cooling(), not ran)        # only a REJECT cools down
+
     # 9, 10, 11 — a follow-up, an unrelated one, an expired one
     def test_pending_followed_and_expired(self):
         self.judge("vosk", "", "luna", conf=0.5)

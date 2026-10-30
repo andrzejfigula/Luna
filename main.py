@@ -224,8 +224,7 @@ def voice_loop():
                     elif _stt_flag("local_only"):
                         # no name, the radio on, not a command: said to someone
                         # in the room — never the model (the window closes below)
-                        activation.reject(activation.Candidate("radio-face", vosk=text,
-                                                               radio=True), "not_a_command")
+                        activation.settle(False)
                     elif _is_self_echo(text):
                         print(f"[Luna] Ignoring self-echo: \"{text}\"")
                     elif _heard_unsure():
@@ -240,6 +239,7 @@ def voice_loop():
                         # dropped
                         process(text)
             finally:
+                activation.settle(True)         # (a local-only call that wasn't refused above)
                 activation.end_turn()
                 # never leave the mode stuck on "processing" (e.g. empty input)
                 with state.lock:

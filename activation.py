@@ -52,6 +52,7 @@ class Verdict:
 _lock = threading.Lock()
 _cool_until = 0.0
 _pending = None                  # (when) — a quiet call waiting for its request
+_held = None                     # (candidate, when) — a local-only call, verdict once it ran or not
 _turn = {"id": 0, "thread": None, "cancelled": False, "helpers": set()}
 
 
@@ -132,8 +133,16 @@ def _verdict(c, rx, now):
 def judge(c, rx=None, now=None):
     """The one verdict for a candidate call (logged)."""
     global _pending
+    global _held
     now = now or time.time()
+    settle(True, any_time=True)                # one left over: it was let through
     v = _verdict(c, rx, now)
+    if v.outcome == ACCEPT and v.scope == "local":
+        # logged by settle(): ACCEPT if a local command ran, else REJECT —
+        # not both (30 Oct 14:02: "No nie. On zmienił kolor." got two lines)
+        with _lock:
+            _held, _pending = (c, now), None
+        return v
     _log(v.outcome, v.reason, c, now)
     with _lock:
         if v.outcome == REJECT:
@@ -141,6 +150,22 @@ def judge(c, rx=None, now=None):
         else:
             _pending = now if v.quiet else None
     return v
+
+
+def settle(ran, any_time=False):
+    """The local-only call judge() held: a local command ran (ACCEPT) or
+    nothing did (REJECT not_a_command, with the cooldown). Only one held
+    before this turn began (the next sentence may be judged meanwhile)."""
+    global _held
+    with _lock:
+        h = _held
+        if h is None or not (any_time or h[1] <= _turn.get("at", 0.0)):
+            return
+        _held = None
+    if ran:
+        _log(ACCEPT, "radio_face", h[0], h[1])
+    else:
+        reject(h[0], "not_a_command")
 
 
 def reject(c, reason, now=None):
@@ -211,6 +236,7 @@ def begin_turn():
         _turn["thread"] = threading.get_ident()
         _turn["cancelled"] = False
         _turn["helpers"] = set()
+        _turn["at"] = time.time()
         return _turn["id"]
 
 
