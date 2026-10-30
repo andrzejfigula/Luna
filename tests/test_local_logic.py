@@ -943,6 +943,13 @@ class TimersTest(unittest.TestCase):
                     self.assertTrue(ambience.handle(text, said.append), text)
                 self.assertFalse(ambience.handle("Wyłącz Radio Fala", said.append))
                 self.assertFalse(ambience.handle("Wyłącz lampkę kominek", said.append))
+                # "enough" words stop it only while it plays
+                with mock.patch.object(ambience, "playing", lambda: "rain"):
+                    for text in ("Dość deszczu", "Przestań z tym deszczem",
+                                 "Wystarczy tego szumu morza"):
+                        self.assertTrue(ambience.handle(text, said.append), text)
+                with mock.patch.object(ambience, "playing", lambda: None):
+                    self.assertFalse(ambience.handle("Dość deszczu", said.append))
             # 30 Oct 17:53: a remark, not a request, started the rain
             played.clear()
             for text in ("Deszcz pada.", "Deszcz przestał padać", "Fale są duże",

@@ -57,6 +57,9 @@ _OFF = ("wyłącz szum", "wylacz szum", "wyłącz deszcz", "wyłącz morze", "wy
         "stop szum", "koniec szumu", "wyłącz dźwięki", "zatrzymaj szum",
         "wyłącz kominek", "wyłącz kominka", "wyłącz dźwięk kominka", "wyłącz ognisko",
         "wyłącz las", "wyłącz ptaki", "wyłącz odgłos")
+# softer "enough" words stop it only while a sound plays ("dość deszczu")
+_ENOUGH = re.compile(r"\b(?:przestań|przestan|dość|dosc|wystarczy|starczy|skończ|skoncz|"
+                     r"zakończ|zakoncz)\b")
 
 _lock = threading.Lock()
 _player = None                          # {"kind", "stop": Event, "until", "proc"}
@@ -264,7 +267,8 @@ def playing():
 def handle(text, speak):
     low = text.lower().strip(" .!?")
     words = re.findall(r"\w+", low)
-    named_off = (_OFF_VERB.search(low) and not re.search(r"\b(?:lamp|radi|stacj)", low)
+    named_off = ((_OFF_VERB.search(low) or _ENOUGH.search(low) and playing())
+                 and not re.search(r"\b(?:lamp|radi|stacj)", low)
                  and any(rx.search(low) for rx in _KIND_RX.values()))
     if (any(k in low for k in _OFF) or named_off) and len(words) <= 7:
         import timers
