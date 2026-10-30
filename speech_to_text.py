@@ -1083,20 +1083,25 @@ def _wake_budget():
 
 
 _WAKE_EXTRA_WORDS = 3
+_WAKE_WEAK_CONF, _WAKE_EXTRA_WEAK = 0.5, 1   # Vosk barely heard it, nothing like her name
 
 
-def _cloud_wake_plausible(cloud, words):
+def _cloud_wake_plausible(cloud, words, conf=None):
     """A wake found only by the cloud is believed when its sentence is about
     as long as what Vosk heard: the transcriber (primed with "Luna" in its
     prompt) sometimes writes a whole addressed sentence over faint sound —
     7 Oct: Vosk "usa" (conf 0.24) → "Luna, wstań z łóżka, ty zdychasz.";
     "tak tak" → "Luna, pomyślałam, że żyjesz. Tak, tak, żyję."; nobody had
     spoken to her. Real ones match: "ilona która godzina" → "Cześć Luna,
-    która godzina?" (26 cloud wakes in the log)."""
+    która godzina?" (26 cloud wakes in the log). Stricter when Vosk was
+    unsure and heard nothing like her name (30 Oct: "zgodzę rose", conf
+    0.33, → "Luna, czy ananaska…? Co będzie ananasie."; 1 of 364)."""
     if not words:
         return True
     rest = re.findall(r"\w+", _strip_wake_from_cloud(cloud) or "")
-    if len(rest) > len(words) + _WAKE_EXTRA_WORDS:
+    weak = (conf is not None and conf < _WAKE_WEAK_CONF and not _sounds_like_name(words)
+            and _find_wake_word(words) is None)
+    if len(rest) > len(words) + (_WAKE_EXTRA_WEAK if weak else _WAKE_EXTRA_WORDS):
         print(f"[STT] cloud wake not believed: {cloud!r} over Vosk's "
               f"{' '.join(words)!r} — likely made up", flush=True)
         return False
@@ -1142,7 +1147,7 @@ def _name_like(word):
     return max(difflib.SequenceMatcher(None, w, k).ratio() for k in themes.name_words()) >= 0.5
 
 
-def _cloud_wake_check(pcm16k, words=None, peak=None):
+def _cloud_wake_check(pcm16k, words=None, peak=None, conf=None):
     """Vosk heard speech but no wake word: ask the cloud whether the wake
     word is actually in there. Returns (found, cleaned_text); _wake_seen
     says how ("cloud" or "radio-face") and what the cloud heard. Rationed: a
@@ -1160,7 +1165,7 @@ def _cloud_wake_check(pcm16k, words=None, peak=None):
     else:
         cloud = _cloud_transcribe(pcm16k)
     _note_wake_check_result(cloud)
-    if not cloud or not _cloud_has_wake(cloud) or not _cloud_wake_plausible(cloud, words):
+    if not cloud or not _cloud_has_wake(cloud) or not _cloud_wake_plausible(cloud, words, conf):
         seen = _seen_saying_it(cloud, len(pcm16k) / 32000.0)
         _wake_seen = ("radio-face", cloud) if seen else (None, cloud)
         return (True, seen) if seen else (False, None)
@@ -1618,7 +1623,7 @@ def listen():
                     # A garbled low-confidence result can still be "Luna!" —
                     # if it was clearly loud speech, let the cloud check it.
                     if not active and peak_rms >= 2.0 * _energy_gate():
-                        found, cleaned = _cloud_wake_check(utt_pcm, words, peak_rms)
+                        found, cleaned = _cloud_wake_check(utt_pcm, words, peak_rms, conf)
                         if found and _wake(_wake_seen[0], cleaned, text, _wake_seen[1],
                                            pcm=utt_pcm):
                             if cleaned and cut_off(cleaned) and not messages_armed():
@@ -1790,7 +1795,7 @@ def listen():
 
             # Passive mode and Vosk didn't spot the wake word — its small
             # model mishears "Luna" often, so let the cloud have a look.
-            found, cleaned = _cloud_wake_check(utt_pcm, words, peak_rms)
+            found, cleaned = _cloud_wake_check(utt_pcm, words, peak_rms, conf)
             if found and _wake(_wake_seen[0], cleaned, text, _wake_seen[1], pcm=utt_pcm):
                 if cleaned and cut_off(cleaned) and not messages_armed():
                     # "Hej Luna, jaki jest najlepszy sposób..." — wait for the rest

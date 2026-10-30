@@ -3468,6 +3468,13 @@ class KidsTest(unittest.TestCase):
                                                 ["ona", "wyłącznie", "odmowie"]))
         self.assertTrue(s._cloud_wake_plausible("Luna?", ["zmiana"]))
         self.assertTrue(s._cloud_wake_plausible("Luna, co tam?", None))
+        # Vosk unsure and nothing like her name: one extra word at most (30 Oct)
+        made_up = "Luna, czy ananaska…? Co będzie ananasie."
+        self.assertTrue(s._cloud_wake_plausible(made_up, ["zgodzę", "rose"]))
+        self.assertFalse(s._cloud_wake_plausible(made_up, ["zgodzę", "rose"], 0.33))
+        self.assertTrue(s._cloud_wake_plausible("Luna, która godzina?", ["ma", "prawo"], 0.47))
+        self.assertTrue(s._cloud_wake_plausible("Luna, czy ananaska…? Co będzie ananasie.",
+                                                ["luna", "rose"], 0.33))      # her name: as before
 
     def test_variety_rule(self):
         import brain
