@@ -45,4 +45,4 @@ taken from what went wrong in today's conversations (`tools/log_report.py`).
 
 | # | Improvement | Commit | Status |
 |---|-------------|--------|--------|
-| 16 | "Co robisz?" / "Co tam?": one connected sentence — no tacked-on mood, CPU heat or desk (per-message hint + prompt rule; "Jak się masz?" still says how she is) | (this commit) | ✅ shipped |
+| 16 | "Co robisz?" / "Co tam?": one connected sentence — no tacked-on mood, CPU heat or desk (per-message hint + prompt rule; "Jak się masz?" still says how she is) | ef89799 | ✅ shipped |
