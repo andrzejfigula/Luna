@@ -1580,9 +1580,10 @@ def hug(text, speak):
         if not offered or len(low.split()) > 4 or "nie" in low.split():
             return False
         import news
+        # an echo of her question is a yes too (31 Oct: "Powitanie." → small talk)
         if not (news.is_yes(text) or re.match(
-                r"^(?:no\s+)?(?:pewnie|jasne|chętnie|chetnie|oczywiście|oczywiscie|poproszę|poprosze)\b",
-                low)):
+                r"^(?:no\s+)?(?:pewnie|jasne|chętnie|chetnie|oczywiście|oczywiscie|poproszę|poprosze|"
+                r"dawaj|chcę|chce|mhm|(?:na\s+)?powitanie)\b", low)):
             return False
     _hug_offered = 0.0
     with state.lock:

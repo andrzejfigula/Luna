@@ -42,6 +42,7 @@ class SharedState:
         "convo_expired_time",    # time.time() when conversation last timed out
         "last_activity_time",
         "last_wake_time",        # her name was just said (speech_to_text)
+        "unsure_wake_time",      # her name alone, not sure it was her name
         "name_heard_at",         # "Luna" in the words still being said —
                                  # the radio quiets at once (radio._ducked)
         "mic_unblock_time",      # time.time() after which mic is allowed
@@ -141,6 +142,7 @@ class SharedState:
         self.convo_expired_time  = 0.0
         self.last_activity_time  = 0.0
         self.last_wake_time      = 0.0
+        self.unsure_wake_time    = 0.0
         self.name_heard_at       = 0.0
         self.mic_unblock_time    = 0.0
         self.luna_mode           = "idle"

@@ -3553,6 +3553,24 @@ class KidsTest(unittest.TestCase):
         self.assertIn('"Hej U…"', rule)
         self.assertEqual(brain._variety_rule(h[:2]), "")
 
+    def test_just_called_after_unsure_name(self):
+        import brain
+        old = (state.last_wake_time, state.last_spoken_time, state.unsure_wake_time, state.others)
+        try:
+            state.last_wake_time = state.last_spoken_time = time.time() - 200
+            state.others = ([], 0.0)
+            state.unsure_wake_time = time.time() - 5
+            self.assertTrue(brain._just_called("Co robisz?"))
+            self.assertFalse(brain._just_called("Idziemy na spacer."))
+            state.others = (["Maja"], time.time())
+            self.assertFalse(brain._just_called("Co robisz?"))
+            state.others = ([], 0.0)
+            state.unsure_wake_time = time.time() - 30
+            self.assertFalse(brain._just_called("Co robisz?"))
+        finally:
+            (state.last_wake_time, state.last_spoken_time, state.unsure_wake_time,
+             state.others) = old
+
     def test_answers_her_last_reply(self):
         import brain
         old = state.last_spoken_time
@@ -9038,6 +9056,13 @@ class ThemesTest(unittest.TestCase):
         self.assertFalse(commands.hug("Tak.", said.append))           # the offer was for the next line
         self.assertTrue(commands.hug("Przytul mnie mocno!", said.append))   # any time
         self.assertFalse(commands.hug("Przytul misia do snu", said.append))
+        commands.switch_theme("włącz Hal", said.append)
+        commands.switch_theme("włącz Mochi", said.append)
+        self.assertTrue(commands.hug("Powitanie.", said.append))      # 31 Oct: an echo
+        self.assertFalse(commands.hug("Powitanie.", said.append))
+        commands.switch_theme("włącz Hal", said.append)
+        commands.switch_theme("włącz Mochi", said.append)
+        self.assertTrue(commands.hug("Dawaj!", said.append))
 
     def test_switching_to_luna_and_retro_by_name(self):
         from unittest import mock

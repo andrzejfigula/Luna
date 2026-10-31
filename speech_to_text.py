@@ -1209,6 +1209,9 @@ def _wake(src, text, vosk, cloud=None, conf=None, pcm=None):
           + " — conversation active")
     if v.stamp:
         _stamp_wake()
+    elif v.reason == "bare_unsure":
+        with state.lock:
+            state.unsure_wake_time = time.time()
     local_only, quiet_wake = v.scope == "local", v.quiet
     with state.lock:
         state.conversation_active = True

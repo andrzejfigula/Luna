@@ -484,6 +484,7 @@ def _just_called(text="", secs=12):
         if time.time() - getattr(state, "last_wake_time", 0.0) < secs:
             return True
         spoke = time.time() - state.last_spoken_time
+        unsure = time.time() - getattr(state, "unsure_wake_time", 0.0) < secs
         others, seen_at = state.others
     # she has just answered them and nobody else is in view: their next words
     # are for her (8 Oct 13:58: "Śpisz?" → her 6 s answer → "No, mi się chce
@@ -498,7 +499,11 @@ def _just_called(text="", secs=12):
     asked = "?" in last_reply()[-200:] or re.search(
         r"\b(?:mogę zaproponować|wybierz|wybierasz|chcesz)\b", last_reply()[-200:], re.I)
     window = 20 if asked and len(text.split()) <= 4 else 10
-    return spoke < window and not (recent and [o for o in others or [] if o])
+    alone = not (recent and [o for o in others or [] if o])
+    if unsure and alone and _TO_HER.search(text):
+        # "Luna." she wasn't sure of, then "Co robisz?" — side talk, silence (30 Oct)
+        return True
+    return spoke < window and alone
 
 
 BIRTHDAY = (2026, 9, 18)          # first switched on at home (data/ was made then)
