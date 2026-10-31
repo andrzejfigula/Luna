@@ -3659,8 +3659,9 @@ class KidsTest(unittest.TestCase):
         import brain
         import faces
         old = (state.person, state.others)
-        seen = faces.last_seen
+        seen, unknown = faces.last_seen, faces.unknown_seen
         try:
+            faces.unknown_seen = lambda: 0.0
             self.assertEqual(brain.drop_pet_names("Tego nie wiem, kochanie."), "Tego nie wiem.")
             self.assertEqual(brain.drop_pet_names("Kochanie, już włączam."), "Już włączam.")
             self.assertEqual(brain.drop_pet_names("Dobrze, skarbie, już."), "Dobrze, już.")
@@ -3678,13 +3679,25 @@ class KidsTest(unittest.TestCase):
                 state.others = ([], time.time())
                 faces.last_seen = lambda n: time.time() - 20 if n == "Emilka" else None
                 self.assertFalse(brain._pet_names_ok())            # she was there a moment ago
+                faces.last_seen = lambda n: time.time() - 150 if n == "Emilka" else None
+                self.assertFalse(brain._pet_names_ok())            # a few minutes ago still counts
                 faces.last_seen = lambda n: None
+                faces.unknown_seen = lambda: time.time() - 40      # 15:20: unnamed face, "closest Emilka"
+                self.assertFalse(brain._pet_names_ok())
+                faces.unknown_seen = lambda: 0.0
+                state.others = (["?"], time.time())
+                self.assertFalse(brain._pet_names_ok())            # an unknown face beside him
+                state.others = ([], time.time())
+                state.person = ("Andrzej", 0.6, time.time() - 120)
+                self.assertFalse(brain._pet_names_ok())            # not in view: unknown → no
+                state.person = ("Andrzej", 0.6, time.time())
+                self.assertTrue(brain._pet_names_ok())
                 state.person = ("Emilka", 0.6, time.time())
                 self.assertFalse(brain._pet_names_ok())
                 self.assertEqual(brain._pet_name_line(), "")
         finally:
             state.person, state.others = old
-            faces.last_seen = seen
+            faces.last_seen, faces.unknown_seen = seen, unknown
 
     def test_just_called_after_her_answer(self):
         import brain

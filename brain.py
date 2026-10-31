@@ -691,20 +691,25 @@ _PET = r"(?:kochanie|skarbie|kotku|słonko|słoneczko|misiu|dziubasku|dziubańku
 
 
 def _pet_names_ok():
-    """Pet names only when someone who asked for them is alone with her — nobody
-    else seen in the last minute (31 Oct: "mówisz do mnie kochanie przy Emilce")."""
+    """Pet names only when someone who asked for them is alone with her: seen just
+    now, nobody else (known or not) seen in the last few minutes (31 Oct: "mówisz
+    do mnie kochanie przy Emilce"; 15:20 an unnamed face "closest Emilka" was let through)."""
     with state.lock:
         person = state.person
         others, seen_at = state.others
     if not person or person[0] not in PET_NAMES_FOR:
         return False
     now = time.time()
+    if now - person[2] > 30:                       # not in view: can't tell who's around
+        return False
     if now - seen_at < 3 * faces.RECOGNISE_EVERY and [o for o in others or []
                                                       if o != person[0]]:
         return False
     try:
+        if now - faces.unknown_seen() < 180:
+            return False
         names = set(faces.vocatives()) - {person[0]}
-        return not any(now - (faces.last_seen(n) or 0) < 60 for n in names)
+        return not any(now - (faces.last_seen(n) or 0) < 180 for n in names)
     except Exception:
         return False
 

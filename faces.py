@@ -161,16 +161,19 @@ def _save():
 SEEN_PATH = os.path.join(DATA_DIR, "seen.json")
 _seen = None                 # {name: unix time}
 _seen_saved = 0.0
+_unknown_at = 0.0           # last face she couldn't name (maybe a misread Emilka)
 
 
 def saw(names_now, now=None):
     """The camera recognised these people just now. Written to disk at most
     once a minute — a restart must not forget that Maja was here."""
-    global _seen, _seen_saved
+    global _seen, _seen_saved, _unknown_at
     now = time.time() if now is None else now
     with _lock:
         if _seen is None:
             _seen = _read_seen()
+        if any(not n or n == "?" for n in names_now):
+            _unknown_at = now
         for n in names_now:
             if n and n != "?":
                 _seen[n] = now
@@ -193,6 +196,11 @@ def _read_seen():
             return {k: float(v) for k, v in json.load(f).items()}
     except (OSError, ValueError):
         return {}
+
+
+def unknown_seen():
+    """When a face she couldn't name was last in view (0: not since start)."""
+    return _unknown_at
 
 
 def last_seen(name):
