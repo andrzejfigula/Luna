@@ -9117,7 +9117,15 @@ class ThemesTest(unittest.TestCase):
             self.assertIsNone(r(other), other)
         import radio
         with mock.patch.object(radio, "playing", lambda: "RMF FM"):      # the oldies then
-            self.assertIsNone(r("Przełącz na retro."))
+            with mock.patch.object(themes, "_switched", [-1e9]):
+                self.assertIsNone(r("Przełącz na retro."))
+            # 30 Oct 18:01: Hal 30 s old, "Hal, przełącz na retro" → oldies
+            self.assertEqual(r("Hal, przełącz na retro."), ("set", "retro"))
+            self.assertIsNone(r("Przełącz na RMF."))
+            self.assertTrue(commands.handle("Hal, przełącz na retro.", [].append,
+                                            lambda *a, **k: None))
+            self.assertEqual(themes.current(), "retro")
+            themes.set_theme("hal")
         self.assertIn("włącz motyw <name>", themes.persona_line())
         self.assertTrue(commands.handle("Przełącz charakter na Lunę.", [].append,
                                         lambda *a, **k: None))

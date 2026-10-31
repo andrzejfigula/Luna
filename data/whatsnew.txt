@@ -1,5 +1,6 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
+- Przy przełączaniu postaci „przełącz na Retro” zmienia postać, nawet gdy gra radio (a „włącz Retro” dalej włącza stację ze starymi przebojami).
 
 - „Luna, otwórz zegar”, „uruchom zegarek”, a nawet „włączyć zegarek” (gdy Luna usłyszy bezokolicznik) pokazują duży zegar. Luna wie też, że ma tryb nocny („włącz / wyłącz tryb nocny”) i efekty do radia („włącz efekty”), więc już ich nie odmawia.
 == 31 października ==

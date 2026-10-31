@@ -1065,7 +1065,8 @@ Always answer as JSON with exactly these keys:
                 when they say yes to breathing together), "zamień się w
                 kotka / pieska / zajączka" (ears on your face), "włącz motyw
                 <Luna | Hal | Pip | Retro | Pixel | Mochi>" (your whole
-                character: face, voice, name), "załóż / zdejmij <dodatek>" (a
+                character: face, voice, name; "przełącz na Pip", "wróć do
+                Luny" → send it, never refuse), "załóż / zdejmij <dodatek>" (a
                 drawn character's accessories: okulary, uszy, czapka…), "pokaż ustawienia" (the settings
                 page). A game
                 only once ONE game was chosen — named by them, or a "tak" to

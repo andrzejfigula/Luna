@@ -222,9 +222,19 @@ def get(key=None):
     return THEMES[key or current()]
 
 
+_switched = [-1e9]                    # when the theme last changed (monotonic)
+
+
 def set_theme(key):
     settings.put("theme", key if key in THEMES else DEFAULT)
     _cache[0] = 0.0
+    _switched[0] = time.monotonic()
+
+
+def _cycling(secs=180):
+    """A theme was switched just now: "przełącz na retro" is the next
+    character, not the radio ("włącz retro" stays the radio; 30 Oct 18:01)."""
+    return time.monotonic() - _switched[0] < secs
 
 
 def is_default():
@@ -382,7 +392,7 @@ def voice_request(text):
     k = named(words)
     # a bare "włącz Lunę" while another character is on (24 Oct, Hal: refused)
     if k and (m.group(4) or m.group(6)) and k not in _BARE_OK and not (k == DEFAULT and current() != DEFAULT) \
-            and not (k == "retro" and not _radio_on()):
+            and not (k == "retro" and (not _radio_on() or (m.group(6) and _cycling()))):
         return None
     if k:
         return ("set", k)
