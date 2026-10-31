@@ -1387,6 +1387,8 @@ def _wants_vision(lower):
     if (_SPELL_ASK.search(lower) or LANG_ASK.search(lower)) and not any(
             k in f" {lower} " for k in _LOOK_WORDS):
         return False
+    if faces.STORED_PHOTO_Q.search(lower) and not any(k in f" {lower} " for k in _LOOK_WORDS):
+        return False            # 31 Oct: "masz jej zdjęcia?" → "Na tym zdjęciu widzę Andrzeja"
     lower = _NOT_LOOKING.sub(" ", lower)
     return any(k in lower for k in VISION_KEYWORDS)
 
@@ -1704,6 +1706,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   + _translator_rule()
                   + _length_rule()
                   + faces.prompt_line()
+                  + faces.met_line(text)
                   + _pet_name_line()
                   + relationship.prompt_line()
                   + luna_mood.prompt_line()

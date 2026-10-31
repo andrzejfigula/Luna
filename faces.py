@@ -803,6 +803,48 @@ def picture_note():
             f"powiedz te imiona (postacie w telewizorze albo na obrazku to nie oni).{unasked}")
 
 
+# "masz jej zdjęcie?" asks about the pictures she keeps, not the camera
+STORED_PHOTO_Q = re.compile(r"\bmasz\b.{0,30}\bzdj[eę]ci|\bzdj[eę]ci\w*\s+(?:jej|jego|ich)\b", re.I)
+_MET_Q = re.compile(r"pozna(?:ł|l)\w*|now(?:a|ą|ej|ego|ych|e)\s+osob|kogoś\s+nowego|kogos\s+nowego|"
+                    r"nieznajom|\bgo(?:ść|sc|ści|sci|ścia|scia)\b", re.I)
+
+
+def met_line(text, now=None):
+    """Facts for "poznałaś dziś kogoś nowego?" / "masz jej zdjęcie?": faces
+    learnt today, who was recognised today, whose picture she keeps (31 Oct:
+    nobody new, yet "rozmawiałam z jedną nową osobą", then "Na tym zdjęciu
+    widzę Andrzeja"). '' for other questions."""
+    text = text or ""
+    photo = bool(STORED_PHOTO_Q.search(text))
+    if not (photo or _MET_Q.search(text)):
+        return ""
+    now = time.time() if now is None else now
+    today = time.localtime(now)[:3]
+    with _lock:
+        people = _load()
+        learnt = [(n, p.get("added") or 0) for n, p in people.items()
+                  if time.localtime(p.get("added") or 0)[:3] == today]
+        fam = {n for n in people if is_family(n, people)}
+    if learnt:
+        new = "; ".join(f"{n} ({'family' if n in fam else 'a guest'}), at "
+                        f"{time.strftime('%H:%M', time.localtime(t))}" for n, t in sorted(learnt, key=lambda x: x[1]))
+        out = f"Faces you learnt today (people you met): {new}. Nobody else new."
+    else:
+        out = ("You learnt no new face today — you met nobody new today. A voice whose face "
+               "you didn't see is not a new person; never invent a new acquaintance.")
+    if family_here():           # who was home is the family's business, not a guest's
+        seen = [n for n in names() if (last_seen(n) or 0) and time.localtime(last_seen(n))[:3] == today]
+        if seen:
+            out += f" Recognised by your camera today: {', '.join(seen)}."
+    pics = [n for n in names() if portrait(n)]
+    out += (f" Pictures you keep of people: one face picture each of {', '.join(pics)} "
+            "(shown with \"pokaż, kogo znasz\")" if pics else
+            " You keep no pictures of people's faces") + \
+           " — of nobody else. \"Masz jej/jego zdjęcie?\" is about these, never about the " \
+           "camera image now."
+    return " " + out + "\n"
+
+
 _CHILD_SAFE = ("Święty Mikołaj, the Tooth Fairy (Wróżka Zębuszka), the Easter bunny: keep "
                "the magic — answer warmly as if they are real and never hint they might "
                "not be (that is for the parents to tell). Keep to what suits a child this "

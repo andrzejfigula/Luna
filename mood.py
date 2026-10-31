@@ -73,6 +73,15 @@ def _games(games):
                      for g in games[-6:])
 
 
+UNSEEN = "ktoś nieznajomy"      # note()'s key for a speaker whose face wasn't recognised
+
+
+def _who(n):
+    # 31 Oct: "ktoś nieznajomy (once)" became "rozmawiałam z jedną nową osobą"
+    return ("a voice whose face you didn't see (usually family out of view — not a new "
+            "person)" if n == UNSEEN else n)
+
+
 def _past_line():
     """The last few days, from her diary, for "co robiłaś wczoraj?"."""
     days = _diary()[-3:]
@@ -80,7 +89,7 @@ def _past_line():
         return ""
     parts = []
     for e in reversed(days):
-        who = ", ".join(f"{n} ({c})" for n, c in
+        who = ", ".join(f"{_who(n)} ({c})" for n, c in
                         sorted(e.get("talks", {}).items(), key=lambda kv: -kv[1]))
         extra = []
         if e.get("kind"):
@@ -149,7 +158,7 @@ def prompt_line():
             "early morning — you are just waking up" if h < 8 else
             "evening" if h >= 18 else "daytime")
     if talks:
-        who = ", ".join(f"{n} ({_times(c)})" for n, c in
+        who = ", ".join(f"{_who(n)} ({_times(c)})" for n, c in
                         sorted(talks.items(), key=lambda kv: -kv[1]))
         day = f"today you talked with {who}"
     else:

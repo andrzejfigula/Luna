@@ -3969,6 +3969,8 @@ class KidsTest(unittest.TestCase):
                            "Po chińsku to córka: 女儿, czyta się nǚ'ér.", []), "女儿")
         self.assertEqual(w("A jak się pisze po niemiecku?", "Po niemiecku: Tochter.", []), "Tochter")
         self.assertFalse(brain._wants_vision("jak się pisze książka po niemiecku?"))
+        self.assertFalse(brain._wants_vision("a masz jej zdjęcia?"))    # her stored ones (31 Oct)
+        self.assertTrue(brain._wants_vision("co widzisz na tym zdjęciu?"))
         self.assertTrue(brain._wants_vision("przeczytaj, co jest w tej książce po angielsku"))
         self.assertTrue(brain._wants_vision("pomożesz mi z zadaniem z tej książki?"))
         # 29 Oct: an errand for Maja → a frame → "Widzę dziś Andrzeja i Emilkę."
@@ -5563,6 +5565,35 @@ class RelationshipTest(unittest.TestCase):
 
 
 class FacesTest(unittest.TestCase):
+
+    def test_met_today_and_stored_photos(self):
+        # 31 Oct: nobody new, yet "rozmawiałam z jedną nową osobą" and, on
+        # "masz jej zdjęcia?", "Na tym zdjęciu widzę Andrzeja"
+        import faces
+        import mood
+        faces.PEOPLE_PATH = os.path.join(TMP, "people-met.json")
+        now = time.time()
+        faces._people = {"Andrzej": {"samples": [], "added": now - 30 * 86400},
+                         "Maja": {"samples": [], "added": now - 30 * 86400}}
+        with state.lock:
+            state.person = ("Andrzej", 0.9, now)
+        pic = lambda n: "x.jpg" if n == "Maja" else None
+        with mock.patch.object(faces, "portrait", pic), \
+                mock.patch.object(faces, "last_seen", lambda n: now if n == "Andrzej" else None):
+            line = faces.met_line("Poznałaś dzisiaj kogoś nowego?", now)
+            self.assertIn("met nobody new", line)
+            self.assertIn("Recognised by your camera today: Andrzej", line)
+            self.assertIn("face picture each of Maja", line)
+            self.assertEqual(faces.met_line("Jaka jest pogoda?", now), "")
+            faces._people["Ola"] = {"samples": [], "added": now, "family": False}
+            line = faces.met_line("A masz jej zdjęcie?", now)
+            self.assertIn("Ola (a guest), at", line)
+            with state.lock:
+                state.person = ("Ola", 0.9, now)
+            self.assertNotIn("Recognised by your camera", faces.met_line("kogo poznałaś?", now))
+        with state.lock:
+            state.person = None
+        self.assertIn("not a new person", mood._who(mood.UNSEEN))
 
     def test_identify_by_cosine(self):
         import numpy as np
