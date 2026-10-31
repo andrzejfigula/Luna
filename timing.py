@@ -20,7 +20,11 @@ def mark(stage):
     "model" (request sent), "reply" (its text began streaming — the wait
     for the model; 31 Oct: "sentence" came 0.02 s later, the splitter was
     never the slow part), "sentence" (first one written), "tts" (voice
-    requested), "audio" (its first bytes in)."""
+    requested), "audio" (its first bytes in). 31 Oct: a "hmm" filler or
+    "Uśmiech!" said while the model thought set tts/audio before the answer
+    existed (tts 1.87 < sentence 3.41) — those count only for the answer."""
+    if stage in ("tts", "audio") and waiting_for_reply():
+        return
     _marks.setdefault(stage, time.time())
 
 

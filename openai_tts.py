@@ -65,6 +65,10 @@ TTS_READ_BYTES = 4096
 # plays, the other one stops (6 Oct: "more snappy").
 TTS_HEDGE_AFTER = 1.5          # (was 1.0: on 7 Oct it fired for 13 of 29 lines and the
                                # second request won only 3 times — the first was just late)
+# Still nothing this long after the first request: a third one. 26 Oct: 11 of
+# 28 answers whose voice came >1.5 s after "audio" had both requests of the
+# first sentence stuck (voice 6–13 s) while sentence 2 was already in.
+TTS_HEDGE_AGAIN = 4.0
 
 
 def speech_speed():
@@ -382,10 +386,11 @@ class OpenAITTS:
             else:
                 self._speak_streaming(text, on_audio_start, style)
 
-    def _hedged(self, text, kwargs):
+    def _hedged(self, text, kwargs, marks=True):
         """The audio of `text`, chunk by chunk — from a second request when
-        the first one hasn't started within TTS_HEDGE_AFTER. Raises the
-        error when no request produced any audio."""
+        the first one hasn't started within TTS_HEDGE_AFTER (a third at
+        TTS_HEDGE_AGAIN). Raises the error when no request produced any
+        audio. marks: this is the reply's first sentence (timing.py stages)."""
         q, lock, first = queue.Queue(), threading.Lock(), threading.Event()
         owner, gone = [None], threading.Event()    # gone: the caller dropped this take
         text = _voiced(text)
@@ -413,21 +418,26 @@ class OpenAITTS:
                 q.put(("end", n))
 
         import timing
-        timing.mark("tts")
+        if marks:
+            timing.mark("tts")
         threading.Thread(target=attempt, args=(0,), daemon=True, name="tts-a").start()
-        started = 1
-        if not first.wait(TTS_HEDGE_AFTER) and not self._cut.is_set():
-            print(f"[TTS] no audio after {TTS_HEDGE_AFTER:.1f}s — asking again", flush=True)
-            threading.Thread(target=attempt, args=(1,), daemon=True, name="tts-b").start()
-            started = 2
+        started, waited = 1, 0.0
+        for n, after in ((1, TTS_HEDGE_AFTER), (2, TTS_HEDGE_AGAIN)):
+            if first.wait(after - waited) or self._cut.is_set():
+                break
+            waited = after
+            print(f"[TTS] no audio after {after:.1f}s — asking again", flush=True)
+            threading.Thread(target=attempt, args=(n,), daemon=True,
+                             name="tts-" + "abc"[n]).start()
+            started = n + 1
         errors = []
         deadline = time.time() + 60            # one sentence's audio: never forever (10 Oct)
         try:
-            yield from self._drain(q, owner, started, deadline, errors)
+            yield from self._drain(q, owner, started, deadline, errors, marks)
         finally:
             gone.set()
 
-    def _drain(self, q, owner, started, deadline, errors):
+    def _drain(self, q, owner, started, deadline, errors, marks=True):
         import timing
         ended = 0
         while ended < started:
@@ -439,7 +449,8 @@ class OpenAITTS:
                     break
                 continue
             if kind == "data":
-                timing.mark("audio")
+                if marks:
+                    timing.mark("audio")
                 yield val
             elif kind == "error":
                 errors.append(val)
@@ -447,12 +458,12 @@ class OpenAITTS:
                 ended += 1
                 if owner[0] == val:
                     break                              # the winner is done
-        if owner[0] == 1:
-            print("[TTS] the second request won", flush=True)
+        if owner[0]:
+            print(f"[TTS] the {('second', 'third')[owner[0] - 1]} request won", flush=True)
         if owner[0] is None and errors:
             raise errors[0]
 
-    def _steady(self, text, kwargs):
+    def _steady(self, text, kwargs, marks=True):
         """_hedged(), but a take in a man's register is thrown away and asked
         for once more (11 Oct: "her voice sometimes goes weirdly deep, almost a
         man's voice" — the voice model drifts now and then; one cached clip
@@ -460,7 +471,7 @@ class OpenAITTS:
         are held back to check, then everything flows as before."""
         need = HEAD_BYTES
         for attempt in (0, 1):
-            head, stream = [], self._hedged(text, kwargs)
+            head, stream = [], self._hedged(text, kwargs, marks)
             for chunk in stream:
                 head.append(chunk)
                 if sum(map(len, head)) >= need:
@@ -773,9 +784,11 @@ class OpenAITTS:
 
         parts = queue.Queue()        # one chunk queue per sentence, in order
 
-        def fetch(text, q):
+        def fetch(text, q, first):
             try:
-                for chunk in self._steady(text, kwargs):
+                # only the first sentence's request/bytes are the "[latency]"
+                # stages (26 Oct: sentence 2's "audio 4.18" — voice 12.52)
+                for chunk in self._steady(text, kwargs, marks=first):
                     if self._cut.is_set():
                         break
                     q.put(chunk)
@@ -787,12 +800,12 @@ class OpenAITTS:
 
         def feeder():
             try:
-                for text in sentences:
+                for i, text in enumerate(sentences):
                     if self._cut.is_set():
                         continue             # drain the producer quietly
                     q = queue.Queue()
                     parts.put(q)
-                    threading.Thread(target=fetch, args=(text, q),
+                    threading.Thread(target=fetch, args=(text, q, i == 0),
                                      daemon=True).start()
             finally:
                 parts.put(None)

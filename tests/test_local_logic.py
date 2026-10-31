@@ -12221,6 +12221,72 @@ class LatencyReplyStageTest(unittest.TestCase):
         self.assertEqual([p.split()[0] for p in line.split(", ")],
                          ["text", "model", "reply", "sentence"])
 
+    def test_filler_said_while_model_thinks_sets_no_tts_stage(self):
+        # 26 Oct: "sentence 3.41, tts 1.87" — "Uśmiech!" had marked tts/audio
+        import timing
+        timing.reset()
+        heard = time.time() - 5
+        timing.mark("text")
+        timing.mark("model")
+        timing.mark("tts")
+        timing.mark("audio")
+        self.assertNotIn("tts", timing.report(heard))
+        timing.mark("text")                      # a local answer: no model wait
+        timing.mark("tts")
+        self.assertIn("tts", timing.report(heard))
+
+    def _tts(self, delays):
+        """An OpenAITTS whose speech requests start after delays[n] seconds."""
+        import threading
+        import openai_tts
+        tts = object.__new__(openai_tts.OpenAITTS)
+        tts._cut = threading.Event()
+        calls = []
+
+        class Resp:
+            def __init__(self, n):
+                self.n = n
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def iter_bytes(self, chunk_size):
+                time.sleep(delays[self.n])
+                yield bytes([self.n + 1]) * 4
+
+        def create(input, **kw):
+            calls.append(input)
+            return Resp(len(calls) - 1)
+        tts._client = mock.MagicMock()
+        tts._client.audio.speech.with_streaming_response.create.side_effect = create
+        return tts, calls
+
+    def test_third_request_when_first_two_are_stuck(self):
+        import openai_tts
+        tts, calls = self._tts([3.0, 3.0, 0.0])
+        with mock.patch.object(openai_tts, "TTS_HEDGE_AFTER", 0.05), \
+                mock.patch.object(openai_tts, "TTS_HEDGE_AGAIN", 0.1), \
+                mock.patch("builtins.print"):
+            out = b"".join(tts._hedged("Hej.", {}))
+        self.assertEqual(len(calls), 3)
+        self.assertEqual(out, b"\x03" * 4)
+
+    def test_later_sentence_sets_no_audio_stage(self):
+        # 26 Oct: sentence 2's bytes were "audio 4.18"; sentence 1's voice 12.52
+        import openai_tts
+        import timing
+        tts, _ = self._tts([0.0])
+        timing.reset()
+        heard = time.time() - 5
+        timing.mark("text")
+        b"".join(tts._hedged("Drugie zdanie.", {}, marks=False))
+        line = timing.report(heard)
+        self.assertNotIn("tts", line)
+        self.assertNotIn("audio", line)
+
     def test_on_head_comes_with_the_reply_start(self):
         from reply_stream import ReplyStream
         seen = []
