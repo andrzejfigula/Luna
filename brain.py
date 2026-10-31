@@ -591,14 +591,26 @@ _COMMON = {"jest", "jestem", "jesteś", "tego", "tylko", "teraz", "może", "bard
            "jeszcze", "żeby", "kiedy", "który", "która", "które", "dobrze", "trochę"}
 
 
+# how she talks to the speaker: "mówisz do mnie kochanie", "masz do mnie mówić…"
+_HOW_YOU_TALK = re.compile(r"\b(?:mówisz|mowisz|mówiłaś|mowilas|nazywasz|nazwałaś|"
+                           r"zwracasz\s+się|gadasz)\s+(?:\w+\s+)?(?:do\s+)?mnie\b|"
+                           r"\b(?:mów|mow)\s+do\s+mnie\b|"
+                           r"\bmasz\s+(?:do\s+mnie\s+)?(?:mówić|mowic)\b")
+
+
 def _answers_her(text, draft="", secs=15):
     """Said back to her a moment after she spoke: it picks up her own words
     ("Ale ja nie byłem na rozmowie o pracę") or the model's draft apologises
-    to the speaker ("Masz rację — pomyliłam to"). Not about her ("ona", "jej")."""
+    to the speaker ("Masz rację — pomyliłam to"), or it is about how she talks
+    to them (within a minute). Not about her ("ona", "jej")."""
     with state.lock:
         ago = time.time() - getattr(state, "last_spoken_time", 0.0)
     low = (text or "").lower()
-    if ago > secs or re.search(r"\b(?:ona|jej|niej|nią)\b", low):
+    if re.search(r"\b(?:ona|jej|niej|nią)\b", low):
+        return False
+    if ago <= 60 and _HOW_YOU_TALK.search(low):
+        return True
+    if ago > secs:
         return False
     stems = lambda s: {w[:5] for w in re.findall(r"\w{4,}", s.lower()) if w not in _COMMON}
     if len(stems(low) & stems(last_reply())) >= 2:
@@ -653,6 +665,42 @@ def _child_near(person):
     except Exception:
         recent = False
     return recent and any(_is_child(o) for o in others or [] if o != "?")
+
+
+PET_NAMES_FOR = {"Andrzej"}      # 31 Oct: "kochanie" only when it's just him
+_PET = r"(?:kochanie|skarbie|kotku|słonko|słoneczko|misiu|dziubasku|dziubańku)"
+
+
+def _pet_names_ok():
+    """Pet names only when someone who asked for them is alone with her — nobody
+    else seen in the last minute (31 Oct: "mówisz do mnie kochanie przy Emilce")."""
+    with state.lock:
+        person = state.person
+        others, seen_at = state.others
+    if not person or person[0] not in PET_NAMES_FOR:
+        return False
+    now = time.time()
+    if now - seen_at < 3 * faces.RECOGNISE_EVERY and [o for o in others or []
+                                                      if o != person[0]]:
+        return False
+    try:
+        names = set(faces.vocatives()) - {person[0]}
+        return not any(now - (faces.last_seen(n) or 0) < 60 for n in names)
+    except Exception:
+        return False
+
+
+def drop_pet_names(text):
+    """"Dobrze, kochanie, już" → "Dobrze, już"; "Skarbie, …" → "…"."""
+    out = re.sub(r"^\s*" + _PET + r"\s*[,!]\s*", "", text or "", flags=re.I)
+    out = re.sub(r",\s*" + _PET + r"(?=\s*[,.!?…—-]|\s*$)", "", out, flags=re.I)
+    return out[:1].upper() + out[1:] if out != text else out
+
+
+def _pet_name_line():
+    return ("You are alone with him now: now and then (not every reply) you may call "
+            "him \"kochanie\" — never when anyone else is around.\n"
+            if _pet_names_ok() else "")
 
 
 def _is_child(who):
@@ -793,6 +841,8 @@ def _feminize(text, heard=""):
     # "przekażę Maji" — Maja's genitive/dative is "Mai" (13 Oct 22:33; the
     # transcriber writes "Maji" too, and the model copies it)
     text = re.sub(r"\bMaji\b", "Mai", text)
+    if not _pet_names_ok():
+        text = drop_pet_names(text)
     with state.lock:
         known = state.person is not None
     return text if known else neutral_you(text)
@@ -838,7 +888,7 @@ it, phrase things so they need no gender.
 
 NAMES: call people by their name (in the vocative) or not at all — no pet
 names for grown-ups ("kochanie", "skarbie", 13 Oct sweep: "Tego nie wiem,
-kochanie" to Andrzej). And don't keep saying where you sit ("u nas na
+kochanie" to Andrzej) unless a line below says you're alone with him. And don't keep saying where you sit ("u nas na
 biurku") — they know.
 
 Always answer as JSON with exactly these keys:
@@ -1649,6 +1699,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   + _translator_rule()
                   + _length_rule()
                   + faces.prompt_line()
+                  + _pet_name_line()
                   + relationship.prompt_line()
                   + luna_mood.prompt_line()
                   + birthdays.prompt_line()

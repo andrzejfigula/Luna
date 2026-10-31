@@ -3586,9 +3586,46 @@ class KidsTest(unittest.TestCase):
             self.assertFalse(brain._answers_her("Ona myśli, że byłem na rozmowie o pracę."))
             state.last_spoken_time = time.time() - 40
             self.assertFalse(brain._answers_her("Ale ja nie byłem na rozmowie o pracę."))
+            # how she talks to him: for her within a minute, whatever the draft
+            self.assertTrue(brain._answers_her("No mówisz do mnie kochanie przy Emilce. "
+                                               "Tylko jak mnie nie ma, masz mówić."))
+            self.assertTrue(brain._answers_her("Nie mów do mnie tak."))
+            state.last_spoken_time = time.time() - 200
+            self.assertFalse(brain._answers_her("No mówisz do mnie kochanie przy Emilce."))
         finally:
             state.last_spoken_time = old
             brain._history.clear()
+
+    def test_pet_names_only_alone_with_him(self):
+        import brain
+        import faces
+        old = (state.person, state.others)
+        seen = faces.last_seen
+        try:
+            self.assertEqual(brain.drop_pet_names("Tego nie wiem, kochanie."), "Tego nie wiem.")
+            self.assertEqual(brain.drop_pet_names("Kochanie, już włączam."), "Już włączam.")
+            self.assertEqual(brain.drop_pet_names("Dobrze, skarbie, już."), "Dobrze, już.")
+            self.assertEqual(brain.drop_pet_names("Nie powiem „kochanie” przy Emilce."),
+                             "Nie powiem „kochanie” przy Emilce.")
+            faces.last_seen = lambda n: None
+            state.person = ("Andrzej", 0.6, time.time())
+            state.others = ([], time.time())
+            with mock.patch.object(faces, "vocatives",
+                                   return_value={"Andrzej": "Andrzeju", "Emilka": "Emilko"}):
+                self.assertTrue(brain._pet_names_ok())
+                self.assertIn("kochanie", brain._pet_name_line())
+                state.others = (["Emilka"], time.time())          # 31 Oct: Emilka beside him
+                self.assertFalse(brain._pet_names_ok())
+                state.others = ([], time.time())
+                faces.last_seen = lambda n: time.time() - 20 if n == "Emilka" else None
+                self.assertFalse(brain._pet_names_ok())            # she was there a moment ago
+                faces.last_seen = lambda n: None
+                state.person = ("Emilka", 0.6, time.time())
+                self.assertFalse(brain._pet_names_ok())
+                self.assertEqual(brain._pet_name_line(), "")
+        finally:
+            state.person, state.others = old
+            faces.last_seen = seen
 
     def test_just_called_after_her_answer(self):
         import brain
