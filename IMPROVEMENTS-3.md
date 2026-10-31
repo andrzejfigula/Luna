@@ -23,3 +23,4 @@ taken from what went wrong in today's conversations (`tools/log_report.py`).
 
 | # | Improvement | Commit | Status |
 |---|-------------|--------|--------|
+| 9 | "otwórz/uruchom zegar(ek)" and the STT's "włączyć zegarek" open the clock; prompt names radio effects + night mode (settings/visualiser/night mode were already local) | 781fc15 | ✅ shipped |
