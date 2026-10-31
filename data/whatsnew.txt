@@ -1,6 +1,9 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
+== 31 października ==
+- Kiedy ktoś poprawia to, co Luna przed chwilą powiedziała („Ale ja nie byłem na rozmowie o pracę”), Luna odpowiada i dalej słucha, zamiast uznać, że to nie do niej, i zamilknąć.
+
 == 30 października ==
 - Luna słyszy swoje imię także na końcu dłuższej wypowiedzi („…Maja, powiedz do Luny: cześć Luna”), a nie tylko na początku.
 - Szum deszczu (morza, kominka…) wyłącza się też słowami „dość deszczu”, „przestań z tym deszczem”, „wystarczy tego szumu”.

@@ -582,6 +582,26 @@ _TO_HER = re.compile(r"\b(?:ty|ci|cię|cie|ciebie|tobie|tobą|twój|twoj\w*|twoj
                      r"\w{2,}asz|\w{2,}esz)\b", re.I)
 
 
+_COMMON = {"jest", "jestem", "jesteś", "tego", "tylko", "teraz", "może", "bardzo",
+           "jeszcze", "żeby", "kiedy", "który", "która", "które", "dobrze", "trochę"}
+
+
+def _answers_her(text, draft="", secs=15):
+    """Said back to her a moment after she spoke: it picks up her own words
+    ("Ale ja nie byłem na rozmowie o pracę") or the model's draft apologises
+    to the speaker ("Masz rację — pomyliłam to"). Not about her ("ona", "jej")."""
+    with state.lock:
+        ago = time.time() - getattr(state, "last_spoken_time", 0.0)
+    low = (text or "").lower()
+    if ago > secs or re.search(r"\b(?:ona|jej|niej|nią)\b", low):
+        return False
+    stems = lambda s: {w[:5] for w in re.findall(r"\w{4,}", s.lower()) if w not in _COMMON}
+    if len(stems(low) & stems(last_reply())) >= 2:
+        return True
+    return bool(re.match(r"\W*(?:masz rację|masz racje|przepraszam|pomyliłam)",
+                         draft or "", re.I))
+
+
 def _to_a_man(text):
     """Said to a man, not to her (her name not in it nor just said)."""
     low = (text or "").lower()
@@ -1756,6 +1776,16 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                 if on_sentence:
                     on_sentence(reply)
             print(f"[brain] a short command, not side talk — answering ({reply[:60]!r})",
+                  flush=True)
+            data["to_luna"] = True
+        if data.get("to_luna") is False and not lang and _answers_her(text, reply):
+            # "Ale ja nie byłem na rozmowie o pracę" right after her "Pytałeś o
+            # tę swoją" got silence and a closed window, twice (31 Oct)
+            if not reply.strip():
+                reply = "Mhm, rozumiem."
+                if on_sentence:
+                    on_sentence(reply)
+            print(f"[brain] a reaction to what I just said — answering ({reply[:60]!r})",
                   flush=True)
             data["to_luna"] = True
         if data.get("to_luna") is False and not lang and \

@@ -3553,6 +3553,25 @@ class KidsTest(unittest.TestCase):
         self.assertIn('"Hej U…"', rule)
         self.assertEqual(brain._variety_rule(h[:2]), "")
 
+    def test_answers_her_last_reply(self):
+        import brain
+        old = state.last_spoken_time
+        try:
+            state.last_spoken_time = time.time() - 5
+            brain._history[:] = [{"role": "assistant", "content":
+                                  "Nie, nie byłam na żadnej rozmowie o pracę. Pytałeś o tę swoją."}]
+            # 31 Oct: a correction of her reply, with Emilka in the room
+            self.assertTrue(brain._answers_her("Ale ja nie byłem na rozmowie o pracę."))
+            self.assertTrue(brain._answers_her("No mówisz do mnie kochanie przy Emilce.",
+                                               "Masz rację, Andrzeju. Przepraszam."))
+            self.assertFalse(brain._answers_her("Maja, chodź na obiad.", "Smacznego!"))
+            self.assertFalse(brain._answers_her("Ona myśli, że byłem na rozmowie o pracę."))
+            state.last_spoken_time = time.time() - 40
+            self.assertFalse(brain._answers_her("Ale ja nie byłem na rozmowie o pracę."))
+        finally:
+            state.last_spoken_time = old
+            brain._history.clear()
+
     def test_just_called_after_her_answer(self):
         import brain
         import faces
