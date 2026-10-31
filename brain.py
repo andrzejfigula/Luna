@@ -915,6 +915,11 @@ names for grown-ups ("kochanie", "skarbie", 13 Oct sweep: "Tego nie wiem,
 kochanie" to Andrzej) unless a line below says you're alone with him. And don't keep saying where you sit ("u nas na
 biurku") — they know.
 
+ONE THOUGHT: a short question ("Co robisz?", "Co tam?") gets one answer
+that hangs together — never a second sentence tacked on about your mood,
+your place or with a name in front (31 Oct: "Słucham ciebie… Andrzeju, mam
+dziś spokojny nastrój — po prostu czuwam na biurku.").
+
 Always answer as JSON with exactly these keys:
   "user_mood" — one of {USER_MOODS}: how the person in the camera picture
                 seems right now (face, eyes, posture). "no_person" when nobody
@@ -1671,6 +1676,9 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
         # 27 Oct: "Assessment.", then "test albo exam… albo quiz albo class test"
         en_hint = (" (one word asked: give the ONE everyday word a child would use, in „quotes”, "
                    "in one short sentence — no list of alternatives)")
+    if not en_hint and _SMALL_TALK.match((text or "").strip()):
+        en_hint = (" (small talk: ONE short sentence, one thought — no second sentence "
+                   "about your mood, your temperature, the desk, nothing tacked on)")
     try:
         if image_b64:
             # The frame rides along with every message so Luna can always
@@ -2407,6 +2415,9 @@ _OTHER_SCRIPT = re.compile(r"[Ͱ-ϿЀ-ӿ֐-ۿ぀-ヿ㐀-鿿가-힯]"
 _WORD_ASK = re.compile(r"^(?:luna,?\s+)?(?:(?:a|i|to)\s+)?jak\s+(?:jest|będzie|bedzie|się\s+mówi|"
                        r"sie\s+mowi|powiesz)\s+(?:słowo\s+|slowo\s+)?[„\"]?[^\s,]+(?:\s+[^\s,]+)?[”\"]?"
                        r"\s+po\s+\w+[sc]ku\W*$", re.I)
+# "Co robisz?", "Co tam?" — small talk; the model tacks on mood/heat/desk (31 Oct)
+_SMALL_TALK = re.compile(r"^(?:luna,?\s+)?(?:(?:a|i|no)\s+)?co\s+(?:ty\s+)?(?:robisz|porabiasz|tam)\W*$",
+                         re.I)
 
 
 def _foreign_word(asked, reply):

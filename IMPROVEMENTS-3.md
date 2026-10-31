@@ -40,3 +40,9 @@ taken from what went wrong in today's conversations (`tools/log_report.py`).
 | 13 | Out of OpenAI credits: cloud skipped (re-checked every 3 min), recorded line, 'brak środków' on the status bar, NO CREDITS in the hourly line, clears itself | 3924d62 | ✅ shipped |
 | 14 | Slow first sentence isn't the splitter: replay of 1355 answers — first sentence 0.02 s after the reply starts streaming, a clause cut would gain a mean 0.02 s; latency line now shows a "reply" stage (the model's wait: 2.5 s median in slow turns, hedge won 4 of 40) | b2f9b10 | ✅ shipped |
 | 15 | Voice long after 'audio' (28 answers, up to 13.3 s): the tts/audio stages came from a filler/'Uśmiech!' or sentence 2's parallel fetch; now only sentence 1 marks them. 11 of 28 had both requests of sentence 1 stuck → a third TTS request at 4 s | 9969466 | ✅ shipped |
+
+## Round 6 — branch improvements-6
+
+| # | Improvement | Commit | Status |
+|---|-------------|--------|--------|
+| 16 | "Co robisz?" / "Co tam?": one connected sentence — no tacked-on mood, CPU heat or desk (per-message hint + prompt rule; "Jak się masz?" still says how she is) | (this commit) | ✅ shipped |

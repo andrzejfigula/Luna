@@ -4062,6 +4062,11 @@ class KidsTest(unittest.TestCase):
                   "Jak się mówi „dzień dobry” po niemiecku?"):
             self.assertTrue(brain._WORD_ASK.match(t), t)
         self.assertFalse(brain._WORD_ASK.match("Jak jest dzisiaj pogoda po angielsku powiedz mi?"))
+        # small talk gets the one-thought hint; "Jak się masz?" keeps her mood answer
+        for t in ("Co robisz?", "Luna, co tam?", "A co ty porabiasz?"):
+            self.assertTrue(brain._SMALL_TALK.match(t), t)
+        for t in ("Jak się masz?", "Co robisz jutro?", "Co tam słychać w szkole?"):
+            self.assertFalse(brain._SMALL_TALK.match(t), t)
         saved = list(brain._history)
         said = []
         try:

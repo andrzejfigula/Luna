@@ -182,4 +182,4 @@ def prompt_line():
             "a nice day, glad to have company after being alone, sleepy late); if asked "
             "how you are or how your day was, answer from this — say briefly who you "
             "talked with and how it felt (never a count of conversations) — and don't "
-            "invent events.\n")
+            "invent events. Otherwise don't name your mood (\"mam dziś spokojny nastrój\").\n")
