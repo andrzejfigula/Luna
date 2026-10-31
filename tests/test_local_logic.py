@@ -445,6 +445,25 @@ class TimersTest(unittest.TestCase):
         self.assertFalse(empty_promise("Nie przypomnę sobie tego tytułu.", []))
         self.assertFalse(empty_promise("Pamiętaj o ładowarce.", []))
 
+    def test_claimed_switch_kept_or_asked(self):
+        # 19–30 Oct log: "Jasne, włączam X." with a wrong label → run X, or ask
+        try:
+            import brain
+        except ImportError:
+            self.skipTest("brain needs cv2 (run on the Pi)")
+        cs, keep = brain._claimed_switch, brain._switch_to_keep_claim
+        self.assertEqual(cs("Jasne, włączam motyw HAL 9000."), "włącz motyw HAL 9000")
+        self.assertEqual(cs("Jasne — wyłączam widok osób. Potem pokażę."), "wyłącz widok osób")
+        self.assertEqual(cs("Jasne, wyłączam szum deszczu."), "wyłącz szum deszczu")
+        self.assertIsNone(cs("Mogę włączyć rock, chcesz?"))
+        self.assertIsNone(cs("Czy włączam rock?"))
+        self.assertEqual(keep("Jasne, włączam motyw HAL 9000."), "włącz motyw HAL 9000")
+        self.assertEqual(keep("Jasne, włączam elektronikę. Retro odpala disco."),
+                         "włącz elektronikę")
+        self.assertEqual(keep("Jasne, wyłączam szum deszczu."), "wyłącz szum deszczu")
+        self.assertIsNone(keep("Jasne — wyłączam widok osób."))
+        self.assertIsNone(keep("Jasne, włączam łączną moc."))
+
     def test_claims_undone(self):
         from polish import claims_undone
         cmd = [{"type": "command", "label": "wyłącz ekran gry"}]

@@ -1086,7 +1086,8 @@ Always answer as JSON with exactly these keys:
                 suggest it or ask "chcesz?", leave the action out until they
                 say yes. NEVER say you
                 turned something on or changed something without the action
-                that does it — if there is none, say you can't. The same for
+                that does it — if there is none, say you can't; not sure what
+                they want on or off → just ask ("Co mam włączyć?"). The same for
                 promises: "przypomnę ci…" only together with a reminder or
                 timer action. A vague time is enough: "wieczorem" → 19:00,
                 "rano" → 8:00, "po południu" → 15:00 — set it and say the
@@ -2072,11 +2073,22 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
         done_acts = [a for a in data.get("actions") or [] if a.get("type") != "cancel"
                      or any(d.startswith("cancelled ") and "nothing matched" not in d
                             for d in set_now)]
-        if not (tuned or drew or copied or corrected or translator()) and claims_undone(
-                reply, done_acts, refused, text):
+        undone = not (tuned or drew or copied or corrected or translator()) and claims_undone(
+            reply, done_acts, refused, text)
+        kept = _switch_to_keep_claim(reply) if undone else None
+        if kept:
+            # "Jasne, włączam motyw HAL 9000." with a wrong label or none (19–30 Oct
+            # log): what she said is one of her switches — run that
+            print(f"[brain] claimed {kept!r}, no working command — running it", flush=True)
+            undone = not run_command(kept, reply)
+        if undone:
             # "Jasne, usunęłam to z listy." / "wyłączam ekran gry" and nothing
-            # happened (18 Oct log, 3 a day): she says so instead of leaving it
+            # happened (18 Oct log, 3 a day): she says so instead of leaving it;
+            # a switch she has no such thing for → ask what they meant
             extra = "Ojej, poprawka — tego jednak nie zrobiłam."
+            switch = _claimed_switch(reply)
+            if switch:
+                extra += " Co mam " + ("wyłączyć?" if switch.startswith("wy") else "włączyć?")
             print(f"[brain] claimed an action, nothing done — correcting: {reply[:60]!r}",
                   flush=True)
             if on_sentence:
@@ -2257,6 +2269,32 @@ def _promised_station(reply):
     None — not an offer ("Mogę włączyć…"), not a question."""
     m = _RADIO_PROMISE.search(reply or "")
     return m.group(1).lower() if m else None
+
+
+_SWITCH_CLAIM = re.compile(
+    r"(?:^|[.!—]\s*)(?:\w+,\s+)?(?:już\s+|juz\s+|dobrze,?\s+|jasne,?\s+|ok,?\s+|okej,?\s+)?"
+    r"(włączam|wlaczam|puszczam|wyłączam|wylaczam)\s+(?:ci\s+|wam\s+)?(?:teraz\s+)?"
+    r"([^.!?,;—]{2,40})(?=[.!]|$)", re.I)
+
+
+def _claimed_switch(reply):
+    """The command her answer says she runs now ("Jasne, włączam motyw HAL
+    9000." → "włącz motyw HAL 9000"), or None. Not an offer or a question."""
+    m = _SWITCH_CLAIM.search((reply or "").strip())
+    if not m:
+        return None
+    verb = "wyłącz" if m.group(1).lower().startswith("wy") else "włącz"
+    return f"{verb} {m.group(2).strip()}"
+
+
+def _switch_to_keep_claim(reply):
+    """_claimed_switch when it is one of her switches (a theme, a kind of
+    music, a sound…), else None."""
+    label = _claimed_switch(reply)
+    if not label:
+        return None
+    theme = themes.voice_request(label)
+    return label if (theme and theme[0] == "set") or command_allowed(label) else None
 
 
 def _promised_drawing(reply):

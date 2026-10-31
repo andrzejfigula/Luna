@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 31 października ==
+- Gdy Luna mówi „Jasne, włączam…”, naprawdę to włącza (motyw, muzykę, szum). A gdy nie wie, o co chodziło, pyta „Co mam włączyć?” zamiast obiecywać.
 - Gdy ktoś sam przy Lunie pyta krótko „Co robisz?”, „Jak się masz?” czy „Słyszysz mnie?”, odpowiada od razu — nie trzeba powtarzać.
 - Na „Poznałaś dziś kogoś nowego?” Luna mówi prawdę — sprawdza, czyje twarze dziś zapamiętała, a nie wymyśla nowej osoby. „Masz jej zdjęcie?” to pytanie o zdjęcia, które zapisała (pokaże je „Pokaż, kogo znasz”), a nie o to, co akurat widzi kamera.
 - Pytanie o wczoraj albo o miniony dzień („o której Maja miała wczoraj ukulele?”) Luna sprawdza w tym, co pamięta z tego dnia i w planie — a czego nie ma, mówi, że nie wie, zamiast zgadywać. Nie pyta już rano o wydarzenia, których nie było. Rozmowę Emilki z Andrzejem („byłeś…?”) zostawia wam.
