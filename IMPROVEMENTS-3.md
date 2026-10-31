@@ -37,3 +37,4 @@ taken from what went wrong in today's conversations (`tools/log_report.py`).
 
 | # | Improvement | Commit | Status |
 |---|-------------|--------|--------|
+| 13 | Out of OpenAI credits: cloud skipped (re-checked every 3 min), recorded line, 'brak środków' on the status bar, NO CREDITS in the hourly line, clears itself | 3924d62 | ✅ shipped |
