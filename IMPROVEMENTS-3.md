@@ -10,3 +10,9 @@ taken from what went wrong in today's conversations (`tools/log_report.py`).
 | 3 | Past-day questions ("o której … wczoraj", "w czwartek") answered from that day's talks, dated facts and plan, else "nie mam tego"; morning hello no longer invents "rozmowa o pracę" (prompt example); tidy keeps times; "…łeś" side talk stays quiet | f113f88 | ✅ shipped |
 | 4 | "Poznałaś kogoś nowego?": nobody was met — the diary's unrecognised speaker ("ktoś nieznajomy") read as a new person; now labelled as such, plus facts on faces learnt/recognised today and stored face pictures; "masz jej zdjęcie?" gets no camera frame | 4ea7555 | ✅ shipped |
 | 5 | Short second-person question ("Co robisz?", "Jak się masz?", "Słyszysz mnie?") with only the speaker in view is answered, not judged side talk; someone else in view → still quiet. Today's other quiet verdicts were already fixed by 2/3 | 87af397, 8169333 | ✅ shipped |
+
+## Round 2 — "Ojej, poprawka — tego jednak nie zrobiłam" (14× in 2 days)
+
+| # | Improvement | Commit | Status |
+|---|-------------|--------|--------|
+| 6 | A past-tense answer to "dodałaś?" ("Tak, dodałam…") no longer gets "poprawka"; fresh false claims still do | bf77d8e | ✅ shipped |
