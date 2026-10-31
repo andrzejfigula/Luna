@@ -562,7 +562,8 @@ def _you_question(text):
     """A short question to "you" ("Co robisz?", "Jak się masz?", "Słyszysz
     mnie?") — not to someone named, not to a man, not about her ("ona")."""
     low = (text or "").strip().lower()
-    if "?" not in low or len(low.split()) > 5 or not _TO_HER.search(low):
+    if "?" not in low or len(low.split()) > 5 or not (
+            _TO_HER.search(low) or re.search(r"\b(?:masz|jesz|dasz)\b", low)):
         return False
     if re.search(r"\b(?:ona|jej|niej|nią|on|jego|niego|oni|one)\b", low):
         return False
