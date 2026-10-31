@@ -87,6 +87,7 @@ def items(now=None):
     now = now if now is not None else time.time()
     with state.lock:
         online = state.online
+        broke = state.no_credits
         speaking = state.speaking
         thinking = state.luna_mode == "processing"
         listening = state.conversation_active or state.listening
@@ -99,6 +100,8 @@ def items(now=None):
     voice = ("speaking" if speaking else "thinking" if thinking
              else "listening" if listening and not muted else None)
     out = [("online" if online else "offline", None)]
+    if broke:                                   # OpenAI account empty (health.py)
+        out.append(("offline", "brak środków"))
     if radio:
         name = radio.lstrip("♪ ").strip()
         out.append(("radio", name if len(name) <= 22 else name[:21] + "…"))

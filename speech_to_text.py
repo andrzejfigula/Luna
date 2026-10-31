@@ -626,6 +626,9 @@ def _cloud_transcribe_now(pcm16k, lang=None):
     Vosk's guess is the best we have."""
     if _cloud is None or not pcm16k:
         return None
+    import health
+    if health.skip_cloud():              # no OpenAI credits: Vosk's guess
+        return None
     try:
         t0 = time.time()
         kwargs = dict(model=CLOUD_STT_MODEL, file=_wav_bytes(pcm16k),
@@ -647,17 +650,14 @@ def _cloud_transcribe_now(pcm16k, lang=None):
             print(f"[STT] cloud again as Polish: \"{text}\"", flush=True)
             if foreign_script(text):
                 return None                  # Vosk's guess is the best we have
+        health.note_cloud_ok()
         if _is_prompt_echo(text):
             print("[STT] cloud echoed its prompt — treating as no speech")
             return ""
         return text
     except Exception as e:
-        print(f"[STT] cloud transcription failed ({e}) — using Vosk text")
-        try:
-            import health
-            health.note_error(e)
-        except Exception:
-            pass
+        print(f"[STT] cloud transcription failed ({str(e)[:160]}) — using Vosk text")
+        health.note_error(e)
         return None
 
 

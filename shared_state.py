@@ -90,6 +90,7 @@ class SharedState:
         "caption",               # (who, text, until): subtitles — "luna" or
                                  # "you" (drawn when captions are on)
         "online",                # the cloud answered last time (health.py)
+        "no_credits",            # the OpenAI account is empty (health.py, status bar)
         "big_text",              # (text, until): a big glyph between her eyes
                                  # (the rock-paper-scissors countdown)
         "game_hand",             # (choice, until): her hand shows rock /
@@ -158,6 +159,7 @@ class SharedState:
         self.timer_text          = None
         self.big_text            = None
         self.online              = True
+        self.no_credits          = False
         self.caption             = None
         self.voice_mood          = None
         self.messages_waiting    = 0

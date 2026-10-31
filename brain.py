@@ -1616,6 +1616,10 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
         with state.lock:                         # they talk to each other: stop
             state.conversation_active = False    # listening (next time: "Luna")
         return "", "neutral", "none"
+    if health.skip_cloud():
+        print("[brain] no OpenAI credits — not asking (the cloud is re-checked "
+              "every few minutes)", flush=True)
+        return None
 
     lang = translator()
     if lang:

@@ -502,8 +502,11 @@ class OpenAITTS:
         out.begin(on_start=on_audio_start, prebuffer=0.0 if cached else AUDIO_PREBUFFER_SECS,
                   record=True)
         ok = wrote = False
+        import health
         if cached:
             out.write(cached)
+        elif health.skip_cloud():            # no OpenAI credits: a recorded line
+            self._say_offline(out)
         else:
             try:
                 # a take far longer than its words is the voice model rambling
@@ -522,7 +525,10 @@ class OpenAITTS:
                     out.write(chunk)
                     wrote = True
                 ok = not self._cut.is_set() and not runaway
+                if wrote:
+                    health.note_cloud_ok()
             except Exception as e:
+                health.note_error(e)
                 if not self._cut.is_set():
                     print(f"[TTS] streaming error: {e}")
                     if not wrote:

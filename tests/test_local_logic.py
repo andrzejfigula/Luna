@@ -12136,5 +12136,76 @@ class ActivationFirewallTest(unittest.TestCase):
             touch_module._publish("tap", 0.5, 0.5)
             self.assertEqual(state.touch_kind, "tap")
 
+class NoCreditsTest(unittest.TestCase):
+    """An empty OpenAI account (30 Oct: 16 STT 429s): noticed once, the cloud
+    skipped except one try every few minutes, cleared by the first success."""
+
+    def setUp(self):
+        import health
+        self.h = health
+        health._no_credits = health._credits_try = 0.0
+        health._credits_refused = 0
+        state.no_credits = False
+
+    tearDown = setUp
+
+    def _429(self):
+        return Exception("Error code: 429 - {'error': {'message': 'You have no credits "
+                         "remaining. Add credits to continue using the API', "
+                         "'code': 'insufficient_quota'}}")
+
+    def test_back_off_and_recover(self):
+        h = self.h
+        self.assertFalse(h.skip_cloud())
+        h.note_error(Exception("Connection error."))       # not about credits
+        self.assertFalse(h.no_credits())
+        h.note_error(self._429())
+        self.assertTrue(h.no_credits() and state.no_credits)
+        t = h._credits_try
+        self.assertTrue(h.skip_cloud(t + 10))
+        self.assertTrue(h.skip_cloud(t + h.CREDITS_RECHECK_SECS - 1))
+        self.assertFalse(h.skip_cloud(t + h.CREDITS_RECHECK_SECS))   # the one re-check
+        self.assertTrue(h.skip_cloud(t + h.CREDITS_RECHECK_SECS + 5))  # …only one
+        note = h._credits_note()
+        self.assertIn("NO CREDITS since", note)
+        self.assertTrue(note.endswith("(4 calls)"), note)
+        h.note_cloud_ok()
+        self.assertFalse(h.no_credits() or state.no_credits)
+        self.assertFalse(h.skip_cloud())
+        self.assertEqual(h._credits_note(), "")
+
+    def test_hourly_counts(self):
+        h = self.h
+        h.note_error(self._429())
+        h.skip_cloud(h._credits_try + 1)
+        self.assertTrue(h._credits_note().endswith("(2 calls)"))
+        h.note_reply(True, 1.0)                        # an answer: credits back
+        self.assertFalse(state.no_credits)
+        self.assertEqual(h._credits_note(), "")
+
+    def test_brain_does_not_call_the_cloud(self):
+        try:
+            import brain
+        except ImportError:
+            self.skipTest("cv2")
+        h = self.h
+        h.note_error(self._429())
+        client = mock.MagicMock()
+        with mock.patch.object(brain, "_client", client):
+            self.assertIsNone(brain._ask_openai("ile jest dwa plus dwa"))
+        client.chat.completions.create.assert_not_called()
+
+    def test_status_bar_says_it(self):
+        try:
+            import statusbar
+        except ImportError:
+            self.skipTest("pygame")
+        self.h.note_error(self._429())
+        its, _ = statusbar.items()
+        self.assertIn(("offline", "brak środków"), its)
+        self.h.note_cloud_ok()
+        self.assertNotIn(("offline", "brak środków"), statusbar.items()[0])
+
+
 if __name__ == "__main__":
     unittest.main()

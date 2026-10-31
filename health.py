@@ -121,10 +121,10 @@ def usage_line(day):
 
 def note_reply(ok, secs=0.0):
     """brain.process reports every answer (ok) or failure."""
-    global _no_credits
+    if ok:
+        note_cloud_ok()
     with _lock:
         if ok:
-            _no_credits = 0.0
             _stats["replies"] += 1
             _stats["secs"] += secs
         else:
@@ -132,24 +132,79 @@ def note_reply(ok, secs=0.0):
     _set_online(ok)
 
 
-_no_credits = 0.0            # when the OpenAI account last said it had no credits
+_no_credits = 0.0            # when the OpenAI account first said it had no credits
+_credits_try = 0.0           # the last cloud call while it had none
+_credits_refused = 0         # calls refused or skipped this hour (the hourly line)
+CREDITS_RECHECK_SECS = 180   # with no credits: one cloud call per this, the rest local
+
+
+def _is_no_credits(e):
+    msg = str(e)
+    return "insufficient_quota" in msg or "no credits remaining" in msg
 
 
 def note_error(e):
-    """brain/STT report a failed cloud call. An empty OpenAI account (13 Oct
+    """brain/STT/TTS report a failed cloud call. An empty OpenAI account (13 Oct
     12:06: 429 "You have no credits remaining") looks like a network outage to
     the family — her apology is the same — so the status screen says which."""
+    global _no_credits, _credits_try, _credits_refused
+    if not _is_no_credits(e):
+        return
+    with _lock:
+        first = not _no_credits
+        now = time.time()
+        _no_credits = _no_credits or now
+        _credits_try = now
+        _credits_refused += 1
+    if first:
+        print("[health] the OpenAI account has NO CREDITS — every answer fails "
+              "until someone adds them (platform.openai.com → Billing); cloud "
+              f"tried again every {CREDITS_RECHECK_SECS // 60} min", flush=True)
+        with state.lock:
+            state.no_credits = True
+
+
+def skip_cloud(now=None):
+    """True: the account is empty — don't call the cloud now (30 Oct: 16 STT
+    calls, each tried twice, and chat retried by the hedge, all 429). Every
+    CREDITS_RECHECK_SECS one caller gets through to see if credits are back."""
+    global _credits_try, _credits_refused
+    if not _no_credits:
+        return False
+    now = now if now is not None else time.time()
+    with _lock:
+        if now - _credits_try < CREDITS_RECHECK_SECS:
+            _credits_refused += 1
+            return True
+        _credits_try = now
+    print("[health] no OpenAI credits — trying the cloud once", flush=True)
+    return False
+
+
+def note_cloud_ok():
+    """A cloud call worked: credits (if they were gone) are back."""
     global _no_credits
-    msg = str(e)
-    if "insufficient_quota" in msg or "no credits remaining" in msg:
-        if not _no_credits:
-            print("[health] the OpenAI account has NO CREDITS — every answer fails "
-                  "until someone adds them (platform.openai.com → Billing)", flush=True)
-        _no_credits = time.time()
+    with _lock:
+        since, _no_credits = _no_credits, 0.0
+    if since:
+        print(f"[health] OpenAI credits are back (gone {(time.time() - since) / 60:.0f} min)",
+              flush=True)
+        with state.lock:
+            state.no_credits = False
 
 
 def no_credits():
     return bool(_no_credits)
+
+
+def _credits_note():
+    """The hourly line's part about an empty account ("" when all is well)."""
+    global _credits_refused
+    with _lock:
+        since, n, _credits_refused = _no_credits, _credits_refused, 0
+    if since:
+        return f", NO CREDITS since {time.strftime('%H:%M', time.localtime(since))} ({n} calls)"
+    return f", no-credits refusals {n}" if n else ""
 
 
 def _set_online(ok):
@@ -286,7 +341,7 @@ def _log():
         audio += f", throttled {bits}"
     print(f"[health] {time.strftime('%H:%M')} CPU {t:.0f}°C, load {body.load_percent()}%, "
           f"RAM {_mem_used()}%, last hour: {s['replies']} answers (avg {avg}), "
-          f"{s['failures']} failures{audio}; API calls: {api}", flush=True)
+          f"{s['failures']} failures{_credits_note()}{audio}; API calls: {api}", flush=True)
 
 
 def _rotate_log():
