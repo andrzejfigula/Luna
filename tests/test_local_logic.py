@@ -6201,6 +6201,26 @@ class RadioTest(unittest.TestCase):
                 mock.patch.object(faces, "probably_family", return_value=False):
             self.assertTrue(ie._hello_due(None, 700, False, now))            # a stranger: the name
 
+    def test_a_restart_is_not_a_return(self):
+        # 31 Oct: restarted at 10:21 after an hour of talk; at 10:39 "O, dzień
+        # dobry! Jak się spało?" — the restart had wiped who was greeted when
+        import faces
+        import greetings
+        import idle_engine as ie
+        now = 1_000_000.0
+        with mock.patch.object(ie, "_hello_said", {}), \
+                mock.patch.object(ie, "_talk_before_start", now - 1440), \
+                mock.patch.object(faces, "probably_family", return_value=True):
+            self.assertFalse(ie._hello_due(None, 1080, False, now))
+            self.assertFalse(ie._hello_due("Andrzej", 1080, False, now))
+            self.assertTrue(ie._hello_due("Andrzej", 1080, True, now))       # first of the day
+            self.assertTrue(ie._hello_due("Andrzej", 4000, False, now))      # away over an hour
+        at_10 = datetime.datetime(2026, 10, 31, 10, 39).timestamp()
+        for _ in range(20):
+            said = greetings.hello(away=1080, now=at_10)
+            self.assertNotIn(said, greetings.MORNING)
+            self.assertNotIn("spało", said)
+
     def test_no_credits_on_the_status_screen(self):
         # 13 Oct 12:06: the account ran dry; she only said "can't reach my brain"
         import health

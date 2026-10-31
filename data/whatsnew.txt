@@ -2,6 +2,7 @@
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
 == 31 października ==
+- Po ponownym uruchomieniu Luna pamięta, że już dziś rozmawialiście — nie wita drugi raz jak rano („Jak się spało?”), tylko macha.
 - Mochi pyta „Przytulas na powitanie?” — teraz przytula też na „Powitanie!”, „Dawaj!” czy „Chcę”.
 - Gdy Luna nie jest pewna, czy ktoś ją zawołał, a zaraz potem pada pytanie do niej („Co robisz?”), odpowiada, zamiast milczeć.
 - Kiedy ktoś poprawia to, co Luna przed chwilą powiedziała („Ale ja nie byłem na rozmowie o pracę”), Luna odpowiada i dalej słucha, zamiast uznać, że to nie do niej, i zamilknąć.

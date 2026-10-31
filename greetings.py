@@ -147,9 +147,7 @@ def hello(first_today=False, away=None, now=None):
     h = t.tm_hour
     if first_today:
         return _pick(FIRST_TODAY + (MORNING if 5 <= h < 11 else []))
-    if 5 <= h < 11:
-        pool = list(MORNING)
-    elif h < 18:
+    if h < 18:                 # a later morning hello: no "Jak się spało?" (31 Oct)
         pool = list(DAY)
     elif h < 22:
         pool = list(EVENING)

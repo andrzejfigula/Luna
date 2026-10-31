@@ -175,6 +175,18 @@ def _may_speak():
 HELLO_AGAIN_SECS = 7200        # a spoken "welcome back" to the same person
 HELLO_AWAY_SECS = 3600         # …unless they were away this long
 _hello_said = {}               # who (None: a face not recognised) → when
+_talk_before_start = 0.0       # the last exchange before a restart (history.json)
+
+
+def _note_talk_before_start():
+    """31 Oct: restarted mid-morning, then "Jak się spało?" to Andrzej after
+    an hour of talk — the restart had wiped who was greeted when."""
+    global _talk_before_start
+    try:
+        import brain
+        _talk_before_start = os.path.getmtime(brain._history_path())
+    except Exception:
+        _talk_before_start = 0.0
 
 
 def _hello_due(who, away, first_today, now=None):
@@ -188,8 +200,8 @@ def _hello_due(who, away, first_today, now=None):
     if who is None:
         import faces
         return not (faces.probably_family()
-                    and now - max(_hello_said.values(), default=0.0) < 1800)
-    return now - _hello_said.get(who, 0.0) >= HELLO_AGAIN_SECS
+                    and now - max(list(_hello_said.values()) + [_talk_before_start]) < 1800)
+    return now - max(_hello_said.get(who, 0.0), _talk_before_start) >= HELLO_AGAIN_SECS
 
 
 def _just_said_hello():
@@ -345,6 +357,7 @@ def idle_loop():
     # a long boot-time absence gets greeted too. Stamped BEFORE the import
     # below, which builds the TTS engine (a few seconds).
     left_at = time.time()
+    _note_talk_before_start()
 
     # deferred — avoids a circular import
     from text_to_speech import speak, play_sound_async
