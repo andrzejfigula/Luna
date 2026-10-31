@@ -2770,6 +2770,37 @@ class KidsTest(unittest.TestCase):
             self.assertIn("Andrzej pytał o czas.", memory.day_line("O czym dziś rozmawialiśmy?"))
             self.assertEqual(memory.day_line("Jaka pogoda wczoraj była?"[:0] + "Co tam?"), "")
 
+    def test_memory_past_day_question(self):
+        import memory, datetime, schedule
+        from unittest import mock
+        # 31 Oct: "o której Andrzej miał wczoraj rozmowę o pracę?" — no such event
+        # anywhere; she said "wczoraj o niej wspominał" (the prompt's own example)
+        mem = {"facts": ["Maja miała 2026-10-30 lekcje od 08:50 do 12:20.",
+                         "Andrzej lubi jazz."],
+               "episodes": [{"date": "2026-10-29", "text": "Maja grała w quiz."}],
+               "threads": []}
+        row = {"who": "Maja", "title": "ukulele", "at": "16:00", "end": "17:30", "days": [4]}
+        with mock.patch.object(memory, "_load", lambda: mem), \
+                mock.patch.object(memory, "_today", lambda: datetime.date(2026, 10, 31)), \
+                mock.patch.object(schedule, "events", lambda: [row]), \
+                mock.patch.object(schedule, "week_rows", lambda wd, who=None: [row] if wd == 4 else []):
+            line = memory.day_line("A o której godzinie Andrzej miał wczoraj rozmowę o pracę?")
+            self.assertIn("piątek 2026-10-30", line)
+            self.assertIn("08:50 do 12:20", line)                      # the dated fact
+            self.assertIn("ukulele 16:00", line)                       # Friday's plan
+            self.assertNotIn("jazz", line)
+            self.assertIn("don't say anyone mentioned it", line)
+            # a past weekday with a past verb: the last Thursday
+            line = memory.day_line("Co Maja robiła w czwartek?")
+            self.assertIn("2026-10-29", line)
+            self.assertIn("Maja grała w quiz.", line)
+            line = memory.day_line("Co było przedwczoraj w szkole?")
+            self.assertIn("2026-10-29", line)
+            self.assertEqual(memory.day_line("Co będzie w czwartek?"), "")
+            self.assertEqual(memory.day_line("W czwartek idziemy na basen"), "")
+            # the old hello copied "Jak poszła wczoraj rozmowa o pracę?" from here
+            self.assertNotIn("rozmowa o pracę", memory.prompt_block())
+
     def test_twenty_reverse_unclear(self):
         import twenty
         from shared_state import state
@@ -4077,14 +4108,19 @@ class KidsTest(unittest.TestCase):
     def test_side_talk_to_a_man(self):
         import brain
         # 12 Oct 13:32: "Ile mi dziubanku przelałeś?" (to Andrzej) was answered
-        with mock.patch.object(brain, "_just_called", lambda t="", secs=12: False), \
-                mock.patch.object(brain, "translator", lambda: None):
+        from shared_state import state
+        with mock.patch.object(brain, "translator", lambda: None), \
+                mock.patch.object(state, "last_wake_time", 0.0, create=True), \
+                mock.patch.object(state, "last_spoken_time", time.time() - 3):
             self.assertTrue(brain._to_a_man("Ile mi dziubanku przelałeś?"))
             self.assertTrue(brain._to_a_man("Powiedziałbyś, że takie okrągłe jest?"))
+            # 31 Oct: Emilka to Andrzej 6 s after Luna spoke — still not to her
+            self.assertTrue(brain._to_a_man("Takie masz sekrety przede mną, dziubańku? "
+                                            "Czy byłeś na rozmowie o pracę?"))
             self.assertFalse(brain._to_a_man("Luna, co narysowałeś?"))     # her name
             self.assertFalse(brain._to_a_man("Co narysowałaś?"))           # to her
             self.assertFalse(brain._to_a_man("Byłem dziś w sklepie"))
-        with mock.patch.object(brain, "_just_called", lambda t="", secs=12: True):
+        with mock.patch.object(state, "last_wake_time", time.time() - 3, create=True):
             self.assertFalse(brain._to_a_man("Ile mi przelałeś?"))         # "Luna" a moment ago
         import drawing
         # "A teraz ze zdjęcia" after "narysuj Emilkę" — Emilka, from the camera

@@ -179,27 +179,75 @@ def weekday_facts(who, day=None, known=()):
     return out[:2]
 
 
+_PAST_WD = re.compile(r"\bw(?:e)?\s+(?:zeszł\w+\s+|ostatni\w*\s+)?(poniedziałek|wtorek|środę|"
+                      r"czwartek|piątek|sobotę|niedzielę)\b", re.I)
+_PAST_VERB = re.compile(r"\b\w{2,}(?:ł|ła|ło|li|ły|łem|łam|łeś|łaś|liśmy|łyśmy)\b", re.I)
+_MONTHS_GEN = ("stycznia", "lutego", "marca", "kwietnia", "maja", "czerwca", "lipca",
+               "sierpnia", "września", "października", "listopada", "grudnia")
+
+
+def _past_day(text):
+    """(word, days back) of a past day asked about, or None: "wczoraj",
+    "przedwczoraj", "w czwartek" with a past verb ("o której miał…")."""
+    m = _DAY_Q.search(text or "")
+    if m:
+        word = m.group(1).lower()
+        return word, {"przedwczoraj": 2, "wczoraj": 1}.get(word, 0)
+    m = _PAST_WD.search(text or "")
+    if not m or not _PAST_VERB.search(text) or re.search(r"\bbędzie\w*|\bbęd[eę]\b", text, re.I):
+        return None
+    wd = [w[:3] for w in _WEEKDAYS].index(m.group(1).lower()[:3])
+    return m.group(0).lower(), (_today().weekday() - wd - 1) % 7 + 1
+
+
 def day_line(text):
     """"O czym rozmawialiśmy wczoraj?" → exactly that day's conversations from
     memory, worked out here (7 Oct: the model gave today's topics as
-    yesterday's, twice, with the dates in front of it). '' otherwise."""
-    m = _DAY_Q.search(text or "")
-    if not m or not _RECALL_Q.search(text):
+    yesterday's, twice, with the dates in front of it). A past day with any
+    past-tense question ("O której Andrzej miał wczoraj…?") also gets that
+    day's dated facts and plan. '' otherwise."""
+    past = _past_day(text)
+    if not past or not (_RECALL_Q.search(text) or past[1] and _PAST_VERB.search(text)):
         return ""
-    word = m.group(1).lower()
-    back = {"przedwczoraj": 2, "wczoraj": 1}.get(word, 0)
-    day = (_today() - timedelta(days=back)).isoformat()
+    word, back = past
+    d = _today() - timedelta(days=back)
+    day = d.isoformat()
     with _lock:
-        eps = [e.get("text", "") for e in _load()["episodes"] if e.get("date") == day]
+        mem = _load()
+        eps = [e.get("text", "") for e in mem["episodes"] if e.get("date") == day]
+        said = f"{d.day} {_MONTHS_GEN[d.month - 1]}"
+        facts = [f for f in mem["facts"] if day in f or re.search(rf"\b{said}\b", f)]
+    if back:
+        # 31 Oct: "o której Andrzej miał wczoraj rozmowę o pracę?" — nothing
+        # anywhere, yet "wczoraj o niej wspominał" (the prompt's own example)
+        try:
+            import schedule
+            plan = schedule._day_line(d.weekday()) if schedule.events() else ""
+        except Exception:
+            plan = ""
+        known = [f"conversations: {' '.join(eps)}" if eps else "",
+                 f"facts: {' / '.join(facts)}" if facts else "",
+                 f"the weekly plan for that {_WEEKDAYS[d.weekday()]}: {plan}"
+                 if plan and plan != "nothing in the plan" else ""]
+        known = [k for k in known if k]
+        rule = (" Answer only from these and say whose it was as written there. If what "
+                "they ask about (an event, an hour) is not in them, say plainly you have "
+                "nothing about it — don't say anyone mentioned it, don't guess an hour, "
+                "and an example in your instructions is not a memory.\n")
+        if not known:
+            return (f"Asked about {word} ({_WEEKDAYS[d.weekday()]} {day}): your stored memory "
+                    "has no conversations, facts or plan from that day — say you don't "
+                    "remember it; don't use other days' lines." + rule)
+        return (f"Asked about {word} ({_WEEKDAYS[d.weekday()]} {day}): your memory has from "
+                "that day only — " + "; ".join(known) + "." + rule)
     # today's talk is also the chat history in front of the model, not yet in
     # the stored episodes (9 Oct: after a quiz, "co dziś robiłyśmy?" got
     # "nie pamiętam rozmów z dziś")
     now = (" Today also counts everything in this conversation's history (games, "
-           "timers, questions) — tell those." if back == 0 else "")
+           "timers, questions) — tell those.")
     if not eps:
         return (f"Asked about {word} ({day}): your stored memory has no other conversations "
-                "from that day" + (" — say you don't remember it; don't use other days' "
-                                   "lines." if back else ".") + now + "\n")
+                "from that day." + now + "\n")
     return (f"Asked about {word} ({day}): your memory has from that day only: "
             + " ".join(eps) + " — answer from these, nothing from other days." + now + "\n")
 
@@ -253,9 +301,10 @@ def prompt_block():
         "was upcoming may have happened by now. If a recent conversation left",
         "something open (an event that has since happened, a worry, a plan),",
         "ask about it ONCE in your first or second reply of a new",
-        "conversation — e.g. \"Jak poszła wczoraj rozmowa o pracę?\" — and",
+        "conversation — \"Jak poszło …?\" with that event — and",
         "don't ask about the same thing again after that. Never claim to",
-        "remember anything that is not written here or in this conversation.",
+        "remember anything that is not written here or in this conversation,",
+        "and never ask about an event that isn't written here.",
         "The day of each conversation is written before it (dzisiaj / wczoraj /",
         "N dni temu): asked about a day, use only that day's lines — with none",
         "for that day, say you don't remember that day (7 Oct: \"o czym",
@@ -353,7 +402,7 @@ made pointless, at most {max_threads}.
 
 "episode": one or two Polish sentences about THIS conversation that would be
 worth coming back to later — something the person is going through, planning
-or looking forward to (e.g. "Andrzej ma jutro rozmowę o pracę i się
+or looking forward to (e.g. "Kasia ma jutro rozmowę o pracę i się
 stresuje."). Use an empty string when the conversation was routine: commands
 (radio, lamp, timers, lists, the time, dice, status), a quick fact, small
 talk, a greeting and goodbye.
@@ -371,7 +420,9 @@ _TIDY = """
 
 TODAY'S TIDY-UP (once a day): besides this conversation, rewrite CURRENT FACTS
 into a short, clean list. Every group of facts on one topic becomes one or two
-facts — list each merged one in "dropped" with the reason "merged". Write
+facts — list each merged one in "dropped" with the reason "merged". Keep
+every date and clock time of the merged facts ("lekcje 08:50–12:20, ukulele
+o 15:00" — 31 Oct a merge lost them all). Write
 "użytkownik" as the person's name only where the facts make it certain.
 Also copy into "routine_episodes", word for word, every one of the RECENT
 EPISODES below that was routine (a command, the time, the radio, a lamp, a

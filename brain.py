@@ -622,8 +622,13 @@ def _answers_her(text, draft="", secs=15):
 def _to_a_man(text):
     """Said to a man, not to her (her name not in it nor just said)."""
     low = (text or "").lower()
-    return (bool(_TO_A_MAN.search(low)) and not re.search(r"\bluna\b|\bluno\b", low)
-            and not _just_called(text) and not translator())
+    if not _TO_A_MAN.search(low) or re.search(r"\bluna\b|\bluno\b", low) or translator():
+        return False
+    # only her name a moment ago makes it hers — not her own last answer (31 Oct:
+    # Emilka's "Czy byłeś na rozmowie o pracę?" to Andrzej → "Nie byłam na…")
+    with state.lock:
+        woke = time.time() - getattr(state, "last_wake_time", 0.0) < 12
+    return not woke
 
 
 def _how_long_only(text):
