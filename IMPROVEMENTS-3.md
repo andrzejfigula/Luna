@@ -38,3 +38,4 @@ taken from what went wrong in today's conversations (`tools/log_report.py`).
 | # | Improvement | Commit | Status |
 |---|-------------|--------|--------|
 | 13 | Out of OpenAI credits: cloud skipped (re-checked every 3 min), recorded line, 'brak środków' on the status bar, NO CREDITS in the hourly line, clears itself | 3924d62 | ✅ shipped |
+| 14 | Slow first sentence isn't the splitter: replay of 1355 answers — first sentence 0.02 s after the reply starts streaming, a clause cut would gain a mean 0.02 s; latency line now shows a "reply" stage (the model's wait: 2.5 s median in slow turns, hedge won 4 of 40) | b2f9b10 | ✅ shipped |
