@@ -52,6 +52,10 @@ LOCAL = {
     "Dobranoc, Luna": "sleep",
     "No to dobranoc, idę już spać": "sleep",
     "Czy możesz pokazać zegar?": "screen",
+    "Luna włączyć zegarek": "screen",               # (log: the model refused)
+    "Otwórz zegarek": "screen",
+    "Uruchom zegar": "screen",
+    "Włączyć ustawienia": "screen",
     "Pa!": "bye",
     "Zrób mi zdjęcie": "screen",
     "Pokaż lustro": "screen",

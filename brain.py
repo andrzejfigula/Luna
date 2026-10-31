@@ -1014,6 +1014,9 @@ Always answer as JSON with exactly these keys:
                 szeptem" (a real whisper), "mów normalnie", "włącz lampkę", "wyłącz lampkę", "lampka na
                 <kolor>", "włącz szum deszczu / morza", "biały szum",
                 "wyłącz szum", "włącz napisy", "wyłącz napisy", "pokaż zegar",
+                "włącz efekty" / "wyłącz efekty" (the radio's visualisation —
+                "wizualizacja"), "włącz tryb nocny" / "wyłącz tryb nocny"
+                (quieter voice 22–8),
                 "pokaż plan dnia", "pokaż plan tygodnia" (the family's week,
                 by person), "pokaż plan lekcji <kto>" (that person's school
                 lessons Mon–Fri as a grid), "wyczyść plan lekcji <kto>" / "wyczyść
@@ -2158,6 +2161,7 @@ _COMMAND_OK = re.compile(
     r"|^(?:przyciemnij|zgaś|rozjaśnij)\s+ekran$"
     r"|^głośność\s+na\s+\d{1,3}(?:\s*%|\s+procent)?$"
     r"|^(?:wyłącz\s+się|idź\s+spać)$"
+    r"|^(?:włącz|wyłącz)\s+(?:efekty|tryb\s+nocny)$"
     r"|^pokaż\s+ustawienia$|^(?:załóż|zdejmij)\s+[\wąćęłńóśźż ]{3,30}$"
     # Malowanie (paint.py; 26 Oct: "włączam Twoje zdjęcie w edytorze", nothing opened)
     r"|^otwórz\s+malowanie$|^otwórz\s+zdjęcie\s+w\s+malowaniu$"

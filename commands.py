@@ -1036,6 +1036,8 @@ _FUTURE = {"włączysz": "włącz", "wyłączysz": "wyłącz", "nastawisz": "nas
            "zatrzymasz": "zatrzymaj", "zmienisz": "zmień", "ściszysz": "ścisz",
            "przepytasz": "przepytaj", "zadasz": "zadaj", "otworzysz": "otwórz",
            "zamkniesz": "zamknij", "założysz": "załóż", "zdejmiesz": "zdejmij"}
+_BARE_INFINITIVE = {"włączyć": "włącz", "wlaczyc": "włącz", "wyłączyć": "wyłącz",
+                    "wylaczyc": "wyłącz", "otworzyć": "otwórz", "uruchomić": "uruchom"}
 _FUTURE_ASK = re.compile(r"^(?:luna,?\s+|hej,?\s+)*(?:a\s+)?(\w+)(.*?)[?.!]*$", re.I)
 
 
@@ -1056,6 +1058,10 @@ def polite_to_command(text):
         verb = _FUTURE.get(f.group(1).lower()) if f else None
         if verb:
             return f"{verb} {f.group(2).strip()}".strip()
+        # "Luna włączyć zegarek" — the STT's infinitive for "włącz" (the model refused)
+        verb = _BARE_INFINITIVE.get(f.group(1).lower()) if f else None
+        if verb and f.group(2).strip():
+            return f"{verb} {f.group(2).strip()}"
         # "no to nastaw minutnik…", "Luna, a teraz włącz radio": the filler goes,
         # but only before a command verb ("to jest Kasia" stays as it is)
         rest = _FILLER_LEAD.sub("", text.strip())
