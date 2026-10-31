@@ -16,3 +16,4 @@ taken from what went wrong in today's conversations (`tools/log_report.py`).
 | # | Improvement | Commit | Status |
 |---|-------------|--------|--------|
 | 6 | A past-tense answer to "dodałaś?" ("Tak, dodałam…") no longer gets "poprawka"; fresh false claims still do | bf77d8e | ✅ shipped |
+| 7 | "Jasne, włączam X" with a wrong or missing command now runs X when it is her switch; else "Co mam włączyć?" (the 4 logged cases were already fixed 23–30 Oct) | 8c5a169 | ✅ shipped |
