@@ -9388,8 +9388,9 @@ class ScheduleTest(unittest.TestCase):
         import schedule
         self.s = schedule
         schedule.PATH = os.path.join(TMP, "schedule.json")
-        if os.path.exists(schedule.PATH):
-            os.remove(schedule.PATH)
+        for f in (schedule.PATH, schedule._undo_path()):
+            if os.path.exists(f):
+                os.remove(f)
         schedule._mem.update(mtime=None, data=None)
         schedule._expect.update(until=0.0, draft=None, who=None, day=None)
         self.p = [mock.patch.object(faces, "names", lambda: ["Andrzej", "Emilka", "Maja"]),
@@ -9881,7 +9882,7 @@ class ScheduleTest(unittest.TestCase):
         self.assertEqual(len(self.s.lessons("Maja")), 1)
         self.assertTrue(self.s.handle("usuń cały plan lekcji Mai", said.append))
         self.assertTrue(self.s.handle("Tak", said.append))
-        self.assertEqual(said[-1], "Wyczyściłam plan lekcji Mai.")
+        self.assertEqual(said[-1], "Wyczyściłam plan lekcji Mai. Gdyby co, powiedz: przywróć plan.")
         self.assertEqual(self.s.lessons("Maja"), [])
         self.assertEqual(len(self.s.lessons("Emilka")), 1)               # hers stays
         self.assertTrue(any(e["title"] == "basen" for e in self.s.events()))  # not a lesson
@@ -9894,6 +9895,47 @@ class ScheduleTest(unittest.TestCase):
         self.assertFalse(self.s.handle("usuń lekcje angielskiego", said.append))
         with state.lock:
             state.overlay = None
+
+    def test_clear_lessons_then_restore(self):
+        # 26 Oct: "usuń plan lekcji Mai" after a bad paper read — now a "tak" clears
+        # it, and "przywróć plan" brings it back (a slip of the tongue, a mishearing)
+        said = []
+        L = self._lesson
+        self.s.save_paper("Maja", [L("polski", [0, 1], "08:00"), L("angielski", [2], "09:00")])
+        self.assertEqual(self.s.restore("przywróć plan lekcji"),
+                         "Nie mam czego przywrócić — nic ostatnio nie znikało z planu.")
+        self.assertTrue(self.s.handle("Usuń plan lekcji Mai.", said.append))
+        self.assertTrue(self.s.handle("tak", said.append))
+        self.assertEqual(said[-1], "Wyczyściłam plan lekcji Mai. Gdyby co, powiedz: przywróć plan.")
+        self.assertEqual(self.s.lessons("Maja"), [])
+        self.assertIsNone(self.s.restore("przywróć listę zakupów"))      # the lists' own
+        self.assertIsNone(self.s.restore("cofnij minutnik"))
+        self.assertTrue(self.s.handle("Luna, przywróć plan lekcji Mai", said.append))
+        self.assertEqual(said[-1], "Przywróciłam plan lekcji Mai.")
+        self.assertEqual(sorted(e["title"] for e in self.s.lessons("Maja")), ["angielski", "polski"])
+        # a bare "cofnij" only right after, and only when the plan's undo is the newer
+        self.s.add("Maja", "parada", [4], "13:00")
+        self.assertTrue(self.s.handle("usuń paradę z planu Mai", said.append))
+        self.assertEqual(said[-1], "Usunęłam z planu: parada (Maja).")
+        with mock.patch.object(lists, "_undo", (time.time() + 1, "zakupy", ["mleko"])):
+            self.assertIsNone(self.s.restore("cofnij"))
+        with mock.patch.object(lists, "_undo", None):
+            self.assertIsNone(self.s.restore("cofnij", now=time.time() + 300))
+            self.assertEqual(self.s.restore("cofnij"), "Przywróciłam do planu: parada (Maja).")
+        self.assertTrue(any(e["title"] == "parada" for e in self.s.events()))
+
+    def test_remove_one_with_the_name_after_the_plan(self):
+        said = []
+        L = self._lesson
+        self.s.save_paper("Maja", [L("krągły przyrodniczy", [0], "11:40"), L("angielski", [0], "08:00")])
+        self.s.save_paper("Emilka", [L("angielski", [1], "08:00")])
+        self.assertTrue(self.s.handle("Usuń krągły przyrodniczy z planu lekcji Mai.", said.append))
+        self.assertEqual(said[-1], "Usunęłam z planu: krągły przyrodniczy (Maja).")
+        self.assertTrue(self.s.handle("skasuj angielski z planu Emilki", said.append))
+        self.assertEqual(said[-1], "Usunęłam z planu: angielski (Emilka).")
+        self.assertEqual([e["title"] for e in self.s.lessons("Maja")], ["angielski"])
+        self.assertTrue(self.s.handle("przywróć angielski", said.append))
+        self.assertEqual(len(self.s.lessons("Emilka")), 1)
 
     def test_paper_titles_one_way(self):
         out, _, _ = self.s.from_paper(
@@ -10018,7 +10060,7 @@ class ScheduleTest(unittest.TestCase):
         self.assertEqual(said[-1], "Na pewno wyczyścić plan tygodnia Mai — wszystko, razem z "
                                    "planem lekcji? Powiedz: tak — albo nie.")
         self.assertTrue(self.s.handle("tak", said.append))
-        self.assertEqual(said[-1], "Wyczyściłam plan tygodnia Mai.")
+        self.assertEqual(said[-1], "Wyczyściłam plan tygodnia Mai. Gdyby co, powiedz: przywróć plan.")
         self.assertEqual(sorted(e["title"] for e in self.s.events()), ["joga", "obiad u babci"])
         with state.lock:                              # (no page: nobody's in particular)
             state.overlay = None

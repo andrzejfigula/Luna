@@ -140,6 +140,10 @@ CASES = [
     ("Orzeł czy reszka?", ""),
     ("Zapamiętaj słowa do dyktanda: rzeka, góra i żaba", "3 słowa do dyktanda"),
     ("Wyczyść słowa do dyktanda", "moje słowa"),
+    ("Dodaj do planu: basen w środę o 17", ""),          # cleared, asked back, restored
+    ("Wyczyść plan tygodnia", "Na pewno"),
+    ("Tak", "przywróć plan"),
+    ("Przywróć plan", "Przywróciłam cały plan tygodnia"),
     ("Powtórz", ""),
     ("Opowiedz dalszy ciąg bajki", "Nie pamiętam żadnej bajki"),
     ("Pokaż zegar", ""),

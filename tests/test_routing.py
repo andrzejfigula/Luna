@@ -628,7 +628,7 @@ class RoutingTest(unittest.TestCase):
         """"Wyczyść plan lekcji Mai" → "Na pewno…?" → "Tak" must get to schedule."""
         import time
         cleared = []
-        with mock.patch.object(schedule, "clear_lessons", lambda who: cleared.append(who) or 3), \
+        with mock.patch.object(schedule, "clear_lessons", lambda who, **k: cleared.append(who) or 3), \
                 mock.patch.object(schedule, "show_lessons", lambda who=None: who):
             schedule._clearing.update(what="lessons", who="Maja", until=time.time() + 30)
             self.assertEqual(self.route("Tak"), "handled-but-unknown")

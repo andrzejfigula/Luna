@@ -49,6 +49,8 @@ LAST_SECS = 10 * 60
 # "wyczyść plan lekcji / tygodnia" asked back: "tak" wipes it. what: "lessons" | "week";
 # who None for the week: everyone's
 _clearing = {"what": None, "who": None, "until": 0.0}
+UNDO_SECS = 24 * 3600          # "przywróć plan": what a clear or removal took, this long
+BARE_UNDO_SECS = 120           # a bare "cofnij" — only this soon after
 
 _DAY_RX = (r"poniedział\w*", r"wtor\w*|wtork\w*", r"środ\w*|srod\w*", r"czwart\w*",
            r"piątek|piątk\w*|piatek|piatk\w*", r"sobot\w*", r"niedziel\w*")
@@ -74,7 +76,10 @@ _ADD = re.compile(r"^(?:luna,?\s+)?(?:dodaj|dopisz|wpisz|zapisz)\s+(?:do\s+|w\s+
 _REMOVE = re.compile(r"^(?:luna,?\s+)?(?:usuń|usun|skasuj|wykreśl|wykresl|wyrzuć|wyrzuc)\s+"
                      r"(?:z\s+(?:planu|harmonogramu|grafiku)(?:\s+(?:tygodnia|zajęć|zajec))?"
                      r"\W*\s*(.+)|(.+?)\s+z\s+(?:planu|harmonogramu|grafiku)"
-                     r"(?:\s+(?:tygodnia|zajęć|zajec))?)\W*$")
+                     r"(?:\s+(?:tygodnia|zajęć|zajec|lekcji))?(?:\s+(?:dla\s+)?(\w+))?)\W*$")
+# "przywróć plan lekcji (Mai)", "cofnij usunięcie z planu", "przywróć paradę"
+_RESTORE = re.compile(r"^(?:luna,?\s+)?(?:przywróć|przywroc|odzyskaj|cofnij)\b\s*(.*)$")
+_RESTORE_WORD = re.compile(r"\b(?:plan\w*|lekcj\w*|lekcje|grafik\w*|harmonogram\w*)\b")
 _LESSONS_SHOW = re.compile(
     r"^(?:luna,?\s+)?(?:(?:pokaż|pokaz|otwórz|otworz)\s+(?:mi\s+|nam\s+)?|"
     r"(?:a\s+)?jaki\s+(?:jest\s+|mam\s+|masz\s+)?)?(?:(?:mój|moj|swój|swoj)\s+)?"
@@ -173,13 +178,17 @@ def update(eid, **changes):
     return None
 
 
-def remove(eid):
+def remove(eid, keep=False):
+    """keep: by voice or a tap — "przywróć" brings it back (not a paper's own swap)."""
     with _lock:
         d = _load()
         gone = [e for e in d["events"] if e["id"] == eid]
         d["events"] = [e for e in d["events"] if e["id"] != eid]
         d["done"].pop(eid, None)
         _save(d)
+    if gone and keep:
+        e = gone[0]
+        _keep(gone, f"do planu: {e['title']}" + (f" ({e['who']})" if e.get("who") else ""))
     if gone:
         print(f"[schedule] removed {gone[0]['who'] or 'dom'}: {gone[0]['title']}", flush=True)
     return gone[0] if gone else None
@@ -187,6 +196,69 @@ def remove(eid):
 
 def get(eid):
     return next((e for e in events() if e["id"] == eid), None)
+
+
+def _undo_path():
+    return PATH.replace(".json", "_undo.json")
+
+
+def _keep(gone, said):
+    """What a clear or removal took, for "przywróć plan" (a file: a restart
+    must not lose it). said: "plan lekcji Mai", "do planu: parada (Maja)"."""
+    try:
+        with open(_undo_path() + ".tmp", "w", encoding="utf-8", newline="\n") as f:
+            json.dump({"t": time.time(), "said": said, "events": gone}, f, ensure_ascii=False)
+        os.replace(_undo_path() + ".tmp", _undo_path())
+    except OSError as e:
+        print(f"[schedule] undo not kept: {e}", flush=True)
+
+
+def _kept():
+    try:
+        with open(_undo_path(), encoding="utf-8") as f:
+            u = json.load(f)
+        return u if u.get("events") else None
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
+def restore(text, now=None):
+    """"przywróć plan lekcji", "cofnij usunięcie z planu", "przywróć paradę" or
+    a bare "cofnij" just after → the reply; None when it isn't for the plan."""
+    now = time.time() if now is None else now
+    m = _RESTORE.match(text.lower().strip())
+    if not m or len(text.split()) > 9:
+        return None
+    rest = m.group(1).strip(" .!?")
+    u = _kept()
+    fresh = u and now - u["t"] <= UNDO_SECS
+    if not rest or re.fullmatch(r"to|z\s+powrotem|to\s+z\s+powrotem", rest):
+        import lists                 # the newer one of the two undos takes a bare "cofnij"
+        lu = lists._undo
+        if not fresh or now - u["t"] > BARE_UNDO_SECS or (lu and lu[0] > u["t"]):
+            return None
+    elif not _RESTORE_WORD.search(rest):
+        titles = {w[:5] for e in (u["events"] if fresh else []) for w in re.findall(r"\w{3,}", e["title"].lower())}
+        if not titles & {w[:5] for w in re.findall(r"\w{3,}", rest)}:
+            return None              # "przywróć listę", "cofnij minutnik"
+    if not fresh:
+        return "Nie mam czego przywrócić — nic ostatnio nie znikało z planu."
+    with _lock:
+        d = _load()
+        have = {e["id"] for e in d["events"]}
+        back = [e for e in u["events"] if e["id"] not in have]
+        d["events"] += back
+        if back:
+            _save(d)
+    try:
+        os.remove(_undo_path())
+    except OSError:
+        pass
+    print(f"[schedule] restored {len(back)} entries ({u['said']})", flush=True)
+    _refresh()
+    if not back:
+        return "Plan jest już taki jak wcześniej."
+    return f"Przywróciłam {u['said']}."
 
 
 # ── words ─────────────────────────────────────────────────────────────────────
@@ -990,12 +1062,12 @@ def handle(text, speak):
         name = f"plan lekcji {genitive(who)}" if what == "lessons" else _whose_week(who)
         if live and _SURE.match(low) and not re.search(r"\bnie\b", low):
             if what == "lessons":
-                n = clear_lessons(who)
+                n = clear_lessons(who, keep=True)
                 show_lessons(who)
             else:
-                n = clear_week(who)
+                n = clear_week(who, keep=True)
                 show(who)
-            speak(f"Wyczyściłam {name}." if n else f"{name[0].upper()}{name[1:]} był już pusty.")
+            speak(f"Wyczyściłam {name}. Gdyby co, powiedz: przywróć plan." if n else f"{name[0].upper()}{name[1:]} był już pusty.")
             return True
         if live and (_STOP.match(low) or re.match(r"^nie\b", low)):
             speak(f"Dobrze, {name} zostaje.")
@@ -1102,16 +1174,20 @@ def handle(text, speak):
             p = {"who": who if who is not None else _speaker(),
                  "title": rest.strip(" .,:") or None, "days": None, "at": None, "end": ""}
         return _take(p, speak)
+    said = restore(text)
+    if said:
+        speak(said)
+        return True
     m = _REMOVE.match(low)
     if m:
-        hits = _match(m.group(1) or m.group(2) or "")
+        hits = _match(m.group(1) or f"{m.group(2)} {m.group(3) or ''}")
         if not hits:
             speak("Nie widzę tego w planie tygodnia.")
         elif len(hits) > 1:
             speak("Pasuje kilka: " + "; ".join(f"{e['title']} {e['who']}".strip() for e in hits[:4])
                   + ". Powiedz też, czyje.")
         else:
-            remove(hits[0]["id"])
+            remove(hits[0]["id"], keep=True)
             _refresh()
             speak(f"Usunęłam z planu: {hits[0]['title']}"
                   + (f" ({hits[0]['who']})" if hits[0]["who"] else "") + ".")
@@ -1192,7 +1268,7 @@ def week_entries(who=None):
     return [e for e in events() if who is None or (e.get("who") or "") == who]
 
 
-def clear_week(who=None):
+def clear_week(who=None, keep=False):
     """The week's plan wiped: `who`'s entries (lessons too), or everyone's."""
     with _lock:
         d = _load()
@@ -1202,6 +1278,8 @@ def clear_week(who=None):
             d["done"].pop(e["id"], None)
         if gone:
             _save(d)
+    if gone and keep:
+        _keep(gone, _whose_week(who))
     print(f"[schedule] cleared the week of {who or 'everyone'}: {len(gone)} entries", flush=True)
     return len(gone)
 
@@ -1273,7 +1351,7 @@ def lessons(who):
     return [e for e in events() if e.get("kind") == "lesson" and (e.get("who") or "") == (who or "")]
 
 
-def clear_lessons(who):
+def clear_lessons(who, keep=False):
     """All of `who`'s lessons gone (the rest of their plan stays): how many
     lesson-days went."""
     with _lock:
@@ -1285,6 +1363,8 @@ def clear_lessons(who):
             d["done"].pop(e["id"], None)
         if gone:
             _save(d)
+    if gone and keep:
+        _keep(gone, f"plan lekcji {genitive(who)}")
     n = sum(len(e["days"]) for e in gone)
     print(f"[schedule] cleared {who or 'dom'}'s lessons: {len(gone)} entries", flush=True)
     return n
@@ -1486,7 +1566,7 @@ def _tap_lessons(d, x, y, W, H, speak):
         d["ask"] = True
     elif kind == "yes":                      # "Tak, wyczyść" — they stay a chip for a new paper
         who = d["who"]
-        clear_lessons(who)
+        clear_lessons(who, keep=True)
         if who not in d.setdefault("added", []):
             d["added"].append(who)
         d["ask"] = False
@@ -1605,7 +1685,7 @@ def tap(x, y, W, H, speak=None):
         d["sel"], d["confirm"] = hit[1], 0.0
     elif kind == "wipe":                     # "Wyczyść", tapped twice
         if now - d.get("confirm", 0.0) < 4.0:
-            n = clear_week(d.get("who"))
+            n = clear_week(d.get("who"), keep=True)
             d["confirm"], d["page"] = 0.0, 0
             d["toast"] = (f"Wyczyszczone: {n} {_pl(n, 'pozycja', 'pozycje', 'pozycji')}",
                           now + 3.0)
@@ -1658,7 +1738,7 @@ def tap(x, y, W, H, speak=None):
             update(e["id"], remind=r)
         elif kind == "delete":
             if now - d.get("confirm", 0.0) < 4.0:
-                remove(e["id"])
+                remove(e["id"], keep=True)
                 d["sel"], d["confirm"] = None, 0.0
                 d["view"] = d.pop("back", None) or d.get("view")
                 d["toast"] = (f"Usunięte: {e['title']}", now + 3.0)
