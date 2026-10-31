@@ -32,3 +32,8 @@ taken from what went wrong in today's conversations (`tools/log_report.py`).
 |---|-------------|--------|--------|
 | 11 | No "kochanie" if an unnamed face or other family were seen in the last 3 min, or he's out of view (15:20 slip: unknown face "closest Emilka" right before) | 2ac31bf | ✅ shipped |
 | 12 | Model's non-words fixed before TTS/screen (`polish.fix_nonwords`): zrobę→zrobię, odpalię→odpalę, brokułam→brokułami, nadawam→nadaję — only changes those 4 across 4119 logged lines | 02b2404 | ✅ shipped |
+
+## Round 5 — branch improvements-5 (cut from improvements-4): robustness and speed from the logs
+
+| # | Improvement | Commit | Status |
+|---|-------------|--------|--------|
