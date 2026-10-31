@@ -467,6 +467,27 @@ def fix_desk(text):
     return re.sub(r"\bna\s+desk\b", "na biurku", text, flags=re.I)
 
 
+# Forms the model coins that are never Polish words (Pi logs, Oct 2026: "nie
+# zrobę", "odpalię stację", "z brokułam", "Nadawam") — pattern → replacement.
+_NON_WORDS = [
+    (r"\b(z|prze|do|na|po|wy|za|od|u)robę\b", r"\1robię"),
+    (r"\b(\w*)palię\b", r"\1palę"),
+    (r"\b(\w*)dawam\b", r"\1daję"),
+    (r"\bbrokułam\b", "brokułami"),
+    (r"\b(roz)?umię\b", r"\1umiem"),
+]
+
+
+def fix_nonwords(text):
+    """"zrobę" → "zrobię" etc. (only forms no Polish word has; capital kept)."""
+    def keep_case(repl):
+        return lambda m: (lambda s: s[:1].upper() + s[1:] if m.group(0)[0].isupper()
+                          else s)(m.expand(repl).lower())
+    for pat, repl in _NON_WORDS:
+        text = re.sub(pat, keep_case(repl), text or "", flags=re.I)
+    return text
+
+
 _GEN_ONES = ["", "jednego", "dwóch", "trzech", "czterech", "pięciu", "sześciu", "siedmiu",
              "ośmiu", "dziewięciu"]
 _GEN_TEENS = ["dziesięciu", "jedenastu", "dwunastu", "trzynastu", "czternastu", "piętnastu",

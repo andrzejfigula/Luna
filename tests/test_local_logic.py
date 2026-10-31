@@ -4652,6 +4652,18 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(out.taken, b"")
         self.assertEqual(out.last_utterance, b"old line")  # "powtórz" still has one
 
+    def test_fix_nonwords(self):
+        from polish import fix_nonwords as f
+        self.assertEqual(f("sama nie zrobę wielu rzeczy"), "sama nie zrobię wielu rzeczy")
+        self.assertEqual(f("a ja odpalię stację"), "a ja odpalę stację")
+        self.assertEqual(f("z ryżem, brokułam i sosem"), "z ryżem, brokułami i sosem")
+        self.assertEqual(f("Nadawam spokojnie."), "Nadaję spokojnie.")
+        self.assertEqual(f("Przerobę to, rozumię."), "Przerobię to, rozumiem.")
+        real = ("zrobię robię robę przeróbkę odpalę palę spalę zapalił daję dawać "
+                "nadawał wydawać brokułami brokułom umiem rozumiem rozumie umie "
+                "zarobek stówę")
+        self.assertEqual(f(real), real)
+
     def test_fix_degrees(self):
         from polish import fix_degrees as f
         # 24 Oct: "Jutro ma padać, około pięć do jedenaście stopni."
