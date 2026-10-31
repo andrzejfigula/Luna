@@ -30,3 +30,4 @@ taken from what went wrong in today's conversations (`tools/log_report.py`).
 
 | # | Improvement | Commit | Status |
 |---|-------------|--------|--------|
+| 11 | No "kochanie" if an unnamed face or other family were seen in the last 3 min, or he's out of view (15:20 slip: unknown face "closest Emilka" right before) | 2ac31bf | ✅ shipped |
