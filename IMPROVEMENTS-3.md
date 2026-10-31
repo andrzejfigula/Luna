@@ -18,3 +18,8 @@ taken from what went wrong in today's conversations (`tools/log_report.py`).
 | 6 | A past-tense answer to "dodałaś?" ("Tak, dodałam…") no longer gets "poprawka"; fresh false claims still do | bf77d8e | ✅ shipped |
 | 7 | "Jasne, włączam X" with a wrong or missing command now runs X when it is her switch; else "Co mam włączyć?" (the 4 logged cases were already fixed 23–30 Oct) | 8c5a169 | ✅ shipped |
 | 8 | "Usuń plan lekcji Mai" (26 Oct, before clearing existed) works; added "przywróć plan" undo for clears/removals and "usuń X z planu (lekcji) Mai" | 684c7ad | ✅ shipped |
+
+## Round 3 — she refuses things she can do (29–31 Oct logs)
+
+| # | Improvement | Commit | Status |
+|---|-------------|--------|--------|
