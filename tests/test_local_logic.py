@@ -457,6 +457,15 @@ class TimersTest(unittest.TestCase):
         self.assertFalse(claims_undone("Mogę włączyć radio, chcesz?", []))
         self.assertTrue(claims_undone("Tak, skasowałam. Plan Mai już nie ma.", []))
         self.assertTrue(claims_undone("Już kasuję cały plan Mai.", []))
+        # 30 Oct: confirming the plan saved earlier is not a fresh claim
+        ok = "Tak, dodałam to, co dało się odczytać z kartki."
+        self.assertFalse(claims_undone(ok, [], (), "Dobra, zrobiłaś to, dodałaś?"))
+        self.assertFalse(claims_undone(ok, [], (), "dobra dodałaś"))
+        self.assertTrue(claims_undone("Usunęłam plan lekcji Mai.", [], (),
+                                      "Usuń plan lekcji Mai."))
+        self.assertTrue(claims_undone("Tak, już włączam.", [], (), "Włączyłaś radio?"))
+        self.assertTrue(claims_undone("Dodałam.", [], (),
+                                      "wczoraj usunęłaś mi to więc dodaj z powrotem chleb"))
 
     def test_log_report_audio_by_hour(self):
         sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(

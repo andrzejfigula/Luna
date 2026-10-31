@@ -2073,7 +2073,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                      or any(d.startswith("cancelled ") and "nothing matched" not in d
                             for d in set_now)]
         if not (tuned or drew or copied or corrected or translator()) and claims_undone(
-                reply, done_acts, refused):
+                reply, done_acts, refused, text):
             # "Jasne, usunęłam to z listy." / "wyłączam ekran gry" and nothing
             # happened (18 Oct log, 3 a day): she says so instead of leaving it
             extra = "Ojej, poprawka — tego jednak nie zrobiłam."

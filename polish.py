@@ -220,10 +220,23 @@ _DOING = re.compile(r"(?<!nie )\b(?:włączam|wyłączam|nastawiam|ustawiam|pusz
                     r"wykasowałam|kasuję|czyszczę)\b", re.I)
 
 
-def claims_undone(reply, actions, refused=()):
+_PAST_DONE = re.compile(r"łam$", re.I)
+_ASKED_DONE = re.compile(r"\b\w+(?:łaś|łeś)\b", re.I)
+
+
+def _confirms_earlier(reply, asked):
+    """"Dobra, dodałaś?" → "Tak, dodałam to, co dało się odczytać." (30 Oct, after
+    the plan really was saved): a past-tense answer to a "did you…?" question."""
+    words = (asked or "").split()
+    if not _ASKED_DONE.search(asked or "") or ("?" not in asked and len(words) > 4):
+        return False
+    return all(_PAST_DONE.search(m.group(0)) for m in _DOING.finditer(reply or ""))
+
+
+def claims_undone(reply, actions, refused=(), asked=""):
     """The reply says she did a switch / list change, and either no action came
     with it or every command it came with was refused."""
-    if not _DOING.search(reply or ""):
+    if not _DOING.search(reply or "") or _confirms_earlier(reply, asked):
         return False
     actions = actions or []
     if not actions:
