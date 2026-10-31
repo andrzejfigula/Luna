@@ -558,10 +558,23 @@ _ASK_VERB = re.compile(r"^(?:wymyśl|wymysl|zaproponuj|podpowiedz|opowiedz|powie
                        r"wytlumacz|zaśpiewaj|zaspiewaj|poradź|poradz)\b", re.I)
 
 
+def _you_question(text):
+    """A short question to "you" ("Co robisz?", "Jak się masz?", "Słyszysz
+    mnie?") — not to someone named, not to a man, not about her ("ona")."""
+    low = (text or "").strip().lower()
+    if "?" not in low or len(low.split()) > 5 or not _TO_HER.search(low):
+        return False
+    if re.search(r"\b(?:ona|jej|niej|nią|on|jego|niego|oni|one)\b", low):
+        return False
+    return not (_to_someone(text) or _TO_A_MAN.search(low))
+
+
 def _alone_request(text):
     """"Wymyśl, co jeszcze kupić" with nobody else in view — a request to her
     (8 Oct probe: 1 in 4 times taken for side talk → silence)."""
-    if len(text.split()) > 12 or _language_line(text) or not _ASK_VERB.match(text.strip()):
+    if len(text.split()) > 12 or _language_line(text):
+        return False
+    if not (_ASK_VERB.match(text.strip()) or _you_question(text)):
         return False
     with state.lock:
         person = state.person

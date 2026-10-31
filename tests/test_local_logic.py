@@ -3710,8 +3710,15 @@ class KidsTest(unittest.TestCase):
             state.others = ([], 0.0)
             self.assertTrue(brain._alone_request("Wymyśl, co jeszcze kupić do jedzenia."))
             self.assertFalse(brain._alone_request("Tutaj się naciska, przytrzymujesz chwilę."))
+            # 30 Oct 22:58: "Co robisz?" alone with her → silence, said twice
+            for q in ("Co robisz?", "Jak się masz?", "Słyszysz mnie?"):
+                self.assertTrue(brain._alone_request(q), q)
+            for q in ("Mamo, co robisz?", "Co robiłeś?", "Co ona robi?", "Blokujesz.",
+                      "Co robisz jutro po szkole z kolegami z klasy?"):
+                self.assertFalse(brain._alone_request(q), q)
             state.others = (["Maja"], time.time())
             self.assertFalse(brain._alone_request("Wymyśl, co jeszcze kupić do jedzenia."))
+            self.assertFalse(brain._alone_request("Co robisz?"))   # two talking: side talk
             state.person = None
             self.assertFalse(brain._alone_request("Wymyśl coś."))
         finally:

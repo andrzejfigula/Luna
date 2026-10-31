@@ -1,3 +1,4 @@
+- Gdy ktoś sam przy Lunie pyta krótko „Co robisz?”, „Jak się masz?” czy „Słyszysz mnie?”, odpowiada od razu — nie trzeba powtarzać.
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
 
