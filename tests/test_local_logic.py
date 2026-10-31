@@ -12207,5 +12207,30 @@ class NoCreditsTest(unittest.TestCase):
         self.assertNotIn(("offline", "brak środków"), statusbar.items()[0])
 
 
+class LatencyReplyStageTest(unittest.TestCase):
+    """31 Oct: "sentence 6.54" read as a slow splitter — it was the model's
+    wait; the "reply" stage (its text began streaming) now shows it."""
+
+    def test_reply_stage_between_model_and_sentence(self):
+        import timing
+        timing.reset()
+        heard = time.time() - 5
+        for k in ("text", "model", "reply", "sentence"):
+            timing.mark(k)
+        line = timing.report(heard)
+        self.assertEqual([p.split()[0] for p in line.split(", ")],
+                         ["text", "model", "reply", "sentence"])
+
+    def test_on_head_comes_with_the_reply_start(self):
+        from reply_stream import ReplyStream
+        seen = []
+        rs = ReplyStream(lambda e, g: seen.append("head"), lambda s: seen.append(s))
+        rs.feed('{"to_luna": true, "user_mood": "neutral", "emotion": "happy", '
+                '"gesture": "none", "reply": "Wid')
+        self.assertEqual(seen, ["head"])
+        rs.feed('zę okno i ciemność za szybą. Jeśli')
+        self.assertEqual(seen, ["head", "Widzę okno i ciemność za szybą."])
+
+
 if __name__ == "__main__":
     unittest.main()

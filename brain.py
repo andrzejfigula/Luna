@@ -3126,6 +3126,8 @@ def _process(text, context=None):
     head = {}
 
     def on_head(emotion, gesture):
+        import timing
+        timing.mark("reply")
         head["_t"] = time.time() - t0
         head["emotion"] = emotion if emotion in EMOTIONS else "neutral"
         head["gesture"] = gesture if gesture in GESTURES else "none"
