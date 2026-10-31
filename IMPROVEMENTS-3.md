@@ -24,3 +24,4 @@ taken from what went wrong in today's conversations (`tools/log_report.py`).
 | # | Improvement | Commit | Status |
 |---|-------------|--------|--------|
 | 9 | "otwórz/uruchom zegar(ek)" and the STT's "włączyć zegarek" open the clock; prompt names radio effects + night mode (settings/visualiser/night mode were already local) | 781fc15 | ✅ shipped |
+| 10 | Theme switches: the 23–25 Oct refusals were already fixed; the one left (30 Oct) — "przełącz na retro" right after a theme switch is the character, not the oldies radio; prompt: a switch is never refused | 0df3f7e | ✅ shipped |
