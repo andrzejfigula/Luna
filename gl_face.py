@@ -233,13 +233,23 @@ float sdSquircle(vec2 q, vec2 b, float n) {
     return (f - 1.0) * min(b.x, b.y) * (0.75 + 0.25 * min(b.x, b.y) / max(b.x, b.y));
 }
 
+// a smooth max: two edges meet in a round corner about k across
+float smax(float a, float b, float k) {
+    float h = max(k - abs(a - b), 0.0) / max(k, 1e-3);
+    return max(a, b) + 0.25 * h * h * k;
+}
+
 float eyeSDF(vec2 q, vec4 e, vec4 la, vec4 lb, float side) {
     vec2 b = e.zw * 0.5;
     float d = sdSquircle(q, b, mix(lb.w, 2.0, uMorph.z));       // round when surprised
+    // the lids round into its sides; the rounding grows as a lid comes in
+    // (none while it only touches the top, so an open eye keeps its size)
+    // (each lid against the sides only: two lids close together stay a thin slit)
+    float kr = 0.45 * min(b.x, b.y);
     vec2 t = lidTop(q.x, b, la, side);
-    d = max(d, (t.x - q.y) / sqrt(1.0 + t.y * t.y));
     vec2 u = lidBot(q.x, b, la, lb);
-    d = max(d, (q.y - u.x) / sqrt(1.0 + u.y * u.y));
+    d = max(smax(d, (t.x - q.y) / sqrt(1.0 + t.y * t.y), kr * smoothstep(0.0, 0.15 * b.y, t.x + b.y)),
+            smax(d, (q.y - u.x) / sqrt(1.0 + u.y * u.y), kr * smoothstep(0.0, 0.15 * b.y, b.y - u.x)));
     if (uMorph.x > 0.001) {                         // love: the eye becomes a heart
         float s = min(b.x / 0.64, 2.0 * b.y / 1.12);
         float heart = sdHeart(vec2(q.x, 0.56 * s - q.y) / s) * s;
@@ -891,7 +901,11 @@ void main() {
     float d = eyeSDF(q, e, la, lb, side);
     if (d > 10.0 || e.w < 4.0) discard;
     vec2 b = e.zw * 0.5;
-    float m = max(min(b.x, b.y), 1.0);
+    // the open part between the lids: the lens's middle and half-height
+    float yt = max(lidTop(0.0, b, la, side).x, -b.y), yb = min(lidBot(0.0, b, la, lb).x, b.y);
+    vec2 bo = mix(vec2(b.x, clamp(0.5 * (yb - yt), 2.0, b.y)), b, uMorph.x);
+    vec2 qo = q - vec2(0.0, 0.5 * (yt + yb) * (1.0 - uMorph.x));
+    float m = max(min(bo.x, bo.y), 1.0);
     vec2 g = normalize(vec2(eyeSDF(q + vec2(1.0, 0.0), e, la, lb, side) - d,
                             eyeSDF(q + vec2(0.0, 1.0), e, la, lb, side) - d) + 1e-6);
     float a = clamp(0.5 - d, 0.0, 1.0);
@@ -906,11 +920,12 @@ void main() {
     // its size (the slope falls smoothly to 0), a shallow dome on top
     float W = 0.50 * m;
     float s = sq(1.0 - clamp(-d / W, 0.0, 1.0));      // the bevel's slope
-    vec3 n = normalize(vec3(g * s * 1.6 + q / b * 0.20, 1.0));
+    vec3 n = normalize(vec3(g * s * 1.6 + qo / bo * 0.20, 1.0));
     // through it: the surface bends the view toward the thick middle; the
     // shift fades smoothly inward and never folds back, so what is behind is
-    // magnified at the bevel (~5x at the very edge), a little in the middle
-    vec2 off = -(g * s * 0.36 * W + q * 0.10);
+    // magnified at the bevel (~5x near the edge), barely in the middle; at
+    // the very edge it eases to 0, so what is behind runs on into the glass
+    vec2 off = -(g * s * 0.40 * W + qo * 0.07) * smoothstep(0.0, 0.10 * m + 1.0, -d);
     float disp = 0.03 * s;
     vec3 bg = vec3(texture2D(uBg, bgUV(p + toFace(off * (1.0 + disp), ang))).r,
                    texture2D(uBg, bgUV(p + toFace(off, ang))).g,
@@ -919,11 +934,14 @@ void main() {
     vec3 bot = mix(mix(uBottom, uTint, uTintAmt * 0.85), uHeartBottom, uMorph.x);
     vec3 amber = max(top / max(max(top.r, top.g), max(top.b, 1e-3)), vec3(0.04));
     // amber by the way through it: short in the middle, long where the bevel slants
-    vec3 col = bg * pow(amber, vec3(0.30 + 1.2 * (1.0 / n.z - 1.0)));
+    vec3 col = bg * pow(amber, vec3(0.15 + 1.2 * (1.0 / n.z - 1.0)));
     // the rim's light scattered a little way in, most from below
     float v = clamp((q.y + b.y) / (2.0 * b.y), 0.0, 1.0);
     vec3 warm = mix(top, bot, v);
-    col += warm * 0.16 * exp(min(d, 0.0) / (0.22 * m)) * (0.4 + 0.9 * smoothstep(0.2, 1.0, v));
+    // (by day her own light counts for less against the bright world: clearer)
+    float day = uEnvOn > 0.5 ? smoothstep(0.20, 0.55, dot(uEnvZen, vec3(0.30, 0.55, 0.15))) : 0.0;
+    col += warm * 0.16 * (1.0 - 0.5 * day) * exp(min(d, 0.0) / (0.22 * m))
+           * (0.4 + 0.9 * smoothstep(0.2, 1.0, v));
     // the pupil sits in it: a soft shade round it
     if (pu.w > 0.01 && pu.z >= 2.0) {
         float ir = length((q - pu.xy - vec2(0.0, 0.10 * pu.z)) / vec2(0.93, 1.0));
@@ -939,12 +957,12 @@ void main() {
     col = col * (1.0 - F) + refl * F;
     // the room's lamp, up-left in front of her: one highlight where the
     // curve faces it (a point light, so it stays a spot, not a band)
-    vec2 lxy = vec2(-0.45 * b.x, -2.2 * b.y);
+    vec2 lxy = vec2(-0.45 * bo.x, -2.2 * bo.y);
     float lc = cos(uTilt), ls = sin(uTilt);
     lxy = toFace(vec2(lc * lxy.x - ls * lxy.y, ls * lxy.x + lc * lxy.y), -ang);
-    vec3 L = normalize(vec3(lxy - q, 2.6 * m));
+    vec3 L = normalize(vec3(lxy - qo, 2.6 * m));
     float nh = max(dot(n, normalize(L + vec3(0.0, 0.0, 1.0))), 0.0);
-    col += vec3(1.0, 0.97, 0.90) * (0.55 * pow(nh, 80.0) + 0.05 * pow(nh, 12.0));
+    col += vec3(1.0, 0.97, 0.90) * (0.55 * pow(nh, 80.0) + 0.05 * (1.0 - 0.6 * day) * pow(nh, 12.0));
     // the sun and the moon catch its bevel on their side
     if (uEnvOn > 0.5) {
         vec2 lgn = toFace(g, ang);
@@ -2305,8 +2323,13 @@ class GLFace:
                 shutters.append(max(shut, lk))    # and draw back
                 top, bot, bend, bbend, tilt = (v * (1.0 - lk) for v in (top, bot, bend, bbend, tilt))
                 shut = 0.0
-            ey += 4.0 * shut                      # a blink squashes the eye down a little
-            h *= 1.0 - 0.04 * shut
+            # a blink: the soft glass squashes toward where the lids meet (and
+            # spreads a little); the pupil keeps its size, the lids cover it
+            h_open = h
+            yf = top + 0.62 * max(0.0, 1.0 - top - bot) - 0.5
+            ey += h * yf * 0.30 * shut
+            h *= 1.0 - 0.30 * shut
+            w *= 1.0 + 0.05 * shut
             open_ = max(0.0, 1.0 - top - bot)
             top, bot = top + shut * open_ * 0.62, bot + shut * open_ * 0.38
             mid = 0.5 * (bend + bbend)
@@ -2319,7 +2342,7 @@ class GLFace:
             u[f"uLidA{i}"] = (top, tilt, bend, bot)
             u[f"uLidB{i}"] = (bbend, seam, math.radians(cur["rot"][i]), cur["eye_n"])
             # the iris: where she looks (face tracking + the mood's own glance)
-            pr = min(w, h) * 0.26 * cur["pupil"][i] * eye.pupil_scale
+            pr = min(w, h_open) * 0.26 * cur["pupil"][i] * eye.pupil_scale
             pr *= 1.0 + 0.03 * math.sin(now * 0.8)                 # pupils breathe too
             pr *= 1.0 + 0.06 * getattr(face, "awake_glow", 0.0)    # interested: a bit wider
             pr *= 1.0 + 0.15 * life.bump(now, life.seen_t, 1.6)    # someone's there: wide
@@ -2370,7 +2393,7 @@ class GLFace:
             mx_, my_ = max(0.0, w / 2 - pr * 0.95), max(0.0, h / 2 - pr * 0.80)
             dx, dy = max(-mx_, min(mx_, dx)), max(-my_, min(my_, dy))
             shown = (1.0 - cur["heart"]) if rf.BLOCK_PUPIL else 0.0
-            shown *= max(0.0, min(1.0, (gap - 8.0) / 22.0))     # a slit: just the glow
+            shown *= max(0.0, min(1.0, (gap - 14.0) / 16.0))    # a slit: just the glow
             if lens:                              # HAL: a squint narrows his light
                 pr *= 1.0 - 0.55 * life.aperture[i]
             u[f"uPupil{i}"] = (dx, dy, pr, shown)
