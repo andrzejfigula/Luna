@@ -888,8 +888,8 @@ vec3 envSky(vec2 q) {
     vec2 fr = (q - uBlush.xy - vec2(0.0, 30.0)) / vec2(300.0, 190.0);
     float dk = uEnvDisc.w * smoothstep(hy + 4.0, hy - 8.0, q.y)
                * mix(0.5, 1.0, smoothstep(0.3, 0.7, length(fr)));     // (fainter behind her eyes)
-    c = mix(c, uEnvDiscC, dk * (1.0 - smoothstep(0.2, 1.3, dd)));
-    c += uEnvDiscC * dk * 0.18 * exp(-dd * dd * 0.25);
+    c = mix(c, uEnvDiscC, dk * (1.0 - smoothstep(0.25, 1.2, dd)));
+    c += uEnvDiscC * dk * 0.24 * exp(-dd * dd * 0.25);
     vec2 ar = envArc(q);
     float arcw = ar.y > -0.1 && ar.y < 1.1 ? envArcK(ar.y) * exp(-ar.x / 90.0) : 0.0;
     gCov = 0.0;

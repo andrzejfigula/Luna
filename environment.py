@@ -39,8 +39,10 @@ TUNE = {
     "sun_size": 0.30,
     # the sun itself, a soft disc behind the clouds where it really is: the
     # azimuth's degrees across the screen (south in the middle), its radius
-    # and top (× the height), the height (°) where it gets there, opacity
-    "sun_span": 260.0, "disc_r": 0.055, "disc_top": 0.12, "disc_rise": 30.0, "disc_a": 0.40,
+    # and top (× the height), the height (°) where it gets there, opacity,
+    # how much bigger it looks at the horizon (as it does)
+    "sun_span": 260.0, "disc_r": 0.055, "disc_top": 0.12, "disc_rise": 30.0, "disc_a": 0.55,
+    "disc_low": 1.8,
     # rain at its heaviest: drops on screen, their opacity, length px, speed px/s
     "rain_count": 340, "rain_alpha": 0.32, "rain_len": 24.0, "rain_speed": 620.0,
     # snow at its heaviest: flakes, opacity, size px, speed px/s
@@ -497,7 +499,7 @@ class Env:
         # the sun: a soft disc where it really is, its top under the horizon
         # at sunset; its haze round it, staying at the horizon below it
         e = cur["elev"]
-        dr_ = h * TUNE["disc_r"]
+        dr_ = h * TUNE["disc_r"] * (1.0 + (TUNE["disc_low"] - 1.0) * (1.0 - _smooth((e - 2.0) / 16.0)))
         dx, dy = w * cur["sun_x"], disc_y(e, hy, h, dr_)
         sx = w * (TUNE["sun_x"] + (max(0.06, min(0.94, cur["sun_x"])) - TUNE["sun_x"])
                   * _smooth((e + 12.0) / 10.0))
