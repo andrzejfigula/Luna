@@ -287,12 +287,15 @@ vec3 glassColour(vec2 q, vec2 b, float d, vec2 look, vec4 la, float side, out fl
     float v = clamp((q.y + b.y) / (2.0 * b.y), 0.0, 1.0);
     vec3 col = mix(top, bot, smoothstep(0.05, 1.0, v));
     float m = min(b.x, b.y);
-    float rim = exp(min(d, 0.0) / (0.06 * m));          // the lit edge
+    // the lit edge: light caught in the thick glass, breathing slowly,
+    // brighter where the light pools along it
+    float pool = 1.0 + 0.16 * sin(2.3 * q.x / b.x + 1.4 * q.y / b.y + 0.35 * uTime);
+    float rim = exp(min(d, 0.0) / (0.06 * m)) * pool * (1.0 + 0.06 * sin(uTime * 1.3));
     float halo = exp(min(d, 0.0) / (0.28 * m));         // its light, spreading inward
-    vec3 c = col * (0.05 + 0.18 * halo + 0.85 * rim);
-    op = 0.04 + 0.10 * halo + 0.62 * rim;
+    vec3 c = col * (0.03 + 0.11 * halo + 0.85 * rim);
+    op = 0.03 + 0.06 * halo + 0.62 * rim;
     vec2 n = (q - vec2(0.0, 0.15 * b.y)) / b;            // a warm core, lit from inside
-    c += top * 0.12 * exp(-dot(n, n) * 1.8);
+    c += top * 0.05 * exp(-dot(n, n) * 1.8);
     // the upper lid's shadow
     vec2 t = lidTop(q.x, b, la, side);
     float lidded = smoothstep(0.02, 0.12, la.x) * (1.0 - uMorph.x);
@@ -301,10 +304,16 @@ vec3 glassColour(vec2 q, vec2 b, float d, vec2 look, vec4 la, float side, out fl
     op = mix(op, 0.75, ls);
     // the light sinks: the bottom glows hottest
     c += bot * 0.45 * exp(min(d, 0.0) / 9.0) * smoothstep(0.45, 1.0, v);
-    // a window's reflection up-left, sliding against the gaze
-    vec2 gq = q + look * 0.22;
-    vec2 hp = (gq - vec2(-0.40 * b.x, -0.55 * b.y)) / vec2(0.30 * b.x, 0.12 * b.y);
-    float h = 0.70 * exp(-dot(hp, hp) * 1.8) * (1.0 - 0.7 * lidded);
+    // a window's reflection up-left, sliding against the gaze: two sharp
+    // panes, skewed by the curve, and a thin streak low on the other side
+    vec2 wq = q + look * 0.22 - vec2(-0.38 * b.x, -0.56 * b.y);
+    wq.x -= 0.30 * wq.y;
+    wq.x = abs(wq.x) - 0.105 * b.x;                       // the mullion splits it
+    vec2 wb = abs(wq) - vec2(0.085 * b.x, 0.10 * b.y);
+    float pane = clamp(0.5 - (length(max(wb, 0.0)) + min(max(wb.x, wb.y), 0.0) - 3.0), 0.0, 1.0);
+    vec2 sq2 = (q + look * 0.15 - vec2(0.42 * b.x, 0.62 * b.y)) / vec2(0.16 * b.x, 0.025 * b.y);
+    float h = (0.62 * pane * (0.85 + 0.15 * smoothstep(0.1 * b.y, -0.1 * b.y, wq.y))
+               + 0.22 * exp(-dot(sq2, sq2) * 2.0)) * (1.0 - 0.7 * lidded);
     c += uShine * h;
     op = max(op, h);
     return c;
@@ -457,7 +466,7 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
         float breath = 1.0 + 0.07 * sin(uTime);          // she breathes: so does the light
         float dg = max(min(d, mix(1e5, ds, sa)), 0.0);
         if (uGlass > 0.5 && uLens < 0.5)          // (glass: little glow behind it, the world shows)
-            gc *= mix(1.0, 0.30, smoothstep(0.0, -0.25 * min(b.x, b.y), d));
+            gc *= mix(1.0, 0.06, smoothstep(0.0, -0.25 * min(b.x, b.y), d));
         glow += gc * (0.40 * exp(-dg / 10.0) + 0.17 * breath * exp(-dg / 40.0))
                 * (1.0 + 0.35 * uEnergy) * uDim * (1.0 - 0.6 * uLens + 0.5 * uRim.x)  // (black glass)
                 * smoothstep(0.0, 8.0, e.w);
@@ -841,19 +850,44 @@ void main() {
 
 
 
-# glass eyes: what they leave of the world behind them, multiplied over it
-# before their light is drawn (a small program: the big one's compile on the
-# Pi grows with every eye SDF in it)
+# glass eyes: the world behind them seen through them. The frame under each
+# eye is copied (_glass_back) and sampled here bent by the glass (a bevelled
+# slab with a shallow dome), tinted by its thickness, with the sky and the
+# sun / moon reflected off its curve; the eye's own light goes on top (_FRAG).
+# A small program: the big one's compile on the Pi grows with every eye SDF.
 _FRAG_GLASS = """
 uniform vec2  uRes;
 uniform float uTilt;
 uniform vec2  uGlitch;
 uniform float uShape;
-uniform vec4  uEye0, uEye1, uLidA0, uLidA1, uLidB0, uLidB1, uMorph;
+uniform vec4  uEye0, uEye1, uLidA0, uLidA1, uLidB0, uLidB1, uMorph, uPupil0, uPupil1;
 uniform vec3  uTop, uTint, uHeartTop;
 uniform float uTintAmt;
+uniform sampler2D uBg;        // the frame behind the eyes (its copied part)
+uniform vec4  uBgBox;         // ...that part: u0, v0, u1, v1
+uniform float uEnvOn;
+uniform vec3  uEnvZen, uEnvHor, uEnvDiscC, uEnvMoonC;
+uniform vec4  uEnvDisc, uEnvMoon;     // the sun, the moon: x, y, r, a
 
-""" + _FRAG[_FRAG.index("float dot2(vec2 v)"):_FRAG.index("// a five-pointed star")]   + _FRAG[_FRAG.index("float hash(vec2 p)"):_FRAG.index("// ── the light")]   + _FRAG[_FRAG.index("vec2 eyeLocal("):_FRAG.index("// the seam where the lids meet")] + """
+""" + _FRAG[_FRAG.index("float dot2(vec2 v)"):_FRAG.index("// a five-pointed star")] \
+  + _FRAG[_FRAG.index("float hash(vec2 p)"):_FRAG.index("// ── the light")] \
+  + _FRAG[_FRAG.index("vec2 eyeLocal("):_FRAG.index("// the seam where the lids meet")] + """
+// a point of the face (head turned) -> the copy's uv
+vec2 bgUV(vec2 p) {
+    vec2 c0 = uRes * 0.5;
+    vec2 dv = p - c0;
+    float cs = cos(uTilt), sn = sin(uTilt);
+    vec2 fc = c0 + vec2(cs * dv.x + sn * dv.y, -sn * dv.x + cs * dv.y);
+    fc.x += glitchShift(fc.y);
+    return clamp(vec2(fc.x / uRes.x, 1.0 - fc.y / uRes.y), uBgBox.xy, uBgBox.zw);
+}
+
+// the eye's own frame -> the face's (a direction)
+vec2 toFace(vec2 v, float a) {
+    float c = cos(a), s = sin(a);
+    return vec2(c * v.x + s * v.y, -s * v.x + c * v.y);
+}
+
 void main() {
     vec2 fc = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y);
     fc.x -= glitchShift(fc.y);
@@ -863,13 +897,68 @@ void main() {
     vec2 p = c0 + vec2(cs * dv.x - sn * dv.y, sn * dv.x + cs * dv.y);
     bool r = uShape > 0.5;
     vec4 e = r ? uEye1 : uEye0;
+    vec4 la = r ? uLidA1 : uLidA0;
     vec4 lb = r ? uLidB1 : uLidB0;
+    vec4 pu = r ? uPupil1 : uPupil0;
     float side = r ? 1.0 : -1.0;
-    float a = clamp(0.5 - eyeSDF(eyeLocal(p, e, lb, side), e, r ? uLidA1 : uLidA0, lb, side), 0.0, 1.0);
-    // amber: its own colour, deepened
+    float ang = lb.z * -side;
+    vec2 q = eyeLocal(p, e, lb, side);
+    float d = eyeSDF(q, e, la, lb, side);
+    if (d > 10.0 || e.w < 4.0) discard;
+    vec2 b = e.zw * 0.5;
+    float m = max(min(b.x, b.y), 1.0);
+    vec2 g = normalize(vec2(eyeSDF(q + vec2(1.0, 0.0), e, la, lb, side) - d,
+                            eyeSDF(q + vec2(0.0, 1.0), e, la, lb, side) - d) + 1e-6);
+    float a = clamp(0.5 - d, 0.0, 1.0);
+    // just outside, the air bends a little too: what is behind leans away
+    float hk = (1.0 - a) * 0.55 * exp(-max(d, 0.0) / 3.5);
+    vec3 halo = texture2D(uBg, bgUV(p + toFace(g, ang) * 2.0 * exp(-max(d, 0.0) / 3.5))).rgb;
+    if (a <= 0.0) {
+        gl_FragColor = vec4(halo * hk, hk);
+        return;
+    }
+    // the glass: a slab, its bevel 0.4 of its size, a shallow dome on top
+    float t = clamp(-d / (0.40 * m), 0.0, 1.0);
+    float th = sqrt(t * (2.0 - t));                    // its thickness, 0 at the edge
+    vec2 nxy = g * (1.0 - th) * 1.6 + q / b * 0.18;    // its surface's lean (outward)
+    vec3 n = normalize(vec3(nxy, 1.0));
+    // through it: bent toward the thick middle, a touch magnified, the
+    // colours parting a little at the bevel
+    vec2 off = -nxy * 13.0 - q * 0.05;
+    float disp = 0.10 * (1.0 - th);
+    vec3 bg = vec3(texture2D(uBg, bgUV(p + toFace(off * (1.0 + disp), ang))).r,
+                   texture2D(uBg, bgUV(p + toFace(off, ang))).g,
+                   texture2D(uBg, bgUV(p + toFace(off * (1.0 - disp), ang))).b);
+    // the sky it reflects; dark: smoked glass
+    vec3 skyHi = uEnvOn > 0.5 ? uEnvZen : vec3(0.05, 0.045, 0.05);
+    vec3 skyLo = uEnvOn > 0.5 ? uEnvHor : vec3(0.02, 0.018, 0.02);
+    float night = 1.0 - smoothstep(0.04, 0.30, dot(skyHi, vec3(0.30, 0.55, 0.15)));
     vec3 top = mix(mix(uTop, uTint, uTintAmt), uHeartTop, uMorph.x);
-    vec3 f = mix(vec3(1.0), top / max(max(top.r, top.g), max(top.b, 1e-3)), 0.6);
-    gl_FragColor = vec4(mix(vec3(1.0), f, a), 1.0);
+    vec3 amber = top / max(max(top.r, top.g), max(top.b, 1e-3));
+    float k = clamp((0.15 + 0.35 * th) * (1.0 + 0.6 * night), 0.0, 1.0);    // thicker: deeper
+    vec3 col = bg * mix(vec3(1.0), amber, k) * (1.0 - 0.15 * night);
+    // ...and in it its hue goes amber while what is behind keeps its shape
+    col = mix(col, dot(bg, vec3(0.30, 0.55, 0.15)) * amber * 1.15, 0.30 + 0.25 * th);
+    col += top * 0.07 * th * (1.0 - 0.5 * night);       // light scattered inside it
+    // the pupil sits in it: a soft shade round it
+    if (pu.w > 0.01 && pu.z >= 2.0) {
+        float ir = length((q - pu.xy - vec2(0.0, 0.10 * pu.z)) / vec2(0.93, 1.0));
+        col *= 1.0 - 0.40 * pu.w * exp(-max(ir - pu.z, 0.0) / (0.22 * pu.z));
+    }
+    // Fresnel: the sky off its curve, most where it leans away
+    float F = 0.04 + 2.2 * sq(1.0 - n.z);
+    vec3 refl = mix(skyLo, skyHi, clamp(0.5 - n.y * 1.6, 0.0, 1.0)) * 1.25;
+    col = mix(col, refl, clamp(F, 0.0, 0.6));
+    // the sun and the moon catch its bevel on their side
+    if (uEnvOn > 0.5) {
+        vec2 lgn = toFace(g, ang);
+        float bev = sq(1.0 - th);
+        col += uEnvDiscC * uEnvDisc.w * 1.2 * bev
+               * pow(max(dot(lgn, normalize(uEnvDisc.xy - p + 1e-3)), 0.0), 10.0);
+        col += uEnvMoonC * uEnvMoon.w * 0.8 * bev
+               * pow(max(dot(lgn, normalize(uEnvMoon.xy - p + 1e-3)), 0.0), 14.0);
+    }
+    gl_FragColor = vec4(col * a + halo * hk, a + hk);
 }
 """
 
@@ -1038,6 +1127,12 @@ def _cloud_noise(n=128, seed=29):
 
     rgba = np.stack([fbm((3, 6, 12, 24, 48)), fbm((8, 16, 32)), fbm((2, 4)), fbm((3, 6))], axis=-1)
     return (rgba * 255.0 + 0.5).astype(np.uint8).tobytes()
+
+
+# what _FRAG_GLASS reads of face_uniforms
+_GLASS_U = ("uTilt", "uGlitch", "uEye0", "uEye1", "uLidA0", "uLidA1", "uLidB0", "uLidB1",
+            "uMorph", "uPupil0", "uPupil1", "uTop", "uTint", "uHeartTop", "uTintAmt",
+            "uEnvOn", "uEnvZen", "uEnvHor", "uEnvDisc", "uEnvDiscC", "uEnvMoon", "uEnvMoonC")
 
 
 class _Prog:
@@ -1387,7 +1482,8 @@ class GLFace:
         head += _LAYER_DEF
         self._head = head
         self.p_sky = None                # the world outside's sky (_FRAG_SKY), when needed
-        self.p_glass = None              # glass eyes' tint (_FRAG_GLASS), when needed
+        self.p_glass = None              # glass eyes' refraction (_FRAG_GLASS), when needed
+        self.bg_tex = None               # ...the frame behind them, copied
         self.p_stretch = _Prog(GL, self._program(head + _VERT, head + "#define STRETCH\n" + _FRAG_FLAT))
         self.p_layer = _Prog(GL, self._program(head + _VERT, head + _FRAG_FLAT))
         self.envp = None                 # the world outside's rain, snow… (gl_env.py)
@@ -1649,31 +1745,49 @@ class GLFace:
         else:
             self._u("uEnvOn", 0.0)
 
-    def _glass_tint(self, u):
-        """Multiply the glass eyes' amber over what is behind them (_FRAG_GLASS)."""
+    def _glass_back(self, u):
+        """The glass eyes: copy the frame under each (and a margin the
+        bending reaches into), then draw what is seen through them
+        (_FRAG_GLASS). Off for good if the GPU refuses."""
         GL = self.GL
         if self.p_glass is None:
             try:
                 self.p_glass = _Prog(GL, self._program(self._head + _VERT, self._head + _FRAG_GLASS))
+                self.bg_tex = self._texture(self.w, self.h, GL.GL_LINEAR)
+                GL.glUseProgram(self.p_glass.id)
+                self.p_glass.unit("uBg", 6)
             except Exception as e:
                 self.p_glass = False
-                print(f"[gl] the glass's tint off: {e}", flush=True)
+                print(f"[gl] glass eyes: no refraction ({e})", flush=True)
         if not self.p_glass:
             return
         pg = self.p_glass
+        GL.glActiveTexture(GL.GL_TEXTURE0 + 6)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, self.bg_tex)
+        boxes = []
+        for i, rect in enumerate(self.shape_rects[:2]):
+            if rect is None:
+                continue
+            x0, y0 = max(0, int(rect[0]) - 32), max(0, int(rect[1]) - 32)
+            x1, y1 = min(self.w, int(rect[2]) + 32), min(self.h, int(rect[3]) + 32)
+            if x1 <= x0 or y1 <= y0:
+                continue
+            GL.glCopyTexSubImage2D(GL.GL_TEXTURE_2D, 0, x0, self.h - y1, x0, self.h - y1,
+                                   x1 - x0, y1 - y0)
+            boxes.append((i, rect, ((x0 + 0.5) / self.w, 1.0 - (y1 - 0.5) / self.h,
+                                    (x1 - 0.5) / self.w, 1.0 - (y0 + 0.5) / self.h)))
+        GL.glActiveTexture(GL.GL_TEXTURE0)
         GL.glUseProgram(pg.id)
         pg.u("uRes", (self.w, self.h))
-        for k in ("uTilt", "uGlitch", "uEye0", "uEye1", "uLidA0", "uLidA1", "uLidB0", "uLidB1",
-                  "uMorph", "uTop", "uTint", "uHeartTop", "uTintAmt"):
+        for k in _GLASS_U:
             if k in u:
                 pg.u(k, u[k])
-        GL.glBlendFunc(GL.GL_ZERO, GL.GL_SRC_COLOR)
-        for i, rect in enumerate(self.shape_rects[:2]):
-            if rect is not None:
-                pg.u("uShape", float(i))
-                pg.u("uRect", rect)
-                GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
-        GL.glBlendFunc(GL.GL_ONE, GL.GL_ONE_MINUS_SRC_ALPHA)
+        pg.u("uEnvOn", u.get("uEnvOn", 0.0))
+        for i, rect, uv in boxes:
+            pg.u("uShape", float(i))
+            pg.u("uBgBox", uv)
+            pg.u("uRect", rect)
+            GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
 
     def _quad(self):
         self._bind_quad()
@@ -1769,7 +1883,7 @@ class GLFace:
         elif uniforms.get("uFace", 0.0) > 0.5:
             GL.glUseProgram(self.prog)
             if uniforms.get("uGlass", 0.0) > 0.5 and uniforms.get("uLens", 0.0) < 0.5:
-                self._glass_tint(uniforms)    # glass: tint what is behind, then its light
+                self._glass_back(uniforms)    # glass: what is seen through it, then its light
             GL.glUseProgram(self.prog)
             self._u("uPass", 2.0)
             for i, rect in enumerate(self.shape_rects):
