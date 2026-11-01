@@ -795,6 +795,8 @@ uniform vec2  uSoftRes;
 uniform vec4  uBlush;         // her face's centre (x, y)
 uniform vec3  uEnvZen, uEnvMid, uEnvHor, uEnvLow;    // the sky: top, behind her, haze band, bottom
 uniform vec4  uEnvSun, uEnvSunP;      // the sun's haze: rgb, a; x, y, size, the shade behind her
+uniform vec4  uEnvDisc;       // the sun itself: x, y, r, a (environment.disc_y)
+uniform vec3  uEnvDiscC;
 uniform vec4  uEnvArc, uEnvArcG, uEnvArcA;   // the arc: rgb, a; centre, r, phase; ends, width, glow
 uniform vec4  uEnvW;          // cloud, fog, rain, snow (0..1)
 uniform vec4  uEnvX;          // a storm's far light, the wind's lean, its x, the haze band's y
@@ -881,10 +883,18 @@ vec3 envSky(vec2 q) {
     vec2 s = (q - uEnvSunP.xy) / uEnvSunP.z;
     float ss = dot(s, s);
     c += uEnvSun.rgb * uEnvSun.a * (0.32 * exp(-ss * 0.35) + 0.40 * exp(-ss * 5.0));
+    // the sun itself: a blurred disc, cut by the horizon, behind the clouds
+    float dd = length(q - uEnvDisc.xy) / uEnvDisc.z;
+    vec2 fr = (q - uBlush.xy - vec2(0.0, 30.0)) / vec2(300.0, 190.0);
+    float dk = uEnvDisc.w * smoothstep(hy + 4.0, hy - 8.0, q.y)
+               * mix(0.5, 1.0, smoothstep(0.3, 0.7, length(fr)));     // (fainter behind her eyes)
+    c = mix(c, uEnvDiscC, dk * (1.0 - smoothstep(0.2, 1.3, dd)));
+    c += uEnvDiscC * dk * 0.18 * exp(-dd * dd * 0.25);
     vec2 ar = envArc(q);
     float arcw = ar.y > -0.1 && ar.y < 1.1 ? envArcK(ar.y) * exp(-ar.x / 90.0) : 0.0;
     gCov = 0.0;
     for (int i = 0; i < 4; i++) c = envLayer(c, q, uEnvCa[i], uEnvCb[i], arcw);   // (a loop: one copy to compile)
+    c += uEnvDiscC * dk * 0.22 * gCov * exp(-dd * dd * 0.35);   // (its light through them)
     if (uEnvW.y > 0.01) {                 // fog: layers close to the sky's own tone, drifting
         vec3 haze = mix(uEnvHor, vec3(dot(uEnvMid, vec3(0.30, 0.59, 0.11))) * 1.4 + 0.03, 0.5);
         float f = 0.0;
@@ -904,7 +914,6 @@ vec3 envSky(vec2 q) {
     if (ar.y > -0.1 && ar.y < 1.1)
         c += uEnvArc.rgb * uEnvArc.a * envArcK(ar.y)
              * (0.30 * exp(-ar.x / uEnvArcA.w) + 0.10 * exp(-ar.x / (uEnvArcA.w * 4.0)));
-    vec2 fr = (q - uBlush.xy - vec2(0.0, 30.0)) / vec2(300.0, 190.0);
     c *= 1.0 - uEnvSunP.w * exp(-dot(fr, fr) * 1.3);      // darker behind her
     return c;
 }

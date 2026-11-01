@@ -1,5 +1,6 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
+- W tle za mną widać teraz słońce — rozmyte, za chmurami, tam gdzie naprawdę jest o tej porze. Rano wschodzi z lewej, wieczorem zachodzi z prawej za horyzont.
 - Na „Co robisz?” i „Co tam?” odpowiadam jednym krótkim zdaniem, bez doklejania nastroju czy biurka.
 - Gdy skończą się środki w OpenAI, mówię to wprost, na pasku u góry widać „brak środków”, a minutnik, budzik i radio działają dalej. Sama sprawdzam co kilka minut, czy konto doładowano.
 - Nie mówię już zmyślonych form typu „zrobę” czy „z brokułam” — poprawiam je na „zrobię”, „z brokułami”.

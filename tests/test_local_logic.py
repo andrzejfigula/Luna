@@ -11818,6 +11818,24 @@ class TestEnvironment(unittest.TestCase):
         self.assertAlmostEqual(sum(w.values()), 1.0)
         self.assertEqual(set(w), {"winter", "spring"})
 
+    def test_sun_disc_path(self):
+        import calendar
+        import environment as E
+        day = lambda h, m: calendar.timegm((2026, 11, 1, h - 1, m, 0))     # noqa: E731 (Warsaw, CET)
+        xs = [E.sun_across(E.sun_position(day(h, 0), 52.23, 21.01)[1]) for h in (8, 12, 15)]
+        self.assertTrue(xs[0] < 0.4 < xs[1] < 0.6 < xs[2])              # left → middle → right
+        self.assertGreater(E.sun_across(90.0, south=True), 0.5)        # (the south: facing north)
+        hy, h, r = 317.0, 480.0, 26.0
+        self.assertAlmostEqual(E.disc_y(-0.83, hy, h, r), hy + r)       # set: its top at the horizon
+        self.assertLess(E.disc_y(3.5, hy, h, r) + r, hy)                # a little higher: all of it
+        self.assertAlmostEqual(E.disc_y(60.0, hy, h, r), E.TUNE["disc_top"] * h)
+        e = E.Env(wall=lambda: day(17, 15))
+        e._real_sky = lambda t: None
+        self.assertEqual(e.frame(1.0, 800, 480, 400, 212)["uEnvDisc"][3], 0.0)   # after sunset: none
+        e = E.Env(wall=lambda: day(11, 30))
+        e._real_sky = lambda t: None
+        self.assertGreater(e.frame(1.0, 800, 480, 400, 212)["uEnvDisc"][3], 0.2)
+
     def test_no_weather_made_up(self):
         import environment as E
         self.assertEqual(E.weather_of(None)["rain"], 0.0)

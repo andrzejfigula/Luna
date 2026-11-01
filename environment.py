@@ -35,8 +35,12 @@ TUNE = {
     # line's width and glow (px), how far it drifts (px) over minutes
     "arc_pts": ((0.985, -0.03), (0.935, 0.20), (0.815, 0.37)),
     "arc_width": 1.4, "arc_glow": 9.0, "arc_drift": 5.0,
-    "sun_x": 0.83,           # the sun's haze: across, its size × the height
+    "sun_x": 0.83,           # the night's glow low down: across; the sun's haze: its size × the height
     "sun_size": 0.30,
+    # the sun itself, a soft disc behind the clouds where it really is: the
+    # azimuth's degrees across the screen (south in the middle), its radius
+    # and top (× the height), the height (°) where it gets there, opacity
+    "sun_span": 260.0, "disc_r": 0.055, "disc_top": 0.12, "disc_rise": 30.0, "disc_a": 0.40,
     # rain at its heaviest: drops on screen, their opacity, length px, speed px/s
     "rain_count": 340, "rain_alpha": 0.32, "rain_len": 24.0, "rain_speed": 620.0,
     # snow at its heaviest: flakes, opacity, size px, speed px/s
@@ -155,6 +159,11 @@ def _smooth(t):
 def sun_elevation(t, lat, lon):
     """The sun's height above the horizon (degrees) at epoch t (a standard
     low-precision formula, within a fraction of a degree)."""
+    return sun_position(t, lat, lon)[0]
+
+
+def sun_position(t, lat, lon):
+    """(height, azimuth from the north, clockwise) in degrees at epoch t."""
     d = t / 86400.0 + 2440587.5 - 2451545.0
     g = math.radians((357.529 + 0.98560028 * d) % 360.0)
     q = (280.459 + 0.98564736 * d) % 360.0
@@ -166,7 +175,23 @@ def sun_elevation(t, lat, lon):
     ha = math.radians(gmst * 15.0 + lon) - ra
     la = math.radians(lat)
     s = math.sin(la) * math.sin(dec) + math.cos(la) * math.cos(dec) * math.cos(ha)
-    return math.degrees(math.asin(max(-1.0, min(1.0, s))))
+    az = math.atan2(math.sin(ha), math.cos(ha) * math.sin(la) - math.tan(dec) * math.cos(la))
+    return math.degrees(math.asin(max(-1.0, min(1.0, s)))), (math.degrees(az) + 180.0) % 360.0
+
+
+def sun_across(az, south=False):
+    """The sun's x (a fraction of the width) from its azimuth: facing south
+    (the south: north), sunrise on the left, sunset on the right."""
+    d = (az % 360.0) - 180.0 if not south else ((az + 180.0) % 360.0) - 180.0
+    return max(-0.4, min(1.4, 0.5 + d / TUNE["sun_span"]))
+
+
+def disc_y(e, hy, h, r):
+    """The disc's centre (px down) at height e (°): its top at the horizon
+    at sunset (-0.83°), so it sinks out of sight; high up at disc_rise."""
+    t = (e + 0.83) / TUNE["disc_rise"]
+    f = 2.0 * t if t < 0 else 1.0 - (1.0 - min(t, 1.0)) ** 2
+    return hy + r - (hy + r - TUNE["disc_top"] * h) * f
 
 
 def sky_key(elev, rising):
@@ -291,7 +316,7 @@ def _wind_slant(wx):
 
 
 # ── the live state ────────────────────────────────────────────────────────
-_EASED = ("zen", "mid", "hor", "sun", "sun_a", "arc", "arc_a", "low", "stars", "elev",
+_EASED = ("zen", "mid", "hor", "sun", "sun_a", "arc", "arc_a", "low", "stars", "elev", "sun_x",
           "cl", "cs", "cr", "cr_a")
 _WX = ("cloud", "fog", "rain", "snow", "storm", "slant", "drift")
 
@@ -411,11 +436,14 @@ class Env:
         else:
             sky = self._real_sky(t)
         if elev is None:
-            elev = sun_elevation(t, lat, lon)
+            elev, az = sun_position(t, lat, lon)
             rising = 1.0 if sun_elevation(t + 600, lat, lon) > elev else 0.0
+        else:                                     # (a simulated height: east rising, west setting)
+            az = 180.0 + (-75.0 if rising else 75.0) * (1.0 - _smooth(elev / 55.0))
         wx = weather_of(sky)
         tg = compose(elev, rising, season_weights(doy, south=lat < 0), wx)
         tg["slant"] = _wind_slant(wx)
+        tg["sun_x"] = sun_across(az, south=lat < 0)
         # the clouds' drift: with the wind across (+ right), slow without one
         tg["drift"] = -math.sin(math.radians(wx["wind_dir"])) * (0.5 + min(1.5, wx["wind"] / 20.0))
         tg["moon_age"] = moon.age_at(t) / moon.SYNODIC         # 0 new, 0.5 full
@@ -440,6 +468,8 @@ class Env:
         for n in _EASED:
             cur[n] = (cur[n] + (tg[n] - cur[n]) * kc) if isinstance(tg[n], float) \
                 else _mix(cur[n], tg[n], kc)
+        if abs(tg["sun_x"] - cur["sun_x"]) > 0.6:     # (round the north at night: no sweep)
+            cur["sun_x"] = tg["sun_x"]
         for n in _WX:
             cur[n] += (tg[n] - cur[n]) * kw
         self.asleep += ((1.0 if asleep else 0.0) - self.asleep) * (1.0 - math.exp(-dt / 3.0))
@@ -464,10 +494,19 @@ class Env:
         a1 = math.atan2(y3 - cy, x3 - cx)
         if a1 < a0:                           # (one way round, through the middle point)
             a1 += math.tau
-        # the sun's haze: at the horizon at sunrise and sunset, higher with the sun
+        # the sun: a soft disc where it really is, its top under the horizon
+        # at sunset; its haze round it, staying at the horizon below it
         e = cur["elev"]
-        sx, sy = w * TUNE["sun_x"], hy - (hy - 0.10 * h) * _smooth(e / 40.0)
+        dr_ = h * TUNE["disc_r"]
+        dx, dy = w * cur["sun_x"], disc_y(e, hy, h, dr_)
+        sx = w * (TUNE["sun_x"] + (max(0.06, min(0.94, cur["sun_x"])) - TUNE["sun_x"])
+                  * _smooth((e + 12.0) / 10.0))
+        sy = min(hy, dy)
         sun_a = cur["sun_a"] * _smooth((e + 9.0) / 9.0)
+        warm = _smooth((e - 1.0) / 16.0)
+        disc_c = _mix((1.0, 0.86, 0.64), (1.0, 0.96, 0.86), warm)
+        disc_a = (TUNE["disc_a"] * _smooth((e + 3.0) / 2.0) * (1.35 - 0.35 * warm)
+                  * (1.0 - 0.7 * _smooth((cur["cloud"] - 0.6) / 0.3)) * (1.0 - 0.6 * cur["fog"]))
         night_glow = 0.10 * (1.0 - _smooth((e + 9.0) / 9.0))
         c = lambda v: tuple(x * dim for x in v)        # noqa: E731
         T = TUNE
@@ -486,6 +525,8 @@ class Env:
             "uEnvSun": (*c(cur["sun"]), sun_a + night_glow),
             "uEnvSunP": (sx, sy, h * TUNE["sun_size"],
                          TUNE["face_shade"] * (1.0 - 0.45 * _smooth((e + 2.0) / 14.0))),
+            "uEnvDisc": (dx, dy, dr_, disc_a * dim),
+            "uEnvDiscC": c(disc_c),
             "uEnvArc": (*c(cur["arc"]), cur["arc_a"] * (0.85 + 0.15 * math.sin(ph * 0.05))),
             "uEnvArcG": (cx, cy, r, ph * 0.045 % math.tau),
             "uEnvArcA": (a0, a1, TUNE["arc_width"], TUNE["arc_glow"]),
