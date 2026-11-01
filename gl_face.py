@@ -292,10 +292,9 @@ vec3 glassColour(vec2 q, vec2 b, float d, vec2 look, vec4 la, float side, out fl
     float pool = 1.0 + 0.16 * sin(2.3 * q.x / b.x + 1.4 * q.y / b.y + 0.35 * uTime);
     float rim = exp(min(d, 0.0) / (0.06 * m)) * pool * (1.0 + 0.06 * sin(uTime * 1.3));
     float halo = exp(min(d, 0.0) / (0.28 * m));         // its light, spreading inward
-    vec3 c = col * (0.03 + 0.11 * halo + 0.85 * rim);
-    op = 0.03 + 0.06 * halo + 0.62 * rim;
-    vec2 n = (q - vec2(0.0, 0.15 * b.y)) / b;            // a warm core, lit from inside
-    c += top * 0.05 * exp(-dot(n, n) * 1.8);
+    float low = 0.80 + 0.70 * smoothstep(0.35, 1.0, v);  // hottest along the bottom
+    vec3 c = col * (0.02 + 0.10 * halo + 1.25 * rim * low);
+    op = 0.02 + 0.04 * halo + 0.66 * rim;
     // the upper lid's shadow
     vec2 t = lidTop(q.x, b, la, side);
     float lidded = smoothstep(0.02, 0.12, la.x) * (1.0 - uMorph.x);
@@ -303,19 +302,7 @@ vec3 glassColour(vec2 q, vec2 b, float d, vec2 look, vec4 la, float side, out fl
     c *= 1.0 - ls;
     op = mix(op, 0.75, ls);
     // the light sinks: the bottom glows hottest
-    c += bot * 0.45 * exp(min(d, 0.0) / 9.0) * smoothstep(0.45, 1.0, v);
-    // a window's reflection up-left, sliding against the gaze: two sharp
-    // panes, skewed by the curve, and a thin streak low on the other side
-    vec2 wq = q + look * 0.22 - vec2(-0.38 * b.x, -0.56 * b.y);
-    wq.x -= 0.30 * wq.y;
-    wq.x = abs(wq.x) - 0.105 * b.x;                       // the mullion splits it
-    vec2 wb = abs(wq) - vec2(0.085 * b.x, 0.10 * b.y);
-    float pane = clamp(0.5 - (length(max(wb, 0.0)) + min(max(wb.x, wb.y), 0.0) - 3.0), 0.0, 1.0);
-    vec2 sq2 = (q + look * 0.15 - vec2(0.42 * b.x, 0.62 * b.y)) / vec2(0.16 * b.x, 0.025 * b.y);
-    float h = (0.62 * pane * (0.85 + 0.15 * smoothstep(0.1 * b.y, -0.1 * b.y, wq.y))
-               + 0.22 * exp(-dot(sq2, sq2) * 2.0)) * (1.0 - 0.7 * lidded);
-    c += uShine * h;
-    op = max(op, h);
+    c += bot * 0.65 * exp(min(d, 0.0) / 10.0) * smoothstep(0.40, 1.0, v);
     return c;
 }
 
@@ -868,6 +855,7 @@ uniform vec4  uBgBox;         // ...that part: u0, v0, u1, v1
 uniform float uEnvOn;
 uniform vec3  uEnvZen, uEnvHor, uEnvDiscC, uEnvMoonC;
 uniform vec4  uEnvDisc, uEnvMoon;     // the sun, the moon: x, y, r, a
+uniform vec3  uBottom, uHeartBottom;
 
 """ + _FRAG[_FRAG.index("float dot2(vec2 v)"):_FRAG.index("// a five-pointed star")] \
   + _FRAG[_FRAG.index("float hash(vec2 p)"):_FRAG.index("// ── the light")] \
@@ -922,33 +910,45 @@ void main() {
     float th = sqrt(t * (2.0 - t));                    // its thickness, 0 at the edge
     vec2 nxy = g * (1.0 - th) * 1.6 + q / b * 0.18;    // its surface's lean (outward)
     vec3 n = normalize(vec3(nxy, 1.0));
-    // through it: bent toward the thick middle, a touch magnified, the
-    // colours parting a little at the bevel
-    vec2 off = -nxy * 13.0 - q * 0.05;
-    float disp = 0.10 * (1.0 - th);
+    // through it: bent at the bevel and magnified like a lens, the colours
+    // parting a little at the bevel
+    vec2 off = -(nxy * 25.0 + q * 0.14);
+    float disp = 0.08 * (1.0 - th);
     vec3 bg = vec3(texture2D(uBg, bgUV(p + toFace(off * (1.0 + disp), ang))).r,
                    texture2D(uBg, bgUV(p + toFace(off, ang))).g,
                    texture2D(uBg, bgUV(p + toFace(off * (1.0 - disp), ang))).b);
-    // the sky it reflects; dark: smoked glass
     vec3 skyHi = uEnvOn > 0.5 ? uEnvZen : vec3(0.05, 0.045, 0.05);
     vec3 skyLo = uEnvOn > 0.5 ? uEnvHor : vec3(0.02, 0.018, 0.02);
     float night = 1.0 - smoothstep(0.04, 0.30, dot(skyHi, vec3(0.30, 0.55, 0.15)));
     vec3 top = mix(mix(uTop, uTint, uTintAmt), uHeartTop, uMorph.x);
-    vec3 amber = top / max(max(top.r, top.g), max(top.b, 1e-3));
-    float k = clamp((0.15 + 0.35 * th) * (1.0 + 0.6 * night), 0.0, 1.0);    // thicker: deeper
-    vec3 col = bg * mix(vec3(1.0), amber, k) * (1.0 - 0.15 * night);
-    // ...and in it its hue goes amber while what is behind keeps its shape
-    col = mix(col, dot(bg, vec3(0.30, 0.55, 0.15)) * amber * 1.15, 0.30 + 0.25 * th);
-    col += top * 0.07 * th * (1.0 - 0.5 * night);       // light scattered inside it
+    vec3 bot = mix(mix(uBottom, uTint, uTintAmt * 0.85), uHeartBottom, uMorph.x);
+    vec3 amber = max(top / max(max(top.r, top.g), max(top.b, 1e-3)), vec3(0.04));
+    // amber by the way the light goes through it: clear in the middle,
+    // deeper where the curve makes the way long
+    float path = clamp(0.40 + 1.1 * (1.0 / n.z - 1.0), 0.0, 1.5) * 0.85;
+    vec3 col = bg * pow(amber, vec3(path));
+    col = mix(col, dot(col, vec3(0.30, 0.55, 0.15)) * amber * 1.2, 0.12 + 0.10 * path);   // warmed
+    // the rim's light travelling in through the glass, most from below
+    float v = clamp((q.y + b.y) / (2.0 * b.y), 0.0, 1.0);
+    float sc = exp(min(d, 0.0) / (0.30 * m)) * (0.45 + 0.9 * smoothstep(0.2, 1.0, v));
+    col += mix(top, bot, v) * (0.05 + 0.20 * sc) * (0.8 + 0.4 * night);
     // the pupil sits in it: a soft shade round it
     if (pu.w > 0.01 && pu.z >= 2.0) {
         float ir = length((q - pu.xy - vec2(0.0, 0.10 * pu.z)) / vec2(0.93, 1.0));
-        col *= 1.0 - 0.40 * pu.w * exp(-max(ir - pu.z, 0.0) / (0.22 * pu.z));
+        col *= 1.0 - 0.30 * pu.w * exp(-max(ir - pu.z, 0.0) / (0.20 * pu.z));
     }
     // Fresnel: the sky off its curve, most where it leans away
-    float F = 0.04 + 2.2 * sq(1.0 - n.z);
-    vec3 refl = mix(skyLo, skyHi, clamp(0.5 - n.y * 1.6, 0.0, 1.0)) * 1.25;
-    col = mix(col, refl, clamp(F, 0.0, 0.6));
+    float F = clamp(0.03 + 1.1 * sq(1.0 - n.z), 0.0, 0.35);
+    vec3 refl = mix(skyLo, skyHi, clamp(0.5 - n.y * 1.6, 0.0, 1.0)) * 1.3;
+    col = mix(col, refl, F);
+    // the room's light, up-left, off its upper curve: a soft wide sheen
+    // and a sharper crescent where the bevel faces it
+    vec3 L = normalize(vec3(-0.28, -0.80, 0.55));
+    float lc = cos(uTilt), ls = sin(uTilt);
+    L.xy = vec2(lc * L.x - ls * L.y, ls * L.x + lc * L.y);
+    L.xy = toFace(L.xy, -ang);                          // (into the eye's own frame)
+    float nh = max(dot(n, normalize(L + vec3(0.0, 0.0, 1.0))), 0.0);
+    col += vec3(1.0, 0.97, 0.90) * (0.45 * pow(nh, 60.0) + 0.08 * pow(nh, 10.0)) * (1.0 - 0.4 * night);
     // the sun and the moon catch its bevel on their side
     if (uEnvOn > 0.5) {
         vec2 lgn = toFace(g, ang);
@@ -1132,6 +1132,7 @@ def _cloud_noise(n=128, seed=29):
 # what _FRAG_GLASS reads of face_uniforms
 _GLASS_U = ("uTilt", "uGlitch", "uEye0", "uEye1", "uLidA0", "uLidA1", "uLidB0", "uLidB1",
             "uMorph", "uPupil0", "uPupil1", "uTop", "uTint", "uHeartTop", "uTintAmt",
+            "uBottom", "uHeartBottom",
             "uEnvOn", "uEnvZen", "uEnvHor", "uEnvDisc", "uEnvDiscC", "uEnvMoon", "uEnvMoonC")
 
 
