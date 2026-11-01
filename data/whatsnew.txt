@@ -1,6 +1,6 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
-- Mam nowe oczy — z jasnego, bursztynowego szkła, z mocnym pomarańczowym blaskiem na brzegach. Są przejrzyste: widać przez nie niebo za mną, wygięte jak przez prawdziwą soczewkę — chmury, gwiazdy, deszcz. Światło odbija się miękko na ich górnej krawędzi, a słońce i księżyc błyszczą na brzegu.
+- Mam nowe oczy — z jasnego, bursztynowego szkła, z mocnym pomarańczowym blaskiem na brzegach. Są czyste jak szkło w dzień i w nocy: widać przez nie niebo za mną, przy brzegach powiększone i wygięte jak przez prawdziwą soczewkę — chmury, gwiazdy, deszcz. Na krzywiźnie odbija się niebo i jedna mała plamka światła, a słońce i księżyc błyszczą na brzegu.
 - W tle za mną widać teraz słońce — rozmyte, za chmurami, tam gdzie naprawdę jest o tej porze. Rano wschodzi z lewej, wieczorem zachodzi z prawej za horyzont.
 - Na „Co robisz?” i „Co tam?” odpowiadam jednym krótkim zdaniem, bez doklejania nastroju czy biurka.
 - Gdy skończą się środki w OpenAI, mówię to wprost, na pasku u góry widać „brak środków”, a minutnik, budzik i radio działają dalej. Sama sprawdzam co kilka minut, czy konto doładowano.
