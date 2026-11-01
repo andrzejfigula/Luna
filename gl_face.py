@@ -483,16 +483,19 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
         if (d > -16.0)
             g = normalize(vec2(eyeSDF(q + vec2(1.0, 0.0), e, la, lb, side) - d,
                                eyeSDF(q + vec2(0.0, 1.0), e, la, lb, side) - d) + 1e-6);
+        vec4 pg = pu;
         if (glass) {
             c = glassColour(q, b, d, pu.xy, la, side, op);
-            if (pu.w > 0.01 && pu.z >= 2.0) {  // the pupil: solid, deep
+            // the pupil sits inside the glass: the lit rim always runs over it
+            pg.w *= smoothstep(0.03, 0.14, -d / max(min(b.x, b.y), 1.0));
+            if (pg.w > 0.01 && pu.z >= 2.0) {  // the pupil: solid, deep
                 float ir = length((q - pu.xy) / vec2(0.93, 1.0));
-                op = mix(op, 1.0, smoothstep(1.0, -1.0, ir - pu.z) * pu.w);
+                op = mix(op, 1.0, smoothstep(1.0, -1.0, ir - pu.z) * pg.w);
             }
         } else {
             c = lit(eyeColour(q, b, d, pu.xy, la, side), g, d, 16.0, q / b * 0.30);
         }
-        c = drawIris(q, c, pu);
+        c = drawIris(q, c, pg);
     }
     if (uBrowK.w > 0.01) {                // the brow's soft shadow, falling down onto it
         float db = browSDF(p - vec2(0.0, 9.0), side < 0.0 ? uBrow0 : uBrow1,
@@ -2324,7 +2327,7 @@ class GLFace:
                 top, bot, bend, bbend, tilt = (v * (1.0 - lk) for v in (top, bot, bend, bbend, tilt))
                 shut = 0.0
             # a blink: the soft glass squashes toward where the lids meet (and
-            # spreads a little); the pupil keeps its size, the lids cover it
+            # spreads a little); the pupil shrinks into the slit (below)
             h_open = h
             yf = top + 0.62 * max(0.0, 1.0 - top - bot) - 0.5
             ey += h * yf * 0.30 * shut
@@ -2392,6 +2395,11 @@ class GLFace:
                 dx, dy = h * 0.2 * math.sin(t), h * 0.2 * abs(math.cos(t * 0.7))
             mx_, my_ = max(0.0, w / 2 - pr * 0.95), max(0.0, h / 2 - pr * 0.80)
             dx, dy = max(-mx_, min(mx_, dx)), max(-my_, min(my_, dy))
+            if shut > 0.0:                        # a blink: it fits the closing slit
+                ho, yc = 0.5 * gap, 0.5 * h * (top - bot)
+                k = min(1.0, 2.0 * shut)
+                pr = _lerp(pr, min(pr, 0.80 * ho), k)
+                dy = _lerp(dy, yc, k)
             shown = (1.0 - cur["heart"]) if rf.BLOCK_PUPIL else 0.0
             shown *= max(0.0, min(1.0, (gap - 14.0) / 16.0))    # a slit: just the glow
             if lens:                              # HAL: a squint narrows his light
