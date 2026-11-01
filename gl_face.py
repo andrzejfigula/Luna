@@ -289,10 +289,10 @@ vec3 glassColour(vec2 q, vec2 b, float d, vec2 look, vec4 la, float side, out fl
     float m = min(b.x, b.y);
     float rim = exp(min(d, 0.0) / (0.06 * m));          // the lit edge
     float halo = exp(min(d, 0.0) / (0.28 * m));         // its light, spreading inward
-    vec3 c = col * (0.12 + 0.26 * halo + 0.80 * rim);
-    op = 0.12 + 0.16 * halo + 0.58 * rim;
+    vec3 c = col * (0.05 + 0.18 * halo + 0.85 * rim);
+    op = 0.04 + 0.10 * halo + 0.62 * rim;
     vec2 n = (q - vec2(0.0, 0.15 * b.y)) / b;            // a warm core, lit from inside
-    c += top * 0.22 * exp(-dot(n, n) * 1.8);
+    c += top * 0.12 * exp(-dot(n, n) * 1.8);
     // the upper lid's shadow
     vec2 t = lidTop(q.x, b, la, side);
     float lidded = smoothstep(0.02, 0.12, la.x) * (1.0 - uMorph.x);
@@ -457,7 +457,7 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
         float breath = 1.0 + 0.07 * sin(uTime);          // she breathes: so does the light
         float dg = max(min(d, mix(1e5, ds, sa)), 0.0);
         if (uGlass > 0.5 && uLens < 0.5)          // (glass: little glow behind it, the world shows)
-            gc *= mix(1.0, 0.45, smoothstep(0.0, -0.25 * min(b.x, b.y), d));
+            gc *= mix(1.0, 0.30, smoothstep(0.0, -0.25 * min(b.x, b.y), d));
         glow += gc * (0.40 * exp(-dg / 10.0) + 0.17 * breath * exp(-dg / 40.0))
                 * (1.0 + 0.35 * uEnergy) * uDim * (1.0 - 0.6 * uLens + 0.5 * uRim.x)  // (black glass)
                 * smoothstep(0.0, 8.0, e.w);
@@ -868,7 +868,7 @@ void main() {
     float a = clamp(0.5 - eyeSDF(eyeLocal(p, e, lb, side), e, r ? uLidA1 : uLidA0, lb, side), 0.0, 1.0);
     // amber: its own colour, deepened
     vec3 top = mix(mix(uTop, uTint, uTintAmt), uHeartTop, uMorph.x);
-    vec3 f = pow(top / max(max(top.r, top.g), max(top.b, 1e-3)), vec3(2.2)) * 0.95;
+    vec3 f = mix(vec3(1.0), top / max(max(top.r, top.g), max(top.b, 1e-3)), 0.6);
     gl_FragColor = vec4(mix(vec3(1.0), f, a), 1.0);
 }
 """
