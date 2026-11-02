@@ -355,22 +355,19 @@ vec3 drawIris(vec2 q, vec3 c, vec4 pu) {
     float lit = 0.45 + 0.75 * uIrisGlow;                   // asleep ~0.5 .. excited ~1.1
     // a shallow bowl: dark copper in the middle of the band, warm amber
     // outward; the light below lights its upper inner wall and its lower
-    // outer one; a thin orange glow along the pupil, a golden outer edge
+    // outer one; a golden outer edge, half as bright at its top
     vec3 body = mix(vec3(0.30, 0.10, 0.025), vec3(0.86, 0.42, 0.07), smoothstep(0.30, 0.85, u));
     float wall = smoothstep(0.20, 0.80, u);
     body *= mix(0.55 + 0.70 * (1.0 - vy), 0.50 + 0.80 * vy * vy, wall) * lit;
     body += c * 0.12;                                       // translucent: the glass through it
-    float inner = exp(-sq(u / 0.11));
-    body = mix(body, vec3(1.0, 0.52, 0.10) * (0.55 + 0.45 * (1.0 - vy)) * (0.70 + 0.50 * uIrisGlow), 0.85 * inner);
     float rim = exp(-sq((u - 0.88) / 0.11));
-    body = mix(body, vec3(1.0, 0.80, 0.32) * (1.0 + 0.30 * vy) * (0.60 + 0.60 * uIrisGlow), rim);
+    body = mix(body, vec3(1.0, 0.80, 0.32) * 1.30 * mix(0.5, 1.0, vy) * (0.60 + 0.60 * uIrisGlow), rim);
     body += uShine * 0.30 * exp(-sq((u - 0.45) / 0.18))     // the sheen
             * smoothstep(0.25, 0.75, -(pq.x + pq.y) / (1.414 * pr));
-    // the pupil: a glossy black dome - the iris's glow bouncing in its
-    // lower edge, a faint cool sheen of the room along its upper one
+    // the pupil: a glossy black dome, a faint cool sheen of the room along
+    // its upper edge
     float kq = k / kp;
-    vec3 pupil = uPupilCol * mix(0.04, 0.18, smoothstep(0.6, 1.0, kq));
-    pupil += vec3(0.40, 0.14, 0.03) * 0.40 * smoothstep(0.72, 1.0, kq) * smoothstep(0.35, 0.95, vy) * lit;
+    vec3 pupil = uPupilCol * 0.05;
     pupil += vec3(0.14, 0.14, 0.17) * exp(-sq((kq - 0.84) / 0.07)) * smoothstep(0.1, 0.8, -pq.y / pr);
     if (uGlassView > 5.5 && uGlassView < 6.5) pupil = c;        // (the iris alone)
     if (uGlassView > 6.5 && uGlassView < 7.5) body = c;         // (the pupil alone)
@@ -379,7 +376,7 @@ vec3 drawIris(vec2 q, vec3 c, vec4 pu) {
     vec3 o = mix(c, iris, ia);
 #ifdef IRIS_UNDER_GLASS
     // a soft golden bloom just outside it, hardly more below
-    o += vec3(1.0, 0.70, 0.22) * (1.0 - ia) * pu.w * IRIS_BLOOM * lit * (0.85 + 0.30 * vy)
+    o += vec3(1.0, 0.70, 0.22) * (1.0 - ia) * pu.w * IRIS_BLOOM * lit * mix(0.50, 1.15, vy)
          * exp(-max(ir - pr, 0.0) / (0.18 * pr)) * step(uGlassView, 6.5);
     float hk = 1.0 - step(5.5, uGlassView) * step(uGlassView, 6.5);
     const float h1s = 0.80;
@@ -923,6 +920,8 @@ _FRAG_GLASS = """
 #define REFL_SPAN 260.0
 #define KEY 1.10
 #define EMIT 0.95
+#define GLOW_LIFT 3.5
+#define GLOW_OWN 0.50
 uniform float uGlassView;     // 0 all; 1..7 one layer alone (_GLASS_VIEWS); 8 all, this pass only
 uniform vec2  uRes;
 uniform float uTilt, uTime, uWarm, uIrisGlow, uDim, uEnergy;
@@ -1037,10 +1036,11 @@ void main() {
     vec3 skyL = glin(uEnvOn > 0.5 ? mix(uEnvHor, uEnvZen, 0.5) : vec3(0.08));
     float expo = min(TR_EXPO / pow(gluma(skyL) + 0.004, 0.6), 1.8);
     vec3 tr = glin(seen) * T * expo;
-    // 4 inner light: hot glass glowing from within, by how deep and how low:
-    // reddish brown high in the thin middle, copper, orange, golden where
-    // the bevel is thick and along the bottom (the light sinks), a hot line
-    // at the very edge; added, so the world still shows through it
+    // 4 inner light: hot glass glowing from within, by how deep and how low
+    // (little in the thin middle, most where the bevel is thick and along
+    // the bottom, where the light sinks). It turns the world seen through
+    // it orange and lifts it; only a faint glow of its own is added, and a
+    // hot line at the very edge
     float edgeH = exp(min(d, 0.0) / (0.14 * m));
     float low = smoothstep(0.30, 1.0, v);
     float h = 0.04 + 0.18 * v + 0.64 * edgeH + 0.22 * low * low + 0.40 * edgeH * low;
@@ -1048,8 +1048,11 @@ void main() {
     vol = mix(vol, vec3(0.80, 0.15, 0.006), smoothstep(0.30, 0.62, h));
     vol = mix(vol, vec3(1.00, 0.36, 0.025), smoothstep(0.60, 0.90, h));
     vol = mix(vol, vec3(1.10, 0.62, 0.10), smoothstep(0.90, 1.25, h));
-    vol += vec3(1.0, 0.50, 0.06) * 1.4 * exp(min(d, 0.0) / (0.05 * m)) * (0.45 + 0.85 * v);
-    vol *= EMIT * (0.75 + 0.40 * uIrisGlow) * (1.0 + 0.10 * uEnergy) * uDim * (1.0 - 0.15 * day);
+    float heat = EMIT * (0.75 + 0.40 * uIrisGlow) * (1.0 + 0.10 * uEnergy) * uDim * (1.0 - 0.15 * day);
+    float hg = smoothstep(0.06, 1.1, h) * min(heat, 1.2);
+    tr = mix(tr, gluma(tr) * vec3(2.2, 0.85, 0.12), 0.75 * hg) * (1.0 + GLOW_LIFT * hg);
+    vol = vol * GLOW_OWN + vec3(1.0, 0.50, 0.06) * 1.4 * exp(min(d, 0.0) / (0.05 * m)) * (0.45 + 0.85 * v);
+    vol *= heat;
     // 3 reflections: the surface is a convex mirror - each point shows the
     // sky where its normal sends the view (the dome a wide, shrunk view of
     // it, the bevel the far sky; up top what is above her), so it curves
@@ -1060,16 +1063,16 @@ void main() {
     vec3 env = glin(uEnvOn > 0.5 ? texture2D(uEnvTex, skyUV(rp)).rgb
                                  : texture2D(uBg, bgUV(rp)).rgb) * min(expo, 1.3);
     env *= 1.0 - 0.75 * smoothstep(0.05, 0.5, n.y);     // (the lower bevel mirrors the dim room)
-    float F = (0.08 + 0.92 * sq(1.0 - n.z)) * (1.0 - uMorph.x);
+    float F = (0.04 + 0.92 * sq(1.0 - n.z)) * (1.0 - uMorph.x);
     vec3 R = env * F;
-    // a long window up-left in the room: where the surface tilts toward it
-    // by just its angle, a sharp thin arc along the bevel; a broad glossy
-    // one inside it, tinted by the sky it mirrors
+    // a small light up-left in the room: only the rounded corner faces it,
+    // close to the edge (steep) - a sharp thin arc there, a softer glossy
+    // one just inside it, tinted by the sky it mirrors
     float tilt = length(n.xy);
-    float az = max(dot(n.xy / max(tilt, 1e-4), vec2(-0.62, -0.78)), 0.0);
-    float sharp = exp(-sq((tilt - 0.60) / 0.035)) * pow(az, 5.0);
-    float broad = exp(-sq((tilt - 0.42) / 0.12)) * pow(az, 2.5);
-    R += (vec3(1.0, 0.95, 0.86) * KEY * sharp + (env * 2.5 + vec3(0.10, 0.08, 0.06)) * broad * 0.6)
+    float az = max(dot(n.xy / max(tilt, 1e-4), vec2(-0.707, -0.707)), 0.0);
+    float sharp = exp(-sq((tilt - 0.83) / 0.025)) * pow(az, 60.0);
+    float broad = exp(-sq((tilt - 0.70) / 0.06)) * pow(az, 24.0);
+    R += (vec3(1.0, 0.95, 0.86) * KEY * sharp + (env * 2.0 + vec3(0.10, 0.08, 0.06)) * broad * 0.35)
          * (1.0 - uMorph.x);
     // the sun and the moon catch the bevel on their side (not when right
     // behind her: then they are seen through the glass)
@@ -1087,11 +1090,11 @@ void main() {
     if (uGlassView > 0.5 && uGlassView < 7.5) {
         float k = uGlassView;
         vec3 o = k < 1.5 ? genc(tr) : k < 2.5 ? seen : k < 3.5 ? genc(R) : k < 4.5 ? genc(vol)
-               : k < 5.5 ? genc(T) : drawIris(q + off * 0.8, vec3(k < 6.5 ? 0.0 : 0.40), pg);
+               : k < 5.5 ? genc(T) : drawIris(q + off * 0.3, vec3(k < 6.5 ? 0.0 : 0.40), pg);
         gl_FragColor = vec4(o * a, a);
         return;
     }
-    col = drawIris(q + off * 0.8, col, pg);
+    col = drawIris(q + off * 0.3, col, pg);
     gl_FragColor = vec4(col * a + halo * hk, a + hk);
 }
 """
