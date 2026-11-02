@@ -924,7 +924,7 @@ _FRAG_GLASS = """
 #define GLOW_LIFT 1.0
 #define DODGE 0.90
 #define MINIFY 0.90
-#define CORNER_MUL 4.0
+#define CORNER_MUL 2.5
 #define GLOW_OWN 0.30
 uniform float uGlassView;     // 0 all; 1..7 one layer alone (_GLASS_VIEWS); 8 all, this pass only
 uniform vec2  uRes;
@@ -1092,7 +1092,7 @@ void main() {
     float cdist = abs(tilt - 0.855) - 0.035 * sqrt(clamp((az - 0.90) / 0.10, 0.0, 1.0));
     float ca = fwidth(cdist) + 1e-4;
     float sharp = smoothstep(ca, -ca, cdist) * step(0.90, az);
-    vec3 cc = min(env * CORNER_MUL + vec3(0.45, 0.43, 0.40), vec3(1.6));
+    vec3 cc = min(env * CORNER_MUL + vec3(0.15, 0.14, 0.13), vec3(0.85));
     // the room's window, up-left, mirrored in the dome: found by the normal,
     // so it bends with the curve; crisp, a cross in it, brighter at its top
     vec2 rd = n.xy / n.z;
