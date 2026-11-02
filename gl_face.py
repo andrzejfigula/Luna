@@ -921,7 +921,7 @@ _FRAG_GLASS = """
 #define IRIS_BLOOM 0.35
 #define TR_EXPO 0.40
 #define REFL_SPAN 260.0
-#define KEY 0.60
+#define KEY 1.10
 #define EMIT 0.95
 uniform float uGlassView;     // 0 all; 1..7 one layer alone (_GLASS_VIEWS); 8 all, this pass only
 uniform vec2  uRes;
@@ -1021,7 +1021,7 @@ void main() {
     // 2 refraction: the view bent toward the thick middle; the shift fades
     // smoothly inward and never folds back (magnified at the bevel, barely
     // in the middle) and eases to 0 at the very edge
-    vec2 off = -(g * s * 0.40 * W + qo * 0.07) * smoothstep(0.0, 0.10 * m + 1.0, -d);
+    vec2 off = -(g * s * 0.55 * W + qo * 0.16) * smoothstep(0.0, 0.10 * m + 1.0, -d);
     float disp = 0.03 * s;
     vec3 seen = vec3(texture2D(uBg, bgUV(p + toFace(off * (1.0 + disp), ang))).r,
                      texture2D(uBg, bgUV(p + toFace(off, ang))).g,
@@ -1030,7 +1030,8 @@ void main() {
     // where the bevel slants (Beer-Lambert: the blue goes first)
     vec3 ab = mix(top, bot, 0.35);
     vec3 amber = glin(max(ab / max(max(ab.r, ab.g), max(ab.b, 1e-3)), vec3(0.04)));
-    vec3 T = pow(amber, vec3(0.85 + 1.3 * (1.0 / n.z - 1.0)));
+    // (the cap above is thicker: darker toward the top)
+    vec3 T = pow(amber, vec3(0.50 + 1.3 * (1.0 / n.z - 1.0) + 0.9 * sq(1.0 - smoothstep(0.0, 0.6, v))));
     // 1 transmission: the world through it, exposed for the sky's own level
     // (so night clouds keep their contrast in it)
     vec3 skyL = glin(uEnvOn > 0.5 ? mix(uEnvHor, uEnvZen, 0.5) : vec3(0.08));
@@ -1040,9 +1041,9 @@ void main() {
     // reddish brown high in the thin middle, copper, orange, golden where
     // the bevel is thick and along the bottom (the light sinks), a hot line
     // at the very edge; added, so the world still shows through it
-    float edgeH = exp(min(d, 0.0) / (0.20 * m));
+    float edgeH = exp(min(d, 0.0) / (0.14 * m));
     float low = smoothstep(0.30, 1.0, v);
-    float h = 0.04 + 0.62 * edgeH + 0.45 * low * low + 0.35 * edgeH * low;
+    float h = 0.04 + 0.18 * v + 0.64 * edgeH + 0.22 * low * low + 0.40 * edgeH * low;
     vec3 vol = mix(vec3(0.020, 0.003, 0.0005), vec3(0.20, 0.035, 0.003), smoothstep(0.10, 0.35, h));
     vol = mix(vol, vec3(0.80, 0.15, 0.006), smoothstep(0.30, 0.62, h));
     vol = mix(vol, vec3(1.00, 0.36, 0.025), smoothstep(0.60, 0.90, h));
@@ -1061,11 +1062,15 @@ void main() {
     env *= 1.0 - 0.75 * smoothstep(0.05, 0.5, n.y);     // (the lower bevel mirrors the dim room)
     float F = (0.08 + 0.92 * sq(1.0 - n.z)) * (1.0 - uMorph.x);
     vec3 R = env * F;
-    // a light up-left in the room, low: only the bevel turns far enough to
-    // catch it - a crescent along its upper left
-    vec3 kl = normalize(vec3(-0.62, -0.80, 0.22));
-    float nh = max(dot(n, normalize(kl + vec3(0.0, 0.0, 1.0))), 0.0);
-    R += vec3(1.0, 0.95, 0.86) * KEY * pow(nh, 90.0) * (1.0 - uMorph.x);
+    // a long window up-left in the room: where the surface tilts toward it
+    // by just its angle, a sharp thin arc along the bevel; a broad glossy
+    // one inside it, tinted by the sky it mirrors
+    float tilt = length(n.xy);
+    float az = max(dot(n.xy / max(tilt, 1e-4), vec2(-0.62, -0.78)), 0.0);
+    float sharp = exp(-sq((tilt - 0.60) / 0.035)) * pow(az, 5.0);
+    float broad = exp(-sq((tilt - 0.42) / 0.12)) * pow(az, 2.5);
+    R += (vec3(1.0, 0.95, 0.86) * KEY * sharp + (env * 2.5 + vec3(0.10, 0.08, 0.06)) * broad * 0.6)
+         * (1.0 - uMorph.x);
     // the sun and the moon catch the bevel on their side (not when right
     // behind her: then they are seen through the glass)
     if (uEnvOn > 0.5) {
@@ -1166,7 +1171,7 @@ float envcW(float x) { float f = fract(x); return 4.0 * f * (1.0 - f) - 0.5; }
 // her middle cleared (uEnvClk.w): the clouds keep round the edges
 float envcClear(vec2 q) {
     vec2 m = (q - uEnvMask.xy) / uEnvMask.zw;
-    return mix(0.65 * (1.0 - uEnvClk.w), 1.0, smoothstep(0.62, 1.22, length(m)));
+    return mix(0.90 * (1.0 - uEnvClk.w), 1.0, smoothstep(0.62, 1.22, length(m)));
 }
 
 float gCov;                   // the cloud over this point: the sky's alpha (stars, the moon behind it)

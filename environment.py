@@ -544,7 +544,7 @@ class Env:
             "uEnvMoon": (mx, my, T["moon_r"], moon_a),
             "uEnvMoonC": c((0.94, 0.91, 0.80)),
             "uEnvMoonP": self._moon_phase(tg.get("moon_age", 0.3)),
-            "uEnvClk": (*self.clk[:3], (0.35 + 0.55 * night) * (1.0 - deck)),   # (w: her middle cleared)
+            "uEnvClk": (*self.clk[:3], (0.10 + 0.15 * night) * (1.0 - deck)),   # (w: her middle cleared)
             # (gl_env.py: how many, opacity, length / size, speed)
             "uEnvRain": (T["rain_count"] * rain ** 1.3, T["rain_alpha"] * (0.6 + 0.4 * rain),
                          T["rain_len"], T["rain_speed"] * (0.85 + 0.3 * rain)),
