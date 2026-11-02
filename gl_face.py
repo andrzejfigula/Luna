@@ -919,9 +919,10 @@ _FRAG_GLASS = """
 #define TR_EXPO 0.40
 #define REFL_SPAN 260.0
 #define KEY 1.10
+#define WINDOW 0.30
 #define EMIT 0.95
 #define GLOW_LIFT 3.5
-#define GLOW_OWN 0.50
+#define GLOW_OWN 0.30
 uniform float uGlassView;     // 0 all; 1..7 one layer alone (_GLASS_VIEWS); 8 all, this pass only
 uniform vec2  uRes;
 uniform float uTilt, uTime, uWarm, uIrisGlow, uDim, uEnergy;
@@ -1028,9 +1029,9 @@ void main() {
     // 5 absorption: amber by the way through it, short in the middle, long
     // where the bevel slants (Beer-Lambert: the blue goes first)
     vec3 ab = mix(top, bot, 0.35);
-    vec3 amber = glin(max(ab / max(max(ab.r, ab.g), max(ab.b, 1e-3)), vec3(0.04)));
+    vec3 amber = max(ab / max(max(ab.r, ab.g), max(ab.b, 1e-3)), vec3(0.04));
     // (the cap above is thicker: darker toward the top)
-    vec3 T = pow(amber, vec3(0.50 + 1.3 * (1.0 / n.z - 1.0) + 0.9 * sq(1.0 - smoothstep(0.0, 0.6, v))));
+    vec3 T = pow(amber, vec3(0.30 + 1.3 * (1.0 / n.z - 1.0) + 0.5 * sq(1.0 - smoothstep(0.0, 0.6, v))));
     // 1 transmission: the world through it, exposed for the sky's own level
     // (so night clouds keep their contrast in it)
     vec3 skyL = glin(uEnvOn > 0.5 ? mix(uEnvHor, uEnvZen, 0.5) : vec3(0.08));
@@ -1043,7 +1044,7 @@ void main() {
     // hot line at the very edge
     float edgeH = exp(min(d, 0.0) / (0.14 * m));
     float low = smoothstep(0.30, 1.0, v);
-    float h = 0.04 + 0.18 * v + 0.64 * edgeH + 0.22 * low * low + 0.40 * edgeH * low;
+    float h = 0.04 + 0.18 * v + 0.64 * edgeH + 0.12 * low * low + 0.25 * edgeH * low;
     vec3 vol = mix(vec3(0.020, 0.003, 0.0005), vec3(0.20, 0.035, 0.003), smoothstep(0.10, 0.35, h));
     vol = mix(vol, vec3(0.80, 0.15, 0.006), smoothstep(0.30, 0.62, h));
     vol = mix(vol, vec3(1.00, 0.36, 0.025), smoothstep(0.60, 0.90, h));
@@ -1051,7 +1052,7 @@ void main() {
     float heat = EMIT * (0.75 + 0.40 * uIrisGlow) * (1.0 + 0.10 * uEnergy) * uDim * (1.0 - 0.15 * day);
     float hg = smoothstep(0.06, 1.1, h) * min(heat, 1.2);
     tr = mix(tr, gluma(tr) * vec3(2.2, 0.85, 0.12), 0.75 * hg) * (1.0 + GLOW_LIFT * hg);
-    vol = vol * GLOW_OWN + vec3(1.0, 0.50, 0.06) * 1.4 * exp(min(d, 0.0) / (0.05 * m)) * (0.45 + 0.85 * v);
+    vol = vol * GLOW_OWN + vec3(1.0, 0.50, 0.06) * 1.1 * exp(min(d, 0.0) / (0.035 * m)) * (0.45 + 0.85 * v);
     vol *= heat;
     // 3 reflections: the surface is a convex mirror - each point shows the
     // sky where its normal sends the view (the dome a wide, shrunk view of
@@ -1066,14 +1067,21 @@ void main() {
     float F = (0.04 + 0.92 * sq(1.0 - n.z)) * (1.0 - uMorph.x);
     vec3 R = env * F;
     // a small light up-left in the room: only the rounded corner faces it,
-    // close to the edge (steep) - a sharp thin arc there, a softer glossy
-    // one just inside it, tinted by the sky it mirrors
+    // close to the edge (steep) - a sharp thin arc there
     float tilt = length(n.xy);
     float az = max(dot(n.xy / max(tilt, 1e-4), vec2(-0.707, -0.707)), 0.0);
-    float sharp = exp(-sq((tilt - 0.83) / 0.025)) * pow(az, 60.0);
-    float broad = exp(-sq((tilt - 0.70) / 0.06)) * pow(az, 24.0);
-    R += (vec3(1.0, 0.95, 0.86) * KEY * sharp + (env * 2.0 + vec3(0.10, 0.08, 0.06)) * broad * 0.35)
-         * (1.0 - uMorph.x);
+    float sharp = exp(-sq((tilt - 0.83) / 0.018)) * pow(az, 60.0);
+    // the room's window, up-left, mirrored in the dome: found by the normal,
+    // so it bends with the curve; crisp, a cross in it, brighter at its top
+    vec2 rd = n.xy / n.z;
+    vec2 wq = abs(rd - vec2(-0.25, -0.22)) - vec2(0.070, 0.050);
+    float wd = length(max(wq, 0.0)) + min(max(wq.x, wq.y), 0.0) - 0.023;
+    float wa = fwidth(wd) + 1e-4;
+    float win = smoothstep(wa, -wa, wd) * (1.0 - 0.5 * smoothstep(-0.28, -0.16, rd.y));
+    float bar = min(abs(rd.x + 0.25), abs(rd.y + 0.22));
+    win *= smoothstep(0.0015, 0.0015 + 1.5 * fwidth(bar), bar);
+    vec3 wc = mix(vec3(1.0, 0.88, 0.72), vec3(0.90, 0.95, 1.0), day);
+    R += (vec3(1.0, 0.95, 0.86) * KEY * sharp + glin(wc) * WINDOW * win) * (1.0 - uMorph.x);
     // the sun and the moon catch the bevel on their side (not when right
     // behind her: then they are seen through the glass)
     if (uEnvOn > 0.5) {
