@@ -344,19 +344,19 @@ vec3 drawIris(vec2 q, vec3 c, vec4 pu) {
     iris += uShine * 0.08 * exp(-sq((k - 0.80) / 0.05))                   // a glassy ring
             * clamp(0.5 - (pq.x + pq.y) / (2.0 * pr), 0.0, 1.0);
 #ifdef IRIS_UNDER_GLASS
-    // a lit amber iris (the outer third of the disc) round a big black
-    // pupil: dark amber by the pupil, warm orange outward, a thin golden
-    // edge; a touch brighter below, a soft sheen up-left
-    const float kp = 0.68;
+    // a lit amber iris round a big black pupil (~65% of it): amber,
+    // brightest near the pupil, deeper before a thin golden edge; a touch
+    // brighter below, a soft sheen up-left; asleep it goes dark brown
+    const float kp = 0.65;
     float aa = 1.0 / pr;                                    // a pixel, in k
     float u = clamp((k - kp) / (1.0 - kp), 0.0, 1.0);
     float vy = smoothstep(-0.9, 0.9, pq.y / pr);           // 0 top .. 1 bottom
-    float lit = 0.80 + 0.40 * uIrisGlow;
-    vec3 body = mix(vec3(0.30, 0.12, 0.02), vec3(0.72, 0.36, 0.06), smoothstep(0.0, 0.85, u))
-              + vec3(0.90, 0.45, 0.08) * 0.42 * exp(-sq((u - 0.50) / 0.32));   // light through it
-    body *= (0.72 + 0.50 * vy) * lit;
-    body += c * 0.10;                                       // a little of the glass through it
-    body += vec3(1.0, 0.78, 0.30) * 1.05 * exp(-sq((u - 0.89) / 0.09)) * lit;   // the golden edge
+    float lit = 0.30 + 0.95 * uIrisGlow;                   // asleep ~0.4 .. excited ~1.15
+    vec3 body = vec3(0.86, 0.43, 0.05)
+              * (0.50 + 0.50 * exp(-sq((u - 0.28) / 0.32))) * (1.0 - 0.45 * smoothstep(0.55, 0.86, u));
+    body *= (0.80 + 0.35 * vy) * lit;
+    body += c * 0.18;                                       // translucent: the glass through it
+    body += vec3(1.0, 0.78, 0.30) * 1.20 * exp(-sq((u - 0.93) / 0.065)) * lit;   // the golden edge
     body += uShine * 0.35 * exp(-sq((u - 0.55) / 0.30))     // the sheen
             * smoothstep(0.1, 0.6, -(pq.x + pq.y) / (1.414 * pr));
     vec3 pupil = uPupilCol * mix(0.10, 0.30, smoothstep(0.5, 1.0, k / kp));
