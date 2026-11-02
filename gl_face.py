@@ -975,6 +975,12 @@ vec2 toFace(vec2 v, float a) {
     return vec2(c * v.x + s * v.y, -s * v.x + c * v.y);
 }
 
+// what is behind the glass at p: the sky alone, or the copied frame
+vec3 behind(vec2 p) {
+    if (uEnvOn > 0.5) return texture2D(uEnvTex, skyUV(p)).rgb;
+    return texture2D(uBg, bgUV(p)).rgb;
+}
+
 void main() {
     vec2 fc = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y);
     fc.x -= glitchShift(fc.y);
@@ -998,12 +1004,16 @@ void main() {
     vec2 bo = mix(vec2(b.x, clamp(0.5 * (yb - yt), 2.0, b.y)), b, uMorph.x);
     vec2 qo = q - vec2(0.0, 0.5 * (yt + yb) * (1.0 - uMorph.x));
     float m = max(min(bo.x, bo.y), 1.0);
+    if (uEnvOn > 0.5 && d >= 0.5) discard;
     vec2 g = normalize(vec2(eyeSDF(q + vec2(1.0, 0.0), e, la, lb, side) - d,
                             eyeSDF(q + vec2(0.0, 1.0), e, la, lb, side) - d) + 1e-6);
     float a = clamp(0.5 - d, 0.0, 1.0);
     // just outside, the air bends a little too: what is behind leans away
-    float hk = (1.0 - a) * 0.55 * exp(-max(d, 0.0) / 3.5);
-    vec3 halo = texture2D(uBg, bgUV(p + toFace(g, ang) * 2.0 * exp(-max(d, 0.0) / 3.5))).rgb;
+    // (not over the sky: the frame isn't copied then, and it can't be seen)
+    float hk = uEnvOn > 0.5 ? 0.0 : (1.0 - a) * 0.55 * exp(-max(d, 0.0) / 3.5);
+    vec3 halo = vec3(0.0);
+    if (hk > 0.0)
+        halo = texture2D(uBg, bgUV(p + toFace(g, ang) * 2.0 * exp(-max(d, 0.0) / 3.5))).rgb;
     if (a <= 0.0) {
         gl_FragColor = vec4(halo * hk, hk);
         return;
@@ -1026,13 +1036,11 @@ void main() {
     vec2 off = qo * MINIFY + g * s * 0.55 * W;
     float disp = 0.03 * s;
     // (the sky alone: the shrunk view reaches past the eye, into its shadow)
-    vec3 seen = uEnvOn > 0.5
-        ? vec3(texture2D(uEnvTex, skyUV(p + toFace(off * (1.0 + disp), ang))).r,
-               texture2D(uEnvTex, skyUV(p + toFace(off, ang))).g,
-               texture2D(uEnvTex, skyUV(p + toFace(off * (1.0 - disp), ang))).b)
-        : vec3(texture2D(uBg, bgUV(p + toFace(off * (1.0 + disp), ang))).r,
-               texture2D(uBg, bgUV(p + toFace(off, ang))).g,
-               texture2D(uBg, bgUV(p + toFace(off * (1.0 - disp), ang))).b);
+    vec3 seen = behind(p + toFace(off, ang));
+    if (disp > 0.004) {                   // (split colours only where it shows: the bevel)
+        seen.r = behind(p + toFace(off * (1.0 + disp), ang)).r;
+        seen.b = behind(p + toFace(off * (1.0 - disp), ang)).b;
+    }
     // 5 absorption: amber by the way through it, short in the middle, long
     // where the bevel slants (Beer-Lambert: the blue goes first)
     vec3 ab = mix(top, bot, 0.35);
@@ -1074,8 +1082,7 @@ void main() {
     // the surface turns away
     vec3 rv = vec3(2.0 * n.z * n.xy, 2.0 * n.z * n.z - 1.0);
     vec2 rp = e.xy + toFace(rv.xy * REFL_SPAN, ang);
-    vec3 env = glin(uEnvOn > 0.5 ? texture2D(uEnvTex, skyUV(rp)).rgb
-                                 : texture2D(uBg, bgUV(rp)).rgb) * min(expo, 1.3);
+    vec3 env = glin(behind(rp)) * min(expo, 1.3);
     env *= 1.0 - 0.75 * smoothstep(0.05, 0.5, n.y);     // (the lower bevel mirrors the dim room)
     float F = (0.04 + 0.92 * sq(1.0 - n.z)) * (1.0 - uMorph.x);
     vec3 R = env * F;
@@ -1118,6 +1125,7 @@ void main() {
     // world behind); the reflections go over them
     vec4 pg = pu;
     pg.w *= smoothstep(0.03, 0.14, -d / max(min(b.x, b.y), 1.0));
+#ifdef GLASS_VIEWS
     if (uGlassView > 0.5 && uGlassView < 7.5) {
         float k = uGlassView;
         vec3 o = k < 1.5 ? genc(tr) : k < 2.5 ? seen : k < 3.5 ? genc(R) : k < 4.5 ? genc(vol)
@@ -1125,6 +1133,7 @@ void main() {
         gl_FragColor = vec4(o * a, a);
         return;
     }
+#endif
     col = genc(glin(drawIris(q + ioff * 0.3, col, pg)) + R);
     gl_FragColor = vec4(col * a + halo * hk, a + hk);
 }
@@ -1969,7 +1978,8 @@ class GLFace:
         GL = self.GL
         if self.p_glass is None:
             try:
-                self.p_glass = _Prog(GL, self._program(self._head + _VERT, self._head + _FRAG_GLASS))
+                self.p_glass = _Prog(GL, self._program(self._head + _VERT, self._head
+                    + ("#define GLASS_VIEWS\n" if self.glass_view else "") + _FRAG_GLASS))
                 self.bg_tex = self._texture(self.w, self.h, GL.GL_LINEAR)
                 GL.glUseProgram(self.p_glass.id)
                 self.p_glass.unit("uBg", 6)
@@ -1991,7 +2001,9 @@ class GLFace:
         GL.glActiveTexture(GL.GL_TEXTURE0 + 6)
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.bg_tex)
         # one copy round both eyes: each copy ends the GPU's pass over the
-        # screen and starts another (~1 ms a copy on the Pi 4)
+        # screen and starts another (~2.4 ms on the Pi 4); with the sky on the
+        # glass reads the sky alone, so none
+        env = u.get("uEnvOn", 0.0) if self.p_sky else 0.0
         rects = [(i, r) for i, r in enumerate(self.shape_rects[:2]) if r is not None]
         boxes = []
         if rects:
@@ -2000,8 +2012,9 @@ class GLFace:
             x1 = min(self.w, max(int(r[2]) for _, r in rects) + 32)
             y1 = min(self.h, max(int(r[3]) for _, r in rects) + 32)
             if x1 > x0 and y1 > y0:
-                GL.glCopyTexSubImage2D(GL.GL_TEXTURE_2D, 0, x0, self.h - y1, x0, self.h - y1,
-                                       x1 - x0, y1 - y0)
+                if env < 0.5 or self.glass_view:
+                    GL.glCopyTexSubImage2D(GL.GL_TEXTURE_2D, 0, x0, self.h - y1, x0, self.h - y1,
+                                           x1 - x0, y1 - y0)
                 uv = ((x0 + 0.5) / self.w, 1.0 - (y1 - 0.5) / self.h,
                       (x1 - 0.5) / self.w, 1.0 - (y0 + 0.5) / self.h)
                 boxes = [(i, r, uv) for i, r in rects]
@@ -2013,7 +2026,7 @@ class GLFace:
         for k in _GLASS_U:
             if k in u:
                 pg.u(k, u[k])
-        pg.u("uEnvOn", u.get("uEnvOn", 0.0))
+        pg.u("uEnvOn", env)
         pg.u("uGlassView", float(self.glass_view))
         if self.glass_view == 9:
             return
