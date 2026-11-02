@@ -112,6 +112,7 @@ uniform float uWave;          // > 0: the wavy mouth is a voice wave this tall (
 uniform vec3  uWaveBands;     // …made of her voice's low / mid / high share (long, short, fine waves)
 uniform float uLens;          // 1: the eyes are HAL's camera lenses, not her glossy ones
 uniform float uGlass;         // 1: her eyes are glowing glass — the world behind shows through
+uniform float uGlassPass;     // …and _FRAG_GLASS drew the pupils inside it (not here)
 uniform vec2  uShut;          // …and their shutters, closed 0..1 (his blink)
 uniform vec2  uRim;           // …HAL blushing: his steel rims warm red (x) and turn (y, radians)
 
@@ -339,20 +340,26 @@ vec3 drawIris(vec2 q, vec3 c, vec4 pu) {
     iris += uShine * 0.08 * exp(-sq((k - 0.80) / 0.05))                   // a glassy ring
             * clamp(0.5 - (pq.x + pq.y) / (2.0 * pr), 0.0, 1.0);
     vec3 o = mix(c, iris, ia);
+#ifdef IRIS_UNDER_GLASS
+    // (under glass the glass's reflections are the gloss: its own are dim, soft)
+    const float hk = 0.16, h1s = 0.25;
+#else
+    const float hk = 1.0, h1s = 0.86;
     // a soft shadow the iris throws on the eye round it
     float irs = length((pq - vec2(0.05 * pr, 0.12 * pr)) / vec2(0.93, 1.0));
     o = mix(o, o * 0.66, (1.0 - ia) * exp(-max(irs - pr, 0.0) / 5.0) * pu.w * 0.65);
+#endif
     vec2 hq = pq + pu.xy * 0.16;          // the catch-lights lag the gaze: they are the light's
     // catch-lights: a big soft one up-left, a small one down-right (wet: more)
     vec2 s1 = (hq - vec2(-0.30 * pr, -0.34 * pr)) / vec2(0.34 * pr, 0.32 * pr);
-    float h1 = smoothstep(1.0, 0.86, length(s1)) * (1.0 - uMorph.w);
+    float h1 = smoothstep(1.0, h1s, length(s1)) * (1.0 - uMorph.w);
     vec2 s2 = (hq - vec2(0.34 * pr, 0.32 * pr)) / (0.13 * pr);
     float h2 = smoothstep(1.0, 0.80, length(s2)) * (0.75 + 0.2 * sin(uTime * 7.0));   // shimmer
     vec2 s3 = (hq - vec2(0.12 * pr, -0.52 * pr)) / (0.10 * pr);
     float h3 = smoothstep(1.0, 0.70, length(s3)) * uMorph.y;
     vec2 s4 = (hq - vec2(-0.05 * pr, 0.62 * pr)) / vec2(0.50 * pr, 0.08 * pr);
     float h4 = smoothstep(1.0, 0.5, length(s4)) * uMorph.y * 0.7;         // a wet shine
-    o = mix(o, uShine, max(max(h1, h2), max(h3, h4)) * ia);
+    o = mix(o, uShine, max(max(h1, h2) * hk, max(h3, h4)) * ia);
     if (uMorph.w > 0.01) {                 // excited: a star shines in each iris
         float wa = 0.25 * sin(uTime * 2.0);           // the star wobbles, and breathes
         vec2 sp = mat2(cos(wa), -sin(wa), sin(wa), cos(wa)) * vec2(pq.x, -pq.y + 0.06 * pr);
@@ -498,8 +505,8 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
         if (glass) {
             c = glassColour(q, b, d, pu.xy, la, side, op);
             // the pupil sits inside the glass: the lit rim always runs over it
-            pg.w *= smoothstep(0.03, 0.14, -d / max(min(b.x, b.y), 1.0));
-            if (pg.w > 0.01 && pu.z >= 2.0) {  // the pupil: solid, deep
+            pg.w *= smoothstep(0.03, 0.14, -d / max(min(b.x, b.y), 1.0)) * (1.0 - uGlassPass);
+            if (pg.w > 0.01 && pu.z >= 2.0) {  // (no glass pass) the pupil: solid, deep
                 float ir = length((q - pu.xy) / vec2(0.93, 1.0));
                 op = mix(op, 1.0, smoothstep(1.0, -1.0, ir - pu.z) * pg.w);
             }
@@ -511,7 +518,7 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
     if (uBrowK.w > 0.01) {                // the brow's soft shadow, falling down onto it
         float db = browSDF(p - vec2(0.0, 9.0), side < 0.0 ? uBrow0 : uBrow1,
                            side < 0.0 ? uBrowK.x : uBrowK.y);
-        c *= 1.0 - 0.30 * uBrowK.w * exp(-max(db, 0.0) / 9.0) * (1.0 - uMorph.x);
+        c *= 1.0 - 0.16 * uBrowK.w * exp(-max(db, 0.0) / 9.0) * (1.0 - uMorph.x);
     }
     // the lids are things: a lowered upper lid has a lit edge, so has a
     // lower lid pushed up by the cheeks
@@ -708,10 +715,10 @@ vec3 drawMouth(vec2 p, vec3 col, inout vec3 glow) {
 float eyeShadow(vec2 p, vec4 e, vec4 la, vec4 lb, float side) {
     if (e.w < 8.0) return 0.0;
     vec2 b = e.zw * 0.5;
-    vec2 q = eyeLocal(p - vec2(0.0, 0.06 * e.w + 4.0), e, lb, side);
+    vec2 q = eyeLocal(p - vec2(0.0, 0.035 * e.w + 3.0), e, lb, side);
     float d = max(eyeSDF(q, e, la, lb, side), 0.0);
     float below = smoothstep(e.y - 0.2 * b.y, e.y + 0.9 * b.y, p.y);
-    float s = (0.85 * exp(-d / 5.0) + 0.35 * exp(-d / 18.0)) * below;
+    float s = (0.30 * exp(-d / 6.0) + 0.20 * exp(-d / 22.0)) * below;
     if (uGlass > 0.5 && uLens < 0.5)      // glass: no shadow on what is seen through it
         s *= mix(1.0, 0.15, smoothstep(2.0, -6.0, eyeSDF(eyeLocal(p, e, lb, side), e, la, lb, side)));
     return s;
@@ -722,21 +729,21 @@ vec3 eyeFloor(vec2 p, vec4 e, vec4 la, vec4 lb, float side) {
     if (p.y < yf || e.w < 30.0 || uMorph.x > 0.5) return vec3(0.0);
     vec2 q = eyeLocal(vec2(p.x, 2.0 * yf - p.y), e, lb, side);
     float d = eyeSDF(q, e, la, lb, side);
-    float k = smoothstep(6.0, -14.0, d) * exp(-(p.y - yf) / 30.0);
-    return mix(uBottom, uTint, uTintAmt) * 0.34 * k;
+    float k = smoothstep(6.0, -14.0, d) * exp(-(p.y - yf) / 22.0);
+    return mix(uBottom, uTint, uTintAmt) * 0.15 * k;
 }
 
 float featureShadow(vec2 p) {
     float s = max(eyeShadow(p, uEye0, uLidA0, uLidB0, -1.0),
                   eyeShadow(p, uEye1, uLidA1, uLidB1, 1.0));
     if (uBrowK.w > 0.01) {
-        vec2 o = vec2(0.0, 7.0);
+        vec2 o = vec2(0.0, 4.0);
         float d = max(min(browSDF(p - o, uBrow0, uBrowK.x), browSDF(p - o, uBrow1, uBrowK.y)), 0.0);
-        s = max(s, (0.75 * exp(-d / 4.0) + 0.25 * exp(-d / 12.0)) * uBrowK.w);
+        s = max(s, (0.28 * exp(-d / 5.0) + 0.14 * exp(-d / 14.0)) * uBrowK.w);
     }
     if (uMouthK.z > 0.01) {
-        float d = max(mouthD(p - uMouth.xy - vec2(0.0, 7.0)), 0.0);
-        s = max(s, (0.75 * exp(-d / 4.0) + 0.25 * exp(-d / 12.0)) * uMouthK.z);
+        float d = max(mouthD(p - uMouth.xy - vec2(0.0, 4.0)), 0.0);
+        s = max(s, (0.28 * exp(-d / 5.0) + 0.14 * exp(-d / 14.0)) * uMouthK.z);
     }
     return s;
 }
@@ -870,8 +877,10 @@ void main() {
 # sun / moon reflected off its curve; the eye's own light goes on top (_FRAG).
 # A small program: the big one's compile on the Pi grows with every eye SDF.
 _FRAG_GLASS = """
+#define IRIS_UNDER_GLASS
 uniform vec2  uRes;
-uniform float uTilt;
+uniform float uTilt, uTime, uWarm;
+uniform vec3  uShine, uPupilCol, uIrisCol;
 uniform vec2  uGlitch;
 uniform float uShape;
 uniform vec4  uEye0, uEye1, uLidA0, uLidA1, uLidB0, uLidB1, uMorph, uPupil0, uPupil1;
@@ -884,9 +893,9 @@ uniform vec3  uEnvZen, uEnvHor, uEnvDiscC, uEnvMoonC;
 uniform vec4  uEnvDisc, uEnvMoon;     // the sun, the moon: x, y, r, a
 uniform vec3  uBottom, uHeartBottom;
 
-""" + _FRAG[_FRAG.index("float dot2(vec2 v)"):_FRAG.index("// a five-pointed star")] \
-  + _FRAG[_FRAG.index("float hash(vec2 p)"):_FRAG.index("// ── the light")] \
-  + _FRAG[_FRAG.index("vec2 eyeLocal("):_FRAG.index("// the seam where the lids meet")] + """
+""" + _FRAG[_FRAG.index("float dot2(vec2 v)"):_FRAG.index("// ── the light")] \
+  + _FRAG[_FRAG.index("vec2 eyeLocal("):_FRAG.index("// the seam where the lids meet")] \
+  + _FRAG[_FRAG.index("// the iris and the pupil over"):_FRAG.index("// HAL's eye")] + """
 // a point of the face (head turned) -> the copy's uv
 vec2 bgUV(vec2 p) {
     vec2 c0 = uRes * 0.5;
@@ -968,6 +977,11 @@ void main() {
         float ir = length((q - pu.xy - vec2(0.0, 0.10 * pu.z)) / vec2(0.93, 1.0));
         col *= 1.0 - 0.30 * pu.w * exp(-max(ir - pu.z, 0.0) / (0.20 * pu.z));
     }
+    // ...and the pupil itself, bent like the world behind (a little less:
+    // it is nearer), under all the glass's reflections
+    vec4 pg = pu;
+    pg.w *= smoothstep(0.03, 0.14, -d / max(min(b.x, b.y), 1.0));
+    col = drawIris(q + off * 0.8, col, pg);
     // reflected: the sky above off the upper curve, the horizon off the lower,
     // the rim's own light off the inside of the bevel; more the more it slants
     vec3 skyHi = uEnvOn > 0.5 ? uEnvZen : vec3(0.05, 0.045, 0.05);
@@ -976,6 +990,16 @@ void main() {
     vec3 refl = mix(skyLo, skyHi, clamp(0.5 - n.y * 1.8, 0.0, 1.0))
               + warm * 0.55 * exp(min(d, 0.0) / (0.12 * m));
     col = col * (1.0 - F) + refl * F;
+    // the room's window mirrored in the dome, up-left: fixed to the glass,
+    // so the pupil slides under it; it shows where what is behind is dark
+    vec3 nr = normalize(vec3(g * s * 1.6 + qo / bo * 0.55, 1.0));
+    vec2 rd = nr.xy / nr.z;
+    vec2 wq = abs(rd - vec2(-0.17, -0.21)) - vec2(0.10, 0.07);
+    float wd = length(max(wq, 0.0)) + min(max(wq.x, wq.y), 0.0) - 0.03;
+    float win = smoothstep(0.02, -0.015, wd) * (1.0 - 0.5 * smoothstep(-0.30, -0.12, rd.y));
+    win *= smoothstep(0.002, 0.008, min(abs(rd.x + 0.17), abs(rd.y + 0.21)));   // its cross
+    vec3 wc = mix(vec3(1.0, 0.88, 0.72), vec3(0.90, 0.95, 1.0), day);  // the lamp-lit room / daylight
+    col += (1.0 - col) * wc * win * 0.36 * (1.0 - uMorph.x);
     // the room's lamp, up-left in front of her: one highlight where the
     // curve faces it (a point light, so it stays a spot, not a band)
     vec2 lxy = vec2(-0.45 * bo.x, -2.2 * bo.y);
@@ -1189,7 +1213,7 @@ def _cloud_noise(n=128, seed=29):
 # what _FRAG_GLASS reads of face_uniforms
 _GLASS_U = ("uTilt", "uGlitch", "uEye0", "uEye1", "uLidA0", "uLidA1", "uLidB0", "uLidB1",
             "uMorph", "uPupil0", "uPupil1", "uTop", "uTint", "uHeartTop", "uTintAmt",
-            "uBottom", "uHeartBottom",
+            "uBottom", "uHeartBottom", "uTime", "uWarm", "uShine", "uPupilCol", "uIrisCol",
             "uEnvOn", "uEnvAmb", "uEnvZen", "uEnvHor", "uEnvDisc", "uEnvDiscC", "uEnvMoon", "uEnvMoonC")
 
 
@@ -1994,6 +2018,7 @@ class GLFace:
             pe = None
             if uniforms.get("uGlass", 0.0) > 0.5 and uniforms.get("uLens", 0.0) < 0.5:
                 self._glass_back(uniforms)    # glass: what is seen through it, then its light
+                uniforms["uGlassPass"] = 1.0 if self.p_glass else 0.0
                 pe = self._variant("p_geye", "#define PASS 2.0\n#define GLASS_EYE\n")
                 if pe:
                     GL.glUseProgram(pe.id)
