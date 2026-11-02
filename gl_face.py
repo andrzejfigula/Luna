@@ -327,7 +327,11 @@ vec3 drawIris(vec2 q, vec3 c, vec4 pu) {
     if (pu.w <= 0.01 || pu.z < 2.0) return c;
     vec2 pq = q - pu.xy;
     float pr = pu.z;
+#ifdef IRIS_UNDER_GLASS
+    float ir = length(pq);
+#else
     float ir = length(pq / vec2(0.93, 1.0));
+#endif
     float ia = smoothstep(1.0, -1.0, ir - pr) * pu.w;
     if (ia <= 0.0) return c;
     // a big glossy black pupil: deepest in the middle, a touch of warm
@@ -340,38 +344,30 @@ vec3 drawIris(vec2 q, vec3 c, vec4 pu) {
     iris += uShine * 0.08 * exp(-sq((k - 0.80) / 0.05))                   // a glassy ring
             * clamp(0.5 - (pq.x + pq.y) / (2.0 * pr), 0.0, 1.0);
 #ifdef IRIS_UNDER_GLASS
-    // a lit amber iris: a glowing ring hugging the black pupil, gold by it,
-    // orange outward, into dark copper; fine fibres, hottest at the bottom
-    float t = (k - 0.60) / 0.30;
-    float band = smoothstep(-0.03, 0.05, t) * exp(-1.5 * max(t, 0.0)) * (1.0 - smoothstep(0.70, 1.0, t));
-    float fa = atan(pq.y, pq.x);
-    float fib = 0.93 + 0.07 * sin(fa * 31.0 + 5.0 * k) * sin(fa * 7.0 + 1.3);
+    // a lit amber iris (the outer third of the disc) round a big black
+    // pupil: dark amber by the pupil, warm orange outward, a thin golden
+    // edge; a touch brighter below, a soft sheen up-left
+    const float kp = 0.68;
+    float aa = 1.0 / pr;                                    // a pixel, in k
+    float u = clamp((k - kp) / (1.0 - kp), 0.0, 1.0);
     float vy = smoothstep(-0.9, 0.9, pq.y / pr);           // 0 top .. 1 bottom
-    float low = 0.18 + 1.12 * vy;                          // dark on top, bright below
-    vec3 amb = mix(vec3(0.95, 0.36, 0.05), vec3(1.0, 0.72, 0.26), exp(-2.5 * max(t, 0.0)));
-    float lit = 0.30 + 1.25 * uIrisGlow;
-    // its outermost edge lit like the eye's own rim, the same colours, hottest below
-    vec3 rtop = mix(mix(uTop, uTint, uTintAmt), uHeartTop, uMorph.x);
-    vec3 rbot = mix(mix(uBottom, uTint, uTintAmt * 0.85), uHeartBottom, uMorph.x);
-    vec3 rimc = mix(rtop, rbot, vy) * (0.80 + 0.70 * smoothstep(0.35, 1.0, vy));
-    float edge = exp(-max(1.0 - k, 0.0) / 0.07) * (0.85 + 0.30 * uIrisGlow);
-    iris = mix(uPupilCol * 0.22, uIrisCol * 0.30, smoothstep(0.62, 0.90, k))
-           * mix(0.30, 1.40, vy)
-         + rimc * 1.25 * edge
-         + amb * band * fib * low * lit
-         + amb * 0.22 * lit * exp(-max(0.60 - k, 0.0) / 0.07)    // ...its light just inside the black
-           * (1.0 - smoothstep(0.58, 0.62, k))
-         + uShine * 0.06 * exp(-sq((k - 0.93) / 0.04)) * clamp(0.5 - (pq.x + pq.y) / (2.0 * pr), 0.0, 1.0);
+    float lit = 0.80 + 0.40 * uIrisGlow;
+    vec3 body = mix(vec3(0.30, 0.12, 0.02), vec3(0.72, 0.36, 0.06), smoothstep(0.0, 0.85, u))
+              + vec3(0.90, 0.45, 0.08) * 0.42 * exp(-sq((u - 0.50) / 0.32));   // light through it
+    body *= (0.72 + 0.50 * vy) * lit;
+    body += c * 0.10;                                       // a little of the glass through it
+    body += vec3(1.0, 0.78, 0.30) * 1.05 * exp(-sq((u - 0.89) / 0.09)) * lit;   // the golden edge
+    body += uShine * 0.35 * exp(-sq((u - 0.55) / 0.30))     // the sheen
+            * smoothstep(0.1, 0.6, -(pq.x + pq.y) / (1.414 * pr));
+    vec3 pupil = uPupilCol * mix(0.10, 0.30, smoothstep(0.5, 1.0, k / kp));
+    iris = mix(pupil, body, smoothstep(kp - aa, kp + aa, k));
 #endif
     vec3 o = mix(c, iris, ia);
 #ifdef IRIS_UNDER_GLASS
-    // ...its light spilling a little into the glass round it
-    o += vec3(1.0, 0.52, 0.12) * (1.0 - ia) * pu.w * (0.04 + 0.10 * uIrisGlow)
-         * exp(-max(ir - pr, 0.0) / (0.30 * pr));
-    // ...and the lit edge's glow, just outside it
-    o += rimc * (1.0 - ia) * pu.w * 0.45 * exp(-max(ir - pr, 0.0) / (0.10 * pr));
-    // (under glass the glass's reflections are the gloss: its own are softer)
-    const float hk = 0.80, h1s = 0.75;
+    // a soft golden bloom just outside it, hardly more below
+    o += vec3(1.0, 0.70, 0.22) * (1.0 - ia) * pu.w * IRIS_BLOOM * lit * (0.85 + 0.30 * vy)
+         * exp(-max(ir - pr, 0.0) / (0.15 * pr));
+    const float hk = 1.0, h1s = 0.80;
 #else
     const float hk = 1.0, h1s = 0.86;
     // a soft shadow the iris throws on the eye round it
@@ -907,6 +903,7 @@ void main() {
 # A small program: the big one's compile on the Pi grows with every eye SDF.
 _FRAG_GLASS = """
 #define IRIS_UNDER_GLASS
+#define IRIS_BLOOM 0.25
 uniform vec2  uRes;
 uniform float uTilt, uTime, uWarm, uIrisGlow;
 uniform vec3  uShine, uPupilCol, uIrisCol;
@@ -1006,11 +1003,6 @@ void main() {
         float ir = length((q - pu.xy - vec2(0.0, 0.10 * pu.z)) / vec2(0.93, 1.0));
         col *= 1.0 - 0.30 * pu.w * exp(-max(ir - pu.z, 0.0) / (0.20 * pu.z));
     }
-    // ...and the pupil itself, bent like the world behind (a little less:
-    // it is nearer), under all the glass's reflections
-    vec4 pg = pu;
-    pg.w *= smoothstep(0.03, 0.14, -d / max(min(b.x, b.y), 1.0));
-    col = drawIris(q + off * 0.8, col, pg);
     // reflected: the sky above off the upper curve, the horizon off the lower,
     // the rim's own light off the inside of the bevel; more the more it slants
     vec3 skyHi = uEnvOn > 0.5 ? uEnvZen : vec3(0.05, 0.045, 0.05);
@@ -1046,6 +1038,11 @@ void main() {
         col += uEnvMoonC * uEnvMoon.w * 0.8 * s
                * pow(max(dot(lgn, normalize(uEnvMoon.xy - p + 1e-3)), 0.0), 14.0);
     }
+    // the iris and pupil, in front of the glass's inside and its reflections,
+    // bent a little like the world behind
+    vec4 pg = pu;
+    pg.w *= smoothstep(0.03, 0.14, -d / max(min(b.x, b.y), 1.0));
+    col = drawIris(q + off * 0.8, col, pg);
     gl_FragColor = vec4(col * a + halo * hk, a + hk);
 }
 """
