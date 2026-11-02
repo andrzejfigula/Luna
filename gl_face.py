@@ -923,7 +923,8 @@ _FRAG_GLASS = """
 #define EMIT 0.95
 #define GLOW_LIFT 1.0
 #define DODGE 0.90
-#define MINIFY 0.45
+#define MINIFY 0.90
+#define CORNER_MUL 4.0
 #define GLOW_OWN 0.30
 uniform float uGlassView;     // 0 all; 1..7 one layer alone (_GLASS_VIEWS); 8 all, this pass only
 uniform vec2  uRes;
@@ -1023,7 +1024,7 @@ void main() {
     // 2 refraction: a reversed lens - it shrinks the world behind it (a wider
     // view), most at the bevel, like a fisheye; the iris keeps the old bulge
     vec2 ioff = -(g * s * 0.55 * W + qo * 0.16) * smoothstep(0.0, 0.10 * m + 1.0, -d);
-    vec2 off = qo * MINIFY + g * s * 0.30 * W;
+    vec2 off = qo * MINIFY + g * s * 0.55 * W;
     float disp = 0.03 * s;
     // (the sky alone: the shrunk view reaches past the eye, into its shadow)
     vec3 seen = uEnvOn > 0.5
@@ -1062,8 +1063,8 @@ void main() {
     // takes that hue, then a colour dodge lights its bright parts (clouds, stars)
     // and leaves the dark ones dark - glowing, not more opaque
     float rad = sq(clamp(1.0 + d / (0.85 * m), 0.0, 1.0));
-    vec3 gc = mix(vec3(1.0, 0.16, 0.03), vec3(1.0, 0.80, 0.22), rad);
-    tr = mix(tr, gluma(tr) * gc / gluma(gc), min(1.1 * hg, 0.95));
+    vec3 gc = mix(vec3(1.0, 0.34, 0.035), vec3(1.0, 0.72, 0.14), rad);
+    tr = mix(tr, gluma(tr) * gc / gluma(gc), min(1.7 * hg, 1.0));
     tr = tr / max(vec3(1.0) - gc * DODGE * hg, vec3(0.10)) * (1.0 + GLOW_LIFT * hg);
     vol = vol * GLOW_OWN + vec3(1.0, 0.50, 0.06) * 1.1 * exp(min(d, 0.0) / (0.035 * m)) * (0.45 + 0.85 * v);
     vol *= heat;
@@ -1079,22 +1080,31 @@ void main() {
     env *= 1.0 - 0.75 * smoothstep(0.05, 0.5, n.y);     // (the lower bevel mirrors the dim room)
     float F = (0.04 + 0.92 * sq(1.0 - n.z)) * (1.0 - uMorph.x);
     vec3 R = env * F;
-    // a small light up-left in the room: only the rounded corner faces it,
-    // close to the edge (steep) - a sharp thin arc there
+    // the room stays put while she moves: the eye's shift from its place and
+    // her gaze slide what it mirrors along the curve
+    vec2 par = clamp(-(pu.xy / bo) * 0.10
+                     - (e.xy - c0 - vec2(side * 160.0, -0.14 * uRes.y)) / uRes.y * 0.30,
+                     vec2(-0.12), vec2(0.12));
+    // a bright opening up-left in the room: only the rounded corner faces
+    // it, close to the edge - a crisp arc there, the sky in it lit up
     float tilt = length(n.xy);
-    float az = max(dot(n.xy / max(tilt, 1e-4), vec2(-0.707, -0.707)), 0.0);
-    float sharp = exp(-sq((tilt - 0.83) / 0.018)) * pow(az, 60.0);
+    float az = dot(n.xy / max(tilt, 1e-4), normalize(vec2(-0.707, -0.707) - par * 2.5));
+    float cdist = abs(tilt - 0.855) - 0.035 * sqrt(clamp((az - 0.90) / 0.10, 0.0, 1.0));
+    float ca = fwidth(cdist) + 1e-4;
+    float sharp = smoothstep(ca, -ca, cdist) * step(0.90, az);
+    vec3 cc = min(env * CORNER_MUL + vec3(0.45, 0.43, 0.40), vec3(1.6));
     // the room's window, up-left, mirrored in the dome: found by the normal,
     // so it bends with the curve; crisp, a cross in it, brighter at its top
     vec2 rd = n.xy / n.z;
-    vec2 wq = abs(rd - vec2(-0.25, -0.22)) - vec2(0.070, 0.050);
+    vec2 wc0 = vec2(-0.25, -0.22) + par;
+    vec2 wq = abs(rd - wc0) - vec2(0.070, 0.050);
     float wd = length(max(wq, 0.0)) + min(max(wq.x, wq.y), 0.0) - 0.023;
     float wa = fwidth(wd) + 1e-4;
-    float win = smoothstep(wa, -wa, wd) * (1.0 - 0.5 * smoothstep(-0.28, -0.16, rd.y));
-    float bar = min(abs(rd.x + 0.25), abs(rd.y + 0.22));
+    float win = smoothstep(wa, -wa, wd) * (1.0 - 0.5 * smoothstep(-0.06, 0.06, rd.y - wc0.y));
+    float bar = min(abs(rd.x - wc0.x), abs(rd.y - wc0.y));
     win *= smoothstep(0.0015, 0.0015 + 1.5 * fwidth(bar), bar);
     vec3 wc = mix(vec3(1.0, 0.88, 0.72), vec3(0.90, 0.95, 1.0), day);
-    R += (vec3(1.0, 0.95, 0.86) * KEY * sharp + glin(wc) * WINDOW * win) * (1.0 - uMorph.x);
+    R += (cc * KEY * sharp + glin(wc) * WINDOW * win) * (1.0 - uMorph.x);
     // the sun and the moon catch the bevel on their side (not when right
     // behind her: then they are seen through the glass)
     if (uEnvOn > 0.5) {
