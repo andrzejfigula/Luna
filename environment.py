@@ -524,6 +524,9 @@ class Env:
             "uEnvOn": 1.0,
             "uEnvZen": c(cur["zen"]), "uEnvMid": c(cur["mid"]), "uEnvHor": c(cur["hor"]),
             "uEnvLow": c(cur["low"]),
+            # the light round her, 0 night .. 1 full day: from the eased sky
+            # behind her, so weather and season count too (the glass eyes)
+            "uEnvAmb": _smooth((sum(k * x for k, x in zip((0.30, 0.59, 0.11), c(cur["mid"]))) - 0.15) / 0.35),
             "uEnvSun": (*c(cur["sun"]), sun_a + night_glow),
             "uEnvSunP": (sx, sy, h * TUNE["sun_size"],
                          TUNE["face_shade"] * (1.0 - 0.45 * _smooth((e + 2.0) / 14.0))),

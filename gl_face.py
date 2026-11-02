@@ -116,7 +116,8 @@ uniform vec2  uShut;          // …and their shutters, closed 0..1 (his blink)
 uniform vec2  uRim;           // …HAL blushing: his steel rims warm red (x) and turn (y, radians)
 
 uniform float uEnvOn;         // 1: Luna's world outside behind her (environment.py)
-uniform sampler2D uSky;       // …drawn by _FRAG_SKY at the soft pass's size
+uniform float uEnvAmb;        // …how bright it is round her, 0 night .. 1 full day (eased sky, any weather)
+uniform sampler2D uSky;      // …drawn by _FRAG_SKY at the soft pass's size
 
 float gA;                     // the coverage of the shape just drawn (stage 2)
 
@@ -307,7 +308,8 @@ vec3 glassColour(vec2 q, vec2 b, float d, vec2 look, vec4 la, float side, out fl
     float halo = exp(min(d, 0.0) / (0.28 * m));         // its light, spreading inward
     float low = 0.80 + 0.70 * smoothstep(0.35, 1.0, v);  // hottest along the bottom
     vec3 c = col * (0.05 * halo + 1.25 * rim * low);
-    op = 0.02 * halo + 0.66 * rim;
+    // (against a bright sky the lit edge covers more of it, or it washes out white)
+    op = 0.02 * halo + (0.66 + 0.24 * (uEnvOn > 0.5 ? uEnvAmb : 0.0)) * rim;
     // the upper lid's shadow
     vec2 t = lidTop(q.x, b, la, side);
     float lidded = smoothstep(0.02, 0.12, la.x) * (1.0 - uMorph.x);
@@ -465,8 +467,9 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
         vec3 gc = mix(mix(uGlow, uTint, uTintAmt), uHeartBottom, uMorph.x);
         float breath = 1.0 + 0.07 * sin(uTime);          // she breathes: so does the light
         float dg = max(min(d, mix(1e5, ds, sa)), 0.0);
-        if (uGlass > 0.5 && uLens < 0.5)          // (glass: little glow behind it, the world shows)
-            gc *= mix(1.0, 0.06, smoothstep(0.0, -0.25 * min(b.x, b.y), d));
+        if (uGlass > 0.5 && uLens < 0.5)          // (glass: little glow behind it, the world shows;
+            gc *= mix(1.0, 0.06, smoothstep(0.0, -0.25 * min(b.x, b.y), d))  // by day less: no haze)
+                  * (1.0 - 0.6 * (uEnvOn > 0.5 ? uEnvAmb : 0.0) * smoothstep(2.0, -4.0, d));
         glow += gc * (0.40 * exp(-dg / 10.0) + 0.17 * breath * exp(-dg / 40.0))
                 * (1.0 + 0.35 * uEnergy) * uDim * (1.0 - 0.6 * uLens + 0.5 * uRim.x)  // (black glass)
                 * smoothstep(0.0, 8.0, e.w);
@@ -876,7 +879,7 @@ uniform vec3  uTop, uTint, uHeartTop;
 uniform float uTintAmt;
 uniform sampler2D uBg;        // the frame behind the eyes (its copied part)
 uniform vec4  uBgBox;         // ...that part: u0, v0, u1, v1
-uniform float uEnvOn;
+uniform float uEnvOn, uEnvAmb;
 uniform vec3  uEnvZen, uEnvHor, uEnvDiscC, uEnvMoonC;
 uniform vec4  uEnvDisc, uEnvMoon;     // the sun, the moon: x, y, r, a
 uniform vec3  uBottom, uHeartBottom;
@@ -949,15 +952,16 @@ void main() {
                    texture2D(uBg, bgUV(p + toFace(off * (1.0 - disp), ang))).b);
     vec3 top = mix(mix(uTop, uTint, uTintAmt), uHeartTop, uMorph.x);
     vec3 bot = mix(mix(uBottom, uTint, uTintAmt * 0.85), uHeartBottom, uMorph.x);
-    vec3 amber = max(top / max(max(top.r, top.g), max(top.b, 1e-3)), vec3(0.04));
-    // amber by the way through it: short in the middle, long where the bevel slants
-    vec3 col = bg * pow(amber, vec3(0.15 + 1.2 * (1.0 / n.z - 1.0)));
+    vec3 ab = mix(top, bot, 0.35);       // (warmer than the pale top: over blue sky, amber not green)
+    vec3 amber = max(ab / max(max(ab.r, ab.g), max(ab.b, 1e-3)), vec3(0.04));
+    // amber by the way through it: short in the middle (clear), long where the bevel slants
+    vec3 col = bg * pow(amber, vec3(0.07 + 1.2 * (1.0 / n.z - 1.0)));
     // the rim's light scattered a little way in, most from below
     float v = clamp((q.y + b.y) / (2.0 * b.y), 0.0, 1.0);
     vec3 warm = mix(top, bot, v);
     // (by day her own light counts for less against the bright world: clearer)
-    float day = uEnvOn > 0.5 ? smoothstep(0.20, 0.55, dot(uEnvZen, vec3(0.30, 0.55, 0.15))) : 0.0;
-    col += warm * 0.16 * (1.0 - 0.5 * day) * exp(min(d, 0.0) / (0.22 * m))
+    float day = uEnvOn > 0.5 ? uEnvAmb : 0.0;
+    col += warm * 0.15 * (1.0 - 0.7 * day) * exp(min(d, 0.0) / (0.18 * m))
            * (0.4 + 0.9 * smoothstep(0.2, 1.0, v));
     // the pupil sits in it: a soft shade round it
     if (pu.w > 0.01 && pu.z >= 2.0) {
@@ -980,11 +984,12 @@ void main() {
     vec3 L = normalize(vec3(lxy - qo, 2.6 * m));
     float nh = max(dot(n, normalize(L + vec3(0.0, 0.0, 1.0))), 0.0);
     col += vec3(1.0, 0.97, 0.90) * (0.55 * pow(nh, 80.0) + 0.05 * (1.0 - 0.6 * day) * pow(nh, 12.0));
-    // the sun and the moon catch its bevel on their side
+    // the sun and the moon catch its bevel on their side (not when right
+    // behind her: then it is seen through the glass, not off its edge)
     if (uEnvOn > 0.5) {
         vec2 lgn = toFace(g, ang);
-        col += uEnvDiscC * uEnvDisc.w * 1.2 * s
-               * pow(max(dot(lgn, normalize(uEnvDisc.xy - p + 1e-3)), 0.0), 10.0);
+        col += mix(uEnvDiscC, warm, 0.35) * uEnvDisc.w * 0.5 * s * smoothstep(0.8, 2.0, length(uEnvDisc.xy - p) / m)
+               * pow(max(dot(lgn, normalize(uEnvDisc.xy - p + 1e-3)), 0.0), 18.0);
         col += uEnvMoonC * uEnvMoon.w * 0.8 * s
                * pow(max(dot(lgn, normalize(uEnvMoon.xy - p + 1e-3)), 0.0), 14.0);
     }
@@ -1185,7 +1190,7 @@ def _cloud_noise(n=128, seed=29):
 _GLASS_U = ("uTilt", "uGlitch", "uEye0", "uEye1", "uLidA0", "uLidA1", "uLidB0", "uLidB1",
             "uMorph", "uPupil0", "uPupil1", "uTop", "uTint", "uHeartTop", "uTintAmt",
             "uBottom", "uHeartBottom",
-            "uEnvOn", "uEnvZen", "uEnvHor", "uEnvDisc", "uEnvDiscC", "uEnvMoon", "uEnvMoonC")
+            "uEnvOn", "uEnvAmb", "uEnvZen", "uEnvHor", "uEnvDisc", "uEnvDiscC", "uEnvMoon", "uEnvMoonC")
 
 
 class _Prog:
