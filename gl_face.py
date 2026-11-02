@@ -121,6 +121,7 @@ uniform float uEnvAmb;        // …how bright it is round her, 0 night .. 1 ful
 uniform sampler2D uSky;      // …drawn by _FRAG_SKY at the soft pass's size
 
 float gA;                     // the coverage of the shape just drawn (stage 2)
+float gEyeD0, gEyeD1;         // (the soft pass) each eye's SDF here, for its shadow
 
 
 float sdRoundBox(vec2 p, vec2 b, float r) {
@@ -508,6 +509,7 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
     float ds = lb.y > 0.01 ? seamSDF(q, e, la, lb, side) : 1e5;
     float sa = lb.y * (1.0 - uMorph.x);
     if (PASS < 0.5) {
+        if (side < 0.0) gEyeD0 = d; else gEyeD1 = d;
         vec3 gc = mix(mix(uGlow, uTint, uTintAmt), uHeartBottom, uMorph.x);
         float breath = 1.0 + 0.07 * sin(uTime);          // she breathes: so does the light
         float dg = max(min(d, mix(1e5, ds, sa)), 0.0);
@@ -757,7 +759,7 @@ float eyeShadow(vec2 p, vec4 e, vec4 la, vec4 lb, float side) {
     float below = smoothstep(e.y - 0.2 * b.y, e.y + 0.9 * b.y, p.y);
     float s = (0.30 * exp(-d / 6.0) + 0.20 * exp(-d / 22.0)) * below;
     if (uGlass > 0.5 && uLens < 0.5)      // glass: no shadow on what is seen through it
-        s *= mix(1.0, 0.15, smoothstep(2.0, -6.0, eyeSDF(eyeLocal(p, e, lb, side), e, la, lb, side)));
+        s *= mix(1.0, 0.15, smoothstep(2.0, -6.0, side < 0.0 ? gEyeD0 : gEyeD1));   // (drawEye's)
     return s;
 }
 
@@ -997,6 +999,9 @@ void main() {
     float ang = lb.z * -side;
     vec2 q = eyeLocal(p, e, lb, side);
     float d = eyeSDF(q, e, la, lb, side);
+    // its gradient from the neighbouring pixels' (q's map from the screen is
+    // a turn and a flip: its own inverse transposed); before any discard
+    vec2 g = dFdx(q) * dFdx(d) + dFdy(q) * dFdy(d);
     if (d > 10.0 || e.w < 4.0) discard;
     vec2 b = e.zw * 0.5;
     // the open part between the lids: the lens's middle and half-height
@@ -1005,8 +1010,10 @@ void main() {
     vec2 qo = q - vec2(0.0, 0.5 * (yt + yb) * (1.0 - uMorph.x));
     float m = max(min(bo.x, bo.y), 1.0);
     if (uEnvOn > 0.5 && d >= 0.5) discard;
-    vec2 g = normalize(vec2(eyeSDF(q + vec2(1.0, 0.0), e, la, lb, side) - d,
-                            eyeSDF(q + vec2(0.0, 1.0), e, la, lb, side) - d) + 1e-6);
+    if (uGlitch.x > 0.5)                  // (torn rows: no neighbours to trust)
+        g = vec2(eyeSDF(q + vec2(1.0, 0.0), e, la, lb, side) - d,
+                 eyeSDF(q + vec2(0.0, 1.0), e, la, lb, side) - d);
+    g = normalize(g + 1e-6);
     float a = clamp(0.5 - d, 0.0, 1.0);
     // just outside, the air bends a little too: what is behind leans away
     // (not over the sky: the frame isn't copied then, and it can't be seen)
@@ -2316,8 +2323,10 @@ class GLFace:
         if alpha <= 0.01:
             boxes.append(None)
         else:
+            # (drawMouth's own bound: only kind 2 is as tall as it is wide)
             hx = w / 2 + h / 2 + 8
-            hy = (max(h, w) / 2 + h + abs(bend) + abs(u["uMouthSlant"]) + 10)
+            hy = (max(h, w if 1.5 <= kind <= 2.5 else 0.0) / 2 + (h if kind >= 2.5 else 0.0)
+                  + abs(bend) + abs(u["uMouthSlant"]) + u.get("uWave", 0.0) + 10)
             boxes.append(self._box(mx, my, hx, hy, tilt))
         return boxes
 
