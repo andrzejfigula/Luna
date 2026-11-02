@@ -904,6 +904,7 @@ void main() {
 _FRAG_GLASS = """
 #define IRIS_UNDER_GLASS
 #define IRIS_BLOOM 0.25
+#define GLASS_HEAT 2
 uniform vec2  uRes;
 uniform float uTilt, uTime, uWarm, uIrisGlow;
 uniform vec3  uShine, uPupilCol, uIrisCol;
@@ -998,10 +999,27 @@ void main() {
     float day = uEnvOn > 0.5 ? uEnvAmb : 0.0;
     col += warm * 0.15 * (1.0 - 0.7 * day) * exp(min(d, 0.0) / (0.18 * m))
            * (0.4 + 0.9 * smoothstep(0.2, 1.0, v));
+#if GLASS_HEAT > 0
+    // hot amber glass, lit from within: golden at the thick lit bevel and
+    // along the bottom, orange through the body, copper and then reddish
+    // brown where it is thick and the light is low (the upper middle);
+    // added, so what is behind still shows through (deep amber-tinted)
+    float hg = float(GLASS_HEAT) * (1.0 - uMorph.x);
+    col *= mix(vec3(1.0), vec3(1.0, 0.55, 0.22), 0.35 * hg);
+    float edgeH = exp(min(d, 0.0) / (0.30 * m));
+    float midH = 1.0 - smoothstep(0.0, 1.0, length(qo / bo));
+    float heat = clamp(0.40 + 0.55 * edgeH + 0.35 * smoothstep(0.15, 1.0, v)
+                       - 0.22 * midH * (1.0 - v), 0.0, 1.0);
+    vec3 em = mix(vec3(0.30, 0.06, 0.015), vec3(0.70, 0.24, 0.035), smoothstep(0.0, 0.35, heat));
+    em = mix(em, vec3(1.0, 0.44, 0.05), smoothstep(0.30, 0.68, heat));
+    em = mix(em, vec3(1.0, 0.78, 0.32), smoothstep(0.68, 1.0, heat));
+    col += em * (0.40 * hg) * (0.45 + 0.55 * heat) * (1.0 - 0.25 * day)
+           * (0.70 + 0.40 * uIrisGlow);
+#endif
     // the pupil sits in it: a soft shade round it
     if (pu.w > 0.01 && pu.z >= 2.0) {
         float ir = length((q - pu.xy - vec2(0.0, 0.10 * pu.z)) / vec2(0.93, 1.0));
-        col *= 1.0 - 0.30 * pu.w * exp(-max(ir - pu.z, 0.0) / (0.20 * pu.z));
+        col *= 1.0 - (0.30 + 0.08 * float(GLASS_HEAT)) * pu.w * exp(-max(ir - pu.z, 0.0) / (0.20 * pu.z));
     }
     // reflected: the sky above off the upper curve, the horizon off the lower,
     // the rim's own light off the inside of the bevel; more the more it slants
@@ -1011,16 +1029,15 @@ void main() {
     vec3 refl = mix(skyLo, skyHi, clamp(0.5 - n.y * 1.8, 0.0, 1.0))
               + warm * 0.55 * exp(min(d, 0.0) / (0.12 * m));
     col = col * (1.0 - F) + refl * F;
-    // the room's window mirrored in the dome, up-left: fixed to the glass,
-    // so the pupil slides under it; it shows where what is behind is dark
+    // the room mirrored in the dome: one smooth bright band curving round
+    // its upper left, fixed to the glass (the pupil slides under it)
     vec3 nr = normalize(vec3(g * s * 1.6 + qo / bo * 0.55, 1.0));
-    vec2 rd = nr.xy / nr.z;
-    vec2 wq = abs(rd - vec2(-0.17, -0.21)) - vec2(0.10, 0.07);
-    float wd = length(max(wq, 0.0)) + min(max(wq.x, wq.y), 0.0) - 0.03;
-    float win = smoothstep(0.02, -0.015, wd) * (1.0 - 0.5 * smoothstep(-0.30, -0.12, rd.y));
-    win *= smoothstep(0.002, 0.008, min(abs(rd.x + 0.17), abs(rd.y + 0.21)));   // its cross
-    vec3 wc = mix(vec3(1.0, 0.88, 0.72), vec3(0.90, 0.95, 1.0), day);  // the lamp-lit room / daylight
-    col += (1.0 - col) * wc * win * 0.36 * (1.0 - uMorph.x);
+    vec2 rd = nr.xy / nr.z - vec2(0.06, 0.08);
+    float ra = length(rd);
+    float arc = smoothstep(0.045, 0.012, abs(ra - 0.36))
+              * smoothstep(0.15, 0.75, dot(rd / max(ra, 1e-3), vec2(-0.60, -0.80)));
+    vec3 wc = mix(vec3(1.0, 0.90, 0.76), vec3(0.92, 0.96, 1.0), day);
+    col += (1.0 - col) * wc * arc * 0.30 * (1.0 - uMorph.x);
     // the room's lamp, up-left in front of her: one highlight where the
     // curve faces it (a point light, so it stays a spot, not a band)
     vec2 lxy = vec2(-0.45 * bo.x, -2.2 * bo.y);
