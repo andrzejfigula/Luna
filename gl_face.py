@@ -1104,8 +1104,9 @@ void main() {
         R += glin(uEnvMoonC) * uEnvMoon.w * 0.8 * s
              * pow(max(dot(lgn, normalize(uEnvMoon.xy - p + 1e-3)), 0.0), 14.0);
     }
-    vec3 col = genc((tr + vol) * (1.0 - F) + R);
-    // 6, 7 the iris and the pupil, in front (bent a little like the world behind)
+    vec3 col = genc((tr + vol) * (1.0 - F));
+    // 6, 7 the iris and the pupil, under the surface (bent a little like the
+    // world behind); the reflections go over them
     vec4 pg = pu;
     pg.w *= smoothstep(0.03, 0.14, -d / max(min(b.x, b.y), 1.0));
     if (uGlassView > 0.5 && uGlassView < 7.5) {
@@ -1115,7 +1116,7 @@ void main() {
         gl_FragColor = vec4(o * a, a);
         return;
     }
-    col = drawIris(q + ioff * 0.3, col, pg);
+    col = genc(glin(drawIris(q + ioff * 0.3, col, pg)) + R);
     gl_FragColor = vec4(col * a + halo * hk, a + hk);
 }
 """
