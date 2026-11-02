@@ -346,11 +346,18 @@ vec3 drawIris(vec2 q, vec3 c, vec4 pu) {
     float band = smoothstep(-0.03, 0.05, t) * exp(-1.5 * max(t, 0.0)) * (1.0 - smoothstep(0.70, 1.0, t));
     float fa = atan(pq.y, pq.x);
     float fib = 0.93 + 0.07 * sin(fa * 31.0 + 5.0 * k) * sin(fa * 7.0 + 1.3);
-    float low = 0.60 + 0.55 * smoothstep(-0.8, 0.8, pq.y / pr);
+    float vy = smoothstep(-0.9, 0.9, pq.y / pr);           // 0 top .. 1 bottom
+    float low = 0.18 + 1.12 * vy;                          // dark on top, bright below
     vec3 amb = mix(vec3(0.95, 0.36, 0.05), vec3(1.0, 0.72, 0.26), exp(-2.5 * max(t, 0.0)));
     float lit = 0.30 + 1.25 * uIrisGlow;
+    // its outermost edge lit like the eye's own rim, the same colours, hottest below
+    vec3 rtop = mix(mix(uTop, uTint, uTintAmt), uHeartTop, uMorph.x);
+    vec3 rbot = mix(mix(uBottom, uTint, uTintAmt * 0.85), uHeartBottom, uMorph.x);
+    vec3 rimc = mix(rtop, rbot, vy) * (0.80 + 0.70 * smoothstep(0.35, 1.0, vy));
+    float edge = exp(-max(1.0 - k, 0.0) / 0.07) * (0.85 + 0.30 * uIrisGlow);
     iris = mix(uPupilCol * 0.22, uIrisCol * 0.30, smoothstep(0.62, 0.90, k))
-           * (1.0 - 0.5 * smoothstep(0.90, 1.0, k))              // a dark outer edge
+           * mix(0.30, 1.40, vy)
+         + rimc * 1.25 * edge
          + amb * band * fib * low * lit
          + amb * 0.22 * lit * exp(-max(0.60 - k, 0.0) / 0.07)    // ...its light just inside the black
            * (1.0 - smoothstep(0.58, 0.62, k))
@@ -361,6 +368,8 @@ vec3 drawIris(vec2 q, vec3 c, vec4 pu) {
     // ...its light spilling a little into the glass round it
     o += vec3(1.0, 0.52, 0.12) * (1.0 - ia) * pu.w * (0.04 + 0.10 * uIrisGlow)
          * exp(-max(ir - pr, 0.0) / (0.30 * pr));
+    // ...and the lit edge's glow, just outside it
+    o += rimc * (1.0 - ia) * pu.w * 0.45 * exp(-max(ir - pr, 0.0) / (0.10 * pr));
     // (under glass the glass's reflections are the gloss: its own are softer)
     const float hk = 0.80, h1s = 0.75;
 #else
