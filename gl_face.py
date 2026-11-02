@@ -351,7 +351,10 @@ vec3 drawIris(vec2 q, vec3 c, vec4 pu) {
     float lit = 0.30 + 1.25 * uIrisGlow;
     iris = mix(uPupilCol * 0.22, uIrisCol * 0.30, smoothstep(0.62, 0.90, k))
            * (1.0 - 0.5 * smoothstep(0.90, 1.0, k))              // a dark outer edge
-         + amb * band * fib * low * lit
+         + amb * band * fib * low * lit * 0.45
+         // the outer edge lit from inside: a bright orange crescent, hottest at the bottom
+         + vec3(1.0, 0.40, 0.04) * exp(-sq((k - 0.92) / 0.08)) * fib
+           * (0.15 + 1.9 * smoothstep(-0.3, 0.85, pq.y / pr)) * lit
          + amb * 0.22 * lit * exp(-max(0.60 - k, 0.0) / 0.07)    // ...its light just inside the black
            * (1.0 - smoothstep(0.58, 0.62, k))
          + uShine * 0.06 * exp(-sq((k - 0.93) / 0.04)) * clamp(0.5 - (pq.x + pq.y) / (2.0 * pr), 0.0, 1.0);
@@ -359,8 +362,8 @@ vec3 drawIris(vec2 q, vec3 c, vec4 pu) {
     vec3 o = mix(c, iris, ia);
 #ifdef IRIS_UNDER_GLASS
     // ...its light spilling a little into the glass round it
-    o += vec3(1.0, 0.52, 0.12) * (1.0 - ia) * pu.w * (0.04 + 0.10 * uIrisGlow)
-         * exp(-max(ir - pr, 0.0) / (0.30 * pr));
+    o += vec3(1.0, 0.45, 0.08) * (1.0 - ia) * pu.w * (0.05 + 0.22 * uIrisGlow)
+         * (0.35 + 1.4 * smoothstep(-0.3, 0.9, pq.y / pr)) * exp(-max(ir - pr, 0.0) / (0.22 * pr));
     // (under glass the glass's reflections are the gloss: its own are softer)
     const float hk = 0.80, h1s = 0.75;
 #else
