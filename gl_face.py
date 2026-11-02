@@ -921,7 +921,9 @@ _FRAG_GLASS = """
 #define KEY 1.10
 #define WINDOW 0.30
 #define EMIT 0.95
-#define GLOW_LIFT 3.5
+#define GLOW_LIFT 1.0
+#define DODGE 0.90
+#define MINIFY 0.45
 #define GLOW_OWN 0.30
 uniform float uGlassView;     // 0 all; 1..7 one layer alone (_GLASS_VIEWS); 8 all, this pass only
 uniform vec2  uRes;
@@ -1018,14 +1020,19 @@ void main() {
     vec3 bot = mix(mix(uBottom, uTint, uTintAmt * 0.85), uHeartBottom, uMorph.x);
     float day = uEnvOn > 0.5 ? uEnvAmb : 0.0;
 
-    // 2 refraction: the view bent toward the thick middle; the shift fades
-    // smoothly inward and never folds back (magnified at the bevel, barely
-    // in the middle) and eases to 0 at the very edge
-    vec2 off = -(g * s * 0.55 * W + qo * 0.16) * smoothstep(0.0, 0.10 * m + 1.0, -d);
+    // 2 refraction: a reversed lens - it shrinks the world behind it (a wider
+    // view), most at the bevel, like a fisheye; the iris keeps the old bulge
+    vec2 ioff = -(g * s * 0.55 * W + qo * 0.16) * smoothstep(0.0, 0.10 * m + 1.0, -d);
+    vec2 off = qo * MINIFY + g * s * 0.30 * W;
     float disp = 0.03 * s;
-    vec3 seen = vec3(texture2D(uBg, bgUV(p + toFace(off * (1.0 + disp), ang))).r,
-                     texture2D(uBg, bgUV(p + toFace(off, ang))).g,
-                     texture2D(uBg, bgUV(p + toFace(off * (1.0 - disp), ang))).b);
+    // (the sky alone: the shrunk view reaches past the eye, into its shadow)
+    vec3 seen = uEnvOn > 0.5
+        ? vec3(texture2D(uEnvTex, skyUV(p + toFace(off * (1.0 + disp), ang))).r,
+               texture2D(uEnvTex, skyUV(p + toFace(off, ang))).g,
+               texture2D(uEnvTex, skyUV(p + toFace(off * (1.0 - disp), ang))).b)
+        : vec3(texture2D(uBg, bgUV(p + toFace(off * (1.0 + disp), ang))).r,
+               texture2D(uBg, bgUV(p + toFace(off, ang))).g,
+               texture2D(uBg, bgUV(p + toFace(off * (1.0 - disp), ang))).b);
     // 5 absorption: amber by the way through it, short in the middle, long
     // where the bevel slants (Beer-Lambert: the blue goes first)
     vec3 ab = mix(top, bot, 0.35);
@@ -1050,8 +1057,14 @@ void main() {
     vol = mix(vol, vec3(1.00, 0.36, 0.025), smoothstep(0.60, 0.90, h));
     vol = mix(vol, vec3(1.10, 0.62, 0.10), smoothstep(0.90, 1.25, h));
     float heat = EMIT * (0.75 + 0.40 * uIrisGlow) * (1.0 + 0.10 * uEnergy) * uDim * (1.0 - 0.15 * day);
-    float hg = smoothstep(0.06, 1.1, h) * min(heat, 1.2);
-    tr = mix(tr, gluma(tr) * vec3(2.2, 0.85, 0.12), 0.75 * hg) * (1.0 + GLOW_LIFT * hg);
+    float hg = (0.70 + 0.30 * smoothstep(0.06, 1.1, h)) * min(heat, 1.2);
+    // its colour: red in the middle, glowing yellow toward the edge; the world
+    // takes that hue, then a colour dodge lights its bright parts (clouds, stars)
+    // and leaves the dark ones dark - glowing, not more opaque
+    float rad = sq(clamp(1.0 + d / (0.85 * m), 0.0, 1.0));
+    vec3 gc = mix(vec3(1.0, 0.16, 0.03), vec3(1.0, 0.80, 0.22), rad);
+    tr = mix(tr, gluma(tr) * gc / gluma(gc), min(1.1 * hg, 0.95));
+    tr = tr / max(vec3(1.0) - gc * DODGE * hg, vec3(0.10)) * (1.0 + GLOW_LIFT * hg);
     vol = vol * GLOW_OWN + vec3(1.0, 0.50, 0.06) * 1.1 * exp(min(d, 0.0) / (0.035 * m)) * (0.45 + 0.85 * v);
     vol *= heat;
     // 3 reflections: the surface is a convex mirror - each point shows the
@@ -1098,11 +1111,11 @@ void main() {
     if (uGlassView > 0.5 && uGlassView < 7.5) {
         float k = uGlassView;
         vec3 o = k < 1.5 ? genc(tr) : k < 2.5 ? seen : k < 3.5 ? genc(R) : k < 4.5 ? genc(vol)
-               : k < 5.5 ? genc(T) : drawIris(q + off * 0.3, vec3(k < 6.5 ? 0.0 : 0.40), pg);
+               : k < 5.5 ? genc(T) : drawIris(q + ioff * 0.3, vec3(k < 6.5 ? 0.0 : 0.40), pg);
         gl_FragColor = vec4(o * a, a);
         return;
     }
-    col = drawIris(q + off * 0.3, col, pg);
+    col = drawIris(q + ioff * 0.3, col, pg);
     gl_FragColor = vec4(col * a + halo * hk, a + hk);
 }
 """
