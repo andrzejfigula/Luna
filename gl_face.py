@@ -977,10 +977,18 @@ vec2 toFace(vec2 v, float a) {
     return vec2(c * v.x + s * v.y, -s * v.x + c * v.y);
 }
 
-// what is behind the glass at p: the sky alone, or the copied frame
+// what is behind the glass at p: the sky alone, or the bare screen (the soft
+// pass's, without the eyes' own glow and shadow: shrunk, they showed as rings)
 vec3 behind(vec2 p) {
     if (uEnvOn > 0.5) return texture2D(uEnvTex, skyUV(p)).rgb;
+#ifdef GLASS_COPY
     return texture2D(uBg, bgUV(p)).rgb;
+#else
+    vec2 uv = clamp(bgUV(p), 0.0, 1.0) * vec2(1.0, -1.0) + vec2(0.0, 1.0);
+    vec2 vq = uv - vec2(0.5, 0.46);
+    return vec3(0.030, 0.020, 0.016) * (1.0 - 1.6 * dot(vq, vq))
+           + vec3(0.010, 0.009, 0.012) * exp(-sq((uv.x + uv.y * 0.6 - 0.35) / 0.10));
+#endif
 }
 
 void main() {
@@ -1017,7 +1025,11 @@ void main() {
     float a = clamp(0.5 - d, 0.0, 1.0);
     // just outside, the air bends a little too: what is behind leans away
     // (not over the sky: the frame isn't copied then, and it can't be seen)
+#ifdef GLASS_COPY
     float hk = uEnvOn > 0.5 ? 0.0 : (1.0 - a) * 0.55 * exp(-max(d, 0.0) / 3.5);
+#else
+    float hk = 0.0;
+#endif
     vec3 halo = vec3(0.0);
     if (hk > 0.0)
         halo = texture2D(uBg, bgUV(p + toFace(g, ang) * 2.0 * exp(-max(d, 0.0) / 3.5))).rgb;
@@ -1986,7 +1998,8 @@ class GLFace:
         if self.p_glass is None:
             try:
                 self.p_glass = _Prog(GL, self._program(self._head + _VERT, self._head
-                    + ("#define GLASS_VIEWS\n" if self.glass_view else "") + _FRAG_GLASS))
+                    + ("#define GLASS_VIEWS\n" if self.glass_view else "")
+                    + ("#define GLASS_COPY\n" if _GLASS_DEBUG else "") + _FRAG_GLASS))
                 self.bg_tex = self._texture(self.w, self.h, GL.GL_LINEAR)
                 GL.glUseProgram(self.p_glass.id)
                 self.p_glass.unit("uBg", 6)
@@ -2007,9 +2020,9 @@ class GLFace:
             GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
         GL.glActiveTexture(GL.GL_TEXTURE0 + 6)
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.bg_tex)
-        # one copy round both eyes: each copy ends the GPU's pass over the
-        # screen and starts another (~2.4 ms on the Pi 4); with the sky on the
-        # glass reads the sky alone, so none
+        # one copy round both eyes, only for the test pattern: each copy ends
+        # the GPU's pass over the screen and starts another (~2.4 ms on the
+        # Pi 4); the glass reads the sky alone or the bare screen
         env = u.get("uEnvOn", 0.0) if self.p_sky else 0.0
         rects = [(i, r) for i, r in enumerate(self.shape_rects[:2]) if r is not None]
         boxes = []
@@ -2019,7 +2032,7 @@ class GLFace:
             x1 = min(self.w, max(int(r[2]) for _, r in rects) + 32)
             y1 = min(self.h, max(int(r[3]) for _, r in rects) + 32)
             if x1 > x0 and y1 > y0:
-                if env < 0.5 or self.glass_view:
+                if _GLASS_DEBUG:
                     GL.glCopyTexSubImage2D(GL.GL_TEXTURE_2D, 0, x0, self.h - y1, x0, self.h - y1,
                                            x1 - x0, y1 - y0)
                 uv = ((x0 + 0.5) / self.w, 1.0 - (y1 - 0.5) / self.h,
