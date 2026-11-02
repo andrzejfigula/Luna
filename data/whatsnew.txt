@@ -1,5 +1,6 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
+- Wokół moich źrenic świeci teraz bursztynowa tęczówka — spokojnie, gdy odpoczywam, jaśniej, gdy słucham albo się cieszę, a gdy myślę, powoli „oddycha”.
 - Moje źrenice są teraz w środku szklanych oczu, pod ich połyskiem, a w szkle odbija się okno. Cienie pod oczami, brwiami i buzią są delikatniejsze.
 - Moje szklane oczy są w dzień bardziej przejrzyste — widać przez nie niebo, a pomarańczowy brzeg świeci tak samo rano, w południe i w nocy.
 - Moja twarz rysuje się szybciej i płynniej. W Ustawieniach, w zakładce Ekran, jest nowy przełącznik „Wydajność na ekranie” — w rogu pokazuje, ile klatek rysuję, jak bardzo pracuje procesor i grafika, temperaturę i pamięć.

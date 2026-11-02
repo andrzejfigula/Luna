@@ -339,10 +339,30 @@ vec3 drawIris(vec2 q, vec3 c, vec4 pu) {
     iris += uIrisCol * 0.55 * uWarm * smoothstep(0.70, 0.97, k);         // a warm rim
     iris += uShine * 0.08 * exp(-sq((k - 0.80) / 0.05))                   // a glassy ring
             * clamp(0.5 - (pq.x + pq.y) / (2.0 * pr), 0.0, 1.0);
+#ifdef IRIS_UNDER_GLASS
+    // a lit amber iris: a glowing ring hugging the black pupil, gold by it,
+    // orange outward, into dark copper; fine fibres, hottest at the bottom
+    float t = (k - 0.60) / 0.30;
+    float band = smoothstep(-0.03, 0.05, t) * exp(-1.5 * max(t, 0.0)) * (1.0 - smoothstep(0.70, 1.0, t));
+    float fa = atan(pq.y, pq.x);
+    float fib = 0.93 + 0.07 * sin(fa * 31.0 + 5.0 * k) * sin(fa * 7.0 + 1.3);
+    float low = 0.60 + 0.55 * smoothstep(-0.8, 0.8, pq.y / pr);
+    vec3 amb = mix(vec3(0.95, 0.36, 0.05), vec3(1.0, 0.72, 0.26), exp(-2.5 * max(t, 0.0)));
+    float lit = 0.30 + 1.25 * uIrisGlow;
+    iris = mix(uPupilCol * 0.22, uIrisCol * 0.30, smoothstep(0.62, 0.90, k))
+           * (1.0 - 0.5 * smoothstep(0.90, 1.0, k))              // a dark outer edge
+         + amb * band * fib * low * lit
+         + amb * 0.22 * lit * exp(-max(0.60 - k, 0.0) / 0.07)    // ...its light just inside the black
+           * (1.0 - smoothstep(0.58, 0.62, k))
+         + uShine * 0.06 * exp(-sq((k - 0.93) / 0.04)) * clamp(0.5 - (pq.x + pq.y) / (2.0 * pr), 0.0, 1.0);
+#endif
     vec3 o = mix(c, iris, ia);
 #ifdef IRIS_UNDER_GLASS
-    // (under glass the glass's reflections are the gloss: its own are dim, soft)
-    const float hk = 0.16, h1s = 0.25;
+    // ...its light spilling a little into the glass round it
+    o += vec3(1.0, 0.52, 0.12) * (1.0 - ia) * pu.w * (0.04 + 0.10 * uIrisGlow)
+         * exp(-max(ir - pr, 0.0) / (0.30 * pr));
+    // (under glass the glass's reflections are the gloss: its own are softer)
+    const float hk = 0.80, h1s = 0.75;
 #else
     const float hk = 1.0, h1s = 0.86;
     // a soft shadow the iris throws on the eye round it
@@ -879,7 +899,7 @@ void main() {
 _FRAG_GLASS = """
 #define IRIS_UNDER_GLASS
 uniform vec2  uRes;
-uniform float uTilt, uTime, uWarm;
+uniform float uTilt, uTime, uWarm, uIrisGlow;
 uniform vec3  uShine, uPupilCol, uIrisCol;
 uniform vec2  uGlitch;
 uniform float uShape;
@@ -1213,7 +1233,7 @@ def _cloud_noise(n=128, seed=29):
 # what _FRAG_GLASS reads of face_uniforms
 _GLASS_U = ("uTilt", "uGlitch", "uEye0", "uEye1", "uLidA0", "uLidA1", "uLidB0", "uLidB1",
             "uMorph", "uPupil0", "uPupil1", "uTop", "uTint", "uHeartTop", "uTintAmt",
-            "uBottom", "uHeartBottom", "uTime", "uWarm", "uShine", "uPupilCol", "uIrisCol",
+            "uBottom", "uHeartBottom", "uTime", "uWarm", "uShine", "uPupilCol", "uIrisCol", "uIrisGlow",
             "uEnvOn", "uEnvAmb", "uEnvZen", "uEnvHor", "uEnvDisc", "uEnvDiscC", "uEnvMoon", "uEnvMoonC")
 
 
@@ -2297,6 +2317,15 @@ class GLFace:
         emph = life.bump(now, life.emph_t, 0.28)
         breath = math.sin(getattr(face, "breath_phase", 0.0))
         voice = getattr(face, "_audio_energy", 0.0) if talking else 0.0
+        # the lit iris (glass eyes): low and steady; brighter happy or
+        # listening, dim asleep; thinking, it breathes slowly
+        it = {"sleeping": 0.10, "happy": 0.85, "excited": 0.90, "love": 0.85,
+              "listening": 0.70, "sad": 0.35}.get(emo, 0.50)
+        if getattr(face, "_listen", False):
+            it = max(it, 0.70)
+        ir0, th0 = getattr(self, "_iris", 0.5), getattr(self, "_think", 0.0)
+        self._iris = ir0 + (it - ir0) * min(1.0, dt * 2.0)
+        self._think = th0 + ((1.0 if emo == "thinking" else 0.0) - th0) * min(1.0, dt * 1.5)
         u = {"uTime": (face.breath_phase if hasattr(face, "breath_phase") else 0.0),
              "uTilt": math.radians(face.head_angle),
              "uFace": 1.0 if rf.EYE_MODE == "block" else 0.0,
@@ -2312,6 +2341,8 @@ class GLFace:
              "uEnergy": min(1.0, max(0.0, voice)),
              # warm moods warm the pupils' rims; asleep, the eyes dim
              "uWarm": min(1.0, cur["blush"] * 1.2),
+             "uIrisGlow": min(1.0, self._iris + 0.12 * self._think * math.sin(now * 1.1)
+                              + 0.10 * min(1.0, voice)),
              "uDim": (0.70 - 0.12 * max(0.0, min(1.0, (now - life.mood_t - 300.0) / 300.0))
                       if emo == "sleeping" else 1.0) * (1.0 - 0.12 * night)}
         if cur["tint"] > 0.3:                     # angry: the glow flickers like heat
