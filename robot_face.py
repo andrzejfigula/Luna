@@ -43,6 +43,7 @@ import gallery
 import gl_fx
 import themes
 import lamp_scenes
+import perf_hud
 import screens
 import ui_screens
 from config import (RENDER_FPS, FACE_STYLE, SCREEN_WIDTH, SCREEN_HEIGHT,
@@ -3415,6 +3416,7 @@ class RobotFace:
         if sim:                                         # a simulated sky: say so (tools/env_sim.py)
             txt = _get_font(15).render(sim, True, (150, 140, 120))
             self.screen.blit(txt, (12, HEIGHT - txt.get_height() - 8))
+        perf_hud.draw(self.screen, self.fps)        # (Ustawienia → Wydajność na ekranie)
 
         t3 = time.perf_counter()
         if self.gl:

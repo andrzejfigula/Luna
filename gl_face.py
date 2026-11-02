@@ -94,6 +94,9 @@ uniform sampler2D uFaceLayer;   // what moves with the face (particles, hands, s
 uniform float uHasFaceLayer;
 uniform sampler2D uBackLayer;   // …and what goes behind it (costume ears, steam, hair)
 uniform float uPass;          // 0: the soft part (glow, blush, screen), small
+#ifndef PASS
+#define PASS uPass            // (a build for one pass: a constant, the rest compiled out)
+#endif
 uniform sampler2D uSoft;      // 1: that, stretched over the screen (+ dither)
 uniform vec2  uSoftRes;       // 2: one sharp shape (uShape) in its own box, blended
 uniform float uShape;         // 3: a pygame layer (uLayerSel) over its rows, blended
@@ -454,11 +457,11 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
              float side) {
     vec2 b = e.zw * 0.5;
     vec2 q = eyeLocal(p, e, lb, side);
-    if (uPass > 0.5 && (abs(q.x) > b.x + 4.0 || abs(q.y) > b.y + 4.0)) return col;
+    if (PASS > 0.5 && (abs(q.x) > b.x + 4.0 || abs(q.y) > b.y + 4.0)) return col;
     float d = eyeSDF(q, e, la, lb, side);
     float ds = lb.y > 0.01 ? seamSDF(q, e, la, lb, side) : 1e5;
     float sa = lb.y * (1.0 - uMorph.x);
-    if (uPass < 0.5) {
+    if (PASS < 0.5) {
         vec3 gc = mix(mix(uGlow, uTint, uTintAmt), uHeartBottom, uMorph.x);
         float breath = 1.0 + 0.07 * sin(uTime);          // she breathes: so does the light
         float dg = max(min(d, mix(1e5, ds, sa)), 0.0);
@@ -474,8 +477,13 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
     if (a <= 0.0 && as_ <= 0.0) return col;
     vec3 c;
     float op = 1.0;                       // glass: how much of the world behind it hides
+#ifdef GLASS_EYE
+    const bool glass = true;
+    if (false) {
+#else
     bool glass = uGlass > 0.5 && uLens < 0.5;
     if (uLens > 0.5) {
+#endif
         c = lensColour(q, b, pu, side < 0.0 ? uShut.x : uShut.y);
     } else {
         // its volume: a bevel round the edge (lids too), a dome over the middle
@@ -554,10 +562,10 @@ vec3 drawBrow(vec2 p, vec3 col, inout vec3 glow, vec4 s, float bend) {
     if (uBrowK.w <= 0.01) return col;
     vec2 m = (s.xy + s.zw) * 0.5;
     float hl = max(1.0, length(s.zw - s.xy) * 0.5);
-    if (uPass > 0.5 && (abs(p.x - m.x) > hl + uBrowK.z
+    if (PASS > 0.5 && (abs(p.x - m.x) > hl + uBrowK.z
                         || abs(p.y - m.y) > abs(s.w - s.y) * 0.5 + uBrowK.z + abs(bend))) return col;
     float d = browSDF(p, s, bend);
-    if (uPass < 0.5) {
+    if (PASS < 0.5) {
         glow += uGlow * 0.32 * exp(-max(d, 0.0) / 9.0) * uBrowK.w;
         return col;
     }
@@ -655,13 +663,13 @@ vec3 drawMouth(vec2 p, vec3 col, inout vec3 glow) {
     float hw = uMouth.z * 0.5;
     float h = uMouth.w;
     float kind = uMouthK.w;
-    if (uPass > 0.5 && (abs(q.x) > hw + h * 0.5 + 6.0
+    if (PASS > 0.5 && (abs(q.x) > hw + h * 0.5 + 6.0
                         || abs(q.y) > max(h, uMouth.z * step(1.5, kind) * step(kind, 2.5)) * 0.5
                                       + h * step(2.5, kind) + abs(uMouthK.x)
                                       + abs(uMouthSlant) + uWave + 6.0)) return col;
     float inner, teeth, tongue;
     float d = mouthSDF(q, inner, teeth, tongue);
-    if (uPass < 0.5) {
+    if (PASS < 0.5) {
         glow += mix(uGlow, uTint, uTintAmt) * 0.32 * exp(-max(d, 0.0) / 10.0) * alpha;
         return col;
     }
@@ -733,7 +741,7 @@ float featureShadow(vec2 p) {
 
 void main() {
     vec2 fc;
-    if (uPass < 0.5) {
+    if (PASS < 0.5) {
         fc = vec2(gl_FragCoord.x, uSoftRes.y - gl_FragCoord.y) * (uRes / uSoftRes);
     } else {
         fc = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y);
@@ -746,7 +754,7 @@ void main() {
     float cs = cos(uTilt), sn = sin(uTilt);
     vec2 p = c0 + vec2(cs * dv.x - sn * dv.y, sn * dv.x + cs * dv.y);
     vec3 glow = vec3(0.0);
-    if (uPass < 0.5) {
+    if (PASS < 0.5) {
         // a deep, faintly warm screen with a vignette
         vec2 vq = uv - vec2(0.5, 0.46);
         vec3 col = vec3(0.030, 0.020, 0.016) * (1.0 - 1.6 * dot(vq, vq));
@@ -776,19 +784,25 @@ void main() {
             col = vec3(0.0);
         }
         gl_FragColor = vec4(col, 1.0);
-    } else if (uPass < 1.5) {
+    } else if (PASS < 1.5) {
         vec3 col = texture2D(uSoft, vec2(uv.x, 1.0 - uv.y)).rgb;   // (drawn bottom row first)
         col += (hash(fc + fract(uTime)) - 0.5) / 255.0;            // dither: no banding
         gl_FragColor = vec4(col, 1.0);
-    } else if (uPass < 2.5) {
+    } else if (PASS < 2.5) {
         // one shape, premultiplied: blended over what is there
         gA = 0.0;
         vec3 c = vec3(0.0);
+#ifdef GLASS_EYE
+        bool r = uShape > 0.5;               // (one eye: drawEye inlined once)
+        c = drawEye(p, c, glow, r ? uEye1 : uEye0, r ? uLidA1 : uLidA0, r ? uLidB1 : uLidB0,
+                    r ? uPupil1 : uPupil0, r ? 1.0 : -1.0);
+#else
         if (uShape < 0.5)      c = drawEye(p, c, glow, uEye0, uLidA0, uLidB0, uPupil0, -1.0);
         else if (uShape < 1.5) c = drawEye(p, c, glow, uEye1, uLidA1, uLidB1, uPupil1, 1.0);
         else if (uShape < 2.5) c = drawBrow(p, c, glow, uBrow0, uBrowK.x);
         else if (uShape < 3.5) c = drawBrow(p, c, glow, uBrow1, uBrowK.y);
         else                   c = drawMouth(p, c, glow);
+#endif
         gl_FragColor = vec4(c, gA);
     } else {
         vec4 l = vec4(0.0);
@@ -1524,6 +1538,9 @@ class GLFace:
         self.p_glass = None              # glass eyes' refraction (_FRAG_GLASS), when needed
         self.bg_tex = None               # ...the frame behind them, copied
         self.p_gdebug = None             # ...a test pattern behind them (LUNA_GLASS_DEBUG)
+        self.p_soft = None               # the big shader built for one pass (_variant)
+        self.p_geye = None               # ...and for one glass eye
+        self.p_shape = None              # ...and for the shapes (brows, mouth, other eyes)
         self.p_stretch = _Prog(GL, self._program(head + _VERT, head + "#define STRETCH\n" + _FRAG_FLAT))
         self.p_layer = _Prog(GL, self._program(head + _VERT, head + _FRAG_FLAT))
         self.envp = None                 # the world outside's rain, snow… (gl_env.py)
@@ -1812,18 +1829,21 @@ class GLFace:
             GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
         GL.glActiveTexture(GL.GL_TEXTURE0 + 6)
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.bg_tex)
+        # one copy round both eyes: each copy ends the GPU's pass over the
+        # screen and starts another (~1 ms a copy on the Pi 4)
+        rects = [(i, r) for i, r in enumerate(self.shape_rects[:2]) if r is not None]
         boxes = []
-        for i, rect in enumerate(self.shape_rects[:2]):
-            if rect is None:
-                continue
-            x0, y0 = max(0, int(rect[0]) - 32), max(0, int(rect[1]) - 32)
-            x1, y1 = min(self.w, int(rect[2]) + 32), min(self.h, int(rect[3]) + 32)
-            if x1 <= x0 or y1 <= y0:
-                continue
-            GL.glCopyTexSubImage2D(GL.GL_TEXTURE_2D, 0, x0, self.h - y1, x0, self.h - y1,
-                                   x1 - x0, y1 - y0)
-            boxes.append((i, rect, ((x0 + 0.5) / self.w, 1.0 - (y1 - 0.5) / self.h,
-                                    (x1 - 0.5) / self.w, 1.0 - (y0 + 0.5) / self.h)))
+        if rects:
+            x0 = max(0, min(int(r[0]) for _, r in rects) - 32)
+            y0 = max(0, min(int(r[1]) for _, r in rects) - 32)
+            x1 = min(self.w, max(int(r[2]) for _, r in rects) + 32)
+            y1 = min(self.h, max(int(r[3]) for _, r in rects) + 32)
+            if x1 > x0 and y1 > y0:
+                GL.glCopyTexSubImage2D(GL.GL_TEXTURE_2D, 0, x0, self.h - y1, x0, self.h - y1,
+                                       x1 - x0, y1 - y0)
+                uv = ((x0 + 0.5) / self.w, 1.0 - (y1 - 0.5) / self.h,
+                      (x1 - 0.5) / self.w, 1.0 - (y0 + 0.5) / self.h)
+                boxes = [(i, r, uv) for i, r in rects]
         GL.glActiveTexture(GL.GL_TEXTURE0)
         GL.glUseProgram(pg.id)
         pg.u("uRes", (self.w, self.h))
@@ -1836,6 +1856,34 @@ class GLFace:
             pg.u("uBgBox", uv)
             pg.u("uRect", rect)
             GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
+
+    def _variant(self, attr, defs):
+        """The big shader built for one job (PASS a constant: the rest compiled
+        out, fewer registers — about half the GPU time); None if it won't build."""
+        p = getattr(self, attr)
+        if p is None:
+            GL = self.GL
+            try:
+                p = _Prog(GL, self._program(self._head + _VERT, self._head + defs + _FRAG))
+                GL.glUseProgram(p.id)
+                for k, unit in (("uLayer", 0), ("uSoft", 1), ("uFaceLayer", 2),
+                                ("uBackLayer", 3), ("uSky", 4)):
+                    p.unit(k, unit)
+            except Exception as e:
+                p = False
+                print(f"[gl] {attr}: the full shader instead ({e})", flush=True)
+            setattr(self, attr, p)
+        return p or None
+
+    def _sync(self, p, uniforms, **extra):
+        """A variant's uniforms: the frame's (only what changed is sent)."""
+        p.u("uRes", (self.w, self.h))
+        p.u("uSoftRes", (self.sw, self.sh))
+        for k, v in uniforms.items():
+            if k[0] != "_":
+                p.u(k, v)
+        for k, v in extra.items():
+            p.u(k, v)
 
     def _quad(self):
         self._bind_quad()
@@ -1878,9 +1926,17 @@ class GLFace:
         else:
             if uniforms.get("uEnvOn", 0.0) > 0.5:
                 self._sky(uniforms, full)
-            self._u("uPass", 0.0)
-            self._u("uRect", full)
-            self._quad()
+            p0 = self._variant("p_soft", "#define PASS 0.0\n")
+            if p0:
+                GL.glUseProgram(p0.id)
+                self._sync(p0, uniforms, uRect=full,
+                           uEnvOn=uniforms.get("uEnvOn", 0.0) if self.p_sky else 0.0)
+                self._quad()
+                GL.glUseProgram(self.prog)
+            else:
+                self._u("uPass", 0.0)
+                self._u("uRect", full)
+                self._quad()
         # 1: stretched over the whole screen
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.target_fbo)
         GL.glViewport(0, 0, self.w, self.h)
@@ -1930,15 +1986,32 @@ class GLFace:
             GL.glUseProgram(pl.id)
         elif uniforms.get("uFace", 0.0) > 0.5:
             GL.glUseProgram(self.prog)
+            pe = None
             if uniforms.get("uGlass", 0.0) > 0.5 and uniforms.get("uLens", 0.0) < 0.5:
                 self._glass_back(uniforms)    # glass: what is seen through it, then its light
-            GL.glUseProgram(self.prog)
-            self._u("uPass", 2.0)
+                pe = self._variant("p_geye", "#define PASS 2.0\n#define GLASS_EYE\n")
+                if pe:
+                    GL.glUseProgram(pe.id)
+                    self._sync(pe, uniforms)
+            p2 = self._variant("p_shape", "#define PASS 2.0\n")
+            if p2:
+                GL.glUseProgram(p2.id)
+                self._sync(p2, uniforms)
+            else:
+                GL.glUseProgram(self.prog)
+                self._u("uPass", 2.0)
             for i, rect in enumerate(self.shape_rects):
                 if rect is None:
                     continue
-                self._u("uShape", float(i))
-                self._u("uRect", rect)
+                p = pe if pe and i < 2 else p2
+                if p:
+                    GL.glUseProgram(p.id)
+                    p.u("uShape", float(i))
+                    p.u("uRect", rect)
+                else:
+                    GL.glUseProgram(self.prog)
+                    self._u("uShape", float(i))
+                    self._u("uRect", rect)
                 GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
             GL.glUseProgram(pl.id)
         # 3: the pygame layers — the face's (turned) and the screen's, by

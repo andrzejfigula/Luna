@@ -218,6 +218,9 @@ def _rows(tab):
             {"key": "draw_fps", "kind": "cycle", "label": "Płynność twarzy",
              "sub": "klatki na sekundę; mniej = chłodniejszy procesor",
              "value": f"{draw_fps()} kl./s"},
+            {"key": "perf_hud", "kind": "toggle", "label": "Wydajność na ekranie",
+             "sub": "klatki, procesor, grafika, temperatura — w rogu",
+             "value": bool(settings.get("perf_hud", False))},
         ]
     if name == "Ikony":
         return dock_rows()
@@ -520,7 +523,8 @@ def change(key):
             settings.put("dock", True)
         return f"{label}: na dole" if on else f"{label}: schowane"
     defaults = {"captions": False, "status_bar": True, "dock": True,
-                "camera_preview": CAMERA_PREVIEW, "sky_bg": True, "night_quiet": True}
+                "camera_preview": CAMERA_PREVIEW, "sky_bg": True, "night_quiet": True,
+                "perf_hud": False}
     if key in defaults:
         cur = settings.get(key, defaults[key])
         new = not (cur is not False if key in ("status_bar", "dock", "sky_bg", "night_quiet")
