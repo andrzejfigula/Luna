@@ -2225,8 +2225,9 @@ class GLFace:
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
         GL.glEnable(GL.GL_BLEND)
         GL.glBlendFunc(GL.GL_ONE, GL.GL_ONE_MINUS_SRC_ALPHA)    # premultiplied
-        if (not ch and uniforms.get("uEnvOn", 0.0) > 0.5 and uniforms.get("uFace", 0.0) > 0.5
-                and self.envp is not False):     # the world outside: its rain, snow, the arc
+        env = (not ch and uniforms.get("uEnvOn", 0.0) > 0.5 and uniforms.get("uFace", 0.0) > 0.5
+               and self.envp is not False)
+        if env:                              # the world outside: its rain, snow, the arc
             try:
                 if self.envp is None:
                     self.envp = gl_env.EnvPass(self)
@@ -2306,6 +2307,10 @@ class GLFace:
         if uniforms.get("_fx"):              # the waves, hands, a costume (gl_fx.py)
             self._fx().draw(uniforms["_fx"], tilt)
             GL.glUseProgram(pl.id)
+        if env and self.envp:                # the glass in front of her: drops, flakes, frost
+            self.envp.glass(uniforms)
+            GL.glUseProgram(pl.id)
+            self._bind_quad()
         if has_layer:
             pl.u("uLayerSel", 0.0)
             self._rows(pl, self.screen_l.runs())

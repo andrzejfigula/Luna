@@ -190,7 +190,7 @@ void main() {
         float yh = c0.y + dist;
         float xh = c0.x + A * (sin(yh * 0.021 + ph) - sin(c0.y * 0.021 + ph)) + sl * dist;
         vec2 m = (vec2(xh, yh) - uEnvMask.xy) / uEnvMask.zw;
-        a *= mix(0.4, 1.0, smoothstep(0.55, 1.1, length(m)));      // fewer over her face
+        a *= mix(0.7, 1.0, smoothstep(0.55, 1.1, length(m)));      // fewer over her face
         if (uKind > 1.5 && uKind < 2.5) {       // the track: from where it sat to where it is
             float y0 = c0.y - 0.4 * r, y1 = min(yh, H + 4.0);
             float x0 = min(c0.x, xh) - 2.0 * A - r, x1 = max(c0.x, xh) + 2.0 * A + r;
@@ -220,7 +220,7 @@ uniform vec2  uRes;
 uniform float uKind;
 uniform vec4  uEnvGlass, uEnvGlassK, uEnvGlassL;
 uniform vec3  uEnvGlassC;
-uniform sampler2D uSky;       // the world outside (gl_face's sky texture)
+uniform sampler2D uSky;       // what is behind: the frame so far (or the sky alone)
 uniform sampler2D uSkyNz;     // its tiling noise (frost's reach)
 uniform sampler2D uFrost;     // ice ferns (frost_texture)
 varying vec2  vUV, vC, vL;
@@ -391,6 +391,7 @@ class EnvPass:
         self._hv, self._hf = hv, hf
         self._loc = {}
         self.gprog = None                     # the glass (made when it is first wet or cold)
+        self.behind = None                    # the frame under the drops (False: can't copy)
         rnd = random.Random(1028)             # the same sky every time
         seeds = lambda n: [(rnd.random(), rnd.random(), rnd.random(), rnd.random())  # noqa: E731
                            for _ in range(n)]
@@ -444,15 +445,8 @@ class EnvPass:
             self._loc["uSky"] = GL.glGetUniformLocation(self.prog, "uSky")
             if self._loc["uSky"] >= 0:
                 GL.glUniform1i(self._loc["uSky"], 6)
-        stride = 6 * 4
-        attrib = getattr(face, "attrib", GL.glVertexAttribPointer)
         GL.glEnableVertexAttribArray(1)
-
-        def mesh(kind, mode, n):
-            GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.bufs[kind])
-            attrib(0, 2, GL.GL_FLOAT, GL.GL_FALSE, stride, None)
-            attrib(1, 4, GL.GL_FLOAT, GL.GL_FALSE, stride, ctypes.c_void_p(8))
-            GL.glDrawArrays(mode, 0, n)
+        mesh = self._mesh
 
         arc = u["uEnvArc"]
         if arc[3] > 0.005:
@@ -477,18 +471,55 @@ class EnvPass:
             ph = u.get("uEnvMoonP", (0.3, 1.0))
             self._set("uK", (ph[0], ph[2] if len(ph) > 2 else 0.6, 1.2 / max(1.0, moon[2]), ph[1]))
             mesh("stars", GL.GL_TRIANGLES, 6)
-        g = u.get("uEnvGlass")
-        if g and max(g[:3]) > 0.004 and self.gprog is not False and getattr(face, "sky", 0):
-            try:
-                self._glass(u, g, mesh)
-            except Exception as e:                    # noqa: BLE001
-                self.gprog = False
-                print(f"[gl] the glass in front off: {e}", flush=True)
         GL.glDisableVertexAttribArray(1)
 
+    def _mesh(self, kind, mode, n):
+        GL = self.GL
+        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.bufs[kind])
+        attrib = getattr(self.face, "attrib", GL.glVertexAttribPointer)
+        attrib(0, 2, GL.GL_FLOAT, GL.GL_FALSE, 24, None)
+        attrib(1, 4, GL.GL_FLOAT, GL.GL_FALSE, 24, ctypes.c_void_p(8))
+        GL.glDrawArrays(mode, 0, n)
+
+    def glass(self, u):
+        """The glass in front of her (gl_face draws it after her face, before
+        the screen's layer). Blending premultiplied is on."""
+        g = u.get("uEnvGlass")
+        if not g or max(g[:3]) <= 0.004 or self.gprog is False or not getattr(self.face, "sky", 0):
+            return
+        GL = self.GL
+        GL.glEnableVertexAttribArray(1)
+        try:
+            self._glass(u, g, self._mesh)
+        except Exception as e:                        # noqa: BLE001
+            self.gprog = False
+            print(f"[gl] the glass in front off: {e}", flush=True)
+        GL.glDisableVertexAttribArray(1)
+
+    def _behind(self, W, H):
+        """The frame so far (sky, her face) for the drops to bend: one copy
+        (RGB: the window has no alpha to copy); None: the sky alone."""
+        GL = self.GL
+        if self.behind is False:
+            return None
+        try:
+            GL.glActiveTexture(GL.GL_TEXTURE0 + 6)
+            if self.behind is None:
+                self.behind = self.face._texture(W, H, GL.GL_LINEAR)
+                GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGB, W, H, 0, GL.GL_RGB, GL.GL_UNSIGNED_BYTE, None)
+            GL.glBindTexture(GL.GL_TEXTURE_2D, self.behind)
+            GL.glCopyTexSubImage2D(GL.GL_TEXTURE_2D, 0, 0, 0, 0, 0, W, H)
+            return self.behind
+        except Exception as e:                        # noqa: BLE001
+            self.behind = False
+            print(f"[gl] the drops show the sky alone: {e}", flush=True)
+            return None
+        finally:
+            GL.glActiveTexture(GL.GL_TEXTURE0)
+
     def _glass(self, u, g, mesh):
-        """The glass in front of it all: wet tracks, drops, flakes, then frost
-        on the edges (four quads, only the band)."""
+        """Wet tracks, drops, flakes, then frost on the edges (four quads,
+        only the band)."""
         GL, face = self.GL, self.face
         if self.gprog is None:
             hf = self._hf.replace("mediump", "highp")      # (the frost's noise: steps in mediump)
@@ -518,6 +549,12 @@ class EnvPass:
             self._set(k, u[k], gp)
         T = environment.TUNE
         wet, snow, frost = g[0], g[1], g[2]
+        if max(wet, snow) > 0.004:                   # what the drops show: her too, upside down
+            tex = self._behind(W, H) or face.sky
+            GL.glActiveTexture(GL.GL_TEXTURE0 + 6)
+            GL.glBindTexture(GL.GL_TEXTURE_2D, tex)
+            GL.glActiveTexture(GL.GL_TEXTURE0)
+            GL.glUseProgram(gp)
         if wet > 0.004:
             n = T["glass_drops"] * min(1.0, wet * 1.15)
             self._set("uK", (n, T["drop_r"], T["drop_life"], T["drop_run"] * (0.5 + 0.5 * wet)), gp)
