@@ -694,6 +694,8 @@ WAVE_MAX_BELOW_FACE    = 1.3   # the hand's mean height: not lower than this
 # Motion alone can't tell a wave from a hand showing an object — both move.
 # So a motion candidate is CONFIRMED by asking the vision model whether the
 # current frame shows an open, empty hand waving. ~1 s, a fraction of a cent.
+GESTURE_SETTLE_SECS    = 30      # no waves right after a start: the camera is still
+                                 # adjusting (22 of 82 restarts "saw" one with nobody there)
 WAVE_CLOUD_CONFIRM     = False   # off: too slow (~1 s) and missed real waves
 WAVE_CONFIRM_MIN_GAP   = 3.0
 WAVE_BACK_GAP          = 300   # and waves back at most every 5 min: 37 wave-backs on

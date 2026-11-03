@@ -1,5 +1,8 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
+- Na „w jakie gry możesz grać?” wymieniam wszystkie gry, a nie tylko kilka.
+- Rzadziej kończę odpowiedź propozycją, o którą nikt nie prosił („jeśli chcesz, mogę…”).
+- Zaraz po włączeniu nie macham już do nikogo, kiedy nikt do mnie nie macha.
 - „Włącz jakieś radyjko” po prostu włącza radio, zamiast pytać które.
 - Na „co robisz?” mówię coś konkretnego, np. co widzę za szybą, a nie tylko „słucham cię”.
 - Kiedy ktoś mówi „jestem ładna” albo „jestem głodny”, lepiej zgaduję, kto mówi, i nie mylę imion.

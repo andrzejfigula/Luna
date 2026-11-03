@@ -22,7 +22,7 @@ from collections import deque
 import cv2
 import numpy as np
 
-from config import (GESTURE_FPS, WAVE_WINDOW_SECS, WAVE_MIN_REVERSALS,
+from config import (GESTURE_FPS, GESTURE_SETTLE_SECS, WAVE_WINDOW_SECS, WAVE_MIN_REVERSALS,
                     WAVE_MIN_AMPLITUDE, WAVE_MIN_SWING, WAVE_MAX_VERTICAL,
                     WAVE_MIN_AREA,
                     WAVE_MAX_AREA, WAVE_DIFF_THRESHOLD, WAVE_REQUIRE_FACE,
@@ -212,6 +212,7 @@ def gesture_loop():
     track = deque(maxlen=int(WAVE_WINDOW_SECS * GESTURE_FPS * 2))
     period = 1.0 / GESTURE_FPS
     last_fire = 0.0
+    started = time.monotonic()
 
     while True:
         t0 = time.monotonic()
@@ -295,6 +296,7 @@ def gesture_loop():
                           variants if x is not None else None))
 
             if (x is not None and not speaking
+                    and t0 - started > GESTURE_SETTLE_SECS
                     and time.time() - last_fire > WAVE_WINDOW_SECS
                     and _wave_in(track)):
                 last_fire = time.time()

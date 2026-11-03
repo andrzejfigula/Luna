@@ -61,3 +61,11 @@ taken from what went wrong in today's conversations (`tools/log_report.py`).
 | 19 | Speaker's gender also from "jestem ładna/głodny", "ja najpiękniejsza": no wrong name; no pet name when the words aren't Andrzej's | ✅ shipped |
 | 20 | "Co robisz?" / "Co tam?": something concrete and true, not "Słucham cię" every time | ✅ shipped |
 | 21 | Non-words: "będę oceniałam" → "będę oceniała", "pocichu" → "po cichu" | ✅ shipped |
+
+## Round 9 — branch improvements-9, from the same logs (30 Oct – 3 Nov)
+
+| # | Improvement | Status |
+|---|-------------|--------|
+| 22 | No waves for 30 s after a start: 22 of 82 restarts "saw" one with nobody there, and she waved back | ✅ shipped |
+| 23 | No unasked offer closing a reply ("Jeśli chcesz, mogę…", 13 of 88 replies): none in 5 real-model lines | ✅ shipped |
+| 24 | "W jakie gry możesz grać?" names all the games, not 5 of them | ✅ shipped |
