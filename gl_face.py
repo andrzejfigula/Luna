@@ -606,6 +606,62 @@ vec3 drawEye(vec2 p, vec3 col, inout vec3 glow, vec4 e, vec4 la, vec4 lb, vec4 p
     return mix(col, outc, cov);
 }
 
+#ifdef GLASS_FEAT
+// glass brows and lips (with glass eyes): _FRAG_GLASS's layers, cut down for a rod
+uniform vec3 uEnvZen, uEnvHor;
+uniform float uIrisGlow;
+vec3 glin(vec3 c) { return c * c; }
+vec3 genc(vec3 c) { return sqrt(clamp(c, 0.0, 1.0)); }
+float gluma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+
+// what is behind the glass at p: the sky, or the bare screen (as the eyes')
+vec3 featBehind(vec2 p) {
+    vec2 c0 = uRes * 0.5;
+    vec2 dv = p - c0;
+    float cs = cos(uTilt), sn = sin(uTilt);
+    vec2 uv = clamp((c0 + vec2(cs * dv.x + sn * dv.y, -sn * dv.x + cs * dv.y)) / uRes, 0.0, 1.0);
+    if (uEnvOn > 0.5) return texture2D(uSky, vec2(uv.x, 1.0 - uv.y)).rgb;
+    vec2 vq = uv - vec2(0.5, 0.46);
+    return vec3(0.030, 0.020, 0.016) * (1.0 - 1.6 * dot(vq, vq))
+           + vec3(0.010, 0.009, 0.012) * exp(-sq((uv.x + uv.y * 0.6 - 0.35) / 0.10));
+}
+
+// a glass rod w across from its axis (d its SDF, g its outward direction, o
+// its middle): the world through it amber, its light hot along the edges,
+// the room mirrored on it and a crisp line of light along its top
+vec3 glassRod(vec2 p, vec2 g, float d, float w, vec2 o) {
+    float x = clamp(1.0 + d / w, 0.0, 1.0);              // 0 its axis .. 1 its edge
+    vec3 n = normalize(vec3(g * x * 1.1, sqrt(1.0 - 0.9 * x * x)));
+    float day = uEnvOn > 0.5 ? uEnvAmb : 0.0;
+    vec3 seen = featBehind(p + g * x * w * 1.2);        // (a rod shrinks what is across it)
+    vec3 ab = mix(uTop, uBottom, 0.35);
+    vec3 amber = max(ab / max(max(ab.r, ab.g), max(ab.b, 1e-3)), vec3(0.04));
+    vec3 T = pow(amber, vec3(0.45 + 1.3 * (1.0 / n.z - 1.0)));
+    vec3 skyL = glin(uEnvOn > 0.5 ? mix(uEnvHor, uEnvZen, 0.5) : vec3(0.08));
+    float expo = min(0.40 / pow(gluma(skyL) + 0.004, 0.6), 1.8);
+    vec3 tr = glin(seen) * T * expo;
+    float v = 0.5 + 0.5 * g.y * x;                       // 0 its top .. 1 its underside
+    float edgeH = exp(min(d, 0.0) / max(0.30 * w, 1.5));
+    float h = 0.10 + 0.22 * v + 0.70 * edgeH + 0.20 * edgeH * v;
+    vec3 vol = mix(vec3(0.020, 0.003, 0.0005), vec3(0.20, 0.035, 0.003), smoothstep(0.10, 0.35, h));
+    vol = mix(vol, vec3(0.80, 0.15, 0.006), smoothstep(0.30, 0.62, h));
+    vol = mix(vol, vec3(1.00, 0.36, 0.025), smoothstep(0.60, 0.90, h));
+    vol = mix(vol, vec3(1.10, 0.62, 0.10), smoothstep(0.90, 1.25, h));
+    float heat = 0.95 * (0.75 + 0.40 * uIrisGlow) * (1.0 + 0.10 * uEnergy) * uDim * (1.0 - 0.15 * day);
+    float hg = (0.70 + 0.30 * smoothstep(0.06, 1.1, h)) * min(heat, 1.2);
+    vec3 gc = mix(vec3(1.0, 0.34, 0.035), vec3(1.0, 0.72, 0.14), x * x);
+    tr = mix(tr, gluma(tr) * gc / gluma(gc), min(1.7 * hg, 1.0));
+    tr = tr / max(vec3(1.0) - gc * 0.90 * hg, vec3(0.10)) * (1.0 + hg);
+    vol = (vol * 0.30 + vec3(1.0, 0.50, 0.06) * 1.1 * exp(min(d, 0.0) / 1.6) * (0.45 + 0.85 * v)) * heat;
+    vec3 rv = vec3(2.0 * n.z * n.xy, 2.0 * n.z * n.z - 1.0);
+    vec3 env = glin(featBehind(o + rv.xy * 260.0)) * min(expo, 1.3);
+    env *= 1.0 - 0.75 * smoothstep(0.05, 0.5, n.y);
+    float F = 0.04 + 0.92 * sq(1.0 - n.z);
+    float az = dot(g, vec2(-0.349, -0.937));             // (the light: above, a little left)
+    float sharp = smoothstep(0.6, -0.6, abs(x - 0.62) * w - 0.8) * smoothstep(0.35, 0.80, az);
+    return genc((tr + vol) * (1.0 - F) + env * F + vec3(0.50, 0.48, 0.45) * 1.10 * sharp);
+}
+#endif
 
 vec3 drawBrow(vec2 p, vec3 col, inout vec3 glow, vec4 s, float bend) {
     if (uBrowK.w <= 0.01) return col;
@@ -622,8 +678,13 @@ vec3 drawBrow(vec2 p, vec3 col, inout vec3 glow, vec4 s, float bend) {
     gA = a;
     vec2 g = normalize(vec2(browSDF(p + vec2(1.0, 0.0), s, bend) - d,
                             browSDF(p + vec2(0.0, 1.0), s, bend) - d) + 1e-6);
+#ifdef GLASS_FEAT
+    float xb = clamp((p.x - m.x) / hl, -1.0, 1.0);             // (browSDF's taper)
+    vec3 c = glassRod(p, g, d, uBrowK.z * 0.5 * (0.62 + 0.38 * (1.0 - xb * xb)), m);
+#else
     vec3 c = mix(mix(uTop, uTint, uTintAmt * 0.8), mix(uBottom, uTint, uTintAmt * 0.6), 0.25);
     c = lit(c, g, d, uBrowK.z * 0.5, vec2(0.0));                 // a rounded tube
+#endif
     return mix(col, c, a);
 }
 
@@ -726,10 +787,23 @@ vec3 drawMouth(vec2 p, vec3 col, inout vec3 glow) {
     if (a <= 0.0) return col;
     gA = a;
     vec2 g = GRAD(mouthD, q, d);
+#ifdef GLASS_FEAT
+    // glass lips: a line is a rod; an open mouth's rim a glass ring round the dark
+    vec3 c;
+    if (inner < 1e4) {
+        float rw = max(0.5 * (inner - d), 1.5);           // (the rim's half width)
+        c = glassRod(p, g * sign(d + rw), abs(d + rw) - rw, rw, uMouth.xy);
+    } else {
+        float xm = clamp(q.x / hw, -1.0, 1.0);
+        c = glassRod(p, g, d, h * 0.5 * (kind < 0.5 ? 0.70 + 0.30 * (1.0 - xm * xm) : 1.0), uMouth.xy);
+    }
+    c = mix(c, uMouthCol, uMouthColAmt);
+#else
     vec3 c = mix(mix(uTop, uTint, uTintAmt), mix(uBottom, uTint, uTintAmt), 0.35);
     c = mix(c, uMouthCol, uMouthColAmt);
     // the lips: a line is a rounded tube; an open mouth's rim rolls over
     c = lit(c, g, d, kind < 0.5 || kind > 4.5 ? h * 0.5 : 8.0, vec2(0.0));
+#endif
     if (inner < 1e4) {                        // the dark inside: teeth, a tongue
         float ia = clamp(0.5 - inner, 0.0, 1.0);
         float v = clamp(q.y / max(h, 10.0) + 0.5, 0.0, 1.0);
@@ -1729,6 +1803,7 @@ class GLFace:
         self.p_soft = None               # the big shader built for one pass (_variant)
         self.p_geye = None               # ...and for one glass eye
         self.p_shape = None              # ...and for the shapes (brows, mouth, other eyes)
+        self.p_gfeat = None              # ...glass brows and lips (with glass eyes)
         self.p_stretch = _Prog(GL, self._program(head + _VERT, head + "#define STRETCH\n" + _FRAG_FLAT))
         self.p_layer = _Prog(GL, self._program(head + _VERT, head + _FRAG_FLAT))
         self.envp = None                 # the world outside's rain, snow… (gl_env.py)
@@ -2194,10 +2269,17 @@ class GLFace:
                 if pe:
                     GL.glUseProgram(pe.id)
                     self._sync(pe, uniforms)
-            p2 = self._variant("p_shape", "#define PASS 2.0\n")
+            p2 = None
+            if pe:                            # glass brows and lips too
+                p2 = self._variant("p_gfeat", "#define PASS 2.0\n#define GLASS_FEAT\n")
+                if p2 and self.p_sky:         # (the sky they show: the radio's picture took its unit)
+                    GL.glActiveTexture(GL.GL_TEXTURE0 + 4)
+                    GL.glBindTexture(GL.GL_TEXTURE_2D, self.sky)
+                    GL.glActiveTexture(GL.GL_TEXTURE0)
+            p2 = p2 or self._variant("p_shape", "#define PASS 2.0\n")
             if p2:
                 GL.glUseProgram(p2.id)
-                self._sync(p2, uniforms)
+                self._sync(p2, uniforms, uEnvOn=uniforms.get("uEnvOn", 0.0) if self.p_sky else 0.0)
             else:
                 GL.glUseProgram(self.prog)
                 self._u("uPass", 2.0)
