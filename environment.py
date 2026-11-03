@@ -54,7 +54,7 @@ TUNE = {
     # starts and where it is thickest; how fast the glass gets wet, dries
     "glass_drops": 120, "drop_r": 12.0, "drop_life": 40.0, "drop_run": 0.35,
     "glass_flakes": 90, "flake_r": 6.5, "flake_life": 60.0,
-    "frost_width": 0.24, "frost_temp": (1.0, -8.0),
+    "frost_width": 0.20, "frost_temp": (1.0, -8.0),
     "wet_ease": (5.0, 150.0), "frost_ease": (45.0, 90.0),
     "stars": 1.0, "star_count": 110,    # clear nights: many, a few big bright ones
     "moon": 0.95, "moon_pos": (0.12, 0.16), "moon_r": 22.0,   # its real phase (at least a sliver)
