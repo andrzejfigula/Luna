@@ -51,3 +51,13 @@ taken from what went wrong in today's conversations (`tools/log_report.py`).
 
 | # | Improvement | Commit | Status |
 |---|-------------|--------|--------|
+
+## Round 8 — branch improvements-8 (cut from glass-front), from the 31 Oct – 3 Nov logs
+
+| # | Improvement | Status |
+|---|-------------|--------|
+| 17 | "co to" isn't always a look at the camera: "Co to ma oznaczać?" → "ktoś siedzi bokiem"; also "co to jest fotosynteza", "napisz…", "obraziła się", "z drugiej strony" | ✅ shipped |
+| 18 | "Włącz jakieś radyjko" plays (was an offer, action held back) | ✅ shipped |
+| 19 | Speaker's gender also from "jestem ładna/głodny", "ja najpiękniejsza": no wrong name; no pet name when the words aren't Andrzej's | ✅ shipped |
+| 20 | "Co robisz?" / "Co tam?": something concrete and true, not "Słucham cię" every time | ✅ shipped |
+| 21 | Non-words: "będę oceniałam" → "będę oceniała", "pocichu" → "po cichu" | ✅ shipped |

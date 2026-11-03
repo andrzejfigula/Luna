@@ -2875,6 +2875,9 @@ class KidsTest(unittest.TestCase):
             self.assertFalse(commands.alarm_removed("Budzik na siódmą", said.append))
         import radio
         self.assertTrue(radio._ON.match("daj jakąś muzykę"))          # (13 Oct: an offer)
+        for t in ("włącz jakieś radyjko", "puść jakieś radio", "włącz jakąś stację"):   # (3 Nov: an offer)
+            self.assertEqual(radio._ON.match(t).group(1), "", t)
+        self.assertEqual(radio._ON.match("włącz jakieś radio rockowe").group(1), "rockowe")
         self.assertEqual(next(k for rx, k in radio._GENRES
                               if __import__("re").search(rx, "coś do biegania")), "cat:hits")
 
@@ -3674,6 +3677,8 @@ class KidsTest(unittest.TestCase):
                                    return_value={"Andrzej": "Andrzeju", "Emilka": "Emilko"}):
                 self.assertTrue(brain._pet_names_ok())
                 self.assertIn("kochanie", brain._pet_name_line())
+                self.assertFalse(brain._pet_names_ok("Ja jestem piękna."))   # 3 Nov: a woman's words
+                self.assertEqual(brain._pet_name_line("Ugotowałam zupę."), "")
                 state.others = (["Emilka"], time.time())          # 31 Oct: Emilka beside him
                 self.assertFalse(brain._pet_names_ok())
                 state.others = ([], time.time())
@@ -4027,6 +4032,14 @@ class KidsTest(unittest.TestCase):
             self.assertFalse(brain._wants_vision(t), t)
         self.assertTrue(brain._wants_vision("zobacz, co mam w ręce"))
         self.assertTrue(brain._wants_vision("jak zobaczysz maję, to powiedz mi, co widzisz"))
+        # 3 Nov: "co to" that isn't "what's this here"
+        for t in ("co to ma oznaczać?", "co to znaczy?", "a co to są, o czym są dzienniki motocyklowe?",
+                  "co to było?", "po co to?", "co tobie jest?", "co to jest fotosynteza?",
+                  "napisz wiersz o kocie", "maja się obraziła", "z drugiej strony to dobrze"):
+            self.assertFalse(brain._wants_vision(t), t)
+        for t in ("co to?", "co to jest?", "co to jest tutaj?", "co to jest na tej kartce?",
+                  "co to jest napisane?", "co to za zwierzak?", "jaki tu jest napis?"):
+            self.assertTrue(brain._wants_vision(t), t)
 
     def test_one_weak_frame_of_someone_else_is_not_them(self):
         import vision_module as vm
@@ -4664,6 +4677,9 @@ class KidsTest(unittest.TestCase):
         self.assertEqual(f("z ryżem, brokułam i sosem"), "z ryżem, brokułami i sosem")
         self.assertEqual(f("Nadawam spokojnie."), "Nadaję spokojnie.")
         self.assertEqual(f("Przerobę to, rozumię."), "Przerobię to, rozumiem.")
+        self.assertEqual(f("Nie będę oceniałam wyglądu."), "Nie będę oceniała wyglądu.")
+        self.assertEqual(f("Mogę pocichu posłuchać."), "Mogę po cichu posłuchać.")
+        self.assertEqual(f("Będę miała czas, oceniałam to."), "Będę miała czas, oceniałam to.")
         real = ("zrobię robię robę przeróbkę odpalę palę spalę zapalił daję dawać "
                 "nadawał wydawać brokułami brokułom umiem rozumiem rozumie umie "
                 "zarobek stówę")
@@ -5265,6 +5281,24 @@ class KidsTest(unittest.TestCase):
                              ("Andrzej będzie zadowolony.", "Ugotowałam zupę."),  # not to him
                              ("Dobrze, Andrzeju.", "Zrobiłam to, co zrobiłem.")):
             self.assertEqual(d(reply, heard), reply, reply)
+        # 3 Nov: not only past-tense verbs
+        self.assertEqual(d("Andrzeju, piękno jest tu.", "Co? Ja jestem piękna."), "Piękno jest tu.")
+        g = brain.speaker_gender
+        for t in ("Prawda, że jestem ładna?", "Cześć, tu ja najpiękniejsza.", "jestem dziś taka zmęczona",
+                  "Jestem Emilka.", "ja sama"):
+            self.assertEqual(g(t), "f", t)
+        for t in ("Jestem głodny.", "jestem bardzo zmęczony", "jestem sam w domu", "ja pierwszy"):
+            self.assertEqual(g(t), "m", t)
+        for t in ("Jestem w domu.", "jestem od rana w pracy", "jestem tata", "jestem do jutra",
+                  "Jestem tutaj.", "jestem kiedy chcesz", "jestem zdania, że tak", "Jaka pogoda?"):
+            self.assertIsNone(g(t), t)
+
+    def test_any_radio_plays(self):
+        import radio
+        played = []        # 3 Nov "Włącz jakieś radyjko." → an offer, nothing played
+        with mock.patch.object(radio, "play", lambda n, u, **k: played.append(n)),                 mock.patch.object(radio, "_remember_station", lambda *a: None):
+            self.assertTrue(radio.handle("Włącz jakieś radyjko.", lambda t: None))
+        self.assertTrue(played)
 
     def test_list_clear_needs_a_list(self):
         import brain

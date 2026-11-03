@@ -385,11 +385,20 @@ def _crisis_line(text, person):
 _SELF_NAMED = re.compile(r"\b(?:jestem|ja|to\s+ja|mam\s+na\s+imię|nazywam\s+się|tu)\W+$")
 
 
+# 3 Nov, Emilka, the face still Andrzej: "Ja jestem piękna." → "Andrzeju, piękno…"
+_JESTEM = r"\bjestem\s+(?:(?:bardzo|strasznie|dziś|dzisiaj|teraz|tu|tutaj|już|naprawdę|trochę|tak)\s+)?"
+_SELF_F = re.compile(_JESTEM + r"(?:taka\s+)?(?!tata\b|kolega\b|mężczyzna\b|zdania\b)\w{3,}a\b|"
+                     r"\bja\s+(?:\w{3,}sza|sama)\b")
+_SELF_M = re.compile(_JESTEM + r"(?:taki\s+)?(?!kiedy\b|wtedy\b)\w{3,}(?:ny|ty|ły|wy|ry|ki|dy|chy|zy|ży)\b|"
+                     + _JESTEM + r"sam\b|\bja\s+(?:\w{3,}szy|sam)\b")
+
+
 def speaker_gender(text):
-    """"f" for "zauważyłam", "m" for "zrobiłem", None when unsaid or both."""
+    """"f" for "zauważyłam" or "jestem ładna", "m" for "zrobiłem" or "jestem głodny",
+    None when unsaid or both."""
     low = (text or "").lower()
-    she = bool(re.search(r"\b\w{2,}(?:łam|łabym)\b", low))
-    he = bool(re.search(r"\b\w{2,}(?:łem|łbym)\b", low))
+    she = bool(re.search(r"\b\w{2,}(?:łam|łabym)\b", low) or _SELF_F.search(low))
+    he = bool(re.search(r"\b\w{2,}(?:łem|łbym)\b", low) or _SELF_M.search(low))
     return "f" if she and not he else "m" if he and not she else None
 
 
@@ -690,7 +699,7 @@ PET_NAMES_FOR = {"Andrzej"}      # 31 Oct: "kochanie" only when it's just him
 _PET = r"(?:kochanie|skarbie|kotku|słonko|słoneczko|misiu|dziubasku|dziubańku)"
 
 
-def _pet_names_ok():
+def _pet_names_ok(heard=""):
     """Pet names only when someone who asked for them is alone with her: seen just
     now, nobody else (known or not) seen in the last few minutes (31 Oct: "mówisz
     do mnie kochanie przy Emilce"; 15:20 an unnamed face "closest Emilka" was let through)."""
@@ -698,6 +707,8 @@ def _pet_names_ok():
         person = state.person
         others, seen_at = state.others
     if not person or person[0] not in PET_NAMES_FOR:
+        return False
+    if heard and not_them_line(heard, person):     # 3 Nov sweep: "Ja jestem piękna." → "Tak, kochanie"
         return False
     now = time.time()
     if now - person[2] > 30:                       # not in view: can't tell who's around
@@ -721,10 +732,10 @@ def drop_pet_names(text):
     return out[:1].upper() + out[1:] if out != text else out
 
 
-def _pet_name_line():
+def _pet_name_line(heard=""):
     return ("You are alone with him now: now and then (not every reply) you may call "
             "him \"kochanie\" — never when anyone else is around.\n"
-            if _pet_names_ok() else "")
+            if _pet_names_ok(heard) else "")
 
 
 def _is_child(who):
@@ -865,7 +876,7 @@ def _feminize(text, heard=""):
     # "przekażę Maji" — Maja's genitive/dative is "Mai" (13 Oct 22:33; the
     # transcriber writes "Maji" too, and the model copies it)
     text = re.sub(r"\bMaji\b", "Mai", text)
-    if not _pet_names_ok():
+    if not _pet_names_ok(heard):
         text = drop_pet_names(text)
     with state.lock:
         known = state.person is not None
@@ -1408,7 +1419,12 @@ _LOOK_WORDS = ("widzisz", "widać", "widac", "zobacz", "spójrz", "spojrz", "pop
 # → a high-detail frame → "…Widzę dziś Andrzeja i Emilkę."
 _NOT_LOOKING = re.compile(r"\b(?:jak|gdy|kiedy|jeśli|jesli|jeżeli|jezeli|jak\s+tylko)\s+"
                           r"(?:\w+\s+)?zobaczysz\b|\bzobaczymy\b|\bzobaczę\b|\bzobacze\b|"
-                          r"\bdo\s+zobaczenia\b|\bzobaczy\b|\bzobaczą\b", re.I)
+                          r"\bdo\s+zobaczenia\b|\bzobaczy\b|\bzobaczą\b|"
+                          # 3 Nov "Co to ma oznaczać?", "co to są dzienniki…" → "ktoś siedzi bokiem"
+                          r"\bco\s+to\s+(?:ma|znacz\w*|oznacz\w*|był\w*|byl\w*|będzie|bedzie|są|sa)\b|"
+                          r"\b(?:po|na|do)\s+co\s+to\b|\bco\s+to(?=\w)|"
+                          r"\bco\s+to\s+jest(?=\s+(?!tutaj\b|przy\b|obok\b|teraz\b)\w{4,})|"   # "…fotosynteza?"
+                          r"\bnapisz\w*|\bnapisa[ćc]\b|\bobrazi\w*|\bz\s+\w+\s+strony\b", re.I)
 
 
 def _wants_vision(lower):
@@ -1677,8 +1693,11 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
         en_hint = (" (one word asked: give the ONE everyday word a child would use, in „quotes”, "
                    "in one short sentence — no list of alternatives)")
     if not en_hint and _SMALL_TALK.match((text or "").strip()):
-        en_hint = (" (small talk: ONE short sentence, one thought — no second sentence "
-                   "about your mood, your temperature, the desk, nothing tacked on)")
+        # 3 Nov: the one thought had become "Słucham cię, Andrzeju." every time
+        en_hint = (" (small talk: ONE short sentence, one thought — something concrete and true "
+                   "right now: the weather behind your glass, the hour, the radio if it plays, "
+                   "who you are looking at. Never \"słucham cię\" or \"czuwam\"; no second "
+                   "sentence about your mood, your temperature, the desk, nothing tacked on)")
     try:
         if image_b64:
             # The frame rides along with every message so Luna can always
@@ -1743,7 +1762,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   + _length_rule()
                   + faces.prompt_line()
                   + faces.met_line(text)
-                  + _pet_name_line()
+                  + _pet_name_line(text)
                   + relationship.prompt_line()
                   + luna_mood.prompt_line()
                   + birthdays.prompt_line()

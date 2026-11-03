@@ -475,6 +475,8 @@ _NON_WORDS = [
     (r"\b(\w*)dawam\b", r"\1daję"),
     (r"\bbrokułam\b", "brokułami"),
     (r"\b(roz)?umię\b", r"\1umiem"),
+    (r"\b(będę\s+\w+ła)m\b", r"\1"),       # 3 Nov "nie będę oceniałam"
+    (r"\bpocichu\b", "po cichu"),
 ]
 
 
