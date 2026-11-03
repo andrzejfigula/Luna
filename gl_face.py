@@ -2614,7 +2614,7 @@ class GLFace:
                 top, bot, bend, bbend, tilt = (v * (1.0 - lk) for v in (top, bot, bend, bbend, tilt))
                 shut = 0.0
             # a blink: the soft glass squashes toward where the lids meet (and
-            # spreads a little); the pupil shrinks into the slit (below)
+            # spreads a little); the pupil slides into the slit (below)
             h_open = h
             yf = top + 0.62 * max(0.0, 1.0 - top - bot) - 0.5
             ey += h * yf * 0.30 * shut
@@ -2682,11 +2682,9 @@ class GLFace:
                 dx, dy = h * 0.2 * math.sin(t), h * 0.2 * abs(math.cos(t * 0.7))
             mx_, my_ = max(0.0, w / 2 - pr * 0.95), max(0.0, h / 2 - pr * 0.80)
             dx, dy = max(-mx_, min(mx_, dx)), max(-my_, min(my_, dy))
-            if shut > 0.0:                        # a blink: it fits the closing slit
-                ho, yc = 0.5 * gap, 0.5 * h * (top - bot)
-                k = min(1.0, 2.0 * shut)
-                pr = _lerp(pr, min(pr, 0.80 * ho), k)
-                dy = _lerp(dy, yc, k)
+            if shut > 0.0:                        # a blink: it slides into the slit, its size kept
+                yc = 0.5 * h * (top - bot)
+                dy = _lerp(dy, yc, min(1.0, 2.0 * shut))
             shown = (1.0 - cur["heart"]) if rf.BLOCK_PUPIL else 0.0
             shown *= max(0.0, min(1.0, (gap - 14.0) / 16.0))    # a slit: just the glow
             if lens:                              # HAL: a squint narrows his light
