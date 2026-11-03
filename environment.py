@@ -47,6 +47,15 @@ TUNE = {
     "rain_count": 340, "rain_alpha": 0.32, "rain_len": 24.0, "rain_speed": 620.0,
     # snow at its heaviest: flakes, opacity, size px, speed px/s
     "snow_count": 230, "snow_alpha": 0.75, "snow_size": 1.6, "snow_speed": 34.0,
+    # the glass in front (gl_env's glass pass): drops at their most, their
+    # radius px, life s, the share that run down leaving a wet track; flakes
+    # that stick (melting into drops above 0 °C); frost on the edges below
+    # freezing — its band at its widest (× the height), the °C where it
+    # starts and where it is thickest; how fast the glass gets wet, dries
+    "glass_drops": 120, "drop_r": 12.0, "drop_life": 40.0, "drop_run": 0.35,
+    "glass_flakes": 90, "flake_r": 6.5, "flake_life": 60.0,
+    "frost_width": 0.20, "frost_temp": (1.0, -8.0),
+    "wet_ease": (5.0, 150.0), "frost_ease": (45.0, 90.0),
     "stars": 1.0, "star_count": 110,    # clear nights: many, a few big bright ones
     "moon": 0.95, "moon_pos": (0.12, 0.16), "moon_r": 22.0,   # its real phase (at least a sliver)
     # the clouds: soft layers of one noise field (gl_face's envLayer), back to
@@ -141,6 +150,7 @@ SIM_TIME = {"night": (-25.0, False), "dawn": (-9.0, True), "sunrise": (0.0, True
 SIM_WEATHER = {"clear": 0, "partly": 2, "cloudy": 3, "fog": 45, "drizzle": 53,
                "light-rain": 61, "rain": 63, "heavy-rain": 65, "light-snow": 71,
                "snow": 73, "heavy-snow": 75, "storm": 95}
+SIM_SNOW_TEMP = -2.0         # simulated snow without temp=: a frosty day
 SIM_SEASON = dict(SEASON_DAY)
 
 
@@ -248,10 +258,12 @@ def _warm(c, w):
 # ── the weather ───────────────────────────────────────────────────────────
 def weather_of(sky):
     """weather.sky_now() → cloud, fog, rain, snow, storm, wind (km/h, its
-    direction °, from); all 0 without one."""
+    direction °, from), temp (°C or None); all 0 without one."""
+    temp = sky.get("temp") if sky else None
+    temp = None if temp is None else float(temp)
     if not sky or sky.get("code") is None:
         return {"cloud": 0.0, "fog": 0.0, "rain": 0.0, "snow": 0.0, "storm": 0.0,
-                "wind": 0.0, "wind_dir": 270.0}
+                "wind": 0.0, "wind_dir": 270.0, "temp": temp}
     code = int(sky["code"])
     w = WEATHER.get(code)
     if w is None:
@@ -261,7 +273,19 @@ def weather_of(sky):
     if rain and mm:                           # a measured downpour: a little more
         rain = min(1.0, max(rain, 0.25 + mm / 6.0))
     return {"cloud": cloud, "fog": fog, "rain": rain, "snow": snow, "storm": storm,
-            "wind": float(sky.get("wind") or 0.0), "wind_dir": float(sky.get("wind_dir") or 270.0)}
+            "wind": float(sky.get("wind") or 0.0), "wind_dir": float(sky.get("wind_dir") or 270.0),
+            "temp": temp}
+
+
+def glass_of(wx):
+    """The glass's targets from the weather: frost (0..1, by the
+    temperature), melt (1: flakes on it turn to water). No temperature: no
+    frost, and snow stays snow."""
+    t = wx.get("temp")
+    if t is None:
+        return 0.0, 0.0 if wx["snow"] > 0.0 else 1.0
+    t0, t1 = TUNE["frost_temp"]
+    return _smooth((t0 - t) / (t0 - t1)), _smooth((t - 0.0) / 1.5)
 
 
 def compose(elev, rising, weights, wx):
@@ -335,7 +359,8 @@ class Env:
         self.sim_mtime = None
         self.sim_check = 0.0
         self.sim_t0 = 0.0
-        self.clk = [0.0, 0.0, 0.0, 0.0]    # rain, snow, haze, ripples (wrap at CLOCK_WRAP)
+        self.clk = [0.0, 0.0, 0.0, 0.0]    # rain, snow, haze, the glass (wrap at CLOCK_WRAP)
+        self.glass = None                  # wet, snow on it, frost, melt (eased: dries slowly)
         self.phase = random.uniform(0.0, 300.0)
         self.asleep = 0.0
         self.flash, self.flash_t, self.flash_x, self.flash_next = 0.0, -99.0, 0.6, 0.0
@@ -347,7 +372,7 @@ class Env:
     # the simulated state -------------------------------------------------
     def simulate(self, words):
         """A simulated state from words (SIM_TIME / SIM_WEATHER / SIM_SEASON,
-        "HH:MM", "wind=30", "dir=270", "cycle=120": a day in 120 s); None or
+        "HH:MM", "wind=30", "dir=270", "temp=-5", "cycle=120": a day in 120 s); None or
         "" back to the real world. Returns the label it shows."""
         ws = (words or "").replace(",", " ").split() if isinstance(words, str) else list(words or ())
         self.sim = (" ".join(ws), ws) if ws else None
@@ -408,7 +433,7 @@ class Env:
         if self.sim:
             for w in self.sim[1]:
                 w = w.lower()
-                if any(w.startswith(p) for p in ("wind=", "dir=", "cycle=")) or ":" in w:
+                if any(w.startswith(p) for p in ("wind=", "dir=", "temp=", "cycle=")) or ":" in w:
                     try:
                         float(w.split("=")[1]) if "=" in w else [int(x) for x in w.split(":")]
                     except (ValueError, IndexError):
@@ -424,6 +449,8 @@ class Env:
                     sky = dict(sky or {}, wind=float(w[5:]))
                 elif w.startswith("dir="):
                     sky = dict(sky or {}, wind_dir=float(w[4:]))
+                elif w.startswith("temp="):
+                    sky = dict(sky or {}, temp=float(w[5:]))
                 elif w.startswith("cycle="):      # a whole day in this many seconds
                     per = max(10.0, float(w[6:]))
                     lt = time.localtime(t)
@@ -435,6 +462,8 @@ class Env:
                     t = t - (lt.tm_hour * 3600 + lt.tm_min * 60 + lt.tm_sec) + int(h) * 3600 + int(m) * 60
             if sky and sky.get("code") is None:
                 sky["code"] = 0
+            if sky and sky.get("temp") is None and 70 <= sky["code"] < 80:
+                sky["temp"] = SIM_SNOW_TEMP
         else:
             sky = self._real_sky(t)
         if elev is None:
@@ -449,6 +478,7 @@ class Env:
         # the clouds' drift: with the wind across (+ right), slow without one
         tg["drift"] = -math.sin(math.radians(wx["wind_dir"])) * (0.5 + min(1.5, wx["wind"] / 20.0))
         tg["moon_age"] = moon.age_at(t) / moon.SYNODIC         # 0 new, 0.5 full
+        tg["frost"], tg["melt"] = glass_of(wx)
         return tg
 
     # per frame ------------------------------------------------------------
@@ -475,6 +505,7 @@ class Env:
         for n in _WX:
             cur[n] += (tg[n] - cur[n]) * kw
         self.asleep += ((1.0 if asleep else 0.0) - self.asleep) * (1.0 - math.exp(-dt / 3.0))
+        self._glass(dt, tg, cur, sim)
         mo = TUNE["motion"]
         # the clocks: rain falls faster as it pours (stepped here, so a change
         # of pace never moves a drop); they wrap where the shader's sway repeats
@@ -557,8 +588,44 @@ class Env:
             "uEnvStarsC": c((0.85, 0.88, 1.0)),
             "uEnvMask": (fcx, fcy + 20.0, 330.0, 190.0),
         }
+        out.update(self._glass_uniforms(w, h, e, dx, dy, disc_a, mx, my, moon_a, night, dim))
         out.update(clouds)
         return out
+
+    def _glass(self, dt, tg, cur, sim):
+        """The glass eases on its own: wet in seconds, dry over minutes (the
+        drops stay after the rain); frost grows and thaws slowly."""
+        want = (max(tg["rain"], tg["snow"] * tg["melt"] * 0.6), tg["snow"], tg["frost"], tg["melt"])
+        if self.glass is None:
+            self.glass = list(want)
+            return
+        up, down = TUNE["wet_ease"]
+        fu, fd = TUNE["frost_ease"]
+        taus = ((up, down), (up, down), (fu, fd), (3.0, 3.0))
+        for i, (tu, td) in enumerate(taus):
+            tau = TUNE["ease_sim"] if sim else (tu if want[i] > self.glass[i] else td)
+            self.glass[i] += (want[i] - self.glass[i]) * (1.0 - math.exp(-dt / tau))
+
+    def _glass_uniforms(self, w, h, e, dx, dy, disc_a, mx, my, moon_a, night, dim):
+        """gl_env's glass: (wet, snow, frost, melt); its clock, the wind's lean,
+        frost's band px; the light the drops catch (x, y, strength, the light
+        round her); the frost's and flakes' colour."""
+        T = self.glass or (0.0, 0.0, 0.0, 1.0)
+        cur = self.cur
+        amb = _smooth((sum(k * x for k, x in zip((0.30, 0.59, 0.11), cur["mid"])) * dim - 0.15) / 0.35)
+        sun = _smooth(disc_a / 0.25)                # the sun if it's out, else the moon, else up-left
+        moon_w = _smooth(moon_a / 0.4) * (1.0 - sun)
+        lx = (w * 0.18) * (1.0 - sun - moon_w) + dx * sun + mx * moon_w
+        ly = (-h * 0.3) * (1.0 - sun - moon_w) + dy * sun + my * moon_w
+        light = (0.35 + 0.55 * amb + 0.35 * sun + 0.25 * moon_w) * dim
+        tint = _mix((0.84, 0.91, 1.0), cur["hor"], 0.3)
+        k = (0.30 + 0.70 * amb + 0.12 * moon_w) * dim
+        return {
+            "uEnvGlass": tuple(T),
+            "uEnvGlassK": (self.clk[3], cur["slant"], T[2] * h * TUNE["frost_width"], 0.0),
+            "uEnvGlassL": (lx, ly, light, amb),
+            "uEnvGlassC": tuple(min(1.0, c * k + (0.04, 0.06, 0.10)[i] * night) for i, c in enumerate(tint)),
+        }
 
     @staticmethod
     def _moon_phase(age):

@@ -690,7 +690,7 @@ def env_sheet(out_dir, only=None):
     tiles = []
     for words in (only or ENV_LOOKS):
         env.simulate(words)
-        env.cur = None                       # (straight there, not eased)
+        env.cur = env.glass = None           # (straight there, not eased)
         u, img = shot(words)
         img.save(os.path.join(out_dir, "env_" + words.split()[0] + "_" + "_".join(words.split()[1:]) + ".png"))
         ImageDraw.Draw(img).text((10, 8), "SIM: " + words, fill=(255, 255, 255))

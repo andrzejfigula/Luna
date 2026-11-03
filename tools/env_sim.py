@@ -6,9 +6,10 @@ weather. Read by the running Luna every 2 s (/tmp/luna_env_sim, gone on reboot).
     python tools/env_sim.py night heavy-rain
     python tools/env_sim.py sunset fog winter wind=30
     python tools/env_sim.py cycle=120 snow       # a whole day in 120 s
+    python tools/env_sim.py night clear temp=-6  # frost on the glass's edges
     python tools/env_sim.py off
 
-Words: environment.SIM_TIME, SIM_WEATHER, SIM_SEASON, "HH:MM", wind=, dir=, cycle=.
+Words: environment.SIM_TIME, SIM_WEATHER, SIM_SEASON, "HH:MM", wind=, dir=, temp=, cycle=.
 """
 import os
 import shlex

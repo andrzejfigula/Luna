@@ -11847,6 +11847,35 @@ class TestEnvironment(unittest.TestCase):
         self.assertEqual(u["uEnvSnow"][0], 0.0)
         self.assertIsNone(e.label())
 
+    def test_glass_wet_dries_slowly_frost_by_temperature(self):
+        import environment as E
+        self.assertEqual(E.glass_of(E.weather_of({"code": 0, "temp": 12.0})), (0.0, 1.0))
+        frost, melt = E.glass_of(E.weather_of({"code": 73, "temp": -6.0}))
+        self.assertGreater(frost, 0.6)
+        self.assertEqual(melt, 0.0)                               # flakes stay flakes
+        self.assertEqual(E.glass_of(E.weather_of({"code": 3})), (0.0, 1.0))   # no temperature: no frost
+        sky = [{"code": 63, "temp": 8.0}]
+        e = E.Env(wall=lambda: 1793700000.0)
+        e._real_sky = lambda t: sky[0]
+        t = 100.0
+        for _ in range(60):
+            t += 1.0
+            u = e.frame(t, 800, 480, 400, 212)
+        self.assertGreater(u["uEnvGlass"][0], 0.5)               # rain: wet glass
+        self.assertEqual(u["uEnvGlass"][2], 0.0)                 # 8 °C: no frost
+        sky[0] = {"code": 0, "temp": -5.0}
+        e.next_t = 0.0
+        for _ in range(30):
+            t += 1.0
+            u = e.frame(t, 800, 480, 400, 212)
+        self.assertGreater(u["uEnvGlass"][0], 0.3)               # 30 s after: still drops on it
+        self.assertGreater(u["uEnvGlassK"][2], 1.0)              # frost growing
+        self.assertTrue(0.0 <= u["uEnvGlassK"][0] < E.CLOCK_WRAP)
+        e.simulate("night snow")
+        self.assertEqual(e._targets()["melt"], 0.0)              # simulated snow: below zero
+        e.simulate("day clear temp=-9")
+        self.assertEqual(e._targets()["frost"], 1.0)
+
     def test_backdrop_light(self):
         import environment as E
         old = E._env
@@ -11883,7 +11912,7 @@ class TestEnvironment(unittest.TestCase):
         import gl_env
         import gl_face
         u = E.Env(wall=lambda: 1793700000.0).frame(1.0, 800, 480, 400, 212)
-        src = gl_face._FRAG + gl_face._FRAG_SKY + gl_env._VERT
+        src = gl_face._FRAG + gl_face._FRAG_SKY + gl_env._VERT + gl_env._GVERT + gl_env._GFRAG
         glsl = set(re.findall(r"uEnv\w+", src))
         self.assertIn(f"uEnvCa[{len(E.TUNE['cloud_layers'])}]", src)
         self.assertIn(f"i < {len(E.TUNE['cloud_layers'])}; i++) c = envLayer", src)

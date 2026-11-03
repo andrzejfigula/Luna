@@ -390,7 +390,7 @@ def _apply(d):
             _sky_cur.clear()
             _sky_cur.update(time=cur["time"], code=cur["weather_code"],
                             wind=cur.get("wind_speed_10m"), wind_dir=cur.get("wind_direction_10m"),
-                            precip=cur.get("precipitation"))
+                            precip=cur.get("precipitation"), temp=cur.get("temperature_2m"))
         except (KeyError, TypeError):
             _sky_cur.clear()
         try:
@@ -476,7 +476,7 @@ def _loop():
 
 _today = {}        # today's rain chance and max temperature (the last fetch)
 _sky = {}          # hour → (temperature, WMO code); day → (sunrise, sunset)
-_sky_cur = {}      # the "current" block: time, code, wind, wind_dir, precip
+_sky_cur = {}      # the "current" block: time, code, wind, wind_dir, precip, temp
 
 # WMO code → the status bar's little picture (statusbar.py)
 _KIND = {0: "clear", 1: "clear", 2: "partly", 3: "cloud", 45: "fog", 48: "fog",
@@ -507,8 +507,8 @@ def now(t=None):
 
 def sky_now(t=None):
     """The weather right now for Luna's background (environment.py):
-    {code, wind, wind_dir, precip} from the last fetch's "current" block
-    while it is under 90 min old, else this hour's forecast code alone;
+    {code, wind, wind_dir, precip, temp} from the last fetch's "current" block
+    while it is under 90 min old, else this hour's forecast code and temperature;
     None without a forecast (nothing is made up)."""
     if not enabled():
         return None
@@ -520,11 +520,11 @@ def sky_now(t=None):
     try:
         age = t - time.mktime(time.strptime(cur["time"], "%Y-%m-%dT%H:%M"))
         if -600 < age < 5400 and cur.get("code") is not None:
-            return {k: cur.get(k) for k in ("code", "wind", "wind_dir", "precip")}
+            return {k: cur.get(k) for k in ("code", "wind", "wind_dir", "precip", "temp")}
     except (KeyError, ValueError, TypeError, OverflowError):
         pass
     if got and got[1] is not None:
-        return {"code": got[1], "wind": None, "wind_dir": None, "precip": None}
+        return {"code": got[1], "wind": None, "wind_dir": None, "precip": None, "temp": got[0]}
     return None
 
 
