@@ -221,8 +221,7 @@ uniform float uKind;
 uniform vec4  uEnvGlass, uEnvGlassK, uEnvGlassL;
 uniform vec3  uEnvGlassC;
 uniform sampler2D uSky;       // the world outside (gl_face's sky texture)
-uniform sampler2D uSkyNz;     // its tiling noise (frost's reach)
-uniform sampler2D uFrost;     // ice ferns (frost_texture)
+uniform sampler2D uSkyNz;     // its tiling noise (the frost)
 varying vec2  vUV, vC, vL;
 varying vec4  vP, vE;
 
@@ -260,19 +259,19 @@ void main() {
         float dx = min(q.x, uRes.x - q.x), dy = min(q.y, uRes.y - q.y);
         float d = -28.0 * log(exp(-dx / 28.0) + exp(-dy / 28.0));
         float corner = clamp(1.0 - max(dx, dy) / (2.0 * B + 1.0), 0.0, 1.0);
-        float n = texture2D(uSkyNz, q / 150.0).r;
-        float front = B * (0.30 + 1.0 * n) * (1.0 + 0.8 * corner);
-        // ice ferns (frost_texture), twice, turned, so its tiles don't show
-        vec4 f1 = texture2D(uFrost, q / 256.0);
-        vec4 f2 = texture2D(uFrost, vec2(q.x * 0.6 - q.y * 0.8, q.x * 0.8 + q.y * 0.6) / 330.0 + 0.37);
-        float fern = max(f1.r, f2.r);
-        float cov = 1.0 - smoothstep(0.25 * front, front, d);          // thick by the edge
-        float reach = 1.0 - smoothstep(0.6 * front, 1.3 * front, d);   // the ferns out past it
-        float a = 0.32 * cov * cov + 0.28 * cov * max(f1.g, f2.g) + 0.70 * fern * reach;
-        float glint = f1.b * reach;
+        vec4 n = texture2D(uSkyNz, q / 260.0);
+        vec2 w = q / 52.0 + (n.rg - 0.5) * 0.9;            // the crystals' field, bent
+        float f1 = 1.0 - abs(2.0 * texture2D(uSkyNz, w).g - 1.0);
+        float f2 = 1.0 - abs(2.0 * texture2D(uSkyNz, w.yx * 2.7 + 0.31).g - 1.0);
+        float feath = max(pow(f1, 6.0), 0.75 * pow(f2, 9.0));
+        float front = B * (0.40 + 0.80 * n.r) * (1.0 + 0.8 * corner);
+        float cov = 1.0 - smoothstep(0.30 * front, front, d);
+        float tips = feath * (1.0 - smoothstep(front, 1.35 * front, d));
+        float a = cov * (0.16 + 0.50 * feath) + 0.38 * cov * cov * cov + 0.45 * tips;
+        float glint = smoothstep(0.90, 0.985, texture2D(uSkyNz, q / 6.5).b) * cov * feath;
         a *= 1.0 - smoothstep(0.8, 1.0, min(dx, dy) / (1.25 * B * (1.0 + 0.6 * corner) + 1.0));  // (its quads)
         a = clamp(a, 0.0, 0.92);
-        vec3 c = uEnvGlassC * (0.80 + 0.30 * fern) + vec3(0.9, 0.95, 1.0) * glint * uEnvGlassL.z;
+        vec3 c = uEnvGlassC * (0.75 + 0.35 * feath) + vec3(0.9, 0.95, 1.0) * glint * uEnvGlassL.z;
         o = vec4(c * a, a);
     } else if (uKind > 1.5 && uKind < 2.5) {    // a wet track, a few beads left on it
         vec2 q = vUV;
@@ -323,51 +322,6 @@ void main() {
     gl_FragColor = o;
 }
 """
-
-
-def frost_texture(n=256, seed=11):
-    """Ice ferns that tile (_GFRAG's uFrost): n×n RGBA bytes — r the
-    crystals (stems, their branches at 60°, theirs again), g the same
-    blurred (the milky ice under them), b a few glints. ~0.1 s, once."""
-    import math
-    import numpy as np
-    rnd = np.random.default_rng(seed)
-    img = np.zeros((n, n), np.float32)
-
-    def line(x, y, a, length, w):
-        t = np.linspace(0.0, length, max(2, int(length * 2)))
-        xs, ys = x + np.cos(a) * t, y + np.sin(a) * t
-        x0, y0 = np.floor(xs).astype(int), np.floor(ys).astype(int)
-        fx, fy = xs - x0, ys - y0
-        for dx, dy, f in ((0, 0, (1 - fx) * (1 - fy)), (1, 0, fx * (1 - fy)),
-                          (0, 1, (1 - fx) * fy), (1, 1, fx * fy)):
-            np.add.at(img, ((y0 + dy) % n, (x0 + dx) % n), f * w)
-
-    def fern(x, y, a, length, w, depth):
-        line(x, y, a, length, w)
-        if depth >= 2 or length < 5:
-            return
-        step = max(3.5, length / rnd.uniform(6, 10))
-        s = step * rnd.uniform(0.5, 1.0)
-        while s < length * 0.92:
-            bx, by = x + math.cos(a) * s, y + math.sin(a) * s
-            bl = length * 0.36 * (1.0 - s / length) ** 0.8 * rnd.uniform(0.7, 1.2)
-            for side in (-1, 1):
-                if rnd.random() < 0.8:
-                    fern(bx, by, a + side * math.radians(60 + rnd.uniform(-6, 6)), bl, w * 0.8, depth + 1)
-            s += step * rnd.uniform(0.8, 1.2)
-
-    for _ in range(70):
-        fern(rnd.uniform(0, n), rnd.uniform(0, n), rnd.uniform(0, math.tau), rnd.uniform(14, 60), 0.8, 0)
-    r = np.clip(img, 0.0, 1.0)
-    g = r.copy()
-    for _ in range(3):                                  # a soft blur that wraps
-        g = (g + np.roll(g, 1, 0) + np.roll(g, -1, 0) + np.roll(g, 1, 1) + np.roll(g, -1, 1)) / 5.0
-        g = (g + np.roll(g, 2, 0) + np.roll(g, -2, 0) + np.roll(g, 2, 1) + np.roll(g, -2, 1)) / 5.0
-    g = np.clip(g * 1.4, 0.0, 1.0)
-    b = (rnd.random((n, n)) > 0.996).astype(np.float32) * r
-    rgba = np.stack([r, g, b, np.ones_like(r)], -1)
-    return (rgba * 255.0 + 0.5).astype(np.uint8).tobytes()
 
 
 def _quads(seeds):
@@ -496,16 +450,8 @@ class EnvPass:
                 self.gprog = face._program(self._hv + _GVERT, hf + _GFRAG)
             except RuntimeError:
                 self.gprog = face._program(self._hv + _GVERT, self._hf + _GFRAG)
-            n = 256
-            GL.glActiveTexture(GL.GL_TEXTURE0 + 7)       # (its own unit: unit 0 keeps the layer's)
-            self.frost = face._texture(n, n, GL.GL_LINEAR)
-            GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_REPEAT)
-            GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_REPEAT)
-            GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA, n, n, 0,
-                            GL.GL_RGBA, GL.GL_UNSIGNED_BYTE, frost_texture(n))
-            GL.glActiveTexture(GL.GL_TEXTURE0)
             GL.glUseProgram(self.gprog)
-            for name, unit in (("uSky", 6), ("uSkyNz", 5), ("uFrost", 7)):
+            for name, unit in (("uSky", 6), ("uSkyNz", 5)):
                 loc = GL.glGetUniformLocation(self.gprog, name)
                 if loc >= 0:
                     GL.glUniform1i(loc, unit)
@@ -532,9 +478,8 @@ class EnvPass:
         nz = getattr(face, "sky_nz", 0)
         B = u["uEnvGlassK"][2]
         if frost > 0.004 and nz and B >= 1.0:
-            for unit, tex in ((5, nz), (7, self.frost)):
-                GL.glActiveTexture(GL.GL_TEXTURE0 + unit)
-                GL.glBindTexture(GL.GL_TEXTURE_2D, tex)
+            GL.glActiveTexture(GL.GL_TEXTURE0 + 5)
+            GL.glBindTexture(GL.GL_TEXTURE_2D, nz)
             GL.glActiveTexture(GL.GL_TEXTURE0)
             self._set("uKind", 4.0, gp)
             b = min(H / 2.0, 1.25 * B)                    # the band, then deeper in the corners
