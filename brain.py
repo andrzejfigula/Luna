@@ -736,7 +736,7 @@ def _is_child(who):
 
 def _cooking_line():
     out = ""
-    for mod in ("cooking", "memo", "tictac"):
+    for mod in ("cooking", "memo", "tictac", "radio"):
         try:
             out += __import__(mod).prompt_line()
         except Exception:

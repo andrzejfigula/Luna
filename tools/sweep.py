@@ -33,6 +33,7 @@ ap.add_argument("--keep", action="store_true", help="one conversation, history k
 ap.add_argument("--hello", action="store_true", help="leave the morning briefing on")
 ap.add_argument("--theme", help="a theme from themes.py (hal, pip, mochi…)")
 ap.add_argument("--max-calls", type=int, default=80, help="stop after this many API calls")
+ap.add_argument("--radio", help="pretend a station is on: \"Name|Song title\"")
 args = ap.parse_args()
 
 if args.at:                          # before Luna's modules read the clock
@@ -80,6 +81,10 @@ import weather             # noqa: E402
 from shared_state import state   # noqa: E402
 
 radio.play = lambda *a, **k: None
+if args.radio:
+    _name, _, _song = args.radio.partition("|")
+    radio.playing = lambda: _name
+    radio.now_title = lambda: _song or None
 os.kill = lambda *a, **k: print("[sweep] \"zrestartuj się\" — not really", flush=True)
 ambience.play = lambda *a, **k: True
 screens._take_photo = lambda *a: None

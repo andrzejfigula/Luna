@@ -116,7 +116,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `docs/backlog-d
 | Wyłącz | „Wyłącz radio” |
 | Szum do snu | „Włącz szum deszczu”, „Szum morza”, „Biały szum” (+ „na 30 minut”), sam gaśnie po 45 minutach; „Wyłącz szum” |
 | Do snu | „Wyłącz radio za 30 minut”, „Radio na 20 minut” |
-| Co gra | „Jakie to radio?”, „Co teraz gra?” — tytuł piosenki (RMF FM, 357, Nowy Świat go podają) |
+| Co gra | „Jakie to radio?”, „Co teraz gra?”, „Co to za piosenka?”, „Kto śpiewa tę piosenkę?” — tytuł piosenki (RMF FM, 357, Nowy Świat go podają) |
 | Głośność muzyki | gdy gra radio, „ciszej” / „głośniej” zmienia muzykę, nie głos Luny („mów ciszej” — jej głos) |
 | Następna stacja | „Następna stacja”, „Zmień stację” |
 | Efekty na ekranie | gdy gra radio, muzyka tańczy na ekranie: „**Zmień efekt**” (kolejny), „pokaż wstęgi / pierścienie / iskry / słupki / nutki”, „efekt oscyloskop” (fale z serduszkiem), „**efekty losowo**” (co piosenkę inny); „wyłącz efekty” / „włącz efekty”. Kolory same zmieniają się z każdą piosenką; „**zmień kolory**” — kolejne (zostają), „fioletowe / neonowe / zielone / różowe / niebieskie / czerwone / złote / pomarańczowe efekty”, „kolory losowo” — znowu co piosenkę |

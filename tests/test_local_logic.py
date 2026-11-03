@@ -6309,6 +6309,42 @@ class RadioTest(unittest.TestCase):
             self.assertTrue(radio.handle("Co teraz gra?", said.append))
         self.assertEqual(said[-1], "Teraz gra: Beck - In the Night.")
 
+    def test_song_questions_while_playing(self):
+        import commands
+        import radio
+        asked = ("Co to za piosenka, co wleci w radiu?", "Ktoś śpiewa tą piosenkę?",
+                 "co to za piosenka co w leci w radiu", "Co leci w radiu?", "Co teraz gra?",
+                 "Co to jest za piosenka?", "Jaka piosenka teraz leci?", "Co to za kawałek?",
+                 "Jak się nazywa ta piosenka?", "Jaki jest tytuł tej piosenki?",
+                 "Kto to śpiewa?", "Kto śpiewa tę piosenkę?", "Kto śpiewa?", "Czyja to piosenka?",
+                 "What song is it?", "What song is this?", "What's playing?", "Who sings this?")
+        other = ("Zaśpiewaj piosenkę", "Jaka jest twoja ulubiona piosenka?",
+                 "Kto śpiewa Imagine?", "Co leci w telewizji?", "Co gra Maja?",
+                 "Co teraz gramy?", "Jaki tytuł ma ta książka?", "What song is your favourite?")
+        with mock.patch.object(radio, "playing", lambda: "Radio 357"), \
+                mock.patch.object(radio, "_player", {"title": "Beck - In the Night"}):
+            for t in asked:
+                said = []
+                self.assertTrue(radio.answer_question(t, said.append), t)
+                self.assertEqual(said, ["Teraz gra: Beck - In the Night."], t)
+                said = []
+                self.assertTrue(commands.handle(t, lambda s, *a, **k: said.append(s),
+                                                lambda *a, **k: True), t)
+                self.assertEqual(said, ["Teraz gra: Beck - In the Night."], t)
+            for t in other:
+                self.assertFalse(radio.answer_question(t, lambda *a: None), t)
+        self.assertFalse(radio.answer_question("Kto śpiewa tę piosenkę?", lambda *a: None))  # off
+
+    def test_the_model_knows_what_is_playing(self):
+        import radio
+        self.assertEqual(radio.prompt_line(), "")
+        with mock.patch.object(radio, "playing", lambda: "Radio 357"), \
+                mock.patch.object(radio, "_player", {"title": "Beck - In the Night"}):
+            self.assertIn("Beck - In the Night", radio.prompt_line())
+        with mock.patch.object(radio, "playing", lambda: "Radio 357"), \
+                mock.patch.object(radio, "_player", {}):
+            self.assertIn("no song titles", radio.prompt_line())
+
 
     def test_no_second_hello_after_a_wave(self):
         # 13 Oct 11:09: "Hejka!" to a wave, then "Cześć, Andrzeju…" right after

@@ -295,9 +295,22 @@ _RESUME = re.compile(r"^(?:luna,?\s+)?(?:wznów|wznow|wróć\s+do|wroc\s+do|puś
                      r"(?:radio|radia|muzykę|muzyke|muzyki)\W*$")
 _WHAT = ("jakie to radio", "jaka to stacja", "co to za radio", "co to za stacja",
          "jakie radio gra", "jakie radio leci")
-_SONG = ("co teraz gra", "co to za piosenka", "co to za utwór", "co to za utwor",
-         "jaka to piosenka", "jaki to utwór", "jaki to utwor", "kto to śpiewa",
-         "kto to spiewa", "co leci", "co to leci", "what song is this", "what's playing")
+# The song on the radio. 3 Nov: "Co to za piosenka, co wleci w radiu?" (8 words)
+# and "Ktoś śpiewa tą piosenkę?" went to the model, which looked at the camera.
+_SONG_W = r"(?:piosenk\w*|utw[oó]r\w*|kawa[łl]\w*)"
+_SONG_RX = re.compile(
+    rf"\b(?:co\s+to\s+(?:jest\s+)?za|jak[ai]\s+to\s+(?:jest\s+)?|czyj[ai]?\s+to)\s*(?:{_SONG_W}|muzyk[aę])\b"
+    rf"|\bjak[ai]\s+{_SONG_W}\s+(?:teraz\s+|tam\s+)?(?:gra|leci)\b"
+    rf"|\bjak\s+si[ęe]\s+nazywa\s+(?:t[ae]|ten)\s+{_SONG_W}"
+    rf"|\btytu[łl]\w*\s+(?:ma\s+)?(?:t[ąęae]j?|tego|ten)\s+{_SONG_W}"
+    r"|\bkto\s+to\s+(?:[śs]piewa|wykonuje|gra)\b"
+    r"|\bkto\s+(?:teraz\s+|tam\s+)?[śs]piewa(?:\s+luna)?$"
+    rf"|\bkto[śs]?\s+(?:[śs]piewa|wykonuje)\s+(?:t[ąęae]|ten)\s+{_SONG_W}"       # the STT's "ktoś"
+    r"|\bco\s+(?:(?:teraz|tam|to|tu|tutaj|w[łl]a[śs]nie|w\s+radiu)\s+){0,2}(?:gra|w?leci)"
+    r"(?:\s+(?:teraz|tam|tu|tutaj|w\s+(?:tym\s+)?radiu|na\s+tej\s+stacji|luna))*$"
+    r"|\b(?:what|which)\s+song\s+is\s+(?:this|that|it|playing|on)\b"
+    r"|\bwhat(?:'s|\s+is)\s+(?:(?:this|that)\s+song|playing|on\s+the\s+radio)\b"
+    r"|\bwho(?:'s|\s+is)?\s+sing(?:s|ing)\s+(?:this|that|it)\b")
 _NEXT = ("następna stacja", "nastepna stacja", "zmień stację", "zmien stacje",
          "inna stacja", "inną stację", "inna stacje", "next station", "kolejna stacja")
 # "Weź jakieś inne radio, to jest paskudne." (11 Oct: the model asked which
@@ -797,13 +810,26 @@ def answer_question(text, speak):
         speak((f"Gra {now}" + (f" — radio {where}." if where else ".")) if now
               else "Radio nie gra.")
         return True
-    if playing() and any(k in low for k in _SONG) and len(re.findall(r"\w+", low)) <= 7:
-        with _lock:
-            title = _player.get("title") if _player else None
+    words = re.findall(r"[\w']+", low)
+    if playing() and len(words) <= 10 and _SONG_RX.search(" ".join(words)):
+        title = now_title()
         speak(f"Teraz gra: {title.rstrip('.!?')}." if title else
               f"Gra {playing()}, ale stacja nie podaje tytułu piosenki.")
         return True
     return False
+
+
+def prompt_line():
+    """What's on, for a question about the song in words _SONG_RX doesn't know."""
+    name = playing()
+    if not name:
+        return ""
+    title = now_title()
+    if title:
+        return (f"The radio is playing {name}, the song now: {title[:120]}. A question "
+                "about \"this song\" or what's playing means this one: answer from it.\n")
+    return (f"The radio is playing {name}. The station gives no song titles, so if asked "
+            "about the song, say you don't know it. Never look for it on the camera.\n")
 
 
 def handle(text, speak):
