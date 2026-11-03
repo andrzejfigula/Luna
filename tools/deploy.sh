@@ -14,18 +14,7 @@ set -euo pipefail
 PI="${LUNA_PI:-raspberry@raspberrypi.local}"
 cd "$(dirname "$0")/.."
 
-# a patch written through a shell heredoc turns "\b" into a backspace byte —
-# a regex then silently never matches (7 Oct: three times in one evening)
-bad=$(git ls-files -- '*.py' | xargs grep -lP '[\x00-\x08\x0b\x0c\x0e-\x1f]' 2>/dev/null || true)
-if [ -n "$bad" ]; then
-    echo "[deploy] REFUSED — control characters (a mangled \\b?) in:"; sed 's/^/  /' <<<"$bad"
-    exit 1
-fi
-
-new=$(git ls-files --others --exclude-standard -- '*.py' '*.sh' '*.txt')
-if [ -n "$new" ]; then
-    echo "[deploy] not in git yet, so NOT copied (git add them first):"; sed 's/^/  /' <<<"$new"
-fi
+bash tools/preflight.sh
 files=$(git ls-files | grep -v -E '\.md$|^\.git|^\.env|^\.claude/')
 # one checksum program per side for all the files (it was three programs per
 # file — ~20 s on Windows); raw bytes, so a file differing only in line
@@ -43,11 +32,13 @@ if [ -z "$changed" ]; then
 else
     echo "[deploy] differs on the Pi:"; sed 's/^/  /' <<<"$changed"
     if [ "${1:-}" != "--dry-run" ]; then
+        sh_files=$(grep '\.sh$' <<<"$changed" | tr '\n' ' ' || true)
+        # code she runs came over → ship.sh will restart her (not for tools, tests, docs)
+        stamp=
+        grep -qvE '^(tools|tests|docs|screenshots)/' <<<"$changed" && stamp='touch /tmp/luna_deployed_at'
         # all of them in one connection (it was two per file)
         tar -cf - $changed | ssh -o ConnectTimeout=10 "$PI" \
-            'cd ~/luna && tar -xf -'
-        sh_files=$(grep '\.sh$' <<<"$changed" || true)
-        [ -n "$sh_files" ] && ssh "$PI" "cd ~/luna && chmod +x $(tr '\n' ' ' <<<"$sh_files")"
+            "cd ~/luna && tar -xf - ${sh_files:+&& chmod +x $sh_files} ${stamp:+&& $stamp}"
         echo "[deploy] copied $(wc -l <<<"$changed") file(s)"
     fi
 fi

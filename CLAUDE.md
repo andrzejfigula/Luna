@@ -11,30 +11,40 @@ while you work. Code here (`D:\Code\luna`, Windows + Git Bash); the Pi copy
 - Every call re-reads the whole conversation, so the cost is calls × context
   (measured: 99% of tokens). Batch independent commands into one Bash call,
   read a file once, `grep -c`/`-l` before a broad grep. Context compacts at
-  200k and unused tools are denied (`.claude/settings.json`); check with
-  `python -X utf8 tools/claude_usage.py`.
-- Find code with `grep -n` and read line ranges; most modules are 500–3500
-  lines. The module map below says where to look.
+  200k. `.claude/settings.json` denies unused tools, but their schemas still
+  load: the first context is ~54k whatever we do. Check with
+  `python -X utf8 tools/claude_usage.py [--tools]` (`sed` and `grep` output cost most).
+- Find code with `python -X utf8 tools/codemap.py` (a line per module), `… radio`
+  (its defs with line numbers), `… -f word` (a def by name), then read line
+  ranges; most modules are 500–3500 lines, and Polish lines are long: `| cut -c1-200`.
+- How to add a command, mode, screen, setting: `docs/recipes.md`. Measuring and
+  baselines: `docs/performance.md`.
+- Old, don't trust them: `README.md`, `UPDATES.txt`, `IMPROVEMENTS-3.md`.
 - Logs: `bash tools/lastlog.sh [lines] [all] ['extra|pattern']` — only the
   useful lines since the last restart. A day's summary:
   `ssh raspberry@raspberrypi.local 'cd ~/luna && python3 tools/log_report.py'`
   (last 40 exchanges; `--all` is ~20k tokens).
-- `docs/backlog-done.md` (350 KB) is history — don't open it unless asked.
-  New rows: `python tools/backlog_add.py "**Title** — what changed" "why"`.
+- Backlog: `BACKLOG.md` is only what's open; `docs/backlog-done.md` (400 KB) is
+  history, don't open it. `python -X utf8 tools/backlog.py find WORDS | show N |
+  recent | open | add "**Title** — what changed" "why" [⏳] | done N | check`.
 - Keep new code comments to a line or two; the story goes in the commit.
 
-## Ship (test → copy → restart, ~45 s)
+## Ship (test → copy → restart, ~50 s)
 
-    git add -A && bash tools/ship.sh          # --quick (unit + smoke) while tuning
+    git add <new files> && bash tools/ship.sh   # --quick (unit + smoke) while tuning
 
-check_pi.sh runs the unit tests on the PC (the ones skipped here — cv2,
-pygame — then on the Pi) beside routing + smoke | dialog on the Pi, in a
-per-run `/tmp/lunacheck-run-*` (`full`: all four on the Pi, before a merge).
-New files must be `git add`ed or the Pi never sees them. deploy.sh copies changed tracked files (one tar
-connection; never `.env`, `data/`, `.md`), `restart.sh --now --tested` skips
+check_pi.sh runs preflight, then the unit tests on the PC (the ones skipped
+here — cv2, pygame — then on the Pi) beside routing + smoke | dialog on the Pi,
+in a per-run `/tmp/lunacheck-run-*` (`full`: all four on the Pi, before a merge).
+Code that already passed isn't checked again (`LUNA_CHECK_AGAIN=1` forces it).
+New files must be `git add`ed or the Pi never sees them; add them by name, not
+`-A` (`docs/screens/` isn't ours; preflight lists what's untracked). deploy.sh
+copies changed tracked files (one tar connection; never `.env`, `data/`, `.md`).
+ship.sh restarts only if code outside tools/tests/docs changed (`--restart`
+forces it, `--no-check` skips the tests); `restart.sh --now --tested` skips
 re-testing code that just passed and prints `restart: OK — pid N` or the error.
 Don't write your own ssh wait loops (`pgrep -f restart.sh` matches itself and
-hangs). Local quick run: `python -X utf8 -m unittest tests.test_local_logic`.
+hangs). Local run: `python -X utf8 tests/run_unit.py --jobs 8` (8 s).
 After a brain.py / prompt change, run ONE real-model line
 (`tools/sweep.py`) before shipping — check_pi once passed with every answer broken.
 
@@ -58,9 +68,9 @@ After a brain.py / prompt change, run ONE real-model line
 - Parked: interrupting her by voice/camera (until a hardware-AEC speakerphone,
   `docs/voice-interrupt.md`); the web panel.
 - User-visible change → a plain-Polish line on top of `data/whatsnew.txt`.
-- **Before proposing a feature, check it isn't built already** (741+ are):
-  `grep -n -i '<keyword>' CO_NOWEGO.md docs/backlog-done.md *.py | head`
-  (Polish and English words). E.g. messages for a family member exist
+- **Before proposing a feature, check it isn't built already** (860+ are):
+  `python -X utf8 tools/backlog.py find radio piosenk` (Polish and English;
+  it matches pieces of words, so give stems). E.g. messages for a family member exist
   (`messages.py`). Propose only what's missing, or name the existing module
   and suggest an improvement to it.
 
@@ -81,21 +91,28 @@ After a brain.py / prompt change, run ONE real-model line
   something else, not end on any sentence it doesn't parse.
 - Screenshot of the Pi screen: `ssh … "XDG_RUNTIME_DIR=/run/user/1000
   WAYLAND_DISPLAY=wayland-0 grim -s 0.5 /tmp/screen.png"`, scp, Read.
+- SSH ControlMaster doesn't work under this Git Bash (`mux_client_request_session`):
+  to save connections, put more into one ssh call.
 
 ## Module map
 
 Voice in → `speech_to_text.py` (Vosk gating + cloud transcription, wake word,
-conversation window, radio-on wake with `mouth.py`), `echo.py` (her own voice
-coming back). `main.py` voice loop: mute → forget → `commands.handle` (local,
-no model) → `brain.py` (OpenAI chat, persona, actions). Voice out →
-`text_to_speech.py`, `openai_tts.py`, `audio_out.py`, `polish.py` (numbers,
-grammar). `openai_client.py` (the SDK loaded on first use). State: `shared_state.py`; settings: `config.py`, `settings.py`.
+conversation window, radio-on wake with `mouth.py`), `activation.py` (name heard
+→ she answers), `intent.py` (asking or just mentioning), `echo.py` (her own voice
+coming back). `main.py` voice loop: mute → forget → `commands.py` (`handle`: local,
+no model) → `brain.py` (OpenAI chat, persona, actions), `reply_stream.py` (the reply
+out of the JSON as it comes). Voice out → `text_to_speech.py`, `openai_tts.py`,
+`audio_out.py`, `polish.py` (numbers, grammar), `tts_fx.py` (a theme's voice),
+`voicecheck.py` (a take in her register?), `sounds.py` ("mhm", a giggle).
+`openai_client.py` (the SDK loaded on first use). State: `shared_state.py`; settings: `config.py`, `settings.py`, `settings_page.py`; `devices.py` (speaker, mic, camera).
 
 Camera: `camera_thread.py`, `vision_module.py` (faces, addressed speech),
 `faces.py` (who), `mouth.py` (talking, seen), `gesture_module.py`.
 Face/screen: `robot_face.py`, `face_renderer.py`, `face_spec.py`,
-`reply_scenes.py`, `ui_screens.py`, `screens.py`, `statusbar.py`,
-`touch_module.py`, `display.py`. The sky behind Luna's own face:
+`reply_scenes.py`, `ui_screens.py` (`ui_lessons.py`, `ui_paint.py`, `ui_schedule.py`),
+`screens.py`, `autoclose.py`, `dock.py`, `statusbar.py`, `themes.py`, `perf_hud.py`,
+`touch_module.py`, `display.py`. GPU: `gl_fx.py` (over the face), `gl_lamp.py` with
+`lamp_scenes.py` (the lamp), `gl_vis.py` with `visualizer.py` (the radio). The sky behind Luna's own face:
 `environment.py` (time, sun, season, weather → colours; TUNE), its glow in
 `gl_face.py`'s soft pass, rain/snow/stars/arc as meshes in `gl_env.py`;
 `tools/env_sim.py` simulates it on the Pi, `gl_face_preview.py --env` renders it. Drawn characters: `characters.py` (data,
@@ -106,14 +123,15 @@ Features: `radio.py`, `timers.py`, `lists.py`, `weather.py`, `clock.py`,
 `calc.py`, `moon.py`, `news.py`, `websearch.py`, `webphoto.py`, `drawing.py`,
 `gallery.py`, `messages.py`, `errands.py`, `birthdays.py`, `cooking.py`,
 `reading.py`, `homework.py`, `kids.py`, `story.py`, `voicefx.py`,
-`ambience.py`, `breathing.py`, `counting.py`. Games: `quiz.py`/`quizdata.py`,
+`ambience.py`, `breathing.py`, `counting.py`, `paint.py`, `schedule.py`, `printer.py`. Games: `quiz.py`/`quizdata.py`,
 `twenty.py`/`twenty_kb.py`, `tictac.py`, `memo.py`, `games.py`, `clockgame.py`,
 `riddles.py`, `fun.py`. Her: `memory.py`, `mood.py`, `relationship.py`,
 `greetings.py`, `idle_engine.py`, `behavior_engine.py`, `body.py`.
 Robustness: `watchdog.py`, `health.py`, `hedge.py`, `prio.py`, `holds.py`,
 `backup.py`, `timing.py` (latency), `weekly.py`.
 
-Tests: `tests/test_local_logic.py` (unit), `test_routing.py`, `smoke_pi.py`,
-`dialog_pi.py`, `scenario_pi.py` / `model_pi.py` / `tools/sweep.py` +
-`tests/sweeps/*.txt` (real model). Docs: `SETUP.md` (Pi setup), `CO_NOWEGO.md`
-(Polish cheat sheet for the family).
+Tests: `tests/test_local_logic.py` (unit), `tests/test_routing.py`, `tests/smoke_pi.py`,
+`tests/dialog_pi.py`, `tests/scenario_pi.py` / `tests/model_pi.py` / `tools/sweep.py` +
+`tests/sweeps/*.txt` (real model), `tests/test_dev_tools.py` (these tools; this map
+stays complete). Docs: `SETUP.md` (Pi setup), `CO_NOWEGO.md` (Polish cheat sheet for
+the family), `docs/recipes.md`, `docs/performance.md`.

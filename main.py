@@ -1,3 +1,4 @@
+"""main.py — starts the threads, then the voice loop: what she heard → an answer."""
 import os
 import traceback
 import sys

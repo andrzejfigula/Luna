@@ -1,4 +1,4 @@
-# config.py
+"""config.py — every tunable number and path in one place (the OpenAI key from .env)."""
 
 import os
 import time

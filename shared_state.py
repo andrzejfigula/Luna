@@ -1,4 +1,4 @@
-# shared_state.py
+"""shared_state.py — `state`, what the threads know of each other (under state.lock)."""
 from threading import Lock, RLock
 import time
 

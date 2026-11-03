@@ -1,2 +1,4 @@
 * text=auto eol=lf
 *.sh text eol=lf
+BACKLOG.md merge=union
+docs/backlog-done.md merge=union

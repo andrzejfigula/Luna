@@ -1,3 +1,4 @@
+"""face_renderer.py — the face thread: runs RobotFace from shared_state."""
 import time
 from shared_state import state
 from robot_face import RobotFace

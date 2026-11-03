@@ -13,6 +13,14 @@ from unittest import mock
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ["LUNA_DATA_DIR"] = tempfile.mkdtemp(prefix="luna-tests-")  # never real data
 
+# speech_to_text loads Vosk's model when imported (9 s of the Pi's unit run);
+# no test here hears anything, and restart.sh sees whether the real one starts
+try:
+    import vosk
+    vosk.Model = lambda *a, **k: None
+except ImportError:
+    pass
+
 import games
 import lists
 import memory
@@ -4208,7 +4216,7 @@ class KidsTest(unittest.TestCase):
         # 12 Oct 13:32: "Ile mi dziubanku przelałeś?" (to Andrzej) was answered
         from shared_state import state
         with mock.patch.object(brain, "translator", lambda: None), \
-                mock.patch.object(state, "last_wake_time", 0.0, create=True), \
+                mock.patch.object(state, "last_wake_time", 0.0), \
                 mock.patch.object(state, "last_spoken_time", time.time() - 3):
             self.assertTrue(brain._to_a_man("Ile mi dziubanku przelałeś?"))
             self.assertTrue(brain._to_a_man("Powiedziałbyś, że takie okrągłe jest?"))
@@ -4218,7 +4226,7 @@ class KidsTest(unittest.TestCase):
             self.assertFalse(brain._to_a_man("Luna, co narysowałeś?"))     # her name
             self.assertFalse(brain._to_a_man("Co narysowałaś?"))           # to her
             self.assertFalse(brain._to_a_man("Byłem dziś w sklepie"))
-        with mock.patch.object(state, "last_wake_time", time.time() - 3, create=True):
+        with mock.patch.object(state, "last_wake_time", time.time() - 3):
             self.assertFalse(brain._to_a_man("Ile mi przelałeś?"))         # "Luna" a moment ago
         import drawing
         # "A teraz ze zdjęcia" after "narysuj Emilkę" — Emilka, from the camera
