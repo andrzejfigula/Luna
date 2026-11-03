@@ -2657,6 +2657,36 @@ class KidsTest(unittest.TestCase):
         finally:
             timers._timers[:] = old
 
+    def test_game_list(self):
+        import commands, brain, screens
+        for line in ("Pip, pokaż mi listę gier na ekranie.",
+                     "To pokaż mi listę gier, które możesz grać.",
+                     "A wiesz w jakie gry możesz grać?", "Jakie masz gry?", "pokaż gry",
+                     "W co możemy zagrać?", "W co zagramy?", "jakie gry znasz"):
+            said = []
+            self.assertTrue(screens.handle(line, said.append, lambda *_: None), line)
+            self.assertIn("flagi", said[0])
+        with screens.state.lock:
+            kind, _, data = screens.state.overlay
+            screens.state.overlay = None
+        self.assertEqual(kind, "list")
+        self.assertEqual(len(data[1]), len(screens._GAMES))
+        for line in ("jakie gry lubisz", "w co grałaś wczoraj", "Maja lubi gry na telefonie",
+                     "pokaż listę zakupów", "jakie gry lubi Maja"):
+            self.assertIsNone(screens._GAME_LIST.search(line.lower()), line)
+        # and naming one of them starts it
+        old = list(brain._history)
+        try:
+            brain._history[:] = [{"role": "user", "content": "Jakie masz gry?"},
+                                 {"role": "assistant", "content": screens._GAMES_SAID}]
+            for line, label in (("flagi", "zagrajmy we flagi"),
+                                ("w państwa-miasta", "zagrajmy w państwa-miasta"),
+                                ("quiz ze zwierząt", "zróbmy quiz ze zwierząt"),
+                                ("w kółko i krzyżyk", "zagrajmy w kółko i krzyżyk")):
+                self.assertEqual(commands._game_choice(line), label)
+        finally:
+            brain._history[:] = old
+
     def test_game_choice_after_offer(self):
         import commands, brain
         old = list(brain._history)
@@ -11430,6 +11460,9 @@ class PaintTest(unittest.TestCase):
         self.assertEqual(kind, "landscape")                      # new pictures lie flat
         self.assertIn("przebierania", prompt)
         self.assertIn("zakładkami", prompt)
+        doll = p.gen_prompt("lalkę do ubierania")[0]           # 1 Nov: came out a bear
+        self.assertNotIn("zwierz", doll)
+        self.assertNotIn("body", doll)
         p._s["img"].putpixel((5, 5), (0, 0, 0))                # not blank any more
         for text, kind in (("dodaj kotu kapelusz", "edit"), ("zmień tło na niebieskie", "edit"),
                            ("zrób go większym", "edit"), ("narysuj tu tęczę", "edit"),

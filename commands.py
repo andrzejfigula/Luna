@@ -153,8 +153,11 @@ _GAME_NAMES = [
     (r"zgadywank\w*|liczb\w*", "zagrajmy w zgadywankę"),
     (r"quiz\w*.*(?:angiel|słówek)|(?:angiel|słówk)\w*", "zróbmy quiz z angielskiego"),
     (r"quiz\w*.*stolic|stolic\w*", "zróbmy quiz ze stolic"),
-    (r"quiz\w*|rachun\w*|matem\w*|liczenie", "zróbmy quiz z matematyki"),
+    (r"quiz\w*.*zwierz|zwierz\w*", "zróbmy quiz ze zwierząt"),
+    (r"flag\w*", "zagrajmy we flagi"),
+    (r"quiz\w*|rachun\w*|matem\w*|matm\w*|liczenie", "zróbmy quiz z matematyki"),
     (r"zegar\w*", "zagrajmy w zegar"),
+    (r"państw\w*|panstw\w*", "zagrajmy w państwa-miasta"),
 ]
 
 

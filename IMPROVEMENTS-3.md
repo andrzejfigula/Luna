@@ -69,3 +69,10 @@ taken from what went wrong in today's conversations (`tools/log_report.py`).
 | 22 | No waves for 30 s after a start: 22 of 82 restarts "saw" one with nobody there, and she waved back | ✅ shipped |
 | 23 | No unasked offer closing a reply ("Jeśli chcesz, mogę…", 13 of 88 replies): none in 5 real-model lines | ✅ shipped |
 | 24 | "W jakie gry możesz grać?" names all the games, not 5 of them | ✅ shipped |
+
+## Round 10 — branch improvements-10, what local commands and the paint page did (30 Oct – 3 Nov logs)
+
+| # | Improvement | Status |
+|---|-------------|--------|
+| 25 | A dress-up sheet draws who was asked for: the prompt said "każde zwierzątko", so a doll came out a bear, then a bunny (one real image: a girl doll with separate clothes) | ✅ shipped |
+| 26 | "Pokaż listę gier", "jakie masz gry?", "w co możemy zagrać?": all the games on her screen and said aloud (was "Nie mam listy gier"); naming flagi, państwa-miasta or the animal quiz starts it | ✅ shipped |

@@ -88,6 +88,19 @@ _SHOW_LIST = re.compile(r"\b(?:pokaż|pokaz|wyświetl|wyswietl)\s+(?:mi\s+|nam\s
                         r"(?:tę\s+|te\s+|tą\s+|ta\s+|moją\s+|moja\s+|naszą\s+|nasza\s+)?"
                         r"(?:listę|liste)\b|\bshow\s+(?:the|my)\s+list")
 _last_list = [None]                     # the list shown last ("pokaż tę listę")
+# 3 Nov: "pokaż mi listę gier" → "Nie mam listy gier"; asked, the model named 5 of them
+_GAME_LIST = re.compile(r"\blist\w*\s+(?:\w+\s+)?gier\b|"
+                        r"\b(?:pokaż|pokaz)\s+(?:mi\s+|nam\s+)?(?:\w+\s+)?gry\b|"
+                        r"\bjakie\s+(?:\w+\s+)?gry\s+(?:\w+\s+)?(?:masz|znasz|umiesz|potrafisz|"
+                        r"mo[żz]esz|mo[żz]emy|mamy)\b|\bjakie\s+(?:masz|znasz|mamy)\s+gry\b|"
+                        r"\bw\s+jakie\s+gry\s+(?:\w+\s+)?(?:gra\w*|zagra\w*|pogra\w*)\b|"
+                        r"\bw\s+co\s+(?:(?:mo[żz]emy|mo[żz]na|mo[żz]esz|potrafisz|umiesz|mog[ęe])\s+)"
+                        r"(?:za|po)?gra[ćc]\b|\bw\s+co\s+(?:za)?gramy\b")
+_GAMES = ("Kamień, papier, nożyce", "Kółko i krzyżyk", "Memory", "20 pytań", "Zgadywanka",
+          "Zagadki", "Zegar", "Państwa-miasta", "Flagi",
+          "Quiz: matma, angielski, stolice, zwierzęta")
+_GAMES_SAID = ("Możemy zagrać w kamień, papier, nożyce, kółko i krzyżyk, memory, 20 pytań, "
+               "zgadywankę, zagadki, zegar, państwa-miasta, flagi albo quiz. W co zagramy?")
 # "Pokaż, co mamy dzisiaj zrobić." — the to-do list
 _SHOW_TODO = re.compile(r"^(?:luna,?\s+)?(?:pokaż|pokaz)\s+(?:mi\s+)?,?\s*co\s+(?:mamy|mam)\s+"
                         r"(?:dzisiaj\s+|dziś\s+|dzis\s+|jeszcze\s+)?(?:do\s+)?(?:zrobić|zrobic|zrobienia)\W*$")
@@ -588,6 +601,10 @@ def photo_command(low, speak):
 def handle(text, speak, play_sound_async):
     """A screen request? Show it and return True."""
     low = text.lower().replace("pokazać", "pokaż").replace("pokazac", "pokaz")
+    if _GAME_LIST.search(low) and len(re.findall(r"\w+", low)) <= 12:
+        _show("list", 20, ("W co zagramy?", [("•", g) for g in _GAMES]))
+        speak(_GAMES_SAID)
+        return True
     if len(re.findall(r"\w+", low)) > 7:
         return False
     if photo_command(low.strip(" .!?"), speak):

@@ -964,10 +964,11 @@ _STYLE = ("Pogodna, kolorowa ilustracja jak z książeczki dla dzieci, łagodne 
 _SHEET = ("Arkusz A4 do wydrukowania i wycięcia: białe tło, każdy element osobno, z "
           "wyraźnym odstępem od innych, grube czyste kontury, nic nie przycięte brzegiem "
           "kartki, bez napisów.")
-_DRESS = ("Jak papierowe laleczki do przebierania: każde zwierzątko stoi prosto, przodem, w "
-          "prostym body; ubranka (czapki, sukienki, spodnie, kurtki, buty) narysowane "
-          "osobno obok, w tej samej skali i tym samym kształcie co zwierzątka, każde z "
-          "małymi białymi zakładkami do zagięcia.")
+# (not "każde zwierzątko": 1 Nov a doll came out a bear, then a bunny; "body" dropped too)
+_DRESS = ("Jak papierowe laleczki do przebierania: dokładnie ta postać, o którą proszono, "
+          "stoi prosto, przodem, w zwykłej koszulce i spodenkach; ubranka (czapki, sukienki, "
+          "spodnie, kurtki, buty) narysowane osobno obok, w tej samej skali i pasujące do "
+          "postaci, każde z małymi białymi zakładkami do zagięcia.")
 _SHEETY = re.compile(r"\barkusz\w*|\ba4\b|\bkart(?:k[aęiy]|ek)\b|\bdo\s+(?:wyci\w+|wydruk\w*|"
                      r"druku|naklejenia)|\bnaklej\w*|\bwycinank\w*|\bplansz\w*", re.I)
 _DRESSY = re.compile(r"\bprzebier\w*|\bubran\w*|\bubrań|\bubiera\w*|\bubrać|\bubierz\w*|"
