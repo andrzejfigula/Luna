@@ -176,6 +176,55 @@ class TimersTest(unittest.TestCase):
         self.assertIsNone(calc.arithmetic("6:30 3"))          # found by the fuzz test
         self.assertIsNone(calc.arithmetic("3 6:30 !"))
 
+    def test_voice_played_back_unchanged(self):
+        """4 Nov: "Mogę odtworzyć to, co mówisz, jako próbkę" — nothing could."""
+        import brain
+        import commands
+        import voicefx
+        import numpy as np
+        for said in ("Odtwórz mój głos", "Odtwórz to, co mówię jako próbkę", "Nagraj mnie",
+                     "Puść mi to, co słyszysz", "Sprawdź mikrofon", "nagraj mój głos",
+                     "Odtwórz, co słyszysz z mikrofonu", "Puść mi, jak mnie słyszysz"):
+            self.assertEqual(voicefx.wants(said), voicefx.PLAIN, said)
+        for said in ("Jak mnie słyszysz?", "Odtwórz wiadomość", "Nagraj wiadomość dla Mai",
+                     "Puść radio", "Zmień mój głos jak robot", "Mam dziś zachrypnięty głos"):
+            self.assertNotEqual(voicefx.wants(said), voicefx.PLAIN, said)
+        self.assertNotIn(voicefx.PLAIN, voicefx.EFFECTS)
+        spoken = []
+        for said in ("A możesz nagrać mój głos?", "Odtwórz to, co mówię",
+                     "Czy możesz sprawdzić mikrofon?", "a możesz odtworzyć mój głos"):
+            voicefx._armed[0] = None
+            self.assertTrue(commands.handle(said, spoken.append, lambda *a, **k: True), said)
+            self.assertEqual(voicefx.armed(), voicefx.PLAIN, said)
+        self.assertIn("mikrofon", spoken[-1])
+        # as it was heard: no gain, only the player's rate
+        tone = (np.sin(np.arange(16000) / 16000 * 2 * np.pi * 220) * 800).astype(np.int16)
+        out = np.frombuffer(voicefx.apply(tone.tobytes(), voicefx.PLAIN), np.int16)
+        self.assertEqual(out.size, 24000)
+        self.assertLessEqual(int(np.abs(out).max()), 800)
+        played, clips = [], []
+        voicefx.arm(voicefx.PLAIN)
+        voicefx.play(tone.tobytes(), played.append, lambda pcm, label="": clips.append(label))
+        self.assertEqual(len(clips), 1)
+        self.assertIsNone(voicefx.armed())                         # once
+        voicefx.arm(voicefx.PLAIN)
+        self.assertFalse(voicefx.cancelled("Coś zupełnie innego"))
+        self.assertTrue(voicefx.cancelled("Anuluj."))
+        self.assertIsNone(voicefx.armed())
+        self.assertFalse(voicefx.cancelled("Anuluj."))             # nothing armed
+        self.assertTrue(brain._VOICED_OK.match("odtwórz mój głos"))
+
+    def test_window_stays_only_for_a_talk_over_the_radio(self):
+        """4 Nov: "Dobra, to odtwórz" 4 s after her answer, the window closed."""
+        import radio
+        with mock.patch.object(radio, "playing", lambda: "RMF Chillout"):
+            self.assertTrue(radio.talk_goes_on("RMF Chillout", True))
+            self.assertFalse(radio.talk_goes_on("RMF Chillout", False))     # a command
+            self.assertFalse(radio.talk_goes_on("Trójka", True))            # she changed it
+            self.assertFalse(radio.talk_goes_on(None, True))                # she started it
+        with mock.patch.object(radio, "playing", lambda: None):
+            self.assertFalse(radio.talk_goes_on("RMF Chillout", True))      # she stopped it
+
     def test_voicefx(self):
         import voicefx
         import numpy as np

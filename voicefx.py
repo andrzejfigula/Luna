@@ -5,6 +5,7 @@ voicefx.py — "Luna, zmień mój głos": your next sentence played back changed
   "…jak wiewiórka" / "…jak olbrzym"      → higher and faster / lower and slower
   "…jak robot"                            → a metallic ring
   "…od tyłu", "odwróć mój głos"           → backwards
+  "odtwórz mój głos", "sprawdź mikrofon"  → unchanged: what her microphone heard
 
 She says "Powiedz coś!", and the next sentence (up to 20 s later) is not
 answered but played back with the effect (main.py, like a voice message).
@@ -19,14 +20,35 @@ import time
 import numpy as np
 
 EFFECTS = ("wiewiórka", "olbrzym", "robot", "od tyłu")
+PLAIN = "bez zmian"            # not among EFFECTS: never the surprise
 _START = re.compile(r"\b(?:zmień|zmien|zmieniaj|odwróć|odwroc|pobawmy\s+się|pobawmy\s+sie|"
                     r"przerób|przerob|zrób|zrob)\b.{0,20}\b(?:głos\w*|glos\w*)\b", re.I)
+# 4 Nov: "odtwórz to, co mówię jako próbkę" — she offered it, nothing could do it
+_HEAR_BACK = re.compile(
+    r"\b(?:odtwórz|odtworz|odtworzyć|odtworzyc|puść|pusc|puścić|puscic|nagraj|nagrać|nagrac|"
+    r"pokaż|pokaz|pokazać|pokazac)\b.{0,20}?\b(?:"     # (infinitives: "A możesz nagrać…?")
+    r"(?:mój|moj)\s+(?:głos|glos)|mikrofon\w*|"
+    r"(?:co|jak)\s+(?:\w+\s+)?(?:słyszysz|slyszysz|mówię|mowie|powiem))\b"
+    r"|\b(?:nagraj|nagrać|nagrac)\s+mnie\b"
+    r"|\b(?:test\w*|przetestować|sprawdź|sprawdz|sprawdzić|sprawdzic)\s+mikrofon\w*\b", re.I)
+_CANCEL = re.compile(r"^(?:luna,?\s+)?(?:anuluj|nieważne|niewazne|jednak\s+nie|stop|"
+                     r"przestań|przestan)$", re.I)
 _armed = [None, 0.0]           # effect, when
 
 
+def cancelled(text):
+    """"Anuluj" instead of the sentence to play back. Disarms."""
+    if _armed[0] and _CANCEL.match((text or "").strip(" .!?").lower()):
+        _armed[0] = None
+        return True
+    return False
+
+
 def wants(text):
-    """The effect asked for ("wiewiórka", …, or "?" for a surprise), or None."""
+    """The effect asked for ("wiewiórka", …, PLAIN, or "?" for a surprise), or None."""
     low = text.lower()
+    if _HEAR_BACK.search(low) and len(low.split()) <= 10:
+        return PLAIN
     if not _START.search(low) and not re.search(r"\bgłos\w*\s+jak\s+(?:wiewiórka|robot|olbrzym)",
                                                 low):
         return None
@@ -72,7 +94,8 @@ def apply(pcm16k, effect):
     n = int(a.size * 24000 / 16000 / speed)                       # to 24 kHz, faster/slower
     out = np.interp(np.linspace(0, a.size - 1, n), np.arange(a.size), a)
     peak = float(np.max(np.abs(out))) or 1.0
-    out = out * min(3.0, 26000 / peak)                            # a quiet voice made audible
+    if effect != PLAIN:                                           # (as the microphone heard it)
+        out = out * min(3.0, 26000 / peak)                        # a quiet voice made audible
     return out.clip(-32768, 32767).astype(np.int16).tobytes()
 
 
@@ -81,9 +104,10 @@ def play(pcm16k, speak, play_clip):
     _armed[0] = None
     pcm = apply(pcm16k, effect) if effect else b""
     if not pcm:
-        speak("Nic nie usłyszałam. Powiedz: zmień mój głos — i spróbuj jeszcze raz.")
+        speak("Nic nie usłyszałam. Spróbuj jeszcze raz." if effect == PLAIN else
+              "Nic nie usłyszałam. Powiedz: zmień mój głos — i spróbuj jeszcze raz.")
         return
     print(f"[voicefx] {effect}, {len(pcm) / 48000:.1f} s", flush=True)
     speak({"wiewiórka": "Jak wiewiórka:", "olbrzym": "Jak olbrzym:", "robot": "Jak robot:",
-           "od tyłu": "Od tyłu:"}[effect])
+           "od tyłu": "Od tyłu:", PLAIN: "Tak cię słyszę:"}[effect])
     play_clip(pcm, label=f"(twój głos: {effect})")

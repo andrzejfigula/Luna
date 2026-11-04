@@ -139,9 +139,11 @@ def _answer_awaited():
     radio on the window stays open — the radio is ducked while she listens.
     (14 Oct: "zgadywanki" with jazz on — "dziesięć" needed "Luna".)"""
     try:
-        import brain, gallery, quiz, twenty, tictac, memo, story
+        import brain, gallery, quiz, twenty, tictac, memo, story, voicefx
+        # (voicefx, messages: the sentence she just asked for, or it needed "Luna")
         return (quiz.active() or twenty.active() or tictac.active() or memo.active()
-                or gallery.page_open() or story.active() or brain.awaits_answer())
+                or gallery.page_open() or story.active() or brain.awaits_answer()
+                or voicefx.armed() or messages.armed())
     except Exception:
         return False
 
@@ -155,6 +157,8 @@ def voice_loop():
             import paint
             # said over the radio ("Luna, wyłącz radio"): a command, then quiet
             radio_was_on = bool(text) and bool(radio.playing() or ambience.playing())
+            station_before = radio.playing()
+            model_answered = False
             if text:
                 with state.lock:
                     state.close_after = False   # (set by a command that needs nothing more)
@@ -202,6 +206,9 @@ def voice_loop():
                             speak("Dobrze, przestaję słuchać.")
                         continue
                     import voicefx
+                    if voicefx.cancelled(text):
+                        speak("Dobrze, nie odtwarzam.")
+                        continue
                     if voicefx.armed():
                         # "zmień mój głos" — this sentence comes back changed
                         import speech_to_text
@@ -239,6 +246,7 @@ def voice_loop():
                         # speak() serializes internally — an answer is never
                         # dropped
                         process(text)
+                        model_answered = True
             finally:
                 activation.settle(True)         # (a local-only call that wasn't refused above)
                 activation.end_turn()
@@ -253,7 +261,13 @@ def voice_loop():
                 # Sleep sounds too: the open window ducked them to silence
                 # (18 Oct: "nie włączył się kominek")
                 if text and text != WAKE_ACK:
-                    if ((radio.playing() or ambience.playing() or radio_was_on)
+                    # …but a talk goes on (4 Nov: "Dobra, to odtwórz" 4 s after her
+                    # answer, unheard): the usual window, the radio ducked
+                    talking = (not ambience.playing()
+                               and radio.talk_goes_on(station_before, model_answered))
+                    if talking:
+                        print("[Luna] radio on — her answer, the window stays open", flush=True)
+                    elif ((radio.playing() or ambience.playing() or radio_was_on)
                             and not _answer_awaited()):
                         with state.lock:
                             state.conversation_active = False

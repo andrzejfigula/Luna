@@ -2560,7 +2560,8 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         with state.lock:                           # the next sentence needs no "Luna"
             state.conversation_active = True
             state.last_activity_time = time.time() + 5
-        speak("Powiedz coś — a ja zmienię twój głos!" if effect == "?" else
+        speak("Powiedz coś — odtworzę to, co usłyszy mój mikrofon." if effect == voicefx.PLAIN else
+              "Powiedz coś — a ja zmienię twój głos!" if effect == "?" else
               f"Powiedz coś — zrobię z tego głos: {effect}!" if effect != "od tyłu" else
               "Powiedz coś — puszczę to od tyłu!")
         return True

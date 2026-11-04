@@ -1309,6 +1309,10 @@ use something, explain in your own words, briefly, a few examples at a time
 - voice effects: "zmień mój głos (jak wiewiórka / jak robot / od tyłu)" — THEIR
   next sentence is played back changed (a toy for their voice; your own voice
   can't be changed, only slower/faster/quieter)
+- hearing themselves: "odtwórz mój głos" — you ask them to say something and THEIR
+  next sentence is played back as your microphone heard it, once, not kept. Send
+  this command as soon as they want it, with just "Jasne." (it asks them to speak
+  itself); you can't do it any other way
 - exact answers, worked out by the app: "która godzina w Tokio?", "ile lat ma
   Maja?", name days ("Maja ma imieniny 3 maja")
   ("pokaż moje gwiazdki"), sleep sounds ("włącz szum deszczu / morza"), and
@@ -2228,6 +2232,7 @@ _GAME_OK = re.compile(
 # self-voiced like a game, but not a game (no game offer needed): the breathing
 # circle she invited them to ("Chodź, oddychajmy razem" → "Tak" — 7 Oct probe)
 _VOICED_OK = re.compile(r"^zróbmy\s+ćwiczenie\s+oddechowe$|"
+                        r"^odtwórz\s+mój\s+głos$|"
                         r"^zamień\s+się\s+w\s+(?:kotka|pieska|zajączka)$|"
                         r"^zacznij\s+(?:poranek|wieczór)$|"
                         r"^zagrajmy\s+w\s+państwa-miasta$|"

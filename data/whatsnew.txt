@@ -1,5 +1,7 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
+- „Odtwórz mój głos” albo „Sprawdź mikrofon”: powiedz coś, a odtworzę dokładnie to, co usłyszał mój mikrofon.
+- Przy włączonym radiu słucham dalej, gdy odpowiem w rozmowie: możesz odpowiedzieć bez „Luna”.
 - Stacje SomaFM znów grają, rozumiem skróconą nazwę stacji („włącz Deep Space One”), a jeśli stacji nie włączę, mówię o tym od razu.
 - Rzadziej przegapiam, gdy ktoś woła mnie po imieniu na początku pytania.
 - „Narysuj lalkę do ubierania” daje teraz lalkę, a nie misia czy króliczka.

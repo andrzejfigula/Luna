@@ -812,6 +812,12 @@ def playing():
         return _player["name"] if _player else None
 
 
+def talk_goes_on(before, model_answered):
+    """The model answered over the same station: a reply may follow. Not after a
+    command, nor when that answer changed or stopped the station — music, not talk."""
+    return bool(model_answered and before and playing() == before)
+
+
 # ── commands ──────────────────────────────────────────────────────────────────
 
 def _minutes(text):
