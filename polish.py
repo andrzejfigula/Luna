@@ -233,16 +233,29 @@ def _confirms_earlier(reply, asked):
     return all(_PAST_DONE.search(m.group(0)) for m in _DOING.finditer(reply or ""))
 
 
+_TURN_ON = re.compile(r"(?:włącz|wlacz|puść|pusc)\s", re.I)
+_DECLINES = re.compile(r"\bnie\s+(?:mogę|umiem|potrafię|znam|znalazłam|mam|ma)\b", re.I)
+
+
+def _named_it_only(reply, refused):
+    """"Jasne — SomaFM Deep Space." with its "włącz …" refused (4 Nov): no verb to
+    catch, but she said yes. Not when she only asks or declines."""
+    statement = re.sub(r"[^.!?]*\?", "", reply or "").strip()
+    return bool(statement) and not _DECLINES.search(reply) and any(
+        _TURN_ON.match(str(label).strip()) for label in refused)
+
+
 def claims_undone(reply, actions, refused=(), asked=""):
     """The reply says she did a switch / list change, and either no action came
     with it or every command it came with was refused."""
+    actions = actions or []
+    others = [a for a in actions if a.get("type") != "command"]
+    all_refused = bool(actions) and not others and len(refused) == len(actions)
+    if all_refused and _named_it_only(reply, refused):
+        return True
     if not _DOING.search(reply or "") or _confirms_earlier(reply, asked):
         return False
-    actions = actions or []
-    if not actions:
-        return True
-    others = [a for a in actions if a.get("type") != "command"]
-    return not others and len(refused) == len(actions)
+    return not actions or all_refused
 
 
 def _below_1000(n):

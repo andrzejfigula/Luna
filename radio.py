@@ -49,6 +49,10 @@ RADIO_DUCK = 0.12                          # while she listens or speaks
 RETRIES = 3
 
 # name → (spoken name, stream). Checked from the Pi on 2026-10-04.
+# SomaFM answers 403 to "robot" in the name (4 Nov: all its stations silently off;
+# the nightly check goes through ffmpeg, its own User-Agent, and saw nothing)
+_UA = "Luna/1.0"
+
 STATIONS = {
     "rmf fm":        ("RMF FM", "http://195.150.20.242:8000/rmf_fm"),
     "radio zet":     ("Radio ZET", "http://zet-net-01.cdn.eurozet.pl:8400/"),
@@ -371,7 +375,7 @@ def _search(q, country):
         url = (f"https://{host}.api.radio-browser.info/json/stations/search?name="
                f"{urllib.parse.quote(q)}{country}&order=votes&reverse=true&limit=5&hidebroken=true")
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "Luna-robot/1.0"})
+            req = urllib.request.Request(url, headers={"User-Agent": _UA})
             with urllib.request.urlopen(req, timeout=5) as r:
                 return json.load(r)
         except Exception as e:
@@ -410,6 +414,19 @@ def _spoken(name):
     return out or name.strip()
 
 
+def _by_part(key):
+    """(name, url) of the only station with these words in its name: "Deep Space
+    One", "SomaFM Deep Space" (4 Nov: refused, she said she'd put it on). At least
+    two words; None when several fit."""
+    words = (key or "").split()
+    if len(words) < 2:
+        return None
+    rx = re.compile(r"(?<!\w)" + r"\s+".join(map(re.escape, words)) + r"(?!\w)")
+    fits = {s[0]: s[1] for _, _, _, sts in CATALOG for s in sts if rx.search(s[0].lower())}
+    fits.update({n: u for n, u in favs() if rx.search(n.lower())})
+    return next(iter(fits.items())) if len(fits) == 1 else None
+
+
 def _station(words):
     """(spoken name, url) for what was said after "włącz radio", or None."""
     import settings
@@ -437,6 +454,9 @@ def _station(words):
     for n, u in favs() + [(s[0], s[1]) for _, _, _, sts in CATALOG for s in sts]:
         if n.lower() == key:                # a favourite / the catalog's own stream
             return n, u
+    part = _by_part(key)
+    if part:
+        return part
     found = _lookup(w)
     if found:
         saved[key] = list(found)
@@ -544,7 +564,7 @@ def _open_icy(url):
     else None — then ffmpeg reads the URL itself."""
     try:
         req = urllib.request.Request(url, headers={"Icy-MetaData": "1",
-                                                   "User-Agent": "Luna-robot/1.0"})
+                                                   "User-Agent": _UA})
         r = urllib.request.urlopen(req, timeout=8)
         mi = int(r.headers.get("icy-metaint") or 0)
         ctype = (r.headers.get("content-type") or "").lower()
@@ -1242,7 +1262,7 @@ def known(name):
     names = ({k.lower() for k in STATIONS} | {v[0].lower() for v in STATIONS.values()}
              | {n.lower() for n, _ in favs()} | set(settings.get("radio_found", {}) or {}))
     names |= {s[0].lower() for _, _, _, sts in CATALOG for s in sts}
-    return key in names
+    return key in names or bool(_by_part(key))
 
 
 def fav_toggle(name, url):
@@ -1440,7 +1460,7 @@ def _world_search(code, tag):
         url = (f"https://{host}.api.radio-browser.info/json/stations/search?{q}"
                "&order=votes&reverse=true&limit=25&hidebroken=true")
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "Luna-robot/1.0"})
+            req = urllib.request.Request(url, headers={"User-Agent": _UA})
             with urllib.request.urlopen(req, timeout=6) as r:
                 found = json.load(r)
             break
@@ -1462,7 +1482,7 @@ def _alive(url):
     """The stream answers (Rai Radio 1, the most voted in Italy, says 403 from
     here — 11 Oct)."""
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Luna-robot/1.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": _UA})
         with urllib.request.urlopen(req, timeout=4) as r:
             return r.status < 400 and bool(r.read(2048))
     except Exception as e:

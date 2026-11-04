@@ -2610,7 +2610,12 @@ def run_command(label, reply=""):
     if game:
         _spoken_command(label, "game ")
         return True
-    done = commands.handle(label, lambda *a, **k: None, lambda *a, **k: True)
+    said = []                              # silent, but "Nie znalazłam stacji" isn't done
+    done = commands.handle(label, lambda *a, **k: said.append(str(a[0]) if a else ""),
+                           lambda *a, **k: True)
+    if any(s.startswith("Nie znalazłam") for s in said):
+        print(f"[brain] command {label!r}: {said[0]!r}", flush=True)
+        return False
     print(f"[brain] command {label!r}: {'done' if done else 'not understood'}", flush=True)
     return bool(done)
 

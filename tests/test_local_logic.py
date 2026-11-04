@@ -475,6 +475,16 @@ class TimersTest(unittest.TestCase):
     def test_claims_undone(self):
         from polish import claims_undone
         cmd = [{"type": "command", "label": "wyłącz ekran gry"}]
+        # 4 Nov: she only named the station, its command refused
+        on = [{"type": "command", "label": "włącz SomaFM Deep Space"}]
+        nope = ["włącz SomaFM Deep Space"]
+        self.assertTrue(claims_undone("Jasne — SomaFM Deep Space.", on, nope))
+        self.assertTrue(claims_undone("Już — Deep Space. Może być?", on, nope))
+        self.assertFalse(claims_undone("Jasne — SomaFM Deep Space.", on, []))
+        self.assertFalse(claims_undone("Mam włączyć Deep Space?", on, nope))
+        self.assertFalse(claims_undone("Nie znam takiej stacji.", on, nope))
+        self.assertFalse(claims_undone("Super!", [{"type": "command", "label": "narysuj kota"}],
+                                       ["narysuj kota"]))
         self.assertTrue(claims_undone("Jasne, usunęłam to z listy.", []))
         self.assertTrue(claims_undone("Jasne — wyłączam ekran gry.", cmd, ["wyłącz ekran gry"]))
         self.assertFalse(claims_undone("Włączam radio.", cmd, []))
@@ -7327,6 +7337,24 @@ class RadioCatalogTest(unittest.TestCase):
     def _names(self, cat):
         import radio
         return [n for n, _, _ in radio._CAT[cat][2]]
+
+    def test_station_by_a_part_of_its_name(self):
+        """4 Nov: "włącz SomaFM Deep Space", "włącz Deep Space One" were refused and
+        she said she'd put it on; SomaFM answered 403 to "Luna-robot"."""
+        import brain
+        import radio
+        self.assertNotIn("robot", radio._UA.lower())
+        for text in ("włącz SomaFM Deep Space", "włącz Deep Space One", "włącz deep space"):
+            self.assertTrue(brain.command_allowed(text), text)
+            handled, got, _ = self._ask(text)
+            self.assertTrue(handled, text)
+            self.assertEqual(got, ["SomaFM Deep Space One"], text)
+        self.assertFalse(radio.known("SomaFM"))                     # one word, many stations
+        self.assertFalse(radio.known("deep"))
+        self.assertIsNone(radio._by_part("deep one"))               # the words in a row
+        with mock.patch.object(radio, "_lookup", lambda n: None), \
+                mock.patch.object(radio, "play", lambda n, u, **k: self.fail("played")):
+            self.assertFalse(brain.run_command("włącz Nieistniejące FM"))    # not found ≠ done
 
     def test_kinds_of_music(self):
         for text, cat in (("Puść coś spokojnego do pracy", "calm"), ("Włącz jazz", "jazz"),
