@@ -3533,6 +3533,23 @@ class KidsTest(unittest.TestCase):
         s._call_until = 0.0
         s._en_heard.clear()
 
+    def test_near_miss_first_word_the_cloud_left_out_is_her_name(self):
+        # 4 Nov 11:23: "Luna, o której Maja kończy zajęcia?" — rejected as a false wake
+        import speech_to_text as s
+        lost = lambda vosk, cloud, start=0: s._cloud_lost_name(vosk.split(), start, cloud)
+        self.assertTrue(lost("kolumna o której mają końcu zajęcia",
+                             "O której Maja kończy zajęcia?"))
+        for vosk, cloud in (                  # the rejections in the logs stay rejected
+                ("ludzie ta kafka dawaj kasę", "Ludzie, ta kawka. Dawaj kawkę."),
+                ("ludzie z zezwoleń", "Could you add this one?"),
+                ("ludzie zmień kolor", "Lód jest miękki kolor."),
+                ("juno phil daty egzystencji", "Field that exists there."),
+                ("unia w ten sposób nie bo", "Czemu? Bo nie, bo teraz chcę odpocząć."),
+                ("kolumna ma trzy metry", "Kolumna ma trzy metry."),
+                ("lina", ""), ("ludzie o której jest", "O której?")):
+            self.assertFalse(lost(vosk, cloud), vosk)
+        self.assertFalse(lost("a kolumna o której jest", "O której jest?", 1))  # not said first
+
     def test_window_closed_from_outside_ends_the_listen(self):
         # 26 Oct: "Słucham" tapped on Malowanie — the running listen() kept
         # writing listening = True, so stopping her took a second tap

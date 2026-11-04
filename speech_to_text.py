@@ -844,6 +844,19 @@ def _cloud_has_wake(cloud_text):
     return bool(_wake_re().search(cloud_text or ""))
 
 
+def _cloud_lost_name(words, start, cloud_text):
+    """The cloud left out the first word, the one Vosk heard as near her name:
+    its text is the rest of Vosk's, word for word from the start (4 Nov: "kolumna
+    o której mają końcu zajęcia" / "O której Maja kończy zajęcia?"). It drops
+    "Luna" in 2 % of the calls where Vosk heard her name exactly."""
+    rest = words[start + 1:]
+    theirs = re.findall(r"\w+", (cloud_text or "").lower())
+    if start != 0 or len(rest) < 3 or not theirs:
+        return False
+    sim = lambda a, b: difflib.SequenceMatcher(None, a, b, autojunk=False).ratio()
+    return sim(rest[0], theirs[0]) >= 0.7 and sim(" ".join(rest), " ".join(theirs)) >= 0.8
+
+
 def _strip_wake_from_cloud(cloud_text):
     """Remove the first wake word from the cloud transcript, keeping its
     casing and punctuation: "Luna, która godzina?" -> "Która godzina?",
@@ -1682,7 +1695,10 @@ def listen():
                     # 17:54, Maja and a parent rehearsing a poem: "…żeby ludzie
                     # w zgodzie żyli" woke her)
                     fuzzy_cloud = _cloud_transcribe(utt_pcm)
-                    if not fuzzy_cloud or not _cloud_has_wake(fuzzy_cloud):
+                    if fuzzy_cloud and _cloud_lost_name(words, start, fuzzy_cloud):
+                        print(f"[STT] the cloud lost her name: \"{text}\" / "
+                              f"\"{fuzzy_cloud}\"", flush=True)
+                    elif not fuzzy_cloud or not _cloud_has_wake(fuzzy_cloud):
                         print(f"[STT] false wake — \"{text}\" was not her name "
                               f"(cloud: \"{fuzzy_cloud}\")", flush=True)
                         _reject("vosk-fuzzy", "not_her_name", text, fuzzy_cloud, wake_conf,
