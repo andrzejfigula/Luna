@@ -286,6 +286,14 @@ WAKE_FUZZY_RATIO          = 0.70   # difflib similarity for near-miss wake words
 CLOUD_WAKE_CHECK          = True
 CLOUD_WAKE_MIN_INTERVAL   = 2.0    # seconds between cloud wake checks
 CLOUD_WAKE_MAX_PER_HOUR   = 60     # and at most this many an hour (TV on…)
+# A second Vosk that knows only "luna" and these everyday words, so other speech
+# lands on them: where the general Vosk misses her name, the cloud confirms this one.
+WAKE_DECOY_CHECK          = True
+WAKE_DECOY_CONF           = 0.45
+WAKE_DECOYS = """a ale bo by być co czy do dla dobrze dom dwa dzień gdzie go i ich ile iść ja jak jaka jaki jest
+jeszcze już kiedy kto która który lub ma mam mama mi może można mnie my na nad nie nic no nowa o od on ona one
+pan pani po pod pomoc proszę przez raz są się ta tak tam tata te teraz to trzy tu ty tylko u w wiem więc wszystko
+z za zaraz że lina luka łuna lubi lato lada nuda dużo jutro dzisiaj godzina czas radio""".split()
 
 # 3) Addressed-speech gate: people talking TO Luna face her; people talking to
 #    EACH OTHER in the room don't. Speech (wake words included — "hello"

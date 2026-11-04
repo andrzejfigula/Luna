@@ -21,3 +21,4 @@ Ideas nobody has agreed to yet are in `docs/ideas.md`, sifted with `tools/ideas.
 
 | # | Item | Why | Status |
 |---|------|-----|--------|
+| 869 | **A second Vosk hears her name** — one that knows only "luna" and 96 everyday words runs beside the general one (radio off, passive); when only it hears her, the cloud must confirm (src vosk-name) | Recorded calls at 1/2/3 m: 28 of 30 against 15 for the general Vosk, 0 false on 15 lines and 17 logged clips. Dereverberation filters gave no real gain. One voice, quiet room: watch it in the logs | ⏳ |

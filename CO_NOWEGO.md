@@ -3,6 +3,8 @@
 Ściąga: co Luna teraz potrafi i jak to wywołać. Wszystko po polsku, zwykłymi
 zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `docs/backlog-done.md`.
 
+> **Imię z daleka:** Luna lepiej słyszy „Luna” i „Hej Luna”, także z drugiego końca pokoju (radio wyłączone). Nic nie trzeba ustawiać.
+>
 > **Malowanie — usuwanie w „Otwórz”:** **kosz** w rogu obrazka — dotknij **dwa razy** („Usunąć?”) · trafia do kosza, nie na zawsze: „**przywróć rysunek**” / „**przywróć zdjęcie**”
 >
 > **Malowanie — słuchanie i potwierdzenia:** po poleceniu Luna **przestaje słuchać** — następne: przycisk **Powiedz** (albo „Luna”); kiedy słucha (**Słucham**), dotknij go, żeby przestała · **Nowa**, **Drukuj**, **Upiększ** — dotknij **dwa razy** („Na pewno?”) · **Cofnij** — do 40 kroków (liczba w rogu przycisku)

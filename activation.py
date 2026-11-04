@@ -29,6 +29,7 @@ WEAK = ("cloud", "radio-face")     # her name only in the cloud's words, or no n
 
 class Candidate:
     """src: "vosk" (Vosk's own word), "vosk-fuzzy" (a near-miss the cloud
+    confirmed), "vosk-name" (the Vosk that knows only her name, the cloud
     confirmed), "cloud" (only the cloud heard her name), "radio-face".
     text: what's left after her name ("" — the name alone)."""
 
@@ -105,8 +106,8 @@ def _sure(c):
     """Her name alone, and both recognisers (or Vosk, clearly) heard it."""
     if c.src == "vosk":
         return c.conf is None or c.conf >= WAKE_SURE_CONF
-    if c.src == "vosk-fuzzy":
-        return True                            # Vosk's near-miss, the cloud's name
+    if c.src in ("vosk-fuzzy", "vosk-name"):
+        return True                            # Vosk's hit, the cloud's name
     return c.name_like                         # cloud: Vosk heard something like it
 
 

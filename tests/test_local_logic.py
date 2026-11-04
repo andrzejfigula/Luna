@@ -12155,6 +12155,35 @@ class ActivationFirewallTest(unittest.TestCase):
         self.a._cool_until, self.a._pending = self._mod
         self.a.end_turn()
 
+    def test_name_vosk_best_luna_counts_decoys_dont_and_it_starts_afresh(self):
+        s = self.stt()
+
+        class Rec:
+            def __init__(self, final):
+                self.final = final
+
+            def FinalResult(self):
+                return json.dumps({"result": self.final})
+
+        word = lambda w, c: {"word": w, "conf": c}
+        old = s._name_rec, list(s._name_confs)
+        try:
+            s._name_rec = Rec([word("luna", 0.6), word("tak", 1.0), word("luna", 0.9)])
+            self.assertEqual(s._name_heard(), 0.9)
+            s._name_rec = Rec([word("nuda", 1.0), word("radio", 1.0)])
+            self.assertIsNone(s._name_heard())            # the last utterance's name is gone
+            s._name_rec = Rec([word("luna", s.WAKE_DECOY_CONF - 0.01)])
+            self.assertIsNone(s._name_heard())
+            s._name_rec = None                            # it failed to build: general Vosk only
+            self.assertIsNone(s._name_heard())
+        finally:
+            s._name_rec, s._name_confs[:] = old[0], old[1]
+
+    def test_name_vosk_call_the_cloud_confirmed_is_sure(self):
+        c = self.a.Candidate("vosk-name", "", "edmund co", "Hej Luna.", 0.9)
+        v = self.a.judge(c, self.stt()._wake_re())
+        self.assertEqual((v.outcome, v.reason), (self.a.ACCEPT, "bare"))
+
     _stt = None
 
     @classmethod

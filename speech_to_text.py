@@ -56,6 +56,9 @@ from config import (
     STT_MIN_UTTERANCE_CHARS,
     STT_DEBUG_AUDIO,
     WAKE_CONFIDENCE_THRESHOLD,
+    WAKE_DECOY_CHECK,
+    WAKE_DECOY_CONF,
+    WAKE_DECOYS,
     WAKE_FUZZY_RATIO,
     REQUIRE_FACE_TO_TALK,
     FACE_RECENT_SECS,
@@ -1277,6 +1280,55 @@ def _get_recognizer():
     return _rec
 
 
+# ── A second Vosk: her name and everyday words only ───────────────────────────
+_name_rec = None
+_name_built = False
+_name_confs = []        # its "luna"s in the utterance so far
+
+
+def _name_recognizer():
+    global _name_rec, _name_built
+    if not _name_built:
+        _name_built = True
+        if WAKE_DECOY_CHECK:
+            try:
+                words = ["luna", "hej luna", "[unk]"] + WAKE_DECOYS
+                rec = KaldiRecognizer(_model, VOSK_SAMPLE_RATE,
+                                      json.dumps(words, ensure_ascii=False))
+                rec.SetWords(True)
+                _name_rec = rec
+            except Exception as e:             # the general Vosk still works
+                print(f"[STT] no name Vosk: {e}", flush=True)
+    return _name_rec
+
+
+def _name_note(result):
+    _name_confs.extend(w.get("conf", 0.0) for w in json.loads(result).get("result", [])
+                       if w.get("word") == "luna")
+
+
+def _name_feed(data):
+    rec = _name_recognizer()
+    if rec is not None and rec.AcceptWaveform(data):
+        _name_note(rec.Result())
+
+
+def _name_reset():
+    _name_confs.clear()
+    if _name_rec is not None:
+        _name_rec.Reset()
+
+
+def _name_heard():
+    """End of an utterance: how sure it is of her name (None: it didn't hear it)."""
+    if _name_rec is None:
+        return None
+    _name_note(_name_rec.FinalResult())
+    best = max(_name_confs, default=0.0)
+    _name_confs.clear()
+    return best if best >= WAKE_DECOY_CONF else None
+
+
 def _addressed_to_luna():
     """True when the speech we just heard was plausibly directed AT Luna.
 
@@ -1404,6 +1456,7 @@ def listen():
     # kept her speech (and its echo) out of the queue already
 
     rec = _get_recognizer()
+    _name_reset()
 
     # check conversation timeout
     with state.lock:
@@ -1520,6 +1573,8 @@ def listen():
         # (measured). Ours is quicker: STT_END_SILENCE of gated silence after
         # real speech — a third of a second sooner to the answer.
         final = rec.AcceptWaveform(data)
+        if not active and not (gated and silent_run > 3.0) and not _radio_on():
+            _name_feed(data)             # (long silence has nothing for it: saves CPU)
         import messages                  # a voice message may have pauses
         recording = messages.armed()
         end_after = 2.0 if recording else STT_END_SILENCE
@@ -1566,9 +1621,13 @@ def listen():
             if msg_parts:                # a recorded message: all its parts
                 result = {"text": " ".join(msg_parts + [result.get("text", "")]).strip()}
                 msg_parts = []
+            looked = spec_looked
             voiced, silent_run, spec_tried, spec_looked = False, 0.0, False, False
             started, utt_t0 = utt_t0, None
             text     = result.get("text", "").strip()
+            name_conf = _name_heard()
+            if active:
+                name_conf = None
             peak_rms = utt_peak_rms
             utt_peak_rms = 0.0   # reset for the next utterance
             utt_pcm   = b"".join(utt_audio)
@@ -1580,7 +1639,7 @@ def listen():
                 state.luna_mode  = "processing"
                 state.heard_text = text
 
-            if not text:
+            if not text and name_conf is None:
                 # silence chunk — also the spot to notice a timed-out window
                 if active and (time.time() - last_activity) > CONVO_TIMEOUT and not _page_open():
                     _expire_conversation()
@@ -1592,7 +1651,7 @@ def listen():
 
             # The window closed while you were thinking — but this sentence
             # began inside it (or within CONVO_GRACE after): still for her.
-            if not active and started is not None and _started_in_window(started):
+            if text and not active and started is not None and _started_in_window(started):
                 print(f"[STT] began {started - state.convo_expired_time:+.1f}s from the "
                       "window's end — answering", flush=True)
                 active = True
@@ -1603,6 +1662,7 @@ def listen():
             words   = text.split()
             wake    = _find_wake_word(words)
             cleaned = None
+            by_name = False
 
             # A wake word only counts when the wake tokens THEMSELVES were
             # heard confidently — so noise hallucinated as "luna" never wakes
@@ -1632,6 +1692,15 @@ def listen():
                         print(f"[STT] Wake ignored (conf {wake_conf:.2f} < "
                               f"{need:.2f}): \"{text}\"")
                     wake = None
+
+            if not active and (name_conf is not None or wake is not None):
+                print(f"[STT] Wake? name Vosk: {'no' if name_conf is None else f'{name_conf:.2f}'}, "
+                      f"general: \"{text}\" ({'no' if wake is None else 'yes'})", flush=True)
+            if (cleaned is None and name_conf is not None
+                    and _wake_check_worth(None) and (looked or _wake_budget())):
+                # only the name Vosk heard her: the cloud must confirm, as for a near miss
+                # (looked: this sentence's check is already paid for, sent ahead on its pause)
+                wake, start, wake_conf, cleaned, by_name = (0, 0, False), 0, name_conf, text, True
 
             # Noise gates for everything that isn't a confident wake — must
             # look like real, confident, addressed speech before it reaches
@@ -1695,19 +1764,19 @@ def listen():
                     # 17:54, Maja and a parent rehearsing a poem: "…żeby ludzie
                     # w zgodzie żyli" woke her)
                     fuzzy_cloud = _cloud_transcribe(utt_pcm)
-                    if fuzzy_cloud and _cloud_lost_name(words, start, fuzzy_cloud):
+                    if fuzzy_cloud and not by_name and _cloud_lost_name(words, start, fuzzy_cloud):
                         print(f"[STT] the cloud lost her name: \"{text}\" / "
                               f"\"{fuzzy_cloud}\"", flush=True)
                     elif not fuzzy_cloud or not _cloud_has_wake(fuzzy_cloud):
                         print(f"[STT] false wake — \"{text}\" was not her name "
                               f"(cloud: \"{fuzzy_cloud}\")", flush=True)
-                        _reject("vosk-fuzzy", "not_her_name", text, fuzzy_cloud, wake_conf,
-                                utt_pcm)
+                        _reject("vosk-name" if by_name else "vosk-fuzzy", "not_her_name", text,
+                                fuzzy_cloud, wake_conf, utt_pcm)
                         with state.lock:
                             state.luna_mode = "listening" if active else "idle"
                             state.listening = active
                         continue
-                src = "vosk-fuzzy" if fuzzy else "vosk"
+                src = "vosk-name" if by_name else "vosk-fuzzy" if fuzzy else "vosk"
                 if (cleaned and not fuzzy
                         and fast_command(cleaned, _avg_confidence(result))):
                     if not _wake(src, cleaned, text, None, wake_conf, utt_pcm):
