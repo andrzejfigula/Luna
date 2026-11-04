@@ -67,3 +67,4 @@ data/backups/
 # face models from the OpenCV Zoo (download, see SETUP.md)
 data/models/
 screenshots/
+docs/ideas.html

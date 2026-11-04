@@ -3,6 +3,7 @@ docs staying true (the .md files aren't copied to the Pi: skipped there)."""
 import ast
 import glob
 import io
+import json
 import os
 import re
 import sys
@@ -17,6 +18,7 @@ sys.path.insert(0, os.path.join(ROOT, "tests"))
 import backlog  # noqa: E402
 import claude_usage  # noqa: E402
 import codemap  # noqa: E402
+import ideas  # noqa: E402
 import perf_report  # noqa: E402
 import run_unit  # noqa: E402
 
@@ -88,6 +90,13 @@ class BacklogTest(unittest.TestCase):
         self.assertIn("radio.py 1", out)
         self.assertIn("1: Radio gra.", out)
 
+    def test_find_lists_ideas_too_with_their_own_numbers(self):
+        self.assertNotIn("ideas", self.cli("find", "wisielec")[1])
+        self.write("docs/ideas.md", "| 7 | ✗ | games | maja | S | 2 | new | - | **Wisielec** — gra | bo |\n")
+        out = self.cli("find", "WISIELEC")[1]
+        self.assertIn("idea 7 ✗ Wisielec", out)
+        self.assertIn("backlog: 0 rows", out)
+
     def test_show_recent_and_status_in_the_item(self):
         self.assertIn("real model", self.cli("show", "2")[1])
         self.assertEqual(self.cli("show", "99")[0], 1)
@@ -100,6 +109,108 @@ class BacklogTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("#2 twice", out)
         self.assertIn("#2 is finished", out)
+
+
+class IdeasTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = self.tmp.name
+        os.mkdir(os.path.join(self.root, "docs"))
+        self.path = os.path.join(self.root, "docs", "ideas.md")
+        with open(self.path, "w", encoding="utf-8", newline="\n") as f:
+            f.write("# ideas\n\n| # | Mark | Area | For | Size | Value | Kind | Needs | Idea | Why |\n"
+                    "|---|---|---|---|---|---|---|---|---|---|\n"
+                    "| 1 | · | games | maja | S | 2 | new | - | **Wisielec** — litery | klasyka |\n"
+                    "| 2 | · | games | all | M | 3 | new | model | **Kalambury** — hasła | rodzina |\n"
+                    "| 3 | · | hw | all | L | 1 | new | hw,sudo | **Szyja** — serwa | obecność |\n")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def cli(self, *args):
+        return quiet(ideas.main, list(args), root=self.root)
+
+    def shown(self, *args):
+        return [line.split()[0] for line in self.cli(*args)[1].splitlines()[:-1]]
+
+    def test_filters_add_up_and_the_best_comes_first(self):
+        self.assertEqual(self.shown(), ["2", "1", "3"])
+        self.assertEqual(self.shown("area=games", "size=S"), ["1"])
+        self.assertEqual(self.shown("size=S,L"), ["1", "3"])
+
+    def test_a_combined_need_matches_either_part_and_a_dash_means_none(self):
+        self.assertEqual(self.shown("needs=sudo"), ["3"])
+        self.assertEqual(self.shown("needs=-"), ["1"])
+
+    def test_words_ignore_case_and_polish_letters(self):
+        self.assertEqual(self.shown("OBECNOSC"), ["3"])
+        self.assertEqual(self.shown("maja"), ["1"])
+
+    def test_a_dropped_idea_stays_in_the_file_but_is_hidden(self):
+        self.assertEqual(self.cli("drop", "1")[0], 0)
+        self.assertEqual(self.shown(), ["2", "3"])
+        self.assertEqual(self.shown("mark=drop"), ["1"])
+        self.assertEqual(self.shown("mark=all"), ["2", "1", "3"])
+        self.assertEqual(self.cli("undo", "1")[0], 0)
+        self.assertEqual(self.shown("mark=keep,drop"), [])
+
+    def test_a_filter_marks_the_undecided_only_and_undo_reaches_the_rest(self):
+        self.cli("keep", "1")
+        self.assertIn("2 ideas: 2 3", self.cli("drop", "size=M,L")[1])
+        self.assertEqual(self.shown("mark=keep"), ["1"])
+        self.cli("drop", "area=games")
+        self.assertEqual(self.shown("mark=keep"), ["1"])
+        self.assertIn("3 ideas", self.cli("undo", "mark=all")[1])
+        self.cli("drop", "2")
+        self.assertIn("1 ideas: 2", self.cli("undo", "area=games", "kalambury")[1])
+
+    def test_a_bad_number_or_filter_changes_nothing(self):
+        with open(self.path, encoding="utf-8") as f:
+            before = f.read()
+        self.assertEqual(self.cli("drop", "1", "99")[0], 1)
+        self.assertEqual(self.cli("drop", "colour=red")[0], 2)
+        self.assertEqual(self.cli("drop")[0], 2)
+        with open(self.path, encoding="utf-8") as f:
+            self.assertEqual(f.read(), before)
+
+    def test_show_and_stats(self):
+        self.assertIn("Why: rodzina", self.cli("show", "2")[1])
+        self.assertEqual(self.cli("show", "99")[0], 1)
+        out = self.cli("stats", "area=games")[1]
+        self.assertIn("2 ideas (0 kept", out)
+        self.assertIn("size: ", out)
+
+    def test_the_page_holds_every_idea_and_cannot_end_its_script(self):
+        with open(self.path, "a", encoding="utf-8", newline="\n") as f:
+            f.write("| 4 | ✗ | games | all | S | 1 | new | - | **Znacznik** — </script> w tekście | bo |\n")
+        self.assertEqual(self.cli("page")[0], 0)
+        with open(os.path.join(self.root, ideas.PAGE_FILE), encoding="utf-8") as f:
+            page = f.read()
+        self.assertNotIn("/*DATA*/", page)
+        self.assertEqual(page.count("</script>"), 1)
+        rows = re.search(r"const IDEAS = (\[.*?\]);\n", page).group(1)
+        found = json.loads(rows.replace("<\\/", "</"))
+        self.assertEqual([r["num"] for r in found], [1, 2, 3, 4])
+        self.assertEqual((found[0]["title"], found[0]["what"]), ("Wisielec", "litery"))
+        self.assertEqual(found[3]["mark"], "✗")
+
+    @unittest.skipUnless(os.path.exists(os.path.join(ROOT, ideas.IDEAS_FILE)), "the .md files stay on the PC")
+    def test_the_real_file_is_well_formed(self):
+        path = os.path.join(ROOT, ideas.IDEAS_FILE)
+        with open(path, encoding="utf-8") as f:
+            lines = [line for line in f if ideas.ROW.match(line)]
+        rows = [ideas.parse(line) for line in lines]
+        self.assertGreaterEqual(len(rows), 100)
+        self.assertEqual([r["num"] for r in rows], list(range(1, len(rows) + 1)))
+        allowed = {"mark": set(ideas.MARKS.values()), "size": set("SML"), "value": set("123"),
+                   "kind": {"new", "better"}, "for": {"maja", "grown", "all", "dev"},
+                   "area": {"learn", "games", "play", "music", "home", "family", "her", "face",
+                            "voice", "info", "health", "privacy", "robust", "cost", "dev", "hw"}}
+        for r, line in zip(rows, lines):
+            self.assertEqual(line.count("|"), 11, line)
+            for field, values in allowed.items():
+                self.assertIn(r[field], values, line)
+            self.assertLessEqual(set(r["needs"].split(",")), {"-", "model", "net", "hw", "sudo"}, line)
 
 
 class CodemapTest(unittest.TestCase):

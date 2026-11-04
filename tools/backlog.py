@@ -2,7 +2,7 @@
 backlog.py — the backlog without reading it. BACKLOG.md holds only what is open
 or parked; finished rows live in docs/backlog-done.md (numbers run across both).
 
-    python -X utf8 tools/backlog.py find radio piosenk   # built already? rows, cheat sheet, code
+    python -X utf8 tools/backlog.py find radio piosenk   # built already? rows, ideas, cheat sheet, code
     python -X utf8 tools/backlog.py show 57 738          # those rows in full
     python -X utf8 tools/backlog.py recent [10]          # the latest titles
     python -X utf8 tools/backlog.py open                 # what is open or parked
@@ -24,6 +24,7 @@ import unicodedata
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OPEN_FILE, DONE_FILE = "BACKLOG.md", os.path.join("docs", "backlog-done.md")
 CHEAT_SHEET = "CO_NOWEGO.md"
+IDEAS_FILE = os.path.join("docs", "ideas.md")
 OPEN_MARKS = "⏳🚧💤"
 ROW = re.compile(r"^\| *(\d+) *\|(.*?)\|?\s*$")   # (#266 has no closing bar)
 MAX_ROWS = 12
@@ -159,7 +160,15 @@ def cmd_find(root, args):
     for _, _, num, row in scored[:MAX_ROWS]:
         print(f"  #{-num} {status_of(row)} {title_of(row)}")
 
-    sheet = [(i, line.strip()) for i, line in enumerate(read_lines(os.path.join(root, CHEAT_SHEET)), 1)
+    ideas = [line for line in read_lines(os.path.join(root, IDEAS_FILE))
+             if ROW.match(line) and any(w in fold(line) for w in words)]
+    if ideas:     # ✗ = turned down, don't propose it again
+        print(f"{IDEAS_FILE}: {len(ideas)} ideas (# there is not a backlog number):")
+        for line in ideas[:6]:
+            cells = line.split("|")
+            print(f"  idea {cells[1].strip()} {cells[2].strip()} {title_of(line)}")
+
+    sheet =[(i, line.strip()) for i, line in enumerate(read_lines(os.path.join(root, CHEAT_SHEET)), 1)
              if any(w in fold(line) for w in words)]
     print(f"{CHEAT_SHEET}: {len(sheet)} lines" + (":" if sheet else ""))
     for i, line in sheet[:6]:

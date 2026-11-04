@@ -27,6 +27,9 @@ while you work. Code here (`D:\Code\luna`, Windows + Git Bash); the Pi copy
 - Backlog: `BACKLOG.md` is only what's open; `docs/backlog-done.md` (400 KB) is
   history, don't open it. `python -X utf8 tools/backlog.py find WORDS | show N |
   recent | open | add "**Title** — what changed" "why" [⏳] | done N | check`.
+  Proposals not agreed yet: `docs/ideas.md`, `python -X utf8 tools/ideas.py area=games
+  size=S | stats | show N | keep/drop/undo/built N | page` (writes a page to tick them);
+  ✗ means don't propose it again.
 - Keep new code comments to a line or two; the story goes in the commit.
 
 ## Ship (test → copy → restart, ~50 s)

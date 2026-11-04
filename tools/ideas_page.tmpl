@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Luna ideas</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f7f6f3; --card: #ffffff; --ink: #24221e; --muted: #6b665d; --line: #dfdbd2;
+    --accent: #2f55b5; --on-accent: #ffffff; --ticked: #e9eefb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1b1b1a; --card: #252523; --ink: #ecebe6; --muted: #a5a197; --line: #3b3a36;
+      --accent: #8fabf2; --on-accent: #14161c; --ticked: #2a3145;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 920px; margin: 0 auto; padding: 24px 16px 170px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .lead { margin: 0 0 18px; color: var(--muted); }
+  input[type=search] { width: 100%; padding: 9px 12px; font: inherit; color: inherit;
+                       background: var(--card); border: 1px solid var(--line); border-radius: 8px; }
+  .filter { display: flex; gap: 10px; margin-top: 10px; align-items: baseline; }
+  .filter > span { flex: 0 0 56px; color: var(--muted); font-size: 13px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  button { font: inherit; font-size: 13px; color: inherit; background: var(--card); cursor: pointer;
+           border: 1px solid var(--line); border-radius: 7px; padding: 4px 9px; }
+  button:hover { border-color: var(--accent); }
+  button[aria-pressed=true], button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 16px 0 6px; }
+  .tools label { color: var(--muted); font-size: 13px; }
+  .tools .gap { flex: 1; }
+  select { font: inherit; font-size: 13px; color: inherit; background: var(--card);
+           border: 1px solid var(--line); border-radius: 7px; padding: 4px 6px; }
+  h2 { font-size: 14px; margin: 22px 0 6px; }
+  .row { display: grid; grid-template-columns: 20px 34px 1fr; gap: 8px; padding: 10px 12px; cursor: pointer;
+         background: var(--card); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 5px; }
+  .row:hover { border-color: var(--accent); }
+  .row.on { background: var(--ticked); border-color: var(--accent); }
+  .row.off .text { opacity: .6; }
+  .row input { width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--accent); }
+  .num { color: var(--muted); font-size: 13px; text-align: right; padding-top: 1px; font-variant-numeric: tabular-nums; }
+  .title { font-weight: 600; }
+  .why, .meta { color: var(--muted); font-size: 13px; }
+  .meta { margin-top: 2px; }
+  .empty { padding: 32px 0; text-align: center; color: var(--muted); }
+  footer { position: fixed; left: 0; right: 0; bottom: 0; background: var(--card); border-top: 1px solid var(--line); }
+  footer > div { max-width: 920px; margin: 0 auto; padding: 10px 16px; }
+  .sum { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .sum b { font-size: 16px; }
+  .sum .gap { flex: 1; }
+  .sum span { color: var(--muted); font-size: 13px; }
+  .hint { margin: 8px 0 4px; font-size: 13px; color: var(--muted); }
+  .cmd { display: flex; gap: 6px; }
+  .cmd input { flex: 1; min-width: 0; padding: 4px 8px; font: 12px ui-monospace, Consolas, monospace; color: inherit;
+               background: var(--bg); border: 1px solid var(--line); border-radius: 7px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Luna ideas</h1>
+  <p class="lead">Tick the ones you want to do. Size and value are guesses. Ticks stay if you close this page.</p>
+  <input id="search" type="search" placeholder="Search the text, e.g. radio, maja, printer" aria-label="Search the ideas">
+  <div id="filters"></div>
+  <div class="tools">
+    <button id="tickShown">Tick all shown</button>
+    <button id="untickShown">Untick all shown</button>
+    <button id="onlyTicked" aria-pressed="false">Only ticked</button>
+    <button id="clear">Clear filters</button>
+    <span class="gap"></span>
+    <label for="sort">Sort</label>
+    <select id="sort">
+      <option value="area">By area</option>
+      <option value="value">Highest value first</option>
+      <option value="size">Smallest first</option>
+    </select>
+  </div>
+  <div id="list"><div class="empty">This viewer blocked the page's script. Open docs/ideas.html in your own browser.</div></div>
+</main>
+<footer><div>
+  <div class="sum"><b id="ticked"></b><span id="shown"></span></div>
+  <p class="hint">Finished? Copy this and paste it into the chat, or run it yourself:</p>
+  <div class="cmd">
+    <input id="command" readonly aria-label="Command that saves your ticks">
+    <button id="copy">Copy</button>
+  </div>
+</div></footer>
+
+<script>
+const IDEAS = /*DATA*/[];
+const GROUPS = [
+  ["mark", "Status", {"·": "Undecided", "✓": "Kept", "✗": "Dropped", "✅": "Built"}],
+  ["area", "Area", {learn: "Learning", games: "Games", play: "Play and stories", music: "Music and radio",
+                    home: "Home", family: "Family", her: "Her character", face: "Her screen", voice: "Voice",
+                    info: "Information", health: "Health", privacy: "Privacy", robust: "Reliability",
+                    cost: "Cost", dev: "Dev tools", hw: "Hardware"}],
+  ["for", "For", {maja: "Maja", grown: "Grown-ups", all: "Everyone", dev: "The code"}],
+  ["size", "Size", {S: "S, a few hours", M: "M, a day or two", L: "L, several days"}],
+  ["value", "Value", {3: "3 high", 2: "2 medium", 1: "1 nice to have"}],
+  ["kind", "Kind", {new: "New", better: "Improves something"}],
+  ["needs", "Needs", {"-": "Nothing extra", model: "OpenAI money per use", net: "Online service",
+                      hw: "Something to buy", sudo: "You install it"}],
+];
+const label = key => GROUPS.find(g => g[0] === key)[2];
+const $ = id => document.getElementById(id);
+const fold = s => s.toLowerCase().replace(/ł/g, "l").normalize("NFD").replace(/[̀-ͯ]/g, "");
+
+// Saved ticks belong to one state of the file: new marks start from those marks.
+const KEY = "luna-ideas-" + IDEAS.map(i => i.mark).join("");
+const wasKept = new Set(IDEAS.filter(i => i.mark === "✓").map(i => i.num));
+let ticks = new Set(wasKept);
+try {
+  const saved = JSON.parse(localStorage.getItem(KEY));
+  if (saved) ticks = new Set(saved);
+} catch (e) {}
+const chosen = Object.fromEntries(GROUPS.map(g => [g[0], new Set()]));
+const hay = new Map(IDEAS.map(i => [i.num, fold([i.title, i.what, i.why, i.for].join(" "))]));
+let onlyTicked = false;
+let shownNow = [];
+
+function matches(idea) {
+  const words = fold($("search").value).split(/\s+/).filter(Boolean);
+  if (!words.every(w => hay.get(idea.num).includes(w))) return false;
+  if (onlyTicked && !ticks.has(idea.num)) return false;
+  return GROUPS.every(([key]) => {
+    const want = chosen[key];
+    return !want.size || idea[key].split(",").some(v => want.has(v));
+  });
+}
+
+function element(tag, cls, text) {
+  const el = document.createElement(tag);
+  if (cls) el.className = cls;
+  if (text !== undefined) el.textContent = text;
+  return el;
+}
+
+function rowFor(idea) {
+  const row = element("label", "row");
+  const box = element("input");
+  box.type = "checkbox";
+  box.checked = ticks.has(idea.num);
+  row.classList.toggle("on", box.checked);
+  row.classList.toggle("off", idea.mark === "✗");
+  box.addEventListener("change", () => {
+    box.checked ? ticks.add(idea.num) : ticks.delete(idea.num);
+    row.classList.toggle("on", box.checked);
+    onlyTicked ? render() : summary();
+  });
+  const text = element("div", "text");
+  text.append(element("div", "title", idea.title));
+  if (idea.what) text.append(element("div", "", idea.what));
+  text.append(element("div", "why", idea.why));
+  const needs = idea.needs.split(",").map(n => label("needs")[n]).join(", ");
+  const status = idea.mark === "·" ? [] : [label("mark")[idea.mark]];
+  text.append(element("div", "meta", status.concat(label("for")[idea.for], "size " + idea.size, "value " + idea.value,
+                                                   label("kind")[idea.kind].toLowerCase(), needs.toLowerCase().replace("openai", "OpenAI")).join(" · ")));
+  row.append(box, element("span", "num", idea.num), text);
+  return row;
+}
+
+function render() {
+  const sort = $("sort").value;
+  const sizes = {S: 0, M: 1, L: 2};
+  const by = {
+    area: () => 0,
+    value: (a, b) => b.value - a.value,
+    size: (a, b) => sizes[a.size] - sizes[b.size] || b.value - a.value,
+  }[sort];
+  shownNow = IDEAS.filter(matches).sort((a, b) => by(a, b) || a.num - b.num);
+  const list = $("list");
+  list.replaceChildren();
+  let area = null;
+  for (const idea of shownNow) {
+    if (sort === "area" && idea.area !== area) {
+      area = idea.area;
+      list.append(element("h2", "", label("area")[area]));
+    }
+    list.append(rowFor(idea));
+  }
+  if (!shownNow.length) list.append(element("div", "empty", IDEAS.length ? "No ideas match. Clear the filters to see them all."
+                                                                          : "This is the empty template. Run tools/ideas.py page, then open docs/ideas.html."));
+  summary();
+}
+
+function picks() {
+  const nums = [...ticks].sort((a, b) => a - b);
+  return {keep: nums.filter(n => !wasKept.has(n)),
+          undo: [...wasKept].filter(n => !ticks.has(n)).sort((a, b) => a - b)};
+}
+window.lunaPicks = picks;
+
+function summary() {
+  $("ticked").textContent = ticks.size + " ticked";
+  $("shown").textContent = shownNow.length + " of " + IDEAS.length + " shown";
+  const {keep, undo} = picks();
+  const tool = "python -X utf8 tools/ideas.py ";
+  const parts = [];
+  if (keep.length) parts.push(tool + "keep " + keep.join(" "));
+  if (undo.length) parts.push(tool + "undo " + undo.join(" "));
+  $("command").value = parts.join(" && ");
+  $("command").placeholder = "Tick something first";
+  try { localStorage.setItem(KEY, JSON.stringify([...ticks])); } catch (e) {}
+}
+
+function chips() {
+  for (const [key, name, values] of GROUPS) {
+    const line = element("div", "filter");
+    const group = element("div", "chips");
+    group.setAttribute("role", "group");
+    group.setAttribute("aria-label", name);
+    line.append(element("span", "", name), group);
+    for (const [value, text] of Object.entries(values)) {
+      const count = IDEAS.filter(i => i[key].split(",").includes(value)).length;
+      if (!count) continue;
+      const chip = element("button", "", text + " " + count);
+      chip.setAttribute("aria-pressed", "false");
+      chip.dataset.chip = "1";
+      chip.addEventListener("click", () => {
+        const on = !chosen[key].has(value);
+        on ? chosen[key].add(value) : chosen[key].delete(value);
+        chip.setAttribute("aria-pressed", on);
+        render();
+      });
+      group.append(chip);
+    }
+    $("filters").append(line);
+  }
+}
+
+$("search").addEventListener("input", render);
+$("sort").addEventListener("change", render);
+$("tickShown").addEventListener("click", () => { shownNow.forEach(i => ticks.add(i.num)); render(); });
+$("untickShown").addEventListener("click", () => { shownNow.forEach(i => ticks.delete(i.num)); render(); });
+$("onlyTicked").addEventListener("click", e => {
+  onlyTicked = !onlyTicked;
+  e.currentTarget.setAttribute("aria-pressed", onlyTicked);
+  render();
+});
+$("clear").addEventListener("click", () => {
+  $("search").value = "";
+  onlyTicked = false;
+  $("onlyTicked").setAttribute("aria-pressed", "false");
+  Object.values(chosen).forEach(s => s.clear());
+  document.querySelectorAll("[data-chip]").forEach(c => c.setAttribute("aria-pressed", "false"));
+  render();
+});
+$("copy").addEventListener("click", async e => {
+  const button = e.currentTarget;
+  const box = $("command");
+  if (!box.value) return;
+  try {
+    await navigator.clipboard.writeText(box.value);
+  } catch (err) {
+    box.select();
+    document.execCommand("copy");
+  }
+  button.textContent = "Copied";
+  setTimeout(() => { button.textContent = "Copy"; }, 1500);
+});
+
+chips();
+render();
+</script>
+</body>
+</html>

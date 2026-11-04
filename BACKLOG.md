@@ -9,6 +9,8 @@ Only what is open or parked. Everything finished is in `docs/backlog-done.md`
 
 Status: ✅ done · 🚧 in progress · ⏳ queued · 💤 parked (with the reason)
 
+Ideas nobody has agreed to yet are in `docs/ideas.md`, sifted with `tools/ideas.py`.
+
 ## Parked
 
 - **Interrupting her by voice or camera** (#292, #295–#300, #738) — needs a USB
