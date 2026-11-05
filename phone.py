@@ -296,7 +296,7 @@ def _when(stamp, now):
 def _merge(rows, now):
     """The phone's list into ours; a new unread one is announced on the screen."""
     global _inbox, _first_poll
-    new = []
+    new, seen = [], []
     with _lock:
         known = {m["id"]: m for m in _inbox}
         fresh = []
@@ -317,14 +317,16 @@ def _merge(rows, now):
                  "whole": False,        # (the list has only its start, on some phones a short one)
                  "when": _when(r.get("Timestamp"), now), "read": bool(r.get("Read"))}
             fresh.append(m)
-            if not m["read"] and not _first_poll:
-                new.append(m)
+            if not _first_poll:
+                (new if not m["read"] else seen).append(m)
         fresh.sort(key=lambda m: -m["when"])
         _inbox = fresh
         _first_poll = False
     _publish()
     for m in new:
         print("[phone] a new SMS", flush=True)
+    for m in seen:               # (no icon for these: the phone says it's been read)
+        print("[phone] a new SMS, already read on the phone", flush=True)
     if new:
         _banner(new[0], now)
 

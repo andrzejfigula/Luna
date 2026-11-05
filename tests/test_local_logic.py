@@ -13495,6 +13495,17 @@ class PhoneTest(unittest.TestCase):
         self.assertEqual(self._view()["view"], "new")
         self.assertFalse(self._view()["private"])
 
+    def test_read_on_the_phone_gives_no_icon_but_a_log_line(self):
+        self._ready()
+        self._poll(_sms(1, read=True))
+        with mock.patch("builtins.print") as out:
+            self._poll(_sms(2, read=True), _sms(1, read=True))
+        lines = [c.args[0] for c in out.call_args_list if "a new SMS" in str(c.args[0])]
+        self.assertEqual(lines, ["[phone] a new SMS, already read on the phone"])       # only the one that's new
+        self.assertIsNone(self._view())
+        with state.lock:
+            self.assertEqual(state.phone_unread, 0)
+
     def test_the_first_round_announces_nothing(self):
         self._paired()
         self._poll(_sms(1), _sms(2))
