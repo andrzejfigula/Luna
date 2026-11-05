@@ -39,6 +39,7 @@ EDIT_SECS = 180               # …longer while typing
 PAIR_SECS = 180               # visible to phones this long
 BANNER_SECS = 10
 POLL_SECS = 30
+FRESH_SECS = 1800             # came in just now: the icon waits for her, whatever the phone says (older: the phone knows)
 RETRY_SECS, RETRY_MAX = 60, 300       # paging an absent phone can stutter her speaker: not often
 DRAFT_SECS = 90
 REPLY_SECS = 600              # "odpisz" means the last one read, this long after
@@ -296,7 +297,8 @@ def _when(stamp, now):
 def _merge(rows, now):
     """The phone's list into ours; a new unread one is announced on the screen."""
     global _inbox, _first_poll
-    new, seen = [], []
+    new, said_read = [], 0
+    waiting = (config() or {}).get("unseen") or ()
     with _lock:
         known = {m["id"]: m for m in _inbox}
         fresh = []
@@ -307,26 +309,29 @@ def _merge(rows, now):
             old = known.get(mid)
             subject = _tidy(r.get("Subject"))
             if old:
-                old.update(path=r["path"], read=old["read"] or bool(r.get("Read")),
+                old.update(path=r["path"], read=old["read"] or (bool(r.get("Read")) and not old.get("held")),
                            who=_tidy(_name_of(old["number"], r.get("Sender"))))
                 fresh.append(old)
                 continue
             number = str(r.get("SenderAddress") or "")
+            when = _when(r.get("Timestamp"), now)
+            held = mid in waiting or (not _first_poll and abs(now - when) < FRESH_SECS)
             m = {"id": mid, "path": r["path"], "number": number,
                  "who": _tidy(_name_of(number, r.get("Sender"))), "text": subject,
                  "whole": False,        # (the list has only its start, on some phones a short one)
-                 "when": _when(r.get("Timestamp"), now), "read": bool(r.get("Read"))}
+                 "when": when, "read": bool(r.get("Read")) and not held, "held": held}
             fresh.append(m)
-            if not _first_poll:
-                (new if not m["read"] else seen).append(m)
+            if not m["read"] and not _first_poll:
+                new.append(m)
+                said_read += bool(r.get("Read"))
         fresh.sort(key=lambda m: -m["when"])
         _inbox = fresh
         _first_poll = False
     _publish()
     for m in new:
         print("[phone] a new SMS", flush=True)
-    for m in seen:               # (no icon for these: the phone says it's been read)
-        print("[phone] a new SMS, already read on the phone", flush=True)
+    if said_read:                # (Andrzej's phone did this to replies he hadn't opened)
+        print(f"[phone] the phone already calls {said_read} of them read", flush=True)
     if new:
         _banner(new[0], now)
 
@@ -334,8 +339,12 @@ def _merge(rows, now):
 def _publish():
     with _lock:
         n = sum(1 for m in _inbox if not m["read"])
+        unseen = sorted(m["id"] for m in _inbox if m.get("held") and not m["read"])
     with state.lock:
         state.phone_unread = n
+    cfg = config()
+    if cfg and unseen != cfg.get("unseen", []):       # (a restart keeps the icon; numbers only, no text)
+        _save_config(dict(cfg, unseen=unseen))
 
 
 def _banner(msg, now):
@@ -430,6 +439,7 @@ def _mark_all(done):
             _marking = False
         if ok:
             with _lock:
+                n = max(n, sum(1 for m in _inbox if not m["read"]))     # (the phone may call those read already)
                 for m in _inbox:
                     m["read"] = True
             _publish()

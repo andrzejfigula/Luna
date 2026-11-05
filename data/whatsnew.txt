@@ -1,6 +1,6 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
-- Mogę sama ułożyć SMS-a: „Napisz coś miłego do Mai”. Przeczytam go i zapytam, czy wysłać; bez Twojego „tak” nic nie pójdzie. Jeśli nie dosłyszę odpowiedzi, zapytam jeszcze raz. Po „Napisz to w SMS-ie” wyślę to, co właśnie powiedziałam.
+- Mogę sama ułożyć SMS-a: „Napisz coś miłego do Mai”. Przeczytam go i zapytam, czy wysłać; bez Twojego „tak” nic nie pójdzie. Jeśli nie dosłyszę odpowiedzi, zapytam jeszcze raz. Ikona nowego SMS-a zostaje na pasku, aż przeczytasz go u mnie, nawet gdy telefon uzna go za przeczytany. Po „Napisz to w SMS-ie” wyślę to, co właśnie powiedziałam.
 - SMS-y można teraz nazywać „wiadomościami SMS”, a gdy telefon jest sparowany, wystarczy „Pokaż wiadomości”.
 - „Oznacz wszystkie SMS-y jako przeczytane” albo przycisk na liście SMS-ów: wszystkie nowe stają się przeczytane, także na telefonie.
 - Ustawienia, Urządzenia: teraz trzy proste grupy: Dźwięk, Mikrofon i kamera, Telefon. Stuknij grupę, a zobaczysz, co w niej jest.
