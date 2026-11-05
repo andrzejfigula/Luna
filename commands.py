@@ -1972,6 +1972,9 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         if replay_last():
             return True
 
+    import phone
+    if phone.claims_first(text) and phone.command(text, speak):
+        return True
     # voice messages — "nagraj wiadomość", "odtwórz wiadomość", "usuń wiadomości"
     import messages
     if re.fullmatch(r"(?:luna\W+)?(?:a\s+)?(?:jakieś\s+|jakies\s+)?(?:wiadomości|wiadomosci)"
@@ -2112,7 +2115,6 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
             brain.process(text, context=ctx)
         return "recorded"
 
-    import phone
     if phone.command(text, speak):                 # before cards: "dodaj telefon"
         return True
     import contacts

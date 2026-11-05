@@ -13984,6 +13984,45 @@ class PhoneTest(unittest.TestCase):
         self.assertFalse(phone.answer("oznacz wszystkie jako przeczytane", self.said.append))
         self.assertIsNone(phone.draft())
 
+    def test_natural_ways_to_ask_for_the_list(self):
+        import phone
+        self._two_unread()
+        for sentence in ("Pokaż wiadomości SMS", "Pokaż mi wiadomości SMS.", "Luna, pokaż wiadomości.",
+                         "Pokaż moje wiadomości", "Pokaż ostatnią wiadomość", "Pokaż wiadomości z telefonu"):
+            with mock.patch.object(phone, "show_inbox") as shown:
+                self.assertTrue(self._say(sentence), sentence)
+            shown.assert_called_once()
+
+    def test_natural_ways_to_ask_how_many(self):
+        self._two_unread()
+        for sentence in ("Ile mam wiadomości SMS", "Ile mam nieprzeczytanych wiadomości SMS", "Czy mam nowe wiadomości SMS",
+                         "Jakie mam wiadomości SMS", "Mam jakieś wiadomości SMS"):
+            self.assertTrue(self._say(sentence), sentence)
+            self.assertEqual(self.said, ["Masz 2 nowe SMS-y."], sentence)
+
+    def test_reading_and_sending_as_wiadomosci(self):
+        import phone
+        self._two_unread()
+        for sentence in ("Przeczytaj wiadomości SMS", "Odczytaj moje wiadomości SMS", "Przeczytaj wiadomości z telefonu"):
+            with mock.patch.object(phone, "_read_out", return_value=True) as read:
+                self.assertTrue(self._say(sentence), sentence)
+            read.assert_called_once()
+        self.assertEqual(phone._parse_send("napisz wiadomość sms do kasi, że wracam"), ("kasi", "wracam"))
+
+    def test_bare_wiadomosci_need_a_phone(self):
+        import phone
+        phone._cfg = None
+        self.assertFalse(self._say("Pokaż wiadomości"))
+        self.assertTrue(self._say("Pokaż wiadomości SMS"))             # says there's no phone
+
+    def test_only_sms_goes_before_news_and_voice_messages(self):
+        import phone
+        for sentence in ("Jakie mam wiadomości SMS", "Przeczytaj wiadomości z telefonu", "Mam jakieś wiadomości SMS"):
+            self.assertTrue(phone.claims_first(sentence), sentence)
+        for sentence in ("Jakie są wiadomości", "Jakie mam wiadomości", "Przeczytaj wiadomości", "Odtwórz wiadomość",
+                         "Pokaż wiadomości", "Wiadomości z kraju"):
+            self.assertFalse(phone.claims_first(sentence), sentence)
+
     def test_names_arrive_with_the_book(self):
         import phone
         self._ready()

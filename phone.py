@@ -1026,7 +1026,7 @@ def _who_wrote(spoken):
 
 _SMS = r"(?:sms(?:-?[a-ząćęłńóśźż]+)?|esemes\w*|es\s?em\s?es\w*)"
 _LEAD = re.compile(r"^(?:luna|hej|proszę|mogłabyś)[,\s]+", re.I)
-_ANY = re.compile(_SMS + r"|telefon|komórk|smartfon|odpisz|odpowiedz|napisał|pisze|jako przeczytane", re.I)
+_ANY = re.compile(_SMS + r"|telefon|komórk|smartfon|odpisz|odpowiedz|napisał|pisze|jako przeczytane|wiadomo[sś]", re.I)
 _MY = r"(?:\s+(?:mój|moim|mojego|moja|moją|ten|tym|tego|nowy|nowym|sparowany))?"
 _THE_PHONE = r"\s+(?:telefon|telefonu|telefonem|komórk[aąęi]|smartfon\w*)"
 _PAIR = re.compile(rf"^(?:sparuj|połącz|podłącz|dodaj)(?:\s+się)?(?:\s+z)?{_MY}{_THE_PHONE}"
@@ -1036,21 +1036,23 @@ _STATE = re.compile(r"^(?:czy\s+)?(?:(?:masz|mamy)\s+)?(?:(?:jest\s+)?telefon\s+
                     r"(?:połączony|sparowany|podłączony)|połączenie\s+z\s+telefonem|"
                     r"jaki\s+telefon\s+(?:jest\s+|masz\s+)?(?:połączony|sparowany|podłączony)|"
                     r"masz\s+połączenie\s+z\s+telefonem|stan\s+telefonu)$", re.I)
-_MANY = r"(?:\s+(?:moje|mojego|nowe|nowego|nowy|nowych|ostatnie|ostatni|ostatniego|wszystkie|jakieś|jakiś|jakiegoś|nieprzeczytane|nieprzeczytanych))*"
-_LIST_WORD = rf"(?:{_SMS}|wiadomości\s+z\s+telefonu)"
+_MANY = r"(?:\s+(?:moje|moją|mojego|nowe|nową|nowego|nowy|nowych|ostatnie|ostatnią|ostatni|ostatniego|wszystkie|jakieś|jakiś|jakiegoś|nieprzeczytane|nieprzeczytanych))*"
+_FROM_PHONE = rf"wiadomo(?:ści|ść)\s+(?:{_SMS}|z\s+(?:telefonu|komórki))"
+_LIST_WORD = rf"(?:{_SMS}|{_FROM_PHONE})"
 _HOW_MANY = r"(?:\s+(?:\d+|dwa|dwie|trzy|cztery|pięć|sześć|siedem|osiem|dziewięć|dziesięć|kilka|parę|ostatnich|wszystkich))*"
 _SHOW = re.compile(rf"^(?:pokaż|wyświetl|otwórz)(?:\s+mi)?{_HOW_MANY}{_MANY}{_HOW_MANY}\s+{_LIST_WORD}"
                    r"(?:\s+(?:z\s+telefonu|z\s+komórki|na\s+ekranie))*(?:\s+od\s+(?P<who>.+))?$", re.I)
+_SHOW_BARE = re.compile(rf"^(?:pokaż|wyświetl|otwórz)(?:\s+mi)?{_MANY}\s+wiadomo(?:ści|ść)(?:\s+od\s+(?P<who>.+))?$", re.I)
 _READ = re.compile(rf"^(?:przeczytaj|odczytaj|czytaj)(?:\s+mi)?(?P<many>{_MANY})\s+{_LIST_WORD}"
                    r"(?:\s+od\s+(?P<who>.+))?$", re.I)
 _MARK_ALL = re.compile(rf"^(?:oznacz|zaznacz|ustaw)(?:\s+mi)?(?:\s+(?:wszystkie|wszystko|moje|te|nowe))*"
                        rf"(?:\s+{_LIST_WORD}|\s+wiadomości)?(?:\s+z\s+telefonu)?\s+jako\s+przeczytane$", re.I)
-_COUNT = re.compile(rf"^(?:czy\s+)?(?:(?:mam|są|jest|przyszedł|przyszły|przyszło|dostałem|dostałam)"
-                    rf"{_MANY}\s+{_SMS}|ile\s+(?:mam|jest){_MANY}\s+{_SMS}|ile{_MANY}\s+{_SMS})$", re.I)
+_COUNT = re.compile(rf"^(?:czy\s+)?(?:(?:(?:jakie\s+)?mam|są|jest|przyszedł|przyszły|przyszło|dostałem|dostałam)"
+                    rf"{_MANY}\s+{_LIST_WORD}|ile\s+(?:mam|jest){_MANY}\s+{_LIST_WORD}|ile{_MANY}\s+{_LIST_WORD})$", re.I)
 _WROTE = re.compile(r"^co\s+(?:mi\s+|do\s+mnie\s+)?(?:napisał[ao]?|pisze)\s+(?P<who>\w+(?:\s+\w+)?)$", re.I)
 _SEND = re.compile(r"^(?:wyślij|napisz|prześlij|nadaj)\b(?P<rest>.*)$", re.I | re.S)
 _SMS_IN = re.compile(rf"\b{_SMS}\b", re.I)
-_FILL = re.compile(r"^(?:mi|nowy|nowego|krótki|krótkiego|jeszcze|takiego)\b\s*", re.I)
+_FILL = re.compile(r"^(?:mi|nowy|nowego|nową|krótki|krótkiego|krótką|jeszcze|takiego|wiadomość|wiadomości)\b\s*", re.I)
 _MARK = re.compile(r"\s*[,:]?\s*\b(?:że|o treści|z treścią|treść)\b\s*[,:]?\s*|\s*[,:]\s*", re.I)
 _TO_THEM = rf"\s+(?:jej|mu|do niej|do niego|na to|na niego|na\s+tego\s+{_SMS}|na\s+{_SMS})"
 _REPLY = re.compile(rf"^(?:odpisz(?:{_TO_THEM})?|odpowiedz{_TO_THEM}|odpowiedz(?=\s*[,:]|\s+że\b))"
@@ -1070,6 +1072,11 @@ def _split_who(left):
         if find_people(" ".join(words[:n])):
             return " ".join(words[:n]), " ".join(words[n:])
     return left, ""
+
+
+def claims_first(text):
+    """"wiadomości SMS": before news and voice messages, which go by "wiadomości" alone."""
+    return bool(re.search(rf"\b{_FROM_PHONE}\b", text, re.I))
 
 
 def _parse_send(t):
@@ -1121,6 +1128,10 @@ def command(text, speak):
         return _begin(sent[0], sent[1], speak)
     m = _SHOW.match(t)
     if m:
+        _show_list(m["who"], speak)
+        return True
+    m = _SHOW_BARE.match(t)
+    if m and config():                  # (no phone: it isn't about SMS)
         _show_list(m["who"], speak)
         return True
     if _MARK_ALL.match(t):
