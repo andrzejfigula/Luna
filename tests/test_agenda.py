@@ -53,9 +53,11 @@ class Base(unittest.TestCase):
                   mock.patch.object(faces, "vocatives", lambda: {"Maja": "Maju", "Andrzej": "Andrzeju"})]
         for p in self.p:
             p.start()
+        self.face_was = state.face_detected         # (another test may have left a face in view)
         with state.lock:
             state.overlay = None
             state.person = None
+            state.face_detected = False
 
     def tearDown(self):
         for p in self.p:
@@ -67,6 +69,7 @@ class Base(unittest.TestCase):
         with state.lock:
             state.overlay = None
             state.person = None
+            state.face_detected = self.face_was
 
     def say(self, sentence):
         return agenda.handle(sentence, self.said.append)
@@ -385,7 +388,6 @@ class VoiceTest(Base):
         self.said.clear()
         with state.lock:
             state.face_detected = True
-        self.addCleanup(setattr, state, "face_detected", False)
         with mock.patch.object(faces, "probably_family", lambda: False):
             self.assertTrue(self.say("co macie w kalendarzu"))
             self.assertIn("rodziny", self.said[-1])
