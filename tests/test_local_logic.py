@@ -4864,6 +4864,87 @@ class KidsTest(unittest.TestCase):
         finally:
             state.convo_expired_time, state.convo_closed_hard, state.bare_wake = old
 
+    def test_window_edge_with_radio(self):
+        import radio
+        import speech_to_text as stt
+        old = (state.convo_expired_time, state.convo_closed_hard, state.bare_wake)
+        with mock.patch.object(radio, "playing", return_value=True):
+            try:
+                now = time.time()
+                state.convo_expired_time, state.convo_closed_hard = now, False
+                state.bare_wake = False
+                self.assertTrue(stt._started_in_window(now - 1))     # began inside it
+                self.assertTrue(stt._started_in_window(now + 1))     # her glow still fading
+                self.assertFalse(stt._started_in_window(now + 2))    # the radio, not someone
+                state.convo_closed_hard = True                       # "pa": no late start
+                self.assertFalse(stt._started_in_window(now - 1))
+            finally:
+                state.convo_expired_time, state.convo_closed_hard, state.bare_wake = old
+
+    def _listen_with(self, finals, loud):
+        """listen() in an open window that has just run out: 0.1 s blocks, loud or
+        silent; Vosk ends a chunk on the blocks in `finals`. → (text, did it expire)"""
+        import speech_to_text as stt
+        blocks = [(b"\x10\x27" if on else b"\0\0") * 1600 for on in loud] + [b"\0\0" * 1600] * 2
+
+        class Rec:
+            n, words = 0, []
+
+            def AcceptWaveform(self, data):
+                self.n += 1
+                if self.n == 2:                        # the window runs out here
+                    time.sleep(0.2)
+                if any(data) and self.n > 3:
+                    self.words = ["co", "tam", "dzisiaj"]
+                if self.n == len(blocks) - 1:          # the end of the audio: listen() returns
+                    state.speaking = True
+                return self.n in finals
+
+            def Result(self):
+                out, self.words = " ".join(self.words), []
+                return json.dumps({"text": out})
+
+            FinalResult = Result
+
+            def PartialResult(self):
+                return json.dumps({"partial": " ".join(self.words)})
+
+        names = ("conversation_active", "last_activity_time", "speaking", "mic_unblock_time",
+                 "mic_muted_until", "listening", "luna_mode", "convo_expired_time",
+                 "convo_closed_hard", "bare_wake")
+        old = {n: getattr(state, n) for n in names}
+        while not stt._q.empty():
+            stt._q.get_nowait()
+        for b in blocks:
+            stt._q.put(b)
+        state.conversation_active, state.last_activity_time = True, time.time() - 9.9
+        state.speaking, state.mic_unblock_time, state.mic_muted_until = False, 0, 0
+        state.convo_expired_time, state.bare_wake = 0, False
+        rec = Rec()
+        try:
+            with mock.patch.multiple(stt, _mic_ok=True, _cloud=None, _get_recognizer=lambda: rec,
+                                     _name_reset=lambda: None, _name_feed=lambda d: None,
+                                     _name_heard=lambda: None, _addressed_to_luna=lambda: True,
+                                     _resample_to_16k=lambda d: d, _energy_gate=lambda: 1000,
+                                     _update_noise_floor=lambda r: None, _page_open=lambda: False,
+                                     _cloud_transcribe=lambda pcm, lang=None: "Co tam dzisiaj?",
+                                     _save_utterance=lambda *a: None):
+                text = stt.listen()
+            return text, bool(state.convo_expired_time)
+        finally:
+            for n, v in old.items():
+                setattr(state, n, v)
+
+    def test_window_stays_open_when_speech_begins_as_it_ends(self):
+        # Vosk's silence chunk ends on the first loud block of the sentence
+        self.assertEqual(self._listen_with({3}, [0, 0, 1, 1, 1, 1, 1, 1] + [0] * 8),
+                         ("Co tam dzisiaj?", False))
+
+    def test_window_expires_on_a_silent_chunk(self):
+        text, expired = self._listen_with({3}, [0] * 8)
+        self.assertTrue(expired)
+        self.assertEqual(text, "")
+
     def test_offered_routine(self):
         import kids
         self.assertEqual(kids.offered_routine(

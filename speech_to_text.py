@@ -45,6 +45,7 @@ from config import (
     VOSK_SAMPLE_RATE,
     CONVO_TIMEOUT,
     CONVO_GRACE,
+    CONVO_GRACE_RADIO,
     WAKE_UNSURE_WINDOW,
     POST_SPEAK_DELAY,
     DOUBLE_FLUSH,
@@ -1349,8 +1350,8 @@ def _addressed_to_luna():
 
 def _started_in_window(t):
     """Did speech beginning at t start inside the last conversation window
-    (or just after it)? Never while the radio plays — then every command
-    needs "Luna"."""
+    (or just after it)? With the radio on only while her glow still shows:
+    later than that, the sound is more likely the radio than someone talking."""
     with state.lock:
         ended = state.convo_expired_time
         hard = state.convo_closed_hard
@@ -1365,7 +1366,7 @@ def _started_in_window(t):
     try:
         import radio
         if radio.playing():
-            return False
+            return t <= ended + CONVO_GRACE_RADIO
     except Exception:
         pass
     return t <= ended + CONVO_GRACE
@@ -1400,6 +1401,7 @@ def _expire_conversation():
 
 # ── Main listen ───────────────────────────────────────────────────────────────
 
+SPEECH_LEAD_BYTES = 16000  # 0.5 s of 16 kHz audio kept before a sentence that began at a chunk's end
 UNSURE_CONF = 0.9       # Vosk's words below this, with no cloud to check them: unsure
 heard_unsure = False    # the last text is Vosk's unsure guess — the cloud didn't answer
 
@@ -1640,8 +1642,14 @@ def listen():
                 state.heard_text = text
 
             if not text and name_conf is None:
+                if not gated:
+                    # Vosk closed its silence just as someone began: their sentence,
+                    # not the window's end (5 Nov 12:06, radio on: closed, no answer)
+                    voiced, utt_t0, utt_peak_rms = True, started, rms
+                    utt_audio = [utt_pcm[-SPEECH_LEAD_BYTES:]]
+                    utt_bytes = len(utt_audio[0])
                 # silence chunk — also the spot to notice a timed-out window
-                if active and (time.time() - last_activity) > CONVO_TIMEOUT and not _page_open():
+                elif active and (time.time() - last_activity) > CONVO_TIMEOUT and not _page_open():
                     _expire_conversation()
                     active = False
                 with state.lock:
@@ -1658,6 +1666,9 @@ def listen():
                 with state.lock:
                     state.conversation_active = True
                     state.last_activity_time = time.time()
+            elif text and not active and started and started - state.convo_expired_time < 10:
+                print(f"[STT] began {started - state.convo_expired_time:+.1f}s from the "
+                      "window's end — needs her name", flush=True)
 
             words   = text.split()
             wake    = _find_wake_word(words)

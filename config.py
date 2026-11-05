@@ -119,6 +119,7 @@ CONVO_QUESTION_BONUS = 12  # …plus this when her reply asks or offers somethin
                            # a thoughtful answer needs longer than 10 s
 CONVO_GRACE        = 4    # speech that STARTED up to this long after the window
                            # closed is still answered — you began in time
+CONVO_GRACE_RADIO  = 1.5  # …with the radio on: as long as her glow takes to fade (robot_face.py)
 FOLLOWUP_NEEDS_NAME = False  # True: after her answer the window closes — the next
                            # sentence needs "Luna" (not when a game, a page or her
                            # own question waits for an answer)
