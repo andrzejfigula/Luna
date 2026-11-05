@@ -456,6 +456,19 @@ def get_body(path):
             pass
 
 
+def unread_paths(session, limit=500):
+    """Every unread SMS on the phone, not only the newest ones on the list."""
+    dbus = _dbus()
+    try:
+        rows = _iface(_ses(), OBEX, session, "org.bluez.obex.MessageAccess1").ListMessages(
+            "inbox", dbus.Dictionary({"MaxCount": dbus.UInt16(limit), "SubjectLength": dbus.Byte(1),
+                                      "Read": dbus.Boolean(False)}, signature="sv"), timeout=25)
+    except dbus.DBusException as e:
+        raise LinkError(e.get_dbus_name())
+    return [r["path"] for r in _listed(rows) if not r.get("Read")
+            and str(r.get("Type", "sms")).lower().startswith(("sms", "mms"))]
+
+
 def mark_read(path):
     dbus = _dbus()
     try:

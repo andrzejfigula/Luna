@@ -13073,6 +13073,10 @@ class _FakeLink:
         self._check()
         return self.bodies[path]
 
+    def unread_paths(self, session):
+        self._check()
+        return [r["path"] for r in self.rows if not r.get("Read")]
+
     def mark_read(self, path):
         self.read.append(path)
 
@@ -13169,7 +13173,7 @@ class PhoneTest(unittest.TestCase):
         self.said = []
         self.q = mock.patch.multiple(
             phone, FILE=os.path.join(self.d, "phone.json"), _cfg=None, _status="on", _inbox=[], _book={},
-            _session=None, _next_poll=0.0, _fails=0, _first_poll=True, _want_book=False, _book_fails=0, _book_next=0.0, _pair=None,
+            _session=None, _next_poll=0.0, _fails=0, _first_poll=True, _marking=False, _want_book=False, _book_fails=0, _book_next=0.0, _pair=None,
             _draft=None, _last_read=None, _link=self.link, _say_fn=self.said.append,
             _thread=threading.current_thread(), _jobs=queue.Queue())     # (jobs run when _drain says)
         self.q.start()
@@ -13900,6 +13904,85 @@ class PhoneTest(unittest.TestCase):
             phone._poll(now + 3 * phone.BOOK_RETRY_SECS + 3)
             self.assertEqual(pull.call_count, phone.BOOK_TRIES)
         self.assertFalse(phone._want_book)
+
+    def _two_unread(self):
+        self._ready()
+        self._poll(_sms("1", text="A"), _sms("2", text="B"), _sms("3", text="C", read=True))
+
+    def test_mark_all_read_by_voice(self):
+        import phone
+        self._two_unread()
+        for sentence in ("Luna, oznacz wszystkie SMS-y jako przeczytane", "oznacz SMS-y jako przeczytane",
+                         "zaznacz wszystko jako przeczytane", "oznacz wiadomości z telefonu jako przeczytane"):
+            self.assertTrue(phone._MARK_ALL.match(phone._clean(sentence)), sentence)
+        self.assertTrue(self._say("oznacz wszystkie SMS-y jako przeczytane"))
+        self._drain()
+        self.assertEqual(self.link.read, ["/session/message1", "/session/message2"])
+        self.assertEqual(self.said, ["Oznaczone jako przeczytane: 2 SMS-y."])
+        self.assertTrue(all(m["read"] for m in phone.inbox()))
+        self.assertEqual(state.phone_unread, 0)
+        self.link.rows = []
+        self._say("oznacz wszystkie SMS-y jako przeczytane")
+        self._drain()
+        self.assertEqual(self.said, ["Nie ma nieprzeczytanych SMS-ów."])
+
+    def test_mark_all_reaches_older_than_the_list(self):
+        self._two_unread()
+        with mock.patch.object(self.link, "unread_paths", return_value=["/session/message99"]):
+            self._say("oznacz wszystkie SMS-y jako przeczytane")
+            self._drain()
+        self.assertEqual(self.link.read, ["/session/message99"])
+
+    def test_mark_all_stopped_halfway_says_so(self):
+        import phone
+        self._two_unread()
+        with mock.patch.object(self.link, "mark_read", side_effect=[None, phone_link_error()]):
+            self._say("oznacz wszystkie SMS-y jako przeczytane")
+            self._drain()
+        self.assertEqual(self.said, ["Oznaczone tylko: 1. Telefon przestał odpowiadać."])
+        self.assertEqual(sum(not m["read"] for m in phone.inbox()), 2)    # the phone's list will tell
+        self.assertEqual(phone._next_poll, 0.0)
+        self.assertFalse(phone._marking)
+
+    def test_mark_all_only_once_at_a_time(self):
+        import phone
+        self._two_unread()
+        self._say("oznacz wszystkie SMS-y jako przeczytane")
+        self._say("oznacz wszystkie SMS-y jako przeczytane")
+        self.assertEqual(self.said, ["Już to robię."])
+        self._drain()
+        self.assertEqual(len(self.link.read), 2)
+
+    def test_mark_all_asks_a_grown_up(self):
+        import phone
+        self._two_unread()
+        with mock.patch.object(phone, "_denied", return_value="Poproś dorosłego."):
+            self._say("oznacz wszystkie SMS-y jako przeczytane")
+        self._drain()
+        self.assertEqual(self.said, ["Poproś dorosłego."])
+        self.assertEqual(self.link.read, [])
+
+    def test_mark_all_button(self):
+        import phone
+        self._two_unread()
+        phone.show_inbox()
+        keys = lambda d: [b[0] for b in phone.buttons("inbox", self.W, self.H, d)]
+        self.assertEqual(keys(self._view()), ["prev", "write", "mark_all", "next"])
+        rects = [b[2] for b in phone.buttons("inbox", self.W, self.H, self._view())]
+        self.assertEqual(rects[-1][0] + rects[-1][2], self.W - 24)            # to the edge, none overlap
+        self.assertTrue(all(a[0] + a[2] < b[0] for a, b in zip(rects, rects[1:])))
+        self.assertNotIn("mark_all", keys({"only": ["Kasia Nowak"]}))          # one sender's list
+        self._press("mark_all")
+        self.assertEqual(len(self.link.read), 2)
+        self.assertIn("2 SMS-y", self._view()["toast"][0])
+        self.assertEqual(keys(self._view()), ["prev", "write", "next"])        # nothing left to mark
+
+    def test_mark_all_at_who_goes_on(self):
+        import phone
+        self._ready()
+        self._say("wyślij SMS")
+        self.assertFalse(phone.answer("oznacz wszystkie jako przeczytane", self.said.append))
+        self.assertIsNone(phone.draft())
 
     def test_names_arrive_with_the_book(self):
         import phone

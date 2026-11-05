@@ -399,6 +399,61 @@ def _seen(m):
         _ensure_thread()
 
 
+_marking = False
+
+
+def _mark_all(done):
+    """Every unread SMS read, on the phone too; done(how many, all of them?) from the
+    worker. False if that's already under way."""
+    global _marking
+    with _lock:
+        if _marking:
+            return False
+        _marking = True
+
+    def job():
+        global _session, _marking, _next_poll
+        n, ok = 0, False
+        try:
+            if not _session:
+                _session = _link.open_map(config()["addr"])
+            for path in _link.unread_paths(_session):
+                _link.mark_read(path)
+                n += 1
+            ok = True
+        except (phone_link.LinkError, phone_link.NoObex, phone_link.NoDbus) as e:
+            print(f"[phone] marking failed: {e}", flush=True)
+            _drop_session()
+        finally:
+            _marking = False
+        if ok:
+            with _lock:
+                for m in _inbox:
+                    m["read"] = True
+            _publish()
+        _next_poll = 0.0                  # (stopped halfway: the list says which)
+        print(f"[phone] marked {n} as read", flush=True)
+        done(n, ok)
+    _jobs.put(job)
+    _ensure_thread()
+    return True
+
+
+def _marked_said(n, ok):
+    if ok:
+        return f"Oznaczone jako przeczytane: {n} {_sms_word(n)}." if n else "Nie ma nieprzeczytanych SMS-ów."
+    return f"Oznaczone tylko: {n}. Telefon przestał odpowiadać." if n else "Nie udało się. Telefon nie odpowiada."
+
+
+def mark_all_read(speak):
+    """„Oznacz wszystkie SMS-y jako przeczytane”."""
+    said = _denied() or _unavailable()
+    if said:
+        speak(said)
+    elif not _mark_all(lambda n, ok: _say(_marked_said(n, ok))):
+        speak("Już to robię.")
+
+
 def inbox():
     with _lock:
         return list(_inbox)
@@ -775,7 +830,7 @@ _NAME = re.compile(r"^luna[,\s]+", re.I)      # (a "hej" in an SMS stays)
 
 _ASKS = re.compile(r"^(?:pokaż|wyświetl|otwórz|przeczytaj|odczytaj|czytaj|wyślij|napisz|odpisz|włącz|wyłącz|"
                    r"puść|zamknij|ile|czy|co|jak|jaka|jaki|jakie|kiedy|gdzie|która|który|dlaczego|"
-                   r"sparuj|odłącz)\b", re.I)
+                   r"sparuj|odłącz|oznacz|zaznacz)\b", re.I)
 
 
 def _not_a_name(t):
@@ -971,7 +1026,7 @@ def _who_wrote(spoken):
 
 _SMS = r"(?:sms(?:-?[a-ząćęłńóśźż]+)?|esemes\w*|es\s?em\s?es\w*)"
 _LEAD = re.compile(r"^(?:luna|hej|proszę|mogłabyś)[,\s]+", re.I)
-_ANY = re.compile(_SMS + r"|telefon|komórk|smartfon|odpisz|odpowiedz|napisał|pisze", re.I)
+_ANY = re.compile(_SMS + r"|telefon|komórk|smartfon|odpisz|odpowiedz|napisał|pisze|jako przeczytane", re.I)
 _MY = r"(?:\s+(?:mój|moim|mojego|moja|moją|ten|tym|tego|nowy|nowym|sparowany))?"
 _THE_PHONE = r"\s+(?:telefon|telefonu|telefonem|komórk[aąęi]|smartfon\w*)"
 _PAIR = re.compile(rf"^(?:sparuj|połącz|podłącz|dodaj)(?:\s+się)?(?:\s+z)?{_MY}{_THE_PHONE}"
@@ -988,6 +1043,8 @@ _SHOW = re.compile(rf"^(?:pokaż|wyświetl|otwórz)(?:\s+mi)?{_HOW_MANY}{_MANY}{
                    r"(?:\s+(?:z\s+telefonu|z\s+komórki|na\s+ekranie))*(?:\s+od\s+(?P<who>.+))?$", re.I)
 _READ = re.compile(rf"^(?:przeczytaj|odczytaj|czytaj)(?:\s+mi)?(?P<many>{_MANY})\s+{_LIST_WORD}"
                    r"(?:\s+od\s+(?P<who>.+))?$", re.I)
+_MARK_ALL = re.compile(rf"^(?:oznacz|zaznacz|ustaw)(?:\s+mi)?(?:\s+(?:wszystkie|wszystko|moje|te|nowe))*"
+                       rf"(?:\s+{_LIST_WORD}|\s+wiadomości)?(?:\s+z\s+telefonu)?\s+jako\s+przeczytane$", re.I)
 _COUNT = re.compile(rf"^(?:czy\s+)?(?:(?:mam|są|jest|przyszedł|przyszły|przyszło|dostałem|dostałam)"
                     rf"{_MANY}\s+{_SMS}|ile\s+(?:mam|jest){_MANY}\s+{_SMS}|ile{_MANY}\s+{_SMS})$", re.I)
 _WROTE = re.compile(r"^co\s+(?:mi\s+|do\s+mnie\s+)?(?:napisał[ao]?|pisze)\s+(?P<who>\w+(?:\s+\w+)?)$", re.I)
@@ -1066,6 +1123,9 @@ def command(text, speak):
     if m:
         _show_list(m["who"], speak)
         return True
+    if _MARK_ALL.match(t):
+        mark_all_read(speak)
+        return True
     m = _READ.match(t)
     if m:
         return _read_out(m["who"], "ostatni" in (m["many"] or "").lower(), speak)
@@ -1137,6 +1197,11 @@ def buttons(view, W, H, data=None):
     elif view == "inbox":
         keys = [("prev", "‹", False), ("write", "Nowy SMS", True), ("next", "›", False)]
         y, h = H - 58, 48
+        if data and not data.get("only") and any(not m["read"] for m in inbox()):
+            keys.insert(2, ("mark_all", "Wszystkie przeczytane", False))
+            widths = (80, 200, W - 48 - 3 * gap - 360, 80)
+            xs = [24 + sum(widths[:i]) + i * gap for i in range(4)]
+            return [(k, lab, (x, y, w, h), gold) for (k, lab, gold), x, w in zip(keys, xs, widths)]
     elif view == "read":
         keys = [("reply", "Odpisz", True), ("say", "Przeczytaj", False), ("list", "Lista", False)]
     elif view == "confirm":
@@ -1233,6 +1298,11 @@ def _button(data, hit, now, W, H):
     elif hit in ("prev", "next"):
         pages = page_of(data)[2]
         data["page"] = (page_of(data)[1] + (1 if hit == "next" else -1)) % pages
+    elif hit == "mark_all":
+        if _denied():
+            _toast(data, "Poproś dorosłego", now)
+        elif _mark_all(lambda n, ok: _toast(data, _marked_said(n, ok))):
+            _toast(data, "Oznaczam…", now)
     elif hit == "write":
         threading.Thread(target=_begin, args=(None, "", _say), daemon=True, name="phone-write").start()
     elif hit == "list":

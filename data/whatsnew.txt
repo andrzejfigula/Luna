@@ -1,5 +1,6 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
+- „Oznacz wszystkie SMS-y jako przeczytane” albo przycisk na liście SMS-ów: wszystkie nowe stają się przeczytane, także na telefonie.
 - Ustawienia, Urządzenia: teraz trzy proste grupy: Dźwięk, Mikrofon i kamera, Telefon. Stuknij grupę, a zobaczysz, co w niej jest.
 - Mogę połączyć się z Twoim telefonem przez Bluetooth: „Sparuj telefon”. Potem przeczytam i pokażę SMS-y, a „Wyślij SMS do Kasi, że będę później” wyślę z telefonu, gdy powiesz „tak”.
 - Każdy ma teraz swoją kartę kontaktową: telefon, e-mail, adres, urodziny i imieniny. „Pokaż kartę Mai” albo Ustawienia, Osoby i dotknij imienia; dotknij pola, żeby je wpisać, albo powiedz „Telefon Mai to 600 100 200”.
