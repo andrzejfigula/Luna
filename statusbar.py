@@ -120,7 +120,7 @@ def items(now=None):
     if waiting:
         out.append(("message", str(waiting) if waiting > 1 else None))
     if sms:
-        out.append(("sms", str(sms) if sms > 1 else None))
+        out.append(("sms", str(sms)))
     if focus or quiet:
         out.append(("quiet", None))
     if muted:

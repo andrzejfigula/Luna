@@ -13495,75 +13495,32 @@ class PhoneTest(unittest.TestCase):
         self.assertEqual(self._view()["view"], "new")
         self.assertFalse(self._view()["private"])
 
-    def _fresh(self, mid, read=False):
-        return _sms(mid, read=read, stamp=time.strftime("%Y%m%dT%H%M%S"))
-
-    def _unread(self):
-        with state.lock:
-            return state.phone_unread
-
-    def test_the_icon_waits_for_her_whatever_the_phone_says(self):
-        import phone
+    def test_read_on_the_phone_gives_no_icon_but_a_log_line(self):
         self._ready()
         self._poll(_sms(1, read=True))
         with mock.patch("builtins.print") as out:
-            self._poll(self._fresh(2, read=True), _sms(1, read=True))
-        lines = [c.args[0] for c in out.call_args_list if "[phone]" in str(c.args[0])]
-        self.assertEqual(lines, ["[phone] a new SMS", "[phone] the phone already calls 1 of them read"])
-        self.assertEqual(self._unread(), 1)
-        self.assertEqual(self._view()["view"], "new")
-        self._poll(self._fresh(2, read=True), _sms(1, read=True))       # it stays, and isn't new again
-        self.assertEqual(self._unread(), 1)
-        phone._seen(phone._message("2"))
-        self.assertEqual(self._unread(), 0)
-        self._poll(self._fresh(2, read=True), _sms(1, read=True))
-        self.assertEqual(self._unread(), 0)
-
-    def test_a_fresh_one_read_on_the_phone_later_keeps_the_icon(self):
-        self._ready()
-        self._poll(self._fresh(2))
-        self._poll(self._fresh(2, read=True))
-        self.assertEqual(self._unread(), 1)
-
-    def test_older_ones_follow_the_phone(self):
-        self._ready()
-        old = "20200101T120000"
-        self._poll(_sms(3, stamp=old, read=True))      # away for days, read there meanwhile: nothing to tell
-        self.assertEqual(self._unread(), 0)
+            self._poll(_sms(2, read=True), _sms(1, read=True))
+        lines = [c.args[0] for c in out.call_args_list if "a new SMS" in str(c.args[0])]
+        self.assertEqual(lines, ["[phone] a new SMS, already read on the phone"])       # only the one that's new
         self.assertIsNone(self._view())
-        self._poll(_sms(4, stamp=old), _sms(3, stamp=old, read=True))
-        self.assertEqual(self._unread(), 1)
-        self._poll(_sms(4, stamp=old, read=True), _sms(3, stamp=old, read=True))
-        self.assertEqual(self._unread(), 0)
-
-    def test_a_restart_keeps_the_icon_and_the_file_has_no_text(self):
-        import phone
-        self._ready()
-        self._poll(self._fresh(2, read=True))
-        with open(phone.FILE, encoding="utf-8") as f:
-            saved = f.read()
-        self.assertEqual(json.loads(saved)["unseen"], ["2"])
-        self.assertNotIn("Kup mleko", saved)
         with state.lock:
-            state.overlay = None                     # (that was the first announcement)
-        with mock.patch.multiple(phone, _inbox=[], _first_poll=True, _cfg=False):
-            self._poll(self._fresh(2, read=True), self._fresh(1, read=True))     # after her restart
-            self.assertEqual(self._unread(), 1)                                  # the one she knew about
-            self.assertIsNone(self._view())                                      # not announced again
-            phone._seen(phone._message("2"))
-        with open(phone.FILE, encoding="utf-8") as f:
-            self.assertEqual(json.load(f)["unseen"], [])
+            self.assertEqual(state.phone_unread, 0)
 
-    def test_mark_all_counts_what_only_the_icon_was_waiting_for(self):
-        import phone
+    def test_the_icon_counts_and_follows_the_phone(self):
+        import statusbar
+        now = time.strftime("%Y%m%dT%H%M%S")
+
+        def sms_item():
+            return [i for i in statusbar.items(time.time())[0] if i[0] == "sms"]
         self._ready()
-        self._poll(self._fresh(2, read=True))
-        with mock.patch.object(self.link, "unread_paths", return_value=[]):
-            got = []
-            self.assertTrue(phone._mark_all(lambda n, ok: got.append((n, ok))))
-            self._drain()
-        self.assertEqual(got, [(1, True)])
-        self.assertEqual(self._unread(), 0)
+        self._poll(_sms(1, stamp=now))
+        self.assertEqual(sms_item(), [("sms", "1")])          # one has its number too
+        self._poll(_sms(2, stamp=now), _sms(1, stamp=now))
+        self.assertEqual(sms_item(), [("sms", "2")])
+        self._poll(_sms(2, stamp=now, read=True), _sms(1, stamp=now))      # opened on the phone
+        self.assertEqual(sms_item(), [("sms", "1")])
+        self._poll(_sms(2, stamp=now, read=True), _sms(1, stamp=now, read=True))
+        self.assertEqual(sms_item(), [])
 
     def test_the_first_round_announces_nothing(self):
         self._paired()
