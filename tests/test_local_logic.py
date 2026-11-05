@@ -13173,7 +13173,7 @@ class PhoneTest(unittest.TestCase):
         self.said = []
         self.q = mock.patch.multiple(
             phone, FILE=os.path.join(self.d, "phone.json"), _cfg=None, _status="on", _inbox=[], _book={},
-            _session=None, _next_poll=0.0, _fails=0, _first_poll=True, _marking=False, _write_for=None, _want_book=False, _book_fails=0, _book_next=0.0, _pair=None,
+            _session=None, _next_poll=0.0, _fails=0, _first_poll=True, _marking=False, _want_book=False, _book_fails=0, _book_next=0.0, _pair=None,
             _draft=None, _last_read=None, _link=self.link, _say_fn=self.said.append,
             _thread=threading.current_thread(), _jobs=queue.Queue())     # (jobs run when _drain says)
         self.q.start()
@@ -14023,15 +14023,93 @@ class PhoneTest(unittest.TestCase):
                          "Pokaż wiadomości", "Wiadomości z kraju"):
             self.assertFalse(phone.claims_first(sentence), sentence)
 
-    def test_a_described_sms_is_for_the_model_to_write(self):
+    def test_she_writes_without_the_word_sms(self):
         import phone
         self._ready()
-        for sentence in ("Napisz do Tomka jakiegoś fajnego SMS-a, tylko podpisz się", "Napisz fajnego SMS-a do Tomka",
-                         "Napisz SMS do Tomka, coś miłego"):
-            self.assertFalse(self._say(sentence), sentence)
-            self.assertIsNone(phone.draft(), sentence)
+        with mock.patch.object(phone, "_composed", return_value="Miłego dnia") as written:
+            for sentence in ("Napisz coś miłego do Tomka.", "Luna, napisz do Tomka coś fajnego", "Napisz Tomkowi coś miłego",
+                             "Przygotuj treść i wyślij do Tomka", "Napisz coś miłego do Tomka i wyślij",
+                             "Napisz do Tomka jakiegoś fajnego SMS-a, tylko podpisz się", "Napisz fajnego SMS-a do Tomka",
+                             "Napisz SMS do Tomka, coś miłego"):
+                written.reset_mock()
+                self.assertTrue(self._say(sentence), sentence)
+                self.assertEqual(self.said[0], "Już piszę.", sentence)
+                self.assertEqual(written.call_args[0][1], "Tomek", sentence)
+                self.assertEqual(phone.draft()["step"], "confirm", sentence)
+                self.assertEqual(phone.draft()["text"], "Miłego dnia", sentence)
+                self.assertTrue(self.said[-1].endswith("Wysłać?"), sentence)
+                phone._drop_draft()
+        self.assertEqual(self.link.pushed, [])
+
+    def test_only_a_person_she_knows_and_only_for_a_sms(self):
+        import phone
+        self._ready()
+        with mock.patch.object(phone, "_composed") as written:
+            for sentence in ("Napisz coś miłego do Mikołaja", "Napisz coś miłego o Tomku", "Napisz wiersz do Tomka",
+                             "Napisz coś miłego", "Napisz to do Tomka", "Wyślij coś na listę", "Napisz list do Tomka"):
+                self.assertFalse(self._say(sentence), sentence)
+                self.assertIsNone(phone.draft(), sentence)
+            phone._cfg = None
+            self.assertFalse(self._say("Napisz coś miłego do Tomka"))
+        written.assert_not_called()
+
+    def test_a_guest_or_child_has_no_writing_either(self):
+        import phone
+        self._ready()
+        with mock.patch.object(phone, "_composed") as written, mock.patch.object(phone, "_denied", return_value="Poproś dorosłego."):
+            self.assertFalse(self._say("Napisz coś miłego do Tomka"))
+        written.assert_not_called()
+
+    def test_dictated_without_the_word_sms(self):
+        import phone
+        self._ready()
+        self.assertTrue(self._say("Napisz do Tomka, że wracam"))
+        self.assertEqual(phone.draft()["text"], "wracam")
+        self.assertEqual(phone.draft()["step"], "confirm")
+        phone._drop_draft()
+        self.assertTrue(self._say("Napisz do Tomka"))
+        self.assertEqual(phone.draft()["step"], "body")
+        phone._drop_draft()
         self.assertTrue(self._say("Wyślij SMS do Tomka, że coś mi wypadło"))    # dictated stays dictated
         self.assertEqual(phone.draft()["text"], "coś mi wypadło")
+
+    def test_when_the_writing_fails_she_asks(self):
+        import phone
+        self._ready()
+        broken = type(sys)("openai")
+        broken.OpenAI = mock.Mock(side_effect=OSError("no network"))
+        with mock.patch.dict(sys.modules, {"openai": broken}):
+            self.assertTrue(self._say("Napisz coś miłego do Tomka"))
+        self.assertEqual(phone.draft()["step"], "body")
+        self.assertIn("Co mam napisać", self.said[-1])
+
+    def test_a_misheard_answer_doesnt_lose_the_draft(self):
+        import phone
+        self._ready()
+        self._say("Wyślij SMS do Tomka, że wracam")
+        self.assertTrue(self._ans("Weź."))
+        self.assertIn("Wysłać?", self.said[-1])
+        self.assertIsNotNone(phone.draft())
+        self.assertEqual(self.link.pushed, [])
+        self.assertTrue(self._ans("No to wyślij."))
+        self._drain()
+        self.assertEqual(len(self.link.pushed), 1)
+        self._say("Wyślij SMS do Tomka, że wracam")
+        self.assertTrue(self._ans("Weź."))
+        self.assertFalse(self._ans("Weź."))                # once is enough
+        self.assertIsNone(phone.draft())
+        self._drain()
+        self.assertEqual(len(self.link.pushed), 1)
+
+    def test_not_read_twice_when_the_reply_said_it(self):
+        import phone
+        self._ready()
+        del self.said[:]
+        phone.from_model("wyślij SMS do Tomka: Miłego dnia, Tomku.", "Jasne, piszę: „Miłego dnia, Tomku”.")
+        self.assertEqual(self.said, ["SMS do: Tomek. Wysłać?"])
+        self.assertEqual(phone.draft()["text"], "Miłego dnia, Tomku.")
+        self.assertTrue(self._ans("powtórz"))
+        self.assertIn("Miłego dnia, Tomku", self.said[-1])     # asked for: read out
 
     def test_this_that_and_her_are_for_the_model(self):
         import phone
@@ -14082,10 +14160,10 @@ class PhoneTest(unittest.TestCase):
         import phone
         label = "wyślij SMS do Tomka: Jedno / drugie. Miłego dnia!"
         came = threading.Event()
-        with mock.patch.object(phone, "from_model", side_effect=lambda _: came.set()) as sent:
+        with mock.patch.object(phone, "from_model", side_effect=lambda *_: came.set()) as sent:
             self.assertTrue(brain.run_command(label, "Już piszę."))
             self.assertTrue(came.wait(5))
-        sent.assert_called_once_with(label)
+        sent.assert_called_once_with(label, "Już piszę.")
 
     def test_she_reads_it_only_after_her_reply(self):
         import brain
@@ -14118,13 +14196,13 @@ class PhoneTest(unittest.TestCase):
     def test_write_it_yourself_at_what_to_write(self):
         import phone
         self._ready()
-        for sentence in ("Wymyśl coś miłego", "napisz coś fajnego", "Ty napisz", "coś od siebie"):
-            self._say("Wyślij SMS do Tomka")
-            to = phone.draft()["to"]
-            self.assertFalse(phone.answer(sentence, self.said.append), sentence)
-            self.assertIsNone(phone.draft())
-            self.assertIn(f"SMS to {to} yourself", phone.model_line())
-            self.assertNotIn("yourself: do it now", phone.model_line())        # once
+        with mock.patch.object(phone, "_composed", return_value="Miłego dnia"):
+            for sentence in ("Wymyśl coś miłego", "napisz coś fajnego", "Ty napisz", "coś od siebie"):
+                self._say("Wyślij SMS do Tomka")
+                self.assertTrue(phone.answer(sentence, self.said.append), sentence)
+                self.assertEqual(phone.draft()["text"], "Miłego dnia", sentence)
+                self.assertEqual(phone.draft()["step"], "confirm", sentence)
+                phone._drop_draft()
         self._say("Wyślij SMS do Tomka")
         self.assertTrue(phone.answer("Wymyśl coś na obiad", self.said.append))  # that's dictation
         self.assertEqual(phone.draft()["text"], "Wymyśl coś na obiad")

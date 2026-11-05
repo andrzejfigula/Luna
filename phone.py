@@ -757,7 +757,7 @@ def _ask_next(speak):
         d["step"] = "confirm"
         keep_private(d["text"])
         _show_confirm()
-        speak(_read_back(d))
+        speak(f"SMS do: {d['to']}. Wysłać?" if d.pop("told", False) else _read_back(d))
 
 
 def _set_who(d, spoken, speak):
@@ -785,7 +785,7 @@ def _read_back(d):
     return f"SMS do: {d['to']}. {text}{'' if text[-1:] in ('!', '?', '…') else '.'} Wysłać?"
 
 
-def _begin(who, text, speak, reply_to=None):
+def _begin(who, text, speak, reply_to=None, told=False):
     """A new SMS, with whatever of it has been said so far."""
     global _draft
     said = _denied() or _unavailable()
@@ -794,7 +794,7 @@ def _begin(who, text, speak, reply_to=None):
         return True
     with _lock:
         _draft = {"step": "who", "to": reply_to and reply_to["who"], "number": reply_to and reply_to["number"],
-                  "text": _tidy(text)[:BODY_MAX], "until": time.time() + DRAFT_SECS, "tries": 0}
+                  "text": _tidy(text)[:BODY_MAX], "until": time.time() + DRAFT_SECS, "tries": 0, "told": told}
     if who and not _set_who(_draft, who, speak):
         return True
     _ask_next(speak)
@@ -825,8 +825,8 @@ def _send(d, done):
 
 _CANCEL = re.compile(r"^(?:anuluj|stop|nieważne|rezygnuję|zostaw|nic|daj spokój|nie wysyłaj|"
                      r"nie trzeba|nie chcę)(?: to| tego)?$", re.I)
-_YES = re.compile(r"^(?:tak|tak tak|wyślij|wysyłaj|ok|okej|dobrze|dobra|zgadza się|potwierdzam|jasne|"
-                  r"pewnie|dawaj)(?: (?:wyślij|wysyłaj|proszę|tak|to))*$", re.I)
+_YES = re.compile(r"^(?:(?:no|no to|to|więc|weź) )?(?:tak|tak tak|wyślij|wysyłaj|ok|okej|dobrze|dobra|zgadza się|"
+                  r"potwierdzam|jasne|pewnie|dawaj|śmiało|poproszę)(?: (?:wyślij|wysyłaj|proszę|tak|to|go|ją|już|śmiało))*$", re.I)
 _NO = re.compile(r"^nie(?: nie| wysyłaj| trzeba| chcę)*$", re.I)
 _REPEAT = re.compile(r"^(?:powtórz|jeszcze raz|co\??$|słucham|nie słyszałem|nie słyszałam|przeczytaj)", re.I)
 _CHANGE = re.compile(r"^(?:popraw|zmień|napisz inaczej|inaczej|poprawka)", re.I)
@@ -850,7 +850,6 @@ def _not_a_name(t):
 def answer(text, speak):
     """A sentence while she waits. True if it was for her; False: it goes on, and an
     unsent draft is dropped (a later "tak" must not send it)."""
-    global _write_for
     t = _clean(text)
     with _lock:
         code = bool(_pair and _pair.get("answer"))
@@ -902,9 +901,10 @@ def answer(text, speak):
             speak(_HINT_BODY)
             return True
         if _WRITE_IT.match(t):
-            _write_for = d["to"]
-            _drop_draft()
-            return False
+            speak("Już piszę.")
+            d["text"] = _composed(t, d["to"])
+            _ask_next(speak)
+            return True
         d["text"] = _tidy(_NAME.sub("", text.strip()))[:BODY_MAX]
         _ask_next(speak)
         return True
@@ -935,6 +935,11 @@ def answer(text, speak):
     if _HINT.match(t):
         _touch(d)
         speak("Powiedz: tak, żeby wysłać, popraw, żeby zmienić treść, albo: anuluj.")
+        return True
+    if len(plain.split()) <= 2 and not d.get("asked_again"):       # a misheard word, not a new request
+        d["asked_again"] = True
+        _touch(d)
+        speak("Nie dosłyszałam. Wysłać? Powiedz: tak albo nie.")
         return True
     _drop_draft()
     _close_page()
@@ -1090,7 +1095,6 @@ def _split_who(left):
     return left, ""
 
 
-_write_for = None             # the model is to write the SMS for them (asked at "Co mam napisać?")
 _NICE = r"(?:fajn|mił[aeyą]|ładn|zabawn|śmieszn|ciekaw|kreatywn|sympatyczn|wesoł)\w*"
 _DESCRIBED = re.compile(rf"\b(?:jakie\w+|jakiś|jakąś|coś|{_NICE})\b", re.I)
 _WRITE_IT = re.compile(rf"^(?:(?:ty|sama)\s+)?(?:napisz|wymyśl|ułóż)(?:\s+sama)?"
@@ -1100,14 +1104,12 @@ _FROM_MODEL = re.compile(r"^wyślij\s+sms(?:\s+do\s+(?P<who>[^:]+?))?\s*(?::\s*(
 
 def model_line():
     """For her prompt: with a phone here she can send, and the model writes the text."""
-    global _write_for
     try:
         if not config() or _denied():
             return ""
     except Exception as e:
         print(f"[phone] no line for the model: {e!r}", flush=True)
         return ""
-    to, _write_for = _write_for, None
     return ("A phone is connected, so you CAN send SMS; never say you can't. When they ask you to "
             "write or send one (\"napisz coś miłego do Mai\" means an SMS too) and you know who to: write the text yourself unless they dictated it, "
             "and add an action of type \"command\" with the label \"wyślij SMS do <imię>: <treść>\". "
@@ -1115,16 +1117,19 @@ def model_line():
             "whether to send, because the app reads it out and asks, and nothing goes without their yes. "
             "\"Wyślij\" or \"napisz to w SMS-ie\" about what you have just said is the same action with that text, "
             "to the person you were talking about. Sign it only "
-            "if they ask. Who to not known: ask in \"reply\", no action.\n"
-            + (f"They have just asked you to write the SMS to {to} yourself: do it now.\n" if to else ""))
+            "if they ask. Who to not known: ask in \"reply\", no action.\n")
 
 
-def from_model(label):
+def _words(s):
+    return " ".join(re.findall(r"\w+", s.lower()))
+
+
+def from_model(label, reply=""):
     """The model's "wyślij SMS do Maja: treść": a draft, read out; sent only after a yes."""
     m = _FROM_MODEL.match(label.strip())
     who, body = (m["who"], m["body"] or "") if m else (None, "")
     print(f"[phone] the model wrote an SMS ({len(body)} characters)", flush=True)
-    _begin(who, body, _say)
+    _begin(who, body, _say, told=bool(body) and _words(body)[:40] in _words(reply))
     return True
 
 
@@ -1135,6 +1140,59 @@ def claims_first(text):
 
 _POINTING = frozenset("""to w we na jako przez z ze tym tą tę te ta ten tego tej tamto tamtym jej mu jemu im je ją
                         niej niego nich nim tekst tekstem treść treścią wiadomość wiadomością""".split())
+
+
+_COMPOSE = re.compile(r"^(?:napisz|ułóż|wymyśl|przygotuj|wyślij)\s+(?:mi\s+)?(?P<rest>.+)$", re.I | re.S)
+_ABOUT_SMS = re.compile(rf"{_SMS}|wiadomo\w+|treś\w+|tekst\w*|krótk\w+|i|wyślij|wysyłaj|pokaż|od|siebie|"
+                        rf"{_NICE}|jakie\w+|jakiś|jakąś|jakaś|coś", re.I)
+_NO_NAME = _POINTING | {"o", "dla", "po", "za", "pod", "nad", "przy"}
+
+
+def _composed(request, to):
+    """The SMS the model writes for this request. "" if it can't."""
+    try:
+        from openai import OpenAI
+        from config import CRAFT_MODEL, OPENAI_API_KEY
+        msg = (f"You write one SMS in Polish to {to}. It goes from the phone of {state.person or 'its owner'}, "
+               f"written as them, in the first person. Someone told Luna, a small home robot: \"{request}\". "
+               "Follow that. One or two warm, natural sentences, at most 160 characters, no emoji, no quotes around it. "
+               "No signature unless they ask; \"podpisz się\" said to Luna means sign it as Luna. "
+               "Answer with the text of the SMS only.")
+        r = OpenAI(api_key=OPENAI_API_KEY, timeout=10, max_retries=1).chat.completions.create(
+            model=CRAFT_MODEL, temperature=0.9, max_tokens=120, messages=[{"role": "user", "content": msg}])
+        body = _tidy(r.choices[0].message.content or "").strip("\"„”“' ")[:BODY_MAX]
+        print(f"[phone] she wrote an SMS ({len(body)} characters)", flush=True)
+        return body
+    except Exception as e:
+        print(f"[phone] couldn't write an SMS: {e!r}", flush=True)
+        return ""
+
+
+def _write_to_someone(t, speak):
+    """No word "SMS", but "napisz coś miłego do Mai" and "napisz do Mai, że wracam" can only mean one. True if handled."""
+    m = _COMPOSE.match(t)
+    if not m or not config() or _denied():
+        return False
+    head, *rest = re.split(r"\s*[,:]\s*", m["rest"], maxsplit=1)
+    tail = rest[0] if rest else ""
+    words = head.split()
+    others = [w for w in words if w.lower() != "do" and not _ABOUT_SMS.fullmatch(w)]
+    if not 1 <= len(others) <= 2 or _NO_NAME.intersection(w.lower() for w in others):
+        return False
+    who = " ".join(others)
+    hits = find_people(who)
+    if not hits:
+        return False
+    if _DESCRIBED.search(head) or re.search(r"\btreś", head, re.I) or _WRITE_IT.match(tail):
+        said = _unavailable()
+        if said:
+            speak(said)
+            return True
+        speak("Już piszę.")
+        return _begin(who, _composed(t, hits[0][0] if len(hits) == 1 else who), speak)
+    if t.lower().startswith("napisz") and words[0].lower() == "do" and len(words) == len(others) + 1:
+        return _begin(who, re.sub(r"^że\s+", "", tail, flags=re.I), speak)
+    return False
 
 
 def _parse_send(t):
@@ -1169,9 +1227,13 @@ def _parse_send(t):
 
 def command(text, speak):
     """A sentence about the phone. True if it was handled."""
-    if not _ANY.search(text) or len(text.split()) > 60:
+    if len(text.split()) > 60:
         return False
     t = _clean(text)
+    if _write_to_someone(t, speak):
+        return True
+    if not _ANY.search(text):
+        return False
     if _PAIR.match(t):
         start_pairing(speak)
         return True
