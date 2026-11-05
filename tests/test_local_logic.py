@@ -14081,9 +14081,32 @@ class PhoneTest(unittest.TestCase):
         import brain
         import phone
         label = "wyślij SMS do Tomka: Jedno / drugie. Miłego dnia!"
-        with mock.patch.object(phone, "from_model", return_value=True) as sent:
+        came = threading.Event()
+        with mock.patch.object(phone, "from_model", side_effect=lambda _: came.set()) as sent:
             self.assertTrue(brain.run_command(label, "Już piszę."))
+            self.assertTrue(came.wait(5))
         sent.assert_called_once_with(label)
+
+    def test_she_reads_it_only_after_her_reply(self):
+        import brain
+        import phone
+        self._ready()
+        order, read = [], threading.Event()
+
+        def say(text):
+            order.append(text)
+            read.set()
+        with mock.patch.object(phone, "_say_fn", say), brain._process_lock:      # as during an answer
+            self.assertTrue(brain.run_command("wyślij SMS do Tomka: Hej", "Już piszę."))   # doesn't wait
+            self.assertFalse(read.wait(0.1))
+            order.append("the reply")
+            brain._process_lock.release()
+            try:
+                self.assertTrue(read.wait(5))
+            finally:
+                brain._process_lock.acquire()
+        self.assertEqual(order[0], "the reply")
+        self.assertIn("Wysłać?", order[1])
 
     def test_model_line_only_with_a_phone(self):
         import phone

@@ -2546,6 +2546,14 @@ def _spoken_command(label, kind):
     threading.Thread(target=run, daemon=True, name="command").start()
 
 
+def _sms_after_reply(label, turn):
+    """Read out after her reply: it holds the speaking lock until this answer ends, so inside it she'd freeze."""
+    with _process_lock:
+        if not activation.turn_cancelled(turn):
+            import phone
+            phone.from_model(label)
+
+
 def _phone_line():
     import phone
     return phone.model_line()
@@ -2572,9 +2580,9 @@ def run_command(label, reply=""):
     through the local command handler (which the model can't reach) —
     whitelisted, silent (the model's reply already confirms it). A game
     from _GAME_OK speaks for itself."""
-    if re.match(r"\s*wyślij\s+sms\b", label, re.I):
-        import phone                       # (as written: the text stays out of the log)
-        return phone.from_model(label)
+    if re.match(r"\s*wyślij\s+sms\b", label, re.I):   # (as written: the text stays out of the log)
+        threading.Thread(target=_sms_after_reply, args=(label, activation.turn_id()), daemon=True).start()
+        return True
     label = label.strip().rstrip(".!")
     # the choices copied from the capability text ("zamień się w kotka / pieska
     # / zajączka", 11 Oct — refused) — the first one
