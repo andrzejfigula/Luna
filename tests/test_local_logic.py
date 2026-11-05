@@ -8992,7 +8992,7 @@ class DockTest(unittest.TestCase):
         d.choose("shopping", False)
         d.choose("lessons", True)
         self.assertNotIn("shopping", d.chosen())
-        self.assertEqual(d.chosen()[2], "lessons")              # in its place, after the week's plan
+        self.assertEqual(d.chosen()[3], "lessons")              # in its place, after the week's plan
         self.assertEqual(self._tap("lessons"), "lessons")
         xs = [x for _, x in d.centres()]
         self.assertAlmostEqual((xs[0] + xs[-1]) / 2, d.W / 2)   # the row stays centred
@@ -9516,7 +9516,7 @@ class ThemesTest(unittest.TestCase):
         themes.set_theme("luna")
         with mock.patch("schedule.events", return_value=[
                 {"title": "lekkoatletyka"}, {"title": "basen"}, {"title": "basen"}]):
-            self.assertTrue(s.stt_prompt().endswith(" Zajęcia: basen, lekkoatletyka."))
+            self.assertTrue(s.stt_prompt().endswith(" Zajęcia: basen, lekkoatletyka."), s.stt_prompt()[-300:])
             self.assertTrue(s._is_prompt_echo("Zajęcia: basen, lekkoatletyka."))
             self.assertFalse(s._is_prompt_echo("A lekkoatletyka nie poszła."))
         self.assertIsNone(s._find_wake_word(["hal", "która", "godzina"]))
@@ -12086,7 +12086,7 @@ class PaintTest(unittest.TestCase):
             settings._data.pop(k, None)
         self.addCleanup(lambda: [settings._data.pop(k, None) for k in ("dock_items", "dock_offered")])
         settings.put("dock_items", ["todo", "radio", "settings"])    # picked before it existed
-        self.assertEqual(dock.chosen(), ["todo", "radio", "paint", "settings"])
+        self.assertEqual(dock.chosen(), ["todo", "calendar", "radio", "paint", "settings"])
         dock.choose("paint", False)
         self.assertNotIn("paint", dock.chosen())                   # unticked: stays off
 

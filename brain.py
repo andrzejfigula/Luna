@@ -30,6 +30,7 @@ from openai_client import LazyOpenAI as OpenAI
 import reply_scenes
 import birthdays
 import errands
+import agenda
 import schedule
 import faces
 import hedge
@@ -340,6 +341,12 @@ def _morning_line():
     if due and not _is_child(who):
         what = (f"the to-do for today / overdue: {' / '.join(due[:2])} (e.g. \"Dziś "
                 f"wypłata pieniędzy na drewno — nie zapomnij!\"); else " + what)
+    try:                  # the calendar's today comes first of all
+        events = agenda.morning_note(who if who and faces.is_family(who) else None)
+    except Exception:
+        events = ""
+    if events:
+        what = f"today's calendar: {events} (e.g. \"Dziś o piętnastej dentysta.\"); else " + what
     return (f"This is {who}'s first talk with you today: after answering, add ONE short "
             f"sentence with what matters for their day — {what}. Nothing if neither.\n")
 
@@ -1050,7 +1057,11 @@ Always answer as JSON with exactly these keys:
                 plan tygodnia <kto>" (without <kto>: everyone's) (send
                 it at once when asked: right after your reply the app itself
                 asks "Na pewno?" and clears on their "tak" — so you say only
-                "Dobrze, tylko potwierdź", never that it is cleared), "dodaj do planu: <kto>, <co>, <dni>, o <godzina>"
+                "Dobrze, tylko potwierdź", never that it is cleared), "pokaż kalendarz", "dodaj do
+                kalendarza: <kto>, <co>, <kiedy>, o <godzina>" (ONE dated event, not a weekly
+                class, e.g. "dodaj do kalendarza: Maja, dentysta, 12 listopada, o 15" — it
+                confirms and reminds by itself, so say only a word), "usuń z kalendarza:
+                <co>", "dodaj do planu: <kto>, <co>, <dni>, o <godzina>"
                 (a weekly entry, e.g. "dodaj do planu: Maja, angielski, od
                 poniedziałku do piątku o 17" — she reminds by herself), "usuń
                 z planu <co> <kto>", "przenieś <co> do planu lekcji <kto>" (an
@@ -1781,7 +1792,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   + luna_mood.prompt_line()
                   + birthdays.prompt_line()
                   + errands.prompt_line()
-                  + schedule.prompt_line()
+                  + schedule.prompt_line() + agenda.prompt_line(text=text)
                   + _mood_rule(image_b64 is not None)
                   + body.prompt_line()
                   + weather.prompt_line()
@@ -2208,6 +2219,7 @@ _COMMAND_OK = re.compile(
     # the week's plan (schedule.py; the sweep of 19 Oct: "dodaj do planu" refused)
     r"|^pokaż\s+plan\s+tygodnia$|^pokaż\s+plan\s+lekcji(?:\s+\w+)?$|^wyczyść\s+plan\s+(?:lekcji|tygodnia)(?:\s+\w+)?$|^dodaj\s+do\s+planu[:,]?\s+.{3,160}$"
     r"|^usuń\s+z\s+planu[:,]?\s+.{2,80}$|^przenieś\s+.{2,80}\s+do\s+planu\s+lekcji(?:\s+\w+)?$"
+    r"|^pokaż\s+kalendarz(?:\s+.{2,30})?$|^dodaj\s+do\s+kalendarza[:,]?\s+.{3,160}$|^usuń\s+z\s+kalendarza[:,]?\s+.{2,80}$"
     r"|^wyszukaj\s+w\s+internecie[:,]?\s+.{3,200}$"
     r"|^(?:przyciemnij|zgaś|rozjaśnij)\s+ekran$"
     r"|^głośność\s+na\s+\d{1,3}(?:\s*%|\s+procent)?$"
@@ -3103,6 +3115,60 @@ def read_timetable(imgs, model=None):
               flush=True)
         print("[brain] timetable transcript:\n" + str(out.get("transcript") or "")[:1500],
               flush=True)
+        return out
+    return None
+
+
+_EVENTS_PROMPT = (
+    "Today is {today} ({weekday}). These {n} photo(s), taken a moment apart, show a paper "
+    "held up to a webcam: an invitation, a school notice, a poster, a letter, a rubbish "
+    "collection calendar (usually Polish). Use the sharpest one.\n"
+    "List every dated event on it. title = short and in Polish, what it is (\"urodziny "
+    "Zosi\", \"zebranie w szkole\", \"wywóz: papier\"); date = YYYY-MM-DD, a year not "
+    "written is the next time that date comes after today; end_date = YYYY-MM-DD for "
+    "something lasting several days, else \"\"; at / end = HH:MM (24 h), \"\" when not "
+    "written; note = one short thing to remember or bring, the place, else \"\". Copy dates "
+    "and hours exactly; a date you cannot read: leave that event out, never guess. "
+    "A collection calendar: one event per date and kind. "
+    "readable = false when no date can be read or this is not such a paper.")
+_EVENTS_SCHEMA = {"type": "json_schema", "json_schema": {"name": "paper_events", "strict": True, "schema": {
+    "type": "object", "additionalProperties": False, "required": ["readable", "events"],
+    "properties": {"readable": {"type": "boolean"}, "events": {"type": "array", "items": {
+        "type": "object", "additionalProperties": False,
+        "required": ["title", "date", "end_date", "at", "end", "note"],
+        "properties": {k: {"type": "string"} for k in
+                       ("title", "date", "end_date", "at", "end", "note")}}}}}}}
+
+
+def read_events(imgs, model=None):
+    """Dated events on paper held to the camera → {"readable", "events": [{title, date,
+    end_date, at, end, note}]}, or None on failure (agenda.read_paper)."""
+    imgs = [b for b in (imgs or []) if b]
+    if _client is None or not imgs:
+        return None
+    today = time.localtime()
+    prompt = _EVENTS_PROMPT.format(today=time.strftime("%Y-%m-%d", today), n=len(imgs),
+                                   weekday=time.strftime("%A", today))
+    content = [{"type": "text", "text": prompt}]
+    content += [{"type": "image_url",
+                 "image_url": {"url": f"data:image/jpeg;base64,{b}", "detail": "high"}}
+                for b in imgs]
+    for model in dict.fromkeys(m for m in (model, TIMETABLE_MODEL, CRAFT_MODEL) if m):
+        req = {"model": model, "response_format": _EVENTS_SCHEMA,
+               "messages": [{"role": "user", "content": content}]}
+        if model.startswith("gpt-5"):
+            req.update(max_completion_tokens=8000, reasoning_effort="low")
+        else:
+            req.update(max_tokens=3000, temperature=0.0)
+        try:
+            t0 = time.time()
+            r = _client.with_options(timeout=90.0).chat.completions.create(**req)
+            out = json.loads(r.choices[0].message.content)
+        except Exception as e:
+            print(f"[brain] reading the events with {model} failed: {e!r}", flush=True)
+            continue
+        print(f"[brain] paper read by {model} in {time.time() - t0:.1f} s: "
+              f"{len(out.get('events') or [])} events, readable={out.get('readable')}", flush=True)
         return out
     return None
 

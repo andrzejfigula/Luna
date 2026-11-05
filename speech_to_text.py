@@ -678,7 +678,9 @@ def stt_prompt():
     # the plan's activities: 30 Oct "a lekkoatletyka" came out "Aleko, atletyka"
     try:
         import schedule
-        titles = sorted({e["title"].strip() for e in schedule.events() if e.get("title")})
+        import agenda
+        titles = sorted({e["title"].strip() for e in schedule.events() + agenda.events()
+                         if e.get("title")})
     except Exception:
         titles = []
     return base + (f" Zajęcia: {', '.join(titles[:25])}." if titles else "")

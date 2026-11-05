@@ -51,6 +51,15 @@ screens._take_photo = lambda *a: None
 
 MODEL = object()
 CASES = [
+    ("Dodaj do kalendarza dentysta 12 grudnia o 15", "Zapisałam: dentysta"),
+    ("Przypomnij dwa dni wcześniej", "Przypomnę 2 dni wcześniej"),
+    ("Kiedy dentysta?", "12 grudnia"),
+    ("Przesuń dentystę na 13 grudnia o 16", "Przesunięte: dentysta"),
+    ("Odwołaj dentystę", "Usunęłam z kalendarza: dentysta"),
+    ("Przywróć dentystę", "Przywróciłam: dentysta"),
+    ("Usuń z kalendarza dentystę", "Usunęłam z kalendarza: dentysta"),
+    ("Wpisz do kalendarza zebranie", "Na kiedy?"),
+    ("nieważne", "nie zapisuję"),
     ("Wyślij SMS do Kasi, że będę później", "Nie mam sparowanego telefonu"),   # (scratch data: no phone)
     ("Przeczytaj nowe SMS-y", "Nie mam sparowanego telefonu"),
     ("Przypomnij mi za 20 minut o praniu", "przypomnę za 20 minut"),

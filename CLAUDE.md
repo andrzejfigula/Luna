@@ -123,7 +123,7 @@ CharLife), `gl_chars.py` (shaders); Mochi's ears/paws/glyphs: `mochi_rig.py`
 (preview: `tools/gl_face_preview.py --chars|--fx … mochi`, offscreen on the Pi).
 
 Features: `radio.py`, `timers.py`, `lists.py`, `weather.py`, `clock.py`,
-`calc.py`, `moon.py`, `news.py`, `websearch.py`, `webphoto.py`, `drawing.py`,
+`calc.py`, `agenda.py` with `ui_agenda.py` (the calendar: dated events, reminders), `moon.py`, `news.py`, `websearch.py`, `webphoto.py`, `drawing.py`,
 `gallery.py`, `messages.py`, `contacts.py` with `ui_contacts.py` (a card for each person), `phone.py` with `phone_link.py` (BlueZ, MAP, PBAP) and `ui_phone.py` (a paired phone's SMS), `errands.py`, `birthdays.py`, `cooking.py`,
 `reading.py`, `homework.py`, `kids.py`, `story.py`, `voicefx.py`,
 `ambience.py`, `breathing.py`, `counting.py`, `paint.py`, `schedule.py`, `printer.py`. Games: `quiz.py`/`quizdata.py`,

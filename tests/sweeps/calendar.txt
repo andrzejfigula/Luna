@@ -1,0 +1,7 @@
+Andrzej|Dodaj do kalendarza dentystę 12 listopada o 15
+Andrzej|Co mam dwunastego listopada?
+Andrzej|Kiedy idę do dentysty?
+Andrzej|Zapisz, że w piątek 20 listopada o 18 idziemy do kina
+Emilka|Jakie mamy plany na 20 listopada?
+Andrzej|Wykreśl to kino, jednak nie idziemy
+?|Co macie w kalendarzu?

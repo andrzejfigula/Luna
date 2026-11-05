@@ -18,11 +18,13 @@ from config import SCREEN_WIDTH, SCREEN_HEIGHT
 from shared_state import state
 
 # (key, what it opens) — every icon there can be, left to right
-ITEMS = (("shopping", "Zakupy"), ("todo", "Do zrobienia"), ("schedule", "Plan tygodnia"),
-         ("lessons", "Plan lekcji"), ("weather", "Pogoda"), ("photos", "Zdjęcia"),
-         ("radio", "Radio"), ("paint", "Malowanie"), ("settings", "Ustawienia"))
-DEFAULT = ("shopping", "todo", "schedule", "weather", "photos", "radio", "paint", "settings")
-ADDED = ("paint",)        # icons newer than someone's own pick: put on their row once
+ITEMS = (("shopping", "Zakupy"), ("todo", "Do zrobienia"), ("calendar", "Kalendarz"),
+         ("schedule", "Plan tygodnia"), ("lessons", "Plan lekcji"), ("weather", "Pogoda"),
+         ("photos", "Zdjęcia"), ("radio", "Radio"), ("paint", "Malowanie"),
+         ("settings", "Ustawienia"))
+DEFAULT = ("shopping", "todo", "calendar", "schedule", "weather", "photos", "radio", "paint",
+           "settings")
+ADDED = ("paint", "calendar")   # icons newer than someone's own pick: put on their row once
 
 W, H = SCREEN_WIDTH, SCREEN_HEIGHT
 ICON = 40                 # an icon's box, px
@@ -131,6 +133,9 @@ def open_page(key):
                   else "Nic do zrobienia",
                   "Powiedz: „dopisz mleko”" if key == "shopping"
                   else "Powiedz: „dopisz … do listy rzeczy do zrobienia”")
+    elif key == "calendar":
+        import agenda
+        agenda.open_from_dock()
     elif key == "schedule":
         import schedule
         schedule.show()

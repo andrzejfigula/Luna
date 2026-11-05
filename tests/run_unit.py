@@ -22,7 +22,7 @@ from concurrent.futures import ThreadPoolExecutor
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-MODULES = ["tests.test_local_logic", "tests.test_reply_stream", "tests.test_syntax",
+MODULES = ["tests.test_local_logic", "tests.test_agenda", "tests.test_reply_stream", "tests.test_syntax",
            "tests.test_dev_tools"]
 WORKER_TIMEOUT = 300
 

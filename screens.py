@@ -75,9 +75,7 @@ def _people_asked(low):
 # ("co mamy dzisiaj?" is left alone: it may mean "what day is it")
 _TODAY = ("plan dnia", "plan na dziś", "plan na dzisiaj", "co mamy w planie",
           "dzisiejszy plan", "plany na dziś", "plany na dzisiaj",
-          # (14 Oct probe: to the model / a photo search)
-          "pokaż kalendarz", "pokaz kalendarz", "pokaż mój kalendarz", "co mam dzisiaj w planie",
-          "co mam dziś w planie", "co mam w planie",
+          "co mam dzisiaj w planie", "co mam dziś w planie", "co mam w planie",
           # (proposal 4, 17 Oct: a spoken briefing, not only "Oto plan — 5 rzeczy")
           "co mnie dziś czeka", "co mnie dzisiaj czeka", "co nas dziś czeka",
           "co nas dzisiaj czeka", "jaki mam plan na dziś", "jaki mam plan na dzisiaj",
@@ -317,6 +315,8 @@ def end_game_page(kind):
         return ended
     if kind == "phone" and importlib.import_module("phone").on_close():
         return ended
+    if kind == "agenda" and importlib.import_module("agenda").on_close():
+        return ended
     if kind in ("ttt", "memo"):
         importlib.import_module("tictac" if kind == "ttt" else "memo").stop()
         ended.append(kind)
@@ -470,6 +470,11 @@ def today_rows():
             if e["due"] <= end:
                 what = e["label"] or timers._KIND_PL.get(e["kind"], "")
                 rows.append((_t.strftime("%H:%M", _t.localtime(e["due"])), what))
+    except Exception:
+        pass
+    try:
+        import agenda
+        rows += agenda.today_rows()
     except Exception:
         pass
     try:

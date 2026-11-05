@@ -16,6 +16,7 @@ import games
 import idle_engine
 import memory
 import phone
+import agenda
 import schedule
 import screens
 from shared_state import state
@@ -51,7 +52,15 @@ LOCAL = {
     "Nastaw minutnik 9 minut makaron": "timer",
     "Pokaż pandę": "photo",
     "Zrób selfie": "screen",                         # (14 Oct probe: to the model)
-    "Pokaż kalendarz": "screen",
+    "Pokaż kalendarz": "agenda",
+    "Otwórz kalendarz na grudzień": "agenda",
+    "Dodaj do kalendarza dentysta 12 listopada o 15": "agenda",
+    "Maja ma wycieczkę w piątek, zapisz to w kalendarzu": "agenda",
+    "Co mam w kalendarzu?": "agenda",
+    "Co mam w kalendarzu w sobotę?": "agenda",
+    "Co macie w kalendarzu?": "agenda",
+    "Zapisz, że 20 listopada o 18 idziemy do kina": "agenda",
+    "Czy Maja ma coś w kalendarzu we wtorek?": "agenda",
     "Pokaż plan tygodnia": "schedule",
     "Pokaż harmonogram": "schedule",
     "Pokaż mój plan lekcji": "schedule",
@@ -239,6 +248,9 @@ LOCAL = {
     "Normalne odpowiedzi proszę": "length",
 }
 MODEL = [
+    "Co mamy jutro na obiad?",
+    "Kalendarz adwentowy to fajna rzecz",
+    "Jaki kalendarz polecasz?",
     "Mój telefon się rozładował",
     "Gdzie jest mój telefon?",
     "Co napisała Szymborska?",
@@ -249,6 +261,7 @@ MODEL = [
     "Maja ma angielski w poniedziałki o 17",         # a fact for her memory, not the plan
     "Jaki jest plan na weekend?",
     "Co Maja ma w środę?",
+    "Co mamy w sobotę?",
     "Czy w Polsce widać zorzę polarną?",
     "Opowiedz mi o meduzach",
     "Dlaczego świetliki świecą?",
@@ -488,6 +501,8 @@ class RoutingTest(unittest.TestCase):
             (cooking, "start", lambda *a: self._mark("cooking")),
             (twenty, "start", lambda *a: self._mark("twenty")),
             (radio, "play", lambda *a, **k: self._mark("radio")),
+            (agenda, "show", lambda *a, **k: self._mark("agenda")),
+            (agenda, "_take", lambda *a, **k: self._mark("agenda") or True),
             (schedule, "show", lambda *a, **k: self._mark("schedule")),
             (schedule, "show_lessons", lambda *a, **k: self._mark("schedule") or "Maja"),
             (schedule, "add", lambda *a, **k: self._mark("schedule") or {

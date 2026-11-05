@@ -2676,6 +2676,11 @@ class RobotFace:
                     dx = state.touch_dx
                 import schedule
                 schedule.swipe(dx)
+            elif ov_kind == "agenda" and touch_kind == "swipe":
+                with state.lock:                    # another month
+                    dx = state.touch_dx
+                import agenda
+                agenda.swipe(dx)
             elif ov_kind == "gallery":                  # ‹ › ✕, a swipe (gallery.py)
                 with state.lock:
                     dx = state.touch_dx
@@ -2693,6 +2698,9 @@ class RobotFace:
                 elif ov_kind == "schedule":             # a day, a person, an entry, "+"
                     import schedule
                     schedule.tap(touch_pt[0] * WIDTH, touch_pt[1] * HEIGHT, WIDTH, HEIGHT)
+                elif ov_kind == "agenda":               # a day, an event, its card
+                    import agenda
+                    agenda.tap(touch_pt[0] * WIDTH, touch_pt[1] * HEIGHT, WIDTH, HEIGHT)
                 elif ov_kind == "radio":                # a kind, a station, Stop
                     import radio
                     radio.tap(touch_pt[0] * WIDTH, touch_pt[1] * HEIGHT, WIDTH, HEIGHT)
@@ -3844,6 +3852,9 @@ class RobotFace:
         elif kind == "schedule":                        # "plan tygodnia" (schedule.py)
             import ui_schedule
             ui_schedule.draw(scr, data, time.time(), WIDTH, HEIGHT)
+        elif kind == "agenda":                          # the calendar (agenda.py)
+            import ui_agenda
+            ui_agenda.draw(scr, data, time.time(), WIDTH, HEIGHT)
         elif kind == "paint":                           # Malowanie (paint.py, ui_paint.py)
             import ui_paint
             ui_paint.draw(scr, time.time(), WIDTH, HEIGHT)

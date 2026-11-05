@@ -58,7 +58,7 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
 os.chdir(HERE)
 DATA = tempfile.mkdtemp(prefix="luna-sweep-")
-for f in ("people.json", "settings.json", "schedule.json"):
+for f in ("people.json", "settings.json", "schedule.json", "calendar.json"):
     if os.path.exists(os.path.join(HERE, "data", f)):
         shutil.copy(os.path.join(HERE, "data", f), DATA)
 os.environ["LUNA_DATA_DIR"] = DATA

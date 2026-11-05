@@ -3,6 +3,8 @@
 Ściąga: co Luna teraz potrafi i jak to wywołać. Wszystko po polsku, zwykłymi
 zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `docs/backlog-done.md`.
 
+> **Kalendarz:** „**Dodaj do kalendarza** dentystę 12 listopada o 15”, „Maja ma wycieczkę w piątek, zapisz to w kalendarzu”, „**Co mamy** w sobotę?”, „**Kiedy** dentysta?”, „**Przesuń** dentystę na piątek”, „**Odwołaj** dentystę” (i „Przywróć dentystę”). **Przypomnienia:** domyślnie dzień i godzinę wcześniej, „**Przypomnij dwa dni wcześniej**” zmienia. Powtarzanie: „co tydzień”, „co miesiąc”, „co rok”. Rano Luna powie, co jest dziś, wieczorem na „dobranoc”, co jutro. Ikona **Kalendarz** na dole: miesiąc, dzień, karta wydarzenia z przyciskami. Terminy z kartki: „**przepisz kartkę do kalendarza**”. Gość z kamery kalendarza nie zobaczy.
+>
 > **Imię z daleka:** Luna lepiej słyszy „Luna” i „Hej Luna”, także z drugiego końca pokoju (radio wyłączone). Nic nie trzeba ustawiać.
 >
 > **Malowanie — usuwanie w „Otwórz”:** **kosz** w rogu obrazka — dotknij **dwa razy** („Usunąć?”) · trafia do kosza, nie na zawsze: „**przywróć rysunek**” / „**przywróć zdjęcie**”

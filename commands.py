@@ -1711,8 +1711,10 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         # the alarms are the grown-ups' — "Budzik masz na szóstą" isn't Maja's
         note = None if _child_here() else timers.goodnight_note()
         if not _child_here():                      # tomorrow at 7, for the grown-ups
+            import agenda
             import weather
-            note = " ".join(x for x in (note, weather.morning_note()) if x) or None
+            note = " ".join(x for x in (note, agenda.goodnight_note(), weather.morning_note())
+                            if x) or None
         if re.search(r"\bgood\s*night\b", low):     # an English guest: in English
             speak(random.choice(("Good night! Sleep well.", "Good night — sweet dreams!")))
         else:
@@ -1780,6 +1782,11 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
     if _DOORBELL.search(low) and _short(text, 10) and _child_here():
         speak("Nie otwieraj i nie podchodź do drzwi. Zawołaj mamę albo tatę — a jeśli "
               "jesteś sama, zadzwoń do nich.")
+        return True
+
+    # the calendar: dated events and reminders ("dodaj do kalendarza dentysta w środę o 15")
+    import agenda
+    if agenda.handle(text, speak):
         return True
 
     # the week's plan: "pokaż plan tygodnia", "dodaj do planu …", the answer after "+"
@@ -2699,6 +2706,9 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
 
     note = _remember(text)                         # "zapamiętaj, że …"
     if note:
+        import agenda
+        if agenda.from_note(note, speak):          # a date and an hour ahead: the calendar's
+            return True
         import memory
         memory.add_fact(note)
         with state.lock:

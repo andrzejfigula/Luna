@@ -77,8 +77,8 @@ def renderer_loop():
         with state.lock:
             ov = state.overlay
         still = bool(ov and ov[0] in ("lamp", "clock", "list", "photo", "gallery", "stars",
-                                      "clockface", "weather", "contact", "phone")
-                     and not (ov[0] in ("contact", "phone") and ov[2].get("edit"))
+                                      "clockface", "weather", "contact", "phone", "agenda")
+                     and not (ov[0] in ("contact", "phone", "agenda") and ov[2].get("edit"))
                      and not (ov[0] == "stars" and ov[2].get("new")
                               and now - ov[2]["t0"] < 1.0)    # (the pop-in)
                      # (a picture sliding in, the weather's rows coming up)

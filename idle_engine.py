@@ -258,6 +258,8 @@ def _schedule_tick(now, p, speak):
         can = (now > muted and time.localtime(now).tm_hour >= 5
                and not _people_talking())
         schedule.tick(now, person, someone, can, busy, lambda t: speak(t, can_drop=False))
+        import agenda
+        agenda.tick(now, person, someone, can, busy, lambda t: speak(t, can_drop=False))
     except Exception as e:
         print(f"[idle] schedule reminder failed: {e}", flush=True)
 
