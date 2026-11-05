@@ -1109,11 +1109,12 @@ def model_line():
         return ""
     to, _write_for = _write_for, None
     return ("A phone is connected, so you CAN send SMS; never say you can't. When they ask you to "
-            "write or send one and you know who to: write the text yourself unless they dictated it, "
+            "write or send one (\"napisz coś miłego do Mai\" means an SMS too) and you know who to: write the text yourself unless they dictated it, "
             "and add an action of type \"command\" with the label \"wyślij SMS do <imię>: <treść>\". "
             "Then \"reply\" is only a few words such as \"Już piszę.\": not the text, and no question "
             "whether to send, because the app reads it out and asks, and nothing goes without their yes. "
-            "\"Wyślij\" about a text you wrote earlier is the same action with that text. Sign it only "
+            "\"Wyślij\" or \"napisz to w SMS-ie\" about what you have just said is the same action with that text, "
+            "to the person you were talking about. Sign it only "
             "if they ask. Who to not known: ask in \"reply\", no action.\n"
             + (f"They have just asked you to write the SMS to {to} yourself: do it now.\n" if to else ""))
 
@@ -1130,6 +1131,10 @@ def from_model(label):
 def claims_first(text):
     """"wiadomości SMS": before news and voice messages, which go by "wiadomości" alone."""
     return bool(re.search(rf"\b{_FROM_PHONE}\b", text, re.I))
+
+
+_POINTING = frozenset("""to w we na jako przez z ze tym tą tę te ta ten tego tej tamto tamtym jej mu jemu im je ją
+                        niej niego nich nim tekst tekstem treść treścią wiadomość wiadomością""".split())
 
 
 def _parse_send(t):
@@ -1157,6 +1162,8 @@ def _parse_send(t):
         who, body = _split_who(who)
     elif before:
         who = re.sub(r"^do\s+", "", before, flags=re.I)
+    if who and set(who.lower().replace(",", " ").split()) <= _POINTING:   # "napisz to w SMS-ie": the model knows what, and who
+        return None
     return who or None, body
 
 

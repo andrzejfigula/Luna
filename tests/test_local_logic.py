@@ -14033,6 +14033,16 @@ class PhoneTest(unittest.TestCase):
         self.assertTrue(self._say("Wyślij SMS do Tomka, że coś mi wypadło"))    # dictated stays dictated
         self.assertEqual(phone.draft()["text"], "coś mi wypadło")
 
+    def test_this_that_and_her_are_for_the_model(self):
+        import phone
+        self._ready()
+        for sentence in ("Napisz to w SMS-ie", "Wyślij to SMS-em", "Wyślij to SMS-em do Tomka", "Wyślij jej SMS-a",
+                         "Napisz jej SMS-a, że wracam", "Wyślij SMS do niej", "Wyślij SMS-a z tym tekstem", "Napisz mu to SMS-em"):
+            self.assertFalse(self._say(sentence), sentence)
+            self.assertIsNone(phone.draft(), sentence)
+        self.assertEqual(phone._parse_send("wyślij sms do tomka"), ("tomka", ""))
+        self.assertEqual(phone._parse_send("wyślij tomkowi sms, że to tu"), ("tomkowi", "to tu"))
+
     def test_the_model_writes_she_reads_it_and_asks(self):
         import phone
         self._ready()
