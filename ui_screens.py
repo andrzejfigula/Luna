@@ -1252,7 +1252,7 @@ def _picker_layout(W, H, n):
 
 
 def settings_hit(x, y, W, H, data):
-    """("tab", i) | ("row", i) | ("bin", i) | ("yes",) | ("no",) | None for a tap;
+    """("tab", i) | ("row", i) | ("bin", i) | ("card", i) | ("yes",) | ("no",) | None for a tap;
     with the picker open: ("opt", i) | ("close",) | None (outside)."""
     import settings_page
     if data.get("picker"):
@@ -1276,6 +1276,9 @@ def settings_hit(x, y, W, H, data):
             if (k < len(rows) and rows[k]["kind"] == "person"
                     and L["bins"][k].inflate(12, 12).collidepoint(x, y)):
                 return ("bin", k)
+            if (k < len(rows) and rows[k]["kind"] == "person"
+                    and not L["ctrls"][k].inflate(12, 12).collidepoint(x, y)):
+                return ("card", k)
             return ("row", k)
     return None
 
@@ -1323,7 +1326,8 @@ def draw_settings(scr, data, now, W, H):
         scr.blit(rrect(r.w, r.h, 16, (255, 255, 255, 22)), r)
         room = (c.x - (60 if kind == "person" else 0) if kind != "info"
                 else r.right - 250) - r.x - 28
-        nm = text(fit(row["label"], 22, room, "ExtraBold"), 22, WHITE, "ExtraBold")
+        name = row["label"] + (" ›" if kind == "person" else "")
+        nm = text(fit(name, 22, room, "ExtraBold"), 22, WHITE, "ExtraBold")
         sub = text(fit(row["sub"], 16, room, "SemiBold"), 16, soft, "SemiBold")
         y = r.centery - (nm.get_height() + sub.get_height()) // 2
         scr.blit(nm, (r.x + 16, y))

@@ -313,6 +313,8 @@ def end_game_page(kind):
     and crosses, memo, a quiz's card / clock / flag, twenty questions."""
     import importlib
     ended = []
+    if kind == "contact" and importlib.import_module("contacts").on_close():
+        return ended
     if kind in ("ttt", "memo"):
         importlib.import_module("tictac" if kind == "ttt" else "memo").stop()
         ended.append(kind)

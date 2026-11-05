@@ -11,6 +11,7 @@ import tempfile
 os.environ.setdefault("LUNA_DATA_DIR", tempfile.mkdtemp(prefix="luna-tests-"))  # never real data
 
 import commands
+import contacts
 import games
 import idle_engine
 import memory
@@ -372,6 +373,17 @@ MODEL = [
     "Jak wygląda twój dzień?",
     "Jak wyglądam?",
     "Jak wygląda u was w szkole?",
+    "Jaki jest numer alarmowy?",
+    "Jaki masz numer buta?",
+    "Mam nowy telefon",
+    "Kupiłem Mai telefon",
+    "Gdzie zostawiłem telefon?",
+    "Ile kosztuje telefon?",
+    "Numer domu to 15",
+    "Adres jest ważny",
+    "Czym jest karta graficzna?",
+    "Zgubiłam kartę do bankomatu",
+    "Co to jest e-mail?",
 ]
 
 
@@ -425,6 +437,9 @@ class RoutingTest(unittest.TestCase):
             (screens, "PHOTOS_DIR", self._photos_dir()),
             (fun, "lamp_on", lambda *a: self._mark("fun")),
             (health, "status_rows", lambda: [("CPU", "ok")]),
+            (contacts, "save", lambda *a: self._mark("contact")),
+            (contacts, "show", lambda *a, **k: self._mark("contact")),
+            (contacts, "card", lambda n: {"phone": "600 100 200", "email": None, "address": None}),
             (fun, "high_five", lambda *a: self._mark("fun")),
             (fun, "roll", lambda *a: self._mark("fun")),
             (fun, "flip", lambda *a, **k: self._mark("fun")),
@@ -612,6 +627,18 @@ class RoutingTest(unittest.TestCase):
                     with state.lock:
                         state.sleep_mode = False
                     self.assertEqual(self.route(text), "model")
+
+    def test_contact_cards_with_the_family_known(self):
+        import faces
+        with mock.patch.object(faces, "names", lambda: ["Andrzej", "Emilka", "Maja"]), \
+                mock.patch.object(faces, "family", lambda: ["Andrzej", "Emilka", "Maja"]), \
+                mock.patch.object(faces, "guests", lambda: []), \
+                mock.patch.object(faces, "guest_here", lambda: False):
+            for text in ("Pokaż kartę Mai", "Karta Emilki", "Telefon Mai to 600 100 200",
+                         "Maja ma numer 600 100 200", "Jaki numer ma Maja?",
+                         "Podaj telefon do Emilki", "Adres Mai to Kwiatowa 5, Kraków"):
+                with self.subTest(text=text):
+                    self.assertEqual(self.route(text), "contact")
 
     def test_family_questions_answered_locally(self):
         """"Gdzie jest Emilka?" with the family known: answered here, before

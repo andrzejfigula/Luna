@@ -10,6 +10,7 @@ commands.py — things Luna does herself, without asking the model.
   screens  "zrób mi zdjęcie", "pokaż lustro", "pokaż zegar" (screens.py)
   breathe  "ćwiczenie oddechowe" — a guided breathing circle (breathing.py)
   repeat   "powtórz", "co powiedziałaś?" — the last answer again, instantly
+  contacts "pokaż kartę Mai", "telefon Mai to 600 100 200" (contacts.py)
   restart  "zrestartuj się" — exits; the autostart watchdog restarts her
   fun      "włącz lampkę", "przybij piątkę", "rzuć kostką", "rzuć monetą"
            (fun.py)
@@ -1373,7 +1374,7 @@ _CLOSE = re.compile(r"^(?:luna,?\s+)?(?:dobra,?\s+|ok,?\s+|okej,?\s+|już,?\s+|j
                     r"pokaż\s+(?:swoją\s+|swoja\s+)?(?:buzię|buzie|twarz|minę)|"
                     r"pokaz\s+buzie)(?:\s+(?:proszę|prosze|dzięki|dzieki))?\W*$", re.I)
 _CLOSABLE = ("clock", "clockface", "list", "gallery", "photo", "card", "memo", "stars",
-             "mirror", "dice", "coin", "lamp", "weather", "paint", "schedule")
+             "mirror", "dice", "coin", "lamp", "weather", "paint", "schedule", "contact")
 
 
 # "Wyłącz ekran gry", "zamknij galerię", "schowaj pogodę" (14 Oct: "Wyłącz
@@ -1382,7 +1383,8 @@ _CLOSE_NAMED = re.compile(r"^(?:luna,?\s+)?(?:dobra,?\s+|ok,?\s+|okej,?\s+|już,
                           r"(?:wyłącz|wylacz|zamknij|schowaj|ukryj|zakończ|zakoncz)\s+(?:ten\s+|tę\s+|te\s+)?"
                           r"(?:ekran\s+gry|grę|gre|galerię|galerie|pogodę|pogode|prognozę|prognoze|"
                           r"zegar|zdjęcia|zdjecia|zdjęcie|zdjecie|rysunki|rysunek|listę|liste|"
-                          r"lusterko|lustro|planszę|plansze|"
+                          r"lusterko|lustro|planszę|plansze|kartę|karte|kontakt|kontakty|"
+                          r"wizytówkę|wizytowke|"
                           # 26 Oct: the week plan stayed up after "wyłącz"
                           r"plan(?:\s+(?:tygodnia|lekcji|dnia))?(?:\s+\w+)?|grafik(?:\s+\w+)?|"
                           # 25 Oct: "Wyłącz kogo znam." → the model, "wyłączam", still up
@@ -1393,7 +1395,7 @@ _CLOSE_NAMED = re.compile(r"^(?:luna,?\s+)?(?:dobra,?\s+|ok,?\s+|okej,?\s+|już,
 _STOP_PAGE = re.compile(r"^(?:luna,?\s+|luno,?\s+)?(?:stop|zatrzymaj(?:\s+to)?|wyłącz(?:\s+to)?|"
                         r"wylacz(?:\s+to)?)$", re.I)
 _STOP_CLOSES = ("clock", "clockface", "list", "gallery", "photo", "stars", "mirror",
-                "dice", "coin", "lamp", "weather", "schedule")
+                "dice", "coin", "lamp", "weather", "schedule", "contact")
 
 
 # "Pokaż.", "Pokaż jeszcze raz" — what was on the screen a moment ago (14 Oct:
@@ -2108,6 +2110,10 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         else:
             brain.process(text, context=ctx)
         return "recorded"
+
+    import contacts
+    if contacts.command(text, speak):              # "telefon Mai to…", "pokaż kartę Mai"
+        return True
 
     # birthdays: "Maja ma urodziny 12 maja" / "ile dni do urodzin Mai?"
     import birthdays

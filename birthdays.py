@@ -76,7 +76,8 @@ def _who(low, text):
         hit = faces.match_role(w)
         if hit:
             return hit
-    return None
+    import contacts
+    return contacts.on_screen()                     # their card is open: "urodziny 12 maja"
 
 
 def set_from(text):

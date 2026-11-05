@@ -154,6 +154,11 @@ CASES = [
     ("Zapomnij, że klucze są w szufladzie", "zapomniałam"),
     ("Maja ma imieniny 3 maja", "Zapamiętałam"),
     ("Kiedy Maja ma imieniny?", "3 maja"),
+    ("Telefon Mai to 600 100 200", "Zapisałam"),
+    ("Jaki numer ma Maja?", "600"),
+    ("Pokaż kartę Mai", "karta"),
+    ("Zamknij kartę", ""),
+    ("Usuń telefon Mai", "Usunęłam"),
     # 9 Oct
     ("Odłożyłam paszporty do niebieskiego segregatora", ""),
     ("Gdzie są paszporty?", "segregatora"),

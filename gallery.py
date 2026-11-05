@@ -85,7 +85,7 @@ def page_open(now=None):
     """A page you look through (the gallery, the weather) is on the screen."""
     with state.lock:
         ov = state.overlay
-    return bool(ov and ov[0] in ("gallery", "weather")
+    return bool(ov and ov[0] in ("gallery", "weather", "contact")
                 and (now if now is not None else time.time()) < ov[1])
 
 

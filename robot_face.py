@@ -2656,6 +2656,11 @@ class RobotFace:
                     dx = state.touch_dx
                 import settings_page
                 settings_page.swipe(dx)
+            elif ov_kind == "contact" and touch_kind == "swipe":
+                with state.lock:                    # the next person / the one before
+                    dx = state.touch_dx
+                import contacts
+                contacts.swipe(dx)
             elif ov_kind == "lamp" and touch_kind == "swipe":
                 with state.lock:                    # the lamp's next picture
                     dx = state.touch_dx
@@ -2686,6 +2691,9 @@ class RobotFace:
                 elif ov_kind == "radio":                # a kind, a station, Stop
                     import radio
                     radio.tap(touch_pt[0] * WIDTH, touch_pt[1] * HEIGHT, WIDTH, HEIGHT)
+                elif ov_kind == "contact":              # a field, a key, ‹ ›
+                    import contacts
+                    contacts.tap(touch_pt[0] * WIDTH, touch_pt[1] * HEIGHT, WIDTH, HEIGHT)
                 elif ov_kind == "settings":             # a tab, a switch, the reset
                     import settings_page
                     settings_page.tap(touch_pt[0] * WIDTH, touch_pt[1] * HEIGHT, WIDTH, HEIGHT)
@@ -3833,6 +3841,9 @@ class RobotFace:
             ui_paint.draw(scr, time.time(), WIDTH, HEIGHT)
         elif kind == "radio":                           # the stations to pick from
             ui_screens.draw_radio(scr, data, time.time(), WIDTH, HEIGHT)
+        elif kind == "contact":                         # a contact card (contacts.py)
+            import ui_contacts
+            ui_contacts.draw(scr, data, time.time(), WIDTH, HEIGHT)
         elif kind == "settings":                        # "pokaż ustawienia" (settings_page.py)
             ui_screens.draw_settings(scr, data, time.time(), WIDTH, HEIGHT)
         elif kind == "list":                            # lists, plan, reminders, status

@@ -12665,5 +12665,355 @@ class LatencyReplyStageTest(unittest.TestCase):
         self.assertEqual(seen, ["head", "Widzę okno i ciemność za szybą."])
 
 
+class ContactsTest(unittest.TestCase):
+    """A card for everyone she knows: values, who may, the voice, the keyboard."""
+
+    def setUp(self):
+        import faces
+        import screens
+        self.d = tempfile.mkdtemp(prefix="luna-contacts-")
+        self.p = mock.patch.multiple(faces, PEOPLE_PATH=os.path.join(self.d, "people.json"),
+                                     FORGOTTEN_PATH=os.path.join(self.d, "forgotten.json"),
+                                     PORTRAITS=os.path.join(self.d, "faces"),
+                                     SEEN_PATH=os.path.join(self.d, "seen.json"),
+                                     _people=None, _seen={})
+        self.p.start()
+        faces._mtime[0] = None
+        with open(faces.PEOPLE_PATH, "w", encoding="utf-8") as f:
+            json.dump({"Andrzej": {"samples": [[1.0, 0.0, 0.0, 0.0]], "note": "tata Mai"},
+                       "Maja": {"samples": [[0.0, 1.0, 0.0, 0.0]],
+                                "note": "córka, 8 lat — dziecko"},
+                       "Ola": {"samples": [[0.0, 0.0, 1.0, 0.0]], "family": False}}, f)
+        with state.lock:
+            self.old = (state.person, state.face_detected, state.overlay)
+            state.overlay = None
+
+        def shown(kind, secs, data=None):
+            with state.lock:
+                state.overlay = (kind, time.time() + secs, data)
+        self.show = mock.patch.object(screens, "_show", shown)
+        self.show.start()
+        self._here("Andrzej")
+
+    def tearDown(self):
+        import faces
+        self.show.stop()
+        with state.lock:
+            state.person, state.face_detected, state.overlay = self.old
+        self.p.stop()
+        faces._mtime[0] = None
+        shutil.rmtree(self.d, ignore_errors=True)
+
+    def _here(self, who):
+        with state.lock:
+            state.person = (who, 0.9, time.time()) if who else None
+            state.face_detected = True
+
+    def _say(self, text):
+        import contacts
+        said = []
+        handled = contacts.command(text, said.append)
+        return handled, (said[0] if said else None)
+
+    def _open(self, name, **more):
+        data = {"name": name, "edit": None, "toast": None, "back": None}
+        data.update(more)
+        with state.lock:
+            state.overlay = ("contact", time.time() + 60, data)
+        return data
+
+    def test_phone_and_email_values(self):
+        import contacts as c
+        for raw, want in (("600100200", "600 100 200"), ("600-100-200", "600 100 200"),
+                          ("+48600100200", "+48 600 100 200"),
+                          ("0048 600 100 200", "+48 600 100 200"), ("12 345 67", "123 456 7"),
+                          ("12345", None), ("kot", None), ("", None)):
+            with self.subTest(raw=raw):
+                self.assertEqual(c.clean_phone(raw), want)
+        self.assertEqual(c.clean_email(" Ola@Gmail.com. "), "ola@gmail.com")
+        for raw in ("ola", "ola@gmail", "a b@c.pl", "@c.pl"):
+            self.assertIsNone(c.clean_email(raw), raw)
+
+    def test_dates(self):
+        import contacts as c
+        today = datetime.date(2026, 11, 5)
+        self.assertEqual(c.parse_date("12.05.2018", today), (5, 12, 2018))
+        self.assertEqual(c.parse_date("12.05", today), (5, 12, None))
+        self.assertEqual(c.parse_date("29.02", today), (2, 29, None))
+        for raw in ("31.02", "12.13", "12.05.2030", "12.05.1800", "kot", ""):
+            self.assertIsNone(c.parse_date(raw, today), raw)
+
+    def test_saved_with_the_person_shown_and_removed(self):
+        import contacts as c
+        self.assertIsNone(c.save("Maja", "birthday", "12.05.2018"))
+        self.assertIsNone(c.save("Maja", "nameday", "3.5"))
+        got = c.card("Maja")
+        self.assertEqual((got["birthday"], got["born"], got["nameday"]), ("05-12", 2018, "05-03"))
+        today = datetime.date(2026, 11, 5)
+        self.assertEqual(c.shown(got, "birthday", today), "12 maja 2018 (8 lat)")
+        self.assertEqual(c.shown(got, "nameday", today), "3 maja")
+        self.assertEqual(c.typed(got, "birthday"), "12.05.2018")
+        self.assertEqual(c.shown(got, "phone"), "")
+        self.assertIsNone(c.save("Maja", "birthday", "12.05"))      # the year taken back
+        self.assertIsNone(c.card("Maja")["born"])
+        self.assertIsNone(c.save("Maja", "birthday", ""))
+        self.assertIsNone(c.card("Maja")["birthday"])
+        self.assertEqual(c.card("Maja")["note"], "córka, 8 lat — dziecko")   # untouched
+        self.assertIsNotNone(c.save("Maja", "phone", "kot"))
+        self.assertIsNotNone(c.save("Maja", "nameday", "99.99"))
+        self.assertEqual(c.save("Nikt", "phone", "600100200"), "Nie znam tej osoby")
+        self.assertIsNone(c.card("Nikt"))
+
+    def test_birthdays_module_reads_the_same_date(self):
+        import birthdays
+        import contacts as c
+        c.save("Maja", "birthday", "12.05.2018")
+        today = datetime.date(2026, 11, 5)
+        self.assertIn("188 dni", birthdays.days_answer("Ile dni do urodzin Mai?", today))
+        self.assertIn("8", birthdays.age_answer("Ile lat ma Maja?", today))
+
+    def test_who_may(self):
+        import contacts as c
+        import faces
+        self._here("Andrzej")                                       # family: all of it
+        self.assertTrue(c.may_see("Maja"))
+        self.assertIsNone(c.may_edit("Maja"))
+        self.assertEqual(c.people(), ["Andrzej", "Maja", "Ola"])
+        self._here("Maja")                                          # a child: sees, edits her own
+        self.assertTrue(c.may_see("Andrzej"))
+        self.assertEqual(c.may_edit("Andrzej"), "Poproś dorosłego.")
+        self.assertIsNone(c.may_edit("Maja"))
+        self._here("Ola")                                           # a guest: only her own
+        self.assertFalse(c.may_see("Maja"))
+        self.assertEqual(c.may_edit("Maja"), "Poproś kogoś z rodziny.")
+        self.assertTrue(c.may_see("Ola"))
+        self.assertIsNone(c.may_edit("Ola"))
+        self.assertEqual(c.people(), ["Ola"])
+        self._here(None)                                            # a stranger: no one's
+        with mock.patch.object(faces, "probably_family", lambda *a, **k: False):
+            self.assertFalse(c.may_see("Maja"))
+            self.assertIsNotNone(c.may_edit("Maja"))
+            self.assertEqual(c.people(), [])
+
+    def test_voice_tells_and_asks(self):
+        import contacts as c
+        self.assertEqual(self._say("Telefon Mai to 600 100 200"),
+                         (True, "Zapisałam: Maja, telefon 600, 100, 200."))
+        self.assertEqual(self._say("Jaki numer ma Maja?"), (True, "Maja ma numer 600, 100, 200."))
+        self.assertEqual(self._say("Luna, podaj telefon do Mai"),
+                         (True, "Maja ma numer 600, 100, 200."))
+        self.assertEqual(c.on_screen(), "Maja")                     # the card comes up too
+        self.assertTrue(self._say("Maja ma numer 600 200 300")[0])
+        self.assertEqual(c.card("Maja")["phone"], "600 200 300")
+        self.assertTrue(self._say("Numer telefonu Mai 600 200 400")[0])
+        self.assertEqual(c.card("Maja")["phone"], "600 200 400")
+        self.assertTrue(self._say("Zapisz numer Mai sześćset sto dwieście")[0])
+        self.assertEqual(c.card("Maja")["phone"], "600 100 200")
+        self.assertTrue(self._say("Mój e-mail to ola małpa gmail kropka com")[0])
+        self.assertEqual(c.card("Andrzej")["email"], "ola@gmail.com")
+        self.assertTrue(self._say("Adres Andrzeja to Kwiatowa 5, Kraków")[0])
+        self.assertEqual(c.card("Andrzej")["address"], "Kwiatowa 5, Kraków")
+        self.assertIn("Kwiatowa 5", self._say("Jaki jest adres Andrzeja?")[1])
+        self.assertIn("nie ma jeszcze", self._say("Jaki numer ma Ola?")[1])
+
+    def test_voice_with_a_card_open_and_deleting(self):
+        import contacts as c
+        self._open("Maja")
+        self.assertTrue(self._say("Zmień numer na 600 100 200")[0])
+        self.assertEqual(c.card("Maja")["phone"], "600 100 200")
+        self.assertIsNone(c.card("Andrzej")["phone"])
+        self.assertEqual(self._say("Usuń telefon Mai"),
+                         (True, "Usunęłam: Maja, telefon 600, 100, 200."))
+        self.assertIsNone(c.card("Maja")["phone"])
+        self.assertIn("Nie mam zapisanego", self._say("Usuń telefon Mai")[1])
+
+    def test_voice_a_value_that_makes_no_sense_changes_nothing(self):
+        import contacts as c
+        c.save("Maja", "phone", "600100200")
+        handled, said = self._say("Zapisz telefon Mai to kot")
+        self.assertTrue(handled)
+        self.assertIn("To nie wygląda", said)
+        self.assertEqual(c.card("Maja")["phone"], "600 100 200")
+
+    def test_voice_shows_the_card(self):
+        import contacts as c
+        for text, who in (("Pokaż kartę Mai", "Maja"), ("Karta Andrzeja", "Andrzej"),
+                          ("Moja karta", "Andrzej"), ("Pokaż kontakty", "Andrzej"),
+                          ("Pokaż książkę adresową", "Andrzej"), ("Luna, otwórz kartę Oli", "Ola")):
+            with self.subTest(text=text):
+                self.assertEqual(self._say(text), (True, f"Proszę, karta: {who}."))
+                self.assertEqual(c.on_screen(), who)
+
+    def test_voice_respects_who_is_asking(self):
+        import contacts as c
+        c.save("Maja", "phone", "600100200")
+        self._here("Ola")
+        for text in ("Telefon Mai to 600 100 300", "Jaki numer ma Maja?", "Pokaż kartę Mai",
+                     "Usuń telefon Mai"):
+            with self.subTest(text=text):
+                self.assertEqual(self._say(text), (True, "Poproś kogoś z rodziny."))
+        self.assertEqual(c.card("Maja")["phone"], "600 100 200")
+        with state.lock:
+            self.assertIsNone(state.overlay)                        # and no card came up
+        self.assertTrue(self._say("Mój telefon to 600 100 400")[0])
+        self.assertEqual(c.card("Ola")["phone"], "600 100 400")
+        self._here("Maja")
+        self.assertEqual(self._say("Telefon Andrzeja to 600 100 200"), (True, "Poproś dorosłego."))
+        self.assertIsNone(c.card("Andrzej")["phone"])
+        self.assertTrue(self._say("Mój telefon to 600 100 500")[0])
+        self.assertEqual(c.card("Maja")["phone"], "600 100 500")
+
+    def test_ordinary_sentences_left_alone(self):
+        import contacts as c
+        for text in ("Numer domu to 15", "Jaki numer buta ma Maja?", "Mam telefon", "Mam nowy telefon",
+                     "Jaki masz numer?", "Adres jest ważny", "Kupiłam nowy telefon", "Zgubiłam kartę",
+                     "Karta", "Kontakt", "Telefon dzwoni", "Numer jeden", "Mój numer to 5",
+                     "Daj znać przez telefon", "Telefon jest na stole", "Czy Maja ma telefon?x"):
+            with self.subTest(text=text):
+                self.assertEqual(self._say(text), (False, None))
+        for name in ("Andrzej", "Maja", "Ola"):
+            self.assertIsNone(c.card(name)["phone"])
+
+    def test_spoken_values(self):
+        import contacts as c
+        self.assertEqual(c._spoken_digits("sześćset dwadzieścia trzy sto"), "623 100")
+        self.assertEqual(c._spoken_digits("zero sześćset"), "0 600")
+        self.assertEqual(c._spoken_digits("plus czterdzieści osiem 600"), "+48 600")
+        self.assertEqual(c._spoken_digits("kot"), "kot")
+        self.assertEqual(c._spoken_email("ola małpa gmail kropka com"), "ola@gmail.com")
+        self.assertEqual(c._spoken_email("a podkreślnik b at c myślnik d kropka pl"), "a_b@c-d.pl")
+        self.assertEqual(c._said_value("phone", "+48 600 100 200"), "plus 48, 600, 100, 200")
+        self.assertEqual(c._said_value("email", "a@b.pl"), "a małpa b kropka pl")
+
+    def test_keys_stay_on_the_screen_and_apart(self):
+        import contacts as c
+        W, H = 800, 480
+        for kind, layer in (("phone", "abc"), ("date", "abc"), ("text", "abc"), ("text", "pl"),
+                            ("text", "123")):
+            for key, (x, y, w, h) in c.key_layout(kind, layer, W, H):
+                with self.subTest(kind=kind, layer=layer, key=key):
+                    self.assertTrue(w >= 40 and h >= 40, (w, h))
+                    self.assertTrue(0 <= x and x + w <= W and 0 <= y and y + h <= H)
+                    self.assertEqual(c.key_at(kind, layer, x + w // 2, y + h // 2, W, H), key)
+        L = c.card_layout(W, H)
+        self.assertEqual(len(L["rows"]), len(c.FIELDS))
+        self.assertTrue(all(r[1] + r[3] <= H for r in L["rows"]))
+
+    def _tap_key(self, data, key):
+        import contacts as c
+        e = data["edit"]
+        kind = dict((f, k) for f, _, k in c.FIELDS)[e["field"]]
+        x, y, w, h = next(r for k, r in c.key_layout(kind, e["layer"], 800, 480) if k == key)
+        self.assertTrue(c.tap(x + w // 2, y + h // 2, 800, 480))
+
+    def test_a_field_tapped_typed_and_saved(self):
+        import contacts as c
+        data = self._open("Maja")
+        x, y, w, h = c.card_layout(800, 480)["rows"][0]             # Telefon
+        c.tap(x + w // 2, y + h // 2, 800, 480)
+        self.assertEqual(data["edit"]["field"], "phone")
+        for key in "600100200":
+            self._tap_key(data, key)
+        self._tap_key(data, "back")
+        self._tap_key(data, "3")
+        self._tap_key(data, "save")
+        self.assertIsNone(data["edit"])
+        self.assertEqual(data["toast"][0], "Zapisane")
+        self.assertEqual(c.card("Maja")["phone"], "600 100 203")
+
+    def test_a_bad_value_keeps_the_keyboard_open(self):
+        import contacts as c
+        data = self._open("Maja")
+        c._start_edit(data, "birthday")
+        for key in "99.99":
+            self._tap_key(data, key)
+        self._tap_key(data, "save")
+        self.assertIsNotNone(data["edit"])
+        self.assertIn("datę", data["toast"][0])
+        self.assertIsNone(c.card("Maja")["birthday"])
+
+    def test_the_letters_keyboard(self):
+        import contacts as c
+        data = self._open("Maja")
+        c._start_edit(data, "address")
+        self.assertTrue(data["edit"]["shift"])                      # a capital to begin with
+        self._tap_key(data, "k")
+        self.assertEqual(data["edit"]["text"], "K")
+        self._tap_key(data, "layer:pl")
+        self._tap_key(data, "ó")
+        self.assertEqual(data["edit"]["layer"], "abc")              # one Polish letter
+        self._tap_key(data, "layer:123")
+        self._tap_key(data, "5")
+        self._tap_key(data, "save")
+        self.assertEqual(c.card("Maja")["address"], "Kó5")
+
+    def test_a_guest_cant_open_a_field_of_someone_else(self):
+        import contacts as c
+        data = self._open("Maja")
+        self._here("Ola")
+        c._start_edit(data, "phone")
+        self.assertIsNone(data["edit"])
+        self.assertEqual(data["toast"][0], "Poproś kogoś z rodziny.")
+
+    def test_people_turned_by_arrows_and_swipe(self):
+        import contacts as c
+        data = self._open("Andrzej")
+        x, y, w, h = c.card_layout(800, 480)["next"]
+        c.tap(x + 1, y + 1, 800, 480)
+        self.assertEqual(data["name"], "Maja")
+        c.swipe(-100)
+        self.assertEqual(data["name"], "Ola")
+        c.swipe(-100)
+        self.assertEqual(data["name"], "Andrzej")                   # round again
+        c.swipe(100)
+        self.assertEqual(data["name"], "Ola")
+        self._here("Ola")                                           # a guest stays on her own
+        c.swipe(-100)
+        self.assertEqual(data["name"], "Ola")
+
+    def test_the_cross_closes_the_keyboard_then_goes_back(self):
+        import contacts as c
+        import settings_page
+        back = {"tab": settings_page.TABS.index("Osoby")}
+        data = self._open("Maja", back=back)
+        c._start_edit(data, "phone")
+        self.assertTrue(c.on_close())
+        self.assertIsNone(data["edit"])
+        with state.lock:
+            self.assertEqual(state.overlay[0], "contact")
+        self.assertTrue(c.on_close())
+        with state.lock:
+            self.assertEqual(state.overlay[:1] + state.overlay[2:], ("settings", back))
+        self._open("Maja")
+        self.assertFalse(c.on_close())                              # from voice: just closes
+
+    def test_a_name_in_the_settings_opens_the_card(self):
+        try:
+            import ui_screens
+        except ImportError:
+            self.skipTest("pygame")
+        import contacts as c
+        import settings_page as sp
+        data = {"tab": sp.TABS.index("Osoby")}
+        with mock.patch.object(sp, "rows", side_effect=lambda t, now=None: sp.people_rows()):
+            rows = sp.people_rows()
+            k = [r.get("key") for r in rows].index("person:Maja")
+            L = ui_screens._settings_layout(800, 480, len(rows),
+                                            sum(r["kind"] == "tile" for r in rows))
+            row, ctrl = L["rows"][k], L["ctrls"][k]
+            self.assertEqual(ui_screens.settings_hit(row.x + 60, row.centery, 800, 480, data),
+                             ("card", k))
+            self.assertEqual(ui_screens.settings_hit(ctrl.centerx, ctrl.centery, 800, 480, data),
+                             ("row", k))
+        self.assertIsNone(c.open_from("Maja", back=data))
+        self.assertEqual(c.on_screen(), "Maja")
+
+    def test_a_card_open_answers_for_birthdays(self):
+        import birthdays
+        self.assertIsNone(birthdays._who("urodziny 12 maja", "urodziny 12 maja"))
+        self._open("Maja")
+        self.assertEqual(birthdays._who("urodziny 12 maja", "urodziny 12 maja"), "Maja")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,5 +1,6 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
+- Każdy ma teraz swoją kartę kontaktową: telefon, e-mail, adres, urodziny i imieniny. „Pokaż kartę Mai” albo Ustawienia, Osoby i dotknij imienia; dotknij pola, żeby je wpisać, albo powiedz „Telefon Mai to 600 100 200”.
 - Gdy zaczniesz mówić w ostatniej chwili, zanim przestanę słuchać, wysłucham do końca i odpowiem, także przy włączonym radiu.
 - Lepiej słyszę swoje imię, także gdy ktoś woła mnie z drugiego końca pokoju.
 - „Odtwórz mój głos” albo „Sprawdź mikrofon”: powiedz coś, a odtworzę dokładnie to, co usłyszał mój mikrofon.

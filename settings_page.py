@@ -7,7 +7,8 @@ settings_page.py — "pokaż ustawienia": one page on her screen, four tabs.
   Urządzenia — the speaker, microphone and camera she uses (devices.py)
   Koszty  — API calls by day and their estimated cost (health.py's counts)
   Osoby   — who she knows: family or guest (a guest gets no plan and hears
-            nothing of the house), the bin tapped twice; not for a guest/stranger
+            nothing of the house), the bin tapped twice; not for a guest/stranger;
+            a name tapped: their contact card (contacts.py)
   Reset   — what she remembers; the factory reset: memories and the people she
             knows MOVED to data/reset-<date>/ (never deleted), then a restart
 
@@ -651,6 +652,11 @@ def tap(x, y, W, H, now=None):
     elif hit[0] == "bin":
         r = rows(data.get("tab", 0))[hit[1]]
         _toast(data, person_change(r["key"], binned=True, now=now))
+    elif hit[0] == "card":
+        import contacts
+        said = contacts.open_from(rows(data.get("tab", 0))[hit[1]]["key"].split(":", 1)[1], back=data)
+        if said:
+            _toast(data, said)
     elif hit[0] == "row":
         r = rows(data.get("tab", 0))[hit[1]]
         if r.get("key") == "new_person":
