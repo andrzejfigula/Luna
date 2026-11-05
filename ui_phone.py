@@ -27,6 +27,7 @@ def _when(t, now):
 def _title(scr, s, W):
     t = text(fit(s, 30, W - 130, "ExtraBold"), 30, WHITE, "ExtraBold")
     scr.blit(t, (28, 26))
+    return 28 + t.get_width()
 
 
 def _buttons(scr, view, data, W, H):
@@ -73,12 +74,13 @@ def _draw_pair(scr, W, H):
 
 def _draw_inbox(scr, data, now, W, H):
     msgs, page, pages = phone.page_of(data)
-    _title(scr, "SMS-y", W)
+    only = data.get("only")
+    end = _title(scr, f"SMS-y od: {only[0]}" if only else "SMS-y", W)
     state_word = {"on": "", "connecting": "łączę się…", "no_obex": "brakuje bluez-obexd",
                   "no_dbus": "brakuje python3-dbus"}.get(phone.status(), "telefon poza zasięgiem")
     if state_word:
         t = text(state_word, 19, DIM, "SemiBold")
-        scr.blit(t, (150, 38))
+        scr.blit(t, (end + 18, 38))
     if not msgs:
         t = text("Nie ma tu jeszcze żadnych SMS-ów", 26, SOFT, "Bold")
         scr.blit(t, t.get_rect(center=(W // 2, H // 2)))

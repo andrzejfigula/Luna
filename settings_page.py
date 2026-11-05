@@ -53,6 +53,7 @@ def _plural(n, one, few, many):
 
 def show(tab=0):
     _people_page[0] = 0
+    _open_group()
     with state.lock:
         state.overlay = ("settings", time.time() + PAGE_SECS, {"tab": tab})
 
@@ -134,23 +135,52 @@ _VOLUMES = (0.25, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
 _BRIGHT = (100, 80, 60, 40)
 
 
-def device_rows():
-    rows = []
-    for key, label in _DEVICES:
-        pick = settings.get(key)
-        value = dict(devices.options(key)).get(pick or "", devices.AUTO)
-        rows.append({"key": key, "kind": "cycle", "label": label,
-                     "sub": f"teraz: {devices.now_label(key)}", "value": value})
+_device_group = [None]              # the group open on Urządzenia (None: the list of groups)
+
+
+def _device_row(key):
+    pick = settings.get(key)
+    value = dict(devices.options(key)).get(pick or "", devices.AUTO)
+    value = "Auto" if value == devices.AUTO else value       # (the pill is short)
+    return {"key": key, "kind": "cycle", "label": dict(_DEVICES)[key],
+            "sub": f"teraz: {devices.now_label(key)}", "value": value}
+
+
+def _volume_text():
     import commands
     vol = commands.get_volume()
-    rows.append({"key": "volume", "kind": "cycle", "label": "Głośność",
-                 "sub": "zapamiętana — wraca po odłączeniu głośnika",
-                 "value": f"{round(vol * 100)} %" if vol is not None else "?"})
-    rows.append({"key": "night_quiet", "kind": "toggle", "label": "Ciszej w nocy",
-                 "sub": "od 22 do 8 mówi o połowę ciszej",
-                 "value": settings.get("night_quiet", True) is not False})
+    return f"{round(vol * 100)} %" if vol is not None else "?"
+
+
+def _back(label):
+    return {"key": "group:", "kind": "back", "label": "‹  " + label, "sub": "", "value": ""}
+
+
+def device_rows():
     import phone
-    return rows + phone.settings_rows()
+    group = _device_group[0]
+    if group == "sound":
+        return [_back("Dźwięk"), _device_row("speaker"),
+                {"key": "volume", "kind": "cycle", "label": "Głośność",
+                 "sub": "zapamiętana — wraca po odłączeniu głośnika", "value": _volume_text()},
+                {"key": "night_quiet", "kind": "toggle", "label": "Ciszej w nocy",
+                 "sub": "od 22 do 8 mówi o połowę ciszej",
+                 "value": settings.get("night_quiet", True) is not False}]
+    if group == "senses":
+        return [_back("Mikrofon i kamera"), _device_row("mic"), _device_row("camera")]
+    if group == "phone" and phone.config():
+        return [_back("Telefon")] + phone.settings_group()
+    heard_seen = dict.fromkeys((devices.now_label("mic"), devices.now_label("camera")))
+    return [{"key": "group:sound", "kind": "group", "label": "Dźwięk", "value": "",
+             "sub": f"{devices.now_label('speaker')} · {_volume_text()}"},
+            {"key": "group:senses", "kind": "group", "label": "Mikrofon i kamera", "value": "",
+             "sub": " · ".join(heard_seen)},
+            phone.settings_row()]
+
+
+def _open_group(name=None):
+    _device_group[0] = name or None
+    _cache.clear()
 
 
 def _say_speaker():
@@ -177,7 +207,7 @@ _cache = {}                   # tab → (when, rows): drawn every frame, read on
 
 
 def rows(tab, now=None):
-    """[{"key", "label", "sub", "value", "kind": toggle|cycle|info|danger|tile|person}]"""
+    """[{"key", "label", "sub", "value", "kind": toggle|cycle|info|danger|tile|person|group|back}]"""
     now = now or time.time()
     hit = _cache.get(tab)
     if hit and now - hit[0] < 1.0:
@@ -653,6 +683,7 @@ def tap(x, y, W, H, now=None):
         return True
     if hit[0] == "tab":
         data["tab"] = hit[1]
+        _open_group()
     elif hit[0] == "bin":
         r = rows(data.get("tab", 0))[hit[1]]
         _toast(data, person_change(r["key"], binned=True, now=now))
@@ -663,7 +694,9 @@ def tap(x, y, W, H, now=None):
             _toast(data, said)
     elif hit[0] == "row":
         r = rows(data.get("tab", 0))[hit[1]]
-        if r.get("key") == "new_person":
+        if r.get("key", "").startswith("group:"):
+            _open_group(r["key"].split(":", 1)[1])
+        elif r.get("key") == "new_person":
             threading.Thread(target=_ask_name, daemon=True, name="new-person").start()
         elif r.get("key", "").startswith("person:") or r.get("key") == "people_page":
             said = person_change(r["key"], now=now, sure=False)
@@ -688,4 +721,5 @@ def swipe(dx):
     if data is None or data.get("confirm") or data.get("picker"):
         return False
     data["tab"] = (data.get("tab", 0) + (1 if dx < 0 else -1)) % len(TABS)
+    _open_group()
     return True

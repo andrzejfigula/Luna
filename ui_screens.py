@@ -1323,8 +1323,12 @@ def draw_settings(scr, data, now, W, H):
         if kind == "tile":
             _settings_tile(scr, r, row, gold, soft)
             continue
+        if kind == "back":                            # the way out of a group, and its title
+            lab = text(row["label"], 26, gold, "ExtraBold")
+            scr.blit(lab, (r.x + 6, r.centery - lab.get_height() // 2))
+            continue
         scr.blit(rrect(r.w, r.h, 16, (255, 255, 255, 22)), r)
-        room = (c.x - (60 if kind == "person" else 0) if kind != "info"
+        room = (r.right - 56 if kind == "group" else c.x - (60 if kind == "person" else 0) if kind != "info"
                 else r.right - 250) - r.x - 28
         name = row["label"] + (" ›" if kind == "person" else "")
         nm = text(fit(name, 22, room, "ExtraBold"), 22, WHITE, "ExtraBold")
@@ -1332,7 +1336,10 @@ def draw_settings(scr, data, now, W, H):
         y = r.centery - (nm.get_height() + sub.get_height()) // 2
         scr.blit(nm, (r.x + 16, y))
         scr.blit(sub, (r.x + 16, y + nm.get_height()))
-        if kind == "toggle":                          # a switch: gold and right when on
+        if kind == "group":                           # opens its own rows
+            ch = text("›", 34, gold, "ExtraBold")
+            scr.blit(ch, ch.get_rect(center=(r.right - 28, r.centery - 2)))
+        elif kind == "toggle":                        # a switch: gold and right when on
             sw = pygame.Rect(c.right - 74, c.centery - 17, 66, 34)
             scr.blit(rrect(sw.w, sw.h, 17, (255, 196, 110, 230) if val else (255, 255, 255, 50)), sw)
             knob = rrect(26, 26, 13, (255, 255, 255, 255))

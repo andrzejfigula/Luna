@@ -462,7 +462,7 @@ class RoutingTest(unittest.TestCase):
             (phone, "forget", lambda *a: self._mark("phone")),
             (phone, "_begin", lambda *a, **k: self._mark("phone") or True),
             (phone, "_read_out", lambda *a: self._mark("phone") or True),
-            (phone, "show_inbox", lambda *a: self._mark("phone")),
+            (phone, "show_inbox", lambda *a, **k: self._mark("phone")),
             (contacts, "save", lambda *a: self._mark("contact")),
             (contacts, "show", lambda *a, **k: self._mark("contact")),
             (contacts, "card", lambda n: {"phone": "600 100 200", "email": None, "address": None}),

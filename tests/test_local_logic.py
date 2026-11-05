@@ -9106,7 +9106,7 @@ class SettingsPageTest(unittest.TestCase):
             with mock.patch.object(self.sp, "cost_rows", return_value=[]):
                 rows = self.sp.rows(tab)
             for r in rows:
-                self.assertIn(r["kind"], ("toggle", "cycle", "info", "danger", "tile", "person"))
+                self.assertIn(r["kind"], ("toggle", "cycle", "info", "danger", "tile", "person", "group", "back"))
                 self.assertTrue(r["label"])
 
     def test_cost(self):
@@ -9320,6 +9320,9 @@ class DevicesTest(unittest.TestCase):
             self.skipTest("fcntl (the Pi)")
         sp._cache.clear()
         keys = [r.get("key") for t in range(len(sp.TABS) - 2) for r in sp.rows(t)]
+        self.addCleanup(sp._open_group)
+        sp._open_group("sound")
+        keys += [r.get("key") for r in sp.device_rows()]
         self.assertIn("brightness", [r.get("key") for r in sp.rows(sp.TABS.index("Ekran"))])
         self.assertNotIn("theme", [r.get("key") for r in sp.rows(sp.TABS.index("Ekran"))])
         for k in ("volume", "night_quiet", "brightness"):
@@ -13086,6 +13089,11 @@ def _sms(mid, who="Kasia Nowak", number="+48600100200", text="Kup mleko", read=F
             "Type": "sms-gsm", "Read": read, "Timestamp": stamp}
 
 
+def phone_link_error():
+    import phone_link
+    return phone_link.LinkError("Timed out")
+
+
 class PhoneFormatsTest(unittest.TestCase):
     """What goes over Bluetooth: bMessage, vCards, which services are allowed."""
 
@@ -13161,7 +13169,7 @@ class PhoneTest(unittest.TestCase):
         self.said = []
         self.q = mock.patch.multiple(
             phone, FILE=os.path.join(self.d, "phone.json"), _cfg=None, _status="on", _inbox=[], _book={},
-            _session=None, _next_poll=0.0, _fails=0, _first_poll=True, _want_book=False, _pair=None,
+            _session=None, _next_poll=0.0, _fails=0, _first_poll=True, _want_book=False, _book_fails=0, _book_next=0.0, _pair=None,
             _draft=None, _last_read=None, _link=self.link, _say_fn=self.said.append,
             _thread=threading.current_thread(), _jobs=queue.Queue())     # (jobs run when _drain says)
         self.q.start()
@@ -13794,12 +13802,114 @@ class PhoneTest(unittest.TestCase):
 
     def test_settings_rows(self):
         import phone
-        self.assertEqual([r["key"] for r in phone.settings_rows()], ["phone"])
+        self.assertEqual(phone.settings_row()["key"], "phone")
         self._ready()
-        self.assertEqual([r["key"] for r in phone.settings_rows()], ["phone", "phone_preview"])
-        self.assertIn("Pixel", phone.settings_rows()[0]["sub"])
+        self.assertEqual(phone.settings_row()["key"], "group:phone")
+        self.assertIn("Pixel", phone.settings_row()["sub"])
+        self.assertEqual([r["key"] for r in phone.settings_group()], ["phone", "phone_preview"])
         self.assertIsNone(phone.settings_tap())
         self.assertEqual(self._view()["view"], "inbox")
+
+    def test_devices_tab_opens_groups(self):
+        import phone
+        import settings_page as sp
+        import ui_screens
+        self._ready()
+        tab = sp.TABS.index("Urządzenia")
+        self.addCleanup(sp._open_group)
+        sp._open_group()
+        self.assertEqual([r["key"] for r in sp.device_rows()], ["group:sound", "group:senses", "group:phone"])
+        data = {"tab": tab}
+        with mock.patch.object(sp, "_page_data", return_value=data), \
+                mock.patch.object(ui_screens, "settings_hit", return_value=("row", 0)):
+            sp.tap(0, 0, 800, 480)
+            self.assertEqual([r["key"] for r in sp.rows(tab)], ["group:", "speaker", "volume", "night_quiet"])
+            sp.tap(0, 0, 800, 480)                           # the row on top: back
+            self.assertEqual(len(sp.rows(tab)), 3)
+            sp._open_group("phone")
+            self.assertEqual([r["key"] for r in sp.rows(tab)], ["group:", "phone", "phone_preview"])
+        with mock.patch.object(phone, "config", return_value=None):      # forgotten meanwhile
+            self.assertEqual(sp.device_rows()[2]["key"], "phone")
+
+    def test_the_real_list_shape(self):
+        import phone_link
+        with mock.patch.object(phone_link, "_py", lambda v: v):
+            rows = phone_link._listed({"/s/message7": {"Subject": "x", "Read": True}, "/s/message9": {"Read": False}})
+            self.assertEqual(phone_link._listed([("/s/message1", {"Read": False})])[0]["path"], "/s/message1")
+        self.assertEqual([r["path"] for r in rows], ["/s/message7", "/s/message9"])
+        self.assertEqual(rows[0]["Subject"], "x")
+
+    def test_a_bug_in_the_poll_cant_spin_or_stay_connecting(self):
+        import phone
+        self._paired()
+        now = time.time()
+        with mock.patch.object(self.link, "list_messages", side_effect=ValueError("x")):
+            phone._poll(now)
+        self.assertEqual(phone.status(), "off")
+        self.assertGreater(phone._next_poll, now + 10)
+
+    def test_something_else_at_who_goes_on(self):
+        import phone
+        self._ready()
+        for sentence in ("pokaż dziesięć ostatnich SMS-ów", "pokaż SMS-y od Emilki", "pokaż wszystkie SMS-y"):
+            self._say("wyślij SMS")
+            self.assertTrue(phone.draft())
+            self.said.clear()
+            self.assertFalse(phone.answer(sentence, self.said.append))
+            self.assertIsNone(phone.draft())
+            self.assertEqual(self.said, [])
+            self.assertTrue(phone.command(sentence, self.said.append), sentence)
+        self._say("wyślij SMS")
+        self.said.clear()
+        self.assertFalse(phone.answer("jaka jest pogoda", self.said.append))
+        self.assertEqual(self.said, ["Nie wysyłam tego SMS-a."])
+
+    def test_show_phrasings_and_a_sender(self):
+        import phone
+        self._ready()
+        self._poll(_sms("1", "Kasia Nowak", "600100200", "A"), _sms("2", "Tomek", "602000222", "B"))
+        for sentence in ("pokaż SMS-y z telefonu", "pokaż dziesięć ostatnich SMS-ów", "pokaż mi ostatnie dwa SMS-y"):
+            self.said.clear()
+            self.assertTrue(phone.command(sentence, self.said.append), sentence)
+            self.assertIsNone(self._view().get("only"))
+        self.assertTrue(phone.command("pokaż SMS-y od Tomka", self.said.append))
+        self.assertEqual(self._view()["only"], ["Tomek"])
+        self.assertEqual([m["who"] for m in phone.page_of(self._view())[0]], ["Tomek"])
+        self.said.clear()
+        self.assertTrue(phone.command("pokaż SMS-y od Zenka", self.said.append))
+        self.assertIn("Zenka", self.said[0])
+
+    def test_an_empty_list_doesnt_claim_any(self):
+        import phone
+        self._ready()
+        self.said.clear()
+        self.assertTrue(phone.command("pokaż SMS-y", self.said.append))
+        self.assertEqual(self.said, ["Nie ma żadnych SMS-ów."])
+
+    def test_the_book_is_tried_again_far_apart(self):
+        import phone
+        self._paired()
+        now = time.time()
+        with mock.patch.object(self.link, "pull_book", side_effect=phone_link_error()) as pull:
+            phone._poll(now)
+            phone._poll(now + 30)
+            self.assertEqual(pull.call_count, 1)
+            self.assertEqual(phone.status(), "on")                # the list is fine without it
+            phone._poll(now + phone.BOOK_RETRY_SECS + 1)
+            phone._poll(now + 2 * phone.BOOK_RETRY_SECS + 2)
+            phone._poll(now + 3 * phone.BOOK_RETRY_SECS + 3)
+            self.assertEqual(pull.call_count, phone.BOOK_TRIES)
+        self.assertFalse(phone._want_book)
+
+    def test_names_arrive_with_the_book(self):
+        import phone
+        self._ready()
+        self._poll(_sms("1", "", "609000111", "A"))
+        self.assertNotEqual(phone.inbox()[0]["who"], "Kasia")
+        with phone._lock:
+            phone._book["Kasia"] = "609000111"
+        self._poll(_sms("1", "", "609000111", "A"))
+        self.assertEqual(phone.inbox()[0]["who"], "Kasia")
         self._here("Ola")
         self.assertEqual(phone.settings_tap(), "Poproś dorosłego")
 

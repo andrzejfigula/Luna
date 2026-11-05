@@ -375,7 +375,7 @@ def _create(addr, target):
             _reload_user_units()
         if e.get_dbus_name() in _NOT_THERE:
             raise NoObex(e.get_dbus_name())
-        raise LinkError(e.get_dbus_name())
+        raise LinkError(f"{e.get_dbus_name()}: {str(e.get_dbus_message())[:80]}")
 
 
 def close(session):
@@ -419,6 +419,12 @@ def open_map(addr):
     return session
 
 
+def _listed(rows):
+    """ListMessages' a{oa{sv}}: path -> properties, into a row per message."""
+    pairs = rows.items() if hasattr(rows, "items") else rows
+    return [dict(_props(p), path=str(path)) for path, p in pairs]
+
+
 def list_messages(session, count=40):
     """The inbox, as obexd gives it: [{"path", "Subject", "Timestamp", "Sender",
     "SenderAddress", "Type", "Read", …}]. Reading the list marks nothing as read."""
@@ -429,7 +435,7 @@ def list_messages(session, count=40):
                                      signature="sv"), timeout=25)
     except dbus.DBusException as e:
         raise LinkError(e.get_dbus_name())
-    return [dict(_props(p), path=str(path)) for path, p in rows]
+    return _listed(rows)
 
 
 def get_body(path):

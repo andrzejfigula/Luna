@@ -127,9 +127,13 @@ def status():
 
 def _unavailable():
     """Why nothing can be read or sent right now (what to say), or None."""
+    global _next_poll
     if not config():
         return _NONE
-    return {"no_obex": _NO_OBEX, "no_dbus": _NO_DBUS, "off": _AWAY}.get(status())
+    said = {"no_obex": _NO_OBEX, "no_dbus": _NO_DBUS, "off": _AWAY}.get(status())
+    if said == _AWAY:       # someone's asking (perhaps they've just tapped Allow): try now
+        _next_poll = 0.0
+    return said
 
 
 # ── the worker: everything that touches Bluetooth ─────────────────────
@@ -185,46 +189,66 @@ def _drop_session():
     _session = None
 
 
+def _lost(now):
+    global _status, _next_poll, _fails
+    _drop_session()
+    _fails += 1
+    _status = "off"
+    _next_poll = now + min(RETRY_SECS * _fails, RETRY_MAX)
+
+
 def _poll(now):
-    global _status, _session, _next_poll, _fails, _first_poll, _want_book
+    global _status, _session, _next_poll, _fails, _first_poll, _want_book, _book_fails, _book_next
     cfg = config()
+    _next_poll = now + POLL_SECS        # (whatever happens below, never a tight loop)
     try:
         if not _session:
             if _status != "on":
                 _status = "connecting"
             _session = _link.open_map(cfg["addr"])
-            _want_book = True
+            _want_book, _book_fails, _book_next = True, 0, 0.0
             print("[phone] connected", flush=True)
         rows = _link.list_messages(_session)
+        if _status != "on":
+            print(f"[phone] {len(rows)} messages on the list", flush=True)
         _status, _fails = "on", 0
-        _next_poll = now + POLL_SECS
         _merge(rows, now)
-        if _want_book:
+        if _want_book and now >= _book_next:
             _want_book = False
-            _load_book(cfg["addr"])
+            if _load_book(cfg["addr"], now):
+                _merge(rows, now)       # (names from the book)
     except phone_link.NoObex:      # (no Bluetooth involved, so soon: he may have just installed it)
         _status, _next_poll = "no_obex", now + POLL_SECS
     except phone_link.NoDbus:
         _status, _next_poll = "no_dbus", now + RETRY_MAX
     except phone_link.LinkError as e:
-        if _status == "on":
-            print(f"[phone] lost: {e}", flush=True)
-        _drop_session()
-        _fails += 1
-        _status = "off"
-        _next_poll = now + min(RETRY_SECS * _fails, RETRY_MAX)
+        print(f"[phone] no link: {e}", flush=True)     # (error names only, no message text)
+        _lost(now)
+    except Exception as e:              # a bug: the name and line, a message's text may be in `e`
+        line = e.__traceback__.tb_next.tb_lineno if e.__traceback__.tb_next else 0
+        print(f"[phone] poll failed: {type(e).__name__} (line {line})", flush=True)
+        _lost(now)
 
 
-def _load_book(addr):
-    global _book
+_book_fails, _book_next = 0, 0.0
+BOOK_TRIES, BOOK_RETRY_SECS = 3, 600     # (the phone may be waiting for an Allow: not every poll)
+
+
+def _load_book(addr, now=None):
+    """True once the book is in; if not, it's tried again a few times, far apart."""
+    global _book, _book_fails, _book_next, _want_book
     try:
         people = _link.pull_book(addr)
     except (phone_link.LinkError, phone_link.NoObex) as e:
         print(f"[phone] no address book: {e}", flush=True)
-        return
+        _book_fails += 1
+        if _book_fails < BOOK_TRIES:
+            _want_book, _book_next = True, (now or time.time()) + BOOK_RETRY_SECS
+        return False
     with _lock:
         _book = dict(people)
     print(f"[phone] address book: {len(people)} entries", flush=True)
+    return True
 
 
 def _key(number):
@@ -283,7 +307,8 @@ def _merge(rows, now):
             old = known.get(mid)
             subject = _tidy(r.get("Subject"))
             if old:
-                old.update(path=r["path"], read=old["read"] or bool(r.get("Read")))
+                old.update(path=r["path"], read=old["read"] or bool(r.get("Read")),
+                           who=_tidy(_name_of(old["number"], r.get("Sender"))))
                 fresh.append(old)
                 continue
             number = str(r.get("SenderAddress") or "")
@@ -748,6 +773,19 @@ _HINT = re.compile(r"^(?:nie wiem|pomóż|pomocy|co mam powiedzieć|jak to)", re
 _NAME = re.compile(r"^luna[,\s]+", re.I)      # (a "hej" in an SMS stays)
 
 
+_ASKS = re.compile(r"^(?:pokaż|wyświetl|otwórz|przeczytaj|odczytaj|czytaj|wyślij|napisz|odpisz|włącz|wyłącz|"
+                   r"puść|zamknij|ile|czy|co|jak|jaka|jaki|jakie|kiedy|gdzie|która|który|dlaczego|"
+                   r"sparuj|odłącz)\b", re.I)
+
+
+def _not_a_name(t):
+    """At "Do kogo?": a sentence that's plainly something else, and nobody she knows."""
+    spoken = re.sub(r"^do\s+", "", t, flags=re.I)
+    if _spoken_number(t) or find_people(spoken):
+        return False
+    return len(spoken.split()) > 4 or bool(_ASKS.match(t)) or bool(_SMS_IN.search(t))
+
+
 def answer(text, speak):
     """A sentence while she waits. True if it was for her; False: it goes on, and an
     unsent draft is dropped (a later "tak" must not send it)."""
@@ -781,9 +819,10 @@ def answer(text, speak):
             _touch(d)
             speak(_HINT_WHO)
             return True
-        if len(t.split()) > 6 and not _spoken_number(t):       # not a name: something else
+        if _not_a_name(t):
             _drop_draft()
-            speak("Nie wysyłam tego SMS-a.")
+            if not _SMS_IN.search(t):                          # (about SMS: its answer says enough)
+                speak("Nie wysyłam tego SMS-a.")
             return False
         if _set_who(d, re.sub(r"^do\s+", "", t, flags=re.I), speak):
             _ask_next(speak)
@@ -851,9 +890,33 @@ def _show_message(m):
     screens._show("phone", PAGE_SECS, {"view": "read", "id": m["id"], "edit": None, "toast": None})
 
 
-def show_inbox(page=0):
+def show_inbox(page=0, only=None):
+    """The list; `only`: the names whose messages it shows."""
     import screens
-    screens._show("phone", PAGE_SECS, {"view": "inbox", "page": page, "edit": None, "toast": None})
+    screens._show("phone", PAGE_SECS, {"view": "inbox", "page": page, "only": only, "edit": None, "toast": None})
+
+
+def _show_list(sender, speak):
+    """"pokaż SMS-y [od Kasi]": the page, and in a few words what's on it."""
+    msgs = inbox()
+    said = _denied() or (None if msgs else _unavailable())
+    if said:
+        speak(said)
+        return
+    only = None
+    if sender:
+        only = sorted({n for n, _ in _who_wrote(sender)})
+        if not only:
+            speak(f"Nie mam SMS-a od: {sender}.")
+            return
+    show_inbox(only=only)
+    n = sum(1 for m in msgs if not m["read"])
+    if not msgs:
+        speak("Jeszcze łączę się z telefonem." if status() == "connecting" else "Nie ma żadnych SMS-ów.")
+    elif only:
+        speak(f"SMS-y od: {only[0]}.")
+    else:
+        speak(f"Nowe: {n}." if n else "Nie ma nowych SMS-ów. Oto ostatnie.")
 
 
 def _sms_word(n):
@@ -920,7 +983,9 @@ _STATE = re.compile(r"^(?:czy\s+)?(?:(?:masz|mamy)\s+)?(?:(?:jest\s+)?telefon\s+
                     r"masz\s+połączenie\s+z\s+telefonem|stan\s+telefonu)$", re.I)
 _MANY = r"(?:\s+(?:moje|mojego|nowe|nowego|nowy|nowych|ostatnie|ostatni|ostatniego|wszystkie|jakieś|jakiś|jakiegoś|nieprzeczytane|nieprzeczytanych))*"
 _LIST_WORD = rf"(?:{_SMS}|wiadomości\s+z\s+telefonu)"
-_SHOW = re.compile(rf"^(?:pokaż|wyświetl|otwórz)(?:\s+mi)?{_MANY}\s+{_LIST_WORD}$", re.I)
+_HOW_MANY = r"(?:\s+(?:\d+|dwa|dwie|trzy|cztery|pięć|sześć|siedem|osiem|dziewięć|dziesięć|kilka|parę|ostatnich|wszystkich))*"
+_SHOW = re.compile(rf"^(?:pokaż|wyświetl|otwórz)(?:\s+mi)?{_HOW_MANY}{_MANY}{_HOW_MANY}\s+{_LIST_WORD}"
+                   r"(?:\s+(?:z\s+telefonu|z\s+komórki|na\s+ekranie))*(?:\s+od\s+(?P<who>.+))?$", re.I)
 _READ = re.compile(rf"^(?:przeczytaj|odczytaj|czytaj)(?:\s+mi)?(?P<many>{_MANY})\s+{_LIST_WORD}"
                    r"(?:\s+od\s+(?P<who>.+))?$", re.I)
 _COUNT = re.compile(rf"^(?:czy\s+)?(?:(?:mam|są|jest|przyszedł|przyszły|przyszło|dostałem|dostałam)"
@@ -997,14 +1062,9 @@ def command(text, speak):
     sent = _parse_send(t)
     if sent:
         return _begin(sent[0], sent[1], speak)
-    if _SHOW.match(t):
-        said = _denied() or (None if inbox() else _unavailable())
-        if said:
-            speak(said)
-        else:
-            show_inbox()
-            n = sum(1 for m in inbox() if not m["read"])
-            speak(f"Nowe: {n}." if n else "Nie ma nowych SMS-ów. Oto ostatnie.")
+    m = _SHOW.match(t)
+    if m:
+        _show_list(m["who"], speak)
         return True
     m = _READ.match(t)
     if m:
@@ -1092,6 +1152,8 @@ def buttons(view, W, H, data=None):
 def page_of(data):
     """(this page's messages, page number, how many pages)."""
     msgs = inbox()
+    if data.get("only"):
+        msgs = [m for m in msgs if m["who"] in data["only"]]
     pages = max(1, -(-len(msgs) // PAGE_ROWS))
     page = min(data.get("page", 0), pages - 1)
     return msgs[page * PAGE_ROWS:(page + 1) * PAGE_ROWS], page, pages
@@ -1250,16 +1312,25 @@ def on_close():
 
 # ── the settings page ─────────────────────────────────────────────────
 
-def settings_rows():
-    """Her row(s) on Ustawienia → Urządzenia."""
+def _state_word():
+    return {"on": "połączony", "connecting": "łączy się…", "no_obex": "brakuje pakietu bluez-obexd",
+            "no_dbus": "brakuje python3-dbus"}.get(status(), "poza zasięgiem")
+
+
+def settings_row():
+    """Her row on Ustawienia → Urządzenia: pairing, or her group."""
     cfg = config()
     if not cfg:
-        return [{"key": "phone", "kind": "cycle", "label": "Telefon",
-                 "sub": "SMS-y z telefonu przez Bluetooth", "value": "Sparuj"}]
-    sub = {"on": "połączony", "connecting": "łączy się…", "no_obex": "brakuje pakietu bluez-obexd",
-           "no_dbus": "brakuje python3-dbus"}.get(status(), "poza zasięgiem")
-    return [{"key": "phone", "kind": "cycle", "label": "Telefon", "sub": f"{cfg['name']} — {sub}",
-             "value": "SMS-y"},
+        return {"key": "phone", "kind": "cycle", "label": "Telefon",
+                "sub": "SMS-y z telefonu przez Bluetooth", "value": "Sparuj"}
+    return {"key": "group:phone", "kind": "group", "label": "Telefon",
+            "sub": f"{cfg['name']} — {_state_word()}", "value": ""}
+
+
+def settings_group():
+    """The group's rows, once a phone is paired."""
+    return [{"key": "phone", "kind": "cycle", "label": "SMS-y", "sub": f"{config()['name']} — {_state_word()}",
+             "value": "Otwórz"},
             {"key": "phone_preview", "kind": "toggle", "label": "Podgląd SMS-ów",
              "sub": "nowy SMS: od kogo i początek treści",
              "value": settings.get("phone_preview", True) is not False}]
