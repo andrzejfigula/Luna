@@ -31,7 +31,7 @@ import contacts
 import phone_link
 import settings
 from config import DATA_DIR
-from shared_state import state
+from shared_state import keep_private, state
 
 FILE = os.path.join(DATA_DIR, "phone.json")
 PAGE_SECS = 60                # untouched this long, a page closes
@@ -755,8 +755,9 @@ def _ask_next(speak):
         speak(f"Co mam napisać? Do: {d['to']}.")
     else:
         d["step"] = "confirm"
+        keep_private(d["text"])
         _show_confirm()
-        speak(f"SMS do: {d['to']}. {d['text']}. Wysłać?")
+        speak(_read_back(d))
 
 
 def _set_who(d, spoken, speak):
@@ -777,6 +778,11 @@ def _set_who(d, spoken, speak):
     else:
         speak(f"Nie mam numeru: {spoken}. Podaj inne imię albo numer.")
     return False
+
+
+def _read_back(d):
+    text = d["text"].rstrip(" .")
+    return f"SMS do: {d['to']}. {text}{'' if text[-1:] in ('!', '?', '…') else '.'} Wysłać?"
 
 
 def _begin(who, text, speak, reply_to=None):
@@ -819,7 +825,7 @@ def _send(d, done):
 
 _CANCEL = re.compile(r"^(?:anuluj|stop|nieważne|rezygnuję|zostaw|nic|daj spokój|nie wysyłaj|"
                      r"nie trzeba|nie chcę)(?: to| tego)?$", re.I)
-_YES = re.compile(r"^(?:tak|tak tak|wyślij|wysyłaj|ok|okej|dobrze|zgadza się|potwierdzam|jasne|"
+_YES = re.compile(r"^(?:tak|tak tak|wyślij|wysyłaj|ok|okej|dobrze|dobra|zgadza się|potwierdzam|jasne|"
                   r"pewnie|dawaj)(?: (?:wyślij|wysyłaj|proszę|tak|to))*$", re.I)
 _NO = re.compile(r"^nie(?: nie| wysyłaj| trzeba| chcę)*$", re.I)
 _REPEAT = re.compile(r"^(?:powtórz|jeszcze raz|co\??$|słucham|nie słyszałem|nie słyszałam|przeczytaj)", re.I)
@@ -844,6 +850,7 @@ def _not_a_name(t):
 def answer(text, speak):
     """A sentence while she waits. True if it was for her; False: it goes on, and an
     unsent draft is dropped (a later "tak" must not send it)."""
+    global _write_for
     t = _clean(text)
     with _lock:
         code = bool(_pair and _pair.get("answer"))
@@ -894,16 +901,21 @@ def answer(text, speak):
             _touch(d)
             speak(_HINT_BODY)
             return True
+        if _WRITE_IT.match(t):
+            _write_for = d["to"]
+            _drop_draft()
+            return False
         d["text"] = _tidy(_NAME.sub("", text.strip()))[:BODY_MAX]
         _ask_next(speak)
         return True
-    # confirm
-    if _NO.match(t) or _CANCEL.match(t):
+    # confirm ("Dobra, wyślij"; "What? Nie.": the noise before a short no)
+    plain = " ".join(t.replace(",", " ").split())
+    if _NO.match(plain) or _CANCEL.match(plain) or (len(plain.split()) <= 3 and re.search(r"(?:^|[\s?!.])nie$", plain, re.I)):
         _drop_draft()
         _close_page()
         speak("Dobrze, nie wysyłam.")
         return True
-    if _YES.match(t):
+    if _YES.match(plain):
         if _denied():
             _drop_draft()
             _close_page()
@@ -918,7 +930,7 @@ def answer(text, speak):
         return True
     if _REPEAT.match(t):
         _touch(d)
-        speak(f"SMS do: {d['to']}. {d['text']}. Wysłać?")
+        speak(_read_back(d))
         return True
     if _HINT.match(t):
         _touch(d)
@@ -934,8 +946,12 @@ def answer(text, speak):
 
 def _say_one(m, speak):
     body = _whole_text(m)
-    if len(body) > SAY_MAX:
-        body = body[:SAY_MAX].rsplit(" ", 1)[0] + ". Reszta jest na ekranie"
+    cut = len(body) > SAY_MAX
+    if cut:
+        body = body[:SAY_MAX].rsplit(" ", 1)[0]
+    keep_private(body)
+    if cut:
+        body += ". Reszta jest na ekranie"
     speak(f"{m['who']} pisze: {body or 'pusta wiadomość, może zdjęcie'}.")
     _seen(m)
 
@@ -1074,6 +1090,43 @@ def _split_who(left):
     return left, ""
 
 
+_write_for = None             # the model is to write the SMS for them (asked at "Co mam napisać?")
+_NICE = r"(?:fajn|mił[aeyą]|ładn|zabawn|śmieszn|ciekaw|kreatywn|sympatyczn|wesoł)\w*"
+_DESCRIBED = re.compile(rf"\b(?:jakie\w+|jakiś|jakąś|coś|{_NICE})\b", re.I)
+_WRITE_IT = re.compile(rf"^(?:(?:ty|sama)\s+)?(?:napisz|wymyśl|ułóż)(?:\s+sama)?"
+                       rf"(?:\s+coś(?:\s+{_NICE}|\s+od\s+siebie)?)?(?:\s+sama)?$|^coś\s+(?:{_NICE}|od\s+siebie)$", re.I)
+_FROM_MODEL = re.compile(r"^wyślij\s+sms(?:\s+do\s+(?P<who>[^:]+?))?\s*(?::\s*(?P<body>.*))?$", re.I | re.S)
+
+
+def model_line():
+    """For her prompt: with a phone here she can send, and the model writes the text."""
+    global _write_for
+    try:
+        if not config() or _denied():
+            return ""
+    except Exception as e:
+        print(f"[phone] no line for the model: {e!r}", flush=True)
+        return ""
+    to, _write_for = _write_for, None
+    return ("A phone is connected, so you CAN send SMS; never say you can't. When they ask you to "
+            "write or send one and you know who to: write the text yourself unless they dictated it, "
+            "and add an action of type \"command\" with the label \"wyślij SMS do <imię>: <treść>\". "
+            "Then \"reply\" is only a few words such as \"Już piszę.\": not the text, and no question "
+            "whether to send, because the app reads it out and asks, and nothing goes without their yes. "
+            "\"Wyślij\" about a text you wrote earlier is the same action with that text. Sign it only "
+            "if they ask. Who to not known: ask in \"reply\", no action.\n"
+            + (f"They have just asked you to write the SMS to {to} yourself: do it now.\n" if to else ""))
+
+
+def from_model(label):
+    """The model's "wyślij SMS do Maja: treść": a draft, read out; sent only after a yes."""
+    m = _FROM_MODEL.match(label.strip())
+    who, body = (m["who"], m["body"] or "") if m else (None, "")
+    print(f"[phone] the model wrote an SMS ({len(body)} characters)", flush=True)
+    _begin(who, body, _say)
+    return True
+
+
 def claims_first(text):
     """"wiadomości SMS": before news and voice messages, which go by "wiadomości" alone."""
     return bool(re.search(rf"\b{_FROM_PHONE}\b", text, re.I))
@@ -1089,10 +1142,14 @@ def _parse_send(t):
     after = m["rest"][hit.end():].strip()
     while _FILL.match(before):
         before = _FILL.sub("", before)
+    if _DESCRIBED.search(before):                 # "napisz do Mai jakiegoś fajnego SMS-a": the model writes it
+        return None
     body = ""
     mark = _MARK.search(after)
     if mark:
         after, body = after[:mark.start()].strip(), after[mark.end():].strip()
+        if _WRITE_IT.match(body):
+            return None
     if before and after:                          # "napisz Kasi SMS będę później"
         body, after = (after + " " + body).strip() if body else after, ""
     who = re.sub(r"^(?:do|na\s+numer|na)\s+", "", before or after, flags=re.I).strip()

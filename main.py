@@ -87,7 +87,7 @@ import activation
 from speech_to_text import listen, WAKE_ACK
 from text_to_speech import speak, play_sound
 from brain import process, note_local
-from shared_state import close_after, state
+from shared_state import close_after, redact, state
 from config import (WAKE_REPLIES, ECHO_GUARD_WINDOW,
                     ECHO_RUN_THRESH, ECHO_OVERLAP_THRESH,
                     WAKE_SOUND_CHANCE, FOLLOWUP_NEEDS_NAME)
@@ -116,7 +116,7 @@ def _stamp_activity():
 def _logged(said):
     """speak() that also remembers what was said (for note_local)."""
     def say(text, **kw):
-        said.append(text)
+        said.append(redact(text))
         return speak(text, **kw)
     return say
 
@@ -231,7 +231,7 @@ def voice_loop():
                         with state.lock:
                             state.emotion = "Neutral"
                         if handled != "recorded":
-                            note_local(text, said)   # the model learns what happened
+                            note_local(redact(text), said)   # the model learns what happened
                         if isinstance(handled, tuple) and handled[0] == "ask":
                             process(handled[1])      # e.g. the weather question, now answerable
                     elif _stt_flag("local_only"):

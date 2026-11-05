@@ -1,4 +1,5 @@
 """shared_state.py — `state`, what the threads know of each other (under state.lock)."""
+import re
 from threading import Lock, RLock
 import time
 
@@ -194,3 +195,24 @@ def close_after():
     question (19 Oct: "wyłącz lampkę", then "Luterko" was answered)."""
     with state.lock:
         state.close_after = True
+
+
+_private = []                 # [(text, until)]: what's being said that isn't for the log
+PRIVATE_SECS = 300
+
+
+def keep_private(text):
+    """This text is about to be said: out of the log and the model's history."""
+    text = (text or "").strip(" .!?…\n")
+    now = time.time()
+    _private[:] = [p for p in _private if p[1] > now]
+    if text:
+        _private.append((text, now + PRIVATE_SECS))
+
+
+def redact(text):
+    now = time.time()
+    for private, until in list(_private):
+        if until > now:
+            text = re.sub(rf"(?<!\w){re.escape(private)}(?!\w)", lambda m: "(treść SMS-a)", text, flags=re.I)
+    return text

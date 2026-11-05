@@ -1759,6 +1759,7 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                   + not_them_line(text, person)
                   + _age_line(text)
                   + _whatsnew_line(text)
+                  + (_phone_line() if not translator() else "")
                   + ((homework.verdict_line(text) or homework.answer_line(text, last_reply()))
                      if _child_near(person) else "")
                   + _reply_language_line(text)
@@ -2545,6 +2546,11 @@ def _spoken_command(label, kind):
     threading.Thread(target=run, daemon=True, name="command").start()
 
 
+def _phone_line():
+    import phone
+    return phone.model_line()
+
+
 def command_allowed(label):
     """A silent switch from her prompt's command list. (Until 23 Oct the radio
     kinds, the stations page, the favourites and the lamp scenes were listed
@@ -2566,6 +2572,9 @@ def run_command(label, reply=""):
     through the local command handler (which the model can't reach) —
     whitelisted, silent (the model's reply already confirms it). A game
     from _GAME_OK speaks for itself."""
+    if re.match(r"\s*wyślij\s+sms\b", label, re.I):
+        import phone                       # (as written: the text stays out of the log)
+        return phone.from_model(label)
     label = label.strip().rstrip(".!")
     # the choices copied from the capability text ("zamień się w kotka / pieska
     # / zajączka", 11 Oct — refused) — the first one

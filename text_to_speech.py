@@ -24,7 +24,7 @@ import sounds
 import themes
 import activation
 
-from shared_state import state
+from shared_state import redact, state
 from config import (
     TTS_RATE,
     TTS_EMOTION_STYLE,
@@ -217,11 +217,12 @@ def speak(text, can_drop=False, as_is=False):
     """
     if not text:
         return
+    shown = redact(text)
     if not as_is and themes.male():
         text = polish.masculinize(text)       # her lines are written feminine
 
     def run(style):
-        print(f"[Luna] {text}")
+        print(f"[Luna] {shown}")
         _caption(text)
         _engine_speak(text, style)
         _last_answer[0] = text
@@ -341,7 +342,7 @@ def replay_last():
     def run(style):
         ok[0] = tts.replay_last(on_audio_start=_on_audio_start)
         if ok[0]:
-            print(f"[Luna] (again) {_last_answer[0]}")
+            print(f"[Luna] (again) {redact(_last_answer[0])}")
 
     _speaking(run, lambda: _last_answer[0], False)
     return ok[0]
