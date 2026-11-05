@@ -51,6 +51,8 @@ screens._take_photo = lambda *a: None
 
 MODEL = object()
 CASES = [
+    ("Wyślij SMS do Kasi, że będę później", "Nie mam sparowanego telefonu"),   # (scratch data: no phone)
+    ("Przeczytaj nowe SMS-y", "Nie mam sparowanego telefonu"),
     ("Przypomnij mi za 20 minut o praniu", "przypomnę za 20 minut"),
     ("Minutnik na 8 minut do jajek", "8 minut — do jajek"),
     ("Ile zostało na minutniku?", "Minutniki"),

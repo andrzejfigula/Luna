@@ -2,6 +2,8 @@
 
 import datetime
 import json
+import queue
+import threading
 import os
 import sys
 import shutil
@@ -13013,6 +13015,767 @@ class ContactsTest(unittest.TestCase):
         self.assertIsNone(birthdays._who("urodziny 12 maja", "urodziny 12 maja"))
         self._open("Maja")
         self.assertEqual(birthdays._who("urodziny 12 maja", "urodziny 12 maja"), "Maja")
+
+
+class _FakeLink:
+    """phone_link without Bluetooth: an inbox, and a record of what was asked."""
+
+    def __init__(self):
+        self.rows, self.bodies, self.pushed, self.read, self.forgotten = [], {}, [], [], []
+        self.people = [("Kasia Nowak", "+48 600 100 200"), ("Kasia Lis", "601 000 111"),
+                       ("Tomek", "602 000 222")]
+        self.paired = {"00:02:3C:CC:26:B7": {"name": "Pebble", "paired": True}}
+        self.fail = None
+        self.window, self.agent = None, None
+        self.confirm = None
+
+    def _check(self):
+        if self.fail:
+            raise self.fail
+
+    def register_agent(self, confirm, cancel, is_phone):
+        self.agent, self.confirm = "on", confirm
+
+    def unregister_agent(self):
+        self.agent = None
+
+    def devices(self):
+        return dict(self.paired)
+
+    def open_window(self, secs):
+        self.window = secs
+
+    def close_window(self):
+        self.window = None
+
+    def forget(self, addr):
+        self.forgotten.append(addr)
+
+    def close(self, session):
+        pass
+
+    def open_map(self, addr):
+        self._check()
+        return "/session"
+
+    def list_messages(self, session):
+        self._check()
+        return [dict(r) for r in self.rows]
+
+    def get_body(self, path):
+        self._check()
+        return self.bodies[path]
+
+    def mark_read(self, path):
+        self.read.append(path)
+
+    def push_message(self, session, bmsg):
+        self._check()
+        self.pushed.append(bmsg)
+
+    def pull_book(self, addr):
+        return list(self.people)
+
+
+def _sms(mid, who="Kasia Nowak", number="+48600100200", text="Kup mleko", read=False, stamp="20261105T120000"):
+    return {"path": f"/session/message{mid}", "Subject": text, "Sender": who, "SenderAddress": number,
+            "Type": "sms-gsm", "Read": read, "Timestamp": stamp}
+
+
+class PhoneFormatsTest(unittest.TestCase):
+    """What goes over Bluetooth: bMessage, vCards, which services are allowed."""
+
+    def test_bmessage(self):
+        import phone_link as L
+        raw = L.bmessage("+48 600-100-200", "Będę o piątej")
+        self.assertIn("TEL:+48600100200\r\n", raw)
+        self.assertIn("FOLDER:telecom/msg/OUTBOX\r\n", raw)
+        block = "BEGIN:MSG\r\nBędę o piątej\r\nEND:MSG\r\n"
+        self.assertIn(f"LENGTH:{len(block.encode('utf-8'))}\r\n", raw)     # bytes, not characters
+        self.assertTrue(raw.startswith("BEGIN:BMSG\r\n") and raw.endswith("END:BMSG\r\n"))
+        self.assertNotIn("\n\n", raw)
+        self.assertEqual(L.bmessage_body(raw), "Będę o piątej")
+
+    def test_a_long_sms_comes_in_parts(self):
+        import phone_link as L
+        self.assertEqual(L.bmessage_body("x\r\nBEGIN:MSG\r\nraz \r\nEND:MSG\r\nBEGIN:MSG\r\ndwa\r\nEND:MSG\r\n"),
+                         "raz dwa")
+        self.assertEqual(L.bmessage_body("nic tu nie ma"), "")
+
+    def test_address_book(self):
+        import phone_link as L
+        raw = ("BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Kasia\r\nTEL;TYPE=HOME:22 111\r\nTEL;TYPE=CELL:600100200\r\nEND:VCARD\r\n"
+               "BEGIN:VCARD\r\nFN;CHARSET=UTF-8;ENCODING=QUOTED-PRINTABLE:=C5=81ukasz\r\nTEL:601\r\nEND:VCARD\r\n"
+               "BEGIN:VCARD\r\nFN:Bez numeru\r\nEND:VCARD\r\n")
+        self.assertEqual(L.parse_vcards(raw), [("Kasia", "600100200"), ("Łukasz", "601")])
+
+    def test_the_phone_gets_no_audio(self):
+        import phone_link as L
+        a2dp, hfp = "0000110a-0000-1000-8000-00805f9b34fb", "0000111e-0000-1000-8000-00805f9b34fb"
+        self.assertTrue(L.service_allowed(L.MNS_UUID, True, True))
+        self.assertFalse(L.service_allowed(a2dp, True, True))
+        self.assertFalse(L.service_allowed(hfp, True, True))
+        self.assertTrue(L.service_allowed(a2dp, False, True))      # her speaker
+        self.assertFalse(L.service_allowed(a2dp, False, False))    # a stranger
+
+
+class PhoneTest(unittest.TestCase):
+    """SMS over Bluetooth: who may, the voice, the page. Nothing is sent without a yes."""
+
+    W, H = 800, 480
+
+    def setUp(self):
+        import faces
+        import phone
+        import screens
+        self.d = tempfile.mkdtemp(prefix="luna-phone-")
+        self.p = mock.patch.multiple(faces, PEOPLE_PATH=os.path.join(self.d, "people.json"),
+                                     FORGOTTEN_PATH=os.path.join(self.d, "forgotten.json"),
+                                     PORTRAITS=os.path.join(self.d, "faces"),
+                                     SEEN_PATH=os.path.join(self.d, "seen.json"),
+                                     _people=None, _seen={})
+        self.p.start()
+        faces._mtime[0] = None
+        with open(faces.PEOPLE_PATH, "w", encoding="utf-8") as f:
+            json.dump({"Andrzej": {"samples": [[1.0, 0.0, 0.0, 0.0]], "note": "tata Mai"},
+                       "Maja": {"samples": [[0.0, 1.0, 0.0, 0.0]], "note": "córka, 8 lat — dziecko"},
+                       "Ola": {"samples": [[0.0, 0.0, 1.0, 0.0]], "family": False}}, f)
+        with state.lock:
+            self.old = (state.person, state.face_detected, state.overlay, state.phone_unread)
+            self.quiet = (state.focus_until, state.proactive_muted_until, state.sleep_mode,
+                          state.speaking, state.conversation_active)
+            state.overlay = None
+            state.focus_until = state.proactive_muted_until = 0.0
+            state.sleep_mode = state.speaking = state.conversation_active = False
+
+        def shown(kind, secs, data=None):
+            with state.lock:
+                state.overlay = (kind, time.time() + secs, data)
+        self.show = mock.patch.object(screens, "_show", shown)
+        self.show.start()
+        self.link = _FakeLink()
+        self.said = []
+        self.q = mock.patch.multiple(
+            phone, FILE=os.path.join(self.d, "phone.json"), _cfg=None, _status="on", _inbox=[], _book={},
+            _session=None, _next_poll=0.0, _fails=0, _first_poll=True, _want_book=False, _pair=None,
+            _draft=None, _last_read=None, _link=self.link, _say_fn=self.said.append,
+            _thread=threading.current_thread(), _jobs=queue.Queue())     # (jobs run when _drain says)
+        self.q.start()
+        self._here("Andrzej")
+
+    def tearDown(self):
+        import faces
+        self.q.stop()
+        self.show.stop()
+        with state.lock:
+            state.person, state.face_detected, state.overlay, state.phone_unread = self.old
+            (state.focus_until, state.proactive_muted_until, state.sleep_mode,
+             state.speaking, state.conversation_active) = self.quiet
+        self.p.stop()
+        faces._mtime[0] = None
+        shutil.rmtree(self.d, ignore_errors=True)
+
+    def _here(self, who):
+        with state.lock:
+            state.person = (who, 0.9, time.time()) if who else None
+            state.face_detected = bool(who)
+
+    def _paired(self, owner="Andrzej"):
+        import phone
+        phone._save_config({"addr": "AA:BB", "name": "Pixel", "owner": owner})
+
+    def _drain(self):
+        import phone
+        while not phone._jobs.empty():
+            phone._jobs.get()()
+
+    def _poll(self, *rows):
+        """A round of the phone's list (the first is what was there before her)."""
+        import phone
+        self.link.rows = list(rows)
+        phone._poll(time.time())
+
+    def _ready(self):
+        """Paired, the address book in, an empty first round over."""
+        self._paired()
+        self._poll()
+
+    def _say(self, text):
+        import phone
+        del self.said[:]
+        return phone.command(text, self.said.append)
+
+    def _ans(self, text):
+        import phone
+        del self.said[:]
+        return phone.answer(text, self.said.append)
+
+    def _view(self):
+        with state.lock:
+            ov = state.overlay
+        return ov[2] if ov and ov[0] == "phone" else None
+
+    def _press(self, key):
+        import phone
+        data = self._view()
+        rect = next(b[2] for b in phone.buttons(data["view"], self.W, self.H, data) if b[0] == key)
+        phone.tap(rect[0] + 2, rect[1] + 2, self.W, self.H)
+        self._drain()
+
+    def test_sentences_about_sending(self):
+        import phone
+        self._ready()
+        for text, want in (("wyślij SMS do Tomka, że będę o piątej", ("Tomka", "będę o piątej")),
+                           ("wyślij SMS-a do Tomka że będę o piątej", ("Tomka", "będę o piątej")),
+                           ("napisz SMS do Tomka", ("Tomka", "")),
+                           ("wyślij Tomkowi SMS-a że dzwoniłam", ("Tomkowi", "dzwoniłam")),
+                           ("napisz Tomkowi SMS będę później", ("Tomkowi", "będę później")),
+                           ("wyślij SMS do Tomka będę później", ("Tomka", "będę później")),
+                           ("wyślij SMS na numer 600 100 200", ("600 100 200", "")),
+                           ("napisz SMS", (None, "")),
+                           ("wyślij esemesa do Tomka: już jadę", ("Tomka", "już jadę")),
+                           ("napisz wiersz o kocie", None), ("wyślij zdjęcie do Tomka", None)):
+            with self.subTest(text=text):
+                self.assertEqual(phone._parse_send(text), want)
+
+    def test_nothing_goes_without_a_yes(self):
+        import phone
+        self._ready()
+        self.assertTrue(self._say("Luna, wyślij SMS do Tomka, że będę o piątej."))
+        self.assertIn("będę o piątej", self.said[0])
+        self.assertIn("Wysłać?", self.said[0])
+        self.assertEqual(self._view()["view"], "confirm")
+        self.assertTrue(phone.active())
+        self._drain()
+        self.assertEqual(self.link.pushed, [])
+        self.assertTrue(self._ans("tak"))
+        self._drain()
+        self.assertEqual(len(self.link.pushed), 1)
+        self.assertIn("TEL:602000222", self.link.pushed[0])
+        self.assertIn("będę o piątej", self.link.pushed[0])
+        self.assertEqual(self.said, ["Wysłane."])
+        self.assertFalse(phone.active())
+        self.assertFalse(self._ans("tak"))                  # no second one
+        self._drain()
+        self.assertEqual(len(self.link.pushed), 1)
+
+    def test_no_and_something_else_drop_it(self):
+        import phone
+        self._ready()
+        for answer, handled in (("nie", True), ("anuluj", True), ("nie wysyłaj", True),
+                                ("jaka jest pogoda", False)):
+            with self.subTest(answer=answer):
+                self._say("wyślij SMS do Tomka, że jadę")
+                self.assertEqual(self._ans(answer), handled)
+                self.assertIsNone(phone.draft())
+                self.assertIsNone(self._view())
+                self.assertFalse(self._ans("tak"))          # a later "tak" sends nothing
+                self._drain()
+                self.assertEqual(self.link.pushed, [])
+
+    def test_a_draft_runs_out(self):
+        import phone
+        self._ready()
+        self._say("wyślij SMS do Tomka, że jadę")
+        phone._draft["until"] = time.time() - 1
+        self.assertFalse(phone.active())
+        self.assertFalse(self._ans("tak"))
+        self._drain()
+        self.assertEqual(self.link.pushed, [])
+
+    def test_step_by_step_with_repeat_hint_stop(self):
+        import phone
+        self._ready()
+        self._say("napisz SMS")
+        self.assertEqual(self.said, ["Do kogo?"])
+        self._ans("powtórz")
+        self.assertEqual(self.said, ["Do kogo?"])
+        self._ans("nie wiem")
+        self.assertIn("anuluj", self.said[0])
+        self._ans("Kasia")                                  # two of them
+        self.assertIn("Kasia Nowak czy Kasia Lis", self.said[0])
+        self._ans("Kasia Lis")
+        self.assertIn("Co mam napisać", self.said[0])
+        self.assertTrue(phone.dictating())
+        self._ans("powtórz")
+        self.assertIn("Co mam napisać", self.said[0])
+        self._ans("zostaw klucze w kuchni")                 # the text, however it starts
+        self.assertIn("zostaw klucze w kuchni", self.said[0])
+        self._ans("popraw")
+        self.assertTrue(phone.dictating())
+        self._ans("Hej, nic się nie stało")
+        self.assertIn("Hej, nic się nie stało", self.said[0])
+        self.assertEqual(phone.draft()["number"], "601 000 111")
+        self._ans("powtórz")
+        self.assertIn("Wysłać?", self.said[0])
+        self._ans("stop")
+        self.assertIsNone(phone.draft())
+
+    def test_stop_while_dictating(self):
+        import phone
+        self._ready()
+        self._say("wyślij SMS do Tomka")
+        self._ans("anuluj")
+        self.assertEqual(self.said, ["Dobrze, nie wysyłam."])
+        self.assertIsNone(phone.draft())
+
+    def test_a_number_someone_said(self):
+        import phone
+        self._ready()
+        self._say("wyślij SMS na numer 600 200 300, że jadę")
+        self.assertEqual(phone.draft()["number"], "600200300")
+        self._ans("tak")
+        self._drain()
+        self.assertIn("TEL:600200300", self.link.pushed[0])
+
+    def test_an_unknown_person_is_not_guessed(self):
+        import phone
+        self._ready()
+        self._say("wyślij SMS do Grzegorza, że jadę")
+        self.assertIn("Nie mam numeru", self.said[0])
+        for name in ("Stefan", "Bożena", "Wacek"):
+            self._ans(name)
+        self.assertIsNone(phone.draft())
+        self.assertEqual(self.link.pushed, [])
+
+    def test_a_card_has_numbers_too(self):
+        import contacts
+        import phone
+        self._ready()
+        contacts.save("Maja", "phone", "603000333")
+        self._say("wyślij SMS do Mai, że obiad")
+        self.assertEqual(phone.draft()["number"], "603 000 333")
+
+    def test_who_may(self):
+        import phone
+        self._ready()
+        self._poll(_sms(1))
+        with state.lock:
+            state.overlay = None
+        for who in ("Maja", "Ola"):                         # a child, a guest
+            self._here(who)
+            for text in ("wyślij SMS do Tomka, że jadę", "przeczytaj SMS-y", "pokaż SMS-y",
+                         "ile mam SMS-ów", "sparuj telefon", "odłącz telefon"):
+                with self.subTest(who=who, text=text):
+                    self.assertTrue(self._say(text))
+                    self.assertEqual(self.said, [phone._ADULTS])
+                    self.assertIsNone(phone.draft())
+                    self.assertIsNone(self._view())
+        self.assertIsNotNone(phone.config())
+
+    def test_a_phone_is_its_owners(self):
+        import phone
+        self._paired(owner="Maja")
+        self._poll()
+        self._here("Maja")
+        self.assertTrue(self._say("ile mam SMS-ów"))
+        self.assertNotEqual(self.said, [phone._ADULTS])
+
+    def test_a_guest_cant_say_yes_for_the_owner(self):
+        import phone
+        self._ready()
+        self._say("wyślij SMS do Tomka, że jadę")
+        self._here("Ola")
+        self._ans("tak")
+        self._drain()
+        self.assertEqual(self.said, [phone._ADULTS])
+        self.assertEqual(self.link.pushed, [])
+
+    def test_no_phone(self):
+        import phone
+        for text in ("wyślij SMS do Tomka", "przeczytaj SMS-y", "pokaż SMS-y", "czy mam nowe SMS-y",
+                     "czy telefon jest połączony"):
+            with self.subTest(text=text):
+                self.assertTrue(self._say(text))
+                self.assertEqual(self.said, [phone._NONE])
+        self.assertFalse(self._say("odłącz telefon") and self.link.forgotten)
+        self.assertFalse(self._say("co napisała Kasia"))    # (a question for the model)
+
+    def test_other_sentences_are_not_hers(self):
+        self._ready()
+        for text in ("mój telefon się rozładował", "telefon Mai to 600 100 200", "pokaż kartę Mai",
+                     "co napisała Szymborska", "odpowiedz mi na pytanie", "napisz wiersz",
+                     "gdzie jest mój telefon", "odpisz", "kto pisze tę książkę"):
+            with self.subTest(text=text):
+                self.assertFalse(self._say(text))
+
+    def test_reading_a_message(self):
+        import phone
+        self._ready()
+        self._poll(_sms(1, text="Kup"), _sms(2, who="Tomek", number="602000222", text="Cześć", read=True))
+        self.link.bodies["/session/message1"] = "Kup mleko i chleb 😀"
+        with state.lock:
+            self.assertEqual(state.phone_unread, 1)
+        self.assertTrue(self._say("przeczytaj nowe SMS-y"))
+        self.assertEqual(self.said, ["Kasia Nowak pisze: Kup mleko i chleb."])
+        self._drain()
+        self.assertEqual(self.link.read, ["/session/message1"])     # read on the phone too
+        with state.lock:
+            self.assertEqual(state.phone_unread, 0)
+        self.assertEqual(self._view()["view"], "read")
+
+    def test_reading_from_someone(self):
+        self._ready()
+        self._poll(_sms(1), _sms(2, who="Tomek", number="602000222", text="Cześć"))
+        self.link.bodies.update({"/session/message1": "Kup mleko", "/session/message2": "Cześć stary"})
+        self._say("przeczytaj SMS od Tomka")
+        self.assertEqual(self.said, ["Tomek pisze: Cześć stary."])
+        self._say("co napisał Tomek")
+        self.assertEqual(self.said, ["Tomek pisze: Cześć stary."])
+        self._say("przeczytaj SMS od Stefana")
+        self.assertIn("Nie mam SMS-a", self.said[0])
+
+    def test_the_book_names_a_sender(self):
+        import phone
+        self._ready()
+        self._poll(_sms(1, who="", number="0048 602 000 222"))
+        self.assertEqual(phone.inbox()[0]["who"], "Tomek")
+
+    def test_a_download_that_fails_leaves_the_start(self):
+        self._ready()
+        self._poll(_sms(1, text="Kup mleko"))
+        self.link.fail = __import__("phone_link").LinkError("gone")
+        self._say("przeczytaj SMS-y")
+        self.assertEqual(self.said, ["Kasia Nowak pisze: Kup mleko."])
+
+    def test_counting(self):
+        self._ready()
+        self._say("czy mam nowe SMS-y")
+        self.assertEqual(self.said, ["Nie ma nowych SMS-ów."])
+        self._poll(_sms(1), _sms(2), _sms(3))
+        self._say("ile mam SMS-ów")
+        self.assertEqual(self.said, ["Masz 3 nowe SMS-y."])
+
+    def test_replying(self):
+        import phone
+        self._ready()
+        self._poll(_sms(1, who="Tomek", number="602000222"))
+        self.link.bodies["/session/message1"] = "Będziesz?"
+        self.assertFalse(self._say("odpisz, że tak"))       # nothing read yet
+        self._say("przeczytaj SMS-y")
+        self.assertTrue(self._say("odpisz, że będę"))
+        self.assertEqual(phone.draft()["number"], "602000222")
+        self.assertEqual(phone.draft()["text"], "będę")
+        self.assertIn("Wysłać?", self.said[0])
+        self._ans("nie")
+        self.assertTrue(self._say("odpowiedz jej"))
+        self.assertTrue(phone.dictating())
+
+    def test_no_replying_to_a_courier(self):
+        import phone
+        self._ready()
+        self._poll(_sms(1, who="InPost", number="InPost"))
+        self.link.bodies["/session/message1"] = "Paczka czeka"
+        self._say("przeczytaj SMS-y")
+        self.assertTrue(self._say("odpisz, że dzięki"))
+        self.assertIn("nie da się", self.said[0])
+        self.assertIsNone(phone.draft())
+
+    def test_a_new_message_shows_for_a_moment(self):
+        self._ready()
+        self._poll(_sms(1, read=True))
+        self.assertIsNone(self._view())
+        self._poll(_sms(2), _sms(1, read=True))
+        self.assertEqual(self._view()["view"], "new")
+        self.assertFalse(self._view()["private"])
+
+    def test_the_first_round_announces_nothing(self):
+        self._paired()
+        self._poll(_sms(1), _sms(2))
+        self.assertIsNone(self._view())
+
+    def test_a_new_message_waits_while_she_talks(self):
+        self._ready()
+        with state.lock:
+            state.speaking = True
+        try:
+            self._poll(_sms(1))
+        finally:
+            with state.lock:
+                state.speaking = False
+        self.assertIsNone(self._view())
+        with state.lock:
+            self.assertEqual(state.phone_unread, 1)
+
+    def test_a_new_message_says_nothing_to_others(self):
+        for who in ("Maja", "Ola", None):
+            with self.subTest(who=who):
+                import phone
+                phone._inbox = []
+                self._ready()
+                self._here(who)
+                self._poll(_sms(1))
+                self.assertTrue(self._view()["private"], who)
+                with state.lock:
+                    state.overlay = None
+                self._here("Andrzej")
+
+    def test_the_preview_can_be_off(self):
+        import phone
+        self._ready()
+        with mock.patch.object(phone.settings, "get", lambda k, d=None: False if k == "phone_preview" else d):
+            self._poll(_sms(1))
+        self.assertTrue(self._view()["private"])
+
+    def test_private_words_stay_private(self):
+        import contextlib
+        import io
+        import phone
+        secret = "Tajne hasło do skrytki 7788"
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self._ready()
+            self._poll(_sms(1, text=secret, number="602000222"))
+            self.link.bodies["/session/message1"] = secret
+            self._say("przeczytaj SMS-y")
+            self._say(f"wyślij SMS do Tomka, że {secret}")
+            self._ans("tak")
+            self._drain()
+        self.assertEqual(len(self.link.pushed), 1)
+        self.assertNotIn(secret, out.getvalue())
+        self.assertNotIn("602000222", out.getvalue())
+        with open(phone.FILE, encoding="utf-8") as f:
+            self.assertNotIn(secret, f.read())
+
+    def test_out_of_range_and_back(self):
+        import phone
+        import phone_link
+        self._ready()
+        self.link.fail = phone_link.LinkError("gone")
+        phone._session = None
+        phone._poll(time.time())
+        self.assertEqual(phone.status(), "off")
+        self.assertGreater(phone._next_poll, time.time() + 30)      # not paging it all the time
+        self.assertEqual(phone._unavailable(), phone._AWAY)
+        self._say("wyślij SMS do Tomka")
+        self.assertEqual(self.said, [phone._AWAY])
+        self.link.fail = None
+        phone._poll(time.time())
+        self.assertEqual(phone.status(), "on")
+
+    def test_sending_fails(self):
+        import phone_link
+        self._ready()
+        self._say("wyślij SMS do Tomka, że jadę")
+        self.link.fail = phone_link.LinkError("gone")
+        self._ans("tak")
+        self._drain()
+        self.assertIn("Nie udało się wysłać", self.said[0])
+
+    def test_obexd_missing(self):
+        import phone
+        import phone_link
+        self._paired()
+        self.link.fail = phone_link.NoObex("no")
+        phone._poll(time.time())
+        self.assertEqual(phone.status(), "no_obex")
+        self._say("przeczytaj SMS-y")
+        self.assertIn("bluez-obexd", self.said[0])
+
+    def test_nothing_runs_without_a_phone(self):
+        import phone
+        with mock.patch.object(phone, "_ensure_thread") as started:
+            phone.start()
+        started.assert_not_called()
+
+    def test_pairing(self):
+        import phone
+        self.assertTrue(self._say("sparuj telefon"))
+        self.assertEqual(self._view()["view"], "pair")
+        self._drain()
+        self.assertEqual(self.link.window, phone.PAIR_SECS)
+        self.assertEqual(self.link.agent, "on")
+        replies = []
+        phone._on_confirm("AA:BB", "Pixel", "123456", replies.append)
+        self.assertEqual(phone.pair_info()["code"], "123456")
+        self.assertEqual([b[0] for b in phone.buttons("pair", self.W, self.H)], ["pair_yes", "pair_no"])
+        self.assertTrue(phone.active())
+        self._ans("tak")
+        self.assertEqual(replies, [True])
+        self.link.paired["AA:BB"] = {"name": "Pixel", "paired": True}
+        phone._tick_pair(time.time())
+        self.assertEqual(phone.config(), {"addr": "AA:BB", "name": "Pixel", "owner": "Andrzej"})
+        self.assertIsNone(phone.pair_info())
+        self.assertIsNone(self.link.window)
+        self.assertIsNone(self._view())
+        self.assertEqual(self.link.agent, "on")             # (it stays: it refuses the phone's audio)
+
+    def test_a_no_to_the_code(self):
+        import phone
+        self._say("sparuj telefon")
+        self._drain()
+        replies = []
+        phone._on_confirm("AA:BB", "Obcy", "123456", replies.append)
+        self._ans("nie")
+        self.assertEqual(replies, [False])
+        self.assertIsNone(phone.config())
+
+    def test_no_pairing_outside_the_window(self):
+        import phone
+        replies = []
+        phone._on_confirm("AA:BB", "Obcy", "123456", replies.append)
+        self.assertEqual(replies, [False])
+        self._say("sparuj telefon")
+        self._drain()
+        phone._on_confirm("AA:BB", "Obcy", None, replies.append)    # no code to compare
+        self.assertEqual(replies, [False, False])
+
+    def test_the_window_closes(self):
+        import phone
+        self._say("sparuj telefon")
+        self._drain()
+        phone._tick_pair(time.time() + phone.PAIR_SECS + 1)
+        self.assertIsNone(phone.pair_info())
+        self.assertIsNone(self.link.window)
+        self.assertIsNone(self.link.agent)                  # (no phone: back to the desktop's)
+        self.assertIsNone(self._view())
+
+    def test_already_paired(self):
+        self._ready()
+        self._say("sparuj telefon")
+        self.assertIn("Pixel", self.said[0])
+
+    def test_unpairing_touches_only_the_phone(self):
+        import phone
+        self._ready()
+        self._poll(_sms(1))
+        self._say("odłącz telefon")
+        self.assertEqual(self.link.forgotten, ["AA:BB"])
+        self.assertIsNone(phone.config())
+        self.assertFalse(os.path.exists(phone.FILE))
+        self.assertEqual(phone.inbox(), [])
+        with state.lock:
+            self.assertEqual(state.phone_unread, 0)
+
+    def test_status_sentence(self):
+        self._ready()
+        self.assertTrue(self._say("czy telefon jest połączony"))
+        self.assertIn("Pixel", self.said[0])
+
+    def test_the_list_on_the_screen(self):
+        import phone
+        self._ready()
+        rows = [_sms(i, stamp=f"202611{i + 1:02d}T120000") for i in range(7)]
+        self._poll(*rows)
+        with state.lock:
+            state.overlay = None
+        self.assertTrue(self._say("pokaż SMS-y"))
+        data = self._view()
+        self.assertEqual(data["view"], "inbox")
+        msgs, page, pages = phone.page_of(data)
+        self.assertEqual((len(msgs), page, pages), (5, 0, 2))
+        self.assertEqual(msgs[0]["id"], "6")                # the newest first
+        phone.swipe(-100)
+        self.assertEqual(phone.page_of(data)[1], 1)
+        self._press("next")
+        self.assertEqual(phone.page_of(data)[1], 0)
+        self.link.bodies["/session/message6"] = "Cały tekst"
+        r = phone.row_rects(self.W, self.H)[0]
+        phone.tap(r[0] + 5, r[1] + 5, self.W, self.H)
+        self.assertEqual(data["view"], "read")
+        self.assertEqual(data["id"], "6")
+        for t in threading.enumerate():                     # the download, off the touch thread
+            while t.name == "phone-read" and t.is_alive():
+                self._drain()
+                t.join(0.01)
+        self._drain()
+        self.assertEqual(phone._message("6")["text"], "Cały tekst")
+        self.assertEqual(self.link.read, ["/session/message6"])
+
+    def test_writing_on_the_screen(self):
+        import contacts
+        import phone
+        self._ready()
+        self._poll(_sms(1, who="Tomek", number="602000222"))
+        self.link.bodies["/session/message1"] = "Będziesz?"
+        phone._show_message(phone.inbox()[0])
+        self._press("reply")
+        data = self._view()
+        self.assertTrue(data["edit"])
+        self.assertFalse(phone.active())                    # (the microphone isn't for her now)
+        keys = dict(contacts.key_layout("text", "abc", self.W, self.H))
+        for k in "ok":
+            r = keys[k]
+            phone.tap(r[0] + 2, r[1] + 2, self.W, self.H)
+        self.assertEqual(data["edit"]["text"], "Ok")
+        r = keys["save"]
+        phone.tap(r[0] + 2, r[1] + 2, self.W, self.H)
+        self.assertIsNone(data["edit"])
+        self.assertEqual(data["view"], "confirm")
+        self.assertEqual(self.link.pushed, [])
+        self._press("retype")
+        self.assertEqual(data["edit"]["text"], "Ok")        # corrected, not from nothing
+        self.assertTrue(phone.on_close())                   # ✕: back to "Wysłać?"
+        self.assertEqual(phone.draft()["step"], "confirm")
+        self._press("send")
+        self._drain()
+        self.assertEqual(len(self.link.pushed), 1)
+        self.assertIn("TEL:602000222", self.link.pushed[0])
+        self.assertIsNone(self._view())
+
+    def test_cancel_on_the_screen(self):
+        import phone
+        self._ready()
+        self._say("wyślij SMS do Tomka, że jadę")
+        self._press("cancel")
+        self._drain()
+        self.assertIsNone(phone.draft())
+        self.assertIsNone(self._view())
+        self.assertEqual(self.link.pushed, [])
+
+    def test_the_close_button_steps_back(self):
+        import phone
+        self._ready()
+        self._poll(_sms(1, who="Tomek", number="602000222"))
+        phone._show_message(phone.inbox()[0])
+        self._press("reply")
+        data = self._view()
+        self.assertTrue(phone.on_close())                   # the keyboard
+        self.assertIsNone(data["edit"])
+        self.assertIsNone(phone.draft())                    # (nothing typed, nothing kept)
+        self.assertEqual(data["view"], "read")
+        self.assertTrue(phone.on_close())                   # the message → the list
+        self.assertEqual(data["view"], "inbox")
+        self.assertFalse(phone.on_close())                  # the list → closed
+
+    def test_closing_the_pairing_page_ends_it(self):
+        import phone
+        self._say("sparuj telefon")
+        self._drain()
+        self.assertFalse(phone.on_close())
+        self._drain()
+        self.assertIsNone(phone.pair_info())
+        self.assertIsNone(self.link.window)
+
+    def test_a_guest_on_an_open_page(self):
+        import phone
+        self._ready()
+        self._poll(_sms(1, who="Tomek", number="602000222"))
+        phone._show_message(phone.inbox()[0])
+        self._here("Ola")
+        self._press("reply")
+        self.assertIsNone(self._view()["edit"])
+        self.assertEqual(self._view()["toast"][0], "Poproś dorosłego")
+
+    def test_a_long_message_on_the_voice(self):
+        import phone
+        self._ready()
+        self._poll(_sms(1))
+        self.link.bodies["/session/message1"] = "słowo " * 200
+        self._say("przeczytaj SMS-y")
+        self.assertLess(len(self.said[0]), phone.SAY_MAX + 80)
+        self.assertIn("Reszta jest na ekranie", self.said[0])
+
+    def test_settings_rows(self):
+        import phone
+        self.assertEqual([r["key"] for r in phone.settings_rows()], ["phone"])
+        self._ready()
+        self.assertEqual([r["key"] for r in phone.settings_rows()], ["phone", "phone_preview"])
+        self.assertIn("Pixel", phone.settings_rows()[0]["sub"])
+        self.assertIsNone(phone.settings_tap())
+        self.assertEqual(self._view()["view"], "inbox")
+        self._here("Ola")
+        self.assertEqual(phone.settings_tap(), "Poproś dorosłego")
 
 
 if __name__ == "__main__":

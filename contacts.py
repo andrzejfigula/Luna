@@ -334,7 +334,13 @@ def press(data, key, now=None):
         else:
             data["edit"] = None
             _toast(data, "Zapisane", now)
-    elif key == "back":
+    else:
+        type_key(e, key, MAX_LEN[e["field"]])
+
+
+def type_key(e, key, limit):
+    """Any key but "save", on the text being typed (phone.py's page uses it too)."""
+    if key == "back":
         e["text"] = e["text"][:-1]
     elif key == "clear":
         e["text"] = ""
@@ -342,7 +348,7 @@ def press(data, key, now=None):
         e["shift"] = not e["shift"]
     elif key.startswith("layer:"):
         e["layer"] = key.split(":", 1)[1]
-    elif len(e["text"]) < MAX_LEN[e["field"]]:
+    elif len(e["text"]) < limit:
         e["text"] += key.upper() if e["shift"] else key
         e["shift"] = False
         if e["layer"] == "pl":                     # one Polish letter, then the letters again

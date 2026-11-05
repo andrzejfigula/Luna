@@ -315,6 +315,8 @@ def end_game_page(kind):
     ended = []
     if kind == "contact" and importlib.import_module("contacts").on_close():
         return ended
+    if kind == "phone" and importlib.import_module("phone").on_close():
+        return ended
     if kind in ("ttt", "memo"):
         importlib.import_module("tictac" if kind == "ttt" else "memo").stop()
         ended.append(kind)

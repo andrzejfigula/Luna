@@ -93,6 +93,7 @@ def items(now=None):
         listening = state.conversation_active or state.listening
         radio = state.radio
         waiting = state.messages_waiting
+        sms = state.phone_unread
         muted = now < state.mic_muted_until
         cam_off = now < state.camera_off_until
         focus = now < state.focus_until
@@ -118,6 +119,8 @@ def items(now=None):
         out.append(("reminder", reminder))
     if waiting:
         out.append(("message", str(waiting) if waiting > 1 else None))
+    if sms:
+        out.append(("sms", str(sms) if sms > 1 else None))
     if focus or quiet:
         out.append(("quiet", None))
     if muted:
@@ -205,6 +208,9 @@ def _icon(kind, accent):
     elif kind == "message":                               # an envelope
         pygame.draw.rect(s, (*accent, 240), pygame.Rect(1, 4, 18, 13), 2, border_radius=2)
         pygame.draw.lines(s, (*accent, 240), False, [(2, 5), (10, 11), (18, 5)], 2)
+    elif kind == "sms":                                   # a phone
+        pygame.draw.rect(s, (*accent, 240), pygame.Rect(5, 1, 10, 18), 2, border_radius=3)
+        pygame.draw.line(s, (*accent, 240), (9, 15), (11, 15), 2)
     elif kind == "quiet":                                 # a crescent moon
         pygame.draw.circle(s, c, (10, 10), 8)
         pygame.draw.circle(s, (0, 0, 0, 0), (14, 7), 7)

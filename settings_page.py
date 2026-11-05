@@ -149,7 +149,8 @@ def device_rows():
     rows.append({"key": "night_quiet", "kind": "toggle", "label": "Ciszej w nocy",
                  "sub": "od 22 do 8 mówi o połowę ciszej",
                  "value": settings.get("night_quiet", True) is not False})
-    return rows
+    import phone
+    return rows + phone.settings_rows()
 
 
 def _say_speaker():
@@ -495,6 +496,9 @@ def pick(key, value):
 def change(key):
     """A tap that steps a row on: the next value, or a toggle flipped. Returns the toast."""
     _cache.clear()
+    if key == "phone":
+        import phone
+        return phone.settings_tap()
     if key == "tts_speed":
         cur = _speed_of()[1]
         return pick(key, next((s for s in _SPEEDS if s > cur + 0.01), _SPEEDS[0]))
@@ -525,10 +529,10 @@ def change(key):
         return f"{label}: na dole" if on else f"{label}: schowane"
     defaults = {"captions": False, "status_bar": True, "dock": True,
                 "camera_preview": CAMERA_PREVIEW, "sky_bg": True, "night_quiet": True,
-                "perf_hud": False}
+                "perf_hud": False, "phone_preview": True}
     if key in defaults:
         cur = settings.get(key, defaults[key])
-        new = not (cur is not False if key in ("status_bar", "dock", "sky_bg", "night_quiet")
+        new = not (cur is not False if key in ("status_bar", "dock", "sky_bg", "night_quiet", "phone_preview")
                    else bool(cur))
         settings.put(key, new)
         if key == "night_quiet":

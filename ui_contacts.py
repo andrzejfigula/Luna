@@ -80,11 +80,11 @@ def _draw_card(scr, data, now, W, H):
     _toast(scr, data, now, 596, 42)                # beside the title: no row under it
 
 
-def _key_look(key, e):
+def _key_look(key, e, save="Zapisz"):
     """(label, its background, its colour); no label: drawn by hand."""
     plain, lit = (255, 255, 255, 34), (255, 255, 255, 60)
     if key == "save":
-        return "Zapisz", (255, 196, 110, 235), DARK
+        return save, (255, 196, 110, 235), DARK
     if key == "back":
         return "", lit, WHITE
     if key == "clear":
@@ -107,19 +107,28 @@ def _draw_editor(scr, data, now, W, H):
     scr.blit(rrect(box.w, box.h, 14, (255, 255, 255, 30)), box)
     head = text(fit(f"{label} — {data['name']}", 15, box.w - 90, "SemiBold"), 15, GOLD, "SemiBold")
     scr.blit(head, (box.x + 14, box.y + 4))
-    room = box.w - 90
-    if e["text"]:
-        s = e["text"] + "|"
+    draw_typed(scr, e["text"], contacts.HINT[field], box)
+    draw_keys(scr, kind, e, W, H)
+    _toast(scr, data, now, W // 2, 100)
+
+
+def draw_typed(scr, typed, hint, box):
+    """What's being typed, in the box; the end of a long one."""
+    if typed:
+        s = typed + "|"
         f = font(25, "Bold")
-        while f.size(s)[0] > room:                 # the end of a long one: what is being typed
+        while f.size(s)[0] > box.w - 90:
             s = s[1:]
         val = text(s, 25, WHITE, "Bold")
     else:
-        val = text(contacts.HINT[field] or "|", 21, DIM, "SemiBold")
+        val = text(hint or "|", 21, DIM, "SemiBold")
     scr.blit(val, (box.x + 14, box.bottom - val.get_height() - 3))
+
+
+def draw_keys(scr, kind, e, W, H, save="Zapisz"):
     for key, r in contacts.key_layout(kind, e["layer"], W, H):
         r = _rect(r)
-        lab, bg, col = _key_look(key, e)
+        lab, bg, col = _key_look(key, e, save)
         scr.blit(rrect(r.w, r.h, 12, bg), r)
         if lab:
             size = 30 if len(lab) == 1 else 22
@@ -131,7 +140,6 @@ def _draw_editor(scr, data, now, W, H):
             cx, cy = r.center
             pygame.draw.lines(scr, WHITE, False, [(cx + 15, cy), (cx - 13, cy)], 3)
             pygame.draw.lines(scr, WHITE, False, [(cx - 3, cy - 10), (cx - 14, cy), (cx - 3, cy + 10)], 3)
-    _toast(scr, data, now, W // 2, 100)
 
 
 def draw(scr, data, now, W, H):

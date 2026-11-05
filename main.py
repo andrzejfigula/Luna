@@ -54,6 +54,9 @@ commands.start_commands()
 import messages
 messages.refresh()
 
+import phone
+phone.start()
+
 from display import start_display
 start_display()
 
@@ -143,7 +146,7 @@ def _answer_awaited():
         # (voicefx, messages: the sentence she just asked for, or it needed "Luna")
         return (quiz.active() or twenty.active() or tictac.active() or memo.active()
                 or gallery.page_open() or story.active() or brain.awaits_answer()
-                or voicefx.armed() or messages.armed())
+                or voicefx.armed() or messages.armed() or phone.active())
     except Exception:
         return False
 
@@ -197,6 +200,8 @@ def voice_loop():
                         messages.store(speech_to_text.last_utterance_pcm, text)
                         speak("Zapisałam wiadomość.")
                         continue
+                    if phone.active() and phone.answer(text, speak):
+                        continue                    # (an SMS being written, a pairing code)
                     import reading
                     if reading.armed():
                         # "posłuchaj, jak czytam": collected, answered at the end

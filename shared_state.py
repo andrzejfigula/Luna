@@ -65,6 +65,7 @@ class SharedState:
         "sunrise",               # (start, end) of a wake-up alarm's dawn:
                                  # the screen brightens until end (timers.py)
         "messages_waiting",      # unheard voice messages (messages.py)
+        "phone_unread",          # unread SMS on the paired phone (phone.py)
         "radio",                 # the station playing (radio.py), or None
         "mic_muted_until",       # "nie słuchaj": no audio is processed until then
         "camera_off_until",      # "wyłącz kamerę": the camera is closed until then
@@ -163,6 +164,7 @@ class SharedState:
         self.caption             = None
         self.voice_mood          = None
         self.messages_waiting    = 0
+        self.phone_unread        = 0
         self.radio               = None
         self.mic_muted_until     = 0.0
         self.camera_off_until    = 0.0

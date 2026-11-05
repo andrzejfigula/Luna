@@ -11,6 +11,7 @@ commands.py — things Luna does herself, without asking the model.
   breathe  "ćwiczenie oddechowe" — a guided breathing circle (breathing.py)
   repeat   "powtórz", "co powiedziałaś?" — the last answer again, instantly
   contacts "pokaż kartę Mai", "telefon Mai to 600 100 200" (contacts.py)
+  phone    "sparuj telefon", "przeczytaj SMS-y", "wyślij SMS do Kasi, że…" (phone.py)
   restart  "zrestartuj się" — exits; the autostart watchdog restarts her
   fun      "włącz lampkę", "przybij piątkę", "rzuć kostką", "rzuć monetą"
            (fun.py)
@@ -2111,6 +2112,9 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
             brain.process(text, context=ctx)
         return "recorded"
 
+    import phone
+    if phone.command(text, speak):                 # before cards: "dodaj telefon"
+        return True
     import contacts
     if contacts.command(text, speak):              # "telefon Mai to…", "pokaż kartę Mai"
         return True

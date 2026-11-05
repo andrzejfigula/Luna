@@ -15,11 +15,23 @@ import contacts
 import games
 import idle_engine
 import memory
+import phone
 import schedule
 import screens
 from shared_state import state
 
 LOCAL = {
+    "Sparuj telefon": "phone",
+    "Luna, połącz się z telefonem": "phone",
+    "Odłącz telefon": "phone",
+    "Czy telefon jest połączony?": "phone",
+    "Wyślij SMS do Kasi, że będę o piątej": "phone",
+    "Napisz SMS-a do mamy": "phone",
+    "Pokaż SMS-y": "phone",
+    "Przeczytaj nowe SMS-y": "phone",
+    "Przeczytaj SMS od Kasi": "phone",
+    "Czy mam nowe SMS-y?": "phone",
+    "Ile mam SMS-ów?": "phone",
     "Ciszej": "volume",
     "Ustaw głośność na 30": "volume",
     "Mów wolniej": "speed",
@@ -223,6 +235,12 @@ LOCAL = {
     "Normalne odpowiedzi proszę": "length",
 }
 MODEL = [
+    "Mój telefon się rozładował",
+    "Gdzie jest mój telefon?",
+    "Co napisała Szymborska?",
+    "Odpowiedz mi na pytanie, czemu niebo jest niebieskie",
+    "Napisz wierszyk o kocie",
+    "Co to jest SMS?",
     "Jutro piątek, więc idziemy do kina?",
     "Maja ma angielski w poniedziałki o 17",         # a fact for her memory, not the plan
     "Jaki jest plan na weekend?",
@@ -437,6 +455,14 @@ class RoutingTest(unittest.TestCase):
             (screens, "PHOTOS_DIR", self._photos_dir()),
             (fun, "lamp_on", lambda *a: self._mark("fun")),
             (health, "status_rows", lambda: [("CPU", "ok")]),
+            (phone, "config", lambda: {"addr": "AA", "name": "Pixel", "owner": None}),
+            (phone, "_denied", lambda: None),
+            (phone, "_unavailable", lambda: None),
+            (phone, "start_pairing", lambda *a: self._mark("phone")),
+            (phone, "forget", lambda *a: self._mark("phone")),
+            (phone, "_begin", lambda *a, **k: self._mark("phone") or True),
+            (phone, "_read_out", lambda *a: self._mark("phone") or True),
+            (phone, "show_inbox", lambda *a: self._mark("phone")),
             (contacts, "save", lambda *a: self._mark("contact")),
             (contacts, "show", lambda *a, **k: self._mark("contact")),
             (contacts, "card", lambda n: {"phone": "600 100 200", "email": None, "address": None}),
@@ -552,6 +578,9 @@ class RoutingTest(unittest.TestCase):
         if any(t.startswith(("Dobrze, bez efektów", "Efekty są", "Dobrze — fala",
                              "Dobrze — słupki", "Dobrze — wskaźnik")) for t in said):
             self._mark("vis")
+        if any(t.startswith(("Masz ", "Nie ma nowych SMS", "Właśnie łączę", "Tak, jestem połączona",
+                             "Telefon jest poza")) for t in said):
+            self._mark("phone")
         if any(t.startswith("Stoper") for t in said):
             self._mark("count")
         if any(t.startswith(("Co przenieść do planu lekcji", "W jakie dni")) for t in said):

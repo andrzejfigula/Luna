@@ -791,12 +791,13 @@ def people_talking(now=None, window=120, count=4):
 
 
 def messages_armed():
-    """A voice message is being recorded, or a child reads aloud
-    (reading.py): every sentence counts as it is — no holding, no filters."""
+    """A voice message is being recorded, a child reads aloud (reading.py), or an
+    SMS is dictated: every sentence counts as it is — no holding, no filters."""
     try:
         import messages
+        import phone
         import reading
-        return messages.armed() or reading.armed()
+        return messages.armed() or reading.armed() or phone.dictating()
     except Exception:
         return False
 
