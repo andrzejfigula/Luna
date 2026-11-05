@@ -17,6 +17,7 @@ import functools
 import os
 import quopri
 import re
+import subprocess
 import threading
 import time
 
@@ -341,6 +342,28 @@ def _tmp():
     return path
 
 
+@_guarded
+def has_obex():
+    """Is obexd installed? Asks the session bus; Bluetooth isn't touched."""
+    bus = _iface(_ses(), "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus")
+    return OBEX in bus.ListActivatableNames() or bool(bus.NameHasOwner(OBEX))
+
+
+_reloaded = False
+
+
+def _reload_user_units():
+    """obexd just installed: the user's systemd hasn't seen its unit yet (once a run)."""
+    global _reloaded
+    if _reloaded:
+        return
+    _reloaded = True
+    try:
+        subprocess.run(["systemctl", "--user", "daemon-reload"], timeout=15, capture_output=True)
+    except (OSError, subprocess.SubprocessError) as e:
+        print(f"[phone] daemon-reload: {type(e).__name__}", flush=True)
+
+
 def _create(addr, target):
     dbus = _dbus()
     try:
@@ -348,6 +371,8 @@ def _create(addr, target):
         args = dbus.Dictionary({"Target": target}, signature="sv")
         return str(client.CreateSession(addr, args, timeout=70))    # (the phone may be asking)
     except dbus.DBusException as e:
+        if e.get_dbus_name() == "org.freedesktop.systemd1.NoSuchUnit":
+            _reload_user_units()
         if e.get_dbus_name() in _NOT_THERE:
             raise NoObex(e.get_dbus_name())
         raise LinkError(e.get_dbus_name())

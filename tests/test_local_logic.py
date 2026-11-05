@@ -13026,12 +13026,16 @@ class _FakeLink:
                        ("Tomek", "602 000 222")]
         self.paired = {"00:02:3C:CC:26:B7": {"name": "Pebble", "paired": True}}
         self.fail = None
+        self.obex = True
         self.window, self.agent = None, None
         self.confirm = None
 
     def _check(self):
         if self.fail:
             raise self.fail
+
+    def has_obex(self):
+        return self.obex
 
     def register_agent(self, confirm, cancel, is_phone):
         self.agent, self.confirm = "on", confirm
@@ -13571,6 +13575,28 @@ class PhoneTest(unittest.TestCase):
         self.assertEqual(phone.status(), "no_obex")
         self._say("przeczytaj SMS-y")
         self.assertIn("bluez-obexd", self.said[0])
+        self.assertLessEqual(phone._next_poll, time.time() + phone.POLL_SECS)   # installed: on its own, soon
+        self.link.fail = None
+        phone._poll(time.time())
+        self.assertEqual(phone.status(), "on")
+
+    def test_no_pairing_without_obexd(self):
+        import phone
+        self.link.obex = False
+        self._say("sparuj telefon")
+        self._drain()
+        self.assertIn("bluez-obexd", self.said[0])
+        self.assertIsNone(phone.pair_info())
+        self.assertIsNone(self._view())
+        self.assertIsNone(self.link.window)                 # not visible to anyone
+
+    def test_a_new_unit_is_looked_for_once(self):
+        import phone_link
+        with mock.patch.object(phone_link, "_reloaded", False), \
+                mock.patch.object(phone_link.subprocess, "run", side_effect=OSError) as run:
+            phone_link._reload_user_units()
+            phone_link._reload_user_units()
+        run.assert_called_once()
 
     def test_nothing_runs_without_a_phone(self):
         import phone

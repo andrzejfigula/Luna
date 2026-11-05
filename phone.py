@@ -50,6 +50,7 @@ PAGE_ROWS = 5
 _ADULTS = "Telefon jest prywatny. Poproś dorosłego z rodziny."
 _NONE = "Nie mam sparowanego telefonu. Powiedz: sparuj telefon."
 _NO_OBEX = ("Do SMS-ów brakuje mi pakietu bluez-obexd. Trzeba go zainstalować na Raspberry Pi.")
+_NO_OBEX_PAIR = "Zanim sparuję telefon, trzeba zainstalować na Raspberry Pi pakiet bluez-obexd."
 _NO_DBUS = "Do telefonu brakuje mi obsługi Bluetooth. Trzeba doinstalować python3-dbus."
 _AWAY = "Telefon jest poza zasięgiem albo nie zezwolił na dostęp do wiadomości."
 _HINT_BODY = "Powiedz po prostu, co mam napisać, albo: anuluj."
@@ -201,8 +202,8 @@ def _poll(now):
         if _want_book:
             _want_book = False
             _load_book(cfg["addr"])
-    except phone_link.NoObex:
-        _status, _next_poll = "no_obex", now + RETRY_MAX
+    except phone_link.NoObex:      # (no Bluetooth involved, so soon: he may have just installed it)
+        _status, _next_poll = "no_obex", now + POLL_SECS
     except phone_link.NoDbus:
         _status, _next_poll = "no_dbus", now + RETRY_MAX
     except phone_link.LinkError as e:
@@ -429,6 +430,13 @@ def pair_info():
         return dict(_pair) if _pair else None
 
 
+def _obex_missing():
+    try:
+        return not _link.has_obex()
+    except (phone_link.LinkError, phone_link.NoDbus, phone_link.NoObex):
+        return False                # (can't tell: the window's own errors will say)
+
+
 def start_pairing(speak):
     """"sparuj telefon": visible to phones for three minutes."""
     global _pair
@@ -439,6 +447,9 @@ def start_pairing(speak):
     cfg = config()
     if cfg:
         speak(f"Mam już sparowany telefon: {cfg['name']}. Żeby sparować inny, powiedz: odłącz telefon.")
+        return
+    if _obex_missing():
+        speak(_NO_OBEX_PAIR)
         return
     import screens
     with _lock:
