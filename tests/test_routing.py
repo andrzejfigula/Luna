@@ -226,6 +226,7 @@ LOCAL = {
     "Jakie są wiadomości?": "news",
     "Luna, co słychać na świecie?": "news",
     "Co słychać w sporcie?": "news",
+    "Jakie wieści ze świata?": "news",
     "Przeczytaj mi trzy najważniejsze wiadomości na dzisiaj": "news",
     "Super, to na razie wszystko": "bye",
     "Dobra, dzięki, to by było na tyle": "bye",

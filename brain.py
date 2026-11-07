@@ -2607,6 +2607,12 @@ def run_command(label, reply=""):
     if theme and theme[0] == "set":
         _spoken_command(label, "")         # the new one says hello in its voice
         return True
+    import news
+    if news.is_request(label):
+        # the prompt's own "jakie są wiadomości?" as a command (7 Nov: refused —
+        # "Sprawdzam wiadomości", nothing followed); the headlines answer next
+        _spoken_command(label, "news ")
+        return True
     if not (game or command_allowed(label) or _VOICED_OK.match(label)):
         print(f"[brain] command not allowed: {label!r}", flush=True)
         return False

@@ -5565,7 +5565,16 @@ class KidsTest(unittest.TestCase):
         self.assertTrue(news.is_request("Co dzisiaj w wiadomościach?"))
         self.assertTrue(news.is_request("Są jakieś nowe informacje z kraju?"))
         self.assertTrue(news.is_request("Co słychać w świecie?"))
+        self.assertTrue(news.is_request("Jakie wieści ze świata?"))
+        self.assertTrue(news.is_request("Jakie są najnowsze wieści?"))
+        self.assertFalse(news.is_request("Jakie wieści?"))         # "co u ciebie"
         self.assertFalse(news.is_request("Odtwórz wiadomość od Emilki"))
+        # the model's "jakie są wiadomości?" command fetches the headlines
+        import brain
+        started = []
+        with mock.patch.object(brain, "_spoken_command", lambda l, k: started.append(l)):
+            self.assertTrue(brain.run_command("jakie są wiadomości?"))
+        self.assertEqual(started, ["jakie są wiadomości?"])
         self.assertFalse(news.is_request("Co słychać w szkole?"))
         offer = "Nie mam dostępu do wiadomości, ale mogę podać najnowsze nagłówki z RMF24, jeśli chcesz."
         self.assertTrue(news.accepts_offer("Chcę.", offer))

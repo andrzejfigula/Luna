@@ -49,7 +49,8 @@ _ASK_RX = re.compile(
     # świecie?" (7 Oct: these reached the model without headlines — it makes
     # news up from what it remembers of the house)
     r"\bco\b[^.?!]{0,15}\bw\s+(?:wiadomościach|dzienniku|serwisie)\b|"
-    r"\binformacje\s+(?:z\s+kraju|ze\s+świata|z\s+polski)\b|"
+    r"\b(?:informacje|wieści|nowiny|nowinki)\s+(?:z\s+kraju|ze\s+świata|z\s+polski)\b|"
+    r"\b(?:najnowsze|dzisiejsze)\s+(?:wieści|nowiny)\b|\bwieści\s+dnia\b|"  # 7 Nov: missed
     r"\bco\s+(?:słychać|nowego|się\s+dzieje)\s+w\s+świecie\b", re.I)
 _YES = re.compile(r"^(?:no\s+)?(?:tak|chcę|chce|poproszę|poprosze|dawaj|jasne|pewnie|okej|ok|"
                   r"dobrze|czemu\s+nie|chętnie)\b", re.I)
