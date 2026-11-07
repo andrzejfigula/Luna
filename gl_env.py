@@ -271,7 +271,7 @@ void main() {
         float a = 0.32 * cov * cov + 0.28 * cov * max(f1.g, f2.g) + 0.70 * fern * reach;
         float glint = f1.b * reach;
         a *= 1.0 - smoothstep(0.8, 1.0, min(dx, dy) / (1.25 * B * (1.0 + 0.6 * corner) + 1.0));  // (its quads)
-        a = clamp(a, 0.0, 0.92);
+        a = clamp(a, 0.0, 0.92) * uEnvGlassK.w;                         // a light frost: faint
         vec3 c = uEnvGlassC * (0.80 + 0.30 * fern) + vec3(0.9, 0.95, 1.0) * glint * uEnvGlassL.z;
         o = vec4(c * a, a);
     } else if (uKind > 1.5 && uKind < 2.5) {    // a wet track, a few beads left on it

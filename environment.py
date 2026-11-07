@@ -51,10 +51,12 @@ TUNE = {
     # radius px, life s, the share that run down leaving a wet track; flakes
     # that stick (melting into drops above 0 °C); frost on the edges below
     # freezing — its band at its widest (× the height), the °C where it
-    # starts and where it is thickest; how fast the glass gets wet, dries
+    # starts and where it is thickest, the band's width at the first frost
+    # (× its widest: a light frost is a faint band, not a hairline), the frost
+    # where it is fully opaque; how fast the glass gets wet, dries
     "glass_drops": 120, "drop_r": 12.0, "drop_life": 40.0, "drop_run": 0.35,
     "glass_flakes": 90, "flake_r": 6.5, "flake_life": 60.0,
-    "frost_width": 0.20, "frost_temp": (1.0, -8.0),
+    "frost_width": 0.20, "frost_temp": (3.0, -6.0), "frost_min": 0.35, "frost_full": 0.25,
     "wet_ease": (5.0, 150.0), "frost_ease": (45.0, 90.0),
     "stars": 1.0, "star_count": 110,    # clear nights: many, a few big bright ones
     "moon": 0.95, "moon_pos": (0.12, 0.16), "moon_r": 22.0,   # its real phase (at least a sliver)
@@ -606,6 +608,14 @@ class Env:
             tau = TUNE["ease_sim"] if sim else (tu if want[i] > self.glass[i] else td)
             self.glass[i] += (want[i] - self.glass[i]) * (1.0 - math.exp(-dt / tau))
 
+    @staticmethod
+    def _frost_band(frost, h):
+        """Frost's band px: none without frost, else at least frost_min of its widest."""
+        if frost <= 0.004:
+            return 0.0
+        m = TUNE["frost_min"]
+        return h * TUNE["frost_width"] * (m + (1.0 - m) * frost)
+
     def _glass_uniforms(self, w, h, e, dx, dy, disc_a, mx, my, moon_a, night, dim):
         """gl_env's glass: (wet, snow, frost, melt); its clock, the wind's lean,
         frost's band px; the light the drops catch (x, y, strength, the light
@@ -622,7 +632,7 @@ class Env:
         k = (0.30 + 0.70 * amb + 0.12 * moon_w) * dim
         return {
             "uEnvGlass": tuple(T),
-            "uEnvGlassK": (self.clk[3], cur["slant"], T[2] * h * TUNE["frost_width"], 0.0),
+            "uEnvGlassK": (self.clk[3], cur["slant"], self._frost_band(T[2], h), _smooth(T[2] / TUNE["frost_full"])),
             "uEnvGlassL": (lx, ly, light, amb),
             "uEnvGlassC": tuple(min(1.0, c * k + (0.04, 0.06, 0.10)[i] * night) for i, c in enumerate(tint)),
         }

@@ -12262,6 +12262,11 @@ class TestEnvironment(unittest.TestCase):
         self.assertGreater(frost, 0.6)
         self.assertEqual(melt, 0.0)                               # flakes stay flakes
         self.assertEqual(E.glass_of(E.weather_of({"code": 3})), (0.0, 1.0))   # no temperature: no frost
+        f0 = E.glass_of(E.weather_of({"code": 0, "temp": 0.0}))[0]
+        self.assertGreater(f0, 0.2)                               # 0 °C: frost you can see
+        self.assertGreater(E.Env._frost_band(f0, 480), 40.0)      # a band, not a hairline
+        self.assertGreater(E.Env._frost_band(0.01, 480), 30.0)    # a first frost: wide but faint
+        self.assertEqual(E.Env._frost_band(0.0, 480), 0.0)
         sky = [{"code": 63, "temp": 8.0}]
         e = E.Env(wall=lambda: 1793700000.0)
         e._real_sky = lambda t: sky[0]
