@@ -1375,17 +1375,24 @@ _CLOSE = re.compile(r"^(?:luna,?\s+)?(?:dobra,?\s+|ok,?\s+|okej,?\s+|już,?\s+|j
                     r"pokaż\s+(?:swoją\s+|swoja\s+)?(?:buzię|buzie|twarz|minę)|"
                     r"pokaz\s+buzie)(?:\s+(?:proszę|prosze|dzięki|dzieki))?\W*$", re.I)
 _CLOSABLE = ("clock", "clockface", "list", "gallery", "photo", "card", "memo", "stars",
-             "mirror", "dice", "coin", "lamp", "weather", "paint", "schedule", "contact")
+             "mirror", "dice", "coin", "lamp", "weather", "paint", "schedule", "contact",
+             "agenda", "phone", "settings")
 
 
 # "Wyłącz ekran gry", "zamknij galerię", "schowaj pogodę" (14 Oct: "Wyłącz
 # ekran gry" went to the model, which said "wyłączam" and left it on)
 _CLOSE_NAMED = re.compile(r"^(?:luna,?\s+)?(?:dobra,?\s+|ok,?\s+|okej,?\s+|już,?\s+|juz,?\s+)?"
-                          r"(?:wyłącz|wylacz|zamknij|schowaj|ukryj|zakończ|zakoncz)\s+(?:ten\s+|tę\s+|te\s+)?"
-                          r"(?:ekran\s+gry|grę|gre|galerię|galerie|pogodę|pogode|prognozę|prognoze|"
+                          r"(?:wyłącz|wylacz|zamknij|schowaj|ukryj|zakończ|zakoncz)\s+(?:to\s+|ten\s+|tę\s+|te\s+)?"
+                          r"(?:ekran\s+gry|grę|gre|galerię|galerie|pogodę|pogode|"
+                          r"prognozę(?:\s+pogody)?|prognoze(?:\s+pogody)?|"
                           r"zegar|zdjęcia|zdjecia|zdjęcie|zdjecie|rysunki|rysunek|listę|liste|"
                           r"lusterko|lustro|planszę|plansze|kartę|karte|kontakt|kontakty|"
                           r"wizytówkę|wizytowke|"
+                          # 7 Nov: "Zamknij wiadomości SMS" → the model, "już zamykam", still up
+                          r"kalendarz|kalendarza|"
+                          r"wiadomości(?:\s+sms)?|wiadomosci(?:\s+sms)?|wiadomość|wiadomosc|"
+                          r"sms|smsy|sms-y|esemesy|telefon|ustawienia|"
+                          r"okno|okienko|stronę|strone|"
                           # 26 Oct: the week plan stayed up after "wyłącz"
                           r"plan(?:\s+(?:tygodnia|lekcji|dnia))?(?:\s+\w+)?|grafik(?:\s+\w+)?|"
                           # 25 Oct: "Wyłącz kogo znam." → the model, "wyłączam", still up
@@ -1479,9 +1486,7 @@ def close_page(text, speak):
         if ov and time.time() < ov[1] and ov[0] in _CLOSABLE:
             with state.lock:
                 state.overlay = None
-            print(f"[cmd] closed the {ov[0]} page by voice", flush=True)
-            close_after()
-            speak("Dobrze.")
+            _closed_by_voice(ov, speak)
             return True
     if _STOP_PAGE.match(text.lower().strip(" .!?")) and _stop_means_page():
         with state.lock:
@@ -1495,10 +1500,17 @@ def close_page(text, speak):
         if not ov or ov[0] not in _CLOSABLE or not _CLOSE.match(text.strip()):
             return False
         state.overlay = None
+    _closed_by_voice(ov, speak)
+    return True
+
+
+def _closed_by_voice(ov, speak):
+    if ov[0] == "phone":
+        import phone
+        phone.closed_by_voice(ov[2])
     print(f"[cmd] closed the {ov[0]} page by voice", flush=True)
     close_after()
     speak("Dobrze.")
-    return True
 
 
 # "Obudź się", "wstawaj", "pobudka" — any word wakes her; these get a reply of

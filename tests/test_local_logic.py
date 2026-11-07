@@ -7353,6 +7353,33 @@ class Oct14NightTest(unittest.TestCase):
             self.assertTrue(commands.close_page(words, said.append), words)
             with state.lock:
                 self.assertIsNone(state.overlay)
+        # 7 Nov: the SMS page, the calendar, the weather stayed up
+        import phone
+        for kind, data, words in (
+                ("phone", {"view": "inbox"}, "Zamknij wiadomości SMS."),
+                ("phone", {"view": "inbox"}, "Zamknij wiadomości"),
+                ("agenda", {}, "Zamknij kalendarz"),
+                ("agenda", {}, "Zamknij"),
+                ("weather", {}, "Schowaj prognozę pogody"),
+                ("settings", {}, "Zamknij ustawienia"),
+                ("list", None, "Zamknij to okno")):
+            with state.lock:
+                state.overlay = (kind, time.time() + 30, data)
+            self.assertTrue(commands.close_page(words, said.append), words)
+            with state.lock:
+                self.assertIsNone(state.overlay, words)
+        # an SMS waiting for "wyślij?" ends with its page
+        with mock.patch.object(phone, "_drop_draft", lambda: said.append("<drop>")):
+            with state.lock:
+                state.overlay = ("phone", time.time() + 30, {"view": "confirm"})
+            self.assertTrue(commands.close_page("Zamknij", said.append))
+        self.assertEqual(said[-2:], ["<drop>", "Dobrze."])
+        with state.lock:
+            state.overlay = ("list", time.time() + 30, None)
+        self.assertFalse(commands.close_page("Zamknij okno w kuchni", said.append))
+        self.assertFalse(commands.close_page("Wyłącz radio", said.append))
+        with state.lock:
+            state.overlay = None
 
     def test_bare_stop_closes_the_page(self):
         import ambience

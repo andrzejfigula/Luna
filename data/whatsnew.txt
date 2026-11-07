@@ -1,5 +1,6 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
+- „Zamknij kalendarz”, „zamknij wiadomości”, „zamknij ustawienia” albo „zamknij to okno” — zamykam teraz te ekrany głosem.
 - Na „Jakie wieści ze świata?” albo „Jakie są najnowsze wieści?” czytam teraz prawdziwe nagłówki, a nie tylko mówię, że sprawdzam.
 - Mam kalendarz: „Dodaj do kalendarza dentystę 12 listopada o 15”, „Co mamy w sobotę?”, „Kiedy dentysta?”, „Przesuń dentystę na piątek”, „Odwołaj dentystę”. Przypomnę dzień i godzinę wcześniej albo tak, jak poprosisz: „Przypomnij dwa dni wcześniej”. Może się powtarzać co tydzień, co miesiąc albo co rok, a rano powiem, co jest dziś. Ikona Kalendarz na dole otwiera miesiąc: stuknij dzień, potem wydarzenie, żeby je zmienić. Mogę też przepisać terminy z kartki pokazanej kamerze.
 - Mogę sama ułożyć SMS-a: „Napisz coś miłego do Mai”. Przeczytam go i zapytam, czy wysłać; bez Twojego „tak” nic nie pójdzie. Jeśli nie dosłyszę odpowiedzi, zapytam jeszcze raz. Ikona SMS-a na pasku pokazuje liczbę nieprzeczytanych, a gdy otworzysz wiadomość na telefonie, u mnie też będzie przeczytana. Po „Napisz to w SMS-ie” wyślę to, co właśnie powiedziałam.

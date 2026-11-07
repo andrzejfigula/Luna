@@ -738,6 +738,15 @@ def _drop_draft():
         _draft = None
 
 
+def closed_by_voice(data):
+    """"Zamknij wiadomości": a draft or a pairing on the page ends with it."""
+    view = (data or {}).get("view")
+    if view == "confirm" or (data or {}).get("edit"):
+        _drop_draft()
+    elif view == "pair":
+        cancel_pairing()
+
+
 def _show_confirm():
     import screens
     screens._show("phone", PAGE_SECS, {"view": "confirm", "edit": None, "toast": None})
