@@ -1210,6 +1210,7 @@ def _cloud_wake_check(pcm16k, words=None, peak=None, conf=None):
     return True, _strip_wake_from_cloud(cloud)
 
 
+NAME_SURE_RETRY = 0.9      # name Vosk this sure + an empty cloud → ask the cloud again
 _wake_seen = (None, None)              # (how the last cloud wake check found her, its words)
 local_only = False      # the last text may only run a local command (activation.py)
 quiet_wake = False      # the last WAKE_ACK: no sound — only the listening face
@@ -1781,6 +1782,12 @@ def listen():
                     # 17:54, Maja and a parent rehearsing a poem: "…żeby ludzie
                     # w zgodzie żyli" woke her)
                     fuzzy_cloud = _cloud_transcribe(utt_pcm)
+                    if fuzzy_cloud == "" and by_name and wake_conf >= NAME_SURE_RETRY:
+                        # the cloud flakes on a hard clip (7 Nov 19:47 "Luna, zimno":
+                        # "", then "Luna zimno." on a resend) — ask once more
+                        fuzzy_cloud = _cloud_transcribe_now(utt_pcm)
+                        print(f"[STT] name Vosk sure ({wake_conf:.2f}), cloud empty — "
+                              f"asked again: \"{fuzzy_cloud}\"", flush=True)
                     if fuzzy_cloud and not by_name and _cloud_lost_name(words, start, fuzzy_cloud):
                         print(f"[STT] the cloud lost her name: \"{text}\" / "
                               f"\"{fuzzy_cloud}\"", flush=True)

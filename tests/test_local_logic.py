@@ -4937,6 +4937,69 @@ class KidsTest(unittest.TestCase):
             for n, v in old.items():
                 setattr(state, n, v)
 
+    def _passive_name_call(self, resend):
+        """Not in a conversation: name Vosk sure of "luna", Vosk "runda zimno", the
+        cloud "" first, `resend` on a second ask. → what listen() returns"""
+        import speech_to_text as stt
+        loud = [0, 0] + [1] * 8 + [0] * 8
+        blocks = [(b"\x10\x27" if on else b"\0\0") * 1600 for on in loud] + [b"\0\0" * 1600] * 2
+
+        class Rec:
+            n, words = 0, []
+
+            def AcceptWaveform(self, data):
+                self.n += 1
+                if any(data):
+                    self.words = ["runda", "zimno"]
+                if self.n == len(blocks) - 1:
+                    state.speaking = True
+                return self.n == 12
+
+            def Result(self):
+                out, self.words = " ".join(self.words), []
+                return json.dumps({"text": out, "result": [
+                    {"word": w, "conf": 0.9} for w in out.split()]})
+
+            FinalResult = Result
+
+            def PartialResult(self):
+                return json.dumps({"partial": " ".join(self.words)})
+
+        names = ("conversation_active", "last_activity_time", "speaking", "mic_unblock_time",
+                 "mic_muted_until", "listening", "luna_mode", "convo_expired_time",
+                 "convo_closed_hard", "bare_wake")
+        old = {n: getattr(state, n) for n in names}
+        while not stt._q.empty():
+            stt._q.get_nowait()
+        for b in blocks:
+            stt._q.put(b)
+        state.conversation_active, state.convo_expired_time = False, 0
+        state.speaking, state.mic_unblock_time, state.mic_muted_until = False, 0, 0
+        asked = []
+        try:
+            with mock.patch.multiple(stt, _mic_ok=True, _cloud=object(), _get_recognizer=Rec,
+                                     _name_reset=lambda: None, _name_feed=lambda d: None,
+                                     _name_heard=lambda: 1.0, _addressed_to_luna=lambda: True,
+                                     _resample_to_16k=lambda d: d, _energy_gate=lambda: 1000,
+                                     _update_noise_floor=lambda r: None, _page_open=lambda: False,
+                                     _passive_spec_ok=lambda *a: False, _wake_budget=lambda: True,
+                                     _cloud_transcribe=lambda pcm, lang=None: "",
+                                     _cloud_transcribe_now=lambda pcm, lang=None:
+                                         asked.append(1) or resend,
+                                     _save_utterance=lambda *a: None):
+                return stt.listen(), len(asked)
+        finally:
+            for n, v in old.items():
+                setattr(state, n, v)
+
+    def test_sure_name_with_an_empty_cloud_asks_again(self):
+        text, asked = self._passive_name_call("Luna zimno.")
+        self.assertEqual(asked, 1)
+        self.assertIn("zimno", text.lower())
+        text, asked = self._passive_name_call("")        # still nothing: not her name
+        self.assertEqual(asked, 1)
+        self.assertNotIn("zimno", (text or "").lower())
+
     def test_window_stays_open_when_speech_begins_as_it_ends(self):
         # Vosk's silence chunk ends on the first loud block of the sentence
         self.assertEqual(self._listen_with({3}, [0, 0, 1, 1, 1, 1, 1, 1] + [0] * 8),
