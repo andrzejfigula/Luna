@@ -243,11 +243,66 @@ def _colour(low):
     return next((c for stem, c in LAMP_COLOURS.items() if stem in low), None)
 
 
-def lamp_on(colour=None, secs=None, scene=None):
+def lamp_on(colour=None, secs=None, scene=None, tint=None):
+    """tint: a picture's colour (a LAMP_COLOURS pair); None → the one it had last."""
     data = {"col": colour or LAMP_COLOURS["ciepł"]}
     if scene:
         data.update(scene=scene, t0=time.time())
+        if tint:
+            _remember_tint(scene, tint)
+        tint = tint or _tints().get(scene)
+        if tint:
+            data["tint"] = tint
     _overlay("lamp", secs or LAMP_HOURS * 3600, data)
+
+
+# a picture's colour ("lawa na zielono"), each its own, kept across restarts
+_TINT_ORDER = ("czerwon", "pomarańcz", "żółt", "zielon", "niebiesk", "fiolet", "różow")
+
+
+def _tints():
+    import settings
+    return {s: tuple(tuple(c) for c in v)
+            for s, v in (settings.get("lamp_tints") or {}).items()}
+
+
+def _remember_tint(scene, tint):
+    import settings
+    all_ = dict(settings.get("lamp_tints") or {})
+    if tint:
+        all_[scene] = [list(c) for c in tint]
+    else:
+        all_.pop(scene, None)
+    settings.put("lamp_tints", all_)
+
+
+def lamp_tint(tint):
+    """The picture showing in a colour (None: its own colours) — its motion
+    and timer kept."""
+    with state.lock:
+        ov = state.overlay
+        if not (ov and ov[0] == "lamp" and (ov[2] or {}).get("scene")):
+            return False
+        if tint:
+            ov[2]["tint"] = tint
+        else:
+            ov[2].pop("tint", None)
+        scene = ov[2]["scene"]
+    _remember_tint(scene, tint)
+    print(f"[fun] lamp {scene} tint {tint and tint[0]}", flush=True)
+    return True
+
+
+def _next_tint():
+    """"Inny kolor": the picture's own colours → red → … → pink → its own."""
+    with state.lock:
+        ov = state.overlay
+        cur = (ov[2] or {}).get("tint") if ov and ov[0] == "lamp" else None
+    stems = [s for s in _TINT_ORDER if LAMP_COLOURS[s] == cur]
+    if not stems:
+        return LAMP_COLOURS[_TINT_ORDER[0]]
+    i = _TINT_ORDER.index(stems[0]) + 1
+    return LAMP_COLOURS[_TINT_ORDER[i]] if i < len(_TINT_ORDER) else None
 
 
 def lamp_scene():
@@ -290,6 +345,15 @@ _LAMP_LIST = re.compile(r"\bjakie\b.*\blamp|\blamp\w*\s+(?:masz|są|sa)\b.*\?")
 _SCENE_VERB = re.compile(r"\b(?:włącz|wlacz|zapal|daj|ustaw|przełącz|przelacz|zmień|zmien)\s+"
                          r"(?:mi\s+|nam\s+|na\s+)?(?:meduz|zorz|aurora|świetlik|swietlik|"
                          r"robaczk|law[aąęeo])")
+# "włącz zieloną lawę", "zapal niebieski kominek"
+_SCENE_VERB_COL = re.compile(r"\b(?:włącz|wlacz|zapal|daj|ustaw|przełącz|przelacz|zmień|zmien)\s+"
+                             r"(?:mi\s+|nam\s+|na\s+)?\w+\s+(?:meduz|zorz|aurora|świetlik|"
+                             r"swietlik|robaczk|law[aąęeo])")
+_OWN_COLOURS = re.compile(r"\b(?:zwykł|zwykl|normaln|oryginaln|prawdziw|własn|wlasn|swoj|"
+                          r"pierwotn|domyśln|domysln|star)\w*\s+kolor"
+                          r"|\bkolor\w*\s+(?:jak\s+(?:był|byl)|oryginaln|normaln|zwykł|zwykl)")
+_PLAIN_LAMP = re.compile(r"\b(?:zwykł|zwykl|normaln|zwyczajn)\w*\s+lamp|\bbez\s+obrazk")
+_OTHER = re.compile(r"\b(?:zmień|zmien|inn\w*|następn\w*|nastepn\w*|kolejn\w*)\b")
 _OFF_WORD = re.compile(r"\b(?:wyłącz|wylacz|zgaś|zgas|stop|zatrzymaj)\b")
 
 
@@ -313,6 +377,23 @@ def lamp_scenes_handle(low, words, colour, speak):
         return False
     scene = lamp_scenes.scene_in(low)
     lampword = re.search(r"\blamp", low)
+    showing = lamp_scene() is not None
+    if scene is None and showing:
+        # its colour: "lampka na zielono", "zmień kolor na czerwony", "inny kolor",
+        # "zwykłe kolory"; "zwykła lampka na zielono" is the plain light
+        kolor = re.search(r"\bkolor|\bbarw", low)
+        tint = False                                         # False: not about its colour
+        if _OWN_COLOURS.search(low) and len(words) <= 8:
+            tint = None
+        elif not _PLAIN_LAMP.search(low):
+            if colour and (lampword or kolor or len(words) <= 3):
+                tint = colour
+            elif colour is None and kolor and len(words) <= 6 and _OTHER.search(low):
+                tint = _next_tint()
+        if tint is not False:
+            lamp_tint(tint)
+            close_after()
+            return True
     if scene is None:
         if colour is None and _LAMP_NEXT.search(low):
             if lamp_lit():
@@ -323,13 +404,13 @@ def lamp_scenes_handle(low, words, colour, speak):
             close_after()
             return True
         return False
-    showing = lamp_scene() is not None
     if not ((lampword and len(words) <= 8) or _SCENE_VERB.search(low)
+            or (colour and _SCENE_VERB_COL.search(low))
             or (showing and len(words) <= 4)):
         return False
     import timers
     secs, _ = timers.parse_duration(low)
-    lamp_on(None, secs or _lamp_left(), scene)
+    lamp_on(None, secs or _lamp_left(), scene, colour)
     if secs:
         speak(f"Lampka zgaśnie za {timers.say_duration(secs)}.")
     print(f"[fun] lamp scene {scene}" + (f" for {secs}s" if secs else ""), flush=True)
@@ -456,7 +537,8 @@ def handle(text, speak, play_sound, play_sound_async):
     if _LAMP_LIST.search(low) and len(words) <= 8:          # "jakie masz lampki?"
         speak("Mam zwykłą lampkę, w każdym kolorze, i lampki z obrazkiem: "
               + ", ".join(lamp_scenes.NAMES[s] for s in lamp_scenes.SCENES[:-1])
-              + " i " + lamp_scenes.NAMES[lamp_scenes.SCENES[-1]] + ".")
+              + " i " + lamp_scenes.NAMES[lamp_scenes.SCENES[-1]]
+              + ". Obrazek też mogę zrobić w innym kolorze.")
         return True
     polite = re.search(r"\b(?:możesz|mozesz|mogłabyś|moglabys|mogłabys|can\s+you|could\s+you)\b",
                        low)

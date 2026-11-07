@@ -23,6 +23,7 @@ uniform vec4  uBlobA[8];      // lava: cos, sin of the stretch axis, along, acro
 uniform float uDraw;          // 0 the background; 1 a firefly, 2 a jellyfish — in its box
 uniform vec4  uItem, uItemK, uItemL, uItemM;
 uniform vec4  uRope[6];       // a tentacle: 12 points (px), two to a vec4
+uniform vec3  uTintR, uTintG, uTintB;   // the chosen colour: lamp_scenes.tint_matrix's rows
 
 float hash(vec2 p) {
     vec3 p3 = fract(vec3(p.xyx) * 0.1031);
@@ -389,6 +390,7 @@ void main() {
         else if (m < 5.5) c = lava(P, t);
         else              c = fireplace(P, t);
     }
+    c = max(vec3(dot(uTintR, c), dot(uTintG, c), dot(uTintB, c)), 0.0);   // linear: adds up
     gl_FragColor = vec4(c * uK.z, 1.0);
 }
 """
@@ -410,6 +412,7 @@ void main() {
 """
 
 NOISE = 256
+_IDENT = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
 
 
 class LampPass:
@@ -480,6 +483,8 @@ class LampPass:
         self._set(self.prog, "uFbo", (self.fw, self.fh))
         self._set(self.prog, "uRect", full)
         self._set(self.prog, "uK", lamp["uK"])
+        for name, row in zip(("uTintR", "uTintG", "uTintB"), lamp.get("uTint") or _IDENT):
+            self._set(self.prog, name, row)
         GL.glActiveTexture(GL.GL_TEXTURE0 + 5)
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.noise)
         GL.glUniform1i(self._loc_of(self.prog, "uNoise"), 5)

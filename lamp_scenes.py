@@ -14,6 +14,7 @@ the wax) and draws the clock's digits with pygame, over the ring.
 Without the GPU face: the plain lamp's glow in the scene's colours.
 """
 
+import colorsys
 import math
 import random
 import time
@@ -30,6 +31,10 @@ FALLBACK = {"meduzy": ((90, 140, 255), (10, 15, 60)), "zorza": ((90, 230, 170), 
             "zegar": ((110, 150, 255), (10, 15, 50)), "swietliki": ((255, 190, 90), (40, 25, 5)),
             "lawa": ((190, 80, 255), (40, 5, 70)), "kominek": ((255, 140, 50), (90, 25, 5))}
 FADE = 1.5                     # s: in at the start and when switching, out at the end
+# each picture's own main hue (degrees): "lawa na zielono" turns 280 → the colour's hue
+BASE_HUE = {"meduzy": 220.0, "zorza": 155.0, "zegar": 225.0, "swietliki": 35.0,
+            "lawa": 280.0, "kominek": 22.0}
+_IDENT = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
 
 # words → scene ("lampka z meduzami", "włącz zorzę polarną", "lampa lawa")
 _STEMS = (("meduz", "meduzy"), ("zorz", "zorza"), ("aurora", "zorza"), ("zegar", "zegar"),
@@ -381,6 +386,28 @@ class _Fireflies:
         return {"items": [f.item(now) for f in self.flies]}
 
 
+def tint_matrix(scene, col):
+    """A colour (the plain lamp's centre RGB) → the 3×3 the shader multiplies
+    the picture by: its hue turned about the grey axis to the colour's,
+    saturation as the colour's (white: almost grey). None → unchanged."""
+    if not col or scene not in BASE_HUE:
+        return _IDENT
+    h, s, _ = colorsys.rgb_to_hsv(*(c / 255.0 for c in col))
+    a = math.radians(h * 360.0 - BASE_HUE[scene])
+    sat = min(1.0, max(0.15, s / 0.4))
+    ca, sa, k = math.cos(a), math.sin(a), 1.0 / math.sqrt(3.0)
+    # Rodrigues about (1,1,1)/√3: +120° takes red to green, as hue goes
+    cross = ((0.0, -k, k), (k, 0.0, -k), (-k, k, 0.0))
+    rot = [[(ca if i == j else 0.0) + cross[i][j] * sa + k * k * (1 - ca) for j in range(3)]
+           for i in range(3)]
+    luma = (0.299, 0.587, 0.114)
+    out = []
+    for i in range(3):                       # saturation · rotation
+        out.append(tuple(sum(((sat if i == m else 0.0) + (1 - sat) * luma[m]) * rot[m][j]
+                             for m in range(3)) for j in range(3)))
+    return tuple(out)
+
+
 _sim = {"data": None, "scene": None, "obj": None}
 
 
@@ -406,6 +433,12 @@ def uniforms(data, now, until, w, h):
     t = now - data.get("t0", now)
     fade = min(1.0, (now - data["since"]) / FADE, max(0.0, (until - now) / FADE))
     u = {"uK": (float(_ID.get(scene, 1)), t, fade * fade * (3 - 2 * fade), 0.0)}
+    tint = (data.get("tint") or (None,))[0]
+    if tint:
+        key = (scene, tuple(tint))
+        if _sim.get("tkey") != key:
+            _sim.update(tkey=key, tint=tint_matrix(scene, tint))
+        u["uTint"] = _sim["tint"]
     if _sim["obj"] is not None:
         u.update(_sim["obj"].uniforms(now))
     return u

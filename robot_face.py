@@ -3668,7 +3668,8 @@ class RobotFace:
         elif kind == "weather":                         # "pokaż pogodę"
             ui_screens.draw_weather(scr, data, time.time(), WIDTH, HEIGHT)
         elif kind == "lamp":
-            inner, outer = (lamp_scenes.FALLBACK.get((data or {}).get("scene"))   # (no GPU)
+            inner, outer = ((data or {}).get("tint")                            # (no GPU)
+                            or lamp_scenes.FALLBACK.get((data or {}).get("scene"))
                             or (data or {}).get("col") or ((255, 214, 150), (120, 50, 8)))
             if getattr(self, "_lamp", (None,))[0] != (inner, outer):
                 lamp = pygame.Surface((WIDTH, HEIGHT))

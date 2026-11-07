@@ -5198,6 +5198,22 @@ class KidsTest(unittest.TestCase):
         finally:
             fun.lamp_off()
 
+    def test_lamp_tint_matrix(self):
+        import lamp_scenes as ls
+        def mul(m, c):
+            return tuple(sum(m[i][j] * c[j] for j in range(3)) for i in range(3))
+        self.assertEqual(ls.tint_matrix("lawa", None), ls._IDENT)
+        # red picture (kominek ~22°) asked green: its orange → green, as bright
+        r, g, b = mul(ls.tint_matrix("kominek", (120, 255, 140)), (0.95, 0.32, 0.04))
+        self.assertGreater(g, max(r, b))
+        self.assertAlmostEqual(r + g + b, 0.95 + 0.32 + 0.04, delta=0.05)
+        # its own hue asked: nearly unchanged; white: nearly grey
+        r, g, b = mul(ls.tint_matrix("lawa", (200, 130, 255)), (0.30, 0.055, 0.48))
+        self.assertAlmostEqual(r, 0.30, delta=0.06)
+        self.assertAlmostEqual(b, 0.48, delta=0.06)
+        c = mul(ls.tint_matrix("lawa", (255, 255, 250)), (0.30, 0.055, 0.48))
+        self.assertLess(max(c) - min(c), 0.1)
+
     def test_lamp_scenes_by_voice(self):
         import ambience
         import fun
@@ -5238,7 +5254,32 @@ class KidsTest(unittest.TestCase):
             self.assertAlmostEqual(state.overlay[1] - time.time(), 900, delta=5)
             h("A teraz lawa")                   # a picture showing: its name is enough
             self.assertEqual(fun.lamp_scene(), "lawa")
-            h("Lampka na niebiesko")            # plain light again, in a colour
+            # its colour: the picture kept, its motion and timer too; remembered
+            h("Lampka na niebiesko")
+            with state.lock:
+                data_lawa = state.overlay[2]
+            self.assertEqual(fun.lamp_scene(), "lawa")
+            self.assertEqual(data_lawa["tint"], fun.LAMP_COLOURS["niebiesk"])
+            self.assertTrue(h("Na zielono"))
+            self.assertEqual(data_lawa["tint"], fun.LAMP_COLOURS["zielon"])
+            self.assertTrue(h("Zmień kolor"))                 # the next one: blue
+            self.assertEqual(data_lawa["tint"], fun.LAMP_COLOURS["niebiesk"])
+            self.assertTrue(h("Zmień kolor lampki na czerwony"))
+            self.assertEqual(fun.lamp_scene(), "lawa")
+            self.assertEqual(data_lawa["tint"], fun.LAMP_COLOURS["czerwon"])
+            h("Lampka meduzy")                                # each its own colour
+            self.assertNotIn("tint", state.overlay[2])
+            h("Lampa lawa")                                   # lava stays red
+            self.assertEqual(state.overlay[2]["tint"], fun.LAMP_COLOURS["czerwon"])
+            self.assertTrue(h("Zwykłe kolory"))
+            self.assertNotIn("tint", state.overlay[2])
+            h("Lampka lawa")
+            self.assertNotIn("tint", state.overlay[2])
+            fun.lamp_off()
+            self.assertTrue(h("Włącz różową zorzę"))
+            self.assertEqual(fun.lamp_scene(), "zorza")
+            self.assertEqual(state.overlay[2]["tint"], fun.LAMP_COLOURS["różow"])
+            h("Zwykła lampka na niebiesko")                   # plain light, in a colour
             self.assertIsNone(fun.lamp_scene())
             self.assertTrue(fun.lamp_lit())
             self.assertTrue(h("Jakie masz lampki?"))

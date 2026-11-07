@@ -25,7 +25,7 @@ The drawn characters (gl_chars.py) and Luna's three skins: a sheet each of
 every expression, visemes, gestures and accessories, a GIF of transitions and
 speech, and each one's GPU time per frame — on a fake clock, seeded.
 
-    … tools/gl_face_preview.py --lamp [out.png] [scene…]
+    … tools/gl_face_preview.py --lamp [out.png] [scene[:colour stem]…]
 
 The lamp's scenes (lamp_scenes.py): two frames each and the GPU time; one
 scene named: full size.
@@ -408,9 +408,13 @@ def lamp_sheet(out, only=None):
     g.target_fbo = fbo
     layer = gl_face.layer_surface(W, H)
     tiles = []
-    for scene in only or lamp_scenes.SCENES:
+    for name in only or lamp_scenes.SCENES:
         t0 = 1_000_000.0
+        scene, _, tint = name.partition(":")          # "lawa:zielon" — in that colour
         data = {"scene": scene, "t0": t0}
+        if tint:
+            import fun
+            data["tint"] = fun.LAMP_COLOURS[tint]
         for i, at in enumerate((20.0, 47.0)):
             now = t0
             while now < t0 + at:                      # the simulation, in steps
@@ -422,14 +426,14 @@ def lamp_sheet(out, only=None):
             g.render_lamp(u, layer)
             px = GL.glReadPixels(0, 0, W, H, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE)
             img = Image.frombytes("RGBA", (W, H), px).transpose(Image.FLIP_TOP_BOTTOM)
-            ImageDraw.Draw(img).text((10, 8), f"{scene} {at:.0f}s", fill=(255, 255, 255, 255))
+            ImageDraw.Draw(img).text((10, 8), f"{name} {at:.0f}s", fill=(255, 255, 255, 255))
             tiles.append(img)
         GL.glFinish()
         t1 = time.perf_counter()
         for _ in range(30):
             g.render_lamp(u, layer)
         GL.glFinish()
-        print(f"[lamp] {scene}: {(time.perf_counter() - t1) / 30 * 1000:.1f} ms a frame")
+        print(f"[lamp] {name}: {(time.perf_counter() - t1) / 30 * 1000:.1f} ms a frame")
     cols = 2
     rows = (len(tiles) + cols - 1) // cols
     full = only is not None and len(only) == 1
