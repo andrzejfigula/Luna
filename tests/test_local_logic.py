@@ -5214,6 +5214,66 @@ class KidsTest(unittest.TestCase):
         c = mul(ls.tint_matrix("lawa", (255, 255, 250)), (0.30, 0.055, 0.48))
         self.assertLess(max(c) - min(c), 0.1)
 
+    def test_controls_strip(self):
+        import controls
+        import dock
+        import fun
+        import visualizer
+        y = controls.Y0 + 20
+        dot = lambda i: controls.SW_X + controls.SW_W * i + 5        # noqa: E731
+        try:
+            fun.lamp_on(None, None, "lawa")
+            controls.tap("lamp", 400, 100)                 # a tap: the strip, nothing else
+            self.assertEqual(controls.shown("lamp"), 1.0)
+            self.assertEqual(fun.lamp_scene(), "lawa")
+            controls.tap("lamp", 280, y)                   # ›
+            self.assertEqual(fun.lamp_scene(), "kominek")
+            controls.tap("lamp", 30, y)                    # ‹
+            self.assertEqual(fun.lamp_scene(), "lawa")
+            i = 1 + fun._TINT_ORDER.index("zielon")
+            controls.tap("lamp", dot(i), y)
+            self.assertEqual(state.overlay[2]["tint"], fun.LAMP_COLOURS["zielon"])
+            self.assertEqual(controls.content("lamp")[2], "zielon")
+            controls.tap("lamp", dot(0), y)                # its own colours
+            self.assertNotIn("tint", state.overlay[2])
+            controls.tap("lamp", 400, 100)                 # above it: hidden, lamp on
+            self.assertEqual(controls.shown("lamp"), 0.0)
+            self.assertTrue(fun.lamp_lit())
+            controls.swipe("lamp", -0.5)                   # a swipe: next, its name shown
+            self.assertEqual(fun.lamp_scene(), "kominek")
+            self.assertEqual(controls.content("lamp")[0], "kominek")
+            controls.tap("lamp", 760, y)                   # ⏻
+            self.assertFalse(fun.lamp_lit())
+            fun.lamp_on()                                  # the plain light: its colours
+            controls.show("lamp")
+            controls.tap("lamp", dot(1), y)
+            self.assertIsNone(fun.lamp_scene())
+            self.assertEqual(state.overlay[2]["col"], fun.LAMP_COLOURS["biał"])
+            fun.lamp_off()
+            controls.hide()
+            # the music's effects: only while something plays, no page up
+            self.assertFalse(controls.vis_touch("tap", 0.5, 0.3))
+            playing = visualizer.playing
+            visualizer.playing = lambda: True
+            try:
+                self.assertTrue(controls.vis_touch("tap", 0.5, 0.3))
+                self.assertFalse(dock.visible())           # the strip instead of the icons
+                before = visualizer.style()
+                controls.vis_touch("tap", 280 / controls.W, y / controls.H)
+                self.assertNotEqual(visualizer.style(), before)
+                controls.vis_touch("swipe", 0.5, 0.5, 0.4)
+                self.assertEqual(visualizer.style(), before)
+                keys = list(visualizer.COLORS)
+                controls.vis_touch("tap", dot(1 + keys.index("zielone")) / controls.W, y / controls.H)
+                self.assertEqual(visualizer.color_setting(), "zielone")
+                controls.vis_touch("tap", dot(0) / controls.W, y / controls.H)
+                self.assertEqual(visualizer.color_setting(), "auto")
+            finally:
+                visualizer.playing = playing
+        finally:
+            fun.lamp_off()
+            controls.hide()
+
     def test_lamp_scenes_by_voice(self):
         import ambience
         import fun

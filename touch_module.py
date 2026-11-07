@@ -106,6 +106,13 @@ def _publish(kind, nx, ny, dx=0.0):
             import activation               # a tap while she's still thinking: no answer
             if activation.cancel("touch") and kind == "tap":
                 kind = "stop"
+    if kind in ("tap", "swipe") and not on_page:
+        try:                            # the music's effects: their strip (controls.py)
+            import controls
+            if controls.vis_touch(kind, nx, ny, dx):
+                kind = "dock"           # (she doesn't react to it)
+        except Exception as e:
+            print(f"[touch] controls failed: {e}", flush=True)
     with state.lock:
         state.touch_on_page = on_page
         state.touch_kind = kind

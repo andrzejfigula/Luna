@@ -176,8 +176,9 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `docs/backlog-d
 | Plan lekcji | „Pokaż plan lekcji Mai”, „mój plan lekcji”, „jaki mam plan lekcji?” — lekcje jednej osoby od poniedziałku do piątku w tabelce (każdy ma swój; na górze tylko ci, którzy mają plan lekcji — „+ Dodaj”, żeby dodać kogoś nowego; przesuń palcem — następna osoba); powie, jakie lekcje są dziś albo w następny dzień szkolny. Nowy plan: kartka przed kamerą i „zaktualizuj plan lekcji Mai” (albo „Wczytaj z kartki” na ekranie) — zastępuje stary plan na te dni. Dotknij lekcji, żeby zmienić godzinę albo ją usunąć; dotknij pustego pola i powiedz nazwę lekcji. Każdy przedmiot ma swój kolor (W-f zawsze ten sam). „Wyczyść plan lekcji Mai” — dopyta, czy na pewno; na ekranie „Wyczyść”, potem „Tak, wyczyść”. „Wczytaj z kartki” na ekranie albo „wczytaj od nowa plan lekcji Mai” — stary plan znika dopiero, gdy kartka się uda przeczytać. Z planu tygodnia: przycisk „Plan lekcji”. Wpis z planu tygodnia do planu lekcji: „przenieś kółko przyrodnicze do planu lekcji Mai” (albo zaraz po dodaniu: „to ma być w planie lekcji”); nowa lekcja głosem: „dodaj do planu lekcji Mai plastykę w piątek o 10:55” |
 | Plan dnia | „Pokaż plan dnia”, „Jaki jest plan na dziś?” — przypomnienia, sprawy do przekazania, urodziny, pogoda i listy na jednym ekranie |
 | Minutnik | „Minutnik na 10 minut”, „na pół godziny”, „na kwadrans” — od razu, bez chmury (działa też bez internetu); „Minutnik na 10 minut na makaron” — z nazwą; „Ile zostało na minutniku?” — dokładnie |
-| Lampka | „Włącz lampkę”, „Lampka na niebiesko” (czerwony, zielony, fioletowy, różowy, żółty, pomarańczowy, biały), „Lampka na 20 minut” — sama zgaśnie; „Wyłącz lampkę” albo stuknięcie |
+| Lampka | „Włącz lampkę”, „Lampka na niebiesko” (czerwony, zielony, fioletowy, różowy, żółty, pomarańczowy, biały), „Lampka na 20 minut” — sama zgaśnie; „Wyłącz lampkę” albo ⏻ na pasku (stuknij w ekran) |
 | Lampka z obrazkiem | „Lampka meduzy”, „Włącz zorzę polarną”, „Lampka zegar”, „Włącz świetliki”, „Lampa lawa”, „Lampka kominek” — ciemny, powoli ruszający się obraz zamiast światła; „Zmień lampkę” albo przesunięcie palcem — następny; „Jakie masz lampki?”; kolor: „Lampa lawa na zielono”, „Włącz różową zorzę”, gdy świeci „na niebiesko”, „zmień kolor” (następny), „zwykłe kolory” — każda pamięta swój; „Zwykła lampka na niebiesko” to zwykłe światło; „Lampka lawa na pół godziny” — sama zgaśnie; „Włącz kominek” (bez „lampki”) to dźwięk kominka |
+| Pasek lampki i muzyki | Stuknij w ekran, gdy świeci lampka albo grają efekty radia: na dole pasek — ‹ › poprzedni / następny obrazek albo efekt (albo przesuń palcem), kropki — kolor, ⏻ — wyłącz. Stuknięcie wyżej chowa pasek; sam znika po kilku sekundach |
 | Przypomnienie | „Przypomnij mi za 20 minut o praniu”, „Przypomnij mi o 17, żeby zadzwonić do mamy” — na dziś działa też bez internetu; „Przypomnij mi jutro o dentyście” |
 | Ile zostało | „Ile zostało na minutniku?” — odliczanie widać też w prawym górnym rogu, a ostatnie 5 sekund wielkimi cyframi |
 | Stoper | „Włącz stoper”, „Ile na stoperze?”, „Zatrzymaj stoper” — czas widać w prawym górnym rogu |
@@ -219,7 +220,7 @@ Każdy pełny ekran (lustro, zdjęcie, zegar) zamyka się stuknięciem.
 
 | Co | Jak |
 |---|---|
-| Lampka nocna | „Włącz lampkę” — cały ekran ciepło świeci (45 %); „wyłącz lampkę” albo stuknięcie gasi |
+| Lampka nocna | „Włącz lampkę” — cały ekran ciepło świeci (45 %); „wyłącz lampkę” albo ⏻ na pasku (stuknij w ekran) gasi |
 | Bajka na dobranoc | „Opowiedz bajkę na dobranoc” — spokojna bajka, a potem Luna sama zasypia |
 | Dobranoc | „Dobranoc” — zamyka oczy, ekran prawie gaśnie, nie zagaduje do rana; obudzi się, gdy się do niej odezwiesz. Jeśli masz nastawiony budzik, powie, na którą |
 | Tryb nocny | samo działa — w godzinach ciszy (22–8) ekran przygasa, a głos jest o połowę cichszy (budziki i minutniki dzwonią normalnie) |

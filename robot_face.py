@@ -42,6 +42,7 @@ import face_spec
 import gallery
 import gl_fx
 import themes
+import controls
 import lamp_scenes
 import perf_hud
 import screens
@@ -2669,8 +2670,7 @@ class RobotFace:
             elif ov_kind == "lamp" and touch_kind == "swipe":
                 with state.lock:                    # the lamp's next picture
                     dx = state.touch_dx
-                import fun
-                fun.lamp_next(-1 if dx > 0 else 1)
+                controls.swipe("lamp", dx)          # (the strip shows its name)
             elif ov_kind == "schedule" and touch_kind == "swipe":
                 with state.lock:                    # the next day / the one before
                     dx = state.touch_dx
@@ -2713,6 +2713,8 @@ class RobotFace:
                 elif ov_kind == "settings":             # a tab, a switch, the reset
                     import settings_page
                     settings_page.tap(touch_pt[0] * WIDTH, touch_pt[1] * HEIGHT, WIDTH, HEIGHT)
+                elif ov_kind == "lamp":                 # its strip: ‹ › colours ⏻ (controls.py)
+                    controls.tap("lamp", touch_pt[0] * WIDTH, touch_pt[1] * HEIGHT)
                 else:
                     with state.lock:                    # a tap elsewhere closes it
                         state.overlay = None
@@ -3422,7 +3424,9 @@ class RobotFace:
             self._draw_corner_icons()
 
         # ── quick icons along the bottom (dock.py): on the bare face only ──
-        if dock.visible():
+        if controls.shown("vis"):                       # the music's strip (controls.py)
+            controls.draw(self.screen, "vis")
+        elif dock.visible():
             ui_screens.draw_dock(self.screen, characters.kind_of(themes.get()), accent_cols())
 
         # ── whole-screen moments: mirror, photo, clock, flash ─────────────
@@ -3432,6 +3436,8 @@ class RobotFace:
                 ov_now = state.overlay
             if ov_now and ov_now[0] not in ("flash", "gallery", "paint"):   # (those: their own)
                 ui_screens.draw_close(self.screen, WIDTH)
+            if ov_now and ov_now[0] == "lamp":          # (no GPU: the plain glow's strip)
+                controls.draw(self.screen, "lamp")
             left = autoclose.progress(ov_now)           # closes by itself: the line, ⏸
             if left:
                 ui_screens.draw_countdown(self.screen, WIDTH, HEIGHT, *left)
@@ -3625,6 +3631,7 @@ class RobotFace:
         self.gl.clear(self.gl.screen_l, self.screen)
         if data.get("scene") == "zegar":
             lamp_scenes.draw_clock(self.screen, now, WIDTH, HEIGHT, u["uK"][2])
+        controls.draw(self.screen, "lamp", now)
         self.gl.render_lamp(u, self.screen)
         pygame.display.flip()
 

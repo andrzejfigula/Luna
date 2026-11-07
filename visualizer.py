@@ -340,6 +340,46 @@ _PALW = ((re.compile(r"pomara[ńn]cz"), "pomaranczowe"), (re.compile(r"fiolet"),
 _AUTOW = re.compile(r"losow|piosenk|automat|same|sam[eio]\b|r[oó][żz]n|zmienn")
 
 
+def playing():
+    """Music coming through (the radio, a sleep sound): its effects can show."""
+    return time.time() - _last_tap[0] < 2.0
+
+
+def color_setting():
+    style()
+    return _colset[0] or "auto"
+
+
+def set_colors(new):
+    """A COLORS key, or "auto" (another with each song) — kept."""
+    import settings
+    settings.put("radio_vis_col", new)
+    _style[0] = None
+    if new != "auto":
+        _pal[0] = new
+    print(f"[vis] colours: {new}", flush=True)
+
+
+def set_style(new):
+    """One of STYLES — kept ("off": no effects)."""
+    import settings
+    settings.put("radio_vis", new)
+    if new != "off":
+        settings.put("radio_vis_last", new)
+    if new == "losowo":
+        new_song()
+    _style[0] = None
+    print(f"[vis] style: {new}", flush=True)
+
+
+def step_style(step=1):
+    """The next style (a swipe, the strip's ‹ ›), "losowo" and "off" among them."""
+    cur = style()
+    new = STYLES[(STYLES.index(cur) + step) % len(STYLES)] if cur in STYLES else STYLES[0]
+    set_style(new)
+    return new
+
+
 def _colour(low, settings):
     """'zmień kolory' (the next, kept), 'fioletowe efekty', 'kolory losowo'
     (another with each song) → what to say."""
@@ -351,11 +391,7 @@ def _colour(low, settings):
     else:
         names = list(COLORS)
         new = names[(names.index(colors()) + 1) % len(names)]
-    settings.put("radio_vis_col", new)
-    _style[0] = None
-    if new != "auto":
-        _pal[0] = new
-    print(f"[vis] colours: {new}", flush=True)
+    set_colors(new)
     if new == "auto":
         return "Dobrze, kolory będą się zmieniać z każdą piosenką."
     return f"Dobrze — kolory {COLOR_NAMES[new]}."
@@ -399,13 +435,7 @@ def handle(low, speak, radio_on=True):
         speak(f"Efekty są włączone — teraz {NAMES[shown()]}. Powiedz „zmień efekt”, "
               "a pokażę inny.")
         return True
-    settings.put("radio_vis", new)
-    if new != "off":
-        settings.put("radio_vis_last", new)
-    if new == "losowo":
-        new_song()
-    _style[0] = None
-    print(f"[vis] style: {new}", flush=True)
+    set_style(new)
     if new == "off":
         speak("Dobrze, bez efektów. Powiedz „włącz efekty”, gdy zechcesz je z powrotem.")
     else:

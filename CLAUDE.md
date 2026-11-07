@@ -113,7 +113,7 @@ Camera: `camera_thread.py`, `vision_module.py` (faces, addressed speech),
 `faces.py` (who), `mouth.py` (talking, seen), `gesture_module.py`.
 Face/screen: `robot_face.py`, `face_renderer.py`, `face_spec.py`,
 `reply_scenes.py`, `ui_screens.py` (`ui_lessons.py`, `ui_paint.py`, `ui_schedule.py`),
-`screens.py`, `autoclose.py`, `dock.py`, `statusbar.py`, `themes.py`, `perf_hud.py`,
+`screens.py`, `autoclose.py`, `dock.py`, `controls.py` (the lamp's / music's strip), `statusbar.py`, `themes.py`, `perf_hud.py`,
 `touch_module.py`, `display.py`. GPU: `gl_fx.py` (over the face), `gl_lamp.py` with
 `lamp_scenes.py` (the lamp), `gl_vis.py` with `visualizer.py` (the radio). The sky behind Luna's own face:
 `environment.py` (time, sun, season, weather → colours; TUNE), its glow in

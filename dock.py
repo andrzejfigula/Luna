@@ -78,6 +78,9 @@ def visible(now=None):
     """On the bare face only."""
     if not enabled() or not chosen():
         return False
+    import controls
+    if controls.shown("vis", now):           # the music's strip is there instead
+        return False
     now = now if now is not None else time.time()
     with state.lock:
         ov, cap, asleep = state.overlay, state.caption, state.sleep_mode

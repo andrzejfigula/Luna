@@ -1,5 +1,6 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
+- Stuknij w ekran, gdy świeci lampka albo grają efekty radia — na dole pokaże się pasek: strzałki zmieniają obrazek albo efekt, kropki kolor, a ⏻ wyłącza. Lampka nie gaśnie już od samego stuknięcia.
 - Lampki z obrazkiem mają teraz kolory: „lampa lawa na zielono”, „włącz różową zorzę”, a gdy już świeci — „na niebiesko”, „zmień kolor” (następny) albo „zwykłe kolory”. Każda pamięta swój kolor.
 - Nowa gra: „Zagrajmy w wisielca” — zgadujesz słowo literka po literce, dotykając liter na ekranie albo mówiąc je („ka”, „a z ogonkiem”).
 - „Co grało przed chwilą w radiu?” i „Zapisz tę piosenkę” — pamiętam ostatnie piosenki z radia i zapisuję je na liście „piosenki”.
