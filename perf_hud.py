@@ -183,8 +183,9 @@ def _loop():
         prev = snap
 
 
-def draw(surf, fps_asked):
-    """The panel in the bottom-left corner, if it's on (a sample a second)."""
+def draw(surf, fps_asked, above=0):
+    """The panel in the bottom-left corner, if it's on (a sample a second);
+    above: px to keep clear at the bottom (the lamp's / music's strip)."""
     global _thread, _font
     if not wanted():
         return
@@ -209,4 +210,4 @@ def draw(surf, fps_asked):
             y += r.get_height()
         _panel[:] = [lines, p]
     p = _panel[1]
-    surf.blit(p, (6, surf.get_height() - p.get_height() - 6))
+    surf.blit(p, (6, surf.get_height() - p.get_height() - 6 - above))

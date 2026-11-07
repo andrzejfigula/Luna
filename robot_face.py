@@ -3446,7 +3446,8 @@ class RobotFace:
         if sim:                                         # a simulated sky: say so (tools/env_sim.py)
             txt = _get_font(15).render(sim, True, (150, 140, 120))
             self.screen.blit(txt, (12, HEIGHT - txt.get_height() - 8))
-        perf_hud.draw(self.screen, self.fps)        # (Ustawienia → Wydajność na ekranie)
+        strip = controls.shown("vis") or controls.shown("lamp")
+        perf_hud.draw(self.screen, self.fps, controls.BAR_H if strip else 0)   # (Ustawienia → Wydajność na ekranie)
 
         t3 = time.perf_counter()
         if self.gl:
@@ -3632,6 +3633,7 @@ class RobotFace:
         if data.get("scene") == "zegar":
             lamp_scenes.draw_clock(self.screen, now, WIDTH, HEIGHT, u["uK"][2])
         controls.draw(self.screen, "lamp", now)
+        perf_hud.draw(self.screen, self.fps, controls.BAR_H if controls.shown("lamp", now) else 0)
         self.gl.render_lamp(u, self.screen)
         pygame.display.flip()
 
