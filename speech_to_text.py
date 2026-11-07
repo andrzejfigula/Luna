@@ -1202,6 +1202,9 @@ def _cloud_wake_check(pcm16k, words=None, peak=None, conf=None):
     if not cloud or not _cloud_has_wake(cloud) or not _cloud_wake_plausible(cloud, words, conf):
         seen = _seen_saying_it(cloud, len(pcm16k) / 32000.0)
         _wake_seen = ("radio-face", cloud) if seen else (None, cloud)
+        if not seen and not _radio_on():
+            # a missed call can be played back (7 Nov 18:48: Vosk "to wina", cloud "")
+            _save_utterance(pcm16k, " ".join(words or []), cloud, "(no wake)")
         return (True, seen) if seen else (False, None)
     _wake_seen = ("cloud", cloud)
     return True, _strip_wake_from_cloud(cloud)

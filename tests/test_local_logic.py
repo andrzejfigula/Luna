@@ -5680,6 +5680,24 @@ class KidsTest(unittest.TestCase):
                              (True, "Jakie stacje radiowe masz?"))
         s._spec_cancel()
 
+    def test_missed_wake_check_keeps_the_clip(self):
+        from unittest import mock
+        with mock.patch.dict(sys.modules, {"sounddevice": mock.MagicMock(),
+                                           "vosk": mock.MagicMock()}):
+            import speech_to_text as s
+        saved = []
+        with mock.patch.object(s, "_cloud_transcribe_now", lambda pcm, lang=None: ""), \
+                mock.patch.object(s, "_save_utterance", lambda *a: saved.append(a[1:])), \
+                mock.patch.object(s, "_wake_check_worth", lambda *a: True), \
+                mock.patch.object(s, "_wake_budget", lambda: True), \
+                mock.patch.object(s, "_seen_saying_it", lambda *a: None), \
+                mock.patch.object(s, "_radio_on", lambda: False):
+            self.assertEqual(s._cloud_wake_check(b"\x05" * 64, ["to", "wina"]), (False, None))
+            self.assertEqual(saved, [("to wina", "", "(no wake)")])
+            with mock.patch.object(s, "_radio_on", lambda: True):
+                s._cloud_wake_check(b"\x06" * 64, ["nie"])     # radio scraps: not kept
+            self.assertEqual(len(saved), 1)
+
     def test_wake_budget_is_rationed(self):
         from unittest import mock
         with mock.patch.dict(sys.modules, {"sounddevice": mock.MagicMock(),
