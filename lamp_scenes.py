@@ -32,7 +32,7 @@ FALLBACK = {"meduzy": ((90, 140, 255), (10, 15, 60)), "zorza": ((90, 230, 170), 
             "lawa": ((190, 80, 255), (40, 5, 70)), "kominek": ((255, 140, 50), (90, 25, 5))}
 FADE = 1.5                     # s: in at the start and when switching, out at the end
 # each picture's own main hue (degrees): "lawa na zielono" turns 280 → the colour's hue
-BASE_HUE = {"meduzy": 220.0, "zorza": 155.0, "zegar": 225.0, "swietliki": 35.0,
+BASE_HUE = {"meduzy": 250.0, "zorza": 155.0, "zegar": 225.0, "swietliki": 35.0,
             "lawa": 280.0, "kominek": 22.0}
 _IDENT = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
 
