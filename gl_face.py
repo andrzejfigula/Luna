@@ -2371,16 +2371,17 @@ class GLFace:
             self.lamp = gl_lamp.LampPass(self)
         self.lamp.draw(lamp)
         self._t_last = 0.0                   # (the face's easing: no jump when it is back)
-        if has_layer:
-            GL.glUseProgram(self.prog)
-            self._u("uRes", (self.w, self.h))
-            self._sampler("uLayer", 0, self.screen_l.tex)
+        if has_layer:                        # (the layer program: the face's big one hung the GPU here)
+            pl = self.p_layer
+            GL.glUseProgram(pl.id)
+            GL.glActiveTexture(GL.GL_TEXTURE0)
+            GL.glBindTexture(GL.GL_TEXTURE_2D, self.screen_l.tex)
+            for k, v in (("uTime", 0.0), ("uTilt", 0.0), ("uGlitch", (0.0, 0.0)), ("uLayerSel", 0.0)):
+                pl.u(k, v)
             GL.glEnable(GL.GL_BLEND)
             GL.glBlendFunc(GL.GL_ONE, GL.GL_ONE_MINUS_SRC_ALPHA)
-            self._u("uPass", 3.0)
-            self._u("uLayerSel", 0.0)
             self._bind_quad()
-            self._rows(None, self.screen_l.runs())
+            self._rows(pl, self.screen_l.runs())
             GL.glDisable(GL.GL_BLEND)
         GL.glUseProgram(self.prog)
 
