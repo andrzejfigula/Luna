@@ -48,7 +48,7 @@ Dropped ideas stay here, hidden, so nobody proposes them again.
 | 23 | · | learn | maja | S | 1 | new | model | **Presentation practice** — "Posłuchaj mojej prezentacji": timed, then one thing good and one to fix | Reading mode almost does this already |
 | 24 | · | learn | maja | M | 1 | better | net | **Real classics from Wikisource** — public-domain poems word for word instead of the model's memory | Poems by a named poet shouldn't be invented |
 | 25 | · | learn | maja | M | 1 | new | - | **Pronunciation check in English** — compare what's said with the target word, say which sound | Transcription tends to autocorrect, so it needs a try first |
-| 26 | · | games | maja | S | 3 | new | - | **Hangman** — "Zagrajmy w wisielca", letters on the touchscreen or by voice, from a checked word list | A classic missing from the shelf; helps spelling too |
+| 26 | ✅ | games | maja | S | 3 | new | - | **Hangman** — "Zagrajmy w wisielca", letters on the touchscreen or by voice, from a checked word list | A classic missing from the shelf; helps spelling too |
 | 27 | · | games | all | S | 3 | new | - | **Word chain** — each word starts with the last letter of the one before; Luna plays from a dictionary | A voice-only game with nothing to look at, works across the room |
 | 28 | · | games | maja | S | 3 | new | - | **Colour sequence** — colours and tones to repeat on the touchscreen, one longer each round; records per person | Fast, no words needed, and the touchscreen suits it |
 | 29 | · | games | all | M | 3 | new | - | **Team quiz** — two teams, buzz in on either side of the screen, scores on screen | Family game night; every quiz today is one player |

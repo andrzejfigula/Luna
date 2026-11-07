@@ -1,6 +1,7 @@
 """Which utterances does Luna handle herself, and which go to the model?
 The local commands must never swallow an ordinary question."""
 
+import importlib
 import os
 import sys
 import unittest
@@ -154,6 +155,7 @@ LOCAL = {
     "Luna, włącz rutynę wieczorną": "kids",
     "Włącz radio": "radio",
     "Co grało przed chwilą?": "radio",
+    "Zagrajmy w wisielca": "hangman",
     "Zapisz tę piosenkę": "radio",
     "Jakie piosenki zapisałam?": "radio",
     "Co ostatnio grało w radiu?": "radio",
@@ -254,6 +256,7 @@ LOCAL = {
 }
 MODEL = [
     "Zapisz muzykę na pendrive",
+    "Kto wymyślił grę w wisielca i skąd ta nazwa?",
     "Zapisz tytuł książki",
     "Co grało wczoraj w telewizji?",
     "Co mamy jutro na obiad?",
@@ -614,6 +617,9 @@ class RoutingTest(unittest.TestCase):
                              "Nie mam jeszcze zapisanych piosenek", "Zapisane piosenki"))
                for t in said):
             self._mark("radio")
+        if any(t.startswith("Gramy w wisielca") for t in said):
+            self._mark("hangman")
+            importlib.import_module("hangman").stop()
         if any(t.startswith("Stoper") for t in said):
             self._mark("count")
         if any(t.startswith(("Co przenieść do planu lekcji", "W jakie dni")) for t in said):
@@ -642,7 +648,7 @@ class RoutingTest(unittest.TestCase):
              "dobranoc pa jestem to zagadka dyktando quiz tabliczka gotujemy naleśniki "
              "dalej ? , . ! jutro codziennie godzin pół kwadrans dni robocze memory pary "
              "jeszcze raz rewanż ile lat ma zostało minutniku makaron Tokio Nowym Jorku "
-             "wylosuj wybierz liczbę kto zmywa : czy albo na czas angielskiego "
+             "wisielca wylosuj wybierz liczbę kto zmywa : czy albo na czas angielskiego "
              "za cicho wolno szybko głośno mówisz cię możesz mówić radijko spokojną muzyką").split()
 
     def test_random_sentences_never_crash(self):

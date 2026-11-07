@@ -2630,11 +2630,11 @@ class RobotFace:
             ov_kind = state.overlay[0] if state.overlay else None
         if touch_t > self._touch_t and touch_kind == "dock":
             self._touch_t = touch_t                     # an icon: its page opened (dock.py)
-        if touch_t > self._touch_t and self._overlay_on() and ov_kind in ("ttt", "memo"):
+        if touch_t > self._touch_t and self._overlay_on() and ov_kind in ("ttt", "memo", "hang"):
             self._touch_t = touch_t                     # a move in a game
             if touch_kind in ("tap", "stop"):
                 import importlib                        # outside state.lock: it takes it
-                game = importlib.import_module("tictac" if ov_kind == "ttt" else "memo")
+                game = importlib.import_module({"ttt": "tictac", "hang": "hangman"}.get(ov_kind, "memo"))
                 if ui_screens.close_hit(*touch_pt):     # ✕: the game is over
                     screens.end_game_page(ov_kind)
                 else:
@@ -3871,6 +3871,9 @@ class RobotFace:
         elif kind == "list":                            # lists, plan, reminders, status
             ui_screens.draw_list(scr, data[0], data[1], time.time(), WIDTH, HEIGHT,
                                  data[2] if len(data) > 2 else None)
+        elif kind == "hang":                            # hangman.py
+            scr.fill(BG)
+            ui_screens.draw_hangman(scr, data, WIDTH, HEIGHT)
         elif kind == "memo":
             # the memory game (memo.py): 4 × 3 cards
             scr.fill(BG)

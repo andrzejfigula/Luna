@@ -6503,6 +6503,60 @@ class PhotoPeopleTest(unittest.TestCase):
         self.assertEqual(screens._and(["Andrzej", "Maja"]), "Andrzej i Maja")
 
 
+class HangmanTest(unittest.TestCase):
+    """ideas #26: "zagrajmy w wisielca" — letters by voice and by touch."""
+
+    def tearDown(self):
+        import hangman
+        hangman.stop()
+
+    def test_letters_said(self):
+        import hangman as h
+        for said, want in (("ka", "k"), ("Litera em.", "m"), ("a z ogonkiem", "ą"),
+                           ("zet z kropką", "ż"), ("u zamknięte", "ó"), ("Ż.", "ż"),
+                           ("Czy jest igrek?", "y"), ("ce z kreską", "ć"), ("A ka?", "k"),
+                           ("jabłko", None), ("nie", None), ("sz", None)):
+            self.assertEqual(h.letter(said), want, said)
+        self.assertTrue(h.wants("Zagrajmy w wisielca"))
+        self.assertTrue(h.wants("Wisielec"))
+        self.assertFalse(h.wants("Kto to jest wisielec w kartach tarota?"))
+        self.assertEqual(h.key_at(0.08, 0.55), "a")
+        self.assertEqual(h.key_at(0.68, 0.675), "k")
+        self.assertIsNone(h.key_at(0.5, 0.2))
+
+    def test_a_game(self):
+        import hangman as h
+        said = []
+        say = lambda t, **k: said.append(t)
+        h.start(say)
+        self.assertTrue(h.active())
+        h._g.update(word="kot", cat="zwierzę")
+        for t, want in (("ka", "Jest K!"), ("Ka.", "K już było."), ("es", "Nie ma S."),
+                        ("podpowiedź", "Podpowiedź: to zwierzę."),
+                        ("powtórz", "Słowo ma 3 litery. Odgadnięte: K. Pudła: S. "
+                                    "Zostało 7 szans.")):
+            self.assertTrue(h.answer(t, say), t)
+            self.assertEqual(said[-1], want, t)
+        self.assertFalse(h.answer("Jaka jest jutro pogoda?", say))
+        self.assertNotIn("kot", h.prompt_line())
+        self.assertTrue(h.tap(0.68, 0.675))                     # K again: quiet
+        self.assertTrue(h.answer("to jest kot", say))
+        self.assertEqual(said[-1], "Brawo! To słowo to kot! Jeszcze raz?")
+        self.assertFalse(h.answer("Która godzina?", say))
+        self.assertTrue(h.answer("tak", say))
+        self.assertTrue(said[-1].startswith("Nowe słowo"))
+        h._g.update(word="żaba", cat="zwierzę")
+        for ch in "kmnoprst":
+            h.answer(ch, say)
+        self.assertEqual(said[-1], "Ojej, wisielec gotowy. To było słowo: żaba. Jeszcze raz?")
+        self.assertTrue(h.answer("nie", say))
+        self.assertFalse(h.active())
+        h.start(say)
+        self.assertTrue(h.answer("koniec", say))
+        self.assertTrue(said[-1].startswith("Dobrze, kończymy. Moje słowo to było:"))
+        self.assertFalse(h.active())
+
+
 class CookingTest(unittest.TestCase):
 
     def test_step_by_step(self):

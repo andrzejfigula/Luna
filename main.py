@@ -142,9 +142,10 @@ def _answer_awaited():
     radio on the window stays open — the radio is ducked while she listens.
     (14 Oct: "zgadywanki" with jazz on — "dziesięć" needed "Luna".)"""
     try:
-        import brain, gallery, quiz, twenty, tictac, memo, story, voicefx
+        import brain, gallery, quiz, twenty, tictac, memo, story, voicefx, hangman
         # (voicefx, messages: the sentence she just asked for, or it needed "Luna")
         return (quiz.active() or twenty.active() or tictac.active() or memo.active()
+                or hangman.active()
                 or gallery.page_open() or story.active() or brain.awaits_answer()
                 or voicefx.armed() or messages.armed() or phone.active())
     except Exception:

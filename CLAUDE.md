@@ -128,7 +128,7 @@ Features: `radio.py`, `timers.py`, `lists.py`, `weather.py`, `clock.py`,
 `reading.py`, `homework.py`, `kids.py`, `story.py`, `voicefx.py`,
 `ambience.py`, `breathing.py`, `counting.py`, `paint.py`, `schedule.py`, `printer.py`. Games: `quiz.py`/`quizdata.py`,
 `twenty.py`/`twenty_kb.py`, `tictac.py`, `memo.py`, `games.py`, `clockgame.py`,
-`riddles.py`, `fun.py`. Her: `memory.py`, `mood.py`, `relationship.py`,
+`riddles.py`, `fun.py`, `hangman.py` (wisielec). Her: `memory.py`, `mood.py`, `relationship.py`,
 `greetings.py`, `idle_engine.py`, `behavior_engine.py`, `body.py`.
 Robustness: `watchdog.py`, `health.py`, `hedge.py`, `prio.py`, `holds.py`,
 `backup.py`, `timing.py` (latency), `weekly.py`.

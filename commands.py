@@ -1477,9 +1477,9 @@ def close_page(text, speak):
     if _CLOSE_NAMED.match(text.strip()):
         with state.lock:
             ov = state.overlay
-        if ov and time.time() < ov[1] and ov[0] in ("ttt", "memo"):
+        if ov and time.time() < ov[1] and ov[0] in ("ttt", "memo", "hang"):
             import importlib                    # a game's board: the game ends
-            importlib.import_module("tictac" if ov[0] == "ttt" else "memo").stop()
+            importlib.import_module({"ttt": "tictac", "hang": "hangman"}.get(ov[0], "memo")).stop()
             print(f"[cmd] closed the {ov[0]} game by voice", flush=True)
             speak("Dobrze, kończymy grę.")
             return True
@@ -1836,6 +1836,9 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
     import cooking                                 # a recipe step: "dalej"
     if cooking.active() and cooking.answer(text, speak):
         return True
+    import hangman                                 # a letter: "ka", "a z ogonkiem"
+    if hangman.active() and hangman.answer(text, speak):
+        return True
     import twenty                                  # "czy ma futro?"
     if twenty.rematch(text, speak):               # "Tak" to "Zagramy jeszcze raz?"
         return True
@@ -1919,6 +1922,7 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
         import tictac
         import twenty
         if not (quiz.active() or twenty.active() or cooking.active() or memo.active()
+                or hangman.active()
                 or tictac.active() or reading.armed() or kids.routine_active()):
             with state.lock:
                 state.conversation_active = False
@@ -2597,6 +2601,9 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
               "Powiedz coś — puszczę to od tyłu!")
         return True
 
+    if hangman.wants(text):                        # "zagrajmy w wisielca"
+        hangman.start(speak, hard=hangman.hard_wanted(text))
+        return True
     import memo                                    # "zagrajmy w memory"
     if memo.wants(text):
         memo.start(speak, hard=memo.hard_wanted(text))

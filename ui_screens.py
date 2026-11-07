@@ -1571,3 +1571,56 @@ def draw_dock(scr, kind, cols, now=None):
         ico = dock_icon(key, kind, col, dock.ICON)
         ico.set_alpha(int(base + (255 - base) * dock.lit(key, now)))
         scr.blit(ico, ico.get_rect(center=(int(cx), dock.CY)))
+
+
+# ── hangman (hangman.py) ─────────────────────────────────────────────
+
+_HANG_LINE = (226, 230, 242)
+
+
+def draw_hangman(scr, data, W, H):
+    """The gallows (a piece per miss), the word's blanks and the keyboard."""
+    import hangman
+    misses = len(data["miss"])
+    c, w = _HANG_LINE, 6
+    parts = [((30, 215), (190, 215)), ((70, 215), (70, 30)), ((70, 30), (160, 30)),
+             ((160, 30), (160, 58)), None, ((160, 98), (160, 150)),
+             (((160, 112), (138, 135)), ((160, 112), (182, 135))),
+             (((160, 150), (140, 185)), ((160, 150), (180, 185)))]
+    for p in parts[:misses]:
+        if p is None:
+            pygame.draw.circle(scr, c, (160, 78), 20, w)
+        elif isinstance(p[0][0], tuple):
+            for a, b in p:
+                pygame.draw.line(scr, c, a, b, w)
+        else:
+            pygame.draw.line(scr, c, p[0], p[1], w)
+    word = data["word"]
+    n = len(word)
+    slot = min(56, 470 // n)
+    left = 230 + (470 - slot * n) // 2
+    size = int(slot * 0.9)
+    for i, ch in enumerate(word):
+        x = left + i * slot
+        pygame.draw.line(scr, DIM, (x + 5, 142), (x + slot - 5, 142), 4)
+        shown = ch in data["hit"]
+        if shown or data["end"]:
+            col = ((120, 230, 140) if data["won"] else WHITE if shown else (255, 120, 120))
+            img = text(ch.upper(), size, col)
+            scr.blit(img, img.get_rect(midbottom=(x + slot // 2, 138)))
+    msg = text(data.get("msg", ""), 24, DIM, "SemiBold")
+    scr.blit(msg, msg.get_rect(center=(465, 190)))
+    cols, rows, kw, kh, gap, top = data.get("keys", hangman.KEYS)
+    kleft = (W - (cols * kw + (cols - 1) * gap)) // 2
+    for i, ch in enumerate(hangman.ALPHABET):
+        x, y = kleft + (i % cols) * (kw + gap), top + (i // cols) * (kh + gap)
+        rect = pygame.Rect(x, y, kw, kh)
+        if ch in data["hit"]:
+            bg, fg = (60, 150, 90), WHITE
+        elif ch in data["miss"]:
+            bg, fg = (34, 36, 46), (90, 94, 110)
+        else:
+            bg, fg = (58, 64, 92), WHITE
+        pygame.draw.rect(scr, bg, rect, border_radius=12)
+        img = text(ch.upper(), 30, fg)
+        scr.blit(img, img.get_rect(center=rect.center))

@@ -317,8 +317,8 @@ def end_game_page(kind):
         return ended
     if kind == "agenda" and importlib.import_module("agenda").on_close():
         return ended
-    if kind in ("ttt", "memo"):
-        importlib.import_module("tictac" if kind == "ttt" else "memo").stop()
+    if kind in ("ttt", "memo", "hang"):
+        importlib.import_module({"ttt": "tictac", "hang": "hangman"}.get(kind, "memo")).stop()
         ended.append(kind)
     if kind == "story":                            # a story (or its replay): over
         if importlib.import_module("story").stop():
