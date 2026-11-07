@@ -600,6 +600,7 @@ def _feed(p, r, mi, dec):
                     p["title"] = title
                     print(f"[radio] now playing: {title}", flush=True)
                     visualizer.new_song(title)
+                    note_song(title, p.get("name"))
     except Exception:
         pass
     finally:
@@ -830,6 +831,8 @@ def answer_question(text, speak):
     """"Jakie to radio?", "co teraz gra?" — questions, so commands.py asks
     here before its question guard. True when answered."""
     low = text.lower().strip(" .!?")
+    if songs_answer(text, speak):
+        return True
     if any(k in low for k in _WHAT) and len(low.split()) <= 6:
         now = playing()
         with _lock:
@@ -842,6 +845,128 @@ def answer_question(text, speak):
         title = now_title()
         speak(f"Teraz gra: {title.rstrip('.!?')}." if title else
               f"Gra {playing()}, ale stacja nie podaje tytułu piosenki.")
+        return True
+    return False
+
+
+# ── song history: "co grało przed chwilą?", "zapisz tę piosenkę" (ideas #68) ──
+SONGS_KEEP = 40
+SONG_LIST = "piosenki"                     # lists.py: shown and read like any list
+_songs = None                              # [{"t": title, "st": station, "at": time}]
+
+
+def _songs_path():
+    import os
+    from config import DATA_DIR
+    return os.path.join(DATA_DIR, "songs.json")
+
+
+def songs():
+    global _songs
+    if _songs is None:
+        try:
+            with open(_songs_path(), encoding="utf-8") as f:
+                _songs = [s for s in json.load(f) if s.get("t")][-SONGS_KEEP:]
+        except (OSError, ValueError, AttributeError):
+            _songs = []
+    return _songs
+
+
+def note_song(title, station):
+    """A new ICY title: kept (station names and ads too — the station's own words)."""
+    hist = songs()
+    if hist and hist[-1]["t"] == title:
+        return
+    hist.append({"t": title, "st": station or "", "at": time.time()})
+    del hist[:-SONGS_KEEP]
+    try:
+        with open(_songs_path(), "w", encoding="utf-8", newline="\n") as f:
+            json.dump(hist, f, ensure_ascii=False)
+    except OSError as e:
+        print(f"[radio] songs not saved: {e}", flush=True)
+
+
+_SONG_N = r"(?:piosenk\w*|utw[oó]r\w*|kawa[łl]\w*|muzyk\w*)"
+_PREV_SONG = re.compile(
+    r"\bco\s+(?:to\s+)?(?:gra[łl]o|lecia[łl]o|by[łl]o\s+grane)\s+(?:w\s+radiu\s+)?"
+    r"(?:przed\s+chwil[aą]|wcze[śs]niej|przedtem|poprzednio|ostatnio|przed\s+t[aąę]|przed\s+tym)"
+    rf"|\b(?:jak[aio]|co)\s+(?:to\s+)?(?:by[łl]a?o?\s+)?(?:za\s+)?(?:poprzedni\w*|wcze[śs]niejsz\w*)\s+{_SONG_N}"
+    rf"|\b(?:jak[aio]|co\s+to)\s+(?:by[łl]a?o?\s+)(?:za\s+)?{_SONG_N}\s+(?:przed\s+chwil[aą]|wcze[śs]niej|przedtem|poprzednio)"
+    rf"|\b(?:jak[aio]|co\s+to\s+za)\s+{_SONG_N}\s+(?:gra[łl]a?o?|lecia[łl]a?o?)\s+"
+    r"(?:przed\s+chwil[aą]|wcze[śs]niej|przedtem|poprzednio)")
+_SONGS_LIST = re.compile(
+    rf"\b(?:jakie|co\s+za)\s+{_SONG_N}\s+(?:dzi[śs]\s+|ostatnio\s+|dzisiaj\s+)?(?:gra[łl]y|lecia[łl]y|by[łl]y)\b"
+    r"|\bco\s+(?:dzi[śs]|dzisiaj|ostatnio)\s+(?:gra[łl]o|lecia[łl]o)\b"
+    rf"|\bhistori\w*\s+{_SONG_N}|\bostatnie\s+{_SONG_N}")
+_SAVE_SONG = re.compile(
+    r"\b(?:zapisz|zapamiętaj|zapamietaj|zanotuj|dodaj|dopisz|wrzuć|wrzuc)\s+(?:mi\s+|nam\s+)?"
+    r"(?:t[ęeąa]\s+|ten\s+|to\s+)?(?:piosenk\w*|utw[oó]r\w*|kawa[łl]\w*|tytu[łl]\w*(?=\s*$|\s+(?:tej\s+|tego\s+)?"
+    r"(?:piosenk|utwor|kawałk|kawalk)))(?!\s+na\s+list\w*\s+zakup)")
+_SAVED_Q = re.compile(rf"\b(?:jakie|które|ktore)\s+{_SONG_N}\s+(?:\w+\s+)?(?:zapisa|zapamięta|zapamieta)"
+                      rf"|\bzapisane\s+{_SONG_N}|\b{_SONG_N}\s+zapisane")
+
+
+def _ago(at, now):
+    m = int((now - at) // 60)
+    if m < 2:
+        return "przed chwilą"
+    if m < 60:
+        import timers
+        return f"{timers.say_duration(m * 60)} temu"
+    return time.strftime("o %H:%M", time.localtime(at))
+
+
+def _clean(title):
+    return title.strip().rstrip(".!?")
+
+
+def songs_answer(text, speak, now=None):
+    """The song history's questions and "zapisz tę piosenkę". True when handled."""
+    low = text.lower().strip(" .!?")
+    words = re.findall(r"[\w']+", low)
+    if len(words) > 12:
+        return False
+    now = now or time.time()
+    on = playing()
+    hist = [s for s in songs() if now - s["at"] < 12 * 3600]
+    if _SAVED_Q.search(low):
+        import lists
+        saved = lists.get(SONG_LIST) or []
+        speak(("Zapisane piosenki: " + "; ".join(saved[-5:]) + ".") if saved else
+              "Nie mam jeszcze zapisanych piosenek. Gdy coś ci się spodoba, powiedz: "
+              "zapisz tę piosenkę.")
+        return True
+    if _SAVE_SONG.search(low):
+        cur = now_title() if on else None
+        last = hist[-1] if hist and now - hist[-1]["at"] < 20 * 60 else None
+        title = cur or (last and last["t"])
+        if not title and not (on or re.search(r"piosenk|utw[oó]r|kawa", low)):
+            return False                     # "zapisz tytuł" with no radio: not ours
+        if not title:
+            speak("Stacja nie podaje tytułu, więc nie mam czego zapisać." if on else
+                  "Radio nic nie grało, więc nie mam czego zapisać.")
+            return True
+        import lists
+        lists.apply([{"type": "list_add", "list": SONG_LIST, "label": _clean(title)}])
+        speak(f"Zapisałam na liście piosenek: {_clean(title)}.")
+        return True
+    if _PREV_SONG.search(low):
+        cur = now_title() if on else None
+        past = [s for s in hist if s["t"] != cur]
+        if not past:
+            speak("Nie wiem — stacja nie podawała tytułów." if hist or on else
+                  "Dziś radio jeszcze nic nie grało.")
+            return True
+        s = past[-1]
+        speak(f"Wcześniej grało: {_clean(s['t'])}"
+              + (f" — {_ago(s['at'], now)}" if not on else "") + ".")
+        return True
+    if _SONGS_LIST.search(low):
+        if not hist:
+            speak("Dziś radio jeszcze nic nie grało — albo stacja nie podawała tytułów.")
+            return True
+        last = [_clean(s["t"]) for s in hist[-4:]][::-1]
+        speak("Ostatnio grało: " + "; ".join(last) + ".")
         return True
     return False
 

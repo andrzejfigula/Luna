@@ -6630,6 +6630,28 @@ class RadioTest(unittest.TestCase):
             self.assertTrue(radio.handle("Co teraz gra?", said.append))
         self.assertEqual(said[-1], "Teraz gra: Beck - In the Night.")
 
+    def test_song_history_and_saving(self):
+        # ideas #68: "co grało przed chwilą?", "zapisz tę piosenkę"
+        import radio
+        path = os.path.join(TMP, "songs.json")
+        with mock.patch.object(radio, "_songs_path", lambda: path), \
+                mock.patch.object(radio, "_songs", None), \
+                mock.patch.object(radio, "playing", lambda: None):
+            radio.note_song("Sanah - Szampan", "RMF FM")
+            radio.note_song("Sanah - Szampan", "RMF FM")
+            self.assertEqual(len(radio.songs()), 1)
+            said = []
+            now = time.time() + 300
+            for t in ("Zapisz muzykę na pendrive", "Zapisz tytuł książki", "Co gra w teatrze?"):
+                self.assertFalse(radio.songs_answer(t, said.append, now), t)
+            self.assertTrue(radio.songs_answer("Co grało przed chwilą?", said.append, now))
+            self.assertEqual(said[-1], "Wcześniej grało: Sanah - Szampan — 5 minut temu.")
+            self.assertTrue(radio.songs_answer("Zapisz tę piosenkę", said.append, now))
+            self.assertEqual(said[-1], "Zapisałam na liście piosenek: Sanah - Szampan.")
+            self.assertIn("Sanah - Szampan", lists.get(radio.SONG_LIST))
+            self.assertTrue(radio.songs_answer("Jakie piosenki zapisałam?", said.append, now))
+            self.assertIn("Sanah - Szampan", said[-1])
+
     def test_song_questions_while_playing(self):
         import commands
         import radio

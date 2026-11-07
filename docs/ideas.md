@@ -90,7 +90,7 @@ Dropped ideas stay here, hidden, so nobody proposes them again.
 | 65 | · | play | maja | S | 2 | new | model | **Pretend play** — she plays the doctor, the shopkeeper, the pet; a mode with a clear stop | Long imaginative play, a good use of the model |
 | 66 | · | play | all | S | 2 | better | - | **Costumes through the year** — Santa hat in December, pumpkin in October, from a date table, on request or for the greeting | Environment already follows the seasons, her face doesn't |
 | 67 | · | play | maja | S | 1 | new | - | **Your painting as her sky** — a Malowanie picture as the page behind the clock or lamp | A small pride for the artist |
-| 68 | · | music | all | S | 3 | better | - | **Song history** — radio.py keeps titles: "Co grało przed chwilą?", "Zapisz tę piosenkę", read back as a list | The song you liked is always over by the time you ask |
+| 68 | ✅ | music | all | S | 3 | better | - | **Song history** — radio.py keeps titles: "Co grało przed chwilą?", "Zapisz tę piosenkę", read back as a list | The song you liked is always over by the time you ask |
 | 69 | · | music | all | S | 3 | new | - | **Audiobooks from a folder** — "Włącz audiobook" plays local files per child and resumes where it stopped | Long listening with no model cost and no internet, good for bedtime |
 | 70 | · | music | all | S | 2 | better | net | **Titles from more stations** — now-playing feeds beyond RMF, 357 and Nowy Świat (Polskie Radio first) | "Co to za piosenka" still fails on the stations that don't send it |
 | 71 | · | music | all | M | 2 | new | net | **Podcasts** — a few RSS feeds, "Włącz podcast o…", resumes the episode | The player and the station page exist; only the feed is missing |

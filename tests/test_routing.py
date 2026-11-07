@@ -153,6 +153,10 @@ LOCAL = {
     "Zacznij poranek": "kids",
     "Luna, włącz rutynę wieczorną": "kids",
     "Włącz radio": "radio",
+    "Co grało przed chwilą?": "radio",
+    "Zapisz tę piosenkę": "radio",
+    "Jakie piosenki zapisałam?": "radio",
+    "Co ostatnio grało w radiu?": "radio",
     "Włącz Trójkę": "radio",
     "Puść radio Nowy Świat": "radio",
     "Wyłącz radio": "radio",
@@ -249,6 +253,9 @@ LOCAL = {
     "Normalne odpowiedzi proszę": "length",
 }
 MODEL = [
+    "Zapisz muzykę na pendrive",
+    "Zapisz tytuł książki",
+    "Co grało wczoraj w telewizji?",
     "Co mamy jutro na obiad?",
     "Kalendarz adwentowy to fajna rzecz",
     "Jaki kalendarz polecasz?",
@@ -602,6 +609,11 @@ class RoutingTest(unittest.TestCase):
         if any(t.startswith(("Masz ", "Nie ma nowych SMS", "Właśnie łączę", "Tak, jestem połączona",
                              "Telefon jest poza")) for t in said):
             self._mark("phone")
+        if any(t.startswith(("Wcześniej grało", "Ostatnio grało", "Dziś radio jeszcze",
+                             "Radio nic nie grało", "Zapisałam na liście piosenek",
+                             "Nie mam jeszcze zapisanych piosenek", "Zapisane piosenki"))
+               for t in said):
+            self._mark("radio")
         if any(t.startswith("Stoper") for t in said):
             self._mark("count")
         if any(t.startswith(("Co przenieść do planu lekcji", "W jakie dni")) for t in said):
