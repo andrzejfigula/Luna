@@ -1176,6 +1176,69 @@ def remove_entries(entries):
     close_after()
 
 
+# ── the settings page's Budzik tab (settings_page.py) ────────────────────────
+
+def alarm_key(t):
+    """A wake-up alarm's id on the page: when it was set (stays when it moves)."""
+    return str(t.get("set") or t["due"])
+
+
+def alarms():
+    """The wake-up alarms, the nearest first (copies)."""
+    with _lock:
+        return [dict(t) for t in _timers if t["kind"] == "alarm"]
+
+
+def _alarm_due(hour, minute, repeat, now):
+    d = datetime.fromtimestamp(now, _TZ) if _TZ else datetime.fromtimestamp(now)
+    dt = d.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if dt.timestamp() <= now:
+        dt += timedelta(days=1)                  # wall-clock: right across a DST change
+    due = dt.timestamp()
+    return _next_matching(due, repeat, inclusive=True) if repeat != "none" else due
+
+
+def set_alarm(key=None, hour=None, minute=None, repeat=None, now=None):
+    """A new wake-up alarm (no key) at hour:minute, or the one with this key
+    moved there and/or to another repeat. Returns its key, or None."""
+    now = now or time.time()
+    with _lock:
+        t = None
+        if key:
+            t = next((x for x in _timers if x["kind"] == "alarm" and alarm_key(x) == key), None)
+            if t is None:
+                return None
+        elif hour is None:
+            return None
+        else:
+            stamp = time.time()                  # (its key: never two the same)
+            while any(alarm_key(x) == str(stamp) for x in _timers):
+                stamp += 0.001
+            t = {"label": "", "kind": "alarm", "repeat": "none", "set": stamp}
+            _timers.append(t)
+        if repeat is not None:
+            t["repeat"] = repeat
+        rep = t.get("repeat", "none")
+        if hour is not None:
+            t["due"] = _alarm_due(hour, minute or 0, rep, now)
+        elif rep != "none":                      # (a day skipped stays skipped)
+            t["due"] = _next_matching(t["due"], rep, inclusive=True)
+        _timers.sort(key=lambda x: x["due"])
+        _save()
+    print(f"[timers] alarm {time.strftime('%d.%m %H:%M', time.localtime(t['due']))} "
+          f"({t.get('repeat', 'none')}) — from the settings page", flush=True)
+    return alarm_key(t)
+
+
+def delete_alarm(key):
+    with _lock:
+        gone = [t for t in _timers if t["kind"] == "alarm" and alarm_key(t) == key]
+        if gone:
+            _timers[:] = [t for t in _timers if t not in gone]
+            _save()
+    return bool(gone)
+
+
 def remove(labels):
     with _lock:
         before = len(_timers)

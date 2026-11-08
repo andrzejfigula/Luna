@@ -9870,7 +9870,7 @@ class ThemesTest(unittest.TestCase):
         with mock.patch.object(sp, "_introduce"):
             self.assertEqual(sp.change("theme"), "Motyw: Hal")
             self.assertEqual(themes.current(), "hal")
-            self.assertEqual(sp.rows(1)[0]["value"], "Hal")
+            self.assertEqual(sp.rows(sp.TABS.index("Asystent"))[0]["value"], "Hal")
             for label in ("Pip", "Retro", "Pixel", "Mochi", "Luna"):
                 self.assertEqual(sp.change("theme"), "Motyw: " + label)
         for gone in ("ice", "nex", "echo", "nonsense"):       # removed 24 Oct: back to Luna
@@ -11641,10 +11641,10 @@ class CharactersTest(unittest.TestCase):
         import themes
         themes.set_theme("luna")
         sp._cache.clear()
-        self.assertNotIn("char_acc", [r.get("key") for r in sp.rows(1)])
+        self.assertNotIn("char_acc", [r.get("key") for r in sp.rows(sp.TABS.index("Asystent"))])
         themes.set_theme("mochi")
         sp._cache.clear()
-        keys = [r.get("key") for r in sp.rows(1)]
+        keys = [r.get("key") for r in sp.rows(sp.TABS.index("Asystent"))]
         self.assertIn("char_acc", keys)
         self.assertNotIn("retro_mode", keys)
         self.assertEqual(characters.accessories("mochi"), ("ears", "flower", "hearts"))
@@ -14683,6 +14683,130 @@ class PhoneTest(unittest.TestCase):
         self.assertEqual(phone.inbox()[0]["who"], "Kasia")
         self._here("Ola")
         self.assertEqual(phone.settings_tap(), "Poproś dorosłego")
+
+
+class AlarmSettingsTest(unittest.TestCase):
+    """Ustawienia → Budzik: alarms set, moved, given days and deleted by touch."""
+
+    def setUp(self):
+        import settings_page
+        self.sp = settings_page
+        self.old = list(timers._timers)
+        self.save = timers._save
+        timers._save = lambda: None
+        timers._timers[:] = []
+        settings._load()
+        settings._data.pop("alarm_radio", None)
+        settings_page._cache.clear()
+        settings_page._bin_armed[:] = [None, 0.0]
+
+    def tearDown(self):
+        timers._timers[:] = self.old
+        timers._save = self.save
+        settings._data.pop("alarm_radio", None)
+
+    def test_set_move_repeat_delete(self):
+        now = datetime.datetime(2026, 11, 6, 22, 0).timestamp()          # a Friday night
+        k = timers.set_alarm(hour=6, minute=40, now=now)
+        t = timers.alarms()[0]
+        self.assertEqual(datetime.datetime.fromtimestamp(t["due"]), datetime.datetime(2026, 11, 7, 6, 40))
+        self.assertEqual(t["repeat"], "none")
+        self.assertEqual(timers.set_alarm(k, repeat="weekdays", now=now), k)   # Saturday → Monday
+        self.assertEqual(datetime.datetime.fromtimestamp(timers.alarms()[0]["due"]),
+                         datetime.datetime(2026, 11, 9, 6, 40))
+        timers.set_alarm(k, hour=7, minute=15, now=now)
+        self.assertEqual(datetime.datetime.fromtimestamp(timers.alarms()[0]["due"]),
+                         datetime.datetime(2026, 11, 9, 7, 15))
+        self.assertIsNone(timers.set_alarm("nope", repeat="daily"))
+        self.assertTrue(timers.delete_alarm(k))
+        self.assertEqual(timers.alarms(), [])
+
+    def test_the_tab_new_alarm_days_and_bin(self):
+        sp = self.sp
+        tab = sp.TABS.index("Budzik")
+        rows = sp.rows(tab)
+        self.assertEqual([r["key"] for r in rows], ["alarm_new", "alarm_radio"])
+        self.assertEqual(rows[0]["sub"], "nie ma żadnego budzika")
+        k1, k2 = (timers.set_alarm(hour=h, minute=0, now=1e9) for h in (6, 7))
+        self.assertNotEqual(k1, k2)                                # one moment: two alarms
+        timers._timers[:] = []
+        title, opts, cur = sp.choices("alarm_new")
+        self.assertEqual((len(opts), cur), (24, 7))
+        sp._then[0] = None
+        self.assertIsNone(sp.pick("alarm_new", 6))                 # the hour → the minutes
+        self.assertEqual(sp._then[0], "alarm_min:new:6")
+        _, opts, _ = sp.choices(sp._then[0])
+        self.assertEqual(opts[8], (40, "6:40"))
+        said = sp.pick("alarm_min:new:6", 40)
+        self.assertTrue(said.startswith("Nowy budzik: 6:40, dzwoni "), said)
+        nxt = sp._then[0]                                          # → which days
+        self.assertTrue(nxt.startswith("alarm:"))
+        self.assertEqual(sp.choices(nxt)[2], 0)                    # one-off for now
+        self.assertEqual(sp.pick(nxt, "weekdays"), "Budzik 6:40: pn–pt")
+        row = sp.rows(tab)[0]
+        self.assertEqual((row["kind"], row["label"], row["value"]), ("alarm", "6:40", "Pn–Pt"))
+        k = row["key"].split(":", 1)[1]
+        self.assertEqual(sp.choices("alarm_time:" + k)[2], 6)      # its hour, then its minute
+        self.assertEqual(sp.choices("alarm_min:" + k + ":6")[2], 8)
+        self.assertEqual(sp.choices("alarm_min:" + k + ":7")[2], -1)
+        self.assertEqual(sp.change("alarm_radio"), "Budzik: radio")
+        self.assertIs(settings.get("alarm_radio"), True)
+        self.assertTrue(sp.alarm_bin(row["key"]).startswith("Dotknij kosza"))
+        self.assertEqual(len(timers.alarms()), 1)
+        self.assertEqual(sp.alarm_bin(row["key"]), "Usunięty budzik 6:40")
+        self.assertEqual(timers.alarms(), [])
+
+    def test_skip_tomorrow_row(self):
+        sp = self.sp
+        now = time.time()
+        timers._timers[:] = [{"due": now + 86400, "label": "", "kind": "alarm", "repeat": "daily",
+                              "set": 1.0}]
+        keys = [r["key"] for r in sp.alarm_rows(now)]
+        self.assertIn("alarm_skip", keys)
+        self.assertTrue(sp.change("alarm_skip").startswith("Jutro bez budzika — następny "))
+        self.assertNotIn("alarm_skip", [r["key"] for r in sp.alarm_rows(now)])
+
+    def test_taps(self):
+        try:
+            import pygame  # noqa: F401
+        except ImportError:
+            self.skipTest("pygame")
+        import ui_screens
+        sp = self.sp
+        tab = sp.TABS.index("Budzik")
+        sp.show(tab)
+        with state.lock:
+            data = state.overlay[2]
+        L = ui_screens._settings_layout(800, 480, len(sp.rows(tab)))
+        sp.tap(*L["ctrls"][0].center, 800, 480)                    # Nowy budzik → hours
+        self.assertEqual(data["picker"][0], "alarm_new")
+        P = ui_screens._picker_layout(800, 480, 24)
+        self.assertTrue(pygame_rect_inside(P["dialog"], 800, 480))
+        sp.tap(*P["opts"][6].center, 800, 480)                     # 6 → minutes
+        self.assertEqual(data["picker"][0], "alarm_min:new:6")
+        P = ui_screens._picker_layout(800, 480, 12)
+        sp.tap(*P["opts"][8].center, 800, 480)                     # 6:40 → days
+        self.assertTrue(data["picker"][0].startswith("alarm:"))
+        P = ui_screens._picker_layout(800, 480, 4)
+        sp.tap(*P["opts"][1].center, 800, 480)                     # codziennie
+        self.assertNotIn("picker", data)
+        self.assertEqual(timers.alarms()[0]["repeat"], "daily")
+        L = ui_screens._settings_layout(800, 480, len(sp.rows(tab)))
+        r = L["rows"][0]
+        sp.tap(r.x + 40, r.centery, 800, 480)                      # the time → its hour
+        self.assertTrue(data.pop("picker")[0].startswith("alarm_time:"))
+        sp.tap(*L["bins"][0].center, 800, 480)
+        sp.tap(*L["bins"][0].center, 800, 480)
+        self.assertEqual(timers.alarms(), [])
+        with state.lock:
+            state.overlay = None
+
+    def test_said(self):
+        import screens
+        with mock.patch.object(screens, "_show") as show:
+            self.assertTrue(screens.handle("pokaż ustawienia budzika", lambda *a, **k: None,
+                                           lambda *a, **k: None))
+        self.assertEqual(show.call_args[0][2], {"tab": self.sp.TABS.index("Budzik")})
 
 
 if __name__ == "__main__":

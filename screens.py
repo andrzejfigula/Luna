@@ -66,7 +66,8 @@ _PEOPLE = re.compile(
 # "pokaż ustawienia" — the settings page with its tabs (settings_page.py)
 _SETTINGS = re.compile(
     r"^(?:luna\s+)?(?:(?:pokaż|pokaz|otwórz|otworz|włącz|wlacz|show|open)\s+(?:mi\s+|nam\s+|the\s+)?)?"
-    r"(?:ustawienia|ustawień|ustawien|panel\s+ustawień|menu\s+ustawień|swoje\s+ustawienia|settings)$",
+    r"(?:ustawienia|ustawień|ustawien|panel\s+ustawień|menu\s+ustawień|swoje\s+ustawienia|settings)"
+    r"(?:\s+(?:budzika|budzików|budzikow|budzenia))?$",
     re.I)
 
 
@@ -687,8 +688,10 @@ def handle(text, speak, play_sound_async):
             # komendę." — the model: "nie mam takiej komendy", twice)
             r"\b(?:pokaż|pokaz|otwórz|otworz|włącz|wlacz)\s+(?:mi\s+)?ustawienia\b", words)):
         import settings_page
-        _show("settings", settings_page.PAGE_SECS, {"tab": 0})
-        speak("Proszę, oto ustawienia.")
+        alarm = bool(re.search(r"\bbudzik|\bbudzeni", words))   # "ustawienia budzika"
+        _show("settings", settings_page.PAGE_SECS,
+              {"tab": settings_page.TABS.index("Budzik") if alarm else 0})
+        speak("Proszę, oto budziki." if alarm else "Proszę, oto ustawienia.")
         return True
     if any(k in low for k in _STATUS):
         import health

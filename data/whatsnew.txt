@@ -1,5 +1,6 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
+- Budziki można teraz ustawiać dotykiem: Ustawienia → Budzik (albo „pokaż ustawienia budzika”). Dodasz nowy budzik (godzina, minuty, w które dni), zmienisz godzinę albo dni, usuniesz koszem, włączysz budzenie radiem i pominiesz jutrzejszy budzik.
 - Luna rzadziej myli osoby: jedno niepewne spojrzenie nie liczy się już jako „widziałam dziś”. Zdjęcia w profilach są wyśrodkowane na twarzy, z włosami i brodą, i tylko gdy ktoś patrzy prosto.
 - Luna i postacie mrugają rzadziej i spokojniej — mniej więcej co 6–12 sekund.
 - Pip, Pixel, Retro i Mochi też pokazują nowe miny: zaciekawiona błyszczy iskierką, zmartwiona już nie płacze, a Mochi ma własną dumną, zmartwioną i zaciekawioną minkę.

@@ -2,6 +2,8 @@
 settings_page.py — "pokaż ustawienia": one page on her screen, four tabs.
 
   Ogólne  — the default language, speech speed, reply length, captions, the bar
+  Budzik  — the wake-up alarms (timers.py): the time, the days, the bin, a new
+            one; waking with the radio; tomorrow without the alarm
   Ekran   — her theme (themes.py), the camera preview, how smoothly the face is drawn
   Ikony   — the quick icons along the bottom (dock.py): on/off, a tile to tick for each
   Urządzenia — the speaker, microphone and camera she uses (devices.py)
@@ -32,7 +34,7 @@ from config import (DATA_DIR, PHOTOS_DIR, OPENAI_TTS_SPEED, CAMERA_PREVIEW, DRAW
 
 PAGE_SECS = 60                # untouched this long, the page closes
 CONFIRM_SECS = 20             # the reset's "Na pewno?" waits this long
-TABS = ("Ogólne", "Asystent", "Ekran", "Ikony", "Urządzenia", "Koszty", "Osoby", "Reset")
+TABS = ("Ogólne", "Budzik", "Asystent", "Ekran", "Ikony", "Urządzenia", "Koszty", "Osoby", "Reset")
 PEOPLE_PER_PAGE = 4
 BIN_SECS = 4.0                # the bin tapped again within this: forgotten
 
@@ -231,6 +233,8 @@ def _rows(tab):
              "sub": "godzina, pogoda, minutniki", "value": settings.get("status_bar", True) is not False},
         ]
     name = TABS[tab]
+    if name == "Budzik":
+        return alarm_rows()
     if name == "Asystent":                # who she is: the theme, its character's own rows
         th = themes.get()
         who, speed = _speed_of()
@@ -375,6 +379,141 @@ def person_change(key, binned=False, now=None, sure=True):
     return f"{name}: z rodziny" if on else f"{name}: gość"
 
 
+# ── Budzik: the wake-up alarms (timers.py) ────────────────────────────────────
+
+ALARMS_SHOWN = 3
+_ALARM_REPEATS = (("none", "Tylko raz"), ("daily", "Codziennie"), ("weekdays", "Pn–Pt"),
+                  ("weekends", "Weekendy"))
+_DAYS_IN = ("w poniedziałek", "we wtorek", "w środę", "w czwartek", "w piątek", "w sobotę",
+            "w niedzielę")
+_then = [None]                 # the picker to open next (an alarm's hour → its minutes)
+
+
+def _hm(due):
+    tm = time.localtime(due)
+    return f"{tm.tm_hour}:{tm.tm_min:02d}"
+
+
+def _rings(due, now):
+    from datetime import date
+    d, today = date.fromtimestamp(due), date.fromtimestamp(now)
+    days = (d - today).days
+    return ("dzwoni dziś" if days <= 0 else "dzwoni jutro" if days == 1 else
+            f"dzwoni {_DAYS_IN[d.weekday()]} {d.day}.{d.month:02d}")
+
+
+def _repeat_label(rep):
+    import timers
+    return dict(_ALARM_REPEATS).get(rep) or timers._REPEAT_PL.get(rep, rep).capitalize()
+
+
+def alarm_rows(now=None):
+    """One row per alarm (its time: a picker; its days; the bin), a new one,
+    the radio instead of the chime, tomorrow without the alarm."""
+    import timers
+    from datetime import date
+    now = now or time.time()
+    al = timers.alarms()
+    out = []
+    for t in al[:ALARMS_SHOWN]:
+        key = "alarm:" + timers.alarm_key(t)
+        out.append({"key": key, "kind": "alarm", "label": _hm(t["due"]),
+                    "sub": _rings(t["due"], now),
+                    "value": _repeat_label(t.get("repeat", "none")),
+                    "armed": _bin_armed[0] == key and time.time() - _bin_armed[1] < BIN_SECS})
+    more = len(al) - ALARMS_SHOWN
+    out.append({"key": "alarm_new", "kind": "cycle", "label": "Nowy budzik",
+                "sub": ("nie ma żadnego budzika" if not al else
+                        f"i jeszcze {more} — powiedz „jakie mam budziki?”" if more > 0 else
+                        "dotknij godziny budzika, by ją zmienić"),
+                "value": "Dodaj"})
+    out.append({"key": "alarm_radio", "kind": "toggle", "label": "Budzenie radiem",
+                "sub": "ostatnia stacja, najpierw cichutko, zamiast dzwonka",
+                "value": bool(settings.get("alarm_radio", False))})
+    tomorrow = date.fromtimestamp(now).toordinal() + 1
+    if any(date.fromtimestamp(t["due"]).toordinal() == tomorrow for t in al):
+        out.append({"key": "alarm_skip", "kind": "cycle", "label": "Jutro bez budzika",
+                    "sub": "jutro nie zadzwoni; budzik na co dzień wraca pojutrze",
+                    "value": "Pomiń"})
+    return out
+
+
+def _alarm_choices(key):
+    """The pickers: an alarm's hour, then its minutes; its days."""
+    import timers
+    kind, _, rest = key.partition(":")
+    cur = next((t for t in timers.alarms() if timers.alarm_key(t) == rest.split(":")[0]), None)
+    tm = time.localtime(cur["due"]) if cur else None
+    if kind in ("alarm_new", "alarm_time"):
+        opts = [(h, f"{h}:00") for h in range(24)]
+        return "Budzik — która godzina?", opts, tm.tm_hour if tm else 7
+    if kind == "alarm_min":
+        h = int(rest.rsplit(":", 1)[1])
+        opts = [(m, f"{h}:{m:02d}") for m in range(0, 60, 5)]
+        i = tm.tm_min // 5 if tm and tm.tm_hour == h and tm.tm_min % 5 == 0 else -1
+        return f"Budzik — {h}:…", opts, i
+    if kind == "alarm" and cur:
+        rep = cur.get("repeat", "none")
+        opts = list(_ALARM_REPEATS)
+        if rep not in dict(opts):                  # "co tydzień" set by voice stays a choice
+            opts.append((rep, _repeat_label(rep)))
+        return "W które dni?", opts, next(j for j, (v, _) in enumerate(opts) if v == rep)
+    return None
+
+
+def _alarm_pick(key, value):
+    import timers
+    kind, _, rest = key.partition(":")
+    if kind == "alarm_new":
+        _then[0] = f"alarm_min:new:{value}"
+        return None
+    if kind == "alarm_time":
+        _then[0] = f"alarm_min:{rest}:{value}"
+        return None
+    if kind == "alarm_min":
+        target, h = rest.rsplit(":", 1)
+        new = target == "new"
+        k = timers.set_alarm(None if new else target, int(h), value)
+        if not k:
+            return "Tego budzika już nie ma"
+        if new:                                    # then: which days
+            _then[0] = "alarm:" + k
+        t = next(t for t in timers.alarms() if timers.alarm_key(t) == k)
+        return f"{'Nowy budzik' if new else 'Budzik'}: {_hm(t['due'])}, {_rings(t['due'], time.time())}"
+    if kind == "alarm":
+        k = timers.set_alarm(rest, repeat=value)
+        if not k:
+            return "Tego budzika już nie ma"
+        t = next(t for t in timers.alarms() if timers.alarm_key(t) == k)
+        return f"Budzik {_hm(t['due'])}: {_repeat_label(value).lower()}"
+    return None
+
+
+def alarm_bin(key, now=None):
+    """The bin on an alarm's row: tapped twice, the alarm is gone."""
+    import timers
+    now = now or time.time()
+    t = next((t for t in timers.alarms() if "alarm:" + timers.alarm_key(t) == key), None)
+    if t is None:
+        return None
+    _cache.clear()
+    if _bin_armed[0] == key and now - _bin_armed[1] < BIN_SECS:
+        _bin_armed[:] = [None, 0.0]
+        timers.delete_alarm(key.split(":", 1)[1])
+        return f"Usunięty budzik {_hm(t['due'])}"
+    _bin_armed[:] = [key, now]
+    return f"Dotknij kosza jeszcze raz, by usunąć budzik {_hm(t['due'])}"
+
+
+def _skip_tomorrow():
+    import timers
+    n, nxt = timers.skip_tomorrow()
+    if not n:
+        return "Jutro i tak nie dzwoni"
+    return "Jutro bez budzika" + (f" — następny {_rings(nxt, time.time())[7:]} o {_hm(nxt)}"
+                                  if nxt else "")
+
+
 def _speed_of():
     """(who, speed): the speed she speaks at for the person in front of her —
     theirs if they set one by voice (settings "tts_speed_by"), else the
@@ -431,6 +570,8 @@ def _speed(v):
 def choices(key):
     """A row's picker: (title, [(value, label)], index of the current) —
     every option on the screen at once — or None (a toggle, a button)."""
+    if key.startswith("alarm"):
+        return _alarm_choices(key)
     if key == "language":
         opts, cur = list(_LANGS), language()
     elif key == "reply_length":
@@ -472,6 +613,8 @@ def choices(key):
 def pick(key, value):
     """One option chosen (the picker, or change's next one). Returns the toast."""
     _cache.clear()
+    if key.startswith("alarm"):
+        return _alarm_pick(key, value)
     if key == "language":
         settings.put("language", value)
         return f"Język: {_label(_LANGS, value)}"
@@ -529,6 +672,12 @@ def change(key):
     if key == "phone":
         import phone
         return phone.settings_tap()
+    if key == "alarm_skip":
+        return _skip_tomorrow()
+    if key == "alarm_radio":
+        on = not settings.get("alarm_radio", False)
+        settings.put("alarm_radio", on)
+        return "Budzik: radio" if on else "Budzik: dzwonek"
     if key == "tts_speed":
         cur = _speed_of()[1]
         return pick(key, next((s for s in _SPEEDS if s > cur + 0.01), _SPEEDS[0]))
@@ -660,9 +809,14 @@ def tap(x, y, W, H, now=None):
     if data.get("picker"):                       # every option at once: one tapped, or away
         key, _, opts, _ = data.pop("picker")
         if hit and hit[0] == "opt" and hit[1] < len(opts):
+            _then[0] = None
             said = pick(key, opts[hit[1]][0])
             if said:
                 _toast(data, said)
+            nxt, _then[0] = _then[0], None
+            ch = nxt and choices(nxt)
+            if ch:                               # an alarm's hour → its minutes → its days
+                data["picker"] = (nxt,) + ch
         return True
     if data.get("confirm"):
         who = data.pop("confirm_who", None)
@@ -686,7 +840,13 @@ def tap(x, y, W, H, now=None):
         _open_group()
     elif hit[0] == "bin":
         r = rows(data.get("tab", 0))[hit[1]]
-        _toast(data, person_change(r["key"], binned=True, now=now))
+        if r["kind"] == "alarm":
+            _toast(data, alarm_bin(r["key"], now))
+        else:
+            _toast(data, person_change(r["key"], binned=True, now=now))
+    elif hit[0] == "card" and rows(data.get("tab", 0))[hit[1]]["kind"] == "alarm":
+        k = "alarm_time:" + rows(data.get("tab", 0))[hit[1]]["key"].split(":", 1)[1]
+        data["picker"] = (k,) + choices(k)
     elif hit[0] == "card":
         import contacts
         said = contacts.open_from(rows(data.get("tab", 0))[hit[1]]["key"].split(":", 1)[1], back=data)
@@ -706,7 +866,7 @@ def tap(x, y, W, H, now=None):
                 _toast(data, said)
         elif r["kind"] == "danger":
             data["confirm"] = now
-        elif r["kind"] == "cycle" and choices(r["key"]):
+        elif r["kind"] in ("cycle", "alarm") and choices(r["key"]):
             data["picker"] = (r["key"],) + choices(r["key"])
         elif r.get("key"):
             said = change(r["key"])

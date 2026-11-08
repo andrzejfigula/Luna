@@ -1236,7 +1236,7 @@ def _settings_layout(W, H, n_rows, n_tiles=0):
 def _picker_layout(W, H, n):
     """The picker over the page: the dialog, its × and a button per option
     (up to 4 a row, 1–2 for a few long ones)."""
-    n = max(1, min(n, 16))
+    n = max(1, min(n, 24))
     cols = min(4, -(-n // 4))
     dw = min(W - 40, (460, 620, 720, 760)[cols - 1])
     rows_n = -(-n // cols)
@@ -1273,10 +1273,10 @@ def settings_hit(x, y, W, H, data):
             return ("tab", k)
     for k, r in enumerate(L["rows"]):
         if r.collidepoint(x, y):
-            if (k < len(rows) and rows[k]["kind"] == "person"
+            if (k < len(rows) and rows[k]["kind"] in ("person", "alarm")
                     and L["bins"][k].inflate(12, 12).collidepoint(x, y)):
                 return ("bin", k)
-            if (k < len(rows) and rows[k]["kind"] == "person"
+            if (k < len(rows) and rows[k]["kind"] in ("person", "alarm")
                     and not L["ctrls"][k].inflate(12, 12).collidepoint(x, y)):
                 return ("card", k)
             return ("row", k)
@@ -1328,9 +1328,9 @@ def draw_settings(scr, data, now, W, H):
             scr.blit(lab, (r.x + 6, r.centery - lab.get_height() // 2))
             continue
         scr.blit(rrect(r.w, r.h, 16, (255, 255, 255, 22)), r)
-        room = (r.right - 56 if kind == "group" else c.x - (60 if kind == "person" else 0) if kind != "info"
+        room = (r.right - 56 if kind == "group" else c.x - (60 if kind in ("person", "alarm") else 0) if kind != "info"
                 else r.right - 250) - r.x - 28
-        name = row["label"] + (" ›" if kind == "person" else "")
+        name = row["label"] + (" ›" if kind in ("person", "alarm") else "")
         nm = text(fit(name, 22, room, "ExtraBold"), 22, WHITE, "ExtraBold")
         sub = text(fit(row["sub"], 16, room, "SemiBold"), 16, soft, "SemiBold")
         y = r.centery - (nm.get_height() + sub.get_height()) // 2
@@ -1356,12 +1356,18 @@ def draw_settings(scr, data, now, W, H):
                 scr.blit(rrect(b.w, b.h, b.w // 2, (214, 52, 52, 230)), b)
             ico = bin_button(22)
             scr.blit(ico, ico.get_rect(center=b.center))
-        elif kind in ("cycle", "danger"):             # a value to tap through / the reset
+        elif kind in ("cycle", "danger", "alarm"):    # a value to tap through / the reset
+            if kind == "alarm":                       # (and an alarm's bin)
+                b = L["bins"][rows.index(row)]
+                if row.get("armed"):
+                    scr.blit(rrect(b.w, b.h, b.w // 2, (214, 52, 52, 230)), b)
+                ico = bin_button(22)
+                scr.blit(ico, ico.get_rect(center=b.center))
             col = (214, 52, 52, 230) if kind == "danger" else (255, 255, 255, 34)
             scr.blit(rrect(c.w, c.h, 21, col), c)
             v = text(fit(str(val), 19, c.w - 40, "ExtraBold"), 19, WHITE, "ExtraBold")
-            scr.blit(v, v.get_rect(center=(c.centerx - (8 if kind == "cycle" else 0), c.centery)))
-            if kind == "cycle":
+            scr.blit(v, v.get_rect(center=(c.centerx - (0 if kind == "danger" else 8), c.centery)))
+            if kind in ("cycle", "alarm"):
                 ch = text("›", 24, gold, "ExtraBold")
                 scr.blit(ch, ch.get_rect(center=(c.right - 18, c.centery - 2)))
         else:                                         # a number, a cost
