@@ -67,7 +67,13 @@ if FACE_GL:
 
 BG        = (0, 0, 0)
 PUPIL_COL = (0, 0, 0)
-# how often she blinks, by mood (× the usual 100–220 frames between blinks)
+# frames (at 30 fps) between blinks: 6–12 s, ×a mood's pace, ×a character's;
+# no extra blink (a mood change) sooner than BLINK_GAP after the last one
+BLINK_EVERY = (180, 360)
+BLINK_TALKING = 240
+BLINK_GAP = 90
+BLINK_DOUBLE = 0.08
+# how often she blinks, by mood (× BLINK_EVERY)
 BLINK_PACE = {"sad": 1.5, "excited": 1.7, "surprised": 2.0, "love": 1.3,
               "worried": 0.6, "shy": 0.8, "sleepy": 1.4, "curious": 1.5}
 # the head's lean by mood (degrees) and how high it sits (px, + lower)
@@ -2212,7 +2218,7 @@ class RobotFace:
         self.target_oy = 0.0
 
         self.breath_phase  = 0.0
-        self.blink_timer   = random.randint(100, 220)
+        self.blink_timer   = random.randint(*BLINK_EVERY)
         self.blink_counter = 0
         self.blink_open    = 1.0
 
@@ -2327,7 +2333,8 @@ class RobotFace:
                 self.bounce_amp   = 22.0
             # a change of face often comes with a blink — a cut between them
             if (EYE_MODE == "block" and "sleeping" not in (self.state, new_state)
-                    and random.random() < 0.55 and getattr(self, "_blink_dir", 0) == 0):
+                    and random.random() < 0.3 and getattr(self, "_blink_dir", 0) == 0
+                    and self.blink_counter > BLINK_GAP):
                 self._blink_dir, self.blink_counter = -1, 0
             self.prev_state = self.state
             self.state      = new_state
@@ -2445,7 +2452,7 @@ class RobotFace:
         # the old instant snap-shut.
         if emotion != "sleeping":
             self.blink_counter += _K
-            trigger = self.blink_timer if not speaking else 180
+            trigger = self.blink_timer if not speaking else BLINK_TALKING
             # a drawn character's own rhythm (characters.py): PIP quick
             b_pace, b_speed = characters.blink_pace(characters.kind_of(themes.get()))
 
@@ -2473,10 +2480,10 @@ class RobotFace:
                     self._blink_dir  = 0
                     # the mood sets the rhythm: sad and drowsy blink slower,
                     # excited and surprised eyes hardly at all
-                    self.blink_timer = int(random.randint(100, 220) * BLINK_PACE.get(
+                    self.blink_timer = int(random.randint(*BLINK_EVERY) * BLINK_PACE.get(
                         emotion, 1.4 if self._drowsy > 0.3 else 1.0) * b_pace)
                     # occasionally double-blink — very lifelike
-                    if random.random() < 0.18 and not speaking:
+                    if random.random() < BLINK_DOUBLE and not speaking:
                         self.blink_counter = self.blink_timer - 8
 
             # ease the reopen with a smoothstep curve

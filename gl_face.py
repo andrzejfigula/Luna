@@ -1600,7 +1600,7 @@ class _Life:
         self.pop_t = -9.0                 # a new mood: the eyes pop a little
         self.emph_t = -9.0                # a stressed syllable: the brows lift
         self.lids = []                    # (start, dur, depth): half blinks, slow blinks…
-        self.half_t = _clock() + random.uniform(8, 20)
+        self.half_t = _clock() + random.uniform(15, 30)
         self.cat_t = 0.0                  # love: the next slow blink
         self.talk = False                 # talking (last frame)
         self.press_t = -9.0               # the end of a sentence: the lips press
@@ -1667,7 +1667,7 @@ class _Life:
     def moods(self, now, emo, talking, drowsy, listening):
         """The timed habits of each mood."""
         if talking and not self.talk:
-            if random.random() < 0.6:            # a blink as she starts to speak
+            if random.random() < 0.3:            # a blink as she starts to speak
                 self.lids.append((now, 0.22, 1.0))
             self.away_t = now + random.uniform(3.0, 6.0)
         if self.talk and not talking:
@@ -1678,7 +1678,7 @@ class _Life:
             self.away_t = now + random.uniform(4.0, 7.0)
         calm = emo in ("neutral", "listening", "happy") and not talking
         if now > self.half_t:                    # a lazy half blink
-            self.half_t = now + random.uniform(8, 20)
+            self.half_t = now + random.uniform(15, 30)
             if calm:
                 self.lids.append((now, 0.5, 0.45))
         if emo == "love" and now > self.cat_t:   # love: a slow, soft blink
