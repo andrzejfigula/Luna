@@ -53,25 +53,32 @@ face_cascade = cv2.CascadeClassifier(
 
 
 SWITCH_SURE = 0.50        # a different person than the one just here: this sure at once…
-_switch = [None, 0.0]     # …or the same weaker name twice in a row (name, when)
+SWITCH_TIMES = 3          # …or the same weaker name this many times in a row
+SWITCH_FRESH = 30         # "just here": surely named this recently
+_switch = [None, 0, 0.0]  # (name, times, when)
 
 
 def _confirmed_switch(name, sim, now=None):
-    """One borderline frame of someone else is not a new person (29 Oct: Andrzej
-    for minutes, then "Maja 0.43" once → "Maju, cześć!")."""
+    """A few borderline frames of someone else are not a new person (29 Oct:
+    Andrzej for minutes, then "Maja 0.43" once → "Maju, cześć!"; 8 Nov 00:03:
+    Emilka 0.41, 0.42 between his 0.59 and 0.67 → "widziałam Emilkę dziś")."""
     import faces as faces_mod
     now = now or time.time()
     with state.lock:
         prev = state.person
-    fresh = prev and prev[0] != name and now - prev[2] < 3 * faces_mod.RECOGNISE_EVERY
+    fresh = prev and prev[0] != name and now - prev[2] < SWITCH_FRESH
     if not name or not fresh or sim >= SWITCH_SURE:
         _switch[0] = None
         return name
-    if _switch[0] == name and now - _switch[1] < 3 * faces_mod.RECOGNISE_EVERY:
+    if _switch[0] == name and now - _switch[2] < 3 * faces_mod.RECOGNISE_EVERY:
+        _switch[1:] = [_switch[1] + 1, now]
+    else:
+        _switch[:] = [name, 1, now]
+    if _switch[1] >= SWITCH_TIMES:
         _switch[0] = None
         return name
-    _switch[:] = [name, now]
-    print(f"[faces] {name} ({sim:.2f}) instead of {prev[0]}? — once more first", flush=True)
+    print(f"[faces] {name} ({sim:.2f}) instead of {prev[0]}? — not yet "
+          f"({_switch[1]}/{SWITCH_TIMES})", flush=True)
     return None
 
 
@@ -111,15 +118,16 @@ def _who(frame, rows, last_seen):
         except Exception as e:
             print(f"[faces] portrait failed: {e}", flush=True)
     # the others in view (up to two more): who else is here
-    others = []
+    others, sims = [], [sim]
     half_w = frame.shape[1] // 2
     layout = [(name or "?", (big[0] + big[2] / 2) / half_w)]
     for r in sorted(rows, key=lambda r: -r[2] * r[3])[1:3]:
         try:
-            n, _ = faces_mod.identify(faces_mod.embed(frame, r, scale))
+            n, s = faces_mod.identify(faces_mod.embed(frame, r, scale))
         except Exception:
             continue
         others.append(n or "?")
+        sims.append(s)
         layout.append((n or "?", (r[0] + r[2] / 2) / half_w))
     with state.lock:
         prev = state.person
@@ -129,7 +137,7 @@ def _who(frame, rows, last_seen):
             state.person = None               # a different, unknown face now
         state.others = (others, time.time())
         state.layout = (layout, time.time())
-    faces_mod.saw([name] + others)
+    faces_mod.saw([name] + others, sims=sims)
     if name and (not prev or prev[0] != name):
         print(f"[faces] this is {name} ({sim:.2f})"
               + (f", with: {', '.join(others)}" if others else ""), flush=True)

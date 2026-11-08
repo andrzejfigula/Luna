@@ -2472,6 +2472,21 @@ class KidsTest(unittest.TestCase):
         faces.saw(["Andrzej"], t0)
         self.assertIn("Andrzej był tu", faces.where_is("Andrzej", t0 + 7200))
         self.assertNotIn("?", faces._seen)
+        # 8 Nov 00:03: Andrzej read twice as Emilka (0.41, 0.42) → "widziałam dziś"
+        faces._maybe.clear()
+        faces.saw(["Andrzej", "Emilka"], t0 + 9000, sims=[0.6, 0.41])
+        faces.saw(["Emilka"], t0 + 9003, sims=[0.42])
+        self.assertIsNone(faces.last_seen("Emilka"))
+        faces.saw(["Emilka"], t0 + 9300, sims=[0.43])          # too late: starts again
+        faces.saw(["Emilka"], t0 + 9303, sims=[0.44])
+        self.assertIsNone(faces.last_seen("Emilka"))
+        faces.saw(["Emilka"], t0 + 9306, sims=[0.45])          # 3× weak: she is here
+        self.assertEqual(faces.last_seen("Emilka"), t0 + 9306)
+        faces.saw(["Emilka"], t0 + 9310, sims=[0.41])          # here already: kept fresh
+        self.assertEqual(faces.last_seen("Emilka"), t0 + 9310)
+        faces.saw(["Maja"], t0 + 99999, sims=[0.55])           # sure: at once
+        self.assertEqual(faces.last_seen("Maja"), t0 + 99999)
+        faces._seen, faces._maybe = {}, {}
 
     def test_people_talking(self):
         from unittest import mock
@@ -4168,10 +4183,19 @@ class KidsTest(unittest.TestCase):
         try:
             # 29 Oct: Andrzej for minutes, then "Maja 0.43" once → "Maju, cześć!"
             self.assertIsNone(vm._confirmed_switch("Maja", 0.43, now))
-            self.assertEqual(vm._confirmed_switch("Maja", 0.44, now + 2.5), "Maja")   # twice: her
+            # 8 Nov: twice was not enough (Emilka 0.41, 0.42 between his 0.59s)
+            self.assertIsNone(vm._confirmed_switch("Maja", 0.44, now + 2.5))
+            self.assertEqual(vm._confirmed_switch("Maja", 0.44, now + 5), "Maja")     # 3×: her
+            self.assertIsNone(vm._confirmed_switch("Maja", 0.43, now + 6))
+            self.assertIsNone(vm._confirmed_switch(None, 0.2, now + 8))               # streak broken
+            self.assertIsNone(vm._confirmed_switch("Maja", 0.43, now + 10))
             self.assertEqual(vm._confirmed_switch("Maja", 0.62, now), "Maja")         # sure: at once
             self.assertEqual(vm._confirmed_switch("Andrzej", 0.41, now), "Andrzej")   # the same one
             self.assertIsNone(vm._confirmed_switch(None, 0.2, now))
+            with state.lock:
+                state.person = ("Andrzej", 0.55, now - 20)                           # still near
+            self.assertIsNone(vm._confirmed_switch("Maja", 0.43, now))
+            vm._switch[0] = None
             with state.lock:
                 state.person = ("Andrzej", 0.55, now - 60)                           # he left
             self.assertEqual(vm._confirmed_switch("Maja", 0.43, now), "Maja")
@@ -7379,6 +7403,36 @@ class GalleryDeletePeopleTest(unittest.TestCase):
             self.assertIsNone(faces.portrait("Maja"))
             faces.restore("Maja")                            # …and comes back
             self.assertTrue(faces.portrait("Maja"))
+
+    def test_portrait_centred_and_frontal(self):
+        import numpy as np
+        import faces
+        # landmarks: right eye, left eye, nose (half-size frame)
+        ahead = [110, 80, 140, 80, 125, 95]
+        aside = [110, 80, 140, 80, 134, 95]
+        self.assertTrue(faces._frontal([100, 60, 60, 70] + ahead))
+        self.assertFalse(faces._frontal([100, 60, 60, 70] + aside))
+        self.assertFalse(faces._frontal([100, 60, 60, 70] + [110, 72, 140, 88, 125, 95]))
+        self.assertTrue(faces._frontal([100, 60, 60, 70] + [0] * 6))   # no landmarks
+        frame = np.zeros((480, 640, 3), np.uint8)
+        saved = {}
+        with self._people(), \
+                mock.patch("cv2.imwrite", lambda p, img, *a: saved.update(img=img) or True), \
+                mock.patch("os.replace"):
+            # 8 Nov: Maja's forehead at the frame's top — no portrait from that frame…
+            self.assertFalse(faces._save_portrait("Maja", frame, (200, 10, 120, 140),
+                                                  flip=False, strict=True))
+            # …but a photo has no other frame: cut by the edge as before
+            self.assertTrue(faces._save_portrait("Maja", frame, (200, 10, 120, 140), flip=False))
+            # in the middle: a square of 2.4 faces around it
+            frame[:] = 0
+            frame[120:260, 200:320] = 255
+            self.assertTrue(faces._save_portrait("Maja", frame, (200, 120, 120, 140),
+                                                 flip=False, strict=True))
+            img = saved["img"]
+            cols = np.where(img[:, :, 0].max(axis=0) > 128)[0]
+            self.assertAlmostEqual((cols[0] + cols[-1]) / 2, 160, delta=4)   # centred
+            self.assertAlmostEqual((cols[-1] - cols[0]) / 320, 120 / 336, delta=0.02)
 
     def test_slideshow_stops_after_ten_and_keeps_listening(self):
         import gallery

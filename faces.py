@@ -48,6 +48,9 @@ PORTRAIT_FIRST = 0.45        # the first one: a little less sure is enough
 PORTRAIT_MIN = 0.60          # a new one over an old: sure (19 Oct: Andrzej side-on
                              # in the dark became Emilka's portrait at 0.51)…
 PORTRAIT_MARGIN = 0.20       # …and well ahead of the second-best person
+PORTRAIT_ROOM = 2.4          # the square's side in face sizes: hair and chin inside the circle
+PORTRAIT_TIGHT = 1.7         # by the frame's edge: centred but tighter, down to this
+PORTRAIT_YAW = 0.22          # nose off the eyes' middle by this much of their distance: turned aside
 
 DETECT_SCORE = 0.75        # YuNet confidence for a face
 MATCH_COSINE = 0.40        # SFace: same person above this (paper: 0.363; a bit
@@ -162,11 +165,16 @@ SEEN_PATH = os.path.join(DATA_DIR, "seen.json")
 _seen = None                 # {name: unix time}
 _seen_saved = 0.0
 _unknown_at = 0.0           # last face she couldn't name (maybe a misread Emilka)
+SIGHT_SURE = 0.50           # a sighting at once from this sure a match…
+SIGHT_WEAK_TIMES = 3        # …else this many weak ones (8 Nov 00:03: Andrzej
+SIGHT_WEAK_SECS = 180       # read twice as Emilka 0.41/0.42 → "widziałam dziś")
+_maybe = {}                 # name → [weak matches, since when]
 
 
-def saw(names_now, now=None):
-    """The camera recognised these people just now. Written to disk at most
-    once a minute — a restart must not forget that Maja was here."""
+def saw(names_now, now=None, sims=None):
+    """The camera recognised these people just now (sims: how sure, in the
+    same order). Written to disk at most once a minute — a restart must not
+    forget that Maja was here."""
     global _seen, _seen_saved, _unknown_at
     now = time.time() if now is None else now
     with _lock:
@@ -174,9 +182,21 @@ def saw(names_now, now=None):
             _seen = _read_seen()
         if any(not n or n == "?" for n in names_now):
             _unknown_at = now
-        for n in names_now:
-            if n and n != "?":
+        for i, n in enumerate(names_now):
+            if not n or n == "?":
+                continue
+            sim = sims[i] if sims and i < len(sims) else 1.0
+            if sim >= SIGHT_SURE or now - _seen.get(n, 0) < SIGHT_WEAK_SECS:
                 _seen[n] = now
+                _maybe.pop(n, None)
+                continue
+            m = _maybe.get(n)
+            if not m or now - m[1] > SIGHT_WEAK_SECS:
+                m = _maybe[n] = [0, now]
+            m[0] += 1
+            if m[0] >= SIGHT_WEAK_TIMES:
+                _seen[n] = now
+                del _maybe[n]
         if now - _seen_saved < 60:
             return
         _seen_saved = now
@@ -717,27 +737,51 @@ def keep_portrait(name, sim, frame, row_small, scale, now=None, feature=None):
         return False
     if old and now - os.path.getmtime(old) < PORTRAIT_EVERY:
         return False
+    if not _frontal(row_small):
+        return False
     if feature is not None:
         second = max((v for n, v in _scores(feature).items() if n != name), default=0.0)
         if sim - second < PORTRAIT_MARGIN:
             print(f"[faces] no portrait of {name} ({sim:.2f}): too like "
                   f"someone else ({second:.2f})", flush=True)
             return False
-    if not _save_portrait(name, frame, (x, y, w, h), flip=True):
+    if not _save_portrait(name, frame, (x, y, w, h), flip=True, strict=True):
         return False
     print(f"[faces] new portrait of {name} ({sim:.2f})", flush=True)
     return True
 
 
-def _save_portrait(name, img, box, flip, mtime=None):
-    """The face at box (x, y, w, h) of img, square with some room around it."""
+def _frontal(row):
+    """YuNet's eyes and nose say the face looks at her, not aside or tilted
+    (8 Nov: portraits of a head turned away). True without landmarks."""
+    if len(row) < 10:
+        return True
+    rx, ry, lx, ly, nx, _ = (float(v) for v in row[4:10])
+    d = ((lx - rx) ** 2 + (ly - ry) ** 2) ** 0.5
+    if d < 1:
+        return True
+    return abs(nx - (rx + lx) / 2) / d < PORTRAIT_YAW and abs(ly - ry) / d < 0.25
+
+
+def _save_portrait(name, img, box, flip, mtime=None, strict=False):
+    """The face at box (x, y, w, h) of img, in the middle of a square with room
+    for hair and chin (8 Nov: Maja's forehead cut off at the frame's top). By
+    the edge the square gets tighter, still centred; strict (the camera — there
+    will be other frames): too near the edge, no portrait from this one."""
     import cv2
     x, y, w, h = box
     H, W = img.shape[:2]
-    side = int(min(max(w, h) * 1.9, W, H))
-    cx, cy = x + w / 2, y + h * 0.45
-    x0 = int(max(0, min(W - side, cx - side / 2)))
-    y0 = int(max(0, min(H - side, cy - side / 2)))
+    big = max(w, h)
+    cx, cy = x + w / 2, y + h * 0.40          # a little up: the box starts at the brows
+    half = min(big * PORTRAIT_ROOM / 2, cx, W - cx, cy, H - cy)
+    if 2 * half >= big * PORTRAIT_TIGHT:
+        side, x0, y0 = int(2 * half), int(cx - half), int(cy - half)
+    elif strict:
+        return False
+    else:
+        side = int(min(big * PORTRAIT_ROOM, W, H))
+        x0 = int(max(0, min(W - side, cx - side / 2)))
+        y0 = int(max(0, min(H - side, cy - side / 2)))
     crop = img[y0:y0 + side, x0:x0 + side]
     if crop.size == 0:
         return False
