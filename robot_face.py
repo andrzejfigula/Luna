@@ -68,7 +68,11 @@ if FACE_GL:
 BG        = (0, 0, 0)
 PUPIL_COL = (0, 0, 0)
 # how often she blinks, by mood (× the usual 100–220 frames between blinks)
-BLINK_PACE = {"sad": 1.5, "excited": 1.7, "surprised": 2.0, "love": 1.3}
+BLINK_PACE = {"sad": 1.5, "excited": 1.7, "surprised": 2.0, "love": 1.3,
+              "worried": 0.6, "shy": 0.8, "sleepy": 1.4, "curious": 1.5}
+# the head's lean by mood (degrees) and how high it sits (px, + lower)
+MOOD_TILT = {"curious": 7.0, "confused": -6.0, "shy": 5.0, "proud": -2.0}
+MOOD_RISE = {"proud": -10.0, "sleepy": 10.0, "shy": 6.0, "worried": 4.0}
 LISTEN_WAVE_COL = (255, 196, 110)  # the sound waves beside her while she listens
 THINK_HAND_SECS = 1.2              # thinking longer than this: a finger on her chin
 
@@ -2603,6 +2607,8 @@ class RobotFace:
 
         if emotion == "sad":                         # sad eyes look down
             self.pupil_oy = ease(self.pupil_oy, 18.0, 0.08)
+        self.target_tilt += MOOD_TILT.get(emotion, 0.0)
+        self.target_oy += MOOD_RISE.get(emotion, 0.0)
 
         # cute decaying bounce on positive state changes
         bounce_y = 0.0

@@ -367,9 +367,19 @@ TTS_EMOTION_STYLE = {
                  "intonation, a touch of disbelief.",
     "angry":     "Right now you are playfully grumpy, mock-annoyed with a "
                  "pout — never actually aggressive or harsh.",
-    "sleepy":    "Right now you are telling a bedtime story: very calm, soft "
-                 "and slow, a little sleepy, gentle pauses — soothing, almost "
-                 "a lullaby.",
+    "sleepy":    "Right now you are sleepy, or telling a bedtime story: very "
+                 "calm, soft and slow, a little drowsy, gentle pauses — "
+                 "soothing, almost a lullaby.",
+    "shy":       "Right now you are a little shy and flattered: softer, a bit "
+                 "hesitant, a bashful smile in the voice.",
+    "worried":   "Right now you are worried and caring: gentle, a little "
+                 "anxious, attentive — warm, never dramatic.",
+    "confused":  "Right now you are puzzled: a questioning, slightly uncertain "
+                 "intonation, as if thinking it over.",
+    "proud":     "Right now you are proud and pleased: confident and warm, a "
+                 "satisfied smile in the voice.",
+    "curious":   "Right now you are curious and interested: lively, an eager "
+                 "questioning lilt, leaning in.",
 }
 # How the listener seems on camera (brain.USER_MOODS) can soften the delivery.
 TTS_LISTENER_STYLE = {

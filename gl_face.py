@@ -1636,6 +1636,7 @@ class _Life:
         self.boing = (-9.0, 0)            # a tapped eye squashes and springs back
         self.mood_t = _clock()    # since when this mood
         self.dream_t = _clock() + random.uniform(40, 80)   # asleep: a smile
+        self.habit_t = 0.0                # sleepy / shy / confused: their next habit
         self.waking = False
 
     def lid(self, now, i=-1):
@@ -1704,6 +1705,15 @@ class _Life:
         if emo == "thinking" and now > self.hmm_next:
             self.hmm_next = now + random.uniform(4, 7)
             self.hmm_t = now
+        if emo in ("sleepy", "shy", "confused") and not talking and now > self.habit_t:
+            if emo == "sleepy":                  # a yawn now and then
+                self.habit_t, self.yawn_t = now + random.uniform(14, 24), now
+            elif emo == "shy":                   # glancing away again
+                self.habit_t = now + random.uniform(4, 7)
+                self.shy_t, self.shy_side = now, random.choice((-1.0, 1.0))
+            else:                                # a puzzled double blink
+                self.habit_t = now + random.uniform(4, 8)
+                self.lids += [(now, 0.2, 1.0), (now + 0.3, 0.2, 1.0)]
         self.prune(now)
 
     def step(self, now, dt, calm, steady=False, jitter=False):
@@ -2472,7 +2482,7 @@ class GLFace:
             life.mood = emo
         if emo == "surprised":
             pop_k = 0.12
-        life.step(now, dt, calm, steady=seen and talking, jitter=emo == "excited")
+        life.step(now, dt, calm, steady=seen and talking, jitter=emo in ("excited", "worried"))
         drowsy = getattr(face, "_drowsy", 0.0)
         life.moods(now, emo, talking, drowsy, face._listen)
         k6 = 1.0 - math.exp(-6.0 * dt)

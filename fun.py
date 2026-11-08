@@ -180,8 +180,22 @@ _FACES = [
     (re.compile(r"^(?:zrób|zrob)\s+(?:mi\s+)?(?:zakochaną|zakochana)\s+(?:minę|mine|minkę)$"
                 r"|^(?:zrób|zrob)\s+(?:serduszka|serca)\s+(?:w\s+)?oczach$"), "heart_eyes", "love",
      ("Ojej!",)),
-    (re.compile(r"^(?:zawstydź|zawstydz|zarumień|zarumien)\s+się$"), "shy", "love",
-     ("Oj, przestań…",)),
+    (re.compile(r"^(?:zawstydź|zawstydz|zarumień|zarumien)\s+się$|^(?:zrób|zrob)\s+(?:mi\s+)?"
+                r"(?:zawstydzoną|zawstydzona|nieśmiałą|niesmiala)\s+(?:minę|mine|minkę|minke)$"),
+     "shy", "shy", ("Oj, przestań…",)),
+    (re.compile(r"^(?:zrób|zrob)\s+(?:mi\s+)?(?:zmartwioną|zmartwiona|zatroskaną|zatroskana)\s+"
+                r"(?:minę|mine|minkę|minke)$|^(?:zmartw|zamartw)\s+się$"), None, "worried",
+     ("Oj, martwię się…",)),
+    (re.compile(r"^(?:zrób|zrob)\s+(?:mi\s+)?(?:zdezorientowaną|zdezorientowana|zmieszaną|"
+                r"zmieszana|zakłopotaną|zaklopotana|zagubioną|zagubiona)\s+(?:minę|mine|minkę|minke)$"),
+     None, "confused", ("Hmm? Nic nie rozumiem…",)),
+    (re.compile(r"^(?:zrób|zrob)\s+(?:mi\s+)?(?:dumną|dumna)\s+(?:minę|mine|minkę|minke)$"),
+     None, "proud", ("Jestem z siebie dumna!",)),
+    (re.compile(r"^(?:zrób|zrob)\s+(?:mi\s+)?(?:śpiącą|spiaca|zaspaną|zaspana|zmęczoną|zmeczona)\s+"
+                r"(?:minę|mine|minkę|minke)$"), None, "sleepy", ("Aaach… ale jestem śpiąca…",)),
+    (re.compile(r"^(?:zrób|zrob)\s+(?:mi\s+)?(?:ciekawską|ciekawska|zaciekawioną|zaciekawiona|"
+                r"zainteresowaną|zainteresowana)\s+(?:minę|mine|minkę|minke)$"), None, "curious",
+     ("Ooo? A co to?",)),
     (re.compile(r"^(?:zakręć|zakrec)\s+się$|^(?:zrób|zrob)\s+(?:mi\s+)?(?:zawroty|zakręconą)\s+"
                 r"(?:głowy|minę)$"), "dizzy", "surprised", ("Wszystko się kręci!",)),
 ]

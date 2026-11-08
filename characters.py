@@ -372,16 +372,16 @@ class CharLife:
         emo = getattr(face, "_emotion", "neutral")
         talking = bool(getattr(face, "_speaking", False))
         tgt = {
-            "happy": 1.0 if emo in ("happy", "excited", "love") else 0.0,
-            "sad": 1.0 if emo == "sad" else 0.0,
+            "happy": 1.0 if emo in ("happy", "excited", "love", "proud", "shy") else 0.0,
+            "sad": 1.0 if emo in ("sad", "worried") else 0.0,
             "angry": max(1.0 if emo == "angry" else 0.0, min(1.0, cur.get("tint", 0.0) * 1.6)),
             "surprise": 1.0 if emo == "surprised" else 0.0,
             "think": max(1.0 if emo == "thinking" else 0.0, g.get("think", 0.0)),
-            "sleep": 1.0 if emo == "sleeping" else 0.0,
+            "sleep": 1.0 if emo == "sleeping" else 0.6 if emo == "sleepy" else 0.0,
             "celebrate": max(0.6 if emo == "excited" else 0.0, g.get("celebrate", 0.0)),
             "alert": g.get("alert", 0.0),
-            "curious": g.get("curious", 0.0),
-            "confused": g.get("confused", 0.0),
+            "curious": max(1.0 if emo == "curious" else 0.0, g.get("curious", 0.0)),
+            "confused": max(1.0 if emo == "confused" else 0.0, g.get("confused", 0.0)),
             "listen": 1.0 if getattr(face, "_listen", False) and not talking else 0.0,
             "speak": 1.0 if talking else 0.0,
             "glitch": g.get("glitch", 0.0),

@@ -1,5 +1,6 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
+- Luna ma sześć nowych min: nieśmiałą (gdy ją chwalisz), zmartwioną, zdezorientowaną, dumną, śpiącą i zaciekawioną — pokazuje je sama, kiedy pasują, a na prośbę od razu: „zrób dumną minę”, „zrób śpiącą minę”, „zrób zmartwioną minę”.
 - Gdy na szybie jest szron, górny pasek i ikonki na dole mają ciemniejsze tło — znów dobrze je widać.
 - Stuknij w ekran, gdy świeci lampka albo grają efekty radia — na dole pokaże się pasek: strzałki zmieniają obrazek albo efekt, kropki kolor, a ⏻ wyłącza. Lampka nie gaśnie już od samego stuknięcia.
 - Lampki z obrazkiem mają teraz kolory: „lampa lawa na zielono”, „włącz różową zorzę”, a gdy już świeci — „na niebiesko”, „zmień kolor” (następny) albo „zwykłe kolory”. Każda pamięta swój kolor.

@@ -24,6 +24,7 @@ sys.path.insert(0, HERE)
 
 from OpenGL import GL                                       # noqa: E402
 import gl_face_preview as prev                              # noqa: E402
+import face_spec                                            # noqa: E402
 
 W, H = prev.W, prev.H
 TW, TH = W // 2, H // 2          # a tile
@@ -98,8 +99,7 @@ def main():
 
     # ── the moods (brain.py's emotion → face_renderer's state) ──
     tiles = []
-    for mood in ("neutral", "happy", "excited", "love", "sad", "angry", "surprised",
-                 "thinking", "sleeping"):
+    for mood in [m for m in face_spec.MOODS if m != "listening"]:
         reset()
         with state.lock:
             state.face_detected = mood != "sleeping"

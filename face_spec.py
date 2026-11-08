@@ -116,6 +116,49 @@ MOODS = {
                  "brow_a": 0.45, "brow_y": (-12.0, -12.0), "brow_bend": 2.0,
                  "mouth_w": 82.0, "mouth_h": 13.0, "mouth_bend": 6.0, "mouth_a": 0.6,
                  "blush": 0.25},
+    # embarrassed by praise: looking down and aside, the cheeks lift the
+    # lower lids, soft raised brows, a small smile, a deep blush
+    "shy": {"eye_w": 222.0, "eye_h": 168.0,
+            "lid_top": (0.16, 0.16), "lid_bot": (0.16, 0.16), "lid_bot_bend": (0.18, 0.18),
+            "gaze_x": -30.0, "gaze_y": 18.0,
+            "brow_y": (8.0, 8.0), "brow_tilt": (-8.0, -8.0), "brow_bend": 8.0,
+            "mouth_w": 92.0, "mouth_h": 15.0, "mouth_bend": 16.0, "mouth_dx": -14.0,
+            "blush": 1.0},
+    # anxious: wide eyes with small pupils, the inner brows pulled up, a
+    # wobbly mouth
+    "worried": {"eye_w": 224.0, "eye_h": 190.0, "eye_n": 3.0, "pupil": (0.82, 0.82),
+                "lid_top": (0.06, 0.06), "lid_tilt": (-0.14, -0.14),
+                "lid_bot": (0.06, 0.06), "wet": 0.35, "gaze_y": 6.0,
+                "brow_y": (14.0, 14.0), "brow_tilt": (-28.0, -28.0), "brow_bend": -4.0,
+                "mouth": WAVY, "mouth_w": 112.0, "mouth_h": 12.0, "mouth_dy": 8.0},
+    # puzzled: lopsided brows (one up, one knitted down), one eye narrowed,
+    # looking aside, a wobbly mouth off to one side
+    "confused": {"eye_w": 226.0, "eye_h": 174.0, "pupil": (0.92, 0.92),
+                 "lid_top": (0.22, 0.0), "lid_tilt": (0.18, 0.0), "lid_bot": (0.08, 0.0),
+                 "gaze_x": -18.0, "gaze_y": -4.0,
+                 "brow_y": (-8.0, 24.0), "brow_tilt": (14.0, -10.0), "brow_bend": 6.0,
+                 "mouth": WAVY, "mouth_w": 96.0, "mouth_h": 12.0, "mouth_dx": 26.0},
+    # pleased with herself: calm half-lidded eyes over lifted cheeks, brows
+    # up, a confident smile pulled up at one corner
+    "proud": {"eye_w": 236.0, "eye_h": 170.0, "eye_n": 3.2,
+              "lid_top": (0.20, 0.20), "lid_bend": (0.0, 0.0),
+              "lid_bot": (0.12, 0.12), "lid_bot_bend": (0.18, 0.18), "gaze_y": -10.0,
+              "brow_y": (14.0, 14.0), "brow_bend": 10.0,
+              "mouth_w": 150.0, "mouth_h": 17.0, "mouth_bend": 24.0, "mouth_slant": 8.0,
+              "mouth_dx": 10.0, "blush": 0.3},
+    # tired but awake: heavy lids half down, low soft brows, looking down,
+    # a small slack mouth
+    "sleepy": {"eye_w": 224.0, "eye_h": 150.0, "eye_dy": 8.0,
+               "lid_top": (0.48, 0.52), "lid_bend": (0.0, 0.0),
+               "lid_bot": (0.10, 0.10), "pupil": (0.95, 0.95), "gaze_y": 12.0,
+               "brow_y": (-6.0, -6.0), "brow_bend": 2.0, "brow_a": 0.7,
+               "mouth_w": 72.0, "mouth_h": 14.0, "mouth_bend": 4.0, "mouth_a": 0.8},
+    # interested: big eyes with big pupils, one brow raised, leaning in,
+    # a small "o?"
+    "curious": {"eye_w": 240.0, "eye_h": 196.0, "eye_n": 3.0, "pupil": (1.22, 1.22),
+                "lid_bot": (0.04, 0.04), "gaze_x": 16.0, "gaze_y": -6.0,
+                "brow_y": (8.0, 24.0), "brow_tilt": (0.0, -8.0), "brow_bend": 10.0,
+                "mouth": O, "mouth_w": 50.0, "mouth_h": 42.0, "mouth_dx": 12.0},
     # attentive: a touch wider, looking straight at you, brows up a little
     "listening": {"eye_w": 236.0, "eye_h": 182.0, "pupil": (1.08, 1.08), "gaze_y": -4.0,
                   "brow_y": (10.0, 10.0), "brow_bend": 8.0,

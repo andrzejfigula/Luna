@@ -17,6 +17,12 @@ EMOTION_MAP = {
     "Excited":   "excited",
     "Love":      "love",
     "Neutral":   "neutral",
+    "Shy":       "shy",
+    "Worried":   "worried",
+    "Confused":  "confused",
+    "Proud":     "proud",
+    "Sleepy":    "sleepy",
+    "Curious":   "curious",
 }
 
 

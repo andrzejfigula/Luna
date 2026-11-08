@@ -891,7 +891,8 @@ def _feminize(text, heard=""):
 
 
 # Face states robot_face.py knows how to draw. The model must pick one.
-EMOTIONS = ["neutral", "happy", "sad", "angry", "surprised", "excited", "love"]
+EMOTIONS = ["neutral", "happy", "sad", "angry", "surprised", "excited", "love",
+            "shy", "worried", "confused", "proud", "sleepy", "curious"]
 # Body language robot_face.py can animate: hand/head gestures plus the
 # scenes in reply_scenes.py.
 HAND_GESTURES = ["nod", "shake", "wave", "thumbs_up", "heart"]
@@ -1141,9 +1142,13 @@ they seem tired, sad or stressed; livelier when they seem happy — without
 mentioning it. Whether you may actually SAY something about it is stated
 below the date in every message; if not, don't.
 Pick the emotion that fits the reply: "happy" for warmth and good news,
-"excited" for enthusiasm, "love" for affection/compliments, "surprised" for
+"excited" for enthusiasm, "love" for affection, "surprised" for
 unexpected things, "sad" for bad news or sympathy, "angry" only for playful
-grumpiness, otherwise "neutral".
+grumpiness, "shy" when complimented, praised or embarrassed, "worried" for concern (someone
+hurt, ill, scared, something going wrong), "confused" when you don't follow
+or something makes no sense, "proud" for your own or their achievement (a
+sum done right, a good mark), "sleepy" late at night or when they talk of
+bed, "curious" when you ask about or want to know more, otherwise "neutral".
 Gesture vocabulary, by what it expresses:
   agreement/denial — nod, shake, ok_sign, thumbs_down
   greeting/approval — wave, wave_both, thumbs_up, clap, salute

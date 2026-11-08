@@ -6959,7 +6959,13 @@ class Oct14EveningTest(unittest.TestCase):
                                      ("Pokaż okej.", "ok_sign", "Happy"),
                                      ("Zrób znak OK", "ok_sign", "Happy"),
                                      ("Luna, pokaż mi swój język", "cross_eyes", "Happy"),
-                                     ("Uśmiechnij się", "slow_blink", "Happy")):
+                                     ("Uśmiechnij się", "slow_blink", "Happy"),
+                                     ("Zawstydź się", "shy", "Shy"),
+                                     ("Zrób zmartwioną minę", None, "Worried"),
+                                     ("Zrób mi zdezorientowaną minę", None, "Confused"),
+                                     ("Pokaż dumną minę", None, "Proud"),
+                                     ("Zrób śpiącą minę", None, "Sleepy"),
+                                     ("Zrób ciekawską minkę", None, "Curious")):
             with state.lock:
                 state.reply_scene = None
             self.assertTrue(fun.face_play(text, self.speak), text)
@@ -8370,8 +8376,17 @@ class FaceSpecTest(unittest.TestCase):
     def test_every_mood_and_only_known_settings(self):
         import face_spec
         import face_renderer
+        import brain
+        import config
         for mood in set(face_renderer.EMOTION_MAP.values()) | set(self.MOODS):
             self.assertIn(mood, face_spec.MOODS, mood)
+        for emo in brain.EMOTIONS:                # what the model may pick: a face, a voice
+            self.assertIn(emo, face_spec.MOODS, emo)
+            self.assertEqual(face_renderer.EMOTION_MAP.get(emo.capitalize()), emo, emo)
+            if emo != "neutral":
+                self.assertIn(emo, config.TTS_EMOTION_STYLE, emo)
+        looks = {k: face_spec.spec(k) for k in face_spec.MOODS}   # no two moods alike
+        self.assertEqual(len({tuple(sorted(v.items())) for v in looks.values()}), len(looks))
         for mood, s in face_spec.MOODS.items():
             for key, val in s.items():
                 self.assertIn(key, face_spec.BASE, (mood, key))

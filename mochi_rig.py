@@ -129,7 +129,8 @@ GESTURE_LOOK = {"wave": "greeting", "thumbs_up": "success", "heart": "affection"
                 "shake": "disagree"}
 MOOD_LOOK = {"happy": "happy", "excited": "excited", "love": "affection", "sad": "sad",
              "angry": "pout", "surprised": "surprised", "thinking": "thinking",
-             "sleeping": "sleepy"}
+             "sleeping": "sleepy", "sleepy": "sleepy", "shy": "shy", "curious": "curious",
+             "confused": "confused", "worried": "sad", "proud": "success"}
 
 
 # CharLife's gestures (characters.GESTURES) that bring their own look

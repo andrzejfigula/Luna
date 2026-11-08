@@ -69,6 +69,7 @@ zdaniami. Szczegóły techniczne i ustawienia są w `SETUP.md` i `docs/backlog-d
 |---|---|
 | Szybsze odpowiedzi | samo działa — mówi pierwsze zdanie, zanim model dopisze resztę (pierwszy dźwięk ~1–1,5 s) |
 | Głos z emocjami | samo działa — wesoła odpowiedź brzmi weselej, smutna łagodniej; ciszej i spokojniej, gdy wyglądasz na zmęczonego |
+| Nowe miny | samo działa — nieśmiała (gdy ją chwalisz), zmartwiona, zdezorientowana, dumna, śpiąca, zaciekawiona; na prośbę: „zrób dumną / śpiącą / zmartwioną / ciekawską minę”, „zawstydź się” |
 | Mów bez „Luna” | **przytrzymaj palec na ekranie** ~1 s → „hm?” i słucha |
 | Przerwij jej | **stuknij w ekran**, kiedy mówi; **przytrzymaj palec** — przerwie i od razu Cię wysłucha |
 | Koniec rozmowy | „Pa!”, „Do zobaczenia”, „Dzięki, to wszystko” — pomacha i przestanie słuchać |
