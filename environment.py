@@ -630,11 +630,14 @@ class Env:
         light = (0.35 + 0.55 * amb + 0.35 * sun + 0.25 * moon_w) * dim
         tint = _mix((0.84, 0.91, 1.0), cur["hor"], 0.3)
         k = (0.30 + 0.70 * amb + 0.12 * moon_w) * dim
+        col = tuple(min(1.0, c * k + (0.04, 0.06, 0.10)[i] * night) for i, c in enumerate(tint))
+        full = _smooth(T[2] / TUNE["frost_full"])
+        self.frost_seen = full * (0.30 * col[0] + 0.59 * col[1] + 0.11 * col[2])   # (frost_light)
         return {
             "uEnvGlass": tuple(T),
-            "uEnvGlassK": (self.clk[3], cur["slant"], self._frost_band(T[2], h), _smooth(T[2] / TUNE["frost_full"])),
+            "uEnvGlassK": (self.clk[3], cur["slant"], self._frost_band(T[2], h), full),
             "uEnvGlassL": (lx, ly, light, amb),
-            "uEnvGlassC": tuple(min(1.0, c * k + (0.04, 0.06, 0.10)[i] * night) for i, c in enumerate(tint)),
+            "uEnvGlassC": col,
         }
 
     @staticmethod
@@ -718,6 +721,15 @@ def backdrop_light():
     sky = 0.7 * lum(cur["low"]) + 0.3 * lum(cur["hor"])
     sky += (lum(cur["cl"]) - sky) * min(1.0, 0.7 * cur["cloud"] + 0.5 * cur["fog"])
     return _smooth((sky - 0.12) / 0.25)
+
+
+def frost_light():
+    """0..1: how light the frost along the screen's edges is (the top bar and
+    the dock go darker behind, their icons get a dark halo); 0 without one."""
+    e = _env
+    if e is None or e.t_last is None or time.monotonic() - e.t_last > 1.0:
+        return 0.0
+    return min(1.0, getattr(e, "frost_seen", 0.0) / 0.6)
 
 
 def sim_label():

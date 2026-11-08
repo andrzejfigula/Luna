@@ -12480,6 +12480,24 @@ class TestEnvironment(unittest.TestCase):
         e.cur = E.compose(20.0, False, {"autumn": 1.0}, grey)
         self.assertGreater(E.backdrop_light(), 0.8)                # an overcast day: bolder
 
+    def test_frost_light(self):
+        import environment as E
+        old = E._env
+        self.addCleanup(setattr, E, "_env", old)
+        E._env = None
+        self.assertEqual(E.frost_light(), 0.0)                     # no sky on screen
+        e = E._env = E.Env()
+        e.t_last = time.monotonic()
+        self.assertEqual(E.frost_light(), 0.0)                     # no frost yet
+        e.cur = dict(E.compose(10.0, False, {"winter": 1.0}, E.weather_of(None)), slant=0.0)
+        e.clk = [0.0, 0.0, 0.0, 0.0]
+        e.glass = [0.0, 0.0, 1.0, 1.0]
+        e._glass_uniforms(800, 480, e.cur, 0, 0, 0.0, 0, 0, 0.0, 0.0, 1.0)
+        self.assertGreater(E.frost_light(), 0.5)                   # a thick frost by day: the bars darken
+        e.glass = [0.0, 0.0, 0.0, 1.0]
+        e._glass_uniforms(800, 480, e.cur, 0, 0, 0.0, 0, 0, 0.0, 0.0, 1.0)
+        self.assertEqual(E.frost_light(), 0.0)
+
     def test_simulated_and_clocks(self):
         import environment as E
         e = E.Env(wall=lambda: 1793700000.0)

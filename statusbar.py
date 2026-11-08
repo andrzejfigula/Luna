@@ -344,12 +344,19 @@ class StatusBar:
             veil.fill((255, 255, 255, 16))
             pygame.draw.line(veil, (255, 255, 255, 22), (0, HEIGHT - 1),
                              (screen.get_width(), HEIGHT - 1))
+        import environment
+        import ui_screens
+        frost = 0.0 if asleep else environment.frost_light()
         y = (HEIGHT - ICON) // 2
-        for surf, pos in ((veil, (0, 0)),
-                          (self._iconof(net[0], accent), (PAD, y)),
-                          (self._left[1], (PAD + ICON + GAP + _SLOT + GAP, 0)),
-                          (self._right[1], (screen.get_width() - PAD - self._right[1].get_width(),
-                                            (HEIGHT - self._right[1].get_height()) // 2))):
+        parts = ((self._iconof(net[0], accent), (PAD, y)),
+                 (self._left[1], (PAD + ICON + GAP + _SLOT + GAP, 0)),
+                 (self._right[1], (screen.get_width() - PAD - self._right[1].get_width(),
+                                   (HEIGHT - self._right[1].get_height()) // 2)))
+        if frost > 0.05:                            # white frost behind: darker
+            a = int(150 * frost) // 10 * 10
+            screen.blit(ui_screens.vgrad(screen.get_width(), HEIGHT + 16, (0, 0, 0, a), (0, 0, 0, 0)),
+                        (0, 0))
+        for surf, pos in ((veil, (0, 0)),) + parts:
             surf.set_alpha(alpha)
             screen.blit(surf, pos)
         if voice:

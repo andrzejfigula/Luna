@@ -1558,15 +1558,16 @@ def draw_dock(scr, kind, cols, now=None):
     import dock
     import environment
     now = now if now is not None else time.time()
-    light = environment.backdrop_light()
+    frost = environment.frost_light()
+    light = max(environment.backdrop_light(), frost)
     col = tuple(int(c) for c in cols[0][:3])
     tint = tuple(int(c) for c in cols[1][:3])
     where = dock.centres()
     dark = (tint[0] // 8, tint[1] // 8, tint[2] // 8)
-    a = int(60 + 70 * light) // 10 * 10                # (in steps: a few cached fades)
+    a = int(60 + 70 * light + 60 * frost) // 10 * 10    # (in steps: a few cached fades)
     fade = vgrad(dock.W, 100, dark + (0,), dark + (a,))
     scr.blit(fade, (0, dock.H - 100))
-    base = 95 + 110 * light
+    base = min(255, 95 + 110 * light + 50 * frost)
     for key, cx in where:
         ico = dock_icon(key, kind, col, dock.ICON)
         ico.set_alpha(int(base + (255 - base) * dock.lit(key, now)))
