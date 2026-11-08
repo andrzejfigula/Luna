@@ -7381,7 +7381,7 @@ class GalleryDeletePeopleTest(unittest.TestCase):
         import faces
         frame = np.zeros((480, 640, 3), np.uint8)
         row = np.array([100, 60, 60, 70] + [0] * 11, np.float32)     # half-size frame
-        with self._people():
+        with self._people(), mock.patch.object(faces, "_well_framed", lambda p: True):
             now = time.time()
             self.assertFalse(faces.keep_portrait("Maja", 0.40, frame, row, 2.0, now))  # not sure
             self.assertTrue(faces.keep_portrait("Maja", 0.6, frame, row, 2.0, now))
@@ -7433,6 +7433,33 @@ class GalleryDeletePeopleTest(unittest.TestCase):
             cols = np.where(img[:, :, 0].max(axis=0) > 128)[0]
             self.assertAlmostEqual((cols[0] + cols[-1]) / 2, 160, delta=4)   # centred
             self.assertAlmostEqual((cols[-1] - cols[0]) / 320, 120 / 336, delta=0.02)
+
+    def test_badly_framed_portrait_replaced_soon(self):
+        import numpy as np
+        import faces
+        frame = np.zeros((480, 640, 3), np.uint8)
+        row = np.array([100, 60, 60, 70] + [0] * 11, np.float32)
+        with self._people():
+            now = time.time()
+            self.assertTrue(faces.keep_portrait("Maja", 0.6, frame, row, 2.0, now))
+            path = faces.portrait("Maja")
+            faces._framed.clear()
+            # 8 Nov: the old crops — Maja's forehead cut off at the top
+            with mock.patch.object(faces, "detect", lambda img: np.array(
+                    [[0, -3, 180, 150] + [0] * 11], np.float32)):
+                self.assertFalse(faces._well_framed(path))
+            faces._framed.clear()
+            with mock.patch.object(faces, "detect", lambda img: np.array(   # a new crop
+                    [[93, 104, 133, 140] + [0] * 11], np.float32)):
+                self.assertTrue(faces._well_framed(path))
+            with mock.patch.object(faces, "_well_framed", lambda p: False):
+                later = now + faces.PORTRAIT_RETRY + 1
+                self.assertFalse(faces.keep_portrait("Maja", 0.46, frame, row, 2.0, now + 60))
+                self.assertFalse(faces.keep_portrait("Maja", 0.40, frame, row, 2.0, later))
+                self.assertTrue(faces.keep_portrait("Maja", 0.46, frame, row, 2.0, later))
+            with mock.patch.object(faces, "_well_framed", lambda p: True):
+                self.assertFalse(faces.keep_portrait("Maja", 0.55, frame, row, 2.0,
+                                                     now + 2 * faces.PORTRAIT_EVERY))
 
     def test_slideshow_stops_after_ten_and_keeps_listening(self):
         import gallery

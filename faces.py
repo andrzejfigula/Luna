@@ -50,7 +50,8 @@ PORTRAIT_MIN = 0.60          # a new one over an old: sure (19 Oct: Andrzej side
 PORTRAIT_MARGIN = 0.20       # …and well ahead of the second-best person
 PORTRAIT_ROOM = 2.4          # the square's side in face sizes: hair and chin inside the circle
 PORTRAIT_TIGHT = 1.7         # by the frame's edge: centred but tighter, down to this
-PORTRAIT_YAW = 0.22          # nose off the eyes' middle by this much of their distance: turned aside
+PORTRAIT_RETRY = 600         # a badly framed one: the next good frame, this often at most
+PORTRAIT_YAW = 0.22         # nose off the eyes' middle by this much of their distance: turned aside
 
 DETECT_SCORE = 0.75        # YuNet confidence for a face
 MATCH_COSINE = 0.40        # SFace: same person above this (paper: 0.363; a bit
@@ -731,11 +732,13 @@ def keep_portrait(name, sim, frame, row_small, scale, now=None, feature=None):
     now = now if now is not None else time.time()
     old = portrait(name)
     if sim < (PORTRAIT_MIN if old else PORTRAIT_FIRST):
-        return False
+        if not old or sim < PORTRAIT_FIRST or _well_framed(old):
+            return False
     x, y, w, h = (float(v) * scale for v in row_small[:4])
     if w < PORTRAIT_MIN_W:
         return False
-    if old and now - os.path.getmtime(old) < PORTRAIT_EVERY:
+    if old and now - os.path.getmtime(old) < (
+            PORTRAIT_EVERY if _well_framed(old) else PORTRAIT_RETRY):
         return False
     if not _frontal(row_small):
         return False
@@ -749,6 +752,39 @@ def keep_portrait(name, sim, frame, row_small, scale, now=None, feature=None):
         return False
     print(f"[faces] new portrait of {name} ({sim:.2f})", flush=True)
     return True
+
+
+_framed = {}                 # portrait path → (mtime, well framed?)
+
+
+def _well_framed(path):
+    """The face in this portrait is in its middle with room around it. Not so
+    (8 Nov: the old 1.9 crop, Emilka's and Maja's foreheads cut off): replaced
+    by the next good frame, not a day later and a 0.60 match."""
+    try:
+        mtime = os.path.getmtime(path)
+    except OSError:
+        return True
+    got = _framed.get(path)
+    if got and got[0] == mtime:
+        return got[1]
+    ok = True
+    try:
+        import cv2
+        img = cv2.imread(path)
+        rows = detect(img) if img is not None else []
+        if img is not None:
+            side = img.shape[1]
+            if len(rows) == 0:
+                ok = False
+            else:
+                x, y, w, h = (float(v) for v in max(rows, key=lambda r: r[2] * r[3])[:4])
+                off = max(abs(x + w / 2 - side / 2), abs(y + h * 0.40 - side / 2))
+                ok = off < 0.12 * side and max(w, h) < 1.2 * side / PORTRAIT_ROOM
+    except Exception as e:
+        print(f"[faces] portrait check failed: {e}", flush=True)
+    _framed[path] = (mtime, ok)
+    return ok
 
 
 def _frontal(row):
