@@ -101,6 +101,15 @@ LOOKS = {
                   "pops": ((7, -262.0, -96.0, 34.0, 0.0),)},
     "sad": {"ears": (0.72, 0.72, 0.45, 0.45), "paws": "low", "mouth": ("frown", 16.0),
             "iris": (1.02, 1.08)},
+    "worried": {"ears": (0.5, 0.5, 0.25, 0.25), "paws": "cheeks", "mouth": ("frown", 11.0),
+                "iris": (1.04, 1.16), "look": (0.0, -0.10), "scale": (0.98, 1.04)},
+    "proud": {"ears": (-0.08, -0.08, 0.0, 0.0), "eyes": "arc", "hold": 3.5, "tilt": -0.03,
+              "mouth": ("smile", 24.0), "blush": 0.3, "look": (0.0, -0.12),
+              "pops": ((3, 250.0, -132.0, 30.0, 0.12), (4, 302.0, -78.0, 15.0, 0.32))},
+    "wonder": {"ears": (-0.06, 0.2, 0.0, 0.0), "scale": (1.1, 1.08), "tilt": 0.05,
+               "iris": (1.08, 1.18), "look": (0.10, -0.08), "sparkle": 0.6,
+               "mouth": ("o", 11.0), "pops": ((4, 262.0, -112.0, 26.0, 0.15),
+                                              (4, 300.0, -60.0, 15.0, 0.4))},
     "playful": {"ears": (0.02, 0.34, 0.0, 0.0), "tilt": -0.04, "mouth": ("tongue", 20.0),
                 "pops": ((4, 214.0, -86.0, 15.0, 0.25),)},
     "pout": {"ears": (0.55, 0.55, 0.22, 0.22), "eyes": "half", "mouth": ("pout", 13.0),
@@ -129,8 +138,8 @@ GESTURE_LOOK = {"wave": "greeting", "thumbs_up": "success", "heart": "affection"
                 "shake": "disagree"}
 MOOD_LOOK = {"happy": "happy", "excited": "excited", "love": "affection", "sad": "sad",
              "angry": "pout", "surprised": "surprised", "thinking": "thinking",
-             "sleeping": "sleepy", "sleepy": "sleepy", "shy": "shy", "curious": "curious",
-             "confused": "confused", "worried": "sad", "proud": "success"}
+             "sleeping": "sleepy", "sleepy": "sleepy", "shy": "shy", "curious": "wonder",
+             "confused": "confused", "worried": "worried", "proud": "proud"}
 
 
 # CharLife's gestures (characters.GESTURES) that bring their own look

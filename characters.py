@@ -373,7 +373,7 @@ class CharLife:
         talking = bool(getattr(face, "_speaking", False))
         tgt = {
             "happy": 1.0 if emo in ("happy", "excited", "love", "proud", "shy") else 0.0,
-            "sad": 1.0 if emo in ("sad", "worried") else 0.0,
+            "sad": 1.0 if emo == "sad" else 0.4 if emo == "worried" else 0.0,   # (a tear only past .5)
             "angry": max(1.0 if emo == "angry" else 0.0, min(1.0, cur.get("tint", 0.0) * 1.6)),
             "surprise": 1.0 if emo == "surprised" else 0.0,
             "think": max(1.0 if emo == "thinking" else 0.0, g.get("think", 0.0)),

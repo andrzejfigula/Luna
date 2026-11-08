@@ -400,7 +400,7 @@ float rStates(vec2 cc) {
             v = max(v, rGlyphZ(floor((cc - at) / CELL)) * uChC.y * (1.0 - t) * 1.4);
         }
     }
-    if (uChB.y > 0.05) {                                            // sad: a tear falls, cell by cell
+    if (uChB.y > 0.5) {                                            // sad: a tear falls, cell by cell
         float t = fract(uT * 0.6);
         vec2 at = vec2(uEye0.x - uEye0.z * 0.25, uEye0.y + uEye0.w * 0.5 + CELL * (1.0 + floor(t * 6.0)));
         vec2 d = floor((cc - at) / CELL);
@@ -419,13 +419,19 @@ float rStates(vec2 cc) {
         float bang = (d.x == 0.0 && ((d.y >= -2.0 && d.y <= 1.0) || d.y == 3.0)) ? 1.0 : 0.0;
         v = max(v, bang * uChB.w);
     }
-    float puzzled = max(uChD.x, uChD.y);
-    if (puzzled > 0.05) {                                           // curious, confused: "?"
+    if (uChD.y > 0.05) {                                            // confused: "?"
         vec2 at = vec2(uEye1.x + uEye1.z * 0.5 + 2.0 * CELL, uEye1.y - 2.0 * CELL);
         vec2 d = floor((cc - at) / CELL + 0.5);
         float q = (d.y == -2.0 && abs(d.x) <= 1.0) || (d.y == -1.0 && d.x == 1.0)
                   || (d.y == 0.0 && d.x >= 0.0 && d.x <= 1.0) || (d.y == 2.0 && d.x == 0.0) ? 1.0 : 0.0;
-        v = max(v, q * puzzled);
+        v = max(v, q * uChD.y);
+    }
+    if (uChD.x > 0.05 && uChD.y < 0.5) {                            // curious: a twinkle, growing
+        vec2 at = vec2(uEye1.x + uEye1.z * 0.5 + 2.5 * CELL, uEye1.y - uEye1.w * 0.5 + 1.0 * CELL);
+        vec2 a = abs(floor((cc - at) / CELL + 0.5));
+        float r = step(0.5, fract(uT * 1.2)) + 1.0;
+        float tw = (min(a.x, a.y) == 0.0 && max(a.x, a.y) <= r) ? 1.0 : 0.0;
+        v = max(v, tw * uChD.x * (0.6 + 0.4 * (r - 1.0)));
     }
     return v;
 }
@@ -695,10 +701,17 @@ vec4 pCell(vec2 cc, vec2 ci) {
             if (length(cc - at) < 8.0) { c = uPal0; v = max(v, (0.25 + 0.75 * lt) * uChC.x); }
         }
     }
-    if (uChD.x + uChD.y > 0.2) {                       // curious, confused: "?"
+    if (uChD.y > 0.2) {                                // confused: "?"
         if (pat(sdQuestion((cc - (gC() + vec2(262.0, -96.0))) / 76.0)) > 0.5) {
             c = uPal3;
-            v = max(v, max(uChD.x, uChD.y));
+            v = max(v, uChD.y);
+        }
+    } else if (uChD.x > 0.2) {                         // curious: a twinkling sparkle
+        float tw = 0.75 + 0.25 * sin(uT * 5.0);
+        if (pat(sdSparkle((cc - vec2(uEye1.x + uEye1.z * 0.5 + 56.0, uEye1.y - uEye1.w * 0.5 - 30.0))
+                          / (72.0 * tw))) > 0.5) {
+            c = mix(uPal3, vec3(1.0), 0.4);
+            v = max(v, uChD.x);
         }
     }
     float bang = max(uChC.w, uChB.w);
@@ -719,7 +732,7 @@ vec4 pCell(vec2 cc, vec2 ci) {
             }
         }
     }
-    if (uChB.y > 0.05) {                               // sad: a pixel tear falling
+    if (uChB.y > 0.5) {                               // sad: a pixel tear falling
         float t = fract(uT * 0.6);
         vec2 d = floor((cc - vec2(uEye0.x - uEye0.z * 0.25,
                                   uEye0.y + uEye0.w * 0.5 + PITCH * (1.0 + floor(t * 6.0)))) / PITCH);
@@ -1788,9 +1801,12 @@ def _props(kind, life, ch, u, fcx, fcy, now, acc):
         x = fcx + 330.0 - 40.0 * t
         y = fcy + 230.0 - 470.0 * t
         out.append(((x, y, 34.0, 6.0 + 0.98 * cel), False))
-    if kind == "pip" and ch["confused"] + ch["curious"] > 0.03:
-        k = max(ch["confused"], ch["curious"] * 0.7)
-        out.append(((fcx + 300.0, fcy - 96.0 - 8.0 * math.sin(now * 3.0), 40.0, 2.0 + 0.98 * k), False))
+    if kind == "pip" and ch["confused"] > 0.03:          # "?"
+        out.append(((fcx + 300.0, fcy - 96.0 - 8.0 * math.sin(now * 3.0), 40.0,
+                     2.0 + 0.98 * ch["confused"]), False))
+    elif kind == "pip" and ch["curious"] > 0.03:        # a twinkle
+        out.append(((fcx + 290.0, fcy - 110.0, 34.0 + 8.0 * math.sin(now * 5.0),
+                     4.0 + 0.98 * ch["curious"]), False))
     return out[:4]
 
 
@@ -1823,7 +1839,7 @@ def _state_props(kind, ch, u, fcx, fcy, now):
             t = (zt + ph) % 1.0
             at(fcx + 220.0 + 30.0 * t, fcy - 50.0 - 110.0 * t, 22.0 + 10.0 * t, 9.0,
                sleep * math.sin(math.pi * t))
-    if kind in ("mochi", "pip") and sad > 0.02:         # a tear
+    if kind in ("mochi", "pip") and sad > 0.5:          # a tear (worried: none)
         at(e0[0] - e0[2] * 0.22, e0[1] + e0[3] * 0.5 + 10.0 + 60.0 * tt, 16.0, 8.0, sad * tk)
     if kind == "pip":                                   # (MOCHI pouts; her "!" pops once)
         at(e1[0] + e1[2] * 0.5 + 40.0, e1[1] - e1[3] * 0.5 - 30.0, 36.0, 10.0,
