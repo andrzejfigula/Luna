@@ -1371,6 +1371,41 @@ class TimersTest(unittest.TestCase):
         self.assertEqual(tictac._g["end"], "X")
         tictac.stop()
 
+    def test_tictac_half_a_square(self):
+        # 9 Nov: "No to góra" → the model's "Stawiam X w górnym lewym polu"
+        import tictac
+        said = []
+        tictac._say = lambda t: None
+        tictac.start(said.append, duo=True)
+        del said[:]
+        self.assertTrue(tictac.voice_move("No to góra.", said.append))
+        self.assertIn("z lewej", said[-1])
+        self.assertEqual(tictac._g["b"], [None] * 9)
+        self.assertTrue(tictac.voice_move("Na środku", said.append))
+        self.assertEqual(tictac._g["b"][1], "X")              # top middle, not the centre
+        self.assertTrue(tictac.voice_move("Z prawej", said.append))
+        self.assertIn("na górze", said[-1])
+        self.assertTrue(tictac.voice_move("lewy dolny", said.append))   # a whole square instead
+        self.assertEqual(tictac._g["b"][6], "O")
+        self.assertTrue(tictac.voice_move("środek", said.append))       # (the half is forgotten)
+        self.assertEqual(tictac._g["b"][4], "X")
+        self.assertFalse(tictac.voice_move("Prawda, że ładnie?", said.append))
+        self.assertFalse(tictac.voice_move("Byliśmy w górach całą rodziną latem", said.append))
+        self.assertIn("never say you placed", tictac.prompt_line())
+        tictac.stop()
+
+    def test_hangman_write_a_letter(self):
+        import hangman
+        self.assertEqual(hangman.letter("Masz pisać A."), "a")          # 9 Nov
+        self.assertEqual(hangman.letter("Wpisz ka"), "k")
+        self.assertEqual(hangman.letter("Napisz literę em"), "m")
+        self.assertIsNone(hangman.letter("Myślałam, że to babcia"))
+        for t in ("Po prostu ja daję jej słowa, a ona musi to zgadnąć?",
+                  "A teraz ja wymyślę słowo, a ty zgaduj litery", "Zagrajmy odwrotnie"):
+            self.assertTrue(hangman._SWAP.search(t.lower()), t)
+        for t in ("Ja nie wiem", "Czy jest ka?", "To jest kot", "Podpowiedz mi"):
+            self.assertFalse(hangman._SWAP.search(t.lower()), t)
+
     def test_memo(self):
         import memo
         self.assertTrue(memo.wants("Zagrajmy w memory"))

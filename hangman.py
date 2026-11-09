@@ -57,6 +57,10 @@ _REPEAT = re.compile(r"\b(?:powtórz|powtorz|ile\s+(?:liter|szans|zostało|zosta
                      r"jakie\s+litery|co\s+już\s+mam|co\s+mam|jak\s+(?:to\s+)?wygląda)\b")
 _AGAIN = re.compile(r"\b(?:jeszcze\s+raz|nowa\s+gra|nowe\s+słowo|od\s+nowa|zagrajmy\s+jeszcze|"
                     r"następne\s+słowo|kolejne\s+słowo|inne\s+słowo|rewanż)\b")
+# "ja daję słowa, a ona musi zgadnąć?" (9 Nov: the model agreed and made a game up)
+_SWAP = re.compile(r"\bja\b[^.?!]*\b(?:wymyśl\w*|wymysl\w*|daj[ęe]|podaj[ęe])\b[^.?!]*\bsł[oó]w|"
+                   r"\b(?:ty|ona|luna)\b[^.?!]*\bzgad(?:uj\w*|nij|ywa\w*|nąć|nie)\b|"
+                   r"\bodwrotnie\b|\bzamie\w+\s+się\b")
 _YES = {"tak", "dobrze", "jasne", "pewnie", "chcę", "chce", "okej", "ok", "gramy"}
 _NO = {"nie", "dziękuję", "dziekuje", "wystarczy"}
 _NAMES = {"a": "a", "be": "b", "ce": "c", "cie": "ć", "de": "d", "e": "e", "ef": "f",
@@ -70,7 +74,10 @@ _MARK = {("a", "ogon"): "ą", ("e", "ogon"): "ę", ("c", "kres"): "ć", ("n", "k
 _FILL = {"luna", "litera", "literę", "litere", "literka", "literkę", "literke", "czy", "jest",
          "może", "moze", "chyba", "wybieram", "daj", "poproszę", "poprosze", "proszę", "prosze",
          "spróbuję", "sprobuje", "próbuję", "probuje", "teraz", "no", "to", "słowo", "slowo",
-         "hasło", "haslo", "ma", "tam"}
+         "hasło", "haslo", "ma", "tam",
+         # 9 Nov: "Masz pisać A." went to the model, which answered "A."
+         "masz", "pisać", "pisac", "napisać", "napisac", "wpisać", "wpisac", "pisz", "napisz",
+         "wpisz", "wstaw", "dawaj", "sprawdź", "sprawdz", "zaznacz"}
 
 _lock = threading.Lock()
 _g = None   # {"word", "cat", "hit", "miss", "end", "hints", "msg", "voice"}
@@ -106,7 +113,11 @@ def prompt_line():
     return (f"Hangman (wisielec) on your screen: the word has {len(g['word'])} letters, "
             f"shown so far: {_shown(g)}; missed letters: {', '.join(g['miss']) or 'none'}; "
             f"{MISSES - len(g['miss'])} chances left. Letters are guessed by touch or by "
-            "voice and she checks them herself; never say or hint the word.\n")
+            "voice and the game checks them itself; never say or hint the word. THEY guess "
+            "YOUR word: never guess a letter yourself, never say a letter was entered "
+            "(9 Nov: \"Zgaduję literę: e\") — a sentence that reaches you was not a move, so "
+            "answer it briefly or ask for one letter. You can't play it the other way "
+            "round (guessing their word); say so if they ask.\n")
 
 
 def _publish():
@@ -301,7 +312,12 @@ def answer(text, speak):
         if not g:
             return False
         end = g["end"]
-    if end:                                           # "Jeszcze raz?" — "tak" / "nie"
+    if _SWAP.search(low) and len(words) <= 14:
+        speak("W wisielca umiem grać tylko tak, że to ja wymyślam słowo, a ty zgadujesz. "
+              "Ale mogę zgadywać zwierzę: powiedz „zgadnij, o czym myślę”.")
+        _keep_listening()
+        return True
+    if end:                                       # "Jeszcze raz?" — "tak" / "nie"
         if _AGAIN.search(low) or (words and words[0] in _YES and len(words) <= 3):
             return again(speak)
         if _STOP.search(low) or (words and words[0] in _NO and len(words) <= 3):

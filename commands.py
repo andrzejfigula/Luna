@@ -149,6 +149,7 @@ _SCREEN_AFTER = re.compile(
 _GAME_NAMES = [
     (r"kółk\w*|kolk\w*|krzyżyk", "zagrajmy w kółko i krzyżyk"),
     (r"memory|memo\b|pary|karty", "zagrajmy w memory"),
+    (r"wisiel\w*|szubienic\w*", "zagrajmy w wisielca"),
     (r"kamień|kamien|papier|nożyce|nozyce", "zagrajmy w kamień papier nożyce"),
     (r"zagadk\w*", "zadaj mi zagadkę"),
     (r"20\s+pytań|dwadzieścia\s+pytań", "zagrajmy w 20 pytań"),

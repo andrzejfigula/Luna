@@ -54,7 +54,10 @@ def prompt_line():
     else:
         who = "their move (they are X)" if g.get("turn") == "X" else "your move (you are O)"
     return (f"Noughts and crosses on your screen now: {9 - free} of 9 squares taken, "
-            f"{who}; nobody has won yet.\n")
+            f"{who}; nobody has won yet. A mark goes on the board only by touch or when "
+            "they name one square (\"środek\", \"lewy górny\", \"pole 7\"), and the game "
+            "does that itself: you cannot place one from here, so never say you placed "
+            "or moved anything — if they seem to mean a move, ask which square.\n")
 
 
 def _winner(b):
@@ -270,6 +273,42 @@ _NUMS = {"jeden": 1, "jedynka": 1, "dwa": 2, "dwójka": 2, "trzy": 3, "trójka":
          "siedem": 7, "siódemka": 7, "osiem": 8, "ósemka": 8, "dziewięć": 9, "dziewiątka": 9}
 
 
+def _parts(low):
+    """(row, column, "środek" said) as named in a sentence; None for a side not named."""
+    row = 0 if re.search(r"\bgórn|\bgorn|\bgór|\bgor[ae]\b|\bna\s+górze", low) else \
+        2 if re.search(r"\bdoln|\bdół|\bdol\b|\bna\s+dole", low) else None
+    col = 0 if re.search(r"\blew", low) else 2 if re.search(r"\bpraw", low) else None
+    return row, col, bool(re.search(r"\bśrod|\bsrod", low))
+
+
+_half = None      # ("row" | "col", which, until): "góra" was said, she asked which square
+HALF_SECS = 25
+_SIDE = {("row", 0): "Na górze", ("row", 2): "Na dole", ("col", 0): "Z lewej", ("col", 2): "Z prawej"}
+
+
+def _halved(text):
+    """"Góra" names a row, not a square (9 Nov: "No to góra" → the model's "Stawiam X
+    w górnym lewym polu", nothing on the board). The square once the other half is
+    said ("z lewej", "na środku"), a question to ask, or None."""
+    global _half
+    low = (text or "").lower()
+    row, col, mid = _parts(low)
+    half, _half = _half, None
+    if half and time.time() < half[2]:
+        if half[0] == "row" and row is None and (col is not None or mid):
+            return half[1] * 3 + (1 if col is None else col)
+        if half[0] == "col" and col is None and (row is not None or mid):
+            return (1 if row is None else row) * 3 + half[1]
+    words = re.findall(r"\w+", low)
+    if mid or (row is None) == (col is None) or len(words) > 4 \
+            or any(w.startswith(("prawd", "prawi")) for w in words):   # "prawda", "prawie"
+        return None
+    kind = ("row", row) if col is None else ("col", col)
+    _half = kind + (time.time() + HALF_SECS,)
+    return _SIDE[kind] + (" — z lewej, na środku czy z prawej?" if kind[0] == "row"
+                          else " — na górze, na środku czy na dole?")
+
+
 def spoken_cell(text):
     """"środek" → 4, "lewy górny róg" → 0, "prawy dolny" → 8, "górny środek" → 1,
     "pole 7" → 6 (1–9 like reading); None when it names no single square
@@ -286,10 +325,8 @@ def spoken_cell(text):
         num = int(w) if w.isdigit() and 1 <= int(w) <= 9 else _NUMS.get(w)
         if num:
             return num - 1
-    row = 0 if re.search(r"\bgórn|\bgorn|\bgór|\bgor[ae]\b|\bna\s+górze", low) else \
-        2 if re.search(r"\bdoln|\bdół|\bdol\b|\bna\s+dole", low) else None
-    col = 0 if re.search(r"\blew", low) else 2 if re.search(r"\bpraw", low) else None
-    if re.search(r"\bśrod|\bsrod", low):
+    row, col, mid = _parts(low)
+    if mid:
         if row is None and col is None:
             return 4
         if row is None:
@@ -303,12 +340,21 @@ def spoken_cell(text):
 
 def voice_move(text, speak):
     """A square said aloud while the game is on. True when it was a move."""
-    i = spoken_cell(text)
+    global _half
+    i = _halved(text)
+    if i is None:
+        i = spoken_cell(text)
     if i is None:
         return False
     with _lock:
         if not _g or _g["end"]:
+            _half = None
             return False
+        if isinstance(i, str):                  # half a square: which one?
+            if _g["turn"] != "X" and not _g["duo"]:
+                _half, i = None, "Chwileczkę, teraz mój ruch."
+            speak(i)
+            return True
         if _g["turn"] != "X" and not _g["duo"]:
             speak("Chwileczkę, teraz mój ruch.")
             return True

@@ -1,5 +1,6 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
+- Kółko i krzyżyk: na samo „góra” albo „z lewej” Luna dopytuje, które pole (wcześniej mówiła, że postawiła znak, a plansza stała). W wisielcu rozumie „masz pisać A” / „wpisz ka” i nie zgaduje już sama liter. Wisielec jest na liście gier.
 - Dotknięcie ekranu, które przerywa Lunę, tylko ją ucisza — nie naciska już przycisku pod palcem (np. „Przeczytaj” przy SMS-ie). Po przerwaniu nie bierze już własnego głosu za twoje słowa.
 - Gdy Luna straci Wi‑Fi na kilka minut, sama je wyłącza i włącza, żeby internet wrócił — bez restartu.
 - Budziki można teraz ustawiać dotykiem: Ustawienia → Budzik (albo „pokaż ustawienia budzika”). Dodasz nowy budzik (godzina, minuty, w które dni), zmienisz godzinę albo dni, usuniesz koszem, włączysz budzenie radiem i pominiesz jutrzejszy budzik.

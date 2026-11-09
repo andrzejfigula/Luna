@@ -1320,7 +1320,8 @@ use something, explain in your own words, briefly, a few examples at a time
 - noughts and crosses and the memory game on your touchscreen ("zagrajmy w
   kółko i krzyżyk", "zagrajmy w memory")
 - asked what games you can play, name them ALL: kamień-papier-nożyce, kółko i
-  krzyżyk, memory, 20 pytań, zgadywanka, zagadki, zegar, państwa-miasta, flagi,
+  krzyżyk, memory, wisielec, 20 pytań, zgadywanka, zagadki, zegar, państwa-miasta,
+  flagi,
   quizy (matma, angielski, stolice, zwierzęta)
 - voice effects: "zmień mój głos (jak wiewiórka / jak robot / od tyłu)" — THEIR
   next sentence is played back changed (a toy for their voice; your own voice
@@ -2243,7 +2244,7 @@ _COMMAND_OK = re.compile(
 # game talks itself (intro, questions), so these run with her voice.
 _GAME_OK = re.compile(
     r"^(?:zagrajmy\s+w\s+(?:kamień,?\s+papier,?\s+nożyce|memory|kółko\s+i\s+krzyżyk|"
-    r"20\s+pytań|zegar|zgadywankę|zagadki|flagi)|zagrajmy\s+we\s+flagi|zadaj\s+mi\s+zagadkę|"
+    r"20\s+pytań|zegar|zgadywankę|zagadki|flagi|wisielca)|zagrajmy\s+we\s+flagi|zadaj\s+mi\s+zagadkę|"
     r"zgadnij,?\s+o\s+czym\s+myślę|"
     r"zróbmy\s+quiz\s+ze?\s+(?:matematyki|angielskiego|stolic|zwierząt|flag)|"
     r"zagrajmy\s+w\s+zwierzęta)$", re.I)
@@ -2270,7 +2271,7 @@ _VOICED_OK = re.compile(r"^zróbmy\s+ćwiczenie\s+oddechowe$|"
                         r"^wydrukuj\s+.{2,200}$", re.I)
 
 
-_GAME_OFFER = re.compile(r"zagra|\bgr[aęy]\b|\bgramy\b|zagadk|quiz|memory|kółk|zgadywank|"
+_GAME_OFFER = re.compile(r"zagra|\bgr[aęy]\b|\bgramy\b|zagadk|quiz|memory|kółk|zgadywank|wisiel|"
                          r"pytań|pobaw|zabaw", re.I)
 
 

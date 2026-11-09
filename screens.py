@@ -95,10 +95,10 @@ _GAME_LIST = re.compile(r"\blist\w*\s+(?:\w+\s+)?gier\b|"
                         r"\bw\s+jakie\s+gry\s+(?:\w+\s+)?(?:gra\w*|zagra\w*|pogra\w*)\b|"
                         r"\bw\s+co\s+(?:(?:mo[żz]emy|mo[żz]na|mo[żz]esz|potrafisz|umiesz|mog[ęe])\s+)"
                         r"(?:za|po)?gra[ćc]\b|\bw\s+co\s+(?:za)?gramy\b")
-_GAMES = ("Kamień, papier, nożyce", "Kółko i krzyżyk", "Memory", "20 pytań", "Zgadywanka",
-          "Zagadki", "Zegar", "Państwa-miasta", "Flagi",
+_GAMES = ("Kamień, papier, nożyce", "Kółko i krzyżyk", "Memory", "Wisielec", "20 pytań",
+          "Zgadywanka, zagadki", "Zegar", "Państwa-miasta", "Flagi",
           "Quiz: matma, angielski, stolice, zwierzęta")
-_GAMES_SAID = ("Możemy zagrać w kamień, papier, nożyce, kółko i krzyżyk, memory, 20 pytań, "
+_GAMES_SAID = ("Możemy zagrać w kamień, papier, nożyce, kółko i krzyżyk, memory, wisielca, 20 pytań, "
                "zgadywankę, zagadki, zegar, państwa-miasta, flagi albo quiz. W co zagramy?")
 # "Pokaż, co mamy dzisiaj zrobić." — the to-do list
 _SHOW_TODO = re.compile(r"^(?:luna,?\s+)?(?:pokaż|pokaz)\s+(?:mi\s+)?,?\s*co\s+(?:mamy|mam)\s+"
