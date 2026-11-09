@@ -5931,6 +5931,61 @@ class KidsTest(unittest.TestCase):
                              (True, "Jakie stacje radiowe masz?"))
         s._spec_cancel()
 
+    def test_her_name_at_a_pause_is_kept(self):
+        # radio on: "Luna." … "pokaż pogodę" — Vosk: "no pokaż pogodę"
+        from unittest import mock
+        with mock.patch.dict(sys.modules, {"sounddevice": mock.MagicMock(),
+                                           "vosk": mock.MagicMock()}):
+            import speech_to_text as s
+        heard = {40: "Luna.", 90: "Pokaż pogodę.", 30: "Dobra.", 70: "Luna, pokaż pogodę."}
+        with mock.patch.object(s, "_cloud_transcribe_now", lambda pcm, lang=None: heard[len(pcm)]), \
+                mock.patch.object(s, "_wake_check_worth", lambda *a: False), \
+                mock.patch.object(s, "_note_wake_check_result", lambda *a: None), \
+                mock.patch.object(s, "_save_utterance", lambda *a: None), \
+                mock.patch.object(s, "_radio_on", lambda: False):
+            s._speculate(b"\x07" * 40)
+            s._spec_cancel()                                 # they went on talking
+            self.assertEqual(s._cloud_wake_check(b"\x07" * 90, ["no", "pokaż", "pogodę"]),
+                             (True, "Pokaż pogodę."))
+            self.assertEqual(s._wake_seen, ("cloud", "Luna, Pokaż pogodę."))
+            self.assertIsNone(s._spec_prev)                  # used once
+            s._speculate(b"\x07" * 40)
+            s._spec_cancel()
+            self.assertEqual(s._cloud_wake_check(b"\x07" * 70, ["no", "pokaż"])[0], True)
+            self.assertEqual(s._wake_seen[1], "Luna, pokaż pogodę.")     # not doubled
+            s._speculate(b"\x08" * 30)                       # a pause with other words
+            s._spec_cancel()
+            self.assertEqual(s._cloud_wake_check(b"\x08" * 90, ["dobra", "to"]), (False, None))
+            s._speculate(b"\x07" * 40)                       # another utterance's pause
+            s._spec_cancel()
+            self.assertEqual(s._cloud_wake_check(b"\x09" * 90, ["tak"]), (False, None))
+
+    def test_an_order_with_a_mangled_name_goes_to_the_cloud(self):
+        from unittest import mock
+        with mock.patch.dict(sys.modules, {"sounddevice": mock.MagicMock(),
+                                           "vosk": mock.MagicMock()}):
+            import speech_to_text as s
+        for said in ("wino włącz radio", "lecz pokaż ustawienia", "no no włącz radio",
+                     "ona wyłącz radio ma", "pokaż pogodę"):
+            self.assertTrue(s._command_like(said.split()), said)
+        for said in ("włącz", "nie ma", "to jest nasz rywal",
+                     "wczoraj on mi kazał żebym to jednak sam włącz i potem jeszcze"):
+            self.assertFalse(s._command_like(said.split()), said)
+        with mock.patch.object(s, "_cloud", object()), \
+                mock.patch.object(s, "CLOUD_WAKE_CHECK", True), \
+                mock.patch.object(s, "_face_invites", lambda w: False), \
+                mock.patch.object(s, "_mouth_talked", lambda secs: False), \
+                mock.patch.object(s, "_energy_gate", lambda: 2000), \
+                mock.patch.object(s, "_radio_on", lambda: True):
+            with mock.patch.object(s, "call_pause", lambda: False):
+                self.assertTrue(s._wake_check_worth("ona wyłącz radio ma".split(), peak=4400))
+                self.assertFalse(s._wake_check_worth("jest tu dobrze wczoraj".split(), peak=4400))
+            with mock.patch.object(s, "call_pause", lambda: True):       # a meeting at the desk
+                self.assertTrue(s._wake_check_worth("bruno zmień kolor".split(), peak=4400))
+                self.assertFalse(s._wake_check_worth("luną jest dobrze".split(), peak=4400))
+            with mock.patch.object(s.activation, "cooling", lambda: True):
+                self.assertFalse(s._wake_check_worth("wino włącz radio".split(), peak=4400))
+
     def test_missed_wake_check_keeps_the_clip(self):
         from unittest import mock
         with mock.patch.dict(sys.modules, {"sounddevice": mock.MagicMock(),

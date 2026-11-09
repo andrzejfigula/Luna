@@ -512,6 +512,7 @@ def _wav_bytes(pcm16k):
 SPEC_AFTER = 0.2
 _spec_lock = threading.Lock()
 _spec = None          # {"pcm": bytes, "done": Event, "result": ...} or None
+_spec_prev = None     # the last one the talk went on from (see _name_at_pause)
 
 
 def short_lang(words):
@@ -539,9 +540,25 @@ def _speculate(pcm16k, lang=None):
 
 
 def _spec_cancel():
-    global _spec
+    global _spec, _spec_prev
     with _spec_lock:
-        _spec = None
+        _spec_prev, _spec = _spec or _spec_prev, None
+
+
+def _name_at_pause(pcm16k):
+    """Her name alone, as the cloud heard it at a pause this utterance went
+    on from ("Luna." … "pokaż pogodę"), else None. 12:06, radio on: Vosk
+    made "no pokaż pogodę" of it, the pause's "Luna." was thrown away with
+    the cancelled request, and she had to be asked again."""
+    global _spec_prev
+    with _spec_lock:
+        job, _spec_prev = _spec_prev, None
+    if not job or not pcm16k or not pcm16k.startswith(job["pcm"]) or not job["done"].wait(1.0):
+        return None
+    heard = job["result"] or ""
+    if not _cloud_has_wake(heard) or re.search(r"\w", _strip_wake_from_cloud(heard) or ""):
+        return None
+    return heard.strip(" .!?,…")
 
 
 def _spec_pending():
@@ -939,6 +956,19 @@ def _maybe_wake(words):
     return _sounds_like_name(words) or len(words) <= 2
 
 
+WAKE_VERBS = frozenset(
+    "włącz wyłącz pokaż zmień dodaj powiedz ustaw zagraj odtwórz napisz przypomnij zrób "
+    "otwórz zamknij puść ścisz podgłośnij opowiedz zapisz nastaw zadzwoń wyślij przeczytaj "
+    "policz sprawdź narysuj".split())
+
+
+def _command_like(words):
+    """A short order with the verb among the first three words: Vosk loses
+    her name before one ("wino włącz radio", "lecz pokaż ustawienia", "no no
+    włącz radio" — 47 such sentences in three weeks never reached the cloud)."""
+    return 2 <= len(words) <= 7 and not WAKE_VERBS.isdisjoint(words[:3])
+
+
 def _name_in_partial(words):
     """Her name at the start of the words still being said — the radio
     quiets at once (radio._ducked). Her exact name; or, with the radio on,
@@ -1077,7 +1107,11 @@ def _wake_check_worth(words, peak=None, secs=None):
     dozens went to the cloud, every one came back empty. But a word-likeness
     test alone missed 21:09 "Luna, jaka jutro pogoda?" → Vosk "nuda i pobudzi
     oczu powoda" (3.5× the gate), and its two repeats."""
-    if not CLOUD_WAKE_CHECK or _cloud is None or call_pause() or activation.cooling():
+    if not CLOUD_WAKE_CHECK or _cloud is None or activation.cooling():
+        return False
+    if words is not None and _command_like(words):
+        return True                    # (in a meeting too: nobody there says "włącz radio")
+    if call_pause():
         return False
     if words is not None and _radio_on():
         loud = peak is not None and peak >= RADIO_LOUD * _energy_gate() and len(words) >= 2
@@ -1190,15 +1224,29 @@ def _cloud_wake_check(pcm16k, words=None, peak=None, conf=None):
     global _wake_seen
     _wake_seen = (None, None)
     job = _spec_take(pcm16k) if pcm16k else None
+    name = _name_at_pause(pcm16k)
     if job is not None:
         # already transcribed on the pause (Vosk's partial words had her name,
         # its final ones lost it: 6 Oct 18:36 "Luna, jakie stacje radiowe
         # masz?" heard as "no jakie stacje…" — and ignored); free to use
         cloud = job["result"]
-    elif not _wake_check_worth(words, peak, len(pcm16k) / 32000.0) or not _wake_budget():
+    elif name:
+        cloud = _cloud_transcribe_now(pcm16k)
+    elif not _wake_check_worth(words, peak, len(pcm16k) / 32000.0):
+        if words and call_pause() and _sounds_like_name(words):
+            print(f"[STT] no wake check (people talking): \"{' '.join(words)}\"", flush=True)
+        return False, None
+    elif not _wake_budget():
+        print(f"[STT] no wake check (budget, {len(_wake_checks)} this hour): "
+              f"\"{' '.join(words or [])}\"", flush=True)
         return False, None
     else:
         cloud = _cloud_transcribe(pcm16k)
+    if name:
+        print(f"[STT] her name at the pause (\"{name}\") — the whole of it: \"{cloud}\"",
+              flush=True)
+        if cloud and not _cloud_has_wake(cloud):
+            cloud = f"{name}, {cloud}"
     _note_wake_check_result(cloud)
     if not cloud or not _cloud_has_wake(cloud) or not _cloud_wake_plausible(cloud, words, conf):
         seen = _seen_saying_it(cloud, len(pcm16k) / 32000.0)
@@ -1393,6 +1441,27 @@ def _page_open():
         return gallery.page_open()
     except Exception:
         return False
+
+
+def _show_listening(active):
+    """Back to waiting after a sentence that wasn't answered: the listening
+    face inside a conversation, the idle one outside it."""
+    with state.lock:
+        state.luna_mode = "listening" if active else "idle"
+        state.listening = active
+
+
+def _hold_cut_off(text):
+    """"Hej Luna, jaki jest najlepszy sposób..." — the cloud's "..." says the
+    audio stopped mid-word: keep it and wait for the rest (6 Oct 21:44:
+    answered at once, "Chyba nie dokończyłeś pytania"). True when held."""
+    global _held
+    if not text or not cut_off(text) or messages_armed():
+        return False
+    _held = (text, time.time())
+    print(f"[STT] cut off mid-sentence — waiting for the rest: \"{text}\"", flush=True)
+    _show_listening(True)
+    return True
 
 
 def _expire_conversation():
@@ -1671,9 +1740,7 @@ def listen():
                 elif active and (time.time() - last_activity) > CONVO_TIMEOUT and not _page_open():
                     _expire_conversation()
                     active = False
-                with state.lock:
-                    state.luna_mode = "idle" if not active else "listening"
-                    state.listening = active
+                _show_listening(active)
                 continue   # keep listening — don't restart the whole cycle
 
             # The window closed while you were thinking — but this sentence
@@ -1755,21 +1822,12 @@ def listen():
                         found, cleaned = _cloud_wake_check(utt_pcm, words, peak_rms, conf)
                         if found and _wake(_wake_seen[0], cleaned, text, _wake_seen[1],
                                            pcm=utt_pcm):
-                            if cleaned and cut_off(cleaned) and not messages_armed():
-                                # "Hej Luna, jaki jest najlepszy sposób..." — wait for the rest
-                                # (6 Oct 21:44: answered at once, "Chyba nie dokończyłeś pytania")
-                                _held, active = (cleaned, time.time()), True
-                                print(f"[STT] cut off mid-sentence — waiting for the rest: \"{cleaned}\"",
-                                      flush=True)
-                                with state.lock:
-                                    state.luna_mode = "listening"
-                                    state.listening = True
+                            if _hold_cut_off(cleaned):
+                                active = True
                                 continue
                             return cleaned if cleaned else WAKE_ACK
                     print(f"[STT] Dropped (noise): \"{text}\" conf={conf:.2f}")
-                    with state.lock:
-                        state.luna_mode = "listening" if active else "idle"
-                        state.listening = active
+                    _show_listening(active)
                     continue
 
             print(f"[Luna heard] {time.strftime('%H:%M:%S')} {text}")
@@ -1782,9 +1840,7 @@ def listen():
                 if not _addressed_to_luna():
                     print(f"[STT] Wake ignored (nobody facing me): \"{text}\"")
                     _reject("vosk", "no_face", text, pcm=utt_pcm)
-                    with state.lock:
-                        state.luna_mode = "listening" if active else "idle"
-                        state.listening = active
+                    _show_listening(active)
                     continue
                 fuzzy = wake is not None and not wake[2]
                 fuzzy_cloud = None
@@ -1808,9 +1864,7 @@ def listen():
                               f"(cloud: \"{fuzzy_cloud}\")", flush=True)
                         _reject("vosk-name" if by_name else "vosk-fuzzy", "not_her_name", text,
                                 fuzzy_cloud, wake_conf, utt_pcm)
-                        with state.lock:
-                            state.luna_mode = "listening" if active else "idle"
-                            state.listening = active
+                        _show_listening(active)
                         continue
                 src = "vosk-name" if by_name else "vosk-fuzzy" if fuzzy else "vosk"
                 if (cleaned and not fuzzy
@@ -1847,17 +1901,12 @@ def listen():
                         # Vosk made of the rest was noise; just answer "Tak?"
                         cleaned = ""
                 if not _wake(src, cleaned, text, cloud, wake_conf, utt_pcm):
-                    with state.lock:
-                        state.luna_mode = "listening" if active else "idle"
-                        state.listening = active
+                    _show_listening(active)
                     continue
                 if asked:
                     _save_utterance(utt_pcm, text, cloud, cleaned or "(wake)")
-                if cleaned and cut_off(cleaned) and not messages_armed():
-                    _held = (cleaned, time.time())  # "Luna, żeby to wyk..." — the rest
+                if _hold_cut_off(cleaned):          # "Luna, żeby to wyk..." — the rest
                     active = True                   # comes without "Luna"
-                    print(f"[STT] cut off mid-sentence — waiting for the rest: "
-                          f"\"{cleaned}\"", flush=True)
                     continue
                 return cleaned if cleaned else WAKE_ACK
 
@@ -1868,9 +1917,7 @@ def listen():
                 # ignored, and their chatter doesn't keep the window open.
                 if not _addressed_to_luna():
                     print(f"[STT] Ignored (nobody facing me): \"{text}\"")
-                    with state.lock:
-                        state.luna_mode = "listening"
-                        state.listening = True
+                    _show_listening(True)
                     continue
                 fast = fast_command(text, conf)
                 if fast:
@@ -1897,9 +1944,7 @@ def listen():
                     # nobody said. Keep listening instead.
                     print(f"[STT] cloud heard no speech — dropping Vosk's \"{text}\"")
                     _save_utterance(utt_pcm, text, cloud, "(dropped)")
-                    with state.lock:
-                        state.luna_mode = "listening"
-                        state.listening = True
+                    _show_listening(True)
                     continue
                 if cloud and not messages_armed() and english_side_talk(cloud):
                     # a work call in English next to her ("upload it and then
@@ -1919,13 +1964,7 @@ def listen():
                 heard_unsure = _unsure(cloud, conf)
                 if _held:
                     final = join_held(final)
-                if cut_off(final) and not messages_armed():
-                    _held = (final, time.time())
-                    print(f"[STT] cut off mid-sentence — waiting for the rest: \"{final}\"",
-                          flush=True)
-                    with state.lock:
-                        state.luna_mode = "listening"
-                        state.listening = True
+                if _hold_cut_off(final):
                     continue
                 _save_utterance(utt_pcm, text, cloud, final)
                 activation.followed()
@@ -1935,15 +1974,8 @@ def listen():
             # model mishears "Luna" often, so let the cloud have a look.
             found, cleaned = _cloud_wake_check(utt_pcm, words, peak_rms, conf)
             if found and _wake(_wake_seen[0], cleaned, text, _wake_seen[1], pcm=utt_pcm):
-                if cleaned and cut_off(cleaned) and not messages_armed():
-                    # "Hej Luna, jaki jest najlepszy sposób..." — wait for the rest
-                    # (6 Oct 21:44: answered at once, "Chyba nie dokończyłeś pytania")
-                    _held, active = (cleaned, time.time()), True
-                    print(f"[STT] cut off mid-sentence — waiting for the rest: \"{cleaned}\"",
-                          flush=True)
-                    with state.lock:
-                        state.luna_mode = "listening"
-                        state.listening = True
+                if _hold_cut_off(cleaned):
+                    active = True
                     continue
                 return cleaned if cleaned else WAKE_ACK
 

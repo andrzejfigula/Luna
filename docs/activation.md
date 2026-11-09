@@ -40,6 +40,19 @@ speech never extends it.
 
 ## Measuring
 
+`python3 tools/wake_misses.py luna.log.1 luna.log [-v]` — how often she had to be
+called twice: an answered call with unanswered sentences in the 20 s before it, and
+what became of those (never sent to the cloud, the cloud heard nothing, other
+words, rejected). Read `-v` before trusting the number: the radio's own scraps
+before a call count too. 30 Oct – 10 Nov, before the `wake-quality` branch: 190
+calls answered from idle, 32 of them (16 %) after 50 unanswered sentences — 22
+never sent (15 with the radio on), 7 the cloud heard nothing in, 14 other words.
+Of the 7064 idle sentences never sent, 47 were short orders with a mangled name
+in front ("wino włącz radio", "lecz pokaż ustawienia"): these go to the cloud now
+(`_command_like`), and her name heard at a pause the sentence went on from is kept
+(`_name_at_pause`). A check that was worth it but skipped says why in the log:
+`[STT] no wake check (budget…)` / `(people talking)`.
+
 `python3 tools/wake_replay.py luna.log luna.log.1` — old wakes through the new
 rules, and a tally of the `[wake]` lines. 29 Oct, 950 wakes: 1 about her,
 15 radio-face (6 of them went to the model, ~5 were side talk).

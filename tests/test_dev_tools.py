@@ -315,6 +315,49 @@ class RunUnitTest(unittest.TestCase):
         self.assertEqual(len(run_unit.shares(["m.A.t"], 8)), 1)
 
 
+class WakeMissesTest(unittest.TestCase):
+    LOG = """\
+[STT] heard="no pokaż pogodę" conf=0.87 peak_rms=3518 gate=2279 mouth talking 0%
+[Luna heard] 12:06:10 no pokaż pogodę
+[STT] Wake? name Vosk: no, general: "luna aż po go" (yes)
+[Luna heard] 12:06:15 luna aż po go
+[STT] cloud (0.8s): "Luna, pokaż pogodę."
+[wake] ACCEPT request src=vosk conf=1.00 mode=idle radio=1 tts_ago=337s words=3 ms=1198
+[STT] Wake word — conversation active
+[STT] heard="a jutro" conf=0.90 peak_rms=3518 gate=2279
+[Luna heard] 12:06:25 a jutro
+[STT] cloud (0.8s): "A jutro?"
+[STT] 12:06:40 Conversation timed out — waiting for wake word
+[STT] heard="to wina" conf=0.71 peak_rms=4717 gate=721
+[Luna heard] 18:48:36 to wina
+[STT] cloud (0.9s): ""
+[Luna heard] 18:48:41 molo
+[STT] cloud (1.1s): "Luna."
+[wake] ACCEPT bare src=vosk-name conf=0.59 mode=idle radio=0 tts_ago=- words=1 ms=2222
+[STT] Wake word — conversation active
+[STT] 18:49:00 Conversation timed out — waiting for wake word
+[Luna heard] 19:30:00 luna która godzina
+[wake] ACCEPT request src=vosk conf=1.00 mode=idle radio=0 tts_ago=- words=3 ms=900
+""".splitlines()
+
+    def test_a_call_said_twice_is_a_miss(self):
+        import wake_misses
+        rx = re.compile(r"(?<!\w)(luna)(?!\w)", re.I)
+        utts = wake_misses.utterances(self.LOG)
+        self.assertEqual([u["vosk"] for u in utts],
+                         ["no pokaż pogodę", "luna aż po go", "a jutro", "to wina", "molo",
+                          "luna która godzina"])
+        self.assertTrue(utts[2]["window"])                   # a follow-up: not a call
+        found = [(p["vosk"], wake_misses.kind(p, rx), u["vosk"])
+                 for p, u in wake_misses.misses(utts, rx)]
+        self.assertEqual(found, [("no pokaż pogodę", "not sent", "luna aż po go"),
+                                 ("to wina", "cloud: nothing", "molo")])
+        out = wake_misses.report(self.LOG, verbose=True, name_rx=rx)
+        self.assertIn("3 calls answered from idle, 2 of them after 2 unanswered", out[0])
+        self.assertIn("(66 % said twice)", out[0])
+        self.assertTrue(any("not sent: 1 (1 with the radio on)" in ln for ln in out))
+
+
 class DocsTest(unittest.TestCase):
     """A map that lies costs more than none (3 Nov: 20 modules were missing from it)."""
 
