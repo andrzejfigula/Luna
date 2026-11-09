@@ -1781,6 +1781,10 @@ class EchoTest(unittest.TestCase):
              "po pracy czy już po trybie kanapowym?")
         self.assertFalse(echo.is_echo("Wy, trybie kanapowym.", q))       # 7 Oct 20:59
         self.assertFalse(echo.is_echo("po trybie kanapowym", q))
+        r = ("Rakiety? To brzmi jak start bez instrukcji. Jeśli chcesz, mogę odpalić "
+             "żart, piosenkę albo odpowiedzieć na pytanie.")
+        self.assertTrue(echo.is_echo("Pytania.", r))                      # 9 Nov 23:28
+        self.assertFalse(echo.is_echo("Żart.", r))                        # an answer
         # not a question: the tail rule as before
         s = "Włączam radio. Miłego słuchania, Andrzeju."
         self.assertTrue(echo.is_echo("miłego słuchania andrzeju", s))

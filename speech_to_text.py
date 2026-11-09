@@ -199,6 +199,7 @@ def _print_mic_help():
 # ── Persistent stream (background thread) ─────────────────────────────────────
 
 _blocked = [False]
+_requeued = []          # a block a restarted listen gave back to the next one
 
 
 def _callback(indata, frames, time_info, status):
@@ -1460,6 +1461,7 @@ def listen():
             time.sleep(min(0.1, remaining) if remaining > 0 else 0.05)
             continue
         break
+    spoke_at = unblock_time     # moves when she speaks: this listen is over then
 
     # nothing to flush or wait for after she spoke: the microphone callback
     # kept her speech (and its echo) out of the queue already
@@ -1495,8 +1497,14 @@ def listen():
 
     while True:
         try:
-            data = _q.get(timeout=0.5)
+            data = _requeued.pop() if _requeued else _q.get(timeout=0.5)
         except queue.Empty:
+            with state.lock:
+                spoke = state.speaking or state.mic_unblock_time != spoke_at
+            if spoke:                    # (see below; and no window closes while she talks)
+                with state.lock:
+                    state.listening = False
+                return ""
             # mic may have vanished mid-listen
             if not _mic_ok:
                 with state.lock:
@@ -1519,13 +1527,17 @@ def listen():
                 return ""
             continue
 
-        # if Luna started speaking, abort this listen (mic gets flushed after);
-        # and if the conversation was opened from outside (finger held on
-        # the screen) restart as an active listen — no wake word needed
+        # If Luna spoke since this listen began, it is over: the mic got nothing
+        # meanwhile, so it never saw `speaking`, and an utterance ran on into her
+        # echo (9 Nov, an SMS stopped by a tap: the window reopened on her own
+        # tail, "Rakiety", and she answered). And if the conversation was opened
+        # from outside (finger held on the screen) restart as an active listen.
         with state.lock:
-            if state.speaking:
+            if state.speaking or state.mic_unblock_time != spoke_at:
                 state.listening = False
-                state.luna_mode = "idle"
+                if not state.speaking:
+                    _requeued.append(data)   # fresh audio: the next listen's
+                    state.luna_mode = "idle"
                 return ""
             if state.conversation_active and not active:
                 return ""

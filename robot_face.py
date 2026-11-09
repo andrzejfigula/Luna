@@ -81,6 +81,8 @@ MOOD_TILT = {"curious": 7.0, "confused": -6.0, "shy": 5.0, "proud": -2.0}
 MOOD_RISE = {"proud": -10.0, "sleepy": 10.0, "shy": 6.0, "worried": 4.0}
 LISTEN_WAVE_COL = (255, 196, 110)  # the sound waves beside her while she listens
 THINK_HAND_SECS = 1.2              # thinking longer than this: a finger on her chin
+# pages whose rows and buttons a tap presses; a tap that stopped her speaking doesn't
+_PAGE_TAPS = ("list", "story", "schedule", "agenda", "radio", "phone", "contact", "settings", "lamp")
 
 # On the 800x480 panel the mouth would kiss the bottom edge: lift the face a
 # little and keep the conversation-window dot (below the mouth) on-screen.
@@ -2703,6 +2705,8 @@ class RobotFace:
                     screens.end_game_page(ov_kind)
                 elif autoclose.hit(touch_pt[0], touch_pt[1], WIDTH) and autoclose.toggle():
                     pass                                # ⏸ / ▶: it stays, or goes on
+                elif touch_kind == "stop" and ov_kind in _PAGE_TAPS:
+                    pass                                # it only cut her short (9 Nov: "Przeczytaj" read the SMS again)
                 elif ov_kind == "list" and screens.list_tap(*touch_pt):
                     pass                                # an item: "Usunąć?", then crossed off
                 elif ov_kind == "story":                # an idea, a choice, a story

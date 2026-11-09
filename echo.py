@@ -18,8 +18,10 @@ import re
 
 def is_echo(heard, last, run_thresh=0.5, overlap_thresh=0.6, tail=3):
     """True when `heard` looks like the tail of `last` (her last reply)."""
-    heard_words = re.findall(r"\w+", (heard or "").lower())   # no punctuation
-    last_words = re.findall(r"\w+", (last or "").lower())
+    # no punctuation; a word's first 5 letters: the transcriber changes endings
+    # ("na pytanie." came back as "Pytania." and she answered it, 9 Nov)
+    heard_words = [w[:5] for w in re.findall(r"\w+", (heard or "").lower())]
+    last_words = [w[:5] for w in re.findall(r"\w+", (last or "").lower())]
     if not heard_words or not last_words:
         return False
     overlap = sum(1 for w in heard_words if w in set(last_words)) / len(heard_words)
