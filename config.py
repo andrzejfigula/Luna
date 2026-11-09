@@ -506,6 +506,7 @@ WEATHER_REFRESH_SECS = 1800
 # ── Health (health.py) ───────────────────────────────────────────────────────
 HEALTH_PROBE_SECS = 60     # while offline, check the API is reachable this often
 HEALTH_LOG_SECS   = 3600   # a "[health]" summary line in luna.log
+WIFI_LOST_SECS    = 180    # router and API silent this long → Wi‑Fi off and on
 
 LISTS_PATH = os.path.join(DATA_DIR, "lists.json")
 

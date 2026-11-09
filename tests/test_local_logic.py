@@ -860,6 +860,30 @@ class TimersTest(unittest.TestCase):
                          "2026-10-15 06:00")                 # not 18:00
         self.assertIsNone(r("Przypomnij mi 5 rzeczy na zakupy", at15))
 
+    def test_wifi_watch_9_nov(self):
+        import health
+        from config import WIFI_LOST_SECS as L
+        health._net.update(lost_since=0.0, resets=0, next_reset=0.0)
+        resets = []
+        down = dict(lan_ok=lambda: False, probe=lambda: False, reset=lambda: resets.append(1))
+        health._net_watch(1000, **down)                     # first miss: only watching
+        health._net_watch(1000 + L - 1, **down)
+        self.assertEqual(resets, [])
+        health._net_watch(1000 + L, **down)                 # lost long enough
+        self.assertEqual(resets, [1])
+        health._net_watch(1000 + L + 60, **down)            # not every minute after
+        self.assertEqual(resets, [1])
+        health._net_watch(1000 + 3 * L, **down)             # again after 2× L
+        self.assertEqual(len(resets), 2)
+        # the router answers (dead internet beyond it): never her Wi‑Fi's fault
+        health._net_watch(1000 + 4 * L, lan_ok=lambda: True, probe=lambda: False,
+                          reset=resets.append)
+        self.assertEqual(health._net, {"lost_since": 0.0, "resets": 0, "next_reset": 0.0})
+        health._net_watch(5000, lan_ok=lambda: True, probe=lambda: False, reset=resets.append)
+        health._net_watch(5000 + 10 * L, lan_ok=lambda: True, probe=lambda: False,
+                          reset=resets.append)
+        self.assertEqual(len(resets), 2)
+
     def test_probe_14_oct(self):
         import commands
         import counting

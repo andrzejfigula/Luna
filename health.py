@@ -12,19 +12,23 @@ health.py — is Luna's cloud reachable, and how is she doing?
     shows today's and yesterday's.
   • …and the log is kept under LOG_MAX_MB: the older half goes to
     luna.log.1. She runs for months; the SD card must never fill up.
+  • Wi‑Fi watch: neither the router nor the API answering for WIFI_LOST_SECS
+    → Wi‑Fi off and on (nmcli; her desktop session may do it without sudo).
 """
 
 import os
 import re
 import shutil
 import socket
+import struct
+import subprocess
 import sys
 import threading
 import time
 
 import body
 from shared_state import state
-from config import HEALTH_PROBE_SECS, HEALTH_LOG_SECS, LOG_MAX_MB
+from config import HEALTH_PROBE_SECS, HEALTH_LOG_SECS, LOG_MAX_MB, WIFI_LOST_SECS
 
 _lock = threading.Lock()
 _stats = {"replies": 0, "secs": 0.0, "failures": 0}
@@ -223,6 +227,79 @@ def _probe():
         return False
 
 
+_net = {"lost_since": 0.0, "resets": 0, "next_reset": 0.0}
+
+
+def _gateway():
+    """The default gateway from /proc/net/route, or None (no route: Wi‑Fi is down)."""
+    try:
+        with open("/proc/net/route") as f:
+            for line in f.readlines()[1:]:
+                p = line.split()
+                if len(p) > 2 and p[1] == "00000000":
+                    return socket.inet_ntoa(struct.pack("<L", int(p[2], 16)))
+    except (OSError, ValueError):
+        pass
+    return None
+
+
+def _lan_ok():
+    gw = _gateway()
+    if not gw:
+        return False
+    try:
+        return subprocess.run(["ping", "-c", "1", "-W", "2", gw], stdout=subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL, timeout=5).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def _reset_wifi():
+    if not shutil.which("nmcli"):
+        print("[net] no nmcli — can't reset Wi‑Fi", flush=True)
+        return
+    for arg in ("off", "on"):
+        try:
+            r = subprocess.run(["nmcli", "radio", "wifi", arg], capture_output=True,
+                               text=True, timeout=20)
+        except (OSError, subprocess.SubprocessError) as e:
+            r = None
+            err = str(e)
+        else:
+            err = r.stderr.strip()
+        if r is None or r.returncode:
+            print(f"[net] nmcli radio wifi {arg} failed: {err[:150]}", flush=True)
+            return
+        if arg == "off":
+            time.sleep(3)
+
+
+def _net_watch(now, lan_ok=_lan_ok, probe=_probe, reset=_reset_wifi):
+    """On 9 Nov her Wi‑Fi dropped at ~12:40 and never came back by itself (1.5 h
+    offline until a power cycle). Router and API both silent for WIFI_LOST_SECS
+    → Wi‑Fi off and on; again after 2×, 4×… that, at most every 30 min. A dead
+    internet behind a live router is not hers to fix: no reset then."""
+    if lan_ok() or probe():
+        if _net["lost_since"]:
+            mins = (now - _net["lost_since"]) / 60
+            print(f"[net] network back after {mins:.0f} min "
+                  f"({_net['resets']} Wi‑Fi reset(s))", flush=True)
+        _net.update(lost_since=0.0, resets=0, next_reset=0.0)
+        return
+    if not _net["lost_since"]:
+        _net["lost_since"] = now
+        print("[net] neither the router nor the cloud answers — watching Wi‑Fi", flush=True)
+        return
+    lost = now - _net["lost_since"]
+    if lost < WIFI_LOST_SECS or now < _net["next_reset"]:
+        return
+    _net["resets"] += 1
+    _net["next_reset"] = now + min(WIFI_LOST_SECS * 2 ** _net["resets"], 1800)
+    print(f"[net] no network for {lost / 60:.0f} min — Wi‑Fi off and on "
+          f"(reset {_net['resets']})", flush=True)
+    reset()
+
+
 def _mem_used():
     try:
         info = {}
@@ -298,7 +375,6 @@ def _pw_xruns():
     the writer's "underruns" can't see the player itself being starved.
     Cumulative since the stream started; None if pw-top isn't there."""
     try:
-        import subprocess
         out = subprocess.run(["pw-top", "-b", "-n", "2"], capture_output=True,
                              text=True, timeout=8).stdout
     except Exception:
@@ -405,6 +481,8 @@ def _loop():
                 online = state.online
             if not online and _probe():
                 _set_online(True)
+            if sys.platform.startswith("linux"):
+                _net_watch(time.time())
             if time.time() - last_log >= HEALTH_LOG_SECS:
                 last_log = time.time()
                 _log()
