@@ -391,7 +391,6 @@ class EnvPass:
         self._hv, self._hf = hv, hf
         self._loc = {}
         self.gprog = None                     # the glass (made when it is first wet or cold)
-        self.behind = None                    # the frame under the drops (False: can't copy)
         rnd = random.Random(1028)             # the same sky every time
         seeds = lambda n: [(rnd.random(), rnd.random(), rnd.random(), rnd.random())  # noqa: E731
                            for _ in range(n)]
@@ -481,7 +480,7 @@ class EnvPass:
         attrib(1, 4, GL.GL_FLOAT, GL.GL_FALSE, 24, ctypes.c_void_p(8))
         GL.glDrawArrays(mode, 0, n)
 
-    def glass(self, u):
+    def glass(self, u, behind=None):
         """The glass in front of her (gl_face draws it after her face, before
         the screen's layer). Blending premultiplied is on."""
         g = u.get("uEnvGlass")
@@ -490,34 +489,13 @@ class EnvPass:
         GL = self.GL
         GL.glEnableVertexAttribArray(1)
         try:
-            self._glass(u, g, self._mesh)
+            self._glass(u, g, self._mesh, behind)
         except Exception as e:                        # noqa: BLE001
             self.gprog = False
             print(f"[gl] the glass in front off: {e}", flush=True)
         GL.glDisableVertexAttribArray(1)
 
-    def _behind(self, W, H):
-        """The frame so far (sky, her face) for the drops to bend: one copy
-        (RGB: the window has no alpha to copy); None: the sky alone."""
-        GL = self.GL
-        if self.behind is False:
-            return None
-        try:
-            GL.glActiveTexture(GL.GL_TEXTURE0 + 6)
-            if self.behind is None:
-                self.behind = self.face._texture(W, H, GL.GL_LINEAR)
-                GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGB, W, H, 0, GL.GL_RGB, GL.GL_UNSIGNED_BYTE, None)
-            GL.glBindTexture(GL.GL_TEXTURE_2D, self.behind)
-            GL.glCopyTexSubImage2D(GL.GL_TEXTURE_2D, 0, 0, 0, 0, 0, W, H)
-            return self.behind
-        except Exception as e:                        # noqa: BLE001
-            self.behind = False
-            print(f"[gl] the drops show the sky alone: {e}", flush=True)
-            return None
-        finally:
-            GL.glActiveTexture(GL.GL_TEXTURE0)
-
-    def _glass(self, u, g, mesh):
+    def _glass(self, u, g, mesh, behind):
         """Wet tracks, drops, flakes, then frost on the edges (four quads,
         only the band)."""
         GL, face = self.GL, self.face
@@ -550,7 +528,7 @@ class EnvPass:
         T = environment.TUNE
         wet, snow, frost = g[0], g[1], g[2]
         if max(wet, snow) > 0.004:                   # what the drops show: her too, upside down
-            tex = self._behind(W, H) or face.sky
+            tex = behind or face.sky
             GL.glActiveTexture(GL.GL_TEXTURE0 + 6)
             GL.glBindTexture(GL.GL_TEXTURE_2D, tex)
             GL.glActiveTexture(GL.GL_TEXTURE0)

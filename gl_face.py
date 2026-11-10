@@ -30,6 +30,10 @@ import gl_env
 import themes
 import visualizer
 
+# where render()'s time goes, in seconds (main.py's SIGUSR1 dump): sending the
+# layers, the rest of its GL calls
+PROF = {"n": 0, "up": 0.0, "draw": 0.0}
+
 # the clock the animation runs on, and the hour (night: softer eyes) — the
 # preview and the tests put a fake one in (deterministic frames)
 def _clock():
@@ -1497,16 +1501,26 @@ def _pick_platform():
 
 
 class _Layer:
-    """A pygame layer's texture and the bytes last sent, per 32-row band."""
+    """A pygame layer's textures and the bytes last sent to each, per 32-row
+    band. Two, written in turn: sending to the one the GPU still draws the
+    last frame from waits until that frame is done (10 Nov, Pi 4)."""
     BAND = 32
 
-    def __init__(self, tex, width, height):
-        self.tex = tex
+    def __init__(self, texs, width, height):
+        self.texs = tuple(texs)
         self.w = width
         self.bands = [(y, min(self.BAND, height - y)) for y in range(0, height, self.BAND)]
         self.h = height
-        self.sent = [None] * len(self.bands)      # the band's pixels on the texture
+        self.sents = [[None] * len(self.bands) for _ in self.texs]
+        self.i = 0
+        self.tex = self.texs[0]                   # the one this frame is drawn from
+        self.sent = self.sents[0]                 # ...and each band's pixels on it
         self.zero = {h: bytes(width * 4 * h) for _, h in self.bands}
+
+    def turn(self):
+        """The other texture's turn (before sending a frame's layer)."""
+        self.i = (self.i + 1) % len(self.texs)
+        self.tex, self.sent = self.texs[self.i], self.sents[self.i]
 
     def runs(self, pad=0):
         """(y0, y1) of the runs of bands with something on them, each widened
@@ -1540,6 +1554,13 @@ def _numpy():
 # the layers' memory is pygame's own (B, G, R, A on a little-endian Pi): its
 # blits take their fast paths there — an image blitted into an R, G, B, A
 # layer went the slow generic way, 1.7 ms for a sound wave instead of 0.06.
+# a frame drawn into a texture (GLFace._frame_target), onto the screen
+_FRAG_COPY = """
+uniform vec2 uRes;
+uniform sampler2D uTex;
+void main() { gl_FragColor = vec4(texture2D(uTex, gl_FragCoord.xy / uRes).rgb, 1.0); }
+"""
+
 # GL takes the bytes as they are (as RGBA: Mesa swapping them on the CPU was
 # 26 ms a layer) and the shader swaps them back (LAYER).
 _SWAP = sys.byteorder == "little"
@@ -1809,6 +1830,9 @@ class GLFace:
         self.p_glass = None              # glass eyes' refraction (_FRAG_GLASS), when needed
         self.glass_view = _GLASS_VIEW      # one of its layers alone (a test)
         self.bg_tex = None               # ...the frame behind them, copied
+        self.frame_fbo = None            # wet glass: the frame as a texture first (_frame_target)
+        self.frame_tex = 0
+        self.p_copy = None               # ...and that texture onto the screen
         self.p_gdebug = None             # ...a test pattern behind them (LUNA_GLASS_DEBUG)
         self.p_soft = None               # the big shader built for one pass (_variant)
         self.p_geye = None               # ...and for one glass eye
@@ -1833,9 +1857,9 @@ class GLFace:
         GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)
         # the two pygame layers: fixed to the screen (sharp), and turning with
         # the face (smoothed, it is sampled turned)
-        self.screen_l = _Layer(self._texture(width, height, GL.GL_NEAREST), width, height)
-        self.face_l = _Layer(self._texture(width, height, GL.GL_LINEAR), width, height)
-        self.back_l = _Layer(self._texture(width, height, GL.GL_LINEAR), width, height)
+        self.screen_l, self.face_l, self.back_l = (
+            _Layer([self._texture(width, height, f) for _ in range(2)], width, height)
+            for f in (GL.GL_NEAREST, GL.GL_LINEAR, GL.GL_LINEAR))
         # the soft part's framebuffer: a quarter of the size (it is all
         # glow and gradients), smoothed when stretched
         self.sw, self.sh = max(1, width // 4), max(1, height // 4)
@@ -1924,6 +1948,7 @@ class GLFace:
         get_bounding_rect() cost 3 ms for the screen, 8 ms band by band —
         more than sending it all; 13 Oct, Pi 4.) True when anything is on it."""
         GL = self.GL
+        layer.turn()
         fmt = _gl_format(GL, surface)
         np = _numpy()
         if fmt is not None and np is not None:
@@ -2075,6 +2100,40 @@ class GLFace:
         else:
             self._u("uEnvOn", 0.0)
 
+    def _frame_target(self, u):
+        """Wet glass (gl_env's drops bend the frame so far): a framebuffer
+        to draw the frame into, shown by _FRAG_COPY — copying it back from
+        the window kept the CPU waiting for the GPU, 16 ms a frame (10 Nov,
+        Pi 4). 0: straight to the target (dry, or the GPU refused)."""
+        g = u.get("uEnvGlass")
+        if (not g or max(g[0], g[1]) <= 0.004 or not self.envp or self.envp.gprog is False
+                or self.frame_fbo is False):
+            return 0
+        if self.frame_fbo is None:
+            GL = self.GL
+            try:
+                self.p_copy = _Prog(GL, self._program(self._head + _VERT, self._head + _FRAG_COPY))
+                GL.glUseProgram(self.p_copy.id)
+                self.p_copy.u("uRes", (self.w, self.h))
+                self.p_copy.u("uRect", (0.0, 0.0, float(self.w), float(self.h)))
+                self.p_copy.unit("uTex", 6)
+                GL.glActiveTexture(GL.GL_TEXTURE0 + 6)       # (the other units keep theirs)
+                self.frame_tex = self._texture(self.w, self.h, GL.GL_LINEAR)
+                GL.glActiveTexture(GL.GL_TEXTURE0)
+                fbo = GL.glGenFramebuffers(1)
+                GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, fbo)
+                GL.glFramebufferTexture2D(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0,
+                                          GL.GL_TEXTURE_2D, self.frame_tex, 0)
+                if GL.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER) != GL.GL_FRAMEBUFFER_COMPLETE:
+                    raise RuntimeError("framebuffer incomplete")
+                self.frame_fbo = fbo
+            except Exception as e:
+                self.frame_fbo = False
+                GL.glActiveTexture(GL.GL_TEXTURE0)
+                print(f"[gl] the drops show the sky alone: {e}", flush=True)
+                return 0
+        return self.frame_fbo
+
     def _glass_back(self, u):
         """The glass eyes: copy the frame under each (and a margin the
         bending reaches into), then draw what is seen through them
@@ -2181,10 +2240,12 @@ class GLFace:
         box, the layers over their rows — every pixel is worked on only where
         something is (one full-screen shader for all of it: 16 ms a frame)."""
         GL = self.GL
+        t_up = time.perf_counter()
         has_face = face_layer is not None and self.upload(self.face_l, face_layer)
         has_back = back_layer is not None and self.upload(self.back_l, back_layer)
         if screen_layer is not None:
             has_layer = self.upload(self.screen_l, screen_layer)
+        t_draw = time.perf_counter()
         GL.glUseProgram(self.prog)
         self._u("uRes", (self.w, self.h))
         self._u("uSoftRes", (self.sw, self.sh))
@@ -2221,9 +2282,15 @@ class GLFace:
                 self._u("uPass", 0.0)
                 self._u("uRect", full)
                 self._quad()
-        # 1: stretched over the whole screen
-        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.target_fbo)
+        # 1: stretched over the whole screen (wet glass: into a texture first)
+        via = 0
+        if not ch and uniforms.get("uEnvOn", 0.0) > 0.5 and uniforms.get("uFace", 0.0) > 0.5:
+            via = self._frame_target(uniforms)
+        tgt = via or self.target_fbo
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, tgt)
         GL.glViewport(0, 0, self.w, self.h)
+        if via:
+            GL.glClear(GL.GL_COLOR_BUFFER_BIT)      # (nothing of the last frame to load)
         self._sampler("uSoft", 1, self.soft)
         flat = [(k, uniforms[k]) for k in ("uTime", "uTilt", "uGlitch") if k in uniforms]
         ps, pl = self.p_stretch, self.p_layer
@@ -2251,6 +2318,8 @@ class GLFace:
                 import gl_vis
                 self.vis = gl_vis.VisPass(self)
             self.vis.draw(uniforms["_vis"], uniforms.get("uBlush", (self.w / 2, self.h / 2))[:2])
+            if via:                          # (it went back to the screen after its own)
+                GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, tgt)
             self._bind_quad()                # (its own buffer was bound)
         # the turned layers reach this many rows past their own
         t = abs(float(uniforms.get("uTilt", 0.0)))
@@ -2317,8 +2386,18 @@ class GLFace:
         if uniforms.get("_fx"):              # the waves, hands, a costume (gl_fx.py)
             self._fx().draw(uniforms["_fx"], tilt)
             GL.glUseProgram(pl.id)
+        if via:                              # the frame so far onto the screen, the drops over it
+            GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.target_fbo)
+            GL.glDisable(GL.GL_BLEND)
+            GL.glActiveTexture(GL.GL_TEXTURE0 + 6)
+            GL.glBindTexture(GL.GL_TEXTURE_2D, self.frame_tex)
+            GL.glActiveTexture(GL.GL_TEXTURE0)
+            GL.glUseProgram(self.p_copy.id)
+            self._bind_quad()
+            GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
+            GL.glEnable(GL.GL_BLEND)
         if env and self.envp:                # the glass in front of her: drops, flakes, frost
-            self.envp.glass(uniforms)
+            self.envp.glass(uniforms, self.frame_tex if via else None)
             GL.glUseProgram(pl.id)
             self._bind_quad()
         if has_layer:
@@ -2326,6 +2405,9 @@ class GLFace:
             self._rows(pl, self.screen_l.runs())
         GL.glUseProgram(self.prog)
         GL.glDisable(GL.GL_BLEND)
+        PROF["n"] += 1
+        PROF["up"] += t_draw - t_up
+        PROF["draw"] += time.perf_counter() - t_draw
 
     def warm_up(self, face, rf, fcx, fcy):
         """One frame of every theme, the current one last, before the first

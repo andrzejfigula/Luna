@@ -396,6 +396,11 @@ def _dump_threads(*_):
               f"(gl {1000 * f['gl'] / n:.1f}, swap {1000 * f['swap'] / n:.1f}); "
               f"fps asked {f['fps']}, refreshes per frame {f['gaps'][1:]}",
               flush=True)
+        import gl_face
+        g = gl_face.PROF
+        k = 1000 / max(1, g["n"])
+        print(f"[threads] gl per frame: layers sent {k * g['up']:.1f} ms, "
+              f"the rest of its calls {k * g['draw']:.1f} ms", flush=True)
     except Exception as e:
         print(f"[threads] face stats: {e}", flush=True)
     print("[threads] cpu-s  tid  nice  name", flush=True)

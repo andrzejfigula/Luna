@@ -48,6 +48,23 @@ A face frame, `tools/render_bench.py --secs 12` at 30 fps beside the running Lun
   The first start after a Mesa upgrade rebuilds the shader cache: a black screen
   for ~2 min (`6 faces warmed up in 116.7 s`), 2.7 s from the next start on.
 
+The live face, awake, `draw_fps` 60, theme luna (glass eyes), rain at 1 °C (10 Nov;
+`kill -USR1 <pid>` prints `[threads] face:` and `[threads] gl per frame:`):
+
+- Before: ~25 fps, gl 32.5 ms a frame (layers sent 3.5, the drops' copy of the
+  window 16, the rest 11), refreshes per frame 2 for 67%, 3 for 29%; the GPU only
+  ~49% busy. `glCopyTexSubImage2D` from the window waits for the GPU (v3d), so the
+  CPU and the GPU took turns.
+- After (the wet frame goes into a texture first, `GLFace._frame_target`; two
+  textures per layer, written in turn): gl 14.3 ms (layers 4.1, the rest 8.7),
+  91% of frames in one refresh, ~50 fps on the HUD, the GPU ~94% busy.
+- What the GPU pays per frame, offscreen, all on ~18–20 ms; without one pass:
+  glass eyes' see-through -6.8, soft pass -4.5, drops/frost in front -4.0, glass
+  brows and lips -3.6, stretch -3.2, sky -2.9, layers -2.2, rain/snow meshes -1.8
+  (not additive). A steady 60 needs under 16.7 ms: the next step is a lighter
+  `_FRAG_GLASS`.
+- Don't sample stacks with `kill -USR2` in a loop: 12 a second crashed her.
+
 ## The build (`tools/check_pi.sh`)
 
 Where the time goes (4 Nov):

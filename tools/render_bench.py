@@ -172,9 +172,7 @@ def main():
     p = getattr(gl_face, "PROF", None)
     if p:
         m = max(1, p["n"])
-        print("[bench] gl: " + ", ".join(f"{x} {1000 * p[x] / m:.2f}" for x in
-                                         ("uni", "up_face", "up_back", "up_screen", "draw", "g0", "g1", "gback",
-                                          "gshape", "gface", "gscreen") if x in p) + " ms")
+        print("[bench] gl: " + ", ".join(f"{x} {1000 * p[x] / m:.2f}" for x in ("up", "draw")) + " ms")
 
 
 main()

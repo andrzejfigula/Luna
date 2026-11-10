@@ -1,5 +1,6 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
+- Buzia Luny rusza się płynniej, szczególnie gdy pada deszcz albo śnieg: obraz odświeża się około dwa razy częściej niż ostatnio.
 - Luna lepiej słyszy swoje imię: krótkie polecenie („…włącz radio”, „…pokaż ustawienia”), przy którym imię wyszło niewyraźnie, jest sprawdzane jeszcze raz; „Luna” powiedziane z przerwą przed prośbą („Luna… pokaż pogodę”) też już działa, także przy grającym radiu.
 - Kółko i krzyżyk: na samo „góra” albo „z lewej” Luna dopytuje, które pole (wcześniej mówiła, że postawiła znak, a plansza stała). W wisielcu rozumie „masz pisać A” / „wpisz ka” i nie zgaduje już sama liter. Wisielec jest na liście gier.
 - Dotknięcie ekranu, które przerywa Lunę, tylko ją ucisza — nie naciska już przycisku pod palcem (np. „Przeczytaj” przy SMS-ie). Po przerwaniu nie bierze już własnego głosu za twoje słowa.

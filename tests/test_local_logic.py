@@ -8438,7 +8438,7 @@ class GLLayerUploadTest(unittest.TestCase):
         out = []
         for way in ("np", "bytes"):
             g, sent = self._gl()
-            layer = gl_face._Layer(0, 64, 96)
+            layer = gl_face._Layer([0], 64, 96)
             got = []
             for s in frames:
                 del sent[:]
@@ -8458,7 +8458,7 @@ class GLLayerUploadTest(unittest.TestCase):
         import gl_face
         g, _ = self._gl()
         s = gl_face.layer_surface(64, 96)
-        layer = gl_face._Layer(0, 64, 96)
+        layer = gl_face._Layer([0], 64, 96)
         pygame.draw.circle(s, (250, 120, 30, 255), (30, 50), 5)
         self.assertTrue(g._upload_np(gl_face._numpy(), layer, s, 3))
         self.assertEqual(layer.runs(), [(32, 64)])
