@@ -43,6 +43,10 @@ A face frame, `tools/render_bench.py --secs 12` at 30 fps beside the running Lun
 
 - CPU median 13.8 ms, 90% 27.4 ms. GPU after it: median 40.1 ms, 90% 47.5 ms.
 - Per frame: update 0.54, face 0.15, compose 4.03, gl 16.78 ms.
+- 10 Nov, after the system upgrade (Mesa 26.2.6, kernel 6.18.60, labwc 0.20.2), 74 °C:
+  CPU median 15.9 ms, 90% 28.0; GPU median 22.7 ms, 90% 27.5; gl 24.05 ms per frame.
+  The first start after a Mesa upgrade rebuilds the shader cache: a black screen
+  for ~2 min (`6 faces warmed up in 116.7 s`), 2.7 s from the next start on.
 
 ## The build (`tools/check_pi.sh`)
 
