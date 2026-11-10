@@ -24,6 +24,9 @@ fields() { sed -n 's|^\([^/]*\)/[^ ]* [^ ]* \([^ ]*\) \[upgradable from: \(.*\)\
 backup() {
     D="$ROOT/sys-$(date +%Y%m%d-%H%M)"
     mkdir -p "$D/debs" || exit 1
+    # all of it into a log too: the first run stopped after 8 s and left no trace
+    exec 3>&1 4>&2 > >(tee -a "$ROOT/sysupgrade.log") 2>&1
+    echo "== backup $(date) in $D"
     dpkg-query -W -f='${binary:Package}=${Version}\n' > "$D/installed.txt"
     apt-mark showmanual > "$D/manual.txt"
     apt-get update || { echo "apt-get update failed"; exit 1; }
@@ -68,6 +71,7 @@ backup)
     ;;
 upgrade)
     need_root; backup
+    exec 1>&3 2>&4
     echo "upgrade: apt full-upgrade — it asks before it starts"
     apt-get -o Dpkg::Options::=--force-confold full-upgrade || { echo "upgrade: apt failed; rollback: sudo bash tools/sysupgrade.sh rollback"; exit 1; }
     echo "upgrade: done. Now: sudo reboot      (way back: sudo bash tools/sysupgrade.sh rollback)"
