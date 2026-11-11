@@ -274,7 +274,47 @@ def _reset_wifi():
             time.sleep(3)
 
 
-def _net_watch(now, lan_ok=_lan_ok, probe=_probe, reset=_reset_wifi):
+_SNAP_KEEP = re.compile(r"brcmf|mmc1|wlan0|hci0|bluetooth|80211|wpa_supplicant|NetworkManager", re.I)
+_SNAP_DROP = re.compile(r"scan|p2p-dev|dbus-org\.|sshd", re.I)
+_SNAP_CMDS = (
+    ("devices", ["nmcli", "-t", "-f", "DEVICE,STATE,CONNECTION", "device"], 0),
+    ("route", ["ip", "-4", "route"], 0),
+    ("bt", ["bluetoothctl", "devices", "Connected"], 0),
+    ("kernel", ["journalctl", "-k", "--since", "-30 min", "--no-pager", "-o", "short"], 25),
+    ("nm", ["journalctl", "-u", "NetworkManager", "-u", "wpa_supplicant", "-u", "bluetooth",
+            "--since", "-30 min", "--no-pager", "-o", "short"], 30),
+)
+
+
+def _net_snapshot(why, run=subprocess.run):
+    """The journal is in RAM and a power cycle wipes it (10 Nov: 23 h offline, no
+    trace of why): what the Wi‑Fi driver and NetworkManager said goes to luna.log."""
+    out = [f"[net] snapshot ({why}):"]
+    try:
+        with open("/proc/net/wireless", encoding="utf-8") as f:
+            out += [f"[net]   wireless: {ln.strip()}" for ln in f.readlines()[2:]]
+    except OSError:
+        pass
+    for name, cmd, last in _SNAP_CMDS:
+        try:
+            lines = run(cmd, capture_output=True, text=True, timeout=8).stdout.splitlines()
+        except (OSError, subprocess.SubprocessError) as e:
+            out.append(f"[net]   {name}: {str(e)[:120]}")
+            continue
+        if last:                 # a journal: only the radio's lines, the newest ones
+            lines = [ln for ln in lines
+                     if _SNAP_KEEP.search(ln) and not _SNAP_DROP.search(ln)][-last:]
+        out += [f"[net]   {name}: {ln.strip()[:200]}" for ln in lines if ln.strip()] \
+            or [f"[net]   {name}: -"]
+    print("\n".join(out), flush=True)
+
+
+def _snapshot_bg(why):
+    threading.Thread(target=_net_snapshot, args=(why,), daemon=True,
+                     name="net-snapshot").start()
+
+
+def _net_watch(now, lan_ok=_lan_ok, probe=_probe, reset=_reset_wifi, snapshot=_snapshot_bg):
     """On 9 Nov her Wi‑Fi dropped at ~12:40 and never came back by itself (1.5 h
     offline until a power cycle). Router and API both silent for WIFI_LOST_SECS
     → Wi‑Fi off and on; again after 2×, 4×… that, at most every 30 min. A dead
@@ -289,6 +329,7 @@ def _net_watch(now, lan_ok=_lan_ok, probe=_probe, reset=_reset_wifi):
     if not _net["lost_since"]:
         _net["lost_since"] = now
         print("[net] neither the router nor the cloud answers — watching Wi‑Fi", flush=True)
+        snapshot("the drop")
         return
     lost = now - _net["lost_since"]
     if lost < WIFI_LOST_SECS or now < _net["next_reset"]:
@@ -297,6 +338,8 @@ def _net_watch(now, lan_ok=_lan_ok, probe=_probe, reset=_reset_wifi):
     _net["next_reset"] = now + min(WIFI_LOST_SECS * 2 ** _net["resets"], 1800)
     print(f"[net] no network for {lost / 60:.0f} min — Wi‑Fi off and on "
           f"(reset {_net['resets']})", flush=True)
+    if _net["resets"] == 1:
+        snapshot("before the first reset")
     reset()
 
 

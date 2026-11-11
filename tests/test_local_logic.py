@@ -865,12 +865,16 @@ class TimersTest(unittest.TestCase):
         from config import WIFI_LOST_SECS as L
         health._net.update(lost_since=0.0, resets=0, next_reset=0.0)
         resets = []
-        down = dict(lan_ok=lambda: False, probe=lambda: False, reset=lambda: resets.append(1))
+        snaps = []
+        down = dict(lan_ok=lambda: False, probe=lambda: False, reset=lambda: resets.append(1),
+                    snapshot=snaps.append)
         health._net_watch(1000, **down)                     # first miss: only watching
+        self.assertEqual(snaps, ["the drop"])               # …and what the driver said, kept
         health._net_watch(1000 + L - 1, **down)
         self.assertEqual(resets, [])
         health._net_watch(1000 + L, **down)                 # lost long enough
         self.assertEqual(resets, [1])
+        self.assertEqual(snaps, ["the drop", "before the first reset"])
         health._net_watch(1000 + L + 60, **down)            # not every minute after
         self.assertEqual(resets, [1])
         health._net_watch(1000 + 3 * L, **down)             # again after 2× L
@@ -883,6 +887,31 @@ class TimersTest(unittest.TestCase):
         health._net_watch(5000 + 10 * L, lan_ok=lambda: True, probe=lambda: False,
                           reset=resets.append)
         self.assertEqual(len(resets), 2)
+        self.assertEqual(len(snaps), 2)                     # not at every reset
+
+    def test_wifi_snapshot_keeps_the_radio_lines(self):
+        import contextlib
+        import io
+        import types
+        import health
+        journal = ("Nov 10 16:50:01 pi kernel: brcmfmac: brcmf_sdio_bus_rxctl: resumed on timeout\n"
+                   "Nov 10 16:50:02 pi kernel: usb 1-1: reset\n"
+                   "Nov 10 16:50:03 pi NetworkManager[1]: wlan0: scan done\n")
+
+        def run(cmd, **kw):
+            if cmd[0] == "ip":
+                raise OSError("no ip here")
+            return types.SimpleNamespace(stdout=journal if cmd[0] == "journalctl" else "")
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            health._net_snapshot("the drop", run=run)
+        text = buf.getvalue()
+        self.assertIn("[net] snapshot (the drop):", text)
+        self.assertIn("kernel: Nov 10 16:50:01 pi kernel: brcmfmac", text)
+        self.assertNotIn("usb 1-1", text)
+        self.assertNotIn("scan done", text)
+        self.assertIn("route: no ip here", text)             # a missing tool is a line, not a crash
+        self.assertIn("devices: -", text)
 
     def test_probe_14_oct(self):
         import commands
