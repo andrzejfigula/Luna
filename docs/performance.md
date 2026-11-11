@@ -63,6 +63,20 @@ The live face, awake, `draw_fps` 60, theme luna (glass eyes), rain at 1 °C (10 
   brows and lips -3.6, stretch -3.2, sky -2.9, layers -2.2, rain/snow meshes -1.8
   (not additive). A steady 60 needs under 16.7 ms: the next step is a lighter
   `_FRAG_GLASS`.
+- 11 Nov, frames closer than 25 ms (`gl_face.TURN_GAP`): the sky and the soft pass
+  are drawn in turn, a frame each. Offscreen 19.6-20.6 -> 17.7 ms of the GPU; live
+  gl 12.6-12.9 ms, 93-95% of frames in one refresh, 54.5 fps on the HUD. The same
+  picture (`/tmp/bench2.py`'s shots, turns off and on).
+- The limit now is both: the GPU ~95% busy, the main thread ~89% (compose 4.7,
+  layers sent 4.0, the other GL calls 7.3 ms of Python). A steady 60 needs ~2 ms
+  off each.
+- Tried on `_FRAG_GLASS` and left out (the see-through pass is 6.5 ms; drawn 9 times
+  to measure): the eye fills its box (an early return outside it: nothing); the
+  SDF and one sample alone 2.5 ms; without the room's window and arc -0.6, the
+  iris -0.5, the sky's mirror -0.4, the dodge -0.3, the colour split -0.3, the
+  inner light's steps -0.3, the sun's and moon's glints -0.3, the absorption -0.2.
+  No single part to cut. A uniform cache keyed by the value as given: 0.2 ms of
+  the CPU. `OpenGL.ERROR_CHECKING = False` breaks PyOpenGL's EGL module here.
 - Don't sample stacks with `kill -USR2` in a loop: 12 a second crashed her.
 
 ## The build (`tools/check_pi.sh`)

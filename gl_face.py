@@ -33,6 +33,9 @@ import visualizer
 # where render()'s time goes, in seconds (main.py's SIGUSR1 dump): sending the
 # layers, the rest of its GL calls
 PROF = {"n": 0, "up": 0.0, "draw": 0.0}
+# frames closer than this (over 40 a second): the sky and the soft pass are
+# drawn in turn, each every other frame (0: both in every frame)
+TURN_GAP = 0.025
 
 # the clock the animation runs on, and the hour (night: softer eyes) — the
 # preview and the tests put a fake one in (deterministic frames)
@@ -1830,6 +1833,9 @@ class GLFace:
         self.p_glass = None              # glass eyes' refraction (_FRAG_GLASS), when needed
         self.glass_view = _GLASS_VIEW      # one of its layers alone (a test)
         self.bg_tex = None               # ...the frame behind them, copied
+        self.turn_n = 0                  # frames coming fast: the sky and the soft pass in turn
+        self.turn_t = 0.0                # ...the last frame's time
+        self.sky_n = self.soft_n = -9    # ...the frame each was last drawn in
         self.frame_fbo = None            # wet glass: the frame as a texture first (_frame_target)
         self.frame_tex = 0
         self.p_copy = None               # ...and that texture onto the screen
@@ -2053,7 +2059,7 @@ class GLFace:
         GL.glEnableVertexAttribArray(self.apos)
         self.attrib(self.apos, 2, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
 
-    def _sky(self, u, full):
+    def _sky(self, u, full, draw=True):
         """The world outside's sky into its texture (then the soft pass's
         framebuffer and the face's program back); off if it won't compile."""
         GL = self.GL
@@ -2080,7 +2086,7 @@ class GLFace:
             except Exception as e:
                 self.p_sky = False
                 print(f"[gl] the sky behind her off: {e}", flush=True)
-        if self.p_sky:
+        if self.p_sky and draw:
             ps = self.p_sky
             GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.sky_fbo)
             GL.glUseProgram(ps.id)
@@ -2268,17 +2274,31 @@ class GLFace:
         if ch:                               # a drawn character (gl_chars.py)
             self._chars().soft(ch, uniforms)
             GL.glUseProgram(self.prog)
+            self.soft_n = -9
         else:
+            # frames coming fast: the sky and the soft pass (both blurred, a
+            # pixel of theirs is 4 on the screen; 7 ms of the GPU's frame
+            # between them, 11 Nov, Pi 4) take turns, a frame each
+            n = self.turn_n = self.turn_n + 1
+            now = time.perf_counter()
+            fast, self.turn_t = now - self.turn_t < TURN_GAP, now
             if uniforms.get("uEnvOn", 0.0) > 0.5:
-                self._sky(uniforms, full)
+                sky = not (fast and n % 2 and n - self.sky_n < 3)
+                if sky:
+                    self.sky_n = n
+                self._sky(uniforms, full, sky)
             p0 = self._variant("p_soft", "#define PASS 0.0\n")
-            if p0:
+            if fast and not n % 2 and n - self.soft_n < 3:
+                pass
+            elif p0:
+                self.soft_n = n
                 GL.glUseProgram(p0.id)
                 self._sync(p0, uniforms, uRect=full,
                            uEnvOn=uniforms.get("uEnvOn", 0.0) if self.p_sky else 0.0)
                 self._quad()
                 GL.glUseProgram(self.prog)
             else:
+                self.soft_n = n
                 self._u("uPass", 0.0)
                 self._u("uRect", full)
                 self._quad()
