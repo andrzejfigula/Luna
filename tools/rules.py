@@ -45,7 +45,7 @@ def main(argv):
     try:
         counts = json.load(open(path, encoding="utf-8"))
     except (OSError, ValueError) as e:
-        print(f"rules: no counts at {path} ({e}) — run it on the Pi")
+        print(f"rules: no counts at {path} ({e}) — none yet here (they are on the Pi, written every few minutes)")
         return 1
     rules = cmdlog.rules_of(open(os.path.join(ROOT, "commands.py"), encoding="utf-8").read())
     print("\n".join(report(rules, counts, top, "--unused" in argv)))

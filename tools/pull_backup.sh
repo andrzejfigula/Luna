@@ -22,8 +22,10 @@ if [ "${1:-}" = "--if-stale" ] && [ -s "$out" ]; then
 fi
 ssh -o ConnectTimeout=10 "$PI" \
     'cd ~/luna && tar -czf - --exclude=data/tts_cache --exclude="*.tmp" data photos' > "$out.part"
-n=$(tar -tzf "$out.part" | wc -l)                 # reads to the end: a cut-off copy fails here
-if [ "$n" -lt 20 ] || ! tar -tzf "$out.part" | grep -q '^data/memory.json$'; then
+names=$(tar -tzf "$out.part")                     # reads to the end: a cut-off copy fails here
+n=$(printf '%s\n' "$names" | wc -l)
+# (not `tar | grep -q`: grep leaves early, tar dies of the closed pipe, pipefail calls it a failure)
+if [ "$n" -lt 20 ] || [ "$(printf '%s\n' "$names" | grep -c '^data/memory.json$')" != 1 ]; then
     echo "pull_backup: the copy looks wrong ($n files) — kept as $out.part, the old ones untouched"
     exit 1
 fi
