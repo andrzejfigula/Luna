@@ -23,7 +23,9 @@ while you work. Code here (`D:\Code\luna`, Windows + Git Bash); the Pi copy
 - Logs: `bash tools/lastlog.sh [lines] [all] ['extra|pattern']` — only the
   useful lines since the last restart. A day's summary:
   `ssh raspberry@raspberrypi.local 'cd ~/luna && python3 tools/log_report.py'`
-  (last 40 exchanges; `--all` is ~20k tokens).
+  (opens with what went wrong: freezes, dead threads, files set aside;
+  then the last 40 exchanges; `--all` is ~20k tokens). Which of `commands.handle`'s
+  rules are used: `python3 tools/rules.py [--unused]` on the Pi.
 - Backlog: `BACKLOG.md` is only what's open; `docs/backlog-done.md` (400 KB) is
   history, don't open it. `python -X utf8 tools/backlog.py find WORDS | show N |
   recent | open | add "**Title** — what changed" "why" [⏳] | done N | check`.
@@ -43,6 +45,9 @@ Code that already passed isn't checked again (`LUNA_CHECK_AGAIN=1` forces it).
 New files must be `git add`ed or the Pi never sees them; add them by name, not
 `-A` (`docs/screens/` isn't ours; preflight lists what's untracked). deploy.sh
 copies changed tracked files (one tar connection; never `.env`, `data/`, `.md`).
+It first packs what it replaces into `~/luna-rollback/code/` on the Pi: a bad ship
+is undone with `bash tools/rollback.sh last`. ship.sh also pulls `data/` + `photos/`
+to `~/luna-backup/` on the PC once a day (`tools/pull_backup.sh`).
 ship.sh restarts only if code outside tools/tests/docs changed (`--restart`
 forces it, `--no-check` skips the tests); `restart.sh --now --tested` skips
 re-testing code that just passed and prints `restart: OK — pid N` or the error.
@@ -50,6 +55,9 @@ Don't write your own ssh wait loops (`pgrep -f restart.sh` matches itself and
 hangs). Local run: `python -X utf8 tests/run_unit.py --jobs 8` (8 s).
 After a brain.py / prompt change, run ONE real-model line
 (`tools/sweep.py`) before shipping — check_pi once passed with every answer broken.
+Safety nets (store, the mic keeper, guard, the watchdog) changed? Run them for real,
+silently: `ssh … 'cd ~/luna && ./venv/bin/python tools/drill.py'`. After a pip / apt
+change on the Pi: `bash tools/lock.sh` (`requirements.lock`).
 
 ## Rules from Andrzej (always)
 

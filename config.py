@@ -201,7 +201,9 @@ SEARCH_TIMEOUT = 20.0
 # A rough guide only — the real bill is on platform.openai.com.
 API_COST_USD = {"chat": 0.0025, "stt": 0.0006, "tts": 0.0015, "image": 0.011, "search": 0.012}
 USD_PLN = 3.7
-CHAT_HEDGE_AFTER = 2.0             # the reply stream hasn't started by then (the first
+PROMPT_CACHE_KEEP = "24h"           # the rules stay in OpenAI's prompt cache between
+                                    # conversations (all three models take it, 13 Nov)
+CHAT_HEDGE_AFTER = 2.0            # the reply stream hasn't started by then (the first
                                    # token normally comes in 0.65–0.9 s): a second request
 
 # ── Audio devices ─────────────────────────────────────────────────────────────

@@ -122,6 +122,36 @@ def latency_summary(lines):
     return rows
 
 
+PROBLEMS = [
+    ("froze, the watchdog restarted her", r"\[watchdog\] FROZEN"),
+    ("a thread died", r"\[Luna\] thread '.*' DIED"),
+    ("threads missing (hourly check)", r"\[health\] THREADS"),
+    ("a part did not start", r"did not start — going on without it"),
+    ("errors passed over (first time each)", r"\] passed over: "),
+    ("tracebacks", r"^Traceback \(most recent call last\)"),
+    ("the microphone went silent, reopened", r"no audio from the microphone for"),
+    ("a data file could not be read", r"\.corrupt-\d{8}"),
+    ("a save refused or failed", r"not saved|save failed"),
+    ("token use far above a usual day", r"\[health\] TOKENS"),
+    ("no copy off the Pi", r"\[backup\] last copy off the Pi"),
+    ("a restart kept the old Luna (tests failed)", r"kept the running Luna"),
+]
+
+
+def problems(lines):
+    """What went wrong — the lines nobody reads until something is lost:
+    3 watchdog restarts sat in the log for weeks (24 Oct, 8 Nov)."""
+    out = []
+    for name, rx in PROBLEMS:
+        hits = [l for l in lines if re.search(rx, l)]
+        if not hits:
+            continue
+        out.append(f"  {len(hits):5d}  {name}")
+        for l in list(dict.fromkeys(hits))[-3:]:
+            out.append(f"           {l[:150]}")
+    return out or ["  nothing"]
+
+
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     since = args[0] if args else None
@@ -136,6 +166,9 @@ def main():
         for name, rx in PATTERNS:
             if re.search(rx, l):
                 counts[name] += 1
+    print("── what went wrong ──")
+    for row in problems(lines):
+        print(row)
     print("── signals ──")
     for name, _ in PATTERNS:
         print(f"  {counts[name]:5d}  {name}")

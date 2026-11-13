@@ -15,6 +15,8 @@ import time
 import unittest
 from unittest import mock
 
+HERE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ["LUNA_DATA_DIR"] = tempfile.mkdtemp(prefix="luna-tests-")  # never real data
 
@@ -6964,6 +6966,9 @@ class CmdlogTest(unittest.TestCase):
             cmdlog.note("moon.answer", 12)
             cmdlog.note("moon.answer", 12)
             cmdlog.note("sleep_self", 40)
+            # not a write per command: the counts wait for flush()
+            self.assertFalse(os.path.exists(os.path.join(d, "rules.json")))
+            cmdlog.flush()
         self.assertEqual(json.load(open(os.path.join(d, "rules.json"))),
                          {"moon.answer": 2, "sleep_self": 1})
         self.assertIn("[cmd] rule: moon.answer (commands.py:12)", out.getvalue())
@@ -15218,6 +15223,144 @@ class AlarmSettingsTest(unittest.TestCase):
             self.assertTrue(screens.handle("pokaż ustawienia budzika", lambda *a, **k: None,
                                            lambda *a, **k: None))
         self.assertEqual(show.call_args[0][2], {"tab": self.sp.TABS.index("Budzik")})
+
+
+class HardeningTest(unittest.TestCase):
+    """The second ten (13 Nov): tokens, the copy off the Pi, dead threads,
+    the report's problems, the rule counts, the drill."""
+
+    def test_tokens_are_counted_and_a_wild_day_is_said_once(self):
+        import health
+        d = tempfile.mkdtemp()
+        with mock.patch.object(health, "_usage_path", lambda: os.path.join(d, "usage.json")), \
+                mock.patch.object(health, "_day", {}), \
+                mock.patch.object(health, "_tokens_warned", [""]), \
+                mock.patch.object(health, "TOKENS_WARN_PER_DAY", 20000), \
+                contextlib.redirect_stdout(io.StringIO()) as out:
+            health.note_tokens(14000, 12000, 80, today="2026-11-13")
+            self.assertEqual(health._day, {"tok_in": 14000, "tok_cached": 12000, "tok_out": 80})
+            self.assertEqual(out.getvalue(), "")
+            health.note_tokens(14000, 0, 80, today="2026-11-13")       # 16 000 fresh: not yet
+            health.note_tokens(14000, 0, 80, today="2026-11-13")       # 30 000
+            health.note_tokens(14000, 0, 80, today="2026-11-13")
+        self.assertEqual(out.getvalue().count("[health] TOKENS"), 1)
+
+    def test_tokens_are_not_calls(self):
+        """13 Nov: the sweep's --max-calls read 13 658 "calls" after one answer."""
+        import health
+        with mock.patch.object(health, "_day", {"chat": 2, "tts": 1, "tok_in": 27000,
+                                                "tok_cached": 13000, "tok_out": 90}):
+            self.assertEqual(health.calls(), 3)
+        self.assertEqual(health.calls({"stt": 4, "tok_in": 5}), 4)
+        with open(os.path.join(HERE_ROOT, "tools", "sweep.py"), encoding="utf-8") as f:
+            self.assertNotIn("_day.values()", f.read())
+
+    def test_the_day_line_shows_tokens_in_words(self):
+        import health
+        self.assertEqual(health._tokens_text({"chat": 3}), "")
+        self.assertEqual(health._tokens_text({"tok_in": 1_200_000, "tok_cached": 732_000, "tok_out": 12_400}),
+                         "tokeny 1,2 mln (61% z pamięci), odpowiedzi 12 tys.")
+
+    def test_no_copy_off_the_pi_is_said(self):
+        import backup
+        d = tempfile.mkdtemp()
+        with mock.patch.object(backup, "DATA_DIR", d):
+            self.assertIsNone(backup.offsite_days())
+            self.assertIn("never", backup.offsite_warning())
+            stamp = os.path.join(d, ".offsite")
+            open(stamp, "w").close()
+            self.assertEqual(backup.offsite_warning(), "")
+            now = os.path.getmtime(stamp)
+            self.assertEqual(backup.offsite_warning(now + 86400), "")
+            self.assertIn("4 days ago", backup.offsite_warning(now + 4 * 86400))
+
+    def test_a_thread_that_dies_leaves_a_line_and_a_name(self):
+        import errlog
+        old, before = threading.excepthook, list(errlog.died)
+        self.addCleanup(lambda: (setattr(threading, "excepthook", old),
+                                 errlog.died.__setitem__(slice(None), before)))
+        errlog.watch_threads()
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
+            t = threading.Thread(target=lambda: {}["x"], name="weather")
+            t.start()
+            t.join(5)
+        self.assertIn("[Luna] thread 'weather' DIED: KeyError", out.getvalue())
+        self.assertIn("Traceback", out.getvalue())
+        self.assertIn("died: weather", errlog.threads_line())
+
+    def test_all_well_is_an_empty_threads_line(self):
+        import errlog
+        with mock.patch.object(errlog, "died", []), mock.patch.object(errlog, "ESSENTIAL", ()):
+            self.assertEqual(errlog.threads_line(), "")
+        with mock.patch.object(errlog, "died", []), \
+                mock.patch.object(errlog, "ESSENTIAL", ("no-such-loop",)):
+            self.assertEqual(errlog.threads_line(), "not running: no-such-loop")
+
+    def test_every_essential_loop_is_started_under_its_name(self):
+        import errlog
+        for name in errlog.ESSENTIAL:
+            found = any(f'name="{name}"' in open(os.path.join(HERE_ROOT, f), encoding="utf-8").read()
+                        for f in os.listdir(HERE_ROOT) if f.endswith(".py"))
+            self.assertTrue(found, f"no thread is started as {name!r}")
+
+    def test_the_report_opens_with_what_went_wrong(self):
+        sys.path.insert(0, os.path.join(HERE_ROOT, "tools"))
+        self.addCleanup(sys.path.remove, os.path.join(HERE_ROOT, "tools"))
+        import log_report
+        self.assertEqual(log_report.problems(["[Luna heard] cześć", "[brain] OpenAI (0.8s): hej"]),
+                         ["  nothing"])
+        rows = log_report.problems([
+            "[watchdog] FROZEN: no face frame for 30 s — stacks of all threads follow, then a restart",
+            "[Luna] thread 'timers' DIED: KeyError: 'x'",
+            "[lists] /home/x/data/lists.json can't be read (bad): kept as lists.json.corrupt-20261113-101500, the backup of 2026-11-12 is back",
+            "[health] TOKENS: 2,000,000 uncached prompt tokens today, over 1,500,000",
+        ])
+        text = "\n".join(rows)
+        for word in ("froze", "a thread died", "could not be read", "token use"):
+            self.assertIn(word, text)
+
+    def test_rules_report(self):
+        sys.path.insert(0, os.path.join(HERE_ROOT, "tools"))
+        self.addCleanup(sys.path.remove, os.path.join(HERE_ROOT, "tools"))
+        import cmdlog
+        import rules
+        with open(os.path.join(HERE_ROOT, "commands.py"), encoding="utf-8") as f:
+            found = cmdlog.rules_of(f.read())
+        self.assertGreater(len(found), 100)
+        name = found[3][2]
+        out = rules.report(found, {name: 5, "a_rule_long_gone": 2}, top=5, unused=True)
+        self.assertIn("7 sentences taken by 2 of", out[0])
+        self.assertTrue(any(name in row and "commands.py:" in row for row in out[1:3]))
+        self.assertTrue(any("rule gone or renamed" in row for row in out))
+        self.assertTrue(any(row.startswith("never used: ") for row in out))
+
+    def test_the_drill_holds_here_too(self):
+        import subprocess
+        r = subprocess.run([sys.executable, "-X", "utf8", os.path.join(HERE_ROOT, "tools", "drill.py")],
+                           capture_output=True, text=True, encoding="utf-8", timeout=120)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertNotIn("FAILED", r.stdout)
+        self.assertIn("ok      broken file", r.stdout)
+
+    def test_data_files_go_through_store(self):
+        """A json.dump by hand is a file that can be left half written."""
+        by_hand = []
+        for f in sorted(os.listdir(HERE_ROOT)):
+            if f.endswith(".py") and f not in ("store.py", "weather.py"):   # weather: a cache
+                with open(os.path.join(HERE_ROOT, f), encoding="utf-8") as fh:
+                    if "json.dump(" in fh.read():
+                        by_hand.append(f)
+        self.assertEqual(by_hand, [], "save with store.save (atomic, never over an unread file)")
+
+    def test_no_new_silent_except(self):
+        """`except Exception: pass` hides what broke: errlog.once(tag) instead."""
+        n = 0
+        for f in os.listdir(HERE_ROOT):
+            if f.endswith(".py"):
+                with open(os.path.join(HERE_ROOT, f), encoding="utf-8") as fh:
+                    n += len(re.findall(r"except Exception:\s*\n\s*pass\b", fh.read()))
+        self.assertLessEqual(n, 63, "a new silent except — log it with errlog.once(tag)")
 
 
 if __name__ == "__main__":

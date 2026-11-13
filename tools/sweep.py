@@ -109,8 +109,7 @@ health._count_api_calls()            # every OpenAI call, counted (the cap below
 
 
 def _calls():
-    with health._lock:
-        return sum(health._day.values())
+    return health.calls()
 
 
 said = []

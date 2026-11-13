@@ -15,8 +15,10 @@ if PI_MODEL:
     print(f"[Luna] Running on Raspberry Pi {PI_MODEL} "
           f"(started {time.strftime('%H:%M:%S')})", flush=True)
 
+import errlog
 from errlog import guard             # a part that can't start is logged and left out:
                                      # one of them failing used to end the whole start
+errlog.watch_threads()               # a thread that dies says so: "[Luna] thread 'x' DIED"
 from camera_thread import start_camera
 guard("camera", start_camera)
 time.sleep(0.5)
@@ -86,7 +88,6 @@ guard("weekly", weekly.start_weekly)
 import random
 
 import activation
-import errlog
 import modes
 from speech_to_text import listen, WAKE_ACK
 from text_to_speech import speak, play_sound
@@ -304,6 +305,8 @@ def _shutdown(*args):
         import health
         health.flush_usage()   # today's API count survives a restart
         weekly.save()          # …and the week's numbers
+        import cmdlog
+        cmdlog.flush()         # …and which rules took today's sentences
     except Exception:
         errlog.once("Luna")
     try:                       # the radio's ffmpeg / pw-play must not outlive her

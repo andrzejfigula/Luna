@@ -37,8 +37,12 @@ else
         stamp=
         grep -qvE '^(tools|tests|docs|screenshots)/' <<<"$changed" && stamp='touch /tmp/luna_deployed_at'
         # all of them in one connection (it was two per file)
+        # what is about to be replaced is packed first (tools/rollback.sh; the last 5)
+        keep_old="mkdir -p ~/luna-rollback/code && (tar -czf ~/luna-rollback/code/\$(date +%Y%m%d-%H%M%S).tgz \
+$(tr '\n' ' ' <<<"$changed") 2>/dev/null || true) \
+&& (ls -1t ~/luna-rollback/code/*.tgz | tail -n +6 | xargs -r rm -f)"
         tar -cf - $changed | ssh -o ConnectTimeout=10 "$PI" \
-            "cd ~/luna && tar -xf - ${sh_files:+&& chmod +x $sh_files} ${stamp:+&& $stamp}"
+            "cd ~/luna && $keep_old; tar -xf - ${sh_files:+&& chmod +x $sh_files} ${stamp:+&& $stamp}"
         echo "[deploy] copied $(wc -l <<<"$changed") file(s)"
     fi
 fi

@@ -828,11 +828,7 @@ def save(speak):
 
 def _keep_title(path, title):
     tp = os.path.join(SAVED, "titles.json")
-    try:
-        with open(tp, encoding="utf-8") as f:
-            d = json.load(f)
-    except (OSError, ValueError):
-        d = {}
+    d = store.load(tp, {}, "paint")
     d[os.path.basename(path)] = title
     try:
         _atomic(tp, lambda f: f.write(json.dumps(d, ensure_ascii=False).encode()))

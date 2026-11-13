@@ -56,7 +56,7 @@ from config import (
     GESTURE_DURATION,
     KNOWLEDGE_PATH,
     OPENAI_API_KEY,
-    OPENAI_MODEL, CRAFT_MODEL, CHAT_MODEL, CHAT_HEDGE_AFTER, TIMETABLE_MODEL,
+    OPENAI_MODEL, CRAFT_MODEL, CHAT_MODEL, CHAT_HEDGE_AFTER, TIMETABLE_MODEL, PROMPT_CACHE_KEEP,
     OPENAI_MAX_TOKENS,
     OPENAI_TEMPERATURE,
     OPENAI_MAX_HISTORY,
@@ -1606,6 +1606,7 @@ def _log_usage(usage):
     try:
         cached = getattr(getattr(usage, "prompt_tokens_details", None), "cached_tokens", 0) or 0
         print(f"[brain] prompt {usage.prompt_tokens} tokens, {cached} cached", flush=True)
+        health.note_tokens(usage.prompt_tokens, cached, getattr(usage, "completion_tokens", 0))
     except Exception:
         errlog.once("brain")
 
@@ -1814,7 +1815,10 @@ def _ask_openai(text, image_b64=None, detail="low", on_head=None, on_sentence=No
                        max_tokens=OPENAI_MAX_TOKENS,
                        temperature=OPENAI_TEMPERATURE,
                        response_format=_RESPONSE_FORMAT,
-                       prompt_cache_key="luna-chat"))   # same cache machine every turn
+                       prompt_cache_key="luna-chat",    # same cache machine every turn
+                       # the 13k-token rules stay cached between conversations, not
+                       # for minutes: 50 of 200 calls came in cold (13 Nov)
+                       prompt_cache_retention=PROMPT_CACHE_KEEP))
         if on_head is None:
             response = _client.chat.completions.create(**request)
             _log_usage(getattr(response, "usage", None))

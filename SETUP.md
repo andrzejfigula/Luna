@@ -28,7 +28,7 @@ sudo usermod -aG pipewire $USER
 # 2. project + venv (must see the apt packages → --system-site-packages)
 git clone <this repo> ~/luna && cd ~/luna
 python3 -m venv --system-site-packages venv
-./venv/bin/pip install -r requirements.txt
+./venv/bin/pip install -r requirements.lock   # the versions she runs on; requirements.txt = the newest
 
 # 3. Vosk model (local wake-word spotting + endpointing, ~90 MB)
 curl -LO https://alphacephei.com/vosk/models/vosk-model-small-pl-0.22.zip
@@ -83,6 +83,33 @@ files of a day back into `data/` (`photos-people.json` goes to
 `photos/people.json`, `messages-index.json` to `data/messages/index.json`),
 `./restart.sh --now`.
 
+Those copies sit on the same SD card as the data. `bash tools/pull_backup.sh`
+(on the PC; `tools/ship.sh` runs it once a day) packs `data/` and `photos/`
+into `~/luna-backup/luna-YYYY-MM-DD.tgz` (`LUNA_BACKUP_DIR` to move it), keeps
+the last 7 and tells the Pi it has one. With no copy off the Pi for 2 days,
+`[backup] last copy off the Pi…` goes to the log once a day and shows in
+`tools/log_report.py`.
+
+### Rebuilding her from nothing (a dead SD card)
+
+Everything she is: this repository, `.env`, and the newest
+`~/luna-backup/luna-*.tgz` on the PC.
+
+1. A fresh Raspberry Pi OS (the versions that worked are at the top of
+   `requirements.lock`), then *Install* above — steps 1–3, the face models,
+   and `bash install_autostart.sh` (labwc starts `run.sh` at login).
+2. Code: `bash tools/deploy.sh` from the PC. `.env`: copied by hand (the
+   OpenAI key; it is never in git, in a backup or on the screen).
+3. Data: `scp ~/luna-backup/luna-<day>.tgz raspberry@raspberrypi.local:` and on
+   the Pi `tar -xzf luna-<day>.tgz -C ~/luna`.
+4. By hand again: the Bluetooth speaker and the phone (pairing lives in
+   BlueZ, not in `data/`), `sudo usermod -aG pipewire raspberry`, a reboot.
+5. `bash tools/check_pi.sh full` from the PC, then `./restart.sh --now`.
+
+After an apt upgrade (`tools/sysupgrade.sh`) or a `pip install`:
+`bash tools/lock.sh` on the PC rewrites `requirements.lock`; `--check` only
+says what differs.
+
 ## Run
 
 ```bash
@@ -104,6 +131,11 @@ From the development PC, `tools/deploy.sh` copies every tracked file that
 differs from the Pi (by content; never `data/` or `.env`); `--dry-run` only
 lists them, `--restart` then runs `restart.sh`. Copying files by hand once
 left one of them two days behind.
+
+Every deploy first packs the files it is about to replace into
+`~/luna-rollback/code/<time>.tgz` on the Pi (the last 5 are kept). A bad ship:
+`bash tools/rollback.sh` lists them, `bash tools/rollback.sh last` puts the
+newest back and restarts her.
 
 On the Pi:
 
@@ -135,7 +167,7 @@ Silent, ~20 model calls; answers vary, so a single failure deserves a rerun.
 After a day of real use: `python3 tools/log_report.py` on the Pi — counts of
 the signals worth a look (answers, side talk she ignored, stranger greetings,
 wave-backs, memory changes, TTS errors, xruns and clock nudges) and every
-exchange (what was asked → what she said). Most fixes came from reading this. The audio
+exchange (what was asked → what she said). Most fixes came from reading this. It opens with *what went wrong*: freezes, threads that died, parts that did not start, data files set aside, token use far above a usual day. The audio
 hour by hour (xruns added each hour) should stay flat however long she runs:
 before fix #240 it jumped to tens of thousands an hour after ~8 h.
 

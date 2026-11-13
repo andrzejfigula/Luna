@@ -75,6 +75,7 @@ upgrade)
     echo "upgrade: apt full-upgrade — it asks before it starts"
     apt-get -o Dpkg::Options::=--force-confold full-upgrade || { echo "upgrade: apt failed; rollback: sudo bash tools/sysupgrade.sh rollback"; exit 1; }
     echo "upgrade: done. Now: sudo reboot      (way back: sudo bash tools/sysupgrade.sh rollback)"
+    echo "upgrade: then on the PC: bash tools/lock.sh   (requirements.lock = what she runs on now)"
     ;;
 rollback)
     need_root

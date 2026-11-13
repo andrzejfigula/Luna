@@ -91,7 +91,10 @@ def _zl(v):
 
 
 def _calls(counts):
-    return " · ".join(f"{k} {v}" for k, v in sorted(counts.items()) if k != "ping") or "brak"
+    import health
+    calls = [f"{k} {v}" for k, v in sorted(counts.items())
+             if k != "ping" and not k.startswith("tok_")]
+    return " · ".join(calls + [t for t in [health._tokens_text(counts)] if t]) or "brak"
 
 
 def cost_rows(today=None):

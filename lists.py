@@ -9,6 +9,7 @@ puts one on her screen (screens.py). Kept in data/lists.json.
 """
 
 import json
+import errlog
 import store
 import os
 import re
@@ -60,11 +61,7 @@ def _owners_path():
 def owners():
     """{list name: who started it} — "co mam dzisiaj zrobić?" from Emilka is not
     about the to-do list Andrzej dictated (6 Oct). The shopping list is shared."""
-    try:
-        with open(_owners_path(), encoding="utf-8") as f:
-            return dict(json.load(f))
-    except (OSError, ValueError):
-        return {}
+    return dict(store.load(_owners_path(), {}, "lists"))
 
 
 def _set_owner(lst, who):
@@ -74,12 +71,9 @@ def _set_owner(lst, who):
     else:
         own.pop(lst, None)
     try:
-        tmp = _owners_path() + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(own, f, ensure_ascii=False)
-        os.replace(tmp, _owners_path())
+        store.save(_owners_path(), own)
     except OSError:
-        pass
+        errlog.once("lists")
 
 
 def _speaker():

@@ -38,6 +38,8 @@ case "$check" in
 esac
 step "copying"
 timeout 300 bash tools/deploy.sh
+# once a day, her data comes to this PC (the Pi's own backup is on the same card)
+timeout 300 bash tools/pull_backup.sh --if-stale || echo "ship: the off-Pi backup failed (tools/pull_backup.sh)"
 if [ "$force_restart" = 0 ] && "${SSH[@]}" 'pid=$(pgrep -f "^\./venv/bin/python -u main.py" | head -1)
         [ -n "$pid" ] && [ -f /tmp/luna_deployed_at ] &&
         [ "$(stat -c %Y /tmp/luna_deployed_at)" -lt "$(( $(date +%s) - $(ps -o etimes= -p "$pid") ))" ]'; then

@@ -21,3 +21,4 @@ Ideas nobody has agreed to yet are in `docs/ideas.md`, sifted with `tools/ideas.
 
 | # | Item | Why | Status |
 |---|------|-----|--------|
+| 896 | **Face freezes: the GPU, not her code** — all three watchdog restarts (24 Oct ×2, 8 Nov) had the render thread inside a GL draw call (gl_chars.soft, gl_face._quad, gl_face._rows in render_lamp), every other thread idle; nothing to fix in Python, the watchdog restart is the remedy. Open: do they follow a pattern (uptime, a scene) once log_report counts them | read from the stack dumps, 13 Nov | ⏳ |

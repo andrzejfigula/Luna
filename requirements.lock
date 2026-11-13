@@ -1,0 +1,41 @@
+# requirements.lock — what the Pi runs (tools/lock.sh writes this; do not edit).
+# Debian GNU/Linux 13 (trixie), kernel 6.18.60+rpt-rpi-v8, Python 3.13.5
+# apt (the venv sees them: --system-site-packages):
+#   ffmpeg=8:7.1.5-0+deb13u1+rpt2
+#   labwc=0.20.2-1~bpo13+1
+#   libportaudio2=19.6.0-1.2+b3
+#   pipewire=1.4.2-1+rpt4
+#   python3-numpy=1:2.2.4+ds-1
+#   python3-opencv=4.10.0+dfsg-5
+#   python3-pygame=2.6.1-1+b2
+#   wireplumber=0.5.8-2
+# pip, in the venv:
+absl-py==2.5.0
+annotated-types==0.8.0
+anyio==4.15.1
+cffi==2.1.1
+contourpy==1.4.0
+cycler==0.12.1
+flatbuffers==25.12.19
+fonttools==4.65.0
+h11==0.16.0
+httpcore2==2.13.0
+httpx2==2.13.0
+idna==3.20
+jiter==0.17.0
+kiwisolver==1.5.1
+matplotlib==3.11.2
+openai==3.48.0
+opencv-contrib-python==5.0.0.93
+pycparser==3.0
+pydantic==2.13.5
+pydantic_core==2.46.5
+pyparsing==3.3.2
+sniffio==1.3.1
+sounddevice==0.5.6
+srt==3.5.3
+truststore==0.10.4
+typing-inspection==0.4.4
+typing_extensions==4.16.0
+vosk==0.3.45
+websockets==17.1

@@ -14,6 +14,7 @@ import functools
 import inspect
 import re
 import threading
+import time
 
 import errlog
 import store
@@ -129,6 +130,11 @@ def _path():
     return os.path.join(config.DATA_DIR, "rules.json")
 
 
+SAVE_EVERY = 300           # s: the counts were written on every command (an SD write each)
+_dirty = [False]
+_saved = [0.0]
+
+
 def note(name, line=0):
     """One sentence went to this rule: a log line, and one more in its count."""
     global _counts
@@ -137,7 +143,32 @@ def note(name, line=0):
         with _lock:
             if _counts is None:
                 _counts = store.load(_path(), {}, "cmdlog")
+                _saved[0] = time.monotonic()
             _counts[name] = int(_counts.get(name, 0)) + 1
-            store.save(_path(), _counts, indent=1, sync=False)
+            _dirty[0] = True
+        if time.monotonic() - _saved[0] >= SAVE_EVERY:
+            flush()
     except Exception:
         errlog.once("cmdlog")
+
+
+def flush():
+    """Write the counts if they changed (every few minutes, and at shutdown)."""
+    try:
+        with _lock:
+            if _counts is None or not _dirty[0]:
+                return
+            store.save(_path(), _counts, indent=1, sync=False)
+            _dirty[0] = False
+            _saved[0] = time.monotonic()
+    except Exception:
+        errlog.once("cmdlog")
+
+
+def rules_of(source):
+    """[(first line, last line, name)] of handle's rules in commands.py's text
+    (tools/rules.py: no need to import commands and all it pulls in)."""
+    for node in ast.parse(source).body:
+        if isinstance(node, ast.FunctionDef) and node.name == "handle":
+            return _name_rules(node)
+    return []

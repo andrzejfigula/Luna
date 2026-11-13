@@ -17,6 +17,7 @@ health.py — is Luna's cloud reachable, and how is she doing?
 """
 
 import os
+import errlog
 import store
 import re
 import shutil
@@ -74,12 +75,51 @@ def _usage_path():
 
 
 def _read_usage():
-    import json
-    try:
-        with open(_usage_path(), encoding="utf-8") as f:
-            return json.load(f)
-    except (OSError, ValueError):
-        return {}
+    return store.load(_usage_path(), {}, "health")
+
+
+TOKENS_WARN_PER_DAY = 1_500_000    # uncached prompt tokens; an ordinary day is a third of it
+_tokens_warned = [""]              # the day the warning was logged
+
+
+def note_tokens(prompt, cached=0, out=0, today=None):
+    """brain reports every chat answer's tokens: the day's line gets them
+    (calls alone hid a 14k-token prompt), and a day far above the usual —
+    a loop asking the model again and again — is said loudly, once."""
+    from datetime import date
+    today = today or date.today().isoformat()
+    with _lock:
+        for k, v in (("tok_in", prompt), ("tok_cached", cached), ("tok_out", out)):
+            _day[k] = _day.get(k, 0) + int(v or 0)
+        fresh = _day.get("tok_in", 0) - _day.get("tok_cached", 0)
+    if _tokens_warned[0] == today:
+        return
+    saved = _read_usage().get(today, {})
+    fresh += saved.get("tok_in", 0) - saved.get("tok_cached", 0)
+    if fresh > TOKENS_WARN_PER_DAY:
+        _tokens_warned[0] = today
+        print(f"[health] TOKENS: {fresh:,} uncached prompt tokens today, over "
+              f"{TOKENS_WARN_PER_DAY:,} — is something asking the model in a loop? "
+              "(usage: 'pokaż ustawienia', data/usage.json)", flush=True)
+
+
+def calls(counts=None):
+    """How many API calls are in these counts (default: not flushed yet) —
+    the tok_* keys beside them are tokens, not calls."""
+    with _lock:
+        counts = dict(_day) if counts is None else counts
+    return sum(v for k, v in counts.items() if not k.startswith("tok_"))
+
+
+def _tokens_text(line):
+    """"tokeny 1,2 mln (61% z pamięci), odpowiedzi 12 tys." or ""."""
+    n = line.get("tok_in", 0)
+    if not n:
+        return ""
+    def short(v):
+        return (f"{v / 1e6:.1f} mln".replace(".", ",") if v >= 1e6 else f"{round(v / 1000)} tys.")
+    return (f"tokeny {short(n)} ({round(100 * line.get('tok_cached', 0) / n)}% z pamięci), "
+            f"odpowiedzi {short(line.get('tok_out', 0))}")
 
 
 def flush_usage(today=None):
@@ -117,7 +157,8 @@ def day_counts(day, usage=None):
 def usage_line(day):
     """"chat 120, stt 300, tts 95" for that day (ISO date)."""
     line = day_counts(day)
-    return ", ".join(f"{k} {v}" for k, v in sorted(line.items()) if k != "ping") or "brak"
+    calls = [f"{k} {v}" for k, v in sorted(line.items()) if k != "ping" and not k.startswith("tok_")]
+    return ", ".join(calls + [t for t in [_tokens_text(line)] if t]) or "brak"
 
 
 def note_reply(ok, secs=0.0):
@@ -526,6 +567,8 @@ def _loop():
             if time.time() - last_log >= HEALTH_LOG_SECS:
                 last_log = time.time()
                 _log()
+                if errlog.threads_line():
+                    print(f"[health] THREADS {errlog.threads_line()}", flush=True)
                 flush_usage()
                 _rotate_log()
         except Exception as e:

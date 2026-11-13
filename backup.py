@@ -25,6 +25,7 @@ from config import DATA_DIR, PHOTOS_DIR
 BACKUP_DAYS = 7
 BACKUP_WEEKS = 8           # …and the first copy of each of the last weeks: a list
                            # emptied unnoticed is still there after the seven days
+OFFSITE_MAX_DAYS = 2       # a copy off the Pi older than this: one line a day in the log
 MAX_BYTES = 5 * 1024 * 1024
 DIR = os.path.join(DATA_DIR, "backups")
 
@@ -92,6 +93,25 @@ def backup_now():
     return dest
 
 
+def offsite_days(now=None):
+    """Days since tools/pull_backup.sh last copied her data off the Pi (it
+    leaves data/.offsite); None: never."""
+    try:
+        return max(0.0, ((now or time.time()) - os.path.getmtime(os.path.join(DATA_DIR, ".offsite"))) / 86400)
+    except OSError:
+        return None
+
+
+def offsite_warning(now=None):
+    """A line for the log when the only copies are on this SD card."""
+    age = offsite_days(now)
+    if age is not None and age <= OFFSITE_MAX_DAYS:
+        return ""
+    since = "never" if age is None else f"{age:.0f} days ago"
+    return (f"[backup] last copy off the Pi: {since} — everything is on one SD card; "
+            "run tools/pull_backup.sh on the PC")
+
+
 def _pictures():
     """The quizzes' flag and animal pictures, fetched once (quiz.py)."""
     try:
@@ -109,7 +129,8 @@ def _loop():
     t.start()
     while True:
         try:
-            backup_now()
+            if backup_now() and offsite_warning():        # once a day, with the new copy
+                print(offsite_warning(), flush=True)
         except Exception as e:
             print(f"[backup] failed: {e}", flush=True)
         time.sleep(3 * 3600)

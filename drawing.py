@@ -203,11 +203,7 @@ _TITLES = "titles.json"         # drawing file → what it shows (its caption)
 
 
 def _titles():
-    try:
-        with open(os.path.join(DIR, _TITLES), encoding="utf-8") as f:
-            return json.load(f)
-    except (OSError, ValueError):
-        return {}
+    return store.load(os.path.join(DIR, _TITLES), {}, "drawing")
 
 
 def _keep_title(path, what):
