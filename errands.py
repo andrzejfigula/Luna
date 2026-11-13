@@ -17,7 +17,7 @@ is said when she sees Emilka after six; "codziennie o 20:30 przypominaj Mai,
 eight. "Usuń przypomnienia dla Mai" / "nie przypominaj już Mai" clears them.
 """
 
-import json
+import store
 import os
 import re
 import threading
@@ -189,18 +189,11 @@ def _due(e, now=None):
 
 
 def _load():
-    try:
-        with open(PATH, encoding="utf-8") as f:
-            return json.load(f)
-    except (OSError, ValueError):
-        return []
+    return store.load(PATH, [], "errands")
 
 
 def _save(items):
-    tmp = PATH + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(items, f, ensure_ascii=False, indent=1)
-    os.replace(tmp, PATH)
+    store.save(PATH, items, indent=1)
 
 
 def take(text):

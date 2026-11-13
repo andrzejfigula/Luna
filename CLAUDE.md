@@ -130,6 +130,11 @@ Features: `radio.py`, `timers.py`, `lists.py`, `weather.py`, `clock.py`,
 `twenty.py`/`twenty_kb.py`, `tictac.py`, `memo.py`, `games.py`, `clockgame.py`,
 `riddles.py`, `fun.py`, `hangman.py` (wisielec). Her: `memory.py`, `mood.py`, `relationship.py`,
 `greetings.py`, `idle_engine.py`, `behavior_engine.py`, `body.py`.
+Data files: `store.py` (every JSON read/write: atomic, a broken file is set aside
+and the backup comes back — never `json.load` + `open(…, "w")` by hand). `errlog.py`
+(`once` in an except that passes, `guard` around a start), `modes.py` (who waits for
+the next sentence), `cmdlog.py` (`[cmd] rule:` — which rule of `commands.handle`
+took a sentence; counts in `data/rules.json`).
 Robustness: `watchdog.py`, `health.py`, `hedge.py`, `prio.py`, `holds.py`,
 `backup.py`, `timing.py` (latency), `weekly.py`.
 

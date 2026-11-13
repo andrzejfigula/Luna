@@ -37,6 +37,9 @@ Copy the shape of `quiz.py`: `active()`, `stop()`, `trigger(text)`,
 - It must handle repeat, hint, stop (quiz: `_REPEAT_Q`, `_HINT_Q`, `_STOP`) and a
   request for something else: `answer` returns False and the sentence goes on down
   the chain. Never end on a sentence it doesn't parse.
+- `modes.py`: a line in `AWAITING` (the window stays open over the radio while it
+  waits); in `TAKERS` only if it takes the very next sentence before any command.
+- Its file: `store.load(PATH, {}, "x")` / `store.save(PATH, data)`, never `json` by hand.
 - `grep -n 'quiz.active()' *.py`: other code that must know a mode is on
   (`commands.py` ~1420: "Pokaż" isn't the page again while one is running).
 - Tests: a unit test with a fake `speak`, cases in `tests/dialog_pi.py`, and the

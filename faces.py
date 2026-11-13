@@ -26,6 +26,7 @@ are local.
 """
 
 import json
+import store
 import os
 import re
 import threading
@@ -142,21 +143,22 @@ def _load():
     global _people
     m = _file_mtime()
     if _people is None or m != _mtime[0]:
-        try:
-            with open(PEOPLE_PATH, encoding="utf-8") as f:
-                _people = json.load(f)
-        except (OSError, ValueError):
-            if _people is None:
-                _people = {}
+        if _people is None:        # (unreadable: kept aside, the backup's back)
+            _people = store.load(PEOPLE_PATH, {}, "faces")
+        else:                      # a hand edit half saved: the copy in hand stays
+            try:
+                with open(PEOPLE_PATH, encoding="utf-8") as f:
+                    new = json.load(f)
+                if isinstance(new, dict):
+                    _people = new
+            except (OSError, ValueError):
+                pass
         _mtime[0] = m
     return _people
 
 
 def _save():
-    tmp = PEOPLE_PATH + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(_people, f, ensure_ascii=False)
-    os.replace(tmp, PEOPLE_PATH)
+    store.save(PEOPLE_PATH, _people)
     _mtime[0] = _file_mtime()
 
 
@@ -203,10 +205,7 @@ def saw(names_now, now=None, sims=None):
         _seen_saved = now
         data = dict(_seen)
     try:
-        tmp = SEEN_PATH + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(data, f)
-        os.replace(tmp, SEEN_PATH)
+        store.save(SEEN_PATH, data, sync=False)
     except OSError:
         pass
 
@@ -646,18 +645,11 @@ def match_name(word, known=None):
 
 
 def _read_bin():
-    try:
-        with open(FORGOTTEN_PATH, encoding="utf-8") as f:
-            return json.load(f)
-    except (OSError, ValueError):
-        return {}
+    return store.load(FORGOTTEN_PATH, {}, "faces")
 
 
 def _write_bin(b):
-    tmp = FORGOTTEN_PATH + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(b, f, ensure_ascii=False)
-    os.replace(tmp, FORGOTTEN_PATH)
+    store.save(FORGOTTEN_PATH, b)
 
 
 def forget(name):

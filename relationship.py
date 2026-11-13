@@ -20,7 +20,7 @@ an insult. Never cruel, vulgar or threatening, timers and safety always
 work, and with a child she stays gentle. Kept in data/relations.json.
 """
 
-import json
+import store
 import os
 import threading
 import time
@@ -42,19 +42,12 @@ _data = None
 def _load():
     global _data
     if _data is None:
-        try:
-            with open(PATH, encoding="utf-8") as f:
-                _data = json.load(f)
-        except (OSError, ValueError):
-            _data = {}
+        _data = store.load(PATH, {}, "relationship")
     return _data
 
 
 def _save():
-    tmp = PATH + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(_data, f, ensure_ascii=False, indent=1)
-    os.replace(tmp, PATH)
+    store.save(PATH, _data, indent=1)
 
 
 def who():

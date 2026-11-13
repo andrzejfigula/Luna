@@ -14,7 +14,7 @@ and colours her replies a little — livelier after a nice day, a bit lonely
 instead of making something up.
 """
 
-import json
+import store
 import os
 import threading
 import time
@@ -35,11 +35,7 @@ def _today():
 def _load():
     global _day
     if _day is None:
-        try:
-            with open(PATH, encoding="utf-8") as f:
-                _day = json.load(f)
-        except (OSError, ValueError):
-            _day = {}
+        _day = store.load(PATH, {}, "mood")
     if _day.get("date") != _today():
         if _day.get("date") and _day.get("talks"):
             _to_diary(_day)                   # yesterday goes into her diary
@@ -49,21 +45,14 @@ def _load():
 
 
 def _diary():
-    try:
-        with open(DIARY, encoding="utf-8") as f:
-            return json.load(f)
-    except (OSError, ValueError):
-        return []
+    return store.load(DIARY, [], "mood")
 
 
 def _to_diary(day):
     entries = [e for e in _diary() if e.get("date") != day["date"]]
     entries.append({k: day.get(k) for k in ("date", "talks", "kind", "rude", "games")})
     entries = sorted(entries, key=lambda e: e["date"])[-DIARY_DAYS:]
-    tmp = DIARY + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(entries, f, ensure_ascii=False)
-    os.replace(tmp, DIARY)
+    store.save(DIARY, entries)
 
 
 def _games(games):
@@ -103,10 +92,7 @@ def _past_line():
 
 
 def _save():
-    tmp = PATH + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(_day, f, ensure_ascii=False)
-    os.replace(tmp, PATH)
+    store.save(PATH, _day, sync=False)       # (after every answer: no card sync)
 
 
 def note(who, tone):

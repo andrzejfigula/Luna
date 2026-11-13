@@ -17,6 +17,7 @@ health.py — is Luna's cloud reachable, and how is she doing?
 """
 
 import os
+import store
 import re
 import shutil
 import socket
@@ -83,7 +84,6 @@ def _read_usage():
 
 def flush_usage(today=None):
     """Add the calls counted since the last flush to today's line."""
-    import json
     from datetime import date
     today = today or date.today().isoformat()
     with _lock:
@@ -97,10 +97,7 @@ def flush_usage(today=None):
         line[k] = line.get(k, 0) + v
     usage = dict(sorted(usage.items())[-62:])     # (the settings page: this month)
     try:
-        tmp = _usage_path() + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(usage, f, indent=1)
-        os.replace(tmp, _usage_path())
+        store.save(_usage_path(), usage, indent=1, sync=False)
     except OSError as e:
         print(f"[health] usage not saved ({e})", flush=True)
 

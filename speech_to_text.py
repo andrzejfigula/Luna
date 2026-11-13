@@ -21,6 +21,7 @@ Improvements over the old version:
   • Respects state.mic_unblock_time — never listens while Luna speaks.
 """
 
+import errlog
 import io
 import os
 import re
@@ -143,7 +144,7 @@ def _auto_input_device():
         if default_in is not None and default_in >= 0:
             candidates.append(default_in)
     except Exception:
-        pass
+        errlog.once("stt")
 
     try:
         all_devs = sd.query_devices()
@@ -202,7 +203,19 @@ _blocked = [False]
 _requeued = []          # a block a restarted listen gave back to the next one
 
 
+_last_block = [0.0]     # when the open stream last handed over audio
+MIC_SILENT_SECS = 10    # open but silent this long (a USB hiccup): it is opened again
+
+
+def _stalled(now=None):
+    """The stream is "open" yet nothing has come from it: she would wait on an
+    empty queue for good, the face alive and the watchdog content."""
+    return bool(_mic_ok and _last_block[0]
+                and (now or time.time()) - _last_block[0] > MIC_SILENT_SECS)
+
+
 def _callback(indata, frames, time_info, status):
+    _last_block[0] = time.time()
     data = bytes(indata)
     # while she speaks (and a moment after: the echo) the listener gets nothing
     # — it used to collect it and throw it away later, along with the first
@@ -236,7 +249,7 @@ def _pw_record(node):
             import ctypes
             ctypes.CDLL("libc.so.6").prctl(1, 9)        # PR_SET_PDEATHSIG, SIGKILL
         except Exception:
-            pass
+            errlog.once("stt")
     try:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                                 preexec_fn=die_with_luna)
@@ -265,7 +278,7 @@ def _pw_record(node):
         try:
             proc.kill()
         except Exception:
-            pass
+            errlog.once("stt")
         _mic_ok = False
         with state.lock:
             state.mic_ok = False
@@ -278,15 +291,15 @@ _specs_open = [None]       # devices.mic_specs() the open stream was picked by
 _mic_name = [None]         # the device it opened (settings page: "teraz: …")
 
 
-def _close_for_new_mic():
+def _close_for_new_mic(why=None):
     global _stream, _mic_ok
-    print(f"[STT] microphone changed to {devices.mic_specs() or 'auto'} — reopening",
-          flush=True)
+    why = why or f"microphone changed to {devices.mic_specs() or 'auto'}"
+    print(f"[STT] {why} — reopening", flush=True)
     try:
         _stream.stop()
         _stream.close()
     except Exception:
-        pass
+        errlog.once("stt")
     _stream, _mic_ok = None, False
     with state.lock:
         state.mic_ok = False
@@ -298,7 +311,7 @@ def _refresh_devices():
         sd._terminate()
         sd._initialize()
     except Exception:
-        pass
+        errlog.once("stt")
 
 
 def _stream_keeper():
@@ -314,6 +327,8 @@ def _stream_keeper():
             time.sleep(1.0)
             if devices.mic_specs() != _specs_open[0]:      # picked on the settings page
                 _close_for_new_mic()
+            elif _stalled():
+                _close_for_new_mic(f"no audio from the microphone for {MIC_SILENT_SECS} s")
             continue
 
         _refresh_devices()                                 # a mic plugged in since start
@@ -339,6 +354,7 @@ def _stream_keeper():
             _mic_name[0] = sd.query_devices(device)["name"] if device is not None else None
             _stream       = stream
             _mic_rate     = rate
+            _last_block[0] = time.time()
             _mic_ok       = True
             _help_printed = False
             with state.lock:
@@ -766,7 +782,7 @@ def fast_command(text, conf):
         if messages.armed() or voicefx.armed() or messages_armed():
             return None                            # its audio / words are what counts
     except Exception:
-        pass
+        errlog.once("stt")
     return t
 
 
@@ -788,7 +804,7 @@ def english_side_talk(text):
         if brain.translator():
             return False                       # interpreting: English is expected
     except Exception:
-        pass
+        errlog.once("stt")
     return sum(w in _EN_WORDS for w in words) >= max(2, len(words) // 4)
 
 
@@ -1212,7 +1228,7 @@ def _name_like(word):
         if w in {n.lower() for n in faces.names()}:
             return True
     except Exception:
-        pass
+        errlog.once("stt")
     return max(difflib.SequenceMatcher(None, w, k).ratio() for k in themes.name_words()) >= 0.5
 
 
@@ -1424,7 +1440,7 @@ def _started_in_window(t):
         if radio.playing():
             return t <= ended + CONVO_GRACE_RADIO
     except Exception:
-        pass
+        errlog.once("stt")
     return t <= ended + CONVO_GRACE
 
 

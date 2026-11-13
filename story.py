@@ -26,6 +26,7 @@ unfinished story isn't kept.
 
 import base64
 import json
+import store
 import os
 import random
 import re
@@ -621,9 +622,7 @@ def _save(s):
     out["created"] = time.time()
     out["parts"] = s["parts"]
     path = os.path.join(s["dir"], "story.json")
-    with open(path + ".tmp", "w", encoding="utf-8") as f:
-        json.dump(out, f, ensure_ascii=False, indent=1)
-    os.replace(path + ".tmp", path)
+    store.save(path, out, indent=1)
     for old in saved()[KEEP:]:
         shutil.rmtree(os.path.join(DIR, old["id"]), ignore_errors=True)
     print(f"[story] saved: {s['title']} ({s['id']})", flush=True)

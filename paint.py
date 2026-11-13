@@ -28,6 +28,7 @@ ui_screens.draw_paint from view(). The sheet lives at data/paint/current.png
 import base64
 import io
 import json
+import store
 import math
 import os
 import re
@@ -1035,8 +1036,7 @@ def _count(bump=False):
     if bump:
         try:
             os.makedirs(DIR, exist_ok=True)
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump({today: n + 1}, f)
+            store.save(path, {today: n + 1}, sync=False)
         except OSError:
             pass
     return n

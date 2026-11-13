@@ -17,6 +17,7 @@ part of a reply (reply_scenes.py, chosen by the model in brain.py).
 """
 
 import os
+import store
 import random
 import re
 import threading
@@ -55,9 +56,7 @@ def _load_seated(now=None):
 
 def _save_seated(since, seen):
     try:
-        import json
-        with open(_SEATED_FILE, "w") as f:
-            json.dump({"since": since, "seen": seen}, f)
+        store.save(_SEATED_FILE, {"since": since, "seen": seen}, sync=False)
     except Exception:
         pass
 
@@ -315,12 +314,9 @@ def load_greeted():
 
 
 def save_greeted(days):
-    import json
     try:
-        tmp = _greeted_path() + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump({("?" if k is None else k): v for k, v in days.items()}, f)
-        os.replace(tmp, _greeted_path())
+        store.save(_greeted_path(), {("?" if k is None else k): v for k, v in days.items()},
+                   sync=False)
     except OSError as e:
         print(f"[idle] could not save greetings ({e})", flush=True)
 

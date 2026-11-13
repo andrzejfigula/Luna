@@ -19,7 +19,7 @@ with the time, the transcript and whether it was heard.
 """
 
 import re
-import json
+import store as _store
 import os
 import threading
 import time
@@ -39,19 +39,12 @@ _waiting = [False, 0.0, None, None]   # recording armed, when, for whom, from wh
 
 
 def _load():
-    try:
-        with open(INDEX, encoding="utf-8") as f:
-            return json.load(f)
-    except (OSError, ValueError):
-        return []
+    return _store.load(INDEX, [], "messages")
 
 
 def _save(items):
     os.makedirs(DIR, exist_ok=True)
-    tmp = INDEX + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(items, f, ensure_ascii=False, indent=1)
-    os.replace(tmp, INDEX)
+    _store.save(INDEX, items, indent=1)
     with state.lock:                      # the envelope on her screen
         state.messages_waiting = sum(1 for m in items if not m.get("heard"))
 

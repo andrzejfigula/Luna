@@ -9,6 +9,7 @@ puts one on her screen (screens.py). Kept in data/lists.json.
 """
 
 import json
+import store
 import os
 import re
 import threading
@@ -32,11 +33,7 @@ def _undo_path():
 
 def _load():
     global _lists, _undo
-    try:
-        with open(LISTS_PATH, encoding="utf-8") as f:
-            _lists = {k: list(v) for k, v in json.load(f).items()}
-    except (OSError, ValueError):
-        _lists = {}
+    _lists = {k: list(v) for k, v in store.load(LISTS_PATH, {}, "lists").items()}
     try:
         with open(_undo_path(), encoding="utf-8") as f:
             t, name, items = json.load(f)
@@ -46,15 +43,10 @@ def _load():
 
 
 def _save():
-    tmp = LISTS_PATH + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(_lists, f, ensure_ascii=False, indent=1)
-    os.replace(tmp, LISTS_PATH)
+    store.save(LISTS_PATH, _lists, indent=1)
     try:                                     # what "przywróć listę" would bring back
         if _undo:
-            with open(_undo_path() + ".tmp", "w", encoding="utf-8") as f:
-                json.dump(list(_undo), f, ensure_ascii=False)
-            os.replace(_undo_path() + ".tmp", _undo_path())
+            store.save(_undo_path(), list(_undo))
         elif os.path.exists(_undo_path()):
             os.remove(_undo_path())
     except OSError:

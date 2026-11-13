@@ -14,6 +14,7 @@ at start the ones still in the future are put back.
 """
 
 import json
+import store
 import os
 import threading
 import time
@@ -60,10 +61,7 @@ def save_if_changed():
     _last.clear()
     _last.update(vals)
     try:
-        tmp = PATH + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(vals, f)
-        os.replace(tmp, PATH)
+        store.save(PATH, vals, sync=False)
     except OSError:
         return False
     return True

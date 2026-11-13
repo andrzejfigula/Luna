@@ -7,6 +7,7 @@ volume across restarts.
 """
 
 import json
+import store
 import os
 import threading
 
@@ -31,12 +32,16 @@ def _load():
     m = _file_mtime()
     if _data is not None and m == _mtime[0]:
         return
-    try:
-        with open(SETTINGS_PATH, encoding="utf-8") as f:
-            _data = json.load(f)
-    except (OSError, ValueError):
-        if _data is None:
-            _data = {}
+    if _data is None:
+        _data = store.load(SETTINGS_PATH, {}, "settings")
+    else:                              # a hand edit half saved: the copy in hand stays
+        try:
+            with open(SETTINGS_PATH, encoding="utf-8") as f:
+                new = json.load(f)
+            if isinstance(new, dict):
+                _data = new
+        except (OSError, ValueError):
+            pass
     _mtime[0] = m
 
 
@@ -50,8 +55,5 @@ def put(key, value):
     with _lock:
         _load()
         _data[key] = value
-        tmp = SETTINGS_PATH + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(_data, f, ensure_ascii=False, indent=1)
-        os.replace(tmp, SETTINGS_PATH)
+        store.save(SETTINGS_PATH, _data, indent=1)
         _mtime[0] = _file_mtime()

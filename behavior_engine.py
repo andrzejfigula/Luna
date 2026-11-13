@@ -13,6 +13,7 @@ A cooldown stops one long wave from triggering several greetings.
 """
 
 import threading
+import store
 import time
 
 from shared_state import state
@@ -41,9 +42,7 @@ def _load_wave():
 
 def _save_wave():
     try:
-        import json
-        with open(_WAVE_FILE, "w") as f:
-            json.dump({"said": _last_wave_said, "back": _last_wave_back}, f)
+        store.save(_WAVE_FILE, {"said": _last_wave_said, "back": _last_wave_back}, sync=False)
     except Exception:
         pass
 

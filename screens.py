@@ -19,7 +19,7 @@ on the screen closes it. Photos stay on the Pi (photos/, newest PHOTOS_KEEP
 kept) and are never sent anywhere.
 """
 
-import json
+import store
 import os
 import re
 
@@ -178,11 +178,7 @@ _TAGS = os.path.join(PHOTOS_DIR, "people.json")
 
 
 def _tags():
-    try:
-        with open(_TAGS, encoding="utf-8") as f:
-            return json.load(f)
-    except (OSError, ValueError):
-        return {}
+    return store.load(_TAGS, {}, "screens")
 
 
 def _tag(path):
@@ -198,8 +194,7 @@ def _tag(path):
     tags[os.path.basename(path)] = names
     keep = set(os.listdir(PHOTOS_DIR))
     tags = {f: n for f, n in tags.items() if f in keep}
-    with open(_TAGS, "w", encoding="utf-8") as f:
-        json.dump(tags, f, ensure_ascii=False)
+    store.save(_TAGS, tags)
     if names:
         print(f"[screens] in the photo: {', '.join(names)}", flush=True)
     return names

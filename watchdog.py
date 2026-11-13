@@ -59,7 +59,24 @@ def _die(why):
         sys.stdout.flush()
     except Exception:
         pass
+    _save_counts()
     os._exit(1)                       # lwrespawn brings her back
+
+
+def _save_counts(wait=2.0):
+    """Today's API count and the week's numbers, as a normal shutdown keeps
+    them — in a thread: what froze her may hold a lock they need."""
+    def run():
+        try:
+            import health
+            import weekly
+            health.flush_usage()
+            weekly.save()
+        except Exception as e:
+            print(f"[watchdog] counts not saved: {e}", flush=True)
+    t = threading.Thread(target=run, daemon=True, name="watchdog-save")
+    t.start()
+    t.join(wait)
 
 
 def _loop():

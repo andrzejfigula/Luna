@@ -23,6 +23,7 @@ speaks the music drops to RADIO_DUCK of its volume — you can always say
 """
 
 import json
+import store
 import re
 import subprocess
 import threading
@@ -880,8 +881,7 @@ def note_song(title, station):
     hist.append({"t": title, "st": station or "", "at": time.time()})
     del hist[:-SONGS_KEEP]
     try:
-        with open(_songs_path(), "w", encoding="utf-8", newline="\n") as f:
-            json.dump(hist, f, ensure_ascii=False)
+        store.save(_songs_path(), hist, sync=False)
     except OSError as e:
         print(f"[radio] songs not saved: {e}", flush=True)
 

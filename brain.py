@@ -14,8 +14,10 @@ Flow per utterance:
 All settings pulled from config.py.
 """
 
+import errlog
 import base64
 import json
+import store
 import queue
 import random
 import re
@@ -314,7 +316,7 @@ def _morning_line():
         if cooking.active() or quiz.active() or kids.routine_active():
             return ""
     except Exception:
-        pass
+        errlog.once("brain")
     with state.lock:
         who = state.person[0] if state.person else None
     try:
@@ -758,7 +760,7 @@ def _cooking_line():
         try:
             out += __import__(mod).prompt_line()
         except Exception:
-            pass
+            errlog.once("brain")
     return out
 
 
@@ -879,7 +881,7 @@ def _feminize(text, heard=""):
         text = fix_vocative(text, vocs)            # "Maja, …" → "Maju, …"
         text = drop_wrong_name(text, heard, vocs)
     except Exception:
-        pass
+        errlog.once("brain")
     # "przekażę Maji" — Maja's genitive/dative is "Mai" (13 Oct 22:33; the
     # transcriber writes "Maji" too, and the model copies it)
     text = re.sub(r"\bMaji\b", "Mai", text)
@@ -1413,13 +1415,9 @@ def _history_path():
 def save_history():
     """The recent turns (text only) — so a restart in the middle of a
     conversation doesn't make "a ja?" meaningless."""
-    import os
     try:
-        tmp = _history_path() + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump([h for h in _history if isinstance(h.get("content"), str)], f,
-                      ensure_ascii=False)
-        os.replace(tmp, _history_path())
+        store.save(_history_path(),
+                   [h for h in _history if isinstance(h.get("content"), str)], sync=False)
     except OSError as e:
         print(f"[brain] history not saved ({e})", flush=True)
 
@@ -1609,7 +1607,7 @@ def _log_usage(usage):
         cached = getattr(getattr(usage, "prompt_tokens_details", None), "cached_tokens", 0) or 0
         print(f"[brain] prompt {usage.prompt_tokens} tokens, {cached} cached", flush=True)
     except Exception:
-        pass
+        errlog.once("brain")
 
 
 def model_params(request):
@@ -1637,7 +1635,7 @@ def model_for(text):
         if calc.arithmetic(text or "") and (commands._child_here() or commands._child_in_view()):
             return CRAFT_MODEL
     except Exception:
-        pass
+        errlog.once("brain")
     return CHAT_MODEL
 
 
@@ -2640,7 +2638,7 @@ def run_command(label, reply=""):
                 print(f"[brain] {label!r} while cooking — not restarted", flush=True)
                 return False
         except Exception:
-            pass
+            errlog.once("brain")
     import commands
     if _VOICED_OK.match(label):
         _spoken_command(label, "")

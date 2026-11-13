@@ -21,9 +21,8 @@ later. Timers ring even in quiet hours or after "Luna, cicho" — you asked for
 them.
 """
 
-import json
+import store
 import re
-import os
 import threading
 import time
 from datetime import datetime, timedelta
@@ -46,21 +45,12 @@ _timers = []        # [{"due": epoch, "label": str, "kind": "timer"|"reminder", 
 
 def _load():
     global _timers
-    try:
-        with open(TIMERS_PATH, encoding="utf-8") as f:
-            _timers = [t for t in json.load(f) if "due" in t]
-    except FileNotFoundError:
-        _timers = []
-    except (OSError, ValueError) as e:
-        print(f"[timers] could not read {TIMERS_PATH} ({e})")
-        _timers = []
+    _timers = [t for t in store.load(TIMERS_PATH, [], "timers")
+               if isinstance(t, dict) and "due" in t]
 
 
 def _save():
-    tmp = TIMERS_PATH + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(_timers, f, ensure_ascii=False, indent=1)
-    os.replace(tmp, TIMERS_PATH)
+    store.save(TIMERS_PATH, _timers, indent=1)
 
 
 # ── what the model asks for ──────────────────────────────────────────────────

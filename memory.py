@@ -27,6 +27,7 @@ wipes it (FORGET_PHRASES); LUNA_MEMORY=0 in .env switches memory off.
 """
 
 import json
+import store
 import re
 import os
 import threading
@@ -106,19 +107,15 @@ def _today():
 # ── the file ──────────────────────────────────────────────────────────────────
 
 def _load():
-    try:
-        with open(MEMORY_PATH, encoding="utf-8") as f:
-            mem = json.load(f)
-        return {"facts": list(mem.get("facts", [])),
-                "episodes": list(mem.get("episodes", [])),
-                "threads": list(mem.get("threads", [])),
-                "_wiped_at": mem.get("_wiped_at", 0),
-                "_tidied": mem.get("_tidied", "")}
-    except FileNotFoundError:
+    # (a file that doesn't read is kept aside, the backup's comes back: store.py)
+    mem = store.load(MEMORY_PATH, {}, "memory")
+    if not mem:
         return _empty()
-    except (OSError, ValueError) as e:
-        print(f"[memory] could not read {MEMORY_PATH} ({e}) — starting empty")
-        return _empty()
+    return {"facts": list(mem.get("facts", [])),
+            "episodes": list(mem.get("episodes", [])),
+            "threads": list(mem.get("threads", [])),
+            "_wiped_at": mem.get("_wiped_at", 0),
+            "_tidied": mem.get("_tidied", "")}
 
 
 def _empty(wiped_at=0):
@@ -127,10 +124,7 @@ def _empty(wiped_at=0):
 
 def _save(mem):
     # write-then-rename: a power cut mid-write must not eat the whole memory
-    tmp = MEMORY_PATH + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(mem, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, MEMORY_PATH)
+    store.save(MEMORY_PATH, mem, indent=2)
 
 
 # ── what the brain sees ───────────────────────────────────────────────────────

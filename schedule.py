@@ -20,6 +20,7 @@ its prompt (prompt_line), so "Co Maja ma w środę?" is answered from it.
 """
 
 import json
+import store
 import os
 import re
 import threading
@@ -109,21 +110,14 @@ def _load():
     except OSError:
         return {"events": [], "done": {}}
     if _mem["mtime"] != mtime:
-        try:
-            with open(PATH, encoding="utf-8") as f:
-                d = json.load(f)
-            _mem.update(mtime=mtime, data={"events": d.get("events") or [],
-                                           "done": d.get("done") or {}})
-        except (OSError, ValueError):
-            return {"events": [], "done": {}}
+        d = store.load(PATH, {}, "schedule")   # (unreadable: kept aside, the backup's back)
+        _mem.update(mtime=mtime, data={"events": d.get("events") or [],
+                                       "done": d.get("done") or {}})
     return json.loads(json.dumps(_mem["data"]))
 
 
 def _save(d):
-    tmp = PATH + ".tmp"
-    with open(tmp, "w", encoding="utf-8", newline="\n") as f:
-        json.dump(d, f, ensure_ascii=False, indent=1)
-    os.replace(tmp, PATH)
+    store.save(PATH, d, indent=1)
     _mem.update(mtime=None, data=None)
 
 
@@ -206,9 +200,7 @@ def _keep(gone, said):
     """What a clear or removal took, for "przywróć plan" (a file: a restart
     must not lose it). said: "plan lekcji Mai", "do planu: parada (Maja)"."""
     try:
-        with open(_undo_path() + ".tmp", "w", encoding="utf-8", newline="\n") as f:
-            json.dump({"t": time.time(), "said": said, "events": gone}, f, ensure_ascii=False)
-        os.replace(_undo_path() + ".tmp", _undo_path())
+        store.save(_undo_path(), {"t": time.time(), "said": said, "events": gone})
     except OSError as e:
         print(f"[schedule] undo not kept: {e}", flush=True)
 

@@ -1,8 +1,11 @@
 """The parts of Luna that are pure logic — no Pi, no network, no audio."""
 
+import contextlib
 import datetime
+import io
 import json
 import queue
+import re
 import threading
 import os
 import sys
@@ -6729,7 +6732,268 @@ class BackupTest(unittest.TestCase):
             shutil.rmtree(dest)                                  # pretend it is a new day
             shutil.rmtree(os.path.join(d, "backups", "2026-01-09"))
             backup.backup_now()
-            self.assertEqual(len(os.listdir(os.path.join(d, "backups"))), backup.BACKUP_DAYS)
+            left = sorted(os.listdir(os.path.join(d, "backups")))
+            # the last 7 days, and 2026-01-01: the first copy of its week
+            self.assertEqual(len(left), backup.BACKUP_DAYS + 1)
+            self.assertIn("2026-01-01", left)
+            self.assertNotIn("2026-01-02", left)
+
+    def test_every_data_file_is_copied(self):
+        import backup
+        d = tempfile.mkdtemp()
+        photos = os.path.join(d, "photos")
+        os.makedirs(os.path.join(d, "messages"))
+        os.makedirs(photos)
+        for name in ("calendar.json", "schedule.json", "lists_owners.json", "notes.txt",
+                     os.path.join("messages", "index.json")):
+            with open(os.path.join(d, name), "w") as f:
+                f.write("{}")
+        with open(os.path.join(photos, "people.json"), "w") as f:
+            f.write("{}")
+        with open(os.path.join(d, "huge.json"), "w") as f:
+            f.write(" " * (backup.MAX_BYTES + 1))
+        with open(os.path.join(d, "memory.json.corrupt-20260101-000000"), "w") as f:
+            f.write("x")
+        with mock.patch.object(backup, "DATA_DIR", d), \
+                mock.patch.object(backup, "DIR", os.path.join(d, "backups")), \
+                mock.patch.object(backup, "PHOTOS_DIR", photos):
+            got = set(os.listdir(backup.backup_now()))
+        for name in ("calendar.json", "schedule.json", "lists_owners.json", "notes.txt"):
+            self.assertIn(name, got)
+        self.assertEqual(len(got), 6, got)                # + the messages' index, the photo tags
+        self.assertNotIn("huge.json", got)
+
+    def test_which_days_stay(self):
+        import backup
+        days = ["2026-%02d-%02d" % (m, d) for m in (8, 9, 10) for d in range(1, 29)]
+        kept = backup._kept(days + ["notes"])
+        self.assertIn("notes", kept)                      # not ours to remove
+        for day in days[-backup.BACKUP_DAYS:]:
+            self.assertIn(day, kept)
+        self.assertLessEqual(len(kept), 1 + backup.BACKUP_DAYS + backup.BACKUP_WEEKS)
+        self.assertGreater(len(kept), 1 + backup.BACKUP_DAYS + 3)
+        self.assertNotIn("2026-08-01", kept)              # older than the eight weeks
+
+
+class StoreTest(unittest.TestCase):
+    """A data file that can't be read is never taken for an empty one."""
+
+    def setUp(self):
+        import config
+        import store
+        self.store = store
+        self.d = tempfile.mkdtemp()
+        self.p = mock.patch.object(config, "DATA_DIR", self.d)
+        self.p.start()
+        self.addCleanup(self.p.stop)
+        self.addCleanup(store._blocked.clear)
+        self.path = os.path.join(self.d, "lists.json")
+
+    def test_save_and_load(self):
+        self.store.save(self.path, {"zakupy": ["mleko", "żurek"]}, indent=2)
+        self.assertEqual(self.store.load(self.path, {}), {"zakupy": ["mleko", "żurek"]})
+        self.assertEqual(os.listdir(self.d), ["lists.json"])          # no .tmp left
+        self.assertIn("żurek", open(self.path, encoding="utf-8").read())
+        self.assertEqual(self.store.load(os.path.join(self.d, "none.json"), []), [])
+
+    def test_a_broken_file_is_kept_and_the_backup_comes_back(self):
+        for day, what in (("2026-11-11", '{"zakupy": ["stare"]}'), ("2026-11-12", '{"zakupy": ["mleko"]}'),
+                          ("2026-11-13", "{broken")):
+            os.makedirs(os.path.join(self.d, "backups", day))
+            with open(os.path.join(self.d, "backups", day, "lists.json"), "w") as f:
+                f.write(what)
+        with open(self.path, "w") as f:
+            f.write('{"zakupy": ["mle')                               # the power went
+        with mock.patch("time.sleep"):
+            got = self.store.load(self.path, {})
+        self.assertEqual(got, {"zakupy": ["mleko"]})                  # the newest readable copy
+        kept = [n for n in os.listdir(self.d) if ".corrupt-" in n]
+        self.assertEqual(len(kept), 1)
+        self.assertEqual(open(os.path.join(self.d, kept[0])).read(), '{"zakupy": ["mle')
+        self.assertEqual(self.store.load(self.path, {}), {"zakupy": ["mleko"]})
+
+    def test_a_broken_file_with_no_backup(self):
+        with open(self.path, "w") as f:
+            f.write("[1, 2, 3]")                                      # a list where a dict lives
+        with mock.patch("time.sleep"):
+            self.assertEqual(self.store.load(self.path, {}), {})
+        self.assertEqual(len([n for n in os.listdir(self.d) if ".corrupt-" in n]), 1)
+        self.store.save(self.path, {"a": 1})                          # moved aside: free to write
+        self.assertEqual(self.store.load(self.path, {}), {"a": 1})
+
+    def test_what_cannot_be_set_aside_is_not_overwritten(self):
+        with open(self.path, "w") as f:
+            f.write("{broken")
+        real = os.replace
+        with mock.patch("time.sleep"), \
+                mock.patch("os.replace", side_effect=OSError("read-only")):
+            self.assertEqual(self.store.load(self.path, {}), {})
+        os.replace = real
+        with self.assertRaises(OSError):
+            self.store.save(self.path, {"new": 1})
+        self.assertEqual(open(self.path).read(), "{broken")           # still there to mend
+
+    def test_a_failed_save_leaves_the_old_file(self):
+        self.store.save(self.path, {"a": 1})
+        with self.assertRaises(TypeError):
+            self.store.save(self.path, {"a": object()})
+        self.assertEqual(self.store.load(self.path, {}), {"a": 1})
+        self.assertEqual(os.listdir(self.d), ["lists.json"])
+
+
+class ErrlogTest(unittest.TestCase):
+
+    def test_once(self):
+        import errlog
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            for _ in range(3):
+                try:
+                    raise KeyError("brak")
+                except Exception:
+                    errlog.once("test")
+        self.assertEqual(out.getvalue().count("passed over"), 1)
+        self.assertIn("[test] passed over: KeyError", out.getvalue())
+        self.assertIn(3, errlog.counts().values())
+        errlog.once("test")                                # outside an except: nothing
+
+    def test_guard(self):
+        import errlog
+        self.assertEqual(errlog.guard("sum", lambda a, b: a + b, 2, 3), 5)
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            self.assertIsNone(errlog.guard("the radio", lambda: 1 / 0))
+        self.assertIn("the radio did not start", out.getvalue())
+        self.assertIn("ZeroDivisionError", err.getvalue())
+
+
+class ModesTest(unittest.TestCase):
+
+    def test_one_failing_mode_does_not_hide_the_rest(self):
+        import modes
+        import types
+        bad = types.SimpleNamespace(active=lambda: 1 / 0)
+        good = types.SimpleNamespace(active=lambda: True)
+        quiet = types.SimpleNamespace(active=lambda: False)
+        with mock.patch.dict(sys.modules, {"m_bad": bad, "m_good": good, "m_quiet": quiet}), \
+                contextlib.redirect_stdout(io.StringIO()):
+            with mock.patch.object(modes, "AWAITING", (("m_bad", "active"), ("m_good", "active"))):
+                self.assertTrue(modes.answer_awaited())
+            with mock.patch.object(modes, "AWAITING", (("m_bad", "active"), ("m_quiet", "active"))):
+                self.assertFalse(modes.answer_awaited())
+
+    def test_the_first_taker_takes(self):
+        import modes
+        seen = []
+        takers = (("a", lambda t, s: seen.append("a")), ("b", lambda t, s: seen.append("b") or True),
+                  ("c", lambda t, s: seen.append("c") or True))
+        with mock.patch.object(modes, "TAKERS", takers):
+            self.assertEqual(modes.take("x", None), "b")
+        self.assertEqual(seen, ["a", "b"])
+        with mock.patch.object(modes, "TAKERS", ()):
+            self.assertIsNone(modes.take("x", None))
+
+
+def _sample_rules(text, speak, _deep=False):
+    low = text.lower()
+    if _FIRST_RE.search(low):
+        speak("first")
+        return True
+    said = second_rule(low)
+    if said:
+        return True
+    if low == "both" and not _deep:
+        return _sample_rules("first", speak, _deep=True)
+    pick = lambda: True                                    # noqa: E731
+    return False if pick() else None
+
+
+_FIRST_RE = re.compile("first")
+
+
+def second_rule(low):
+    return low == "second"
+
+
+class CmdlogTest(unittest.TestCase):
+
+    def test_the_rule_that_took_it(self):
+        import cmdlog
+        rules, on = list(cmdlog._rules), cmdlog.ON[0]
+        self.addCleanup(lambda: (cmdlog._rules.__setitem__(slice(None), rules),
+                                 cmdlog.ON.__setitem__(0, on)))
+        fn = cmdlog.instrument(_sample_rules)
+        self.assertIsNot(fn, _sample_rules)
+        self.assertEqual([r[2] for r in cmdlog._rules][:2], ["first_re", "second_rule"])
+        took = []
+        cmdlog.ON[0] = True
+        with mock.patch.object(cmdlog, "note", lambda name, line=0: took.append(name)), \
+                mock.patch.object(sys.modules[__name__], "_sample_rules", fn):
+            said = []
+            self.assertTrue(fn("First!", said.append))
+            self.assertTrue(fn("second", said.append))
+            self.assertFalse(fn("nothing", said.append))               # not taken: no line
+            self.assertTrue(fn("both", said.append))                   # the inner call counts once
+            cmdlog.ON[0] = False
+            self.assertTrue(fn("first", said.append))
+        self.assertEqual(took, ["first_re", "second_rule", "first_re"])
+        self.assertEqual(said, ["first", "first", "first"])
+
+    def test_what_cannot_be_rebuilt_stays_as_it_was(self):
+        import cmdlog
+        rules = list(cmdlog._rules)
+        self.addCleanup(lambda: cmdlog._rules.__setitem__(slice(None), rules))
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertIs(cmdlog.instrument(len), len)
+
+    def test_handle_is_the_same_handle(self):
+        import cmdlog
+        import commands
+        self.assertEqual(commands.handle.__name__, "handle")
+        self.assertTrue(hasattr(commands.handle, "__wrapped__"))
+        names = [r[2] for r in cmdlog._rules]
+        self.assertGreater(len(names), 100)
+        self.assertLess(sum(n.startswith("line ") for n in names), 15)
+
+    def test_counts(self):
+        import cmdlog
+        d = tempfile.mkdtemp()
+        with mock.patch.object(cmdlog, "_path", lambda: os.path.join(d, "rules.json")), \
+                mock.patch.object(cmdlog, "_counts", None), \
+                contextlib.redirect_stdout(io.StringIO()) as out:
+            cmdlog.note("moon.answer", 12)
+            cmdlog.note("moon.answer", 12)
+            cmdlog.note("sleep_self", 40)
+        self.assertEqual(json.load(open(os.path.join(d, "rules.json"))),
+                         {"moon.answer": 2, "sleep_self": 1})
+        self.assertIn("[cmd] rule: moon.answer (commands.py:12)", out.getvalue())
+
+
+class FailurePathsTest(unittest.TestCase):
+
+    def test_a_mic_that_went_silent(self):
+        import speech_to_text as stt
+        with mock.patch.object(stt, "_mic_ok", True), mock.patch.object(stt, "_last_block", [1000.0]):
+            self.assertFalse(stt._stalled(1000.0 + stt.MIC_SILENT_SECS - 1))
+            self.assertTrue(stt._stalled(1000.0 + stt.MIC_SILENT_SECS + 1))
+        with mock.patch.object(stt, "_mic_ok", False), mock.patch.object(stt, "_last_block", [1000.0]):
+            self.assertFalse(stt._stalled(9999.0))             # no stream: the keeper opens one
+        with mock.patch.object(stt, "_mic_ok", True), mock.patch.object(stt, "_last_block", [0.0]):
+            self.assertFalse(stt._stalled(9999.0))             # not started yet
+
+    def test_the_watchdog_saves_the_counts_and_never_waits_long(self):
+        import health
+        import watchdog
+        import weekly
+        with mock.patch.object(health, "flush_usage") as flush, mock.patch.object(weekly, "save") as save:
+            watchdog._save_counts()
+        flush.assert_called_once()
+        save.assert_called_once()
+        with mock.patch.object(health, "flush_usage", lambda: time.sleep(5)), \
+                mock.patch.object(weekly, "save"):
+            t = time.time()
+            watchdog._save_counts(wait=0.2)                     # a save that hangs
+            self.assertLess(time.time() - t, 2)
 
 
 class MoodTest(unittest.TestCase):

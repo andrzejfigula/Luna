@@ -20,7 +20,7 @@ is downloaded only when someone asks for it, because that counts as reading it.
 Nothing runs until a phone is paired.
 """
 
-import json
+import store
 import os
 import queue
 import re
@@ -89,11 +89,7 @@ def config():
     global _cfg
     with _lock:
         if _cfg is False:
-            try:
-                with open(FILE, encoding="utf-8") as f:
-                    _cfg = json.load(f)
-            except (OSError, ValueError):
-                _cfg = None
+            _cfg = store.load(FILE, {}, "phone") or None
         return _cfg
 
 
@@ -108,10 +104,7 @@ def _save_config(cfg):
                 pass
             return
         os.makedirs(os.path.dirname(FILE), exist_ok=True)
-        tmp = FILE + ".tmp"
-        with open(tmp, "w", encoding="utf-8", newline="\n") as f:
-            json.dump(cfg, f, ensure_ascii=False, indent=1)
-        os.replace(tmp, FILE)
+        store.save(FILE, cfg, indent=1)
 
 
 def _denied():

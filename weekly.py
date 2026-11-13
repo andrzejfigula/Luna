@@ -15,6 +15,7 @@ module needs to call in. Kept per day in data/weekly.json, two weeks back.
 """
 
 import json
+import store
 import os
 import re
 import sys
@@ -121,10 +122,7 @@ def save():
         for k in [k for k in _days if k < keep]:
             del _days[k]
         try:
-            tmp = PATH + ".tmp"
-            with open(tmp, "w", encoding="utf-8") as f:
-                json.dump(_days, f, ensure_ascii=False, indent=1)
-            os.replace(tmp, PATH)
+            store.save(PATH, _days, indent=1, sync=False)
             _dirty[0] = False
         except OSError:
             pass

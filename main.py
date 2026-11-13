@@ -15,75 +15,79 @@ if PI_MODEL:
     print(f"[Luna] Running on Raspberry Pi {PI_MODEL} "
           f"(started {time.strftime('%H:%M:%S')})", flush=True)
 
+from errlog import guard             # a part that can't start is logged and left out:
+                                     # one of them failing used to end the whole start
 from camera_thread import start_camera
-start_camera()
+guard("camera", start_camera)
 time.sleep(0.5)
 
 from vision_module import start_vision
-start_vision()
+guard("vision", start_vision)
 import mouth
-mouth.start()
+guard("mouth", mouth.start)
 time.sleep(1.0)
 
 from gesture_module import start_gesture
-start_gesture()
+guard("gestures", start_gesture)
 
 from behavior_engine import start_behavior
-start_behavior()
+guard("behavior", start_behavior)
 
 from touch_module import start_touch
-start_touch()
+guard("touch", start_touch)
 
 from idle_engine import start_idle, check_mute
-start_idle()
+guard("idle", start_idle)
 
 from memory import start_memory, check_forget
-start_memory()
+guard("memory", start_memory)
 
 import brain as _brain               # a conversation cut by a restart goes on
-if _brain.load_history():
+if guard("history", _brain.load_history):
     print(f"[brain] {len(_brain._history)} recent turns back from before the restart",
           flush=True)
 
 from sounds import start_sounds
-start_sounds()
+guard("sounds", start_sounds)
 
 import commands
-commands.start_commands()
+guard("commands", commands.start_commands)
 
 import messages
-messages.refresh()
+guard("messages", messages.refresh)
 
 import phone
-phone.start()
+guard("phone", phone.start)
 
 from display import start_display
-start_display()
+guard("display", start_display)
 
 from timers import start_timers
-start_timers()
+guard("timers", start_timers)
 
 from weather import start_weather
-start_weather()
+guard("weather", start_weather)
 
 from health import start_health
-start_health()
+guard("health", start_health)
 
 from holds import start_holds          # "bądź cicho do 15", camera off… survive a restart
-start_holds()
+guard("holds", start_holds)
 
 from watchdog import start_watchdog    # a freeze ends in a restart, with the stacks logged
-start_watchdog()
+guard("watchdog", start_watchdog)
 
 from backup import start_backup        # a copy a day of what she has learned
-start_backup()
+guard("backup", start_backup)
 
 import weekly                          # her week in numbers ("podsumowanie tygodnia")
-weekly.start_weekly()
+guard("weekly", weekly.start_weekly)
 
 import random
 
 import activation
+import errlog
+import modes
 from speech_to_text import listen, WAKE_ACK
 from text_to_speech import speak, play_sound
 from brain import process, note_local
@@ -136,20 +140,7 @@ def _stt_flag(name):
     return getattr(speech_to_text, name, False)
 
 
-def _answer_awaited():
-    """A game waits for an answer, a page is open (gallery.py) or she has
-    just asked something (brain.awaits_answer): with the
-    radio on the window stays open — the radio is ducked while she listens.
-    (14 Oct: "zgadywanki" with jazz on — "dziesięć" needed "Luna".)"""
-    try:
-        import brain, gallery, quiz, twenty, tictac, memo, story, voicefx, hangman
-        # (voicefx, messages: the sentence she just asked for, or it needed "Luna")
-        return (quiz.active() or twenty.active() or tictac.active() or memo.active()
-                or hangman.active()
-                or gallery.page_open() or story.active() or brain.awaits_answer()
-                or voicefx.armed() or messages.armed() or phone.active())
-    except Exception:
-        return False
+_answer_awaited = modes.answer_awaited     # a game, a page, her own question (modes.py)
 
 
 def voice_loop():
@@ -192,35 +183,8 @@ def voice_loop():
                         state.bare_wake = False
                     _stamp_activity()
                     weekly.heard(text)              # (the week's report)
-                    if messages.armed() and messages.cancelled(text):
-                        speak("Dobrze, nie nagrywam.")
-                        continue
-                    if messages.armed():
-                        # "nagraj wiadomość" — this sentence IS the message
-                        import speech_to_text
-                        messages.store(speech_to_text.last_utterance_pcm, text)
-                        speak("Zapisałam wiadomość.")
-                        continue
-                    if phone.active() and phone.answer(text, speak):
-                        continue                    # (an SMS being written, a pairing code)
-                    import reading
-                    if reading.armed():
-                        # "posłuchaj, jak czytam": collected, answered at the end
-                        if (r := reading.add(text)) == "end":
-                            commands.reading_done(*reading.take())
-                        elif r == "stop":
-                            speak("Dobrze, przestaję słuchać.")
-                        continue
-                    import voicefx
-                    if voicefx.cancelled(text):
-                        speak("Dobrze, nie odtwarzam.")
-                        continue
-                    if voicefx.armed():
-                        # "zmień mój głos" — this sentence comes back changed
-                        import speech_to_text
-                        from text_to_speech import play_clip
-                        voicefx.play(speech_to_text.last_utterance_pcm, speak, play_clip)
-                        continue
+                    if modes.take(text, speak):
+                        continue        # a message, an SMS, a child reading, "zmień mój głos"
                     if check_mute(text):
                         close_after()   # "Luna, cicho" — handled, nothing to ask
                     elif forget_reply := check_forget(text):
@@ -315,14 +279,14 @@ def voice_loop():
                 try:
                     speak("Ups, coś mi się pomieszało. Spróbuj jeszcze raz.")
                 except Exception:
-                    pass
+                    errlog.once("Luna")
             time.sleep(1.0)
         time.sleep(0.05)
 
 
 threading.Thread(target=voice_loop, daemon=True).start()
 import radio as _radio_bg                    # noqa: E402
-_radio_bg.start_background()                 # (the stations' nightly health check)
+guard("radio check", _radio_bg.start_background)   # (the stations' nightly health check)
 
 
 def _shutdown(*args):
@@ -341,19 +305,19 @@ def _shutdown(*args):
         health.flush_usage()   # today's API count survives a restart
         weekly.save()          # …and the week's numbers
     except Exception:
-        pass
+        errlog.once("Luna")
     try:                       # the radio's ffmpeg / pw-play must not outlive her
         import radio
         import ambience
         radio.stop()
         ambience.stop()
     except Exception:
-        pass
+        errlog.once("Luna")
     try:
         import pygame
         pygame.quit()
     except Exception:
-        pass
+        errlog.once("Luna")
     # hard exit: the daemon camera/mic threads hold native handles (OpenCV,
     # PortAudio) that don't like being torn down by interpreter shutdown
     os._exit(0)
@@ -371,7 +335,7 @@ def _dump_threads(*_):
             cpu = (int(st[11]) + int(st[12])) / tick
             rows.append((cpu, t.native_id, int(st[16]), t.name))
         except Exception:
-            pass
+            errlog.once("Luna")
     try:
         import vision_module as v
         s = v.stats

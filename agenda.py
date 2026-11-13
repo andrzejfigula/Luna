@@ -16,6 +16,7 @@ taps and tests need no pygame. idle_engine calls tick() every few seconds.
 
 import calendar
 import json
+import store
 import os
 import re
 import threading
@@ -77,21 +78,14 @@ def _load():
     except OSError:
         return {"events": [], "trash": []}
     if _mem["mtime"] != mtime:
-        try:
-            with open(PATH, encoding="utf-8") as f:
-                d = json.load(f)
-            _mem.update(mtime=mtime, data={"events": d.get("events") or [],
-                                           "trash": d.get("trash") or []})
-        except (OSError, ValueError):
-            return {"events": [], "trash": []}
+        d = store.load(PATH, {}, "agenda")     # (unreadable: kept aside, the backup's back)
+        _mem.update(mtime=mtime, data={"events": d.get("events") or [],
+                                       "trash": d.get("trash") or []})
     return json.loads(json.dumps(_mem["data"]))
 
 
 def _save(d):
-    tmp = PATH + ".tmp"
-    with open(tmp, "w", encoding="utf-8", newline="\n") as f:
-        json.dump(d, f, ensure_ascii=False, indent=1)
-    os.replace(tmp, PATH)
+    store.save(PATH, d, indent=1)
     _mem.update(mtime=None, data=None)
 
 

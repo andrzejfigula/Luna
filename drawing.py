@@ -16,6 +16,7 @@ jeszcze!" can't run up a bill. Kept in DATA_DIR/drawings (the newest KEEP).
 
 import base64
 import json
+import store
 import os
 import random
 import re
@@ -180,8 +181,7 @@ def _count_today():
 
 def _bump(path, today, n):
     try:
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump({today: n + 1}, f)
+        store.save(path, {today: n + 1}, sync=False)
     except OSError:
         pass
 
@@ -214,8 +214,7 @@ def _keep_title(path, what):
     t = {k: v for k, v in _titles().items() if os.path.exists(os.path.join(DIR, k))}
     t[os.path.basename(path)] = what
     try:
-        with open(os.path.join(DIR, _TITLES), "w", encoding="utf-8") as f:
-            json.dump(t, f, ensure_ascii=False)
+        store.save(os.path.join(DIR, _TITLES), t)
     except OSError:
         pass
 

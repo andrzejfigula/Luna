@@ -44,7 +44,9 @@ utterances only — so a normal sentence that happens to contain "ciszej" still
 goes to the model.
 """
 
+import cmdlog
 import json
+import store
 import os
 import random
 import re
@@ -699,10 +701,7 @@ def last_story(max_days=14):
 
 def _save_story(text):
     try:
-        tmp = _story_path() + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump({"t": time.time(), "text": text}, f, ensure_ascii=False)
-        os.replace(tmp, _story_path())
+        store.save(_story_path(), {"t": time.time(), "text": text})
     except OSError as e:
         print(f"[cmd] story not saved ({e})", flush=True)
 
@@ -2800,5 +2799,9 @@ def handle(text, speak, play_sound, _polite=True, _split=True):
     return False
 
 
+handle = cmdlog.instrument(handle)     # the log names the rule that took a sentence
+
+
 def start_commands():
+    cmdlog.ON[0] = True
     threading.Thread(target=_morning_watch, daemon=True, name="commands").start()
