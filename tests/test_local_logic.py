@@ -13927,6 +13927,148 @@ def phone_link_error():
     return phone_link.LinkError("Timed out")
 
 
+class OnFaceTest(unittest.TestCase):
+    """The weather on her (onface.py): snow piles on her eyes and leaves
+    them at a blink or a jolt, rain's beads run, are wiped, drip, dry."""
+
+    @staticmethod
+    def _u(snow=0.0, rain=0.0, shut=0.0, ox=0.0, melt=0.0):
+        u = {"uEnvOn": 1.0, "uEnvW": (0.5, 0.0, rain, snow), "uEnvX": (0.0, 0.1, 0.0, 300.0),
+             "uEnvGlass": (0.0, 0.0, 0.0, melt), "uTilt": 0.0, "uMorph": (0.0, 0.0, 0.0, 0.0)}
+        for i, x in enumerate((290.0, 510.0)):
+            u["uEye%d" % i] = (x + ox, 200.0, 120.0, 150.0 * (1 - 0.3 * shut))
+            u["uLidA%d" % i] = (shut * 0.62, 0.0, 0.0, shut * 0.38)
+            u["uLidB%d" % i] = (0.0, 0.0, 0.0, 4.0)
+        return u
+
+    def _run(self, o, secs, a=None, b=None, **kw):
+        """`secs` at 60 fps; a → b: a keyword eased from its value in a to b's."""
+        n = max(1, int(round(secs * 60)))
+        d = None
+        for k in range(n):
+            self.t += 1.0 / 60
+            if a:
+                f = (k + 1) / n
+                kw.update({key: a[key] + (b[key] - a[key]) * f for key in a})
+            d = o.frame(self.t, self._u(**kw), 800, 480)
+        return d
+
+    def _new(self, seed=1):
+        import onface
+        self.t = 100.0
+        return onface.OnFace(seed=seed)
+
+    def test_dry_sky_costs_nothing(self):
+        o = self._new()
+        self.assertIsNone(self._run(o, 1.0))
+        self.assertFalse(o.busy())
+        u = self._u(snow=1.0)
+        u["uEnvOn"] = 0.0                       # (another theme, a drawn character)
+        self.assertIsNone(o.frame(101.0, u, 800, 480))
+
+    def test_snow_piles_up_and_stays_within_bounds(self):
+        import onface
+        o = self._new()
+        d = self._run(o, 90.0, snow=1.0)
+        for e in o.eyes:
+            self.assertGreater(e.snow, 60.0)
+            self.assertLessEqual(max(e.h), onface.TUNE["snow_max"] + 0.01)
+            self.assertGreater(e.h[onface.NC // 2], e.h[0])        # (heaped, the sides slide off)
+        self.assertLessEqual(d["n"], onface.NP)
+        self.assertEqual(len(d["A"]), 4 * d["n"])
+        self.assertEqual(len(d["cap"]), 4 * onface.NC)
+        self.assertEqual(sum(c for _k, _f, c in d["runs"]), d["n"])
+        self.assertTrue(all(v == v and abs(v) < 1e5 for v in d["A"] + d["B"] + d["cap"]))
+
+    def test_a_blink_shakes_the_snow_off(self):
+        o = self._new()
+        self._run(o, 60.0, snow=1.0)
+        before = sum(e.snow for e in o.eyes)
+        self._run(o, 3.0, snow=1.0)             # still: it stays
+        self.assertGreater(sum(e.snow for e in o.eyes), 0.9 * before)
+        before, clumps = sum(e.snow for e in o.eyes), len(o.clumps)
+        self._run(o, 0.08, a={"shut": 0.0}, b={"shut": 1.0}, snow=1.0)
+        self.assertLess(sum(e.snow for e in o.eyes), 0.5 * before)
+        self.assertGreater(len(o.clumps), clumps + 5)
+        self._run(o, 0.1, a={"shut": 1.0}, b={"shut": 0.0}, snow=1.0)
+        self._run(o, 2.0, snow=1.0)             # some of it lands again, some is gone
+        after = sum(e.snow for e in o.eyes)
+        self.assertGreater(after, 0.05 * before)
+        self.assertLess(after, 0.95 * before)
+
+    def test_a_quick_move_throws_it_and_a_slow_one_does_not(self):
+        o = self._new(2)
+        self._run(o, 60.0, snow=1.0)
+        before = sum(e.snow for e in o.eyes)
+        self._run(o, 2.0, a={"ox": 0.0}, b={"ox": 40.0}, snow=1.0)
+        self.assertGreater(sum(e.snow for e in o.eyes), 0.85 * before)
+        before = sum(e.snow for e in o.eyes)
+        self._run(o, 0.1, a={"ox": 40.0}, b={"ox": -40.0}, snow=1.0)
+        self.assertLess(sum(e.snow for e in o.eyes), 0.6 * before)
+
+    def test_her_small_moves_keep_the_snow(self):
+        import math
+        import random
+        o, rnd = self._new(6), random.Random(6)
+        self._run(o, 40.0, snow=1.0)
+        before = sum(e.snow for e in o.eyes)
+        for k in range(600):                      # a gaze that wanders, frames that come unevenly
+            self.t += rnd.choice((1 / 60, 1 / 60, 1 / 30, 1 / 45))
+            o.frame(self.t, self._u(snow=1.0, ox=6.0 * math.sin(k * 0.05) + rnd.choice((-1.0, 0.0, 1.0)),
+                                    shut=0.015 * rnd.random()), 800, 480)
+        self.assertGreater(sum(e.snow for e in o.eyes), 0.9 * before)
+
+    def test_snow_melts_into_water_and_all_of_it_ends(self):
+        o = self._new(3)
+        self._run(o, 40.0, snow=1.0)
+        self._run(o, 30.0, melt=1.0)
+        self.assertLess(sum(e.snow for e in o.eyes), 5.0)
+        self.assertTrue(any(e.beads for e in o.eyes))
+        self.assertIsNone(self._run(o, 240.0, melt=1.0))
+        self.assertFalse(o.busy())
+
+    def test_rain_beads_run_drip_and_are_wiped(self):
+        import onface
+        o = self._new(4)
+        seen = {"pend": 0, "drops": 0, "tracks": 0}
+        for _ in range(40):
+            d = self._run(o, 0.5, rain=1.0)
+            seen["pend"] += sum(b[onface._PEND] for e in o.eyes for b in e.beads)
+            seen["drops"] += len(o.drops)
+            seen["tracks"] += len(o.tracks)
+            for e in o.eyes:
+                self.assertLessEqual(len(e.beads), onface.TUNE["beads"])
+                for b in e.beads:
+                    self.assertLess(abs(b[onface._X]), e.bx)
+        self.assertTrue(all(seen.values()), seen)
+        self.assertLessEqual(d["n"], onface.NP)
+        self._run(o, 0.08, a={"shut": 0.0}, b={"shut": 1.0}, rain=1.0)
+        for e in o.eyes:                          # the lid came down: nothing left above it
+            for b in e.beads:
+                j = int((b[onface._X] + e.bx) / e.dx)
+                self.assertGreaterEqual(b[onface._Y], e.top[j])
+        self._run(o, 0.1, a={"shut": 1.0}, b={"shut": 0.0})
+        self.assertIsNone(self._run(o, 200.0))    # the rain over: she dries
+        self.assertFalse(o.busy())
+
+    def test_a_pause_is_not_a_jolt(self):
+        o = self._new(5)
+        self._run(o, 60.0, snow=1.0)
+        before = sum(e.snow for e in o.eyes)
+        self.t += 30.0                            # (a screen over her, then back, elsewhere)
+        o.frame(self.t, self._u(snow=1.0, ox=30.0), 800, 480)
+        self.assertGreater(sum(e.snow for e in o.eyes), 0.95 * before)
+
+    def test_the_shader_takes_what_is_packed(self):
+        import gl_onface
+        import onface
+        self.assertEqual(gl_onface.NC, onface.NC)
+        for name in ("uA", "uB", "uCap", "uEyeT", "uEyeK", "uSnowC", "uWaterC"):
+            self.assertIn(name, gl_onface._VERT + gl_onface._FRAG)
+        self.assertIn("%.4f" % onface.K_WAVE, gl_onface._FRAG)
+        self.assertNotIn(chr(8), gl_onface._VERT + gl_onface._FRAG)
+
+
 class PhoneFormatsTest(unittest.TestCase):
     """What goes over Bluetooth: bMessage, vCards, which services are allowed."""
 

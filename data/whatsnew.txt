@@ -1,5 +1,6 @@
 # Co nowego (dla "Luna, co nowego potrafisz?") — najnowsze na górze, po polsku.
 # brain._whatsnew_line podaje modelowi pierwsze sekcje. Dopisuj nowe na górze.
+- Luna jest teraz naprawdę w środku pogody: gdy za oknem pada śnieg, śnieg zbiera się też na jej oczach i spada, kiedy mrugnie albo szybko się poruszy; gdy pada deszcz, krople rozpryskują się na niej, spływają po oczach, zostawiają mokre ślady i kapią. Mrugnięcie ściera je jak wycieraczka.
 - W ustawieniach, przy liczbie rozmów z danego dnia, widać teraz także, ile tekstu Luna wysłała do chmury i ile z tego chmura pamiętała z poprzednich rozmów. Kopia wszystkiego, czego Luna się nauczyła, trafia też raz dziennie na komputer taty — nie tylko na kartę w Lunie.
 - Luna lepiej pilnuje tego, co pamięta: listy, kalendarz, plan dnia i notatki zapisuje bezpieczniej, a gdyby plik się zepsuł (na przykład po wyłączeniu prądu), sama odtwarza go z kopii. Kopie trzyma teraz z siedmiu dni i z ośmiu tygodni.
 - Gdy mikrofon nagle przestaje działać, Luna sama to zauważa i włącza go od nowa.

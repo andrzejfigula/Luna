@@ -125,7 +125,9 @@ Face/screen: `robot_face.py`, `face_renderer.py`, `face_spec.py`,
 `touch_module.py`, `display.py`. GPU: `gl_fx.py` (over the face), `gl_lamp.py` with
 `lamp_scenes.py` (the lamp), `gl_vis.py` with `visualizer.py` (the radio). The sky behind Luna's own face:
 `environment.py` (time, sun, season, weather → colours; TUNE), its glow in
-`gl_face.py`'s soft pass, rain/snow/stars/arc as meshes in `gl_env.py`;
+`gl_face.py`'s soft pass, rain/snow/stars/arc as meshes in `gl_env.py`; the same weather on her eyes (snow that piles up
+and falls at a blink, beads of rain): `onface.py` (physics, TUNE), drawn by `gl_onface.py`,
+preview `tools/onface_preview.py` (offscreen on the Pi);
 `tools/env_sim.py` simulates it on the Pi, `gl_face_preview.py --env` renders it. Drawn characters: `characters.py` (data,
 CharLife), `gl_chars.py` (shaders); Mochi's ears/paws/glyphs: `mochi_rig.py`
 (preview: `tools/gl_face_preview.py --chars|--fx … mochi`, offscreen on the Pi).

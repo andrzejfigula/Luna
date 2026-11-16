@@ -27,6 +27,7 @@ import time
 import face_spec
 import environment
 import gl_env
+import onface
 import themes
 import visualizer
 
@@ -1847,6 +1848,8 @@ class GLFace:
         self.p_stretch = _Prog(GL, self._program(head + _VERT, head + "#define STRETCH\n" + _FRAG_FLAT))
         self.p_layer = _Prog(GL, self._program(head + _VERT, head + _FRAG_FLAT))
         self.envp = None                 # the world outside's rain, snow… (gl_env.py)
+        self.onface = None               # …on her: its physics (onface.py), drawn by gl_onface.py
+        self.onfp = None
         for p in (self.p_stretch, self.p_layer):
             GL.glUseProgram(p.id)
             p.u("uRes", (width, height))
@@ -2397,6 +2400,17 @@ class GLFace:
                     self._u("uRect", rect)
                 GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
             GL.glUseProgram(pl.id)
+        if uniforms.get("_onface") and self.onfp is not False:   # the weather on her eyes
+            try:
+                if self.onfp is None:
+                    import gl_onface
+                    self.onfp = gl_onface.OnFacePass(self)
+                self.onfp.draw(uniforms["_onface"], uniforms)
+            except Exception as e:
+                self.onfp = False
+                print(f"[gl] weather on her off: {e}", flush=True)
+            GL.glUseProgram(pl.id)
+            self._bind_quad()
         # 3: the pygame layers — the face's (turned) and the screen's, by
         # rows: only where something is (a full-screen pass of the face's
         # layer was ~1.5 ms of the GPU's frame with a dot on it)
@@ -2952,6 +2966,15 @@ class GLFace:
                 if not getattr(self, "_env_err", False):
                     self._env_err = True
                     print(f"[env] {e}", flush=True)
+        u["_onface"] = None
+        if u["uEnvOn"] > 0.5 and getattr(self, "onfp", None) is not False:
+            try:                                  # …and on her: rain and snow on her eyes
+                if getattr(self, "onface", None) is None:
+                    self.onface = onface.OnFace()
+                u["_onface"] = self.onface.frame(now, u, self.w, self.h)
+            except Exception as e:
+                self.onfp = False
+                print(f"[onface] {e}", flush=True)
         if kind:
             import gl_chars
             gl_chars.apply(self, face, u, cur, fcx, fcy, kind, now, dt)
