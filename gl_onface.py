@@ -24,13 +24,14 @@ uniform vec2  uCap[NC];       // a cap's columns: the eye's top edge, the snow's
 uniform vec4  uEyeT[2];       // an eye: its middle on the screen, cos / sin of its turn
 uniform vec4  uEyeK[2];       // …half its width, a column's width
 uniform float uEyeI;
-varying vec2  vUV;
+varying vec2  vUV, vQ;
 varying vec4  vP;
 
 vec2 outOf(vec4 T, vec2 q) { return T.xy + vec2(T.z * q.x - T.w * q.y, T.w * q.x + T.z * q.y); }
 
 void main() {
     vec2 pos;
+    vQ = vec2(0.0);
     if (uKind < 0.5) {
         int e = int(uEyeI + 0.5);
         vec2 c = uCap[int(aPos.x + 0.5)];
@@ -46,13 +47,14 @@ void main() {
             float half_w = B.x + B.z + 1.5;
             float y = mix(A.y, A.z, aPos.y);
             vUV = vec2(aPos.x * half_w, y);
-            vP = vec4(B.x, B.y, B.z, B.w * (0.2 + 0.8 * aPos.y));
+            vP = B;
+            vQ = vec2((1.0 - aPos.y) * (A.z - A.y), A.z - A.y);     // px behind its head, its length
             pos = outOf(uEyeT[int(A.w + 0.5)], vec2(A.x + vUV.x, y));
         } else if (uKind < 2.5) {               // water: x, y, r, alpha; stretch, the way it goes
             float r = max(A.z, 0.8);
-            vec2 d = vec2(q.x * (r + 1.5), q.y * (r * B.x + 1.5));
+            vec2 d = vec2(q.x * (1.35 * r + 1.5), q.y * (1.35 * r * B.x + 1.5));    // (room for its shadow)
             vUV = vec2(d.x / r, d.y / (r * B.x));
-            vP = vec4(r, A.w, 0.0, 0.0);
+            vP = vec4(r, A.w, B.w, B.x);
             pos = A.xy + vec2(B.z, -B.y) * d.x + B.yz * d.y;
         } else if (uKind < 3.5) {               // rain: its head, length, alpha; the way, half width
             vUV = aPos;
@@ -75,8 +77,17 @@ void main() {
 _FRAG = """
 uniform float uKind;
 uniform vec3  uSnowC, uWaterC;
-varying vec2  vUV;
+varying vec2  vUV, vQ;
 varying vec4  vP;
+
+// a drop's outline: q in its radii (y the way it goes); sagging, out of round
+float blob(vec2 q, float w, float fat) {
+    q.x *= 1.0 - 0.15 * fat * clamp(q.y, -1.3, 1.3);
+    float l = length(q);
+    vec2 n = q / max(l, 0.01);                  // (by its direction: the same far outside it)
+    return l * (1.0 + (0.6 + fat) * (0.09 * sin(w) * (n.x * n.x - n.y * n.y) + 0.11 * cos(1.7 * w) * n.x * n.y)
+                + 0.07 * fat * sin(2.3 * w) * (n.x * n.x * n.x - 3.0 * n.x * n.y * n.y));
+}
 
 void main() {
     vec4 o;
@@ -88,24 +99,54 @@ void main() {
         float a = clamp(d, 0.0, 1.0) * clamp(h * 0.8, 0.0, 1.0);
         float lit = 1.0 - 0.20 * smoothstep(1.0, 9.0, d);
         o = vec4(uSnowC * vec3(lit, 0.4 + 0.6 * lit, 0.7 + 0.3 * lit) * a, a);
-    } else if (uKind < 1.5) {                   // a track: a thin film, its edges catch the light
-        float d = abs(vUV.x - vP.x * sin(%(K).4f * vUV.y + vP.y));
-        float core = 1.0 - smoothstep(vP.z - 1.0, vP.z, d);
-        float edge = core * smoothstep(vP.z - 2.2, vP.z - 0.6, d);
-        o = vec4(uWaterC * (0.40 * edge + 0.06 * core) * vP.w, vP.w * (0.16 * core + 0.20 * edge));
-    } else if (uKind < 2.5) {                   // water: a dark rim, a glint, light gathered below
-        float d = length(vUV);
-        float a = (1.0 - smoothstep(1.0 - 1.5 / vP.x, 1.0, d)) * vP.y;
-        float rim = smoothstep(0.45, 1.0, d);
-        float glint = 1.0 - smoothstep(0.05, 0.40, length(vUV - vec2(-0.30, -0.38)));
-        float low = smoothstep(0.30, 0.85, d) * max(0.0, dot(vUV / max(d, 0.001), vec2(0.45, 0.89)));
-        o = vec4(uWaterC * (1.0 * glint + 0.6 * low) * a, a * (0.16 + 0.55 * rim + 0.3 * glint));
+    } else if (uKind < 1.5) {
+        // a track: a film as wide as the bead behind it, uneven, that thins,
+        // breaks into stretches and leaves beads as it dries
+        float y = vUV.y, back = vQ.x, w = vP.y;
+        float hw = vP.z * (0.42 + 0.58 * exp(-back / 26.0)) * (0.82 + 0.22 * sin(y * 0.27 + 3.0 * w));
+        float x = (vUV.x - vP.x * sin(%(K).4f * y + w)) / max(hw, 0.7);
+        float dry = 1.0 - vP.w;
+        float gaps = smoothstep(-0.2, 0.2, sin(y * 0.52 + 5.0 * w) + 0.6 * sin(y * 1.31 + w) - 1.3 * dry + 0.25);
+        float film = (1.0 - smoothstep(0.55, 1.0, abs(x))) * smoothstep(0.0, 5.0, vQ.y - back)
+                     * mix(1.0, gaps, max(dry, smoothstep(12.0, 50.0, back))) * smoothstep(0.0, 0.25, vP.w);
+        float edge = film * smoothstep(0.35, 0.95, abs(x));
+        float hl = film * exp(-(x + 0.5) * (x + 0.5) * 12.0);
+        float cell = floor(y / 7.0);                // the beads left on it, each where it was left
+        float hb = fract(sin(cell * 12.989 + w) * 4375.85);
+        vec2 bp = vec2(vUV.x - vP.x * sin(%(K).4f * y + w) - (fract(hb * 3.1) - 0.5) * 1.6 * vP.z,
+                       y - (cell + 0.3 + 0.4 * fract(hb * 7.3)) * 7.0) / (0.7 + 1.3 * hb * hb);
+        float bd = length(bp);
+        float bead = step(0.45, hb) * (1.0 - smoothstep(0.6, 1.0, bd)) * step(5.0, back)
+                     * smoothstep(0.0, 4.0, vQ.y - back) * smoothstep(0.0, 0.15, vP.w);
+        vec2 bg = bp + vec2(0.35, 0.40);
+        o = vec4(uWaterC * (0.42 * hl + 0.9 * bead * exp(-dot(bg, bg) * 9.0)),
+                 0.05 * film + 0.30 * edge + bead * (0.18 + 0.40 * smoothstep(0.4, 1.0, bd)));
+    } else if (uKind < 2.5) {
+        // water on her: it bends her own light, so dark toward the light and
+        // round its edge, bright in a crescent on the far side; a hard small
+        // glint; a shadow on the eye under it
+        vec2 q = vUV, L = vec2(-0.50, -0.866);
+        float r = vP.x, fat = smoothstep(2.5, 6.0, r);
+        float d = blob(q, vP.z, fat);
+        float cov = (1.0 - smoothstep(1.0 - 1.5 / r, 1.0, d)) * vP.y;
+        vec2 n = q / max(length(q), 0.001);
+        float toL = dot(n, L), s = dot(q, L);
+        float dark = 0.30 * smoothstep(-0.25, 0.75, s) + smoothstep(0.66, 1.0, d) * (0.30 + 0.34 * max(0.0, toL));
+        float bright = 0.62 * smoothstep(0.45, 0.86, d) * (1.0 - smoothstep(0.90, 1.0, d)) * pow(max(0.0, -toL), 2.2)
+                       + 0.20 * smoothstep(-0.2, 0.9, -s) * (1.0 - d);
+        vec2 g = q - L * 0.50;
+        float glint = exp(-dot(g, g) * mix(14.0, 70.0, fat));
+        float sh = (1.0 - smoothstep(0.80, 1.30, blob(q + L * 0.26, vP.z, fat))) * (1.0 - cov) * vP.y * fat;
+        o = vec4(uWaterC * (bright + 1.1 * glint) * cov, cov * (0.05 + min(0.75, dark) + 0.5 * glint) + 0.26 * sh);
     } else if (uKind < 3.5) {
         float a = vP.y * (1.0 - abs(vUV.x)) * vUV.y * vUV.y;
         o = vec4(uWaterC * a, a * 0.4);
     } else if (uKind < 4.5) {
-        float a = vP.y * (1.0 - smoothstep(0.4, 1.5, abs(length(vUV) - vP.x)));
-        o = vec4(uWaterC * a * 0.8, a * 0.25);
+        // a splash's ripple: soft, lit on one side and dark on the other
+        float l = length(vUV);
+        float a = vP.y * (1.0 - smoothstep(0.3, 2.2, abs(l - vP.x)));
+        float side = dot(vUV / max(l, 0.01), vec2(-0.50, -0.866));
+        o = vec4(uWaterC * a * 0.38 * (0.35 + 0.65 * max(0.0, -side)), a * (0.06 + 0.26 * max(0.0, side)));
     } else {
         float d = length(vUV);
         float a = vP.y * (1.0 - smoothstep(mix(0.30, 0.62, vP.w), 1.0, d));

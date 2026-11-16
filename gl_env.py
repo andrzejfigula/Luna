@@ -176,7 +176,7 @@ void main() {
         float k = floor(cyc), t = cyc - k;
         float id = aSeed.y * 251.0 + k * 13.17 + flake * 3.7;
         float hs = h1(id + 3.1), hr = h1(id + 5.3), hw = h1(id + 7.9);
-        float r = uK.y * (0.35 + 0.65 * hs * hs);
+        float r = uK.y * (0.20 + 0.80 * hs * hs * hs);      // (most are small, a few fat)
         vec2 c0 = vec2(h1(id) * W, (h1(id + 1.7) * 1.08 - 0.04) * H);
         float born = smoothstep(0.0, 0.025, t), gone = 1.0 - smoothstep(0.8, 1.0, t);
         float a = on * born * gone;
@@ -197,7 +197,7 @@ void main() {
             pos = vec2(mix(x0, x1, aPos.x * 0.5 + 0.5), mix(y0, y1, aPos.y));
             vUV = pos;
             vP = vec4(c0, yh, A);
-            vE = vec4(ph, sl, 0.42 * r, a * step(4.0, dist));
+            vE = vec4(ph, sl, 0.62 * r, a * step(4.0, dist));
         } else {
             float e = 1.0 + 0.6 * smoothstep(0.0, 1.2, s);          // running: drawn out behind
             float uy = aPos.y * 2.0 - 1.0;
@@ -228,28 +228,37 @@ varying vec4  vP, vE;
 
 vec3 sky(vec2 uv) { return texture2D(uSky, clamp(uv, 0.002, 0.998)).rgb; }
 
-// a drop, premultiplied: p in its radii (y down), e drawn out above, its
-// px radius, a little out of round
+// its outline: p in its radii (y down); a fat one sags and is out of round
+float blob(vec2 q, vec2 wob, float fat) {
+    q.x *= 1.0 - 0.13 * fat * clamp(q.y, -1.3, 1.3);
+    float l = length(q);
+    vec2 n = q / max(l, 0.01);                  // (by its direction: the same far outside it)
+    return l * (1.0 + (1.0 + fat) * (wob.x * (n.x * n.x - n.y * n.y) + wob.y * n.x * n.y)
+                + 0.5 * fat * (wob.x + wob.y) * (n.x * n.x * n.x - 3.0 * n.x * n.y * n.y));
+}
+
+// a drop, premultiplied: p in its radii (y down), e drawn out above, its px radius
 vec4 drop(vec2 p, float e, float rpx, vec2 wob) {
     vec2 q = vec2(p.x, p.y < 0.0 ? p.y / e : p.y);
-    float d = length(q) * (1.0 + wob.x * (q.x * q.x - q.y * q.y) + wob.y * q.x * q.y);
+    float fat = smoothstep(3.5, 10.0, rpx);
+    float d = blob(q, wob, fat);
     float cov = 1.0 - smoothstep(1.0 - 1.3 / rpx, 1.0, d);
-    float h = sqrt(max(0.0, 1.0 - d * d));
-    // a lens: the world behind upside down and wide, half mixed with what is
-    // right behind it; a faint rim where the light bends away
-    vec3 flip = sky(vC + vec2(-q.x * uRes.y / uRes.x, q.y) * (0.22 + 0.10 * h) + vec2(0.0, 0.10));
-    vec3 c = mix(sky(vC + vec2(p.x, -p.y) * rpx / uRes), flip, 0.45) * (0.96 + 0.14 * h);
-    c *= 1.0 - 0.30 * smoothstep(0.66, 1.0, d);
-    vec2 L = vL;
-    vec2 g = q - L * 0.45;
-    vec2 k = q + L * 0.5;
-    float lit = uEnvGlassL.z;
-    c += vec3(1.0, 0.97, 0.90) * lit * (0.60 * exp(-dot(g, g) * 60.0)           // its glint
-                                        + 0.12 * exp(-dot(k, k) * 9.0) * (1.0 - d)  // the light through it
-                                        + 0.14 * smoothstep(0.78, 0.98, d)
-                                          * max(0.0, dot(q / max(d, 0.01), L)));   // the lit edge
-    float ring = smoothstep(0.98, 1.05, d) * (1.0 - smoothstep(1.05, 1.28, d));
-    return vec4(c * cov, cov) * 0.95 + vec4(0.0, 0.0, 0.0, 0.07 * ring);
+    vec2 L = vL, n = q / max(length(q), 0.01);
+    float toL = dot(n, L), s = dot(q, L);
+    // a lens: what is behind it upside down, bent hardest by its edge; dark
+    // on the light's side, the light gathered on the far one
+    vec3 c = sky(vC + vec2(-q.x * uRes.y / uRes.x, q.y) * (0.030 + 0.075 * d * d));
+    c *= mix(1.22, 0.60, smoothstep(-0.8, 0.8, s));
+    c *= 1.0 - smoothstep(0.70, 1.0, d) * (0.34 + 0.34 * max(0.0, toL));
+    float lit = uEnvGlassL.z + 0.25 * uEnvGlassL.w;
+    vec2 g = q - L * 0.50;
+    c += vec3(1.0, 0.98, 0.93) * (lit * (0.95 * exp(-dot(g, g) * 85.0)          // its glint, small and hard
+                                         + 0.50 * smoothstep(0.50, 0.88, d) * (1.0 - smoothstep(0.90, 1.0, d))
+                                           * pow(max(0.0, -toL), 2.5))            // the crescent opposite
+                                  + 0.05 * (1.0 - d));
+    // on the glass under it: a shadow away from the light
+    float sh = (1.0 - smoothstep(0.80, 1.26, blob(q + L * 0.24, wob, fat))) * (1.0 - cov);
+    return vec4(c * cov, cov) + vec4(0.0, 0.0, 0.0, 0.24 * sh * smoothstep(1.5, 4.0, rpx));
 }
 
 void main() {
@@ -278,28 +287,36 @@ void main() {
         vec2 q = vUV;
         float cx = vP.x + vP.w * (sin(q.y * 0.021 + vE.x) - sin(vP.y * 0.021 + vE.x)) + vE.y * (q.y - vP.y);
         float back = max(0.0, vP.z - q.y);
-        float hw = vE.z * (0.55 + 0.45 * exp(-back / 90.0));
+        // a film as wide as the drop behind it, uneven, thinner further back,
+        // where it breaks into stretches and then into beads
+        float hw = vE.z * (0.40 + 0.60 * exp(-back / 55.0))
+                   * (0.80 + 0.22 * sin(q.y * 0.19 + vE.x) + 0.12 * sin(q.y * 0.53 + 2.0 * vE.x));
         float x = (q.x - cx) / max(hw, 0.8);
-        float wet = (1.0 - smoothstep(0.55, 1.0, abs(x))) * exp(-back / 260.0)
+        float gaps = smoothstep(-0.15, 0.25, sin(q.y * 0.31 + vE.x * 5.0) + 0.6 * sin(q.y * 0.83 + vE.x));
+        float wet = (1.0 - smoothstep(0.60, 1.0, abs(x))) * exp(-back / 220.0)
+                    * mix(1.0, gaps, smoothstep(30.0, 130.0, back))
                     * smoothstep(0.0, 6.0, q.y - vP.y + 3.0);
         vec2 uv = vec2(q.x / uRes.x, 1.0 - q.y / uRes.y);
-        vec3 c = sky(uv + vec2(-x * 0.012, 0.0)) * (0.96 - 0.15 * smoothstep(0.4, 1.0, abs(x)));
-        float lx = x - sign(vL.x + 0.001) * 0.45;
-        c += vec3(1.0, 0.97, 0.9) * uEnvGlassL.z * 0.4 * exp(-lx * lx * 10.0);
-        float a = 0.75 * wet;
-        // the beads: tiny drops left at its edge, still where they were left
-        float cell = floor(q.y / 17.0);
+        float lsd = sign(vL.x + 0.001);
+        vec3 c = sky(uv + vec2(-x * 0.022, 0.006)) * (1.02 - 0.34 * smoothstep(0.35, 1.0, abs(x)));
+        float lx = x + lsd * 0.55;
+        float lit = uEnvGlassL.z + 0.25 * uEnvGlassL.w;
+        c += vec3(1.0, 0.97, 0.9) * lit * 0.45 * exp(-lx * lx * 14.0);
+        float a = 0.85 * wet;
+        // the beads: tiny drops left along it, still where they were left
+        float cell = floor(q.y / 11.0);
         float hb = fract(sin(cell * 12.989 + vE.x) * 4375.85);
-        float yb = (cell + 0.25 + 0.5 * fract(hb * 7.3)) * 17.0;
-        vec2 bp = vec2(q.x - cx - (hb - 0.5) * 1.6 * hw, q.y - yb) / (0.7 + 1.5 * hb);
+        float yb = (cell + 0.25 + 0.5 * fract(hb * 7.3)) * 11.0;
+        vec2 bp = vec2(q.x - cx - (fract(hb * 3.1) - 0.5) * 1.8 * hw, q.y - yb) / (0.8 + 2.4 * hb * hb);
         float bd = length(bp);
-        float bead = step(0.45, hb) * step(10.0, vP.z - yb) * (1.0 - smoothstep(0.75, 1.0, bd))
+        float bead = step(0.30, hb) * step(8.0, vP.z - yb) * (1.0 - smoothstep(0.70, 1.0, bd))
                      * smoothstep(0.0, 6.0, yb - vP.y);
-        vec2 bg = bp + vec2(0.35, 0.4);
-        vec3 bc = sky(uv + bp * vec2(-0.004, 0.004)) * (1.0 - 0.25 * smoothstep(0.3, 0.9, bd))
-                  + vec3(1.0, 0.97, 0.9) * uEnvGlassL.z * 0.5 * exp(-dot(bg, bg) * 7.0);
+        vec2 bg = bp - vL * 0.45;
+        vec3 bc = sky(uv + bp * vec2(-0.006, 0.006)) * mix(1.2, 0.62, smoothstep(-0.8, 0.8, dot(bp, vL)))
+                  * (1.0 - 0.35 * smoothstep(0.55, 1.0, bd))
+                  + vec3(1.0, 0.97, 0.9) * lit * 0.8 * exp(-dot(bg, bg) * 12.0);
         c = mix(c, bc, bead);
-        a = max(a, 0.9 * bead * exp(-back / 600.0));
+        a = max(a, 0.95 * bead * exp(-back / 600.0));
         o = vec4(c * a, a) * vE.w;
     } else {
         vec2 p = vUV;

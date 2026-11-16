@@ -471,7 +471,7 @@ class OnFace:
     def _leave(self, i, b):
         """A bead's wet track stays behind it and dries."""
         if b[_Y] - b[_Y0] > 4.0:
-            self.tracks.append([i, b[_XA], b[_Y0], b[_Y], b[_AMP], b[_PH], 0.45 * b[_R], 1.0])
+            self.tracks.append([i, b[_XA], b[_Y0], b[_Y], b[_AMP], b[_PH], 0.7 * b[_R], 1.0])
             if len(self.tracks) > TUNE["tracks"]:
                 del self.tracks[0]
         b[_Y0] = b[_Y]
@@ -586,12 +586,12 @@ class OnFace:
         eyes = self.eyes
         for t in self.tracks:
             A += (t[1], t[2], t[3], t[0])
-            B += (t[4], t[5], t[6], 0.8 * t[7])
+            B += (t[4], t[5], t[6], t[7])
         for i, e in enumerate(eyes):
             for b in e.beads:
                 if b[_Y] - b[_Y0] > 3.0:
                     A += (b[_XA], b[_Y0], b[_Y], i)
-                    B += (b[_AMP], b[_PH], 0.45 * b[_R], 0.8)
+                    B += (b[_AMP], b[_PH], 0.7 * b[_R], 1.0)
         n1 = len(A) // 4
         runs.append((1, 0, n1))
         for e in eyes:
@@ -599,7 +599,7 @@ class OnFace:
             for b in e.beads:
                 x, y = e.out(b[_X], b[_Y])
                 A += (x, y, b[_R], 1.0)
-                B += (1.3 if b[_PEND] else 1.0 + min(0.8, b[_VY] / 300.0), dx, dy, 0.0)
+                B += (1.3 if b[_PEND] else 1.0 + min(0.8, b[_VY] / 300.0), dx, dy, b[_PH])
         n2 = len(A) // 4
         runs.append((2, n1, n2 - n1))
         runs.append((0, 0, 0))
@@ -621,7 +621,7 @@ class OnFace:
         for p in self.drops:
             v = math.hypot(p[2], p[3]) or 1.0
             A += (p[0], p[1], p[4], 1.0)
-            B += (1.0 + min(1.2, v / 500.0), p[2] / v, p[3] / v, 0.0)
+            B += (1.0 + min(1.2, v / 500.0), p[2] / v, p[3] / v, 7.0 * p[4])
         n5 = len(A) // 4
         runs.append((2, n4, n5 - n4))
         for r in self.rings:
